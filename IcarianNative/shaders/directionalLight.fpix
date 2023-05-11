@@ -1,0 +1,35 @@
+#version 450
+
+layout(location = 0) in vec2 vUV;
+
+layout(binding = 0) uniform sampler2D colorSampler;
+layout(binding = 1) uniform sampler2D normalSampler;
+layout(binding = 2) uniform sampler2D specSampler;
+layout(binding = 3) uniform sampler2D emissionSampler;
+layout(binding = 4) uniform sampler2D depthSampler;
+
+#!structure(DirectionalLightBuffer, 5, 1, dirLightBuffer)
+#!structure(CameraBuffer, 6, 2, camBuffer)
+
+layout(location = 0) out vec4 fragColor;
+
+void main()
+{
+    vec4 normal = texture(normalSampler, vUV);
+    if (normal.w < 0.5f)
+    {
+        discard;
+    }
+    vec4 color = texture(colorSampler, vUV);
+    vec4 spec = texture(specSampler, vUV);
+
+    float l = max(dot(dirLightBuffer.LightDir.xyz, normal.xyz), 0.0f);
+
+    vec3 hD = normalize(dirLightBuffer.LightDir.xyz + camBuffer.View[2].xyz);
+    float sA = dot(hD, normal.xyz);
+    float s = max(pow(sA, spec.w), 0.0);
+
+    vec3 lC = color.xyz * l * dirLightBuffer.LightColor.xyz * dirLightBuffer.LightDir.w;
+    vec3 sC = spec.xyz * s * dirLightBuffer.LightColor.xyz * dirLightBuffer.LightDir.w;
+    fragColor = vec4(lC + sC, 1.0f);
+}

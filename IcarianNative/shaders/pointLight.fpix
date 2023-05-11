@@ -1,0 +1,47 @@
+#version 450
+
+layout(location = 0) in vec2 vUV;
+
+layout(binding = 0) uniform sampler2D colorSampler;
+layout(binding = 1) uniform sampler2D normalSampler;
+layout(binding = 2) uniform sampler2D specSampler;
+layout(binding = 3) uniform sampler2D emissionSampler;
+layout(binding = 4) uniform sampler2D depthSampler;
+
+#!structure(PointLightBuffer, 5, 1, pointLightBuffer)
+#!structure(CameraBuffer, 6, 2, camBuffer)
+
+layout(location = 0) out vec4 fragColor;
+
+void main()
+{
+    vec4 normal = texture(normalSampler, vUV);
+    if (normal.w < 0.5f)
+    {
+        discard;
+    }
+    vec4 color = texture(colorSampler, vUV);
+    vec4 spec = texture(specSampler, vUV);
+    float d = texture(depthSampler, vUV).x;
+
+    vec4 cP = vec4(vUV * 2.0f + -1.0f, d, 1.0f);
+    vec4 vP = camBuffer.InvProj * cP;
+    vP /= vP.w;
+    vec4 mP = camBuffer.InvView * vP;
+
+    vec3 lDir = pointLightBuffer.LightPos.xyz - mP.xyz;
+    float dL = length(lDir);
+    lDir /= dL;
+
+    float l = max(dot(lDir, normal.xyz), 0.0f);
+
+    vec3 hD = normalize(lDir + camBuffer.View[2].xyz);
+    float sA = dot(hD, normal.xyz);
+    float s = max(pow(sA, spec.w), 0.0);
+
+    float i = max((pointLightBuffer.Radius - dL) / pointLightBuffer.Radius, 0.0f);
+
+    vec3 lC = color.xyz * l * pointLightBuffer.LightColor.xyz * pointLightBuffer.LightPos.w * i;
+    vec3 sC = spec.xyz * s * pointLightBuffer.LightColor.xyz * pointLightBuffer.LightPos.w * i;
+    fragColor = vec4(lC + sC, 1.0f);
+}

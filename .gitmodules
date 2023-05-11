@@ -1,0 +1,21 @@
+[submodule "IcarianNative/lib/VulkanMemoryAllocator"]
+	path = IcarianNative/lib/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "IcarianNative/lib/glslang"]
+	path = IcarianNative/lib/glslang
+	url = https://github.com/KhronosGroup/glslang.git
+[submodule "deps/flare-glfw"]
+	path = deps/flare-glfw
+	url = https://github.com/rGovers/flare-glfw.git
+[submodule "deps/flare-glm"]
+	path = deps/flare-glm
+	url = https://github.com/rGovers/flare-glm.git
+[submodule "deps/flare-mono"]
+	path = deps/flare-mono
+	url = https://github.com/rGovers/flare-mono.git
+[submodule "deps/flare-stb"]
+	path = deps/flare-stb
+	url = https://github.com/rGovers/flare-stb.git
+[submodule "deps/flare-tinyxml2"]
+	path = deps/flare-tinyxml2
+	url = https://github.com/rGovers/flare-tinyxml2.git
