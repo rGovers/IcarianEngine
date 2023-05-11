@@ -226,14 +226,14 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.Error("FlareCS: Camera Failed to Dispose");
+                    Logger.IcarianWarning("Camera Failed to Dispose");
                 }
 
                 m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.Error("FlareCS: Multiple Camera Dispose");
+                Logger.IcarianError("Multiple Camera Dispose");
             }
         }
     }}

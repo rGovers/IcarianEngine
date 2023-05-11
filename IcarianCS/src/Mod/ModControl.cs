@@ -5,13 +5,13 @@ namespace IcarianEngine.Mod
 {
     public static class ModControl
     {
-        public static FlareAssembly CoreAssembly
+        public static IcarianAssembly CoreAssembly
         {
             get;
             private set;
         }
 
-        public static List<FlareAssembly> Assemblies
+        public static List<IcarianAssembly> Assemblies
         {
             get;
             private set;
@@ -19,18 +19,18 @@ namespace IcarianEngine.Mod
 
         internal static void Init()
         {
-            Assemblies = new List<FlareAssembly>();
+            Assemblies = new List<IcarianAssembly>();
 
             bool working = !string.IsNullOrWhiteSpace(Application.WorkingDirectory);
 
             if (working)
             {
-                CoreAssembly = FlareAssembly.GetFlareAssembly(Path.Combine(Application.WorkingDirectory, "Core"));
+                CoreAssembly = IcarianAssembly.GetIcarianAssembly(Path.Combine(Application.WorkingDirectory, "Core"));
             }
 
             if (CoreAssembly == null)
             {
-                CoreAssembly = FlareAssembly.GetFlareAssembly(Path.Combine(Directory.GetCurrentDirectory(), "Core"));       
+                CoreAssembly = IcarianAssembly.GetIcarianAssembly(Path.Combine(Directory.GetCurrentDirectory(), "Core"));       
             }
 
             if (CoreAssembly == null)
@@ -43,7 +43,7 @@ namespace IcarianEngine.Mod
         {
             CoreAssembly.AssemblyControl.Init();
 
-            foreach (FlareAssembly asm in Assemblies)
+            foreach (IcarianAssembly asm in Assemblies)
             {
                 if (asm.AssemblyControl != null)
                 {
@@ -58,7 +58,7 @@ namespace IcarianEngine.Mod
 
             CoreAssembly.AssemblyControl.Update();
 
-            foreach (FlareAssembly asm in Assemblies)
+            foreach (IcarianAssembly asm in Assemblies)
             {
                 if (asm.AssemblyControl != null)
                 {
@@ -73,7 +73,7 @@ namespace IcarianEngine.Mod
         {
             CoreAssembly.AssemblyControl.Close();
 
-            foreach (FlareAssembly asm in Assemblies)
+            foreach (IcarianAssembly asm in Assemblies)
             {
                 if (asm.AssemblyControl != null)
                 {
@@ -115,7 +115,7 @@ namespace IcarianEngine.Mod
                 return Path.Combine(CoreAssembly.AssemblyInfo.Path, "Scenes", a_path);
             }
 
-            foreach (FlareAssembly asm in Assemblies)
+            foreach (IcarianAssembly asm in Assemblies)
             {
                 if (asm.AssemblyInfo.ID == a_modID)
                 {

@@ -165,14 +165,14 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.Error("FlareCS: MeshRenderer Failed to Dispose");
+                    Logger.IcarianWarning("MeshRenderer Failed to Dispose");
                 }
 
                 m_disposed = true;
             }
             else
             {
-                Logger.Error("FlareCS: Multiple MeshRenderer Dispose");
+                Logger.IcarianError("Multiple MeshRenderer Dispose");
             }
         }
 

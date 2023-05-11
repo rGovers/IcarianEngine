@@ -161,7 +161,7 @@ namespace IcarianEngine
 
             LoadDirectory(Path.Combine(ModControl.CoreAssembly.AssemblyInfo.Path, "Scribe"));
 
-            foreach (FlareAssembly a in ModControl.Assemblies)
+            foreach (IcarianAssembly a in ModControl.Assemblies)
             {
                 LoadDirectory(Path.Combine(a.AssemblyInfo.Path, "Scribe"));
             }

@@ -173,14 +173,14 @@ namespace IcarianEngine
                 }
                 else
                 {
-                    Logger.Error("FlareCS: Transform Failed to Dispose");
+                    Logger.IcarianWarning("Transform Failed to Dispose");
                 }
 
                 m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.Error("FlareCS: Multiple Transform Dispose");
+                Logger.IcarianError("Multiple Transform Dispose");
             }
         }
 

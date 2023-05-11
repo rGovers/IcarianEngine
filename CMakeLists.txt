@@ -1,20 +1,20 @@
 cmake_minimum_required(VERSION 3.0)
 
-add_subdirectory("FlareNative/")
+add_subdirectory("IcarianNative/")
 
-project(FlareCS VERSION 0.1 LANGUAGES CSharp)
+project(IcarianCS VERSION 0.1 LANGUAGES CSharp)
 
 include(CSharpUtilities)
 
-file(GLOB_RECURSE SOURCES "FlareCS/src/*.cs")
+file(GLOB_RECURSE SOURCES "IcarianCS/src/*.cs")
 
-add_executable(FlareCS ${SOURCES})
+add_executable(IcarianCS ${SOURCES})
 
-set_target_properties(FlareCS PROPERTIES ENABLE_EXPORTS 1)
-set_target_properties(FlareCS PROPERTIES VS_DOTNET_REFERENCES "System.Xml")
-set_target_properties(FlareCS PROPERTIES VS_DOTNET_TARGET_FRAMEWORK_VERSION "v4.6")
-set_target_properties(FlareCS PROPERTIES WIN32_EXECUTABLE FALSE)
-set_target_properties(FlareCS
+set_target_properties(IcarianCS PROPERTIES ENABLE_EXPORTS 1)
+set_target_properties(IcarianCS PROPERTIES VS_DOTNET_REFERENCES "System.Xml")
+set_target_properties(IcarianCS PROPERTIES VS_DOTNET_TARGET_FRAMEWORK_VERSION "v4.6")
+set_target_properties(IcarianCS PROPERTIES WIN32_EXECUTABLE FALSE)
+set_target_properties(IcarianCS
     PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/"
     LIBRARY_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/bin/"
@@ -22,7 +22,7 @@ set_target_properties(FlareCS
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_SOURCE_DIR}/bin/"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin/"
 )
-add_custom_command(TARGET FlareCS
+add_custom_command(TARGET IcarianCS
         COMMAND ${CMAKE_COMMAND} -E copy
-        "${CMAKE_SOURCE_DIR}/bin/FlareCS.exe"
-        "${CMAKE_SOURCE_DIR}/bin/FlareCS.dll")
+        "${CMAKE_SOURCE_DIR}/bin/IcarianCS.exe"
+        "${CMAKE_SOURCE_DIR}/bin/IcarianCS.dll")

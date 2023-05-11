@@ -87,7 +87,7 @@ namespace IcarianEngine.Rendering
             }
             else
             {
-                Logger.IcarianError("FlareCS: Multiple VertexShader Dispose");
+                Logger.IcarianError("Multiple VertexShader Dispose");
             }
         }
 

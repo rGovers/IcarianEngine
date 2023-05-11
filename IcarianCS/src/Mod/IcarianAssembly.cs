@@ -7,11 +7,11 @@ using System.Xml;
 
 namespace IcarianEngine.Mod
 {
-    public class FlareAssembly
+    public class IcarianAssembly
     {
         AssemblyControl   m_assemblyControl = null;
 
-        FlareAssemblyInfo m_assemblyInfo;
+        IcarianAssemblyInfo m_assemblyInfo;
 
         List<Assembly>    m_assemblies = null;
 
@@ -23,7 +23,7 @@ namespace IcarianEngine.Mod
             }
         }
 
-        public FlareAssemblyInfo AssemblyInfo
+        public IcarianAssemblyInfo AssemblyInfo
         {
             get
             {
@@ -39,16 +39,16 @@ namespace IcarianEngine.Mod
             }
         }
 
-        FlareAssembly()
+        IcarianAssembly()
         {
 
         }
 
-        internal static FlareAssembly GetFlareAssembly(string a_path)
+        internal static IcarianAssembly GetIcarianAssembly(string a_path)
         {
             if (Directory.Exists(a_path))
             {
-                FlareAssembly asm = new FlareAssembly();
+                IcarianAssembly asm = new IcarianAssembly();
 
                 string assemblyPath = Path.Combine(a_path, "Assemblies");
                 string defPath = Path.Combine(a_path, "Defs");
@@ -108,7 +108,7 @@ namespace IcarianEngine.Mod
                             return null;
                         }
 
-                        asm.m_assemblyInfo = new FlareAssemblyInfo(id, name, a_path, desciption);
+                        asm.m_assemblyInfo = new IcarianAssemblyInfo(id, name, a_path, desciption);
                     }
                 }
                 else
@@ -136,7 +136,7 @@ namespace IcarianEngine.Mod
                         }
                         // Already loaded because we are it so can skip
                         // Some compilers like to add to the output for some reason
-                        if (Path.GetFileNameWithoutExtension(str) == "FlareCS")
+                        if (Path.GetFileNameWithoutExtension(str) == "IcarianCS")
                         {
                             continue;
                         }

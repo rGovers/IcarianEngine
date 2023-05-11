@@ -10,7 +10,7 @@ namespace IcarianEngine
 
         static void Main(string[] a_args)
         {
-            Logger.Message("FlareCS: Started");
+            Logger.IcarianMessage("Started");
 
             Application.WorkingDirectory = string.Empty;
 
@@ -38,7 +38,7 @@ namespace IcarianEngine
 
             ModControl.InitAssemblies();
 
-            Logger.Message("FlareCS: Initialized");
+            Logger.IcarianMessage("Initialized");
         }
 
         static void Shutdown()
@@ -54,7 +54,7 @@ namespace IcarianEngine
 
             Material.Destroy();
 
-            Logger.Message("FlareCS: Shutdown");
+            Logger.IcarianMessage("Shutdown");
         }
 
         static void Update(double a_delta, double a_time)

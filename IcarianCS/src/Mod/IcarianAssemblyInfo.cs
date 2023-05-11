@@ -1,6 +1,6 @@
 namespace IcarianEngine.Mod
 {
-    public struct FlareAssemblyInfo
+    public struct IcarianAssemblyInfo
     {
         string m_id;
         string m_name;
@@ -40,7 +40,7 @@ namespace IcarianEngine.Mod
             }
         }
 
-        internal FlareAssemblyInfo(string a_id, string a_name, string a_path, string a_description)
+        internal IcarianAssemblyInfo(string a_id, string a_name, string a_path, string a_description)
         {
             m_id = a_id;
             m_name = a_name;

@@ -95,14 +95,14 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.Error("FlareCS: MultiRenderTexture Failed to Dispose");
+                    Logger.IcarianWarning("MultiRenderTexture Failed to Dispose");
                 }
 
                 m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.Error("FlareCS: Multiple MultiRenderTexture Dispose");
+                Logger.IcarianError("Multiple MultiRenderTexture Dispose");
             }
         }
 

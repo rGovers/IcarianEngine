@@ -15,7 +15,7 @@ RuntimeManager::RuntimeManager()
     mono_set_dirs("./lib", "./etc");
     
     m_domain = mono_jit_init_version("Core", "v4.0");
-    m_assembly = mono_domain_assembly_open(m_domain, "FlareCS.dll");
+    m_assembly = mono_domain_assembly_open(m_domain, "IcarianCS.dll");
     assert(m_assembly != nullptr);
 
     m_image = mono_assembly_get_image(m_assembly);

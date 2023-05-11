@@ -2,7 +2,7 @@ namespace IcarianEngine.Mod
 {
     public abstract class AssemblyControl
     {
-        public FlareAssembly MainAssembly;
+        public IcarianAssembly MainAssembly;
 
         public abstract void Init();
         public abstract void Update();

@@ -652,7 +652,7 @@ namespace IcarianEngine.Definitions
                     }
                     else
                     {
-                        Logger.Error($"FlareCS: Error parsing unamed Def: {path}");
+                        Logger.Error($"IcarianCS: Error parsing unamed Def: {path}");
                     }
                 }
             }   
@@ -764,7 +764,7 @@ namespace IcarianEngine.Definitions
             }
         }
 
-        static void RefreshDefTables(FlareAssembly a_asm)
+        static void RefreshDefTables(IcarianAssembly a_asm)
         {
             foreach (Assembly asm in a_asm.Assemblies)
             {
@@ -814,7 +814,7 @@ namespace IcarianEngine.Definitions
             {
                 RefreshDefTables(ModControl.CoreAssembly);
 
-                foreach (FlareAssembly fasm in ModControl.Assemblies)
+                foreach (IcarianAssembly fasm in ModControl.Assemblies)
                 {
                     RefreshDefTables(fasm);
                 }
