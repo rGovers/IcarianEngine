@@ -93,6 +93,7 @@ include_directories("${PROJECT_SOURCE_DIR}/include/"
                     "${PROJECT_SOURCE_DIR}/../deps/flare-stb/"
                     "${PROJECT_SOURCE_DIR}/../deps/flare-tinyxml2/"
                     "${PROJECT_SOURCE_DIR}/lib/glslang/"
+                    "${PROJECT_SOURCE_DIR}/lib/JoltPhysics/"
                     "${PROJECT_SOURCE_DIR}/lib/VulkanMemoryAllocator/include/"
                     ${Vulkan_INCLUDE_DIRS})
 
@@ -112,9 +113,10 @@ if (NOT TARGET FlareBase)
     add_subdirectory("${PROJECT_SOURCE_DIR}/../FlareBase" "build/FlareBase")
 endif()
 add_subdirectory("${PROJECT_SOURCE_DIR}/lib/glslang")
+add_subdirectory("${PROJECT_SOURCE_DIR}/lib/JoltPhysics/Build/")
 
 add_executable(IcarianNative ${SOURCES})
-target_link_libraries(IcarianNative FlareBase glfw glslang SPIRV ${GLFW_LIBRARIES} ${Vulkan_LIBRARIES})
+target_link_libraries(IcarianNative FlareBase glfw glslang Jolt SPIRV ${GLFW_LIBRARIES} ${Vulkan_LIBRARIES})
 
 if (OUTPUT_BIN)
     set_target_properties(IcarianNative

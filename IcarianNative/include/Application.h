@@ -7,6 +7,7 @@
 class Config;
 class InputManager;
 class ObjectManager;
+class PhysicsEngine;
 class RenderEngine;
 class RuntimeManager;
 
@@ -21,6 +22,8 @@ private:
     InputManager*   m_inputManager;
     ObjectManager*  m_objectManager;
     RuntimeManager* m_runtime;
+
+    PhysicsEngine*  m_physicsEngine;
     RenderEngine*   m_renderEngine;
 
 protected:

@@ -19,3 +19,6 @@
 [submodule "deps/flare-tinyxml2"]
 	path = deps/flare-tinyxml2
 	url = https://github.com/rGovers/flare-tinyxml2.git
+[submodule "IcarianNative/lib/JoltPhysics"]
+	path = IcarianNative/lib/JoltPhysics
+	url = https://github.com/jrouwe/JoltPhysics.git
