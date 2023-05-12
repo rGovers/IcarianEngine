@@ -2,6 +2,7 @@
 
 #include <future>
 #include <mutex>
+#include <vulkan/vulkan_handles.hpp>
 
 #include "Flare/IcarianAssert.h"
 #include "Logger.h"
@@ -26,6 +27,7 @@
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
+#include "ThreadPool.h"
 
 VulkanGraphicsEngine::VulkanGraphicsEngine(RuntimeManager* a_runtime, VulkanRenderEngineBackend* a_vulkanEngine)
 {
@@ -340,9 +342,6 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
     m_runtimeManager->AttachThread();
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
-    
-    const RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
-    ObjectManager* objectManager = renderEngine->GetObjectManager();
 
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
 
@@ -522,6 +521,37 @@ vk::CommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t a
 
     return commandBuffer;
 }
+
+typedef vk::CommandBuffer (VulkanGraphicsEngine::*DrawFunc)(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
+
+struct DrawCallBind 
+{
+    VulkanGraphicsEngine* Engine;
+
+    uint32_t CamIndex;
+    uint32_t BufferIndex;
+    uint32_t Index;
+
+    DrawFunc Function;
+
+    DrawCallBind() = default;
+    DrawCallBind(const DrawCallBind& a_other) = default;
+    DrawCallBind(VulkanGraphicsEngine* a_engine, uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index, DrawFunc a_function) 
+    {
+        Engine = a_engine;
+
+        CamIndex = a_camIndex;
+        BufferIndex = a_bufferIndex;
+        Index = a_index;
+
+        Function = a_function;
+    }
+
+    inline vk::CommandBuffer operator()() const 
+    {
+        return (Engine->*Function)(CamIndex, BufferIndex, Index);
+    }
+};
 
 std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
 {
@@ -703,9 +733,32 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
         const uint32_t camIndex = camIndices[i];
         const uint32_t poolIndex = i * DrawingPassCount;
 
-        futures.emplace_back(std::async(std::bind(&VulkanGraphicsEngine::DrawPass, this, camIndex, poolIndex + 0, a_index)));
-        futures.emplace_back(std::async(std::bind(&VulkanGraphicsEngine::LightPass, this, camIndex, poolIndex + 1, a_index)));
-        futures.emplace_back(std::async(std::bind(&VulkanGraphicsEngine::PostPass, this, camIndex, poolIndex + 2, a_index)));
+        FThreadJob<vk::CommandBuffer, DrawCallBind>* drawJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
+        (   
+            DrawCallBind(this, camIndex, poolIndex + 0, a_index, &VulkanGraphicsEngine::DrawPass), 
+            JobPriority_EngineUrgent
+        );
+        FThreadJob<vk::CommandBuffer, DrawCallBind>* lightJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
+        (
+            DrawCallBind(this, camIndex, poolIndex + 1, a_index, &VulkanGraphicsEngine::LightPass),
+            JobPriority_EngineUrgent
+        );
+        FThreadJob<vk::CommandBuffer, DrawCallBind>* postJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
+        (
+            DrawCallBind(this, camIndex, poolIndex + 2, a_index, &VulkanGraphicsEngine::PostPass),
+            JobPriority_EngineUrgent
+        );
+
+        futures.emplace_back(drawJob->GetFuture());
+        futures.emplace_back(lightJob->GetFuture());
+        futures.emplace_back(postJob->GetFuture());
+
+        // Quite pleased with myself got a 2x performance improvement by switching to a thread pool over async
+        // And that is without using priorities either
+        // Now here is hoping that it lasts when doing actual grunt work
+        ThreadPool::PushJob(drawJob);
+        ThreadPool::PushJob(lightJob);
+        ThreadPool::PushJob(postJob);
     }
 
     constexpr vk::ClearValue ClearColor = vk::ClearValue(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f));
