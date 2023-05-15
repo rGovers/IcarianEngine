@@ -36,6 +36,7 @@ ThreadPool::~ThreadPool()
     }
 
     delete[] m_threads;
+    delete[] m_join;
 
     while (!m_jobQueue.empty())
     {
@@ -73,6 +74,11 @@ void ThreadPool::Destroy()
         delete Instance;
         Instance = nullptr;
     }
+}
+
+uint32_t ThreadPool::GetThreadCount()
+{
+    return Instance->m_threadCount;
 }
 
 void ThreadPool::PushJob(ThreadJob* a_job)

@@ -1,19 +1,26 @@
 #include "Physics/PhysicsEngine.h"
 
 #include <cstdarg>
-#include <cstdio>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/fwd.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
 #include <Jolt/Core/Factory.h>
-#include <Jolt/Core/Memory.h>
-#include <Jolt/Core/IssueReporting.h>
-#include <Jolt/Core/JobSystemThreadPool.h>
-#include <Jolt/Physics/PhysicsSettings.h>
+#include <Jolt/Math/Vec3.h>
+#include <Jolt/Physics/Body/BodyID.h>
 #include <Jolt/RegisterTypes.h>
-
-#include <thread>
+#include <shared_mutex>
+#include <vector>
 
 #include "Flare/IcarianAssert.h"
+#include "Jolt/Physics/Body/Body.h"
+#include "Jolt/Physics/Body/BodyInterface.h"
+#include "ObjectManager.h"
+#include "Physics/PhysicsEngineBindings.h"
+#include "Profiler.h"
+#include "Runtime/RuntimeManager.h"
 #include "Trace.h"
- 
+#include "glm/matrix.hpp"
+
 static void TraceImpl(const char* inFMT, ...)
 {
     va_list list;
@@ -25,129 +32,10 @@ static void TraceImpl(const char* inFMT, ...)
     TRACE(buffer);
 }
 
-static constexpr JPH::BroadPhaseLayer BroadphaseNonMoving = JPH::BroadPhaseLayer(0);
-static constexpr JPH::BroadPhaseLayer BroadphaseMoving = JPH::BroadPhaseLayer(1);
-static constexpr JPH::ObjectLayer LayerNonMoving = JPH::ObjectLayer(0);
-static constexpr JPH::ObjectLayer LayerMoving = JPH::ObjectLayer(1);
-
-class IcBPLayerInterface : public JPH::BroadPhaseLayerInterface
+PhysicsEngine::PhysicsEngine(RuntimeManager* a_runtime, ObjectManager* a_objectManager) 
 {
-private:
-    JPH::BroadPhaseLayer m_layers[2];
+    m_objectManager = a_objectManager;
 
-protected:
-
-public:
-    IcBPLayerInterface()
-    {
-        m_layers[LayerNonMoving] = BroadphaseNonMoving;
-        m_layers[LayerMoving] = BroadphaseMoving; 
-    }
-
-    virtual uint GetNumBroadPhaseLayers() const 
-    {
-        return 2;
-    }
-    virtual JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer a_layer) const
-    {
-        ICARIAN_ASSERT(a_layer < 2);
-        return m_layers[a_layer];
-    }
-
-#if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
-	virtual const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer a_layer) const
-    {
-        switch ((JPH::BroadPhaseLayer::Type)a_layer)
-        {
-        case (JPH::BroadPhaseLayer::Type)BroadphaseNonMoving:
-        {
-            return "NON_MOVING";
-        }
-        case (JPH::BroadPhaseLayer::Type)BroadphaseMoving:
-        {
-            return "MOVING";
-        }
-        }
-
-        ICARIAN_ASSERT(0);
-    }
-#endif 
-};
-
-class IcObjectVsBroadPhaseLayerFilter : public JPH::ObjectVsBroadPhaseLayerFilter
-{
-private:
-
-protected:
-
-public:
-    IcObjectVsBroadPhaseLayerFilter()
-    {
-
-    }
-    virtual ~IcObjectVsBroadPhaseLayerFilter() 
-    {
-
-    }
-
-    virtual bool ShouldCollide(JPH::ObjectLayer a_lhs, JPH::ObjectLayer a_rhs)
-    {
-        switch (a_lhs)
-        {
-        case LayerNonMoving:
-        {
-            return a_rhs == LayerMoving;
-        }
-        case LayerMoving:
-        {
-            return true;
-        }
-        }
-
-        ICARIAN_ASSERT(0);
-
-        return false;
-    }
-};
-
-class IcObjectLayerPairFilter : public JPH::ObjectLayerPairFilter
-{
-private:
-
-protected:
-
-public:
-    IcObjectLayerPairFilter()
-    {
-
-    }
-    virtual ~IcObjectLayerPairFilter()
-    {
-
-    }
-
-    virtual bool ShouldCollide(JPH::ObjectLayer a_lhs, JPH::ObjectLayer a_rhs) const
-    {
-        switch (a_lhs)
-        {
-        case LayerNonMoving:
-        {
-            return a_rhs == LayerMoving;
-        }
-        case LayerMoving:
-        {
-            return true;
-        }
-        }
-
-        ICARIAN_ASSERT(0);
-
-        return false;
-    }
-};
-
-PhysicsEngine::PhysicsEngine()
-{
     JPH::RegisterDefaultAllocator();
 
     JPH::Trace = TraceImpl;
@@ -156,22 +44,98 @@ PhysicsEngine::PhysicsEngine()
 
     JPH::RegisterTypes();
 
-    JPH::JobSystemThreadPool pool = JPH::JobSystemThreadPool(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, glm::max(1U, std::thread::hardware_concurrency() / 3));
+    m_allocator = new JPH::TempAllocatorImpl(AllocatorSize);
 
-    m_broadPhase = new IcBPLayerInterface();
+    m_jobSystem = new IcPhysicsJobSystem();
+
+    m_broadPhase = new IcBroadPhaseLayerInterface();
     m_objectBroad = new IcObjectVsBroadPhaseLayerFilter();
     m_pairFilter = new IcObjectLayerPairFilter();
 
-    m_physicsSystem.Init(MaxBodies, 0, MaxBodies, MaxContactConstraints, *m_broadPhase, *m_objectBroad, *m_pairFilter);
+    m_physicsSystem = new JPH::PhysicsSystem();
+    m_physicsSystem->Init((JPH::uint)MaxBodies, 0, (JPH::uint)MaxBodies, (JPH::uint)MaxContactConstraints, *m_broadPhase, *m_objectBroad, *m_pairFilter);
+
+    m_contactListener = new IcContactListener();
+    m_activationListener = new IcBodyActivationListener();
+
+    m_physicsSystem->SetContactListener(m_contactListener);
+    m_physicsSystem->SetGravity(JPH::Vec3(0.0f, 9.807f, 0.0f));
+
+    m_runtimeBindings = new PhysicsEngineBindings(this, a_runtime);
 }
 PhysicsEngine::~PhysicsEngine()
 {
-    delete m_pairFilter;
-    delete m_objectBroad;
+    delete m_physicsSystem;
+
+    delete m_contactListener;
+    delete m_activationListener;
+
     delete m_broadPhase;
+    delete m_objectBroad;
+    delete m_pairFilter;
+
+    delete m_jobSystem;
+
+    delete m_allocator;
+
+    delete m_runtimeBindings;
 
     JPH::UnregisterTypes();
 
     delete JPH::Factory::sInstance;
     JPH::Factory::sInstance = nullptr;
+}
+
+void PhysicsEngine::Update(double a_delta)
+{
+    {
+        PROFILESTACK("Physics Sim");
+
+        m_physicsSystem->Update((float)a_delta, 1, 1, m_allocator, m_jobSystem);
+    }
+
+    {
+        PROFILESTACK("Physics Sync");
+
+        const std::vector<JPH::BodyID> bodies = m_activationListener->ToBodies();
+        const std::shared_lock g = std::shared_lock(m_mapMutex);
+
+        JPH::BodyInterface& interface = m_physicsSystem->GetBodyInterface();
+
+        for (const JPH::BodyID id : bodies)
+        {
+            const auto iter = m_bodyMap.find(id.GetIndex());
+            if (iter != m_bodyMap.end())
+            {
+                TransformBuffer buffer = m_objectManager->GetTransformBuffer(iter->second);
+
+                glm::vec3 translation = glm::vec3(0.0f);
+                glm::quat iRotation = glm::identity<glm::quat>();
+
+                if (buffer.Parent != -1)
+                {
+                    glm::vec3 iTranslation;
+                    glm::vec3 iScale;
+                    glm::vec3 iSkew;
+                    glm::vec4 iPerspectice;
+
+                    const glm::mat4 pMat = m_objectManager->GetGlobalMatrix(buffer.Parent);
+                    const glm::mat4 pInv = glm::inverse(pMat);
+
+                    glm::decompose(pInv, iTranslation, iRotation, iScale, iSkew, iPerspectice);
+
+                    translation = -iTranslation;
+                }
+
+                JPH::RVec3 jTranslation;
+                JPH::Quat jRotation;
+                interface.GetPositionAndRotation(id, jTranslation, jRotation);
+
+                buffer.Translation = glm::vec3(jTranslation.GetX(), jTranslation.GetY(), jTranslation.GetZ()) - translation;
+                buffer.Rotation = glm::quat(jRotation.GetX(), jRotation.GetY(), jRotation.GetZ(), jRotation.GetW()) * iRotation;
+
+                m_objectManager->SetTransformBuffer(iter->second, buffer);
+            }
+        }
+    }
 }

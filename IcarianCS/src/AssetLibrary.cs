@@ -1,5 +1,6 @@
 using IcarianEngine.Definitions;
 using IcarianEngine.Mod;
+using IcarianEngine.Physics.Shapes;
 using IcarianEngine.Rendering;
 using IcarianEngine.Rendering.UI;
 using System.Collections.Concurrent;
@@ -18,6 +19,8 @@ namespace IcarianEngine
         static ConcurrentDictionary<string, Model>                s_models;
      
         static ConcurrentDictionary<string, Font>                 s_fonts;
+
+        static ConcurrentDictionary<string, CollisionShape>       s_collisionShapes;
 
         internal static void Init()
         {
@@ -376,6 +379,49 @@ namespace IcarianEngine
             }
 
             return mat;
+        }
+
+        public static CollisionShape GetCollisionShape(CollisionShapeDef a_def)
+        {
+            if (a_def == null)
+            {
+                Logger.IcarianWarning("Null CollisionShapeDef");
+
+                return null;
+            }
+
+            CollisionShape oldShape = null;
+            if (s_collisionShapes.ContainsKey(a_def.DefName))
+            {
+                oldShape = s_collisionShapes[a_def.DefName];
+                IDestroy dest = oldShape as IDestroy;
+                if (dest != null)
+                {
+                    if (!dest.IsDisposed)
+                    {
+                        return oldShape;
+                    }
+                }
+                else
+                {
+                    return oldShape;
+                }
+            }
+
+            CollisionShape shape = CollisionShape.FromDef(a_def);
+            if (shape != null)
+            {
+                if (oldShape == null)
+                {
+                    s_collisionShapes.TryAdd(a_def.DefName, shape);
+                }
+                else
+                {
+                    s_collisionShapes.TryUpdate(a_def.DefName, shape, oldShape);
+                }
+            }
+
+            return shape;
         }
     }
 }

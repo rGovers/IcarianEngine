@@ -13,6 +13,7 @@
 #include "Runtime/RuntimeManager.h"
 #include "Scribe.h"
 #include "Trace.h"
+#include "ThreadPool.h"
 
 static Application* Instance = nullptr;
 
@@ -109,6 +110,8 @@ Application::Application(Config* a_config)
 
     m_runtime = new RuntimeManager();
 
+    ThreadPool::Init();
+
     Logger::InitRuntime(m_runtime);
     
     Profiler::Init(m_runtime);
@@ -119,7 +122,7 @@ Application::Application(Config* a_config)
 
     m_objectManager = new ObjectManager(m_runtime);
 
-    m_physicsEngine = new PhysicsEngine();
+    m_physicsEngine = new PhysicsEngine(m_runtime, m_objectManager);
     m_renderEngine = new RenderEngine(m_runtime, m_objectManager, m_appWindow, m_config);
 
     APPLICATION_BINDING_FUNCTION_TABLE(APPLICATION_RUNTIME_ATTACH);
@@ -147,6 +150,8 @@ Application::~Application()
     Scribe::Destroy();
     AssetLibrary::Destroy();
 
+    ThreadPool::Destroy();
+
     TRACE("Final Disposal");
     delete m_appWindow;
 }
@@ -170,7 +175,15 @@ void Application::Run(int32_t a_argc, char* a_argv[])
                 m_appWindow->Update();
             }
 
-            m_runtime->Update(m_appWindow->GetDelta(), m_appWindow->GetTime());
+            const double delta = m_appWindow->GetDelta();
+
+            m_runtime->Update(delta, m_appWindow->GetTime());
+
+            {
+                PROFILESTACK("Physics");
+                
+                m_physicsEngine->Update(delta);
+            }
         }
 
         Profiler::Stop();

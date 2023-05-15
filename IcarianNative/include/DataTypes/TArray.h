@@ -199,6 +199,27 @@ public:
         
         m_data = dat;
     }
+    uint32_t PushVal(const T& a_data)
+    {
+        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+
+        const uint32_t aSize = (m_size + 1) * sizeof(T);
+        T* dat = (T*)malloc(aSize);
+        memset(dat, 0, aSize);
+        if (m_data != nullptr)
+        {
+            memcpy(dat, m_data, m_size * sizeof(T));
+
+            free(m_data);
+        }
+
+        dat[m_size] = a_data;
+
+        m_data = dat;
+
+        return m_size++;
+    }
+
     T Pop()
     {
         const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);

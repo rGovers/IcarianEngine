@@ -17,6 +17,9 @@ private:
 protected:
 
 public:
+    typedef T* iterator;
+    typedef const T* const_iterator;
+
     TLockArray() = delete;
     TLockArray(const TLockArray&) = delete;
     TLockArray(TLockArray&& a_other)
@@ -45,6 +48,24 @@ public:
         {
             delete m_lock;
         }
+    }
+
+    iterator begin() 
+    {
+        return m_data;
+    }
+    const_iterator begin() const
+    {
+        return m_data;
+    }
+
+    iterator end() 
+    {
+        return m_data + m_size;
+    }
+    const_iterator end() const
+    {
+        return m_data + m_size;
     }
 
     void SetData(T* a_data, uint32_t a_size)

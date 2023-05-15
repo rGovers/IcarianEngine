@@ -8,6 +8,8 @@ option(ENABLE_PROFILER "Enables inbuilt profiler" OFF)
 option(ENABLE_ASSERT "Enables flare asserts" OFF)
 option(OUTPUT_BIN "Outputs application to bin/" OFF)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+
 set(CMAKE_CXX_STANDARD 17)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT WIN32)
