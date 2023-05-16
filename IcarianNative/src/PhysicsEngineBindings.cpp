@@ -34,10 +34,11 @@ static PhysicsEngineBindings* Instance = nullptr;
     F(void, IcarianEngine.Physics.Shapes, SphereCollisionShape, DestroySphere, { Instance->DestroySphereShape(a_addr); }, uint32_t a_addr) \
     F(float, IcarianEngine.Physics.Shapes, SphereCollisionShape, GetRadius, { return Instance->GetSphereShapeRadius(a_addr); }, uint32_t a_addr) \
     \
-    F(uint32_t, Icarian.Physics, PhysicsBody, CreatePhysicsBody, { return Instance->CreatePhysicsBody(a_transformAddr, a_colliderAddr); }, uint32_t a_transformAddr, uint32_t a_colliderAddr) \
-    F(void, Icarian.Physics, PhysicsBody, DestroyPhysicsBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) \
+    F(uint32_t, IcarianEngine.Physics, PhysicsBody, CreatePhysicsBody, { return Instance->CreatePhysicsBody(a_transformAddr, a_colliderAddr); }, uint32_t a_transformAddr, uint32_t a_colliderAddr) \
+    F(void, IcarianEngine.Physics, PhysicsBody, DestroyPhysicsBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) \
     \
-    F(uint32_t, Icarian.Physics, RigidBody, CreateRigidBody, { return Instance->CreateRigidBody(a_transformAddr, a_colliderAddr, a_mass); }, uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) \
+    F(uint32_t, IcarianEngine.Physics, RigidBody, CreateRigidBody, { return Instance->CreateRigidBody(a_transformAddr, a_colliderAddr, a_mass); }, uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) \
+    F(void, IcarianEngine.Physics, RigidBody, DestroyRigidBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) 
 
 PHYSICSENGINE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
@@ -58,6 +59,8 @@ PhysicsEngineBindings::~PhysicsEngineBindings()
 
 uint32_t PhysicsEngineBindings::CreateSphereShape(float a_radius) const
 {
+    TRACE("Creating Physics Shape");
+
     const JPH::SphereShapeSettings sphereSettings = JPH::SphereShapeSettings(a_radius);
     const JPH::ShapeSettings::ShapeResult result = sphereSettings.Create();
 
@@ -98,6 +101,8 @@ float PhysicsEngineBindings::GetSphereShapeRadius(uint32_t a_addr) const
 
 uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const
 {
+    TRACE("Creating Physics Body");
+
     ICARIAN_ASSERT_MSG(a_colliderAddr < m_engine->m_collisionShapes.Size(), "CreatePhysicsBody out of bounds");
 
     const glm::mat4 globalTransform = m_engine->m_objectManager->GetGlobalMatrix(a_transformAddr);

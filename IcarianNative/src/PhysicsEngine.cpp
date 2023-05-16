@@ -9,6 +9,7 @@
 #include <Jolt/Physics/Body/BodyID.h>
 #include <Jolt/RegisterTypes.h>
 #include <shared_mutex>
+#include <sstream>
 #include <vector>
 
 #include "Flare/IcarianAssert.h"
@@ -19,7 +20,6 @@
 #include "Profiler.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
-#include "glm/matrix.hpp"
 
 static void TraceImpl(const char* inFMT, ...)
 {
@@ -32,6 +32,23 @@ static void TraceImpl(const char* inFMT, ...)
     TRACE(buffer);
 }
 
+static bool AssertImpl(const char* a_expression, const char* a_message, const char* a_file, uint a_line)
+{
+    std::stringstream ss;
+
+    ss << "Jolt Assert: " << a_expression;
+    if (a_message != nullptr)
+    {
+        ss << ": " << a_message;
+    }
+
+    ss << "{" << a_file << ":" << std::to_string(a_line) << "}";
+
+    ICARIAN_ASSERT_MSG_R(0, ss.str());
+
+    return true;
+}
+
 PhysicsEngine::PhysicsEngine(RuntimeManager* a_runtime, ObjectManager* a_objectManager) 
 {
     m_objectManager = a_objectManager;
@@ -39,6 +56,7 @@ PhysicsEngine::PhysicsEngine(RuntimeManager* a_runtime, ObjectManager* a_objectM
     JPH::RegisterDefaultAllocator();
 
     JPH::Trace = TraceImpl;
+    JPH_IF_ENABLE_ASSERTS(JPH::AssertFailed = AssertImpl;)
 
     JPH::Factory::sInstance = new JPH::Factory();
 
@@ -102,6 +120,7 @@ void PhysicsEngine::Update(double a_delta)
 
         JPH::BodyInterface& interface = m_physicsSystem->GetBodyInterface();
 
+        // Need to sync the physics transform to the transform
         for (const JPH::BodyID id : bodies)
         {
             const auto iter = m_bodyMap.find(id.GetIndex());
@@ -109,12 +128,11 @@ void PhysicsEngine::Update(double a_delta)
             {
                 TransformBuffer buffer = m_objectManager->GetTransformBuffer(iter->second);
 
-                glm::vec3 translation = glm::vec3(0.0f);
+                glm::vec3 iTranslation = glm::vec3(0.0f);
                 glm::quat iRotation = glm::identity<glm::quat>();
 
                 if (buffer.Parent != -1)
                 {
-                    glm::vec3 iTranslation;
                     glm::vec3 iScale;
                     glm::vec3 iSkew;
                     glm::vec4 iPerspectice;
@@ -123,15 +141,15 @@ void PhysicsEngine::Update(double a_delta)
                     const glm::mat4 pInv = glm::inverse(pMat);
 
                     glm::decompose(pInv, iTranslation, iRotation, iScale, iSkew, iPerspectice);
-
-                    translation = -iTranslation;
                 }
 
                 JPH::RVec3 jTranslation;
                 JPH::Quat jRotation;
                 interface.GetPositionAndRotation(id, jTranslation, jRotation);
 
-                buffer.Translation = glm::vec3(jTranslation.GetX(), jTranslation.GetY(), jTranslation.GetZ()) - translation;
+                const glm::vec4 diff = glm::vec4(jTranslation.GetX(), jTranslation.GetY(), jTranslation.GetZ(), 1.0f) + glm::vec4(iTranslation, 0.0f);
+
+                buffer.Translation = (iRotation * diff).xyz();
                 buffer.Rotation = glm::quat(jRotation.GetX(), jRotation.GetY(), jRotation.GetZ(), jRotation.GetW()) * iRotation;
 
                 m_objectManager->SetTransformBuffer(iter->second, buffer);

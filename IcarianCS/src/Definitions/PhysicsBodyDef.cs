@@ -15,7 +15,7 @@ namespace IcarianEngine.Definitions
         {
             base.PostResolve();
 
-            if (ComponentType != typeof(PhysicsBody) || !ComponentType.IsSubclassOf(typeof(PhysicsBody)))
+            if (ComponentType != typeof(PhysicsBody) && !ComponentType.IsSubclassOf(typeof(PhysicsBody)))
             {
                 Logger.IcarianError($"Physics Body Def Invalid ComponentType: {ComponentType}");
 

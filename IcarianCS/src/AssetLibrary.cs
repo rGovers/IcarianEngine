@@ -3,6 +3,7 @@ using IcarianEngine.Mod;
 using IcarianEngine.Physics.Shapes;
 using IcarianEngine.Rendering;
 using IcarianEngine.Rendering.UI;
+using System;
 using System.Collections.Concurrent;
 
 namespace IcarianEngine
@@ -35,6 +36,8 @@ namespace IcarianEngine
             s_models = new ConcurrentDictionary<string, Model>();
 
             s_fonts = new ConcurrentDictionary<string, Font>();
+
+            s_collisionShapes = new ConcurrentDictionary<string, CollisionShape>();
         }
 
         static string GetPath(string a_path)
@@ -110,6 +113,25 @@ namespace IcarianEngine
                 }
             }
             s_fonts.Clear();
+
+            foreach (CollisionShape shape in s_collisionShapes.Values)
+            {
+                if (shape is IDisposable disp)
+                {
+                    if (disp is IDestroy dest)
+                    {
+                        if (dest.IsDisposed)
+                        {
+                            dest.Dispose();
+                        }
+                    }
+                    else
+                    {
+                        disp.Dispose();
+                    }
+                }
+            }
+            s_collisionShapes.Clear();
         }
 
         public static VertexShader LoadVertexShader(string a_path)

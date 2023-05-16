@@ -5,14 +5,15 @@
 
 IcBroadPhaseLayerInterface::IcBroadPhaseLayerInterface()
 {
-
+    m_layers[0] = PhysicsEngine::BroadphaseNonMoving;
+    m_layers[1] = PhysicsEngine::BroadphaseMoving;
 }
 IcBroadPhaseLayerInterface::~IcBroadPhaseLayerInterface()
 {
 
 }
 
-uint IcBroadPhaseLayerInterface::GetNumBroadPhaseLayers() const
+JPH::uint IcBroadPhaseLayerInterface::GetNumBroadPhaseLayers() const
 {
     return 2;
 }

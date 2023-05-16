@@ -15,7 +15,7 @@ public:
     IcBroadPhaseLayerInterface();
     virtual ~IcBroadPhaseLayerInterface();
 
-    virtual uint GetNumBroadPhaseLayers() const;
+    virtual JPH::uint GetNumBroadPhaseLayers() const;
     virtual JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer a_layer) const;
 
 #if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
