@@ -1,7 +1,5 @@
 #pragma once
 
-#include <memory>
-
 // Got inspired by zig programming language and wanted it in C++
 // Macro is a bit of a mess simplest way I could think of was hijacking destructors
 // Problem is destructors cannot take parameters out of scope so had to get parameters in scope

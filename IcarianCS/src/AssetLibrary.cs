@@ -120,7 +120,7 @@ namespace IcarianEngine
                 {
                     if (disp is IDestroy dest)
                     {
-                        if (dest.IsDisposed)
+                        if (!dest.IsDisposed)
                         {
                             dest.Dispose();
                         }

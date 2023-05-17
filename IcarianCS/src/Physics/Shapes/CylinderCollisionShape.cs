@@ -1,21 +1,38 @@
-using IcarianEngine.Definitions;
 using System;
 using System.Runtime.CompilerServices;
+using IcarianEngine.Definitions;
 
 namespace IcarianEngine.Physics.Shapes
 {
-    public class SphereCollisionShape : CollisionShape, IDestroy
+    public class CylinderCollisionShape : CollisionShape, IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint CreateSphere(float a_radius);
+        extern static uint CreateCylinder(float a_height, float a_radius);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static float GetHeight(uint a_addr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static float GetRadius(uint a_addr);
 
-        public SphereCollisionShapeDef SphereDef
+        public CylinderCollisionShapeDef CylinderDef
         {
             get
             {
-                return Def as SphereCollisionShapeDef;
+                return Def as CylinderCollisionShapeDef;
+            }
+        }
+
+        public float Height
+        {
+            get
+            {
+                return GetHeight(InternalAddr);
+            }
+        }
+        public float Radius
+        {
+            get
+            {
+                return GetRadius(InternalAddr);
             }
         }
 
@@ -27,30 +44,22 @@ namespace IcarianEngine.Physics.Shapes
             }
         }
 
-        public float Radius
-        {
-            get
-            {
-                return GetRadius(InternalAddr);
-            }
-        }
-
-        public SphereCollisionShape()
+        public CylinderCollisionShape()
         {
             InternalAddr = uint.MaxValue;
         }
 
         public override void Init()
         {
-            SphereCollisionShapeDef def = SphereDef;
+            CylinderCollisionShapeDef def = CylinderDef;
 
             if (def != null)
             {
-                InternalAddr = CreateSphere(def.Radius);
+                InternalAddr = CreateCylinder(def.Height, def.Radius);
             }
             else
             {
-                InternalAddr = CreateSphere(1.0f);
+                InternalAddr = CreateCylinder(1.0f, 0.5f);
             }
         }
 
@@ -73,18 +82,18 @@ namespace IcarianEngine.Physics.Shapes
                 }
                 else
                 {
-                    Logger.IcarianWarning("SphereCollisionShape Failed to Dispose");
+                    Logger.IcarianWarning("CylinderCollisionShape Failed to Dispose");
                 }
 
                 InternalAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple SphereCollisionShape Dispose");
+                Logger.IcarianError("Multiple CylinderCollisionShape Dispose");
             }
         }
 
-        ~SphereCollisionShape()
+        ~CylinderCollisionShape()
         {
             Dispose(false);
         }

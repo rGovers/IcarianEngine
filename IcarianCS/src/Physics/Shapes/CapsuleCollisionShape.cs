@@ -4,26 +4,28 @@ using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Physics.Shapes
 {
-    public class SphereCollisionShape : CollisionShape, IDestroy
+    public class CapsuleCollisionShape : CollisionShape, IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint CreateSphere(float a_radius);
+        extern static uint CreateCapsule(float a_height, float a_radius);  
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static float GetHeight(uint a_addr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static float GetRadius(uint a_addr);
 
-        public SphereCollisionShapeDef SphereDef
+        public CapsuleCollisionShapeDef CapsuleDef
         {
             get
             {
-                return Def as SphereCollisionShapeDef;
+                return Def as CapsuleCollisionShapeDef;
             }
         }
 
-        public bool IsDisposed
+        public float Height
         {
             get
             {
-                return InternalAddr == uint.MaxValue;
+                return GetHeight(InternalAddr);
             }
         }
 
@@ -35,22 +37,30 @@ namespace IcarianEngine.Physics.Shapes
             }
         }
 
-        public SphereCollisionShape()
+        public bool IsDisposed
+        {
+            get
+            {
+                return InternalAddr == uint.MaxValue;
+            }
+        }
+
+        public CapsuleCollisionShape()
         {
             InternalAddr = uint.MaxValue;
         }
 
         public override void Init()
         {
-            SphereCollisionShapeDef def = SphereDef;
+            CapsuleCollisionShapeDef def = CapsuleDef;
 
             if (def != null)
             {
-                InternalAddr = CreateSphere(def.Radius);
+                InternalAddr = CreateCapsule(def.Height, def.Radius);
             }
             else
             {
-                InternalAddr = CreateSphere(1.0f);
+                InternalAddr = CreateCapsule(1.0f, 0.5f);
             }
         }
 
@@ -73,20 +83,20 @@ namespace IcarianEngine.Physics.Shapes
                 }
                 else
                 {
-                    Logger.IcarianWarning("SphereCollisionShape Failed to Dispose");
+                    Logger.IcarianWarning("CapsuleCollisionShape Failed to Dispose");
                 }
 
                 InternalAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple SphereCollisionShape Dispose");
+                Logger.IcarianError("Multiple CapsuleCollisionShape Dispose");
             }
         }
 
-        ~SphereCollisionShape()
+        ~CapsuleCollisionShape()
         {
             Dispose(false);
         }
-    }
+    };
 }

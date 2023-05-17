@@ -1,21 +1,22 @@
 using IcarianEngine.Definitions;
+using IcarianEngine.Maths;
 using System;
 using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Physics.Shapes
 {
-    public class SphereCollisionShape : CollisionShape, IDestroy
+    public class BoxCollisionShape : CollisionShape, IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint CreateSphere(float a_radius);
+        extern static uint CreateBox(Vector3 a_extents);
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static float GetRadius(uint a_addr);
+        extern static Vector3 GetExtents(uint a_addr);
 
-        public SphereCollisionShapeDef SphereDef
+        public BoxCollisionShapeDef BoxDef
         {
             get
             {
-                return Def as SphereCollisionShapeDef;
+                return Def as BoxCollisionShapeDef;
             }
         }
 
@@ -27,30 +28,30 @@ namespace IcarianEngine.Physics.Shapes
             }
         }
 
-        public float Radius
+        public Vector3 Extents
         {
             get
             {
-                return GetRadius(InternalAddr);
+                return GetExtents(InternalAddr);
             }
         }
 
-        public SphereCollisionShape()
+        public BoxCollisionShape()
         {
             InternalAddr = uint.MaxValue;
         }
 
         public override void Init()
         {
-            SphereCollisionShapeDef def = SphereDef;
+            BoxCollisionShapeDef def = BoxDef;
 
             if (def != null)
             {
-                InternalAddr = CreateSphere(def.Radius);
+                InternalAddr = CreateBox(def.Extents);
             }
             else
             {
-                InternalAddr = CreateSphere(1.0f);
+                InternalAddr = CreateBox(Vector3.One);
             }
         }
 
@@ -73,18 +74,18 @@ namespace IcarianEngine.Physics.Shapes
                 }
                 else
                 {
-                    Logger.IcarianWarning("SphereCollisionShape Failed to Dispose");
+                    Logger.IcarianWarning("BoxCollisionShape Failed to Dispose");
                 }
 
                 InternalAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple SphereCollisionShape Dispose");
+                Logger.IcarianError("Multiple BoxCollisionShape Dispose");
             }
         }
 
-        ~SphereCollisionShape()
+        ~BoxCollisionShape()
         {
             Dispose(false);
         }

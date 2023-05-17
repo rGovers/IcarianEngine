@@ -4,7 +4,7 @@ namespace IcarianEngine.Definitions
 {
     public class SphereCollisionShapeDef : CollisionShapeDef
     {
-        public float Radius;
+        public float Radius = 1.0f;
 
         public SphereCollisionShapeDef()
         {

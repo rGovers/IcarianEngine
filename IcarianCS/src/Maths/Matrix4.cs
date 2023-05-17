@@ -111,6 +111,20 @@ namespace IcarianEngine.Maths
 
             a_rotation = Quaternion.FromDirectionVectors(scalarX / a_scale.X, scalarY / a_scale.Y, scalarZ / a_scale.Z);
         }
+        public static void Decompose(Matrix4 a_mat, out Vector3 a_translation, out Vector3 a_right, out Vector3 a_up, out Vector3 a_forward, out Vector3 a_scale)
+        {
+            a_translation = a_mat[3].XYZ;
+
+            Vector3 scalarX = a_mat[0].XYZ;
+            Vector3 scalarY = a_mat[1].XYZ;
+            Vector3 scalarZ = a_mat[2].XYZ;
+
+            a_scale = new Vector3(scalarX.Magnitude, scalarY.Magnitude, scalarZ.Magnitude);
+
+            a_right = scalarX / a_scale.X;
+            a_up = scalarY / a_scale.Y;
+            a_forward = scalarZ / a_scale.Z;
+        }
 
         public void Decompose(out Vector3 a_translation, out Quaternion a_rotation, out Vector3 a_scale)
         {

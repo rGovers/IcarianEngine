@@ -175,13 +175,15 @@ void Application::Run(int32_t a_argc, char* a_argv[])
                 m_appWindow->Update();
             }
 
-            const double delta = m_appWindow->GetDelta();
+            // Naive approach but helps fix weirdness from large time scales
+            const double delta = glm::min(0.1, m_appWindow->GetDelta());
 
             m_runtime->Update(delta, m_appWindow->GetTime());
 
             {
                 PROFILESTACK("Physics");
                 
+                // Considering down the line using a fixed time step instead of a dynamic for physics simulation
                 m_physicsEngine->Update(delta);
             }
         }

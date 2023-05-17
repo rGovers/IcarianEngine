@@ -1,10 +1,14 @@
 using System;
+using System.Runtime.CompilerServices;
 using IcarianEngine.Definitions;
 
 namespace IcarianEngine.Physics.Shapes
 {
     public abstract class CollisionShape
     {
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        internal extern static void DestroyShape(uint a_addr);
+
         CollisionShapeDef m_def;
 
         internal uint InternalAddr
