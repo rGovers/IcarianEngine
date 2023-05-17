@@ -43,11 +43,11 @@ private:
 
 protected:
     virtual void QueueJob(Job* a_job);
-    virtual void QueueJobs(Job** a_jobs, uint a_numJobs);
+    virtual void QueueJobs(Job** a_jobs, JPH::uint a_numJobs);
     virtual void FreeJob(Job* a_job);
 
 public:
-    IcPhysicsJobSystem();
+    IcPhysicsJobSystem(JPH::uint a_numBarriers);
     virtual ~IcPhysicsJobSystem();
 
     virtual int GetMaxConcurrency() const;

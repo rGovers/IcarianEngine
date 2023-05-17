@@ -1,8 +1,9 @@
 #include "Physics/IcBodyActivationListener.h"
 
-#include "DataTypes/TLockArray.h"
-#include "Jolt/Physics/Body/BodyID.h"
+#include <Jolt/Physics/Body/BodyID.h>
 #include <vector>
+
+#include "DataTypes/TLockArray.h"
 
 IcBodyActivationListener::IcBodyActivationListener()
 {

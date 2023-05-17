@@ -18,7 +18,7 @@
 
 #include "DataTypes/TLockArray.h"
 #include "Flare/IcarianAssert.h"
-
+#include "Flare/IcarianDefer.h"
 #include "Jolt/Core/Core.h"
 #include "ObjectManager.h"
 #include "Physics/PhysicsEngine.h"
@@ -183,6 +183,16 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
     JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
     const JPH::BodyID id = interface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
     
+    Logger::Message("t addr" + std::to_string(a_transformAddr));
+
+    const struct 
+    {
+        IcBodyActivationListener* Listener;
+        JPH::BodyID ID;
+    } activationVal = { m_engine->m_activationListener, id };
+
+    ICARIAN_DEFER(activationVal, activationVal.Listener->OnBodyActivated(activationVal.ID, 0); Logger::Message("c"));
+
     const BodyBinding binding = BodyBinding(a_transformAddr, id);
     {
         TLockArray<BodyBinding> a = m_engine->m_bodyBindings.ToLockArray();
@@ -207,6 +217,8 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
 
                 a[i] = binding;
 
+                Logger::Message("a");
+
                 return i;
             }
         }
@@ -226,6 +238,8 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
     {
         m_engine->m_bodyMap.emplace(bIndex, index);
     }
+
+    Logger::Message("b");
 
     return index;
 }

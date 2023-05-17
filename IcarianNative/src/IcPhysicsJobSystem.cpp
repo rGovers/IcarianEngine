@@ -3,8 +3,10 @@
 #include "Flare/IcarianAssert.h"
 #include "ThreadPool.h"
 
-IcPhysicsJobSystem::IcPhysicsJobSystem()
+IcPhysicsJobSystem::IcPhysicsJobSystem(JPH::uint a_numBarriers)
 {
+    Init(a_numBarriers);
+
     m_jobs.Init(MaxJobs, MaxJobs);
 }
 IcPhysicsJobSystem::~IcPhysicsJobSystem()
@@ -43,7 +45,7 @@ void IcPhysicsJobSystem::QueueJob(Job* a_job)
 {
     ThreadPool::PushJob(new PhysicsJob(a_job));
 }
-void IcPhysicsJobSystem::QueueJobs(Job** a_jobs, uint a_numJobs)
+void IcPhysicsJobSystem::QueueJobs(Job** a_jobs, JPH::uint a_numJobs)
 {
     for (uint i = 0; i < a_numJobs; ++i)
     {        

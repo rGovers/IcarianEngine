@@ -15,7 +15,7 @@ namespace IcarianEngine.Definitions
         {
             base.PostResolve();
 
-            if (ComponentType != typeof(RigidBodyDef) && !ComponentType.IsSubclassOf(typeof(RigidBody)))
+            if (ComponentType != typeof(RigidBody) && !ComponentType.IsSubclassOf(typeof(RigidBody)))
             {
                 Logger.IcarianError($"Rigid Body Def Invalid ComponentType: {ComponentType}");
 

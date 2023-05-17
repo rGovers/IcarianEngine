@@ -64,7 +64,7 @@ PhysicsEngine::PhysicsEngine(RuntimeManager* a_runtime, ObjectManager* a_objectM
 
     m_allocator = new JPH::TempAllocatorImpl(AllocatorSize);
 
-    m_jobSystem = new IcPhysicsJobSystem();
+    m_jobSystem = new IcPhysicsJobSystem(JPH::cMaxPhysicsBarriers);
 
     m_broadPhase = new IcBroadPhaseLayerInterface();
     m_objectBroad = new IcObjectVsBroadPhaseLayerFilter();
@@ -126,7 +126,9 @@ void PhysicsEngine::Update(double a_delta)
             const auto iter = m_bodyMap.find(id.GetIndex());
             if (iter != m_bodyMap.end())
             {
-                TransformBuffer buffer = m_objectManager->GetTransformBuffer(iter->second);
+                const BodyBinding& binding = m_bodyBindings[iter->second];
+
+                TransformBuffer buffer = m_objectManager->GetTransformBuffer(binding.TransformAddr);
 
                 glm::vec3 iTranslation = glm::vec3(0.0f);
                 glm::quat iRotation = glm::identity<glm::quat>();
@@ -152,7 +154,7 @@ void PhysicsEngine::Update(double a_delta)
                 buffer.Translation = (iRotation * diff).xyz();
                 buffer.Rotation = glm::quat(jRotation.GetX(), jRotation.GetY(), jRotation.GetZ(), jRotation.GetW()) * iRotation;
 
-                m_objectManager->SetTransformBuffer(iter->second, buffer);
+                m_objectManager->SetTransformBuffer(binding.TransformAddr, buffer);
             }
         }
     }
