@@ -186,7 +186,15 @@ namespace IcarianEngine.Physics
             }
             else
             {
-                // TODO: Triggers
+                if (bodyA is TriggerBody tBodyA)
+                {
+                    tBodyA.OnTriggerEnter(bodyB);
+                }
+
+                if (bodyB is TriggerBody tBodyB)
+                {
+                    tBodyB.OnTriggerEnter(bodyA);
+                }
             }
         }
         static void OnCollisionStay(DispatchCollisionData a_data)
@@ -227,7 +235,15 @@ namespace IcarianEngine.Physics
             }
             else
             {
-                // TODO: Triggers
+                if (bodyA is TriggerBody tBodyA)
+                {
+                    tBodyA.OnTriggerStay(bodyB);
+                }
+
+                if (bodyB is TriggerBody tBodyB)
+                {
+                    tBodyB.OnTriggerStay(bodyA);
+                }
             }
         }
         static void OnCollisionExit(DispatchCollisionData a_data)
@@ -256,7 +272,15 @@ namespace IcarianEngine.Physics
             }
             else
             {
-                // TODO: Triggers
+                if (bodyA is TriggerBody tBodyA)
+                {
+                    tBodyA.OnTriggerExit(bodyB);
+                }
+
+                if (bodyB is TriggerBody tBodyB)
+                {
+                    tBodyB.OnTriggerExit(bodyA);
+                }
             }
         }
     }

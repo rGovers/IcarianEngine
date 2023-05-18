@@ -7,6 +7,7 @@ IcBroadPhaseLayerInterface::IcBroadPhaseLayerInterface()
 {
     m_layers[0] = PhysicsEngine::BroadphaseNonMoving;
     m_layers[1] = PhysicsEngine::BroadphaseMoving;
+    m_layers[2] = PhysicsEngine::BroadphaseTrigger;
 }
 IcBroadPhaseLayerInterface::~IcBroadPhaseLayerInterface()
 {
@@ -15,11 +16,11 @@ IcBroadPhaseLayerInterface::~IcBroadPhaseLayerInterface()
 
 JPH::uint IcBroadPhaseLayerInterface::GetNumBroadPhaseLayers() const
 {
-    return 2;
+    return 3;
 }
 JPH::BroadPhaseLayer IcBroadPhaseLayerInterface::GetBroadPhaseLayer(JPH::ObjectLayer a_layer) const
 {
-    ICARIAN_ASSERT(a_layer < 2);
+    ICARIAN_ASSERT(a_layer < 3);
     
     return m_layers[a_layer];
 }
@@ -36,6 +37,10 @@ JPH::BroadPhaseLayer IcBroadPhaseLayerInterface::GetBroadPhaseLayer(JPH::ObjectL
         case (JPH::BroadPhaseLayer::Type)PhysicsEngine::BroadphaseMoving:
         {
             return "MOVING";
+        }
+        case (JPH::BroadPhaseLayer::Type)PhysicsEngine::BroadphaseTrigger:
+        {
+            return "TRIGGER";
         }
         }
 

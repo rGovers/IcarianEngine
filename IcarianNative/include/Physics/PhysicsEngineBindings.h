@@ -42,4 +42,6 @@ public:
     void DestroyPhysicsBody(uint32_t a_addr) const;
 
     uint32_t CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) const;
+
+    uint32_t CreateTriggerBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const;
 };

@@ -2,6 +2,7 @@ using IcarianEngine.Definitions;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 
 namespace IcarianEngine.Mod
 {
@@ -103,6 +104,18 @@ namespace IcarianEngine.Mod
                 foreach (IcarianAssembly asm in Assemblies)
                 {
                     Type type = asm.GetTypeValue(a_name);
+                    if (type != null)
+                    {
+                        return type;
+                    }
+                }
+            }
+            else
+            {
+                Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+                foreach (Assembly asm in assemblies)
+                {
+                    Type type = asm.GetType(a_name);
                     if (type != null)
                     {
                         return type;

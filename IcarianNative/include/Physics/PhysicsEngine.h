@@ -84,6 +84,8 @@ public:
 
     static constexpr JPH::BroadPhaseLayer BroadphaseNonMoving = JPH::BroadPhaseLayer(0);
     static constexpr JPH::BroadPhaseLayer BroadphaseMoving = JPH::BroadPhaseLayer(1);
+    static constexpr JPH::BroadPhaseLayer BroadphaseTrigger = JPH::BroadPhaseLayer(2);
     static constexpr JPH::ObjectLayer LayerNonMoving = JPH::ObjectLayer(0);
     static constexpr JPH::ObjectLayer LayerMoving = JPH::ObjectLayer(1);
+    static constexpr JPH::ObjectLayer LayerTrigger = JPH::ObjectLayer(2);
 };

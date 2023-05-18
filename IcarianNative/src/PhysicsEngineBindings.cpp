@@ -53,7 +53,10 @@ static PhysicsEngineBindings* Instance = nullptr;
     F(void, IcarianEngine.Physics, PhysicsBody, DestroyPhysicsBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Physics, RigidBody, CreateRigidBody, { return Instance->CreateRigidBody(a_transformAddr, a_colliderAddr, a_mass); }, uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) \
-    F(void, IcarianEngine.Physics, RigidBody, DestroyRigidBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) 
+    F(void, IcarianEngine.Physics, RigidBody, DestroyRigidBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) \
+    \
+    F(uint32_t, IcarianEngine.Physics, TriggerBody, CreateTriggerBody, { return Instance->CreateTriggerBody(a_transformAddr, a_colliderAddr); }, uint32_t a_transformAddr, uint32_t a_colliderAddr) \
+    F(void, IcarianEngine.Physics, TriggerBody, DestroyTriggerBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) \
 
 PHYSICSENGINE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
@@ -337,7 +340,7 @@ void PhysicsEngineBindings::DestroyPhysicsBody(uint32_t a_addr) const
 
 uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) const
 {
-    ICARIAN_ASSERT_MSG_R(a_colliderAddr < m_engine->m_collisionShapes.Size(), "CreateRigidBody out of bounds");
+    ICARIAN_ASSERT_MSG(a_colliderAddr < m_engine->m_collisionShapes.Size(), "CreateRigidBody out of bounds");
 
     const glm::mat4 globalTransform = m_engine->m_objectManager->GetGlobalMatrix(a_transformAddr);
 
@@ -374,6 +377,57 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
         TLockArray<BodyBinding> a = m_engine->m_bodyBindings.ToLockArray();
         const uint32_t size = a.Size();
         
+        for (uint32_t i = 0; i < size; ++i)
+        {
+            if (a[i].TransformAddr == -1)
+            {
+                AddBody(id.GetIndex(), i);
+
+                a[i] = binding;
+
+                return i;
+            }
+        }
+    }
+
+    const uint32_t index = m_engine->m_bodyBindings.PushVal(binding);
+
+    AddBody(id.GetIndex(), index);
+
+    return index;
+}
+
+uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const
+{
+    ICARIAN_ASSERT_MSG(a_colliderAddr < m_engine->m_collisionShapes.Size(), "CreateTriggerBody out of bounds");
+
+    const glm::mat4 globalTransform = m_engine->m_objectManager->GetGlobalMatrix(a_transformAddr);
+
+    glm::vec3 translation;
+    glm::quat rotation;
+    glm::vec3 scale;
+    glm::vec3 skew;
+    glm::vec4 perspective;
+    glm::decompose(globalTransform, scale, rotation, translation, skew, perspective);
+
+    JPH::BodyCreationSettings bodySettings = JPH::BodyCreationSettings
+    (
+        m_engine->m_collisionShapes[a_colliderAddr].Get(),
+        JPH::RVec3(translation.x, translation.y, translation.z),
+        JPH::Quat(rotation.x, rotation.y, rotation.z, rotation.w),
+        JPH::EMotionType::Kinematic,
+        PhysicsEngine::LayerTrigger
+    );
+    bodySettings.mIsSensor = true;
+
+    JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
+    const JPH::BodyID id = interface.CreateAndAddBody(bodySettings, JPH::EActivation::DontActivate);
+
+    const BodyBinding binding = BodyBinding(a_transformAddr, id);
+    {
+        TLockArray<BodyBinding> a = m_engine->m_bodyBindings.ToLockArray();
+        const uint32_t size = a.Size();
+
         for (uint32_t i = 0; i < size; ++i)
         {
             if (a[i].TransformAddr == -1)
