@@ -256,6 +256,21 @@ void PhysicsEngineBindings::DestroyCollisionShape(uint32_t a_addr) const
     m_engine->m_collisionShapes[a_addr].Clear();
 }
 
+void PhysicsEngineBindings::AddBody(JPH::uint32 a_id, uint32_t a_index) const
+{
+    const std::unique_lock g = std::unique_lock(m_engine->m_mapMutex);
+
+    auto iter = m_engine->m_bodyMap.find(a_id);
+    if (iter != m_engine->m_bodyMap.end()) 
+    {
+        iter->second = a_index;
+    } 
+    else 
+    {
+        m_engine->m_bodyMap.emplace(a_id, a_index);
+    }
+}
+
 uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const
 {
     TRACE("Creating Physics Body");
@@ -293,6 +308,8 @@ uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint
         {
             if (a[i].TransformAddr == -1)
             {
+                AddBody(id.GetIndex(), i);
+
                 a[i] = binding;
 
                 return i;
@@ -300,7 +317,11 @@ uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint
         }
     }
 
-    return m_engine->m_bodyBindings.PushVal(binding);
+    const uint32_t index = m_engine->m_bodyBindings.PushVal(binding);
+
+    AddBody(id.GetIndex(), index);
+
+    return index;
 }
 void PhysicsEngineBindings::DestroyPhysicsBody(uint32_t a_addr) const
 {
@@ -339,8 +360,6 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
 
     JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
     const JPH::BodyID id = interface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
-    
-    Logger::Message("t addr" + std::to_string(a_transformAddr));
 
     const struct 
     {
@@ -359,18 +378,7 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
         {
             if (a[i].TransformAddr == -1)
             {
-                const std::unique_lock g = std::unique_lock(m_engine->m_mapMutex);
-                const JPH::uint32 bIndex = id.GetIndex();
-
-                auto iter = m_engine->m_bodyMap.find(bIndex);
-                if (iter != m_engine->m_bodyMap.end())
-                {
-                    iter->second = i;
-                }
-                else 
-                {
-                    m_engine->m_bodyMap.emplace(bIndex, i);
-                }
+                AddBody(id.GetIndex(), i);
 
                 a[i] = binding;
 
@@ -379,20 +387,9 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
         }
     }
 
-    const std::unique_lock g = std::unique_lock(m_engine->m_mapMutex);
-    const JPH::uint32 bIndex = id.GetIndex();
-
     const uint32_t index = m_engine->m_bodyBindings.PushVal(binding);
 
-    auto iter = m_engine->m_bodyMap.find(bIndex);
-    if (iter != m_engine->m_bodyMap.end()) 
-    {
-        iter->second = index;
-    } 
-    else 
-    {
-        m_engine->m_bodyMap.emplace(bIndex, index);
-    }
+    AddBody(id.GetIndex(), index);
 
     return index;
 }

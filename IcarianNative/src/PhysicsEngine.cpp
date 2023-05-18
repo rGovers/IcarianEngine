@@ -73,7 +73,7 @@ PhysicsEngine::PhysicsEngine(RuntimeManager* a_runtime, ObjectManager* a_objectM
     m_physicsSystem = new JPH::PhysicsSystem();
     m_physicsSystem->Init((JPH::uint)MaxBodies, 0, (JPH::uint)MaxBodies, (JPH::uint)MaxContactConstraints, *m_broadPhase, *m_objectBroad, *m_pairFilter);
 
-    m_contactListener = new IcContactListener();
+    m_contactListener = new IcContactListener(this, a_runtime);
     m_activationListener = new IcBodyActivationListener();
 
     m_physicsSystem->SetContactListener(m_contactListener);
@@ -102,6 +102,19 @@ PhysicsEngine::~PhysicsEngine()
 
     delete JPH::Factory::sInstance;
     JPH::Factory::sInstance = nullptr;
+}
+
+uint32_t PhysicsEngine::GetBodyAddr(JPH::uint a_joltIndex)
+{
+    const std::shared_lock g = std::shared_lock(m_mapMutex);
+
+    const auto iter = m_bodyMap.find(a_joltIndex);
+    if (iter != m_bodyMap.end())
+    {
+        return iter->second;
+    }
+
+    return -1;
 }
 
 void PhysicsEngine::Update(double a_delta)

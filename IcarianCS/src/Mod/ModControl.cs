@@ -1,3 +1,5 @@
+using IcarianEngine.Definitions;
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -23,19 +25,28 @@ namespace IcarianEngine.Mod
 
             bool working = !string.IsNullOrWhiteSpace(Application.WorkingDirectory);
 
+            string corePath = Path.Combine(Application.WorkingDirectory, "Core");
+
             if (working)
             {
-                CoreAssembly = IcarianAssembly.GetIcarianAssembly(Path.Combine(Application.WorkingDirectory, "Core"));
+                CoreAssembly = IcarianAssembly.GetIcarianAssembly(corePath);
             }
 
             if (CoreAssembly == null)
             {
-                CoreAssembly = IcarianAssembly.GetIcarianAssembly(Path.Combine(Directory.GetCurrentDirectory(), "Core"));       
+                corePath = Path.Combine(Directory.GetCurrentDirectory(), "Core");
+                CoreAssembly = IcarianAssembly.GetIcarianAssembly(corePath);       
             }
 
             if (CoreAssembly == null)
             {
                 Logger.IcarianError("Failed to load core assembly");
+            }
+
+            string coreDefPath = Path.Combine(corePath, "Defs");
+            if (Directory.Exists(coreDefPath))
+            {
+                DefLibrary.LoadDefs(coreDefPath);
             }
         }
 
@@ -50,6 +61,56 @@ namespace IcarianEngine.Mod
                     asm.AssemblyControl.Init();
                 }
             }
+        }
+
+        public static Type GetCoreTypeValue(string a_name, bool a_def = false)
+        {
+            string coreName = $"IcarianEngine.{a_name}";
+            if (a_def)
+            {
+                coreName = $"IcarianEngine.Definitions.{a_name}";
+            }
+
+            Type type = Type.GetType(coreName);
+            if (type != null)
+            {
+                return type;
+            }
+
+            type = Type.GetType(a_name);
+            if (type != null)
+            {
+                return type;
+            }
+
+            if (!Application.IsEditor)
+            {
+                return CoreAssembly.GetTypeValue(a_name);
+            }
+            
+            return null;
+        }
+        public static Type GetTypeValue(string a_name, bool a_def = false)
+        {
+            Type t = GetCoreTypeValue(a_name, a_def);
+            if (t != null)
+            {
+                return t;
+            }
+
+            if (!Application.IsEditor)
+            {
+                foreach (IcarianAssembly asm in Assemblies)
+                {
+                    Type type = asm.GetTypeValue(a_name);
+                    if (type != null)
+                    {
+                        return type;
+                    }
+                }
+            }
+
+            return null;
         }
 
         internal static void Update()

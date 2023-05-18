@@ -261,6 +261,11 @@ namespace IcarianEngine.Maths
             Z = a_other.Z;
         }
 
+        public static Vector3 operator -(Vector3 a_vec)
+        {
+            return new Vector3(-a_vec.X, -a_vec.Y, -a_vec.Z);
+        }
+        
         public static Vector3 operator +(Vector3 a_lhs, Vector3 a_rhs)
         {
             return new Vector3(a_lhs.X + a_rhs.X, a_lhs.Y + a_rhs.Y, a_lhs.Z + a_rhs.Z);

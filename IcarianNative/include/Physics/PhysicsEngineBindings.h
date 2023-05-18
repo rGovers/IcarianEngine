@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 
 #include <cstdint>
+#include <Jolt/Core/Core.h>
 
 class PhysicsEngine;
 class RuntimeManager;
@@ -13,6 +14,8 @@ class PhysicsEngineBindings
 private:
     PhysicsEngine* m_engine;
 
+    void AddBody(JPH::uint32 a_id, uint32_t a_index) const;
+    
 protected:
 
 public:
@@ -39,5 +42,4 @@ public:
     void DestroyPhysicsBody(uint32_t a_addr) const;
 
     uint32_t CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) const;
-    void DestroyRigidBody(uint32_t a_addr);
 };

@@ -54,5 +54,9 @@ namespace IcarianEngine.Physics
                 InternalAddr = CreateRigidBody(Transform.InternalAddr, a_newShape.InternalAddr, m_mass);
             }
         }
+
+        public virtual void OnCollisionEnter(PhysicsBody a_other, CollisionData a_data) { }
+        public virtual void OnCollisionStay(PhysicsBody a_other, CollisionData a_data) { }
+        public virtual void OnCollisionExit(PhysicsBody a_other) { }
     };
 }

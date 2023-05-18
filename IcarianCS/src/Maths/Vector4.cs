@@ -971,6 +971,11 @@ namespace IcarianEngine.Maths
             return new Color((byte)(X * 255.0f), (byte)(Y * 255.0f), (byte)(Z * 255.0f), (byte)(W * 255.0f));
         }
 
+        public static Vector4 operator -(Vector4 a_vec)
+        {
+            return new Vector4(-a_vec.X, -a_vec.Y, -a_vec.Z, -a_vec.W);
+        }
+
         public static Vector4 operator +(Vector4 a_lhs, Vector4 a_rhs)
         {
             return new Vector4(a_lhs.X + a_rhs.X, a_lhs.Y + a_rhs.Y, a_lhs.Z + a_rhs.Z, a_lhs.W + a_rhs.W);

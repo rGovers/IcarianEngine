@@ -1,4 +1,3 @@
-using IcarianEngine.Definitions;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -9,11 +8,11 @@ namespace IcarianEngine.Mod
 {
     public class IcarianAssembly
     {
-        AssemblyControl   m_assemblyControl = null;
+        AssemblyControl     m_assemblyControl = null;
 
         IcarianAssemblyInfo m_assemblyInfo;
 
-        List<Assembly>    m_assemblies = null;
+        List<Assembly>      m_assemblies = null;
 
         internal AssemblyControl AssemblyControl
         {
@@ -44,6 +43,20 @@ namespace IcarianEngine.Mod
 
         }
 
+        public Type GetTypeValue(string a_name)
+        {
+            foreach (Assembly asm in m_assemblies)
+            {
+                Type t = asm.GetType(a_name, false);
+                if (t != null)
+                {
+                    return t;
+                }
+            }
+
+            return null;
+        }
+
         internal static IcarianAssembly GetIcarianAssembly(string a_path)
         {
             if (Directory.Exists(a_path))
@@ -51,7 +64,6 @@ namespace IcarianEngine.Mod
                 IcarianAssembly asm = new IcarianAssembly();
 
                 string assemblyPath = Path.Combine(a_path, "Assemblies");
-                string defPath = Path.Combine(a_path, "Defs");
                 string aboutPath = Path.Combine(a_path, "about.xml");
 
                 if (File.Exists(aboutPath))
@@ -116,11 +128,6 @@ namespace IcarianEngine.Mod
                     Logger.IcarianError($"No mod about: {a_path}");
 
                     return null;
-                }
-
-                if (Directory.Exists(defPath))
-                {
-                    DefLibrary.LoadDefs(defPath);
                 }
 
                 if (Directory.Exists(assemblyPath))

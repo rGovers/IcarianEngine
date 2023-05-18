@@ -80,6 +80,8 @@ public:
 
     void Update(double a_delta);
 
+    uint32_t GetBodyAddr(JPH::uint32 a_joltIndex);
+
     static constexpr JPH::BroadPhaseLayer BroadphaseNonMoving = JPH::BroadPhaseLayer(0);
     static constexpr JPH::BroadPhaseLayer BroadphaseMoving = JPH::BroadPhaseLayer(1);
     static constexpr JPH::ObjectLayer LayerNonMoving = JPH::ObjectLayer(0);

@@ -1,10 +1,29 @@
 using IcarianEngine.Definitions;
+using IcarianEngine.Maths;
 using IcarianEngine.Physics.Shapes;
 using System;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Physics
 {
+    struct DispatchCollisionData
+    {
+        public uint IsTrigger;
+
+        public uint BodyAddrA;
+        public uint BodyAddrB;
+
+        public Vector3 Normal;
+        public float Depth;
+    }
+
+    public struct CollisionData
+    {
+        public Vector3 Normal;
+        public float Depth;
+    }
+
     public class PhysicsBody : Component, IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -19,6 +38,8 @@ namespace IcarianEngine.Physics
                 return Def as PhysicsBodyDef;
             }
         }
+
+        static ConcurrentDictionary<uint, PhysicsBody> s_bodies = new ConcurrentDictionary<uint, PhysicsBody>();
 
         bool           m_disposed = false;
 
@@ -49,6 +70,15 @@ namespace IcarianEngine.Physics
                 CollisionShapeSet(m_collisionShape, value);
 
                 m_collisionShape = value;
+
+                if (s_bodies.ContainsKey(InternalAddr))
+                {
+                    s_bodies[InternalAddr] = this;
+                }
+                else
+                {
+                    s_bodies.TryAdd(InternalAddr, this);
+                }
             }
         }
 
@@ -116,6 +146,118 @@ namespace IcarianEngine.Physics
         ~PhysicsBody()
         {
             Dispose(false);
+        }
+
+        static void OnCollisionEnter(DispatchCollisionData a_data)
+        {
+            if (!s_bodies.ContainsKey(a_data.BodyAddrA) && !s_bodies.ContainsKey(a_data.BodyAddrB))
+            {
+                Logger.IcarianError("Bad Collision Enter dispatch");
+
+                return;
+            }
+
+            PhysicsBody bodyA = s_bodies[a_data.BodyAddrA];
+            PhysicsBody bodyB = s_bodies[a_data.BodyAddrB];
+
+            if (a_data.IsTrigger == 0)
+            {
+                if (bodyA is RigidBody rBodyA)
+                {
+                    CollisionData data = new CollisionData()
+                    {
+                        Normal = a_data.Normal,
+                        Depth = a_data.Depth  
+                    };
+
+                    rBodyA.OnCollisionEnter(bodyB, data);
+                }
+
+                if (bodyB is RigidBody rBodyB)
+                {
+                    CollisionData data = new CollisionData()
+                    {
+                        Normal = -a_data.Normal,
+                        Depth = a_data.Depth
+                    };
+
+                    rBodyB.OnCollisionEnter(bodyA, data);
+                }
+            }
+            else
+            {
+                // TODO: Triggers
+            }
+        }
+        static void OnCollisionStay(DispatchCollisionData a_data)
+        {
+            if (!s_bodies.ContainsKey(a_data.BodyAddrA) && !s_bodies.ContainsKey(a_data.BodyAddrB))
+            {
+                Logger.IcarianError("Bad Collision Stay dispatch");
+
+                return;
+            }
+
+            PhysicsBody bodyA = s_bodies[a_data.BodyAddrA];
+            PhysicsBody bodyB = s_bodies[a_data.BodyAddrB];
+
+            if (a_data.IsTrigger == 0)
+            {
+                if (bodyA is RigidBody rBodyA)
+                {
+                    CollisionData data = new CollisionData()
+                    {
+                        Normal = a_data.Normal,
+                        Depth = a_data.Depth
+                    };
+
+                    rBodyA.OnCollisionStay(bodyB, data);
+                }
+
+                if (bodyB is RigidBody rBodyB)
+                {
+                    CollisionData data = new CollisionData()
+                    {
+                        Normal = -a_data.Normal,
+                        Depth = a_data.Depth
+                    };
+
+                    rBodyB.OnCollisionStay(bodyA, data);
+                }
+            }
+            else
+            {
+                // TODO: Triggers
+            }
+        }
+        static void OnCollisionExit(DispatchCollisionData a_data)
+        {
+            if (!s_bodies.ContainsKey(a_data.BodyAddrA) && !s_bodies.ContainsKey(a_data.BodyAddrB))
+            {
+                Logger.IcarianError("Bad Collision Exit dispatch");
+
+                return;
+            }
+
+            PhysicsBody bodyA = s_bodies[a_data.BodyAddrA];
+            PhysicsBody bodyB = s_bodies[a_data.BodyAddrB];
+
+            if (a_data.IsTrigger == 0)
+            {
+                if (bodyA is RigidBody rBodyA)
+                {
+                    rBodyA.OnCollisionExit(bodyB);
+                }
+
+                if (bodyB is RigidBody rBodyB)
+                {
+                    rBodyB.OnCollisionExit(bodyA);
+                }
+            }
+            else
+            {
+                // TODO: Triggers
+            }
         }
     }
 }

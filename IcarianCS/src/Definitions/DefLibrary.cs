@@ -96,7 +96,8 @@ namespace IcarianEngine.Definitions
                 {
                 case Type _:
                 {
-                    Type val = Type.GetType(a_datObj.Text, false);
+                    Type val = ModControl.GetTypeValue(a_datObj.Text);
+
                     if (val != null)
                     {
                         field.SetValue(a_obj, val);
@@ -492,11 +493,7 @@ namespace IcarianEngine.Definitions
 
         static Def CreateDef(DefData a_data, IEnumerable<DefData> a_dataList)
         {
-            Type type = Type.GetType(a_data.Type, false, false);
-            if (type == null)
-            {
-                type = Type.GetType($"IcarianEngine.Definitions.{a_data.Type}", false, false);
-            }
+            Type type = ModControl.GetTypeValue(a_data.Type, true);
 
             if (type != null)
             {
