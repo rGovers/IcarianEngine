@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "Flare/IcarianAssert.h"
+#include "Flare/IcarianDefer.h"
 #include "Jolt/Physics/Body/Body.h"
 #include "Jolt/Physics/Body/BodyInterface.h"
 #include "ObjectManager.h"
@@ -131,7 +132,8 @@ void PhysicsEngine::Update(double a_delta)
         const std::vector<JPH::BodyID> bodies = m_activationListener->ToBodies();
         const std::shared_lock g = std::shared_lock(m_mapMutex);
 
-        JPH::BodyInterface& interface = m_physicsSystem->GetBodyInterface();
+        // Should not need but doing just incase for good practice as it multithreaded app
+        const JPH::BodyLockInterfaceLocking& interface = m_physicsSystem->GetBodyLockInterface();
 
         // Need to sync the physics transform to the transform
         for (const JPH::BodyID id : bodies)
@@ -158,9 +160,18 @@ void PhysicsEngine::Update(double a_delta)
                     glm::decompose(pInv, iTranslation, iRotation, iScale, iSkew, iPerspectice);
                 }
 
-                JPH::RVec3 jTranslation;
-                JPH::Quat jRotation;
-                interface.GetPositionAndRotation(id, jTranslation, jRotation);
+                const struct
+                {
+                    JPH::SharedMutex* Mutex;
+                    const JPH::BodyLockInterfaceLocking& Interface;
+
+                } lockData = { interface.LockRead(id), interface };
+                ICARIAN_DEFER(lockData, lockData.Interface.UnlockRead(lockData.Mutex));
+
+                const JPH::Body* body = interface.TryGetBody(id);
+
+                JPH::RVec3 jTranslation = body->GetPosition();
+                JPH::Quat jRotation = body->GetRotation();
 
                 const glm::vec4 diff = glm::vec4(jTranslation.GetX(), jTranslation.GetY(), jTranslation.GetZ(), 1.0f) + glm::vec4(iTranslation, 0.0f);
 

@@ -17,6 +17,9 @@
 #include <Jolt/Physics/Body/BodyID.h>
 #include <Jolt/Physics/Body/BodyInterface.h>
 #include <Jolt/Physics/Body/MotionType.h>
+#include <Jolt/Physics/Collision/CastResult.h>
+#include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
+#include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/EActivation.h>
 #include <mutex>
 
@@ -25,7 +28,6 @@
 #include "Flare/IcarianDefer.h"
 #include "ObjectManager.h"
 #include "Physics/PhysicsEngine.h"
-#include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
 static PhysicsEngineBindings* Instance = nullptr;
@@ -57,6 +59,11 @@ static PhysicsEngineBindings* Instance = nullptr;
     \
     F(uint32_t, IcarianEngine.Physics, TriggerBody, CreateTriggerBody, { return Instance->CreateTriggerBody(a_transformAddr, a_colliderAddr); }, uint32_t a_transformAddr, uint32_t a_colliderAddr) \
     F(void, IcarianEngine.Physics, TriggerBody, DestroyTriggerBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) \
+    \
+    F(void, IcarianEngine.Physics, Physics, SetGravity, { Instance->SetGravity(a_gravity); }, glm::vec3 a_gravity) \
+    F(glm::vec3, IcarianEngine.Physics, Physics, GetGravity, { return Instance->GetGravity(); }) \
+    \
+    F(MonoArray*, IcarianEngine.Physics, Physics, RaycastS, { return Instance->Raycast(a_pos, a_dir); }, glm::vec3 a_pos, glm::vec3 a_dir)
 
 PHYSICSENGINE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
@@ -65,6 +72,7 @@ PhysicsEngineBindings::PhysicsEngineBindings(PhysicsEngine* a_engine, RuntimeMan
     TRACE("Binding physics functions to C#");
     
     m_engine = a_engine;
+    m_runtime = a_runtime;
 
     Instance = this;
 
@@ -446,4 +454,70 @@ uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint
     AddBody(id.GetIndex(), index);
 
     return index;
+}
+
+void PhysicsEngineBindings::SetGravity(const glm::vec3 &a_gravity) const
+{
+    m_engine->m_physicsSystem->SetGravity(JPH::Vec3(a_gravity.x, a_gravity.y, a_gravity.z));
+}
+glm::vec3 PhysicsEngineBindings::GetGravity() const
+{
+    const JPH::Vec3 gravity = m_engine->m_physicsSystem->GetGravity();
+
+    return glm::vec3(gravity.GetX(), gravity.GetY(), gravity.GetZ());
+}
+
+RaycastResult* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir, uint32_t* a_resultCount) const
+{
+    *a_resultCount = 0;
+
+    const JPH::BroadPhaseQuery& broad = m_engine->m_physicsSystem->GetBroadPhaseQuery();
+
+    JPH::RayCast ray;
+    ray.mOrigin = JPH::Vec3(a_pos.x, a_pos.y, a_pos.z);
+    ray.mDirection = JPH::Vec3(a_dir.x, a_dir.y, a_dir.z);
+
+    JPH::AllHitCollisionCollector<JPH::RayCastBodyCollector> collector;
+    broad.CastRay(ray, collector);
+
+    if (collector.HadHit())
+    {
+        *a_resultCount = (uint32_t)collector.mHits.size();
+
+        JPH::BroadPhaseCastResult* rayResults = collector.mHits.data();
+
+        RaycastResult* results = new RaycastResult[*a_resultCount];
+        for (uint32_t i = 0; i < *a_resultCount; ++i)
+        {
+            const JPH::Vec3 pos = ray.GetPointOnRay(rayResults[i].mFraction);
+
+            results[i].Position = glm::vec3(pos.GetX(), pos.GetY(), pos.GetZ());
+            results[i].BodyAddr = m_engine->GetBodyAddr(rayResults[i].mBodyID.GetIndex());
+        }
+
+        return results;
+    }
+
+    return nullptr;
+}
+MonoArray* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir) const
+{
+    uint32_t resultCount;
+    RaycastResult* results = Raycast(a_pos, a_dir, &resultCount);
+    if (results != nullptr)
+    {
+        ICARIAN_DEFER_delA(results);
+
+        MonoClass* klass = m_runtime->GetClass("IcarianEngine.Physics", "RaycastResultS");
+        MonoArray* arr = mono_array_new(m_runtime->GetDomain(), klass, (uintptr_t)resultCount);
+
+        for (uint32_t i = 0; i < resultCount; ++i)
+        {
+            mono_array_set(arr, RaycastResult, i, results[i]);
+        }
+
+        return arr;
+    }
+
+    return nullptr;
 }

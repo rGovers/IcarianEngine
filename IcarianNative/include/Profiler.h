@@ -8,8 +8,8 @@
 #include <unordered_map>
 #include <vector>
 
-#if !defined(NDEBUG) && !defined(FLARENATIVE_ENABLE_PROFILER)
-#define FLARENATIVE_ENABLE_PROFILER
+#if !defined(NDEBUG) && !defined(ICARIANNATIVE_ENABLE_PROFILER)
+#define ICARIANNATIVE_ENABLE_PROFILER
 #endif
 
 class RuntimeManager;
@@ -72,7 +72,7 @@ struct StackProfilerFrame
 };
 
 #ifndef PROFILESTACK
-#ifdef FLARENATIVE_ENABLE_PROFILER
+#ifdef ICARIANNATIVE_ENABLE_PROFILER
 #define PROFILESTACK(str) volatile StackProfilerFrame stackPFrame = StackProfilerFrame(str)
 #else
 #define PROFILESTACK(str) void(0)

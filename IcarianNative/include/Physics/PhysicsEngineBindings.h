@@ -6,13 +6,21 @@
 #include <cstdint>
 #include <Jolt/Core/Core.h>
 
+#include "Runtime/RuntimeManager.h"
+
 class PhysicsEngine;
-class RuntimeManager;
+
+struct RaycastResult
+{
+    glm::vec3 Position;
+    uint32_t BodyAddr;
+};
 
 class PhysicsEngineBindings
 {
 private:
-    PhysicsEngine* m_engine;
+    PhysicsEngine*  m_engine;
+    RuntimeManager* m_runtime;
 
     void AddBody(JPH::uint32 a_id, uint32_t a_index) const;
     
@@ -44,4 +52,10 @@ public:
     uint32_t CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) const;
 
     uint32_t CreateTriggerBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const;
+
+    void SetGravity(const glm::vec3& a_gravity) const;
+    glm::vec3 GetGravity() const;
+
+    RaycastResult* Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir, uint32_t* a_resultCount) const;
+    MonoArray* Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir) const;
 };

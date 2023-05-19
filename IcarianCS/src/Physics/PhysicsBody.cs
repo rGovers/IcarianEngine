@@ -87,6 +87,16 @@ namespace IcarianEngine.Physics
             InternalAddr = uint.MaxValue;
         }        
 
+        internal static PhysicsBody GetBody(uint a_addr)
+        {
+            if (s_bodies.ContainsKey(a_addr))
+            {
+                return s_bodies[a_addr];
+            }
+
+            return null;
+        }
+
         public override void Init()
         {
             base.Init();

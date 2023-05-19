@@ -56,7 +56,7 @@ void Profiler::Destroy()
 
 void Profiler::Start(const std::string_view& a_name)
 {
-#ifdef FLARENATIVE_ENABLE_PROFILER
+#ifdef ICARIANNATIVE_ENABLE_PROFILER
     const std::unique_lock lock = std::unique_lock(Instance->m_mutex);
 
     const std::thread::id tID = std::this_thread::get_id();
@@ -78,7 +78,7 @@ void Profiler::Start(const std::string_view& a_name)
 }
 void Profiler::Stop()
 {
-#ifdef FLARENATIVE_ENABLE_PROFILER
+#ifdef ICARIANNATIVE_ENABLE_PROFILER
     if (CallbackFunc != nullptr)
     {
         const std::shared_lock lock = std::shared_lock(Instance->m_mutex);
@@ -100,7 +100,7 @@ void Profiler::Stop()
 
 void Profiler::StartFrame(const std::string_view& a_name)
 {
-#ifdef FLARENATIVE_ENABLE_PROFILER
+#ifdef ICARIANNATIVE_ENABLE_PROFILER
     const std::shared_lock lock = std::shared_lock(Instance->m_mutex);
 
     const std::thread::id tID = std::this_thread::get_id();
@@ -140,7 +140,7 @@ void Profiler::StartFrame(const std::string_view& a_name)
 }
 void Profiler::StopFrame()
 {
-#ifdef FLARENATIVE_ENABLE_PROFILER
+#ifdef ICARIANNATIVE_ENABLE_PROFILER
     const std::shared_lock lock = std::shared_lock(Instance->m_mutex);
 
     const std::thread::id tID = std::this_thread::get_id();
