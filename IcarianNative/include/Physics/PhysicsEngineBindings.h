@@ -58,4 +58,13 @@ public:
 
     RaycastResult* Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir, uint32_t* a_resultCount) const;
     MonoArray* Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir) const;
+
+    uint32_t* SphereCollision(const glm::vec3& a_pos, float a_radius, uint32_t* a_resultCount) const;
+    MonoArray* SphereCollision(const glm::vec3& a_pos, float a_radius) const;
+
+    uint32_t* BoxCollision(const glm::mat4& a_transform, const glm::vec3& a_extents, uint32_t* a_resultCount) const;
+    MonoArray* BoxCollision(MonoArray* a_transform, const glm::vec3& a_extents) const;
+
+    uint32_t* AABBCollision(const glm::vec3& a_min, const glm::vec3& a_max, uint32_t* a_resultCount) const;
+    MonoArray* AABBCollision(const glm::vec3& a_min, const glm::vec3& a_max) const;
 };

@@ -4,6 +4,7 @@
 
 #include <glm/gtx/matrix_decompose.hpp>
 #include <Jolt/Core/Core.h>
+#include <Jolt/Geometry/OrientedBox.h>
 #include <Jolt/Physics/Body/Body.h>
 #include <Jolt/Physics/Body/BodyManager.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
@@ -63,7 +64,10 @@ static PhysicsEngineBindings* Instance = nullptr;
     F(void, IcarianEngine.Physics, Physics, SetGravity, { Instance->SetGravity(a_gravity); }, glm::vec3 a_gravity) \
     F(glm::vec3, IcarianEngine.Physics, Physics, GetGravity, { return Instance->GetGravity(); }) \
     \
-    F(MonoArray*, IcarianEngine.Physics, Physics, RaycastS, { return Instance->Raycast(a_pos, a_dir); }, glm::vec3 a_pos, glm::vec3 a_dir)
+    F(MonoArray*, IcarianEngine.Physics, Physics, RaycastS, { return Instance->Raycast(a_pos, a_dir); }, glm::vec3 a_pos, glm::vec3 a_dir) \
+    F(MonoArray*, IcarianEngine.Physics, Physics, SphereCollisionS, { return Instance->SphereCollision(a_pos, a_radius); }, glm::vec3 a_pos, float a_radius) \
+    F(MonoArray*, IcarianEngine.Physics, Physics, BoxCollisionS, { return Instance->BoxCollision(a_transform, a_extents); }, MonoArray* a_transform, glm::vec3 a_extents) \
+    F(MonoArray*, IcarianEngine.Physics, Physics, AABBCollisionS, { return Instance->AABBCollision(a_min, a_max); }, glm::vec3 a_min, glm::vec3 a_max)
 
 PHYSICSENGINE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
@@ -484,7 +488,7 @@ RaycastResult* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm:
     {
         *a_resultCount = (uint32_t)collector.mHits.size();
 
-        JPH::BroadPhaseCastResult* rayResults = collector.mHits.data();
+        const JPH::BroadPhaseCastResult* rayResults = collector.mHits.data();
 
         RaycastResult* results = new RaycastResult[*a_resultCount];
         for (uint32_t i = 0; i < *a_resultCount; ++i)
@@ -514,6 +518,175 @@ MonoArray* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm::vec
         for (uint32_t i = 0; i < resultCount; ++i)
         {
             mono_array_set(arr, RaycastResult, i, results[i]);
+        }
+
+        return arr;
+    }
+
+    return nullptr;
+}
+
+uint32_t* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float a_radius, uint32_t* a_resultCount) const
+{
+    *a_resultCount = 0;
+
+    const JPH::BroadPhaseQuery& broad = m_engine->m_physicsSystem->GetBroadPhaseQuery();
+
+    JPH::AllHitCollisionCollector<JPH::CollideShapeBodyCollector> collector;
+    broad.CollideSphere(JPH::Vec3(a_pos.x, a_pos.y, a_pos.z), a_radius, collector);
+
+    if (collector.HadHit())
+    {
+        *a_resultCount = (uint32_t)collector.mHits.size();
+
+        const JPH::BodyID* ids = collector.mHits.data();
+        uint32_t* results = new uint32_t[*a_resultCount];
+
+        for (uint32_t i = 0; i < *a_resultCount; ++i)
+        {
+            results[i] = m_engine->GetBodyAddr(ids[i].GetIndex());
+        }
+
+        return results;
+    }
+
+    return nullptr;
+}
+MonoArray* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float a_radius) const
+{
+    uint32_t resultCount;
+    uint32_t* data = SphereCollision(a_pos, a_radius, &resultCount);
+    if (data != nullptr)
+    {
+        ICARIAN_DEFER_delA(data);
+
+        MonoArray* arr = mono_array_new(m_runtime->GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
+
+        for (uint32_t i = 0; i < resultCount; ++i)
+        {
+            mono_array_set(arr, uint32_t, i, data[i]);
+        }
+
+        return arr;
+    }
+
+    return nullptr;
+}
+
+uint32_t* PhysicsEngineBindings::BoxCollision(const glm::mat4& a_transform, const glm::vec3& a_extents, uint32_t* a_resultCount) const
+{
+    *a_resultCount = 0;
+
+    const JPH::BroadPhaseQuery& broad = m_engine->m_physicsSystem->GetBroadPhaseQuery();
+
+    const glm::vec3 halfExtents = a_extents * 0.5f;
+
+    JPH::AllHitCollisionCollector<JPH::CollideShapeBodyCollector> collector;
+
+    JPH::OrientedBox box;
+    box.mHalfExtents = JPH::Vec3(halfExtents.x, halfExtents.y, halfExtents.z);
+    box.mOrientation = JPH::Mat44
+    (
+        JPH::Vec4(a_transform[0][0], a_transform[0][1], a_transform[0][2], a_transform[0][3]),
+        JPH::Vec4(a_transform[1][0], a_transform[1][1], a_transform[1][2], a_transform[1][3]),
+        JPH::Vec4(a_transform[2][0], a_transform[2][1], a_transform[2][2], a_transform[2][3]),
+        JPH::Vec4(a_transform[3][0], a_transform[3][1], a_transform[3][2], a_transform[3][3])
+    );
+
+    broad.CollideOrientedBox(box, collector);
+
+    if (collector.HadHit())
+    {
+        *a_resultCount = (uint32_t)collector.mHits.size();
+
+        const JPH::BodyID* ids = collector.mHits.data();
+        uint32_t* results = new uint32_t[*a_resultCount];
+
+        for (uint32_t i = 0; i < *a_resultCount; ++i)
+        {
+            results[i] = m_engine->GetBodyAddr(ids[i].GetIndex());
+        }
+
+        return results;
+    }
+
+    return nullptr;
+}
+MonoArray* PhysicsEngineBindings::BoxCollision(MonoArray* a_transform, const glm::vec3& a_extents) const
+{
+    glm::mat4 t;
+    float* tDat = (float*)&t;
+
+    for (int i = 0; i < 16; ++i)
+    {
+        tDat[i] = mono_array_get(a_transform, float, i);
+    }
+
+    uint32_t resultCount;
+    uint32_t* data = BoxCollision(t, a_extents, &resultCount);
+
+    if (data != nullptr)
+    {
+        ICARIAN_DEFER_delA(data);
+
+        MonoArray* arr = mono_array_new(m_runtime->GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
+
+        for (uint32_t i = 0; i < resultCount; ++i)
+        {
+            mono_array_set(arr, uint32_t, i, data[i]);
+        }
+
+        return arr;
+    }
+    
+    return nullptr;
+}
+
+uint32_t* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm::vec3& a_max, uint32_t* a_resultCount) const
+{
+    *a_resultCount = 0;
+
+    const JPH::BroadPhaseQuery& broad = m_engine->m_physicsSystem->GetBroadPhaseQuery();
+
+    JPH::AllHitCollisionCollector<JPH::CollideShapeBodyCollector> collector;
+
+    JPH::AABox box;
+    box.mMin = JPH::Vec3(a_min.x, a_min.y, a_min.z);
+    box.mMax = JPH::Vec3(a_max.x, a_max.y, a_max.z);
+
+    broad.CollideAABox(box, collector);
+
+    if (collector.HadHit())
+    {
+        *a_resultCount = (uint32_t)collector.mHits.size();
+
+        const JPH::BodyID* ids = collector.mHits.data();    
+        uint32_t* results = new uint32_t[*a_resultCount];
+
+        for (uint32_t i = 0; i < *a_resultCount; ++i)
+        {
+            results[i] = m_engine->GetBodyAddr(ids[i].GetIndex());
+        }
+
+        return results;
+    }
+
+    return nullptr;
+}
+MonoArray* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm::vec3& a_max) const
+{
+    uint32_t resultCount;
+    uint32_t* data = AABBCollision(a_min, a_max, &resultCount);
+
+    if (data != nullptr)
+    {
+        ICARIAN_DEFER_delA(data);
+
+        MonoArray* arr = mono_array_new(m_runtime->GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
+
+        for (uint32_t i = 0; i < resultCount; ++i)
+        {
+            mono_array_set(arr, uint32_t, i, data[i]);
         }
 
         return arr;
