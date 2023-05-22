@@ -125,7 +125,7 @@ namespace IcarianEngine
             Component comp = Component.FromDef(a_def);
             if (comp != null)
             {
-                comp.Object = this;
+                comp.GameObject = this;
 
                 if (comp != null)
                 {
@@ -144,7 +144,7 @@ namespace IcarianEngine
         public T AddComponent<T>() where T : Component
         {
             T comp = Activator.CreateInstance<T>();
-            comp.Object = this;
+            comp.GameObject = this;
 
             if (comp != null)
             {

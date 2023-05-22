@@ -31,6 +31,11 @@ namespace IcarianEngine.Physics
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyPhysicsBody(uint a_addr);
 
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void SetPosition(uint a_addr, Vector3 a_pos);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void SetRotation(uint a_addr, Quaternion a_rot);
+
         public PhysicsBodyDef PhysicsBodyDef
         {
             get
@@ -156,6 +161,15 @@ namespace IcarianEngine.Physics
         ~PhysicsBody()
         {
             Dispose(false);
+        }
+
+        public void SetPosition(Vector3 a_pos)
+        {
+            SetPosition(InternalAddr, a_pos);
+        }
+        public void SetRotation(Quaternion a_rotation)
+        {
+            SetRotation(InternalAddr, a_rotation);
         }
 
         static void OnCollisionEnter(DispatchCollisionData a_data)

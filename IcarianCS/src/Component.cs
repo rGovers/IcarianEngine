@@ -17,7 +17,7 @@ namespace IcarianEngine
             }
         }
 
-        public GameObject Object
+        public GameObject GameObject
         {
             get
             {
@@ -55,6 +55,19 @@ namespace IcarianEngine
         internal static T FromDef<T>(ComponentDef a_def) where T : Component
         {
             return FromDef(a_def) as T;
+        }
+
+        public T GetComponent<T>() where T : Component
+        {
+            return m_object.GetComponent<T>();
+        }
+        public T GetComponent<T>(ComponentDef a_def) where T : Component
+        {
+            return m_object.GetComponent<T>(a_def);
+        }
+        public Component GetComponent(ComponentDef a_def)
+        {
+            return m_object.GetComponent(a_def);
         }
     }
 }

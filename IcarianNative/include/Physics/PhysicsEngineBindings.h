@@ -16,6 +16,13 @@ struct RaycastResult
     uint32_t BodyAddr;
 };
 
+enum e_ForceMode : uint16_t
+{
+    ForceMode_Force = 0,
+    ForceMode_Acceleration = 1,
+    ForceMode_Impulse = 2
+};
+
 class PhysicsEngineBindings
 {
 private:
@@ -49,7 +56,17 @@ public:
     uint32_t CreatePhysicsBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const;
     void DestroyPhysicsBody(uint32_t a_addr) const;
 
+    void SetPhysicsBodyPosition(uint32_t a_addr, const glm::vec3& a_pos) const;
+    void SetPhysicsBodyRotation(uint32_t a_addr, const glm::quat& a_rot) const;
+
     uint32_t CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) const;
+    glm::vec3 GetRigidBodyVelocity(uint32_t a_addr) const;
+
+    void SetRigidBodyVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const;
+    glm::vec3 GetRigidBodyAngularVelocity(uint32_t a_addr) const;
+    void SetRigidBodyAngularVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const;
+    void RigidBodyAddForce(uint32_t a_addr, const glm::vec3& a_force, e_ForceMode a_mode) const;
+    void RigidBodyAddTorque(uint32_t a_addr, const glm::vec3& a_torque, e_ForceMode a_mode) const;
 
     uint32_t CreateTriggerBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const;
 

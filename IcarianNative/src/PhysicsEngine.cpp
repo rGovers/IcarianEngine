@@ -17,6 +17,7 @@
 #include "Jolt/Physics/Body/Body.h"
 #include "Jolt/Physics/Body/BodyInterface.h"
 #include "ObjectManager.h"
+#include "Physics/InterfaceLock.h"
 #include "Physics/PhysicsEngineBindings.h"
 #include "Profiler.h"
 #include "Runtime/RuntimeManager.h"
@@ -160,13 +161,7 @@ void PhysicsEngine::Update(double a_delta)
                     glm::decompose(pInv, iTranslation, iRotation, iScale, iSkew, iPerspectice);
                 }
 
-                const struct
-                {
-                    JPH::SharedMutex* Mutex;
-                    const JPH::BodyLockInterfaceLocking& Interface;
-
-                } lockData = { interface.LockRead(id), interface };
-                ICARIAN_DEFER(lockData, lockData.Interface.UnlockRead(lockData.Mutex));
+                const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(id, interface);
 
                 const JPH::Body* body = interface.TryGetBody(id);
 

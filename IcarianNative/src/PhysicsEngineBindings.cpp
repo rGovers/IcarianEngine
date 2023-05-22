@@ -28,6 +28,7 @@
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
 #include "ObjectManager.h"
+#include "Physics/InterfaceLock.h"
 #include "Physics/PhysicsEngine.h"
 #include "Trace.h"
 
@@ -54,9 +55,17 @@ static PhysicsEngineBindings* Instance = nullptr;
     \
     F(uint32_t, IcarianEngine.Physics, PhysicsBody, CreatePhysicsBody, { return Instance->CreatePhysicsBody(a_transformAddr, a_colliderAddr); }, uint32_t a_transformAddr, uint32_t a_colliderAddr) \
     F(void, IcarianEngine.Physics, PhysicsBody, DestroyPhysicsBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Physics, PhysicsBody, SetPosition, { Instance->SetPhysicsBodyPosition(a_addr, a_pos); }, uint32_t a_addr, glm::vec3 a_pos) \
+    F(void, IcarianEngine.Physics, PhysicsBody, SetRotation, { Instance->SetPhysicsBodyRotation(a_addr, a_rot); }, uint32_t a_addr, glm::quat a_rot) \
     \
     F(uint32_t, IcarianEngine.Physics, RigidBody, CreateRigidBody, { return Instance->CreateRigidBody(a_transformAddr, a_colliderAddr, a_mass); }, uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) \
     F(void, IcarianEngine.Physics, RigidBody, DestroyRigidBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) \
+    F(glm::vec3, IcarianEngine.Physics, RigidBody, GetVelocity, { return Instance->GetRigidBodyVelocity(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Physics, RigidBody, SetVelocity, { Instance->SetRigidBodyVelocity(a_addr, a_velocity); }, uint32_t a_addr, glm::vec3 a_velocity) \
+    F(glm::vec3, IcarianEngine.Physics, RigidBody, GetAngularVelocity, { return Instance->GetRigidBodyAngularVelocity(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Physics, RigidBody, SetAngularVelocity, { Instance->SetRigidBodyAngularVelocity(a_addr, a_velocity); }, uint32_t a_addr, glm::vec3 a_velocity) \
+    F(void, IcarianEngine.Physics, RigidBody, AddForce, { Instance->RigidBodyAddForce(a_addr, a_force, (e_ForceMode)a_mode); }, uint32_t a_addr, glm::vec3 a_force, uint32_t a_mode) \
+    F(void, IcarianEngine.Physics, RigidBody, AddTorque, { Instance->RigidBodyAddTorque(a_addr, a_torque, (e_ForceMode)a_mode); }, uint32_t a_addr, glm::vec3 a_torque, uint32_t a_mode) \
     \
     F(uint32_t, IcarianEngine.Physics, TriggerBody, CreateTriggerBody, { return Instance->CreateTriggerBody(a_transformAddr, a_colliderAddr); }, uint32_t a_transformAddr, uint32_t a_colliderAddr) \
     F(void, IcarianEngine.Physics, TriggerBody, DestroyTriggerBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) \
@@ -349,6 +358,58 @@ void PhysicsEngineBindings::DestroyPhysicsBody(uint32_t a_addr) const
 
     binding.TransformAddr = -1;
 }
+void PhysicsEngineBindings::SetPhysicsBodyPosition(uint32_t a_addr, const glm::vec3& a_pos) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_bodyBindings.Size(), "SetPhysicsBodyPosition out of bounds");
+
+    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+
+    JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
+
+    interface.SetPosition(binding.Body, JPH::Vec3(a_pos.x, a_pos.y, a_pos.z), JPH::EActivation::Activate);
+
+    TransformBuffer buffer = m_engine->m_objectManager->GetTransformBuffer(binding.TransformAddr);
+
+    glm::mat4 invMat = glm::identity<glm::mat4>();
+    if (buffer.Parent != -1)
+    {
+        const glm::mat4 transformMat = m_engine->m_objectManager->GetGlobalMatrix(buffer.Parent);
+        invMat = glm::inverse(transformMat);
+    }
+
+    buffer.Translation = (invMat * glm::vec4(a_pos, 1.0f)).xyz();
+
+    m_engine->m_objectManager->SetTransformBuffer(binding.TransformAddr, buffer);
+}
+void PhysicsEngineBindings::SetPhysicsBodyRotation(uint32_t a_addr, const glm::quat& a_rot) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_bodyBindings.Size(), "SetPhysicsBodyRotation out of bounds");
+
+    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+
+    JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
+
+    interface.SetRotation(binding.Body, JPH::Quat(a_rot.x, a_rot.y, a_rot.z, a_rot.w), JPH::EActivation::Activate);
+
+    TransformBuffer buffer = m_engine->m_objectManager->GetTransformBuffer(binding.TransformAddr);
+
+    glm::quat invQuat = glm::identity<glm::quat>();
+    if (buffer.Parent != -1)
+    {
+        const glm::mat4 transformMat = m_engine->m_objectManager->GetGlobalMatrix(buffer.Parent);
+        const glm::mat4 inv = glm::inverse(transformMat);
+
+        glm::vec3 trans;
+        glm::vec3 scale;
+        glm::vec3 skew;
+        glm::vec4 per;
+        glm::decompose(inv, scale, invQuat, trans, skew, per);
+    }
+
+    buffer.Rotation = a_rot * invQuat;
+
+    m_engine->m_objectManager->SetTransformBuffer(binding.TransformAddr, buffer);
+}
 
 uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) const
 {
@@ -407,6 +468,118 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
     AddBody(id.GetIndex(), index);
 
     return index;
+}
+glm::vec3 PhysicsEngineBindings::GetRigidBodyVelocity(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_bodyBindings.Size(), "GetRigidBodyVelocity out of bounds");
+
+    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+
+    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    
+    const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(binding.Body, interface);
+
+    const JPH::Body* body = interface.TryGetBody(binding.Body);
+
+    const JPH::Vec3 vel = body->GetLinearVelocity();
+
+    return glm::vec3(vel.GetX(), vel.GetY(), vel.GetZ());
+}
+void PhysicsEngineBindings::SetRigidBodyVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_bodyBindings.Size(), "SetRigidBodyVelocity out of bounds");
+
+    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+
+    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
+
+    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, interface);
+
+    JPH::Body* body = interface.TryGetBody(binding.Body);
+    body->SetLinearVelocity(JPH::Vec3(a_velocity.x, a_velocity.y, a_velocity.z));
+}
+glm::vec3 PhysicsEngineBindings::GetRigidBodyAngularVelocity(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_bodyBindings.Size(), "GetRigidBodyAngularVelocity out of bounds");
+
+    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+
+    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    
+    const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(binding.Body, interface);
+
+    const JPH::Body* body = interface.TryGetBody(binding.Body);
+
+    const JPH::Vec3 vel = body->GetAngularVelocity();
+
+    return glm::vec3(vel.GetX(), vel.GetY(), vel.GetZ());
+}
+void PhysicsEngineBindings::SetRigidBodyAngularVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_bodyBindings.Size(), "SetRigidBodyVelocity out of bounds");
+
+    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+
+    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
+
+    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, interface);
+
+    JPH::Body* body = interface.TryGetBody(binding.Body);
+    body->SetAngularVelocity(JPH::Vec3(a_velocity.x, a_velocity.y, a_velocity.z));
+}
+void PhysicsEngineBindings::RigidBodyAddForce(uint32_t a_addr, const glm::vec3& a_force, e_ForceMode a_mode) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_bodyBindings.Size(), "RigidBodyAddForce out of bounds");
+
+    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+
+    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
+
+    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, interface);
+
+    JPH::Body* body = interface.TryGetBody(binding.Body);
+    switch (a_mode) 
+    {
+    case ForceMode_Impulse:
+    {
+        body->AddImpulse(JPH::Vec3(a_force.x, a_force.y, a_force.z));
+
+        break;
+    }
+    default:
+    {
+        body->AddForce(JPH::Vec3(a_force.x, a_force.y, a_force.z));
+
+        break;
+    }
+    }
+}
+void PhysicsEngineBindings::RigidBodyAddTorque(uint32_t a_addr, const glm::vec3& a_torque, e_ForceMode a_mode) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_bodyBindings.Size(), "RigidBodyAddTorque out of bounds");
+
+    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+
+    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
+
+    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, interface);
+
+    JPH::Body* body = interface.TryGetBody(binding.Body);
+    switch (a_mode) 
+    {
+    case ForceMode_Impulse:
+    {
+        body->AddAngularImpulse(JPH::Vec3(a_torque.x, a_torque.y, a_torque.z));
+
+        break;
+    }
+    default:
+    {
+        body->AddTorque(JPH::Vec3(a_torque.x, a_torque.y, a_torque.z));
+        
+        break;
+    }
+    }
 }
 
 uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const
