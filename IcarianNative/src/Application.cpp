@@ -4,6 +4,7 @@
 #include "AppWindow/HeadlessAppWindow.h"
 #include "AssetLibrary.h"
 #include "Config.h"
+#include "Flare/IcarianAssert.h"
 #include "InputManager.h"
 #include "Logger.h"
 #include "ObjectManager.h"
@@ -16,6 +17,9 @@
 #include "ThreadPool.h"
 
 static Application* Instance = nullptr;
+
+// Windows fixes
+#undef min
 
 struct Monitor
 {
@@ -90,6 +94,11 @@ static void PlzNoReorder(RuntimeManager* a_runtime)
     delete a_runtime;
 }
 
+static void AppAssertCallback(const std::string& a_string)
+{
+    Logger::Error(a_string);
+}
+
 Application::Application(Config* a_config)
 {
     Instance = this;
@@ -98,6 +107,10 @@ Application::Application(Config* a_config)
 
     TRACE("Starting Application");
     m_config = a_config;
+
+    AssertCallbackFunc = (AssertCallback)AppAssertCallback;
+
+    ICARIAN_ASSERT(0);
 
     if (a_config->IsHeadless())
     {
@@ -109,7 +122,7 @@ Application::Application(Config* a_config)
     }
 
     m_runtime = new RuntimeManager();
-
+        
     ThreadPool::Init();
 
     Logger::InitRuntime(m_runtime);

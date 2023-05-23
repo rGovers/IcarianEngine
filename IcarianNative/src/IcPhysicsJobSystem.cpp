@@ -47,7 +47,7 @@ void IcPhysicsJobSystem::QueueJob(Job* a_job)
 }
 void IcPhysicsJobSystem::QueueJobs(Job** a_jobs, JPH::uint a_numJobs)
 {
-    for (uint i = 0; i < a_numJobs; ++i)
+    for (JPH::uint i = 0; i < a_numJobs; ++i)
     {        
         ThreadPool::PushJob(new PhysicsJob(a_jobs[i]));
     }

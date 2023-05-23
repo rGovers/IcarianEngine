@@ -34,7 +34,7 @@ static void TraceImpl(const char* inFMT, ...)
     TRACE(buffer);
 }
 
-static bool AssertImpl(const char* a_expression, const char* a_message, const char* a_file, uint a_line)
+static bool AssertImpl(const char* a_expression, const char* a_message, const char* a_file, JPH::uint a_line)
 {
     std::stringstream ss;
 
