@@ -12,7 +12,7 @@ namespace IcarianEngine.Definitions
         public bool HDR;
     }
 
-    public class CameraDef : GameObjectDef
+    public class CameraDef : ComponentDef
     {
         [EditorTooltip("Viewport to determine the portion of the screen rendered to.")]
         public Viewport Viewport = new Viewport()
@@ -41,16 +41,16 @@ namespace IcarianEngine.Definitions
 
         public CameraDef()
         {
-            ObjectType = typeof(Camera);
+            ComponentType = typeof(Camera);
         }
 
         public override void PostResolve()
         {
             base.PostResolve();
 
-            if (ObjectType != typeof(Camera) && !ObjectType.IsSubclassOf(typeof(Camera)))
+            if (ComponentType != typeof(Camera) && !ComponentType.IsSubclassOf(typeof(Camera)))
             {
-                Logger.IcarianError($"Camera Def Invalid ObjectType: {ObjectType}");
+                Logger.IcarianError($"Camera Def Invalid ComponentType: {ComponentType}");
 
                 return;
             }

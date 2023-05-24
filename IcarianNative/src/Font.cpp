@@ -3,6 +3,7 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
+#include <cstring>
 #include <fstream>
 #include <limits>
 #include <stb_rect_pack.h>

@@ -86,6 +86,7 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     F(void, IcarianEngine.Rendering.Lighting, SpotLight, SetBuffer, { Engine->SetSpotLightBuffer(a_addr, a_buffer); }, uint32_t a_addr, SpotLightBuffer a_buffer) \
     \
     F(uint32_t, IcarianEngine.Rendering.UI, Font, GenerateFont, { char* str = mono_string_to_utf8(a_path); ICARIAN_DEFER_monoF(str); return Engine->GenerateFont(str); }, MonoString* a_path) \
+    F(void, IcarianEngine.Rendering.UI, Font, DestroyFont, { Engine->DestroyFont(a_addr); }, uint32_t a_addr) \
     \
     F(void, IcarianEngine.Rendering, RenderCommand, BindMaterial, { Engine->BindMaterial(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, RenderCommand, PushTexture, { Engine->PushTexture(a_slot, a_samplerAddr); }, uint32_t a_slot, uint32_t a_samplerAddr) \

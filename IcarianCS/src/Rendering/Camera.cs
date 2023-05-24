@@ -1,5 +1,6 @@
 using IcarianEngine.Definitions;
 using IcarianEngine.Maths;
+using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -18,9 +19,9 @@ namespace IcarianEngine.Rendering
         public float Far;
     };
 
-    public class Camera : GameObject
+    public class Camera : Component, IDestroy
     {
-        static Dictionary<uint, Camera> BufferLookup = new Dictionary<uint, Camera>();
+        static Dictionary<uint, Camera> s_bufferLookup = new Dictionary<uint, Camera>();
 
         uint m_bufferAddr = uint.MaxValue;
 
@@ -35,6 +36,22 @@ namespace IcarianEngine.Rendering
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static Vector3 ScreenToWorld(uint a_addr, Vector3 a_screenPos, Vector2 a_screenSize);
+
+        public CameraDef CameraDef
+        {
+            get
+            {
+                return Def as CameraDef;
+            }
+        }
+
+        public bool IsDisposed
+        {
+            get
+            {
+                return m_bufferAddr == uint.MaxValue;
+            }
+        }
 
         internal uint BufferAddr
         {
@@ -148,18 +165,14 @@ namespace IcarianEngine.Rendering
             }
         }
 
-        public Camera() : base()
-        {            
-            m_bufferAddr = GenerateBuffer(Transform.InternalAddr);
-
-            BufferLookup.Add(m_bufferAddr, this);
-        }
-
         public override void Init()
         {
-            base.Init();
+            m_bufferAddr = GenerateBuffer(Transform.InternalAddr);
 
-            if (Def is CameraDef def)
+            s_bufferLookup.Add(m_bufferAddr, this);
+            
+            CameraDef def = CameraDef;
+            if (def != null)
             {
                 uint textureAddr = uint.MaxValue;
                 if (def.RenderTexture.Width != uint.MaxValue && def.RenderTexture.Height != uint.MaxValue)
@@ -195,23 +208,29 @@ namespace IcarianEngine.Rendering
 
         internal static Camera GetCamera(uint a_buffer)
         {
-            if (BufferLookup.ContainsKey(a_buffer))
+            if (s_bufferLookup.ContainsKey(a_buffer))
             {
-                return BufferLookup[a_buffer];
+                return s_bufferLookup[a_buffer];
             }
 
             return null;
         }
 
-        protected override void Dispose(bool a_disposing)
+        public void Dispose()
         {
-            base.Dispose(a_disposing);
+            Dispose(true);
 
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool a_disposing)
+        {
             if(m_bufferAddr != uint.MaxValue)
             {
                 if(a_disposing)
                 {
-                    if (Def is CameraDef def)
+                    CameraDef def = CameraDef;
+                    if (def != null)
                     {
                         if (def.RenderTexture.Width != uint.MaxValue && def.RenderTexture.Height != uint.MaxValue)
                         {
@@ -222,7 +241,7 @@ namespace IcarianEngine.Rendering
 
                     DestroyBuffer(m_bufferAddr);
 
-                    BufferLookup.Remove(m_bufferAddr);
+                    s_bufferLookup.Remove(m_bufferAddr);
                 }
                 else
                 {
@@ -235,5 +254,10 @@ namespace IcarianEngine.Rendering
             {
                 Logger.IcarianError("Multiple Camera Dispose");
             }
+        }
+
+        ~Camera()
+        {
+            Dispose(false);
         }
     }}
