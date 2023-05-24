@@ -1,7 +1,7 @@
 #pragma once
 
+#include <filesystem>
 #include <stb_truetype.h>
-#include <string>
 
 class Font
 {
@@ -11,8 +11,10 @@ private:
 protected:
 
 public:
-    Font(const std::string_view& a_path);
+    Font(const unsigned char* a_data);
     ~Font();
 
-    static void Init();
+    static Font* LoadFont(const std::filesystem::path& a_path);
+
+    unsigned char* StringToTexture(const std::u32string_view& a_string, float a_size, uint32_t a_width, uint32_t a_height) const;
 };

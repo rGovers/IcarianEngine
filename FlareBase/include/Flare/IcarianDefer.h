@@ -21,6 +21,16 @@ const struct _##val \
     } \
 } D_##val(val)
 
+#define ICARIAN_DEFER_T(val, type, func) const struct _##val \
+{ \
+    type val; \
+    _##val(type a_##val) : val(a_##val) { } \
+    ~_##val() \
+    { \
+        func; \
+    } \
+} D_##val(val)
+
 #define ICARIAN_DEFERF(func) const struct _##func \
 { \
     ~_##func() \
@@ -32,4 +42,6 @@ const struct _##val \
 #define ICARIAN_DEFER_del(val) ICARIAN_DEFER(val, delete val)
 #define ICARIAN_DEFER_delA(val) ICARIAN_DEFER(val, delete[] val)
 #define ICARIAN_DEFER_free(val) ICARIAN_DEFER(val, free(val))
+#define ICARIAN_DEFER_closeIFile(val) ICARIAN_DEFER_T(val, std::ifstream&, val.close())
+#define ICARIAN_DEFER_closeOFile(val) ICARIAN_DEFER_T(val, std::ofstream&, val.close());
 #define ICARIAN_DEFER_monoF(val) ICARIAN_DEFER(val, mono_free(val))

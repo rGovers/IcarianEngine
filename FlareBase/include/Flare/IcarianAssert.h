@@ -7,8 +7,6 @@
 #include <cassert>
 #include <string>
 
-#include "Logger.h"
-
 typedef void (*AssertCallback)(std::string);
 
 static void DefaultAssertCallback(const std::string& a_string)

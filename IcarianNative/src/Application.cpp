@@ -2,7 +2,6 @@
 
 #include "AppWindow/GLFWAppWindow.h"
 #include "AppWindow/HeadlessAppWindow.h"
-#include "AssetLibrary.h"
 #include "Config.h"
 #include "Flare/IcarianAssert.h"
 #include "InputManager.h"
@@ -110,8 +109,6 @@ Application::Application(Config* a_config)
 
     AssertCallbackFunc = (AssertCallback)AppAssertCallback;
 
-    ICARIAN_ASSERT(0);
-
     if (a_config->IsHeadless())
     {
         m_appWindow = new HeadlessAppWindow(this);
@@ -129,7 +126,6 @@ Application::Application(Config* a_config)
     
     Profiler::Init(m_runtime);
     Scribe::Init(m_runtime);
-    AssetLibrary::Init(m_runtime);
 
     m_inputManager = new InputManager(m_runtime);
 
@@ -161,7 +157,6 @@ Application::~Application()
 
     Profiler::Destroy();
     Scribe::Destroy();
-    AssetLibrary::Destroy();
 
     ThreadPool::Destroy();
 

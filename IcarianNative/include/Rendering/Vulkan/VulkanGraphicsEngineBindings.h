@@ -84,6 +84,9 @@ public:
     SpotLightBuffer GetSpotLightBuffer(uint32_t a_addr) const;
     void DestroySpotLightBuffer(uint32_t a_addr) const;
 
+    uint32_t GenerateFont(const std::string_view& a_path) const;
+    void DestroyFont(uint32_t a_addr) const;
+
     void BindMaterial(uint32_t a_addr) const;
     void PushTexture(uint32_t a_slot, uint32_t a_samplerAddr) const;
     void BindRenderTexture(uint32_t a_addr) const;

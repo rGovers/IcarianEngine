@@ -3,6 +3,7 @@
 #include <fstream>
 #include <string>
 #include <tinyxml2.h>
+#include <unordered_map>
 
 #include "Flare/IcarianAssert.h"
 

@@ -6,6 +6,7 @@
 
 #include "Flare/ColladaLoader.h"
 #include "Flare/IcarianAssert.h"
+#include "Flare/IcarianDefer.h"
 #include "Flare/OBJLoader.h"
 #include "ObjectManager.h"
 #include "Shaders/DirectionalLightPixel.h"
@@ -14,6 +15,7 @@
 #include "Shaders/QuadVertex.h"
 #include "Shaders/SpotLightPixel.h"
 #include "Rendering/RenderEngine.h"
+#include "Rendering/UI/Font.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanModel.h"
 #include "Rendering/Vulkan/VulkanPixelShader.h"
@@ -82,6 +84,8 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     F(void, IcarianEngine.Rendering.Lighting, SpotLight, DestroyBuffer, { Engine->DestroySpotLightBuffer(a_addr); }, uint32_t a_addr) \
     F(SpotLightBuffer, IcarianEngine.Rendering.Lighting, SpotLight, GetBuffer, { return Engine->GetSpotLightBuffer(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Lighting, SpotLight, SetBuffer, { Engine->SetSpotLightBuffer(a_addr, a_buffer); }, uint32_t a_addr, SpotLightBuffer a_buffer) \
+    \
+    F(uint32_t, IcarianEngine.Rendering.UI, Font, GenerateFont, { char* str = mono_string_to_utf8(a_path); ICARIAN_DEFER_monoF(str); return Engine->GenerateFont(str); }, MonoString* a_path) \
     \
     F(void, IcarianEngine.Rendering, RenderCommand, BindMaterial, { Engine->BindMaterial(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, RenderCommand, PushTexture, { Engine->PushTexture(a_slot, a_samplerAddr); }, uint32_t a_slot, uint32_t a_samplerAddr) \
@@ -245,17 +249,18 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Texture, GenerateFromFile), Mo
 
     if (p.extension() == ".png")
     {
-        int width;
-        int height;
-        int channels;
+		int width;
+		int height;
+		int channels;
 
-        stbi_uc* pixels = stbi_load(p.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
-        if (pixels != nullptr)
-        {
-            addr = Engine->GenerateTexture((uint32_t)width, (uint32_t)height, pixels);
+		const std::string str = p.string();
+		stbi_uc* pixels = stbi_load(str.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+		if (pixels != nullptr)
+		{
+			addr = Engine->GenerateTexture((uint32_t)width, (uint32_t)height, pixels);
 
-            stbi_image_free(pixels);
-        }
+			stbi_image_free(pixels);
+		}
     }
 
     return addr;
@@ -1133,7 +1138,7 @@ uint32_t VulkanGraphicsEngineBindings::GenerateDirectionalLightBuffer(uint32_t a
         size = a.Size();
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (a[i].TransformAddr != -1)
+            if (a[i].TransformAddr == -1)
             {
                 a[i] = buffer;
 
@@ -1179,7 +1184,7 @@ uint32_t VulkanGraphicsEngineBindings::GeneratePointLightBuffer(uint32_t a_trans
         size = a.Size();
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (a[i].TransformAddr != -1)
+            if (a[i].TransformAddr == -1)
             {
                 a[i] = buffer;
 
@@ -1225,7 +1230,7 @@ uint32_t VulkanGraphicsEngineBindings::GenerateSpotLightBuffer(uint32_t a_transf
         size = a.Size();
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (a[i].TransformAddr != -1)
+            if (a[i].TransformAddr == -1)
             {
                 a[i] = buffer;
 
@@ -1256,6 +1261,36 @@ void VulkanGraphicsEngineBindings::DestroySpotLightBuffer(uint32_t a_addr) const
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_spotLights.Size(), "DestroySpotLightBuffer out of bounds");
 
     m_graphicsEngine->m_spotLights.LockSet(a_addr, SpotLightBuffer(-1));
+}
+
+uint32_t VulkanGraphicsEngineBindings::GenerateFont(const std::string_view& a_path) const
+{
+    Font* font = Font::LoadFont(a_path.data());
+
+    {
+        TLockArray<Font*> a = m_graphicsEngine->m_fonts.ToLockArray();
+
+        const uint32_t size = a.Size();
+        for (uint32_t i = 0; i < size; ++i)
+        {
+            if (a[i] == nullptr)
+            {
+                a[i] = font;
+
+                return i;
+            }
+        }
+    }
+
+    return m_graphicsEngine->m_fonts.PushVal(font);
+}
+void VulkanGraphicsEngineBindings::DestroyFont(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_fonts.Size(), "DestroyFont out of bounds");
+
+    Font* font = m_graphicsEngine->m_fonts[a_addr];
+    m_graphicsEngine->m_fonts[a_addr] = nullptr;
+    delete font;
 }
 
 void VulkanGraphicsEngineBindings::BindMaterial(uint32_t a_addr) const

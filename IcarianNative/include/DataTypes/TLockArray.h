@@ -22,7 +22,7 @@ public:
 
     TLockArray() = delete;
     TLockArray(const TLockArray&) = delete;
-    TLockArray(TLockArray&& a_other)
+    TLockArray(TLockArray&& a_other) noexcept
     {
         m_lock = a_other.m_lock;
         m_data = a_other.m_data;

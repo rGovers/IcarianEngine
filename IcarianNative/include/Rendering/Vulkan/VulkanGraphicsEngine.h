@@ -5,6 +5,7 @@
 
 #include "Rendering/Vulkan/VulkanConstants.h"
 
+class Font;
 class RuntimeFunction;
 class RuntimeManager;
 class VulkanGraphicsEngineBindings;
@@ -72,6 +73,8 @@ private:
     TArray<DirectionalLightBuffer>                m_directionalLights;
     TArray<PointLightBuffer>                      m_pointLights;
     TArray<SpotLightBuffer>                       m_spotLights;
+
+    TArray<Font*>                                 m_fonts;
 
     std::vector<VulkanUniformBuffer*>             m_directionalLightUniforms;
     std::vector<VulkanUniformBuffer*>             m_pointLightUniforms;
