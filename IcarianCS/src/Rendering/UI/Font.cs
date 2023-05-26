@@ -6,7 +6,7 @@ namespace IcarianEngine.Rendering.UI
 {
     public class Font : IDestroy
     {
-        static Dictionary<uint, Font> BufferLookup = new Dictionary<uint, Font>();
+        static Dictionary<uint, Font> s_bufferLookup = new Dictionary<uint, Font>();
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateFont(string a_path);
@@ -35,7 +35,7 @@ namespace IcarianEngine.Rendering.UI
         {
             m_bufferAddr = a_bufferAddr;
 
-            BufferLookup.Add(m_bufferAddr, this);
+            s_bufferLookup.Add(m_bufferAddr, this);
         }
 
         public static Font LoadFont(string a_path)
@@ -45,9 +45,9 @@ namespace IcarianEngine.Rendering.UI
 
         internal static Font GetFont(uint a_buffer)
         {
-            if (BufferLookup.ContainsKey(a_buffer))
+            if (s_bufferLookup.ContainsKey(a_buffer))
             {
-                return BufferLookup[a_buffer];
+                return s_bufferLookup[a_buffer];
             }
 
             return null;
@@ -68,7 +68,7 @@ namespace IcarianEngine.Rendering.UI
                 {
                     DestroyFont(m_bufferAddr);
 
-                    BufferLookup.Remove(m_bufferAddr);
+                    s_bufferLookup.Remove(m_bufferAddr);
                 }
                 else
                 {

@@ -10,6 +10,7 @@
 #include "Physics/PhysicsEngine.h"
 #include "Profiler.h"
 #include "Rendering/RenderEngine.h"
+#include "Rendering/UI/UIControl.h"
 #include "Runtime/RuntimeManager.h"
 #include "Scribe.h"
 #include "Trace.h"
@@ -127,6 +128,8 @@ Application::Application(Config* a_config)
     Profiler::Init(m_runtime);
     Scribe::Init(m_runtime);
 
+    UIControl::Init(m_runtime);
+
     m_inputManager = new InputManager(m_runtime);
 
     m_objectManager = new ObjectManager(m_runtime);
@@ -154,6 +157,8 @@ Application::~Application()
     delete m_objectManager;
     delete m_inputManager;
     delete m_config;
+
+    UIControl::Destroy();
 
     Profiler::Destroy();
     Scribe::Destroy();
