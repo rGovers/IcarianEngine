@@ -8,6 +8,8 @@
 #include "Flare/ShaderBufferInput.h"
 #include "Flare/TextureSampler.h"
 
+struct CanvasBuffer;
+
 class ObjectManager;
 class VulkanGraphicsEngine;
 class VulkanRenderEngineBackend;
@@ -27,7 +29,7 @@ private:
     };
 
 
-    static constexpr uint32_t PushCount = 32;
+    static constexpr uint32_t PushCount = 128;
     static constexpr uint32_t StaticIndex = 0;
 
     VulkanRenderEngineBackend*   m_engine;
@@ -45,6 +47,7 @@ private:
 
     FlareBase::ShaderBufferInput m_cameraBufferInput;
     FlareBase::ShaderBufferInput m_transformBufferInput;
+    FlareBase::ShaderBufferInput m_uiBufferInput;
     FlareBase::ShaderBufferInput m_directionalLightBufferInput;
     FlareBase::ShaderBufferInput m_pointLightBufferInput;
     FlareBase::ShaderBufferInput m_spotLightBufferInput;
@@ -83,6 +86,7 @@ public:
     void PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
 
     void UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_transformAddr, ObjectManager* a_objectManager) const;
+    void UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_elementAddr, const CanvasBuffer& a_canvas) const;
 
     void Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
 };

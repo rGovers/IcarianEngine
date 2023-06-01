@@ -17,22 +17,22 @@
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
-const static std::vector<const char*> ValidationLayers = 
+constexpr const char* ValidationLayers[] = 
 {
     "VK_LAYER_KHRONOS_validation"
 };
 
-const static std::vector<const char*> InstanceExtensions = 
+constexpr const char* InstanceExtensions[] = 
 {
     VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
 };
-const static std::vector<const char*> DeviceExtensions = 
+constexpr const char* DeviceExtensions[] = 
 {
     VK_KHR_MAINTENANCE_3_EXTENSION_NAME,
     VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME
 };
 
-const static std::vector<const char*> StandaloneDeviceExtensions =
+constexpr const char* StandaloneDeviceExtensions[] =
 {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
@@ -224,7 +224,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RuntimeManager* a_runtime, 
         TRACE("Created Vulkan Debug Layer");
     }
 
-    std::vector<const char*> dRequiredExtensions = DeviceExtensions;
+    std::vector<const char*> dRequiredExtensions = std::vector<const char*>(DeviceExtensions, DeviceExtensions + sizeof(DeviceExtensions) / sizeof(*DeviceExtensions));
     if (!headless)
     {
         for (const char* ext : StandaloneDeviceExtensions)
@@ -331,8 +331,8 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RuntimeManager* a_runtime, 
 
     if constexpr (VulkanEnableValidationLayers)
     {
-        deviceCreateInfo.enabledLayerCount = (uint32_t)ValidationLayers.size();
-        deviceCreateInfo.ppEnabledLayerNames = ValidationLayers.data();
+        deviceCreateInfo.enabledLayerCount = sizeof(ValidationLayers) / sizeof(*ValidationLayers);
+        deviceCreateInfo.ppEnabledLayerNames = ValidationLayers;
     }
 
     ICARIAN_ASSERT_MSG_R(m_pDevice.createDevice(&deviceCreateInfo, nullptr, &m_lDevice) == vk::Result::eSuccess, "Failed to create Vulkan Logic Device");
@@ -622,6 +622,29 @@ void VulkanRenderEngineBackend::EndSingleCommand(const vk::CommandBuffer& a_buff
     m_graphicsQueue.waitIdle();
 
     m_lDevice.freeCommandBuffers(m_commandPool, 1, &a_buffer);
+}
+
+uint32_t VulkanRenderEngineBackend::GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data)
+{
+    return m_graphicsEngine->GenerateAlphaTexture(a_width, a_height, a_data);
+}
+void VulkanRenderEngineBackend::DestroyTexture(uint32_t a_addr)
+{
+    m_graphicsEngine->DestroyTexture(a_addr);
+}
+
+uint32_t VulkanRenderEngineBackend::GenerateTextureSampler(uint32_t a_textureAddr, FlareBase::e_TextureMode a_textureMode, FlareBase::e_TextureFilter a_filterMode, FlareBase::e_TextureAddress a_addressMode, uint32_t a_slot)
+{
+    return m_graphicsEngine->GenerateTextureSampler(a_textureAddr, a_textureMode, a_filterMode, a_addressMode, a_slot);
+}
+void VulkanRenderEngineBackend::DestroyTextureSampler(uint32_t a_addr)
+{
+    m_graphicsEngine->DestroyTextureSampler(a_addr);
+}
+
+Font* VulkanRenderEngineBackend::GetFont(uint32_t a_addr)
+{
+    return m_graphicsEngine->GetFont(a_addr);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(VkInstance a_instance, const VkDebugUtilsMessengerCreateInfoEXT* a_createInfo, const VkAllocationCallbacks* a_allocator, VkDebugUtilsMessengerEXT* a_messenger)

@@ -43,6 +43,10 @@ constexpr static uint32_t GetBufferSize(FlareBase::e_ShaderBufferType a_type)
     {
         return sizeof(ModelShaderBuffer);
     }
+    case FlareBase::ShaderBufferType_UIBuffer:
+    {
+        return sizeof(UIShaderBuffer);
+    }
     case FlareBase::ShaderBufferType_DirectionalLightBuffer:
     {
         return sizeof(DirectionalLightShaderBuffer);
@@ -56,7 +60,7 @@ constexpr static uint32_t GetBufferSize(FlareBase::e_ShaderBufferType a_type)
         return sizeof(SpotLightShaderBuffer);
     }
     }
-    
+
     return 0;
 }
 constexpr static vk::DescriptorType GetDescriptorType(FlareBase::e_ShaderBufferType a_bufferType)
@@ -88,6 +92,7 @@ static void GetLayoutInfo(const FlareBase::RenderProgram& a_program, std::vector
         switch (input.BufferType)
         {
         case FlareBase::ShaderBufferType_ModelBuffer:
+        case FlareBase::ShaderBufferType_UIBuffer:
         {
             a_pushConstants.push_back(vk::PushConstantRange
             (
@@ -209,6 +214,12 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
         case FlareBase::ShaderBufferType_ModelBuffer:
         {
             m_transformBufferInput = program.ShaderBufferInputs[i];
+
+            break;
+        }
+        case FlareBase::ShaderBufferType_UIBuffer:
+        {
+            m_uiBufferInput = program.ShaderBufferInputs[i];
 
             break;
         }
@@ -498,6 +509,16 @@ void VulkanShaderData::UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, 
         buffer.InvModel = glm::inverse(buffer.Model);
 
         a_commandBuffer.pushConstants(m_layout, GetShaderStage(m_transformBufferInput.ShaderSlot), 0, sizeof(ModelShaderBuffer), &buffer);
+    }
+}
+void VulkanShaderData::UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_elementAddr, const CanvasBuffer& a_canvas) const
+{
+    if (m_uiBufferInput.ShaderSlot != FlareBase::ShaderSlot_Null)
+    {
+        UIShaderBuffer buffer;
+        buffer.Model = glm::mat4(0.5f);
+
+        a_commandBuffer.pushConstants(m_layout, GetShaderStage(m_uiBufferInput.ShaderSlot), 0, sizeof(UIShaderBuffer), &buffer);
     }
 }
 

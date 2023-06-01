@@ -13,14 +13,16 @@
 #include "Logger.h"
 #include "Trace.h"
 
-Font::Font(const unsigned char* a_data)
+Font::Font(unsigned char* a_data)
 {
-     const int offset = stbtt_GetFontOffsetForIndex(a_data, 0);
-     ICARIAN_ASSERT_R(stbtt_InitFont(&m_fontInfo, a_data, offset) != 0);
+    m_data = a_data;
+
+    const int offset = stbtt_GetFontOffsetForIndex(a_data, 0);
+    ICARIAN_ASSERT_R(stbtt_InitFont(&m_fontInfo, m_data, offset) != 0);
 }
 Font::~Font()
 {
-       
+    delete[] m_data;
 }
 
 Font* Font::LoadFont(const std::filesystem::path& a_path)
@@ -40,7 +42,6 @@ Font* Font::LoadFont(const std::filesystem::path& a_path)
         ICARIAN_ASSERT_R(size != 0);
 
         unsigned char* dat = new unsigned char[size];
-        ICARIAN_DEFER_delA(dat);
         file.read((char*)dat, size);
 
         return new Font(dat);

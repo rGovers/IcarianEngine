@@ -1,5 +1,9 @@
 #pragma once
 
+#define ICARIAN_DEFER_VAL_NAMEI(name, i) defer##name##i
+#define ICARIAN_DEFER_VAL_NAMEM(name, i) ICARIAN_DEFER_VAL_NAMEI(name, i)
+#define ICARIAN_DEFER_VAL_NAME(name) ICARIAN_DEFER_VAL_NAMEM(name, __COUNTER__)
+
 // Got inspired by zig programming language and wanted it in C++
 // Macro is a bit of a mess simplest way I could think of was hijacking destructors
 // Problem is destructors cannot take parameters out of scope so had to get parameters in scope
@@ -19,7 +23,7 @@ const struct _##val \
     { \
         func; \
     } \
-} D_##val(val)
+} ICARIAN_DEFER_VAL_NAME(Val)(val)
 
 #define ICARIAN_DEFER_T(val, type, func) const struct _##val \
 { \
@@ -29,7 +33,7 @@ const struct _##val \
     { \
         func; \
     } \
-} D_##val(val)
+} ICARIAN_DEFER_VAL_NAME(ValT)(val)
 
 #define ICARIAN_DEFERF(func) const struct _##func \
 { \
@@ -37,7 +41,7 @@ const struct _##val \
     { \
         func(); \
     } \
-} D_##func;
+} ICARIAN_DEFER_VAL_NAME(Func)
 
 #define ICARIAN_DEFER_del(val) ICARIAN_DEFER(val, delete val)
 #define ICARIAN_DEFER_delA(val) ICARIAN_DEFER(val, delete[] val)

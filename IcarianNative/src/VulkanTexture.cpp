@@ -1,18 +1,18 @@
 #include "Rendering/Vulkan/VulkanTexture.h"
 
 #include "Flare/IcarianAssert.h"
+#include "Flare/IcarianDefer.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
-VulkanTexture::VulkanTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, const void* a_data)
+void VulkanTexture::Init(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, const void* a_data, vk::Format a_format, uint32_t a_channels)
 {
-    TRACE("Creating Texture");
     m_engine = a_engine;
 
     m_width = a_width;
     m_height = a_height;
 
-    const vk::DeviceSize imageSize = (vk::DeviceSize)m_width * m_height * 4;
+    const vk::DeviceSize imageSize = (vk::DeviceSize)m_width * m_height * a_channels;
 
     const vk::Device device = m_engine->GetLogicalDevice();
     const VmaAllocator allocator = m_engine->GetAllocator();
@@ -26,15 +26,23 @@ VulkanTexture::VulkanTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_wid
     stagingBufferAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
     stagingBufferAllocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
-    VkBuffer stagingBuffer;
-    VmaAllocation stagingAllocation;
+    struct 
+    {
+        VkBuffer buffer;
+        VmaAllocation allocation;
+        VmaAllocator allocator;
+    } stagingBufferInfoStruct;
+    stagingBufferInfoStruct.allocator = allocator;
+
     VmaAllocationInfo stagingAllocationInfo;
-    ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo) == VK_SUCCESS, "Failed to create staging texture");
+    ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBufferInfoStruct.buffer, &stagingBufferInfoStruct.allocation, &stagingAllocationInfo) == VK_SUCCESS, "Failed to create staging texture");
+
+    ICARIAN_DEFER(stagingBufferInfoStruct, vmaDestroyBuffer(stagingBufferInfoStruct.allocator, stagingBufferInfoStruct.buffer, stagingBufferInfoStruct.allocation));
 
     if (a_data != nullptr)
     {
         memcpy(stagingAllocationInfo.pMappedData, a_data, (size_t)imageSize);
-        ICARIAN_ASSERT_R(vmaFlushAllocation(allocator, stagingAllocation, 0, imageSize) == VK_SUCCESS);
+        ICARIAN_ASSERT_R(vmaFlushAllocation(allocator, stagingBufferInfoStruct.allocation, 0, imageSize) == VK_SUCCESS);
     }
     
     VkImageCreateInfo imageInfo = { };
@@ -46,7 +54,7 @@ VulkanTexture::VulkanTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_wid
     // TODO: Add mip levels
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
-    imageInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+    imageInfo.format = (VkFormat)a_format;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -84,7 +92,7 @@ VulkanTexture::VulkanTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_wid
 
     const vk::BufferImageCopy copyRegion = vk::BufferImageCopy(0, 0, 0, SubresourceLayers, { 0, 0, 0 }, { m_width, m_height, 1 });
 
-    cmd.copyBufferToImage(stagingBuffer, m_image, vk::ImageLayout::eTransferDstOptimal, 1, &copyRegion);
+    cmd.copyBufferToImage(stagingBufferInfoStruct.buffer, m_image, vk::ImageLayout::eTransferDstOptimal, 1, &copyRegion);
 
     const vk::ImageMemoryBarrier endImageBarrier = vk::ImageMemoryBarrier
     (
@@ -102,19 +110,21 @@ VulkanTexture::VulkanTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_wid
 
     m_engine->EndSingleCommand(cmd);
 
-    vmaDestroyBuffer(allocator, stagingBuffer, stagingAllocation);
-
     const vk::ImageViewCreateInfo viewInfo = vk::ImageViewCreateInfo
     (
         { }, 
         m_image, 
         vk::ImageViewType::e2D, 
-        vk::Format::eR8G8B8A8Srgb,
+        a_format,
         { vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity },
         SubresourceRange
     );
 
     ICARIAN_ASSERT_MSG_R(device.createImageView(&viewInfo, nullptr, &m_view) == vk::Result::eSuccess, "Failed to create VulkanTexture View");
+}
+VulkanTexture::VulkanTexture()
+{
+
 }
 VulkanTexture::~VulkanTexture()
 {
@@ -125,4 +135,21 @@ VulkanTexture::~VulkanTexture()
 
     device.destroyImageView(m_view);
     vmaDestroyImage(allocator, m_image, m_allocation);
+}
+
+VulkanTexture* VulkanTexture::CreateRGBA(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, const void* a_data)
+{
+    TRACE("Creating Texture");
+
+    VulkanTexture* texture = new VulkanTexture();
+    texture->Init(a_engine, a_width, a_height, a_data, vk::Format::eR8G8B8A8Srgb, 4);
+    return texture;
+}
+VulkanTexture* VulkanTexture::CreateAlpha(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, const void *a_data)
+{
+    TRACE("Creating Alpha Texture");
+
+    VulkanTexture* texture = new VulkanTexture();
+    texture->Init(a_engine, a_width, a_height, a_data, vk::Format::eR8Unorm, 1);
+    return texture;
 }

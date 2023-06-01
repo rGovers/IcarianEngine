@@ -5,6 +5,8 @@
 
 #include "Rendering/Vulkan/VulkanConstants.h"
 
+struct CanvasBuffer;
+
 class Font;
 class RuntimeFunction;
 class RuntimeManager;
@@ -86,12 +88,16 @@ private:
     std::vector<vk::CommandPool>                  m_commandPool[VulkanFlightPoolSize];
     std::vector<vk::CommandBuffer>                m_commandBuffers[VulkanFlightPoolSize];
     
+    uint32_t                                      m_textUIPipelineAddr;
+
     vk::CommandBuffer StartCommandBuffer(uint32_t a_bufferIndex, uint32_t a_index) const;
 
     vk::CommandBuffer DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
     vk::CommandBuffer LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
     vk::CommandBuffer PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
 
+    void DrawUIElement(vk::CommandBuffer a_commandBuffer, uint32_t a_addr, const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize, uint32_t a_index);
+    
 protected:
 
 public:
@@ -105,9 +111,18 @@ public:
 
     std::vector<vk::CommandBuffer> Update(uint32_t a_index);
 
+    uint32_t GenerateGLSLVertexShader(const std::string_view& a_source);
+    uint32_t GenerateFVertexShader(const std::string_view& a_source);
+    void DestroyVertexShader(uint32_t a_addr);
     VulkanVertexShader* GetVertexShader(uint32_t a_addr);
+
+    uint32_t GenerateGLSLPixelShader(const std::string_view& a_source);
+    uint32_t GenerateFPixelShader(const std::string_view& a_source);
+    void DestroyPixelShader(uint32_t a_addr);
     VulkanPixelShader* GetPixelShader(uint32_t a_addr);
 
+    uint32_t GenerateRenderProgram(const FlareBase::RenderProgram& a_program);
+    void DestroyRenderProgram(uint32_t a_addr);
     FlareBase::RenderProgram GetRenderProgram(uint32_t a_addr);
     VulkanPipeline* GetPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
     
@@ -119,6 +134,13 @@ public:
 
     VulkanModel* GetModel(uint32_t a_addr);
 
+    uint32_t GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data);
+    void DestroyTexture(uint32_t a_addr);
     VulkanTexture* GetTexture(uint32_t a_addr);
     VulkanRenderTexture* GetRenderTexture(uint32_t a_addr);
+
+    uint32_t GenerateTextureSampler(uint32_t a_textureAddr, FlareBase::e_TextureMode a_textureMode, FlareBase::e_TextureFilter a_filterMode, FlareBase::e_TextureAddress a_addressMode, uint32_t a_slot = 0);
+    void DestroyTextureSampler(uint32_t a_addr);
+
+    Font* GetFont(uint32_t a_addr);
 };

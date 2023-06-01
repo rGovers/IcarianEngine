@@ -91,6 +91,10 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 			{
 				rStr = GLSL_PUSHBUFFER_STRING(args[1], GLSL_MODEL_SHADER_STRUCTURE);
 			}
+			else if (args[0] == "UIBuffer")
+			{
+				rStr = GLSL_PUSHBUFFER_STRING(args[1], GLSL_UI_SHADER_STRUCTURE);
+			}
 		}
 
 		std::size_t next = 1;

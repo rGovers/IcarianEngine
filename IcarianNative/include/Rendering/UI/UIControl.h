@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include "CanvasBuffer.h"
 #include "DataTypes/TArray.h"
@@ -31,9 +32,10 @@ public:
     static void Init(RuntimeManager* a_runtime);
     static void Destroy();
 
-    static uint32_t AddCanvas(const CanvasBuffer& a_canvas);
-    static void RemoveCanvas(uint32_t a_addr);
+    static std::vector<CanvasBuffer> GetCanvases();
 
     static CanvasBuffer GetCanvas(uint32_t a_addr);
     static void SetCanvas(uint32_t a_addr, const CanvasBuffer& a_buffer);
+
+    static UIElement* GetUIElement(uint32_t a_addr);
 };

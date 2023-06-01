@@ -37,6 +37,7 @@ private:
 
     vk::SwapchainKHR             m_swapchain = nullptr;
     vk::RenderPass               m_renderPass = nullptr;
+    vk::RenderPass               m_renderPassNoClear = nullptr;
     std::vector<vk::ImageView>   m_imageViews;
     std::vector<vk::Framebuffer> m_framebuffers;
       
@@ -70,6 +71,11 @@ public:
     {
         return m_renderPass;
     }
+    inline vk::RenderPass GetRenderPassNoClear() const
+    {
+        return m_renderPassNoClear;
+    }
+
     inline vk::Framebuffer GetFramebuffer(uint32_t a_index) const
     {
         return m_framebuffers[a_index];

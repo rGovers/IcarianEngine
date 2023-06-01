@@ -294,9 +294,22 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         vk::ImageLayout::eUndefined,
         GetImageLayout()
     );
+    vk::AttachmentDescription colorNoClearAttachment = vk::AttachmentDescription
+    (
+        { },
+        m_surfaceFormat.format,
+        vk::SampleCountFlagBits::e1,
+        vk::AttachmentLoadOp::eLoad,
+        vk::AttachmentStoreOp::eStore,
+        vk::AttachmentLoadOp::eDontCare,
+        vk::AttachmentStoreOp::eDontCare,
+        vk::ImageLayout::eUndefined,
+        GetImageLayout()
+    );
     if (headless)
     {
         colorAttachment.format = vk::Format::eR8G8B8A8Unorm;
+        colorNoClearAttachment.format = vk::Format::eR8G8B8A8Unorm;
     }
 
     constexpr vk::AttachmentReference ColorAttachmentRef = vk::AttachmentReference
@@ -361,13 +374,20 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         (uint32_t)dependencies.size(),
         dependencies.data()
     );
+    const vk::RenderPassCreateInfo renderPassNoClearInfo = vk::RenderPassCreateInfo
+    (
+        { },
+        1,
+        &colorNoClearAttachment,
+        1,
+        &subpass,
+        (uint32_t)dependencies.size(),
+        dependencies.data()
+    );
 
-    if (device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass) != vk::Result::eSuccess)
-    {
-        Logger::Error("Failed to create Swapchain Renderpass");
+    ICARIAN_ASSERT_MSG(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass) == vk::Result::eSuccess, "Failed to create Swapchain Renderpass");
+    ICARIAN_ASSERT_MSG(device.createRenderPass(&renderPassNoClearInfo, nullptr, &m_renderPassNoClear) == vk::Result::eSuccess, "Failed to create Swapchain Renderpass");
 
-        assert(0);
-    }
     TRACE("Created Vulkan Swapchain Renderpass");
 
     if (headless)
@@ -396,6 +416,7 @@ VulkanSwapchain::~VulkanSwapchain()
 
     TRACE("Destroying RenderPass");
     device.destroyRenderPass(m_renderPass);
+    device.destroyRenderPass(m_renderPassNoClear);
 
     delete m_resizeFunc;
 
@@ -458,7 +479,6 @@ bool VulkanSwapchain::StartFrame(const vk::Semaphore& a_semaphore, const vk::Fen
         }
     }
     
-
     if (m_window->IsHeadless())
     {
         if (size != m_size)

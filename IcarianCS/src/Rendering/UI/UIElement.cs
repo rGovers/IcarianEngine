@@ -1,10 +1,88 @@
+using IcarianEngine.Maths;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Rendering.UI
 {
     public abstract class UIElement
     {
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void AddChildElement(uint a_addr, uint a_childAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void RemoveChildElement(uint a_addr, uint a_childAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint[] GetChildren(uint a_addr);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static Vector2 GetPosition(uint a_addr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void SetPosition(uint a_addr, Vector2 a_pos);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static Vector2 GetSize(uint a_addr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void SetSize(uint a_addr, Vector2 a_size);
+
         static ConcurrentDictionary<uint, UIElement> s_elementLookup = new ConcurrentDictionary<uint, UIElement>();
+
+        string m_name;
+
+        internal uint BufferAddr
+        {
+            get;
+            set;
+        }
+
+        public string Name
+        {
+            get
+            {
+                return m_name;
+            }
+            internal set
+            {
+                m_name = value;
+            }
+        }
+
+        public Vector2 Position
+        {
+            get
+            {
+                return GetPosition(BufferAddr);
+            }
+            set
+            {
+                SetPosition(BufferAddr, value);
+            }
+        }
+        public Vector2 Size
+        {
+            get
+            {
+                return GetSize(BufferAddr);
+            }
+            set
+            {
+                SetSize(BufferAddr, value);
+            }
+        }
+
+        public IEnumerable<UIElement> Children
+        {
+            get
+            {
+                uint[] children = GetChildren(BufferAddr);
+
+                foreach (uint child in children)
+                {
+                    if (s_elementLookup.ContainsKey(child))
+                    {
+                        yield return s_elementLookup[child];
+                    }
+                }
+            }
+        }
 
         protected void AddLookup(uint a_addr, UIElement a_element)
         {
@@ -25,19 +103,48 @@ namespace IcarianEngine.Rendering.UI
             return null;
         }
 
-        internal uint BufferAddr
+        public UIElement GetNamedChild(string a_name)
         {
-            get;
-            set;
+            foreach (UIElement child in Children)
+            {
+                if (child.Name == a_name)
+                {
+                    return child;
+                }
+
+                UIElement element = child.GetNamedChild(a_name);
+                if (element != null)
+                {
+                    return element;
+                }
+            }
+
+            return null;
+        }
+        public T GetNamedChild<T>(string a_name) where T : UIElement
+        {
+            return GetNamedChild(a_name) as T;
         }
 
         public void AddChild(UIElement a_child)
         {
-            
+            if (a_child == null)
+            {
+                Logger.IcarianWarning("Null UIElement");
+
+                return;
+            }
+
+            AddChildElement(BufferAddr, a_child.BufferAddr);
         }
         public void RemoveChild(UIElement a_child)
         {
+            if (a_child == null)
+            {
+                Logger.IcarianWarning("Null UIElement");
+            }
 
+            RemoveChildElement(BufferAddr, a_child.BufferAddr);
         }
     }
 }

@@ -152,13 +152,14 @@ Application::~Application()
     // Do not know why C++ does not have a standard way to disable reordering
     // TLDR: Do not inline otherwise crash
     PlzNoReorder(m_runtime);
+
+    UIControl::Destroy();
+
     delete m_physicsEngine;
     delete m_renderEngine;
     delete m_objectManager;
     delete m_inputManager;
     delete m_config;
-
-    UIControl::Destroy();
 
     Profiler::Destroy();
     Scribe::Destroy();

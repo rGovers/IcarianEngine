@@ -73,7 +73,10 @@ struct StackProfilerFrame
 
 #ifndef PROFILESTACK
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
-#define PROFILESTACK(str) volatile StackProfilerFrame stackPFrame = StackProfilerFrame(str)
+#define ICARIAN_PROFILE_VAL_NAMEI(i) pFrame##i
+#define ICARIAN_PROFILE_VAL_NAME(i) ICARIAN_PROFILE_VAL_NAMEI(i)
+
+#define PROFILESTACK(str) volatile StackProfilerFrame ICARIAN_PROFILE_VAL_NAME(__COUNTER__) = StackProfilerFrame(str)
 #else
 #define PROFILESTACK(str) void(0)
 #endif

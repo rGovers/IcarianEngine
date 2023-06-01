@@ -374,128 +374,28 @@ VulkanGraphicsEngineBindings::~VulkanGraphicsEngineBindings()
 
 uint32_t VulkanGraphicsEngineBindings::GenerateFVertexShaderAddr(const std::string_view& a_str) const
 {
-    ICARIAN_ASSERT_MSG(!a_str.empty(), "GenerateFVertexShaderAddr empty string")
-
-    VulkanVertexShader* shader = VulkanVertexShader::CreateFromFShader(m_graphicsEngine->m_vulkanEngine, a_str);
-
-    uint32_t size = 0;
-    {
-        TLockArray<VulkanVertexShader*> a = m_graphicsEngine->m_vertexShaders.ToLockArray();
-
-        size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = shader;
-
-                return i;
-            }
-        }
-    }
-    
-    m_graphicsEngine->m_vertexShaders.Push(shader);
-
-    return size;
+    return m_graphicsEngine->GenerateFVertexShader(a_str);
 }
 uint32_t VulkanGraphicsEngineBindings::GenerateGLSLVertexShaderAddr(const std::string_view& a_str) const
 {
-    ICARIAN_ASSERT_MSG(!a_str.empty(), "GenerateGLSLVertexShaderAddr empty string")
-
-    VulkanVertexShader* shader = VulkanVertexShader::CreateFromGLSL(m_graphicsEngine->m_vulkanEngine, a_str);
-
-    uint32_t size = 0;
-    {
-        TLockArray<VulkanVertexShader*> a = m_graphicsEngine->m_vertexShaders.ToLockArray();
-
-        size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = shader;
-
-                return i;
-            }
-        }
-    }
-
-    m_graphicsEngine->m_vertexShaders.Push(shader);
-
-    return size;
+    return m_graphicsEngine->GenerateGLSLVertexShader(a_str);
 }
 void VulkanGraphicsEngineBindings::DestroyVertexShader(uint32_t a_addr) const
 {
-    TLockArray<VulkanVertexShader*> a = m_graphicsEngine->m_vertexShaders.ToLockArray();
-
-    ICARIAN_ASSERT_MSG(a_addr < a.Size(), "DestroyVertexShader out of bounds")
-    ICARIAN_ASSERT_MSG(a[a_addr] != nullptr, "DestroyVertexShader already destroyed")
-
-    delete a[a_addr];
-    a[a_addr] = nullptr;
+    m_graphicsEngine->DestroyVertexShader(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateFPixelShaderAddr(const std::string_view& a_str) const
 {
-    ICARIAN_ASSERT_MSG(!a_str.empty(), "GenerateFPixelShaderAddr empty string")
-
-    VulkanPixelShader* shader = VulkanPixelShader::CreateFromFShader(m_graphicsEngine->m_vulkanEngine, a_str);
-
-    uint32_t size = 0;
-    {
-        TLockArray<VulkanPixelShader*> a = m_graphicsEngine->m_pixelShaders.ToLockArray();
-
-        size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = shader;
-
-                return i;
-            }
-        }
-    }
-
-    m_graphicsEngine->m_pixelShaders.Push(shader);
-
-    return size;
+    return m_graphicsEngine->GenerateFPixelShader(a_str);
 }
 uint32_t VulkanGraphicsEngineBindings::GenerateGLSLPixelShaderAddr(const std::string_view& a_str) const
 {
-    ICARIAN_ASSERT_MSG(!a_str.empty(), "GenerateGLSLPixelShaderAddr empty string")
-
-    VulkanPixelShader* shader = VulkanPixelShader::CreateFromGLSL(m_graphicsEngine->m_vulkanEngine, a_str);
-
-    uint32_t size = 0;
-    {
-        TLockArray<VulkanPixelShader*> a = m_graphicsEngine->m_pixelShaders.ToLockArray();
-
-        size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = shader;
-
-                return i;
-            }
-        }
-    }
-
-    m_graphicsEngine->m_pixelShaders.Push(shader);
-
-    return size;
+    return m_graphicsEngine->GenerateGLSLPixelShader(a_str);
 }
 void VulkanGraphicsEngineBindings::DestroyPixelShader(uint32_t a_addr) const
 {
-    TLockArray<VulkanPixelShader*> a = m_graphicsEngine->m_pixelShaders.ToLockArray();
-
-    ICARIAN_ASSERT_MSG(a_addr < a.Size(), "DestroyPixelShader out of bounds")
-    ICARIAN_ASSERT_MSG(a[a_addr] != nullptr, "DestroyPixelShader already destroyed")
-
-    delete a[a_addr];
-    a[a_addr] = nullptr;
+    m_graphicsEngine->DestroyPixelShader(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(FlareBase::e_InternalRenderProgram a_program) const
@@ -613,53 +513,11 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(FlareBase::
 }
 uint32_t VulkanGraphicsEngineBindings::GenerateShaderProgram(const FlareBase::RenderProgram& a_program) const
 {
-    ICARIAN_ASSERT_MSG(a_program.PixelShader < m_graphicsEngine->m_pixelShaders.Size(), "GenerateShaderProgram PixelShader out of bounds")
-    ICARIAN_ASSERT_MSG(a_program.VertexShader < m_graphicsEngine->m_vertexShaders.Size(), "GenerateShaderProgram VertexShader out of bounds")
-
-    uint32_t size = 0;
-    TRACE("Creating Shader Program");
-    {
-        TLockArray<FlareBase::RenderProgram> a = m_graphicsEngine->m_shaderPrograms.ToLockArray();
-        size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i].Flags & 0b1 << FlareBase::RenderProgram::FreeFlag)
-            {
-                ICARIAN_ASSERT_MSG(a[i].Data == nullptr, "GenerateShaderProgram data not deleted");
-
-                a[i] = a_program;
-                a[i].Data = new VulkanShaderData(m_graphicsEngine->m_vulkanEngine, m_graphicsEngine, i);
-
-                return i;
-            }
-        }
-    }
-    
-    TRACE("Allocating Shader Program");
-    m_graphicsEngine->m_shaderPrograms.Push(a_program);
-    m_graphicsEngine->m_shaderPrograms[size].Data = new VulkanShaderData(m_graphicsEngine->m_vulkanEngine, m_graphicsEngine, size);
-
-    return size;
+    return m_graphicsEngine->GenerateRenderProgram(a_program);
 }
 void VulkanGraphicsEngineBindings::DestroyShaderProgram(uint32_t a_addr) const
 {
-    TLockArray<FlareBase::RenderProgram> a = m_graphicsEngine->m_shaderPrograms.ToLockArray();
-
-    ICARIAN_ASSERT_MSG(a_addr < a.Size(), "DestroyShaderProgram out of bounds");
-
-    FlareBase::RenderProgram& program = a[a_addr];
-    if (program.Flags & 0b1 << FlareBase::RenderProgram::DestroyFlag)
-    {
-        DestroyVertexShader(program.VertexShader);
-        DestroyPixelShader(program.PixelShader);
-    }
-    program.Flags = 0b1 << FlareBase::RenderProgram::FreeFlag;
-
-    if (program.Data != nullptr)
-    {
-        delete (VulkanShaderData*)program.Data;
-        program.Data = nullptr;
-    }
+    m_graphicsEngine->DestroyRenderProgram(a_addr);
 }
 void VulkanGraphicsEngineBindings::RenderProgramSetTexture(uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr)
 {
@@ -886,13 +744,12 @@ void VulkanGraphicsEngineBindings::DestroyRenderStack(uint32_t a_meshAddr) const
 
 uint32_t VulkanGraphicsEngineBindings::GenerateTexture(uint32_t a_width, uint32_t a_height, const void* a_data)
 {
-    VulkanTexture* texture = new VulkanTexture(m_graphicsEngine->m_vulkanEngine, a_width, a_height, a_data);
+    VulkanTexture* texture = VulkanTexture::CreateRGBA(m_graphicsEngine->m_vulkanEngine, a_width, a_height, a_data);
 
-    uint32_t size = 0;
     {
         TLockArray<VulkanTexture*> a = m_graphicsEngine->m_textures.ToLockArray();
 
-        size = a.Size();
+        const uint32_t size = a.Size();
         for (uint32_t i = 0; i < size; ++i)
         {
             if (a[i] == nullptr)
@@ -904,142 +761,28 @@ uint32_t VulkanGraphicsEngineBindings::GenerateTexture(uint32_t a_width, uint32_
         }
     }
 
-    m_graphicsEngine->m_textures.Push(texture);
-
-    return size;
+    return m_graphicsEngine->m_textures.PushVal(texture);
 }
 void VulkanGraphicsEngineBindings::DestroyTexture(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_textures.Size(), "DestroyTexture Texture out of bounds");
-    
-    VulkanTexture* texture = m_graphicsEngine->m_textures[a_addr];
-
-    ICARIAN_ASSERT_MSG(texture != nullptr, "DestroyTexture already destroyed");
-
-    m_graphicsEngine->m_textures[a_addr] = nullptr;
-    delete texture;
+    m_graphicsEngine->DestroyTexture(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateTextureSampler(uint32_t a_texture, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const
 {
-    ICARIAN_ASSERT_MSG(a_texture < m_graphicsEngine->m_textures.Size(), "GenerateTextureSampler Texture out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_textures[a_texture] != nullptr, "GenerateTextureSampler, Texture destroyed");
-
-    FlareBase::TextureSampler sampler;
-    sampler.Addr = a_texture;
-    sampler.TextureMode = FlareBase::TextureMode_Texture;
-    sampler.FilterMode = a_filter;
-    sampler.AddressMode = a_addressMode;
-    sampler.Data = new VulkanTextureSampler(m_graphicsEngine->m_vulkanEngine, sampler);
-
-    uint32_t size = 0;
-    {
-        TLockArray<FlareBase::TextureSampler> a = m_graphicsEngine->m_textureSampler.ToLockArray();
-
-        size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i].TextureMode == FlareBase::TextureMode_Null)
-            {
-                ICARIAN_ASSERT_MSG(a[i].Data == nullptr, "GenerateTextureSampler null sampler with data");
-
-                a[i] = sampler;
-
-                return i;
-            }
-        }
-    }
-
-    m_graphicsEngine->m_textureSampler.Push(sampler);
-
-    return size;
+    return m_graphicsEngine->GenerateTextureSampler(a_texture, FlareBase::TextureMode_Texture, a_filter, a_addressMode);
 }
 uint32_t VulkanGraphicsEngineBindings::GenerateRenderTextureSampler(uint32_t a_renderTexture, uint32_t a_textureIndex, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const
-{ 
-    ICARIAN_ASSERT_MSG(a_renderTexture < m_graphicsEngine->m_renderTextures.Size(), "GenerateRenderTextureSampler RenderTexture out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderTextures[a_renderTexture] != nullptr, "GenerateRenderTextureSampler RenderTexture destroyed");
-    ICARIAN_ASSERT_MSG(a_textureIndex < m_graphicsEngine->m_renderTextures[a_renderTexture]->GetTextureCount(), "GenerateRenderTextureSampler texture index out of bounds");
-
-    FlareBase::TextureSampler sampler;
-    sampler.Addr = a_renderTexture;
-    sampler.TextureMode = FlareBase::TextureMode_RenderTexture;
-    sampler.TSlot = a_textureIndex;
-    sampler.FilterMode = a_filter;
-    sampler.AddressMode = a_addressMode;
-    sampler.Data = new VulkanTextureSampler(m_graphicsEngine->m_vulkanEngine, sampler);
-
-    uint32_t size = 0;
-    {
-        TLockArray<FlareBase::TextureSampler> a = m_graphicsEngine->m_textureSampler.ToLockArray();
-
-        size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i].TextureMode == FlareBase::TextureMode_Null)
-            {
-                ICARIAN_ASSERT_MSG(a[i].Data == nullptr, "GenerateRenderTextureSampler null sampler with data");
-
-                a[i] = sampler;
-
-                return i;
-            }
-        }
-    }    
-
-    m_graphicsEngine->m_textureSampler.Push(sampler);
-
-    return size;
+{
+    return m_graphicsEngine->GenerateTextureSampler(a_renderTexture, FlareBase::TextureMode_RenderTexture, a_filter, a_addressMode, a_textureIndex);
 }
 uint32_t VulkanGraphicsEngineBindings::GenerateRenderTextureDepthSampler(uint32_t a_renderTexture, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const
 {
-    ICARIAN_ASSERT_MSG(a_renderTexture < m_graphicsEngine->m_renderTextures.Size(), "GenerateRenderTextureDepthSampler out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderTextures[a_renderTexture] != nullptr, "GenerateRenderTextureDepthSampler RenderTexture destroyed");
-
-    FlareBase::TextureSampler sampler;
-    sampler.Addr = a_renderTexture;
-    sampler.TextureMode = FlareBase::TextureMode_RenderTextureDepth;
-    sampler.FilterMode = a_filter;
-    sampler.AddressMode = a_addressMode;
-    sampler.Data = new VulkanTextureSampler(m_graphicsEngine->m_vulkanEngine, sampler);
-
-    uint32_t size = 0;
-    {
-        TLockArray<FlareBase::TextureSampler> a = m_graphicsEngine->m_textureSampler.ToLockArray();
-
-        size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i].TextureMode == FlareBase::TextureMode_Null)
-            {
-                ICARIAN_ASSERT_MSG(a[i].Data == nullptr, "GenerateRenderTextureDepthSampler null sampler with data")
-
-                a[i] = sampler;
-
-                return i;
-            }
-        }
-    }
-
-    m_graphicsEngine->m_textureSampler.Push(sampler);
-
-    return size;
+    return m_graphicsEngine->GenerateTextureSampler(a_renderTexture, FlareBase::TextureMode_RenderTextureDepth, a_filter, a_addressMode);
 }
 void VulkanGraphicsEngineBindings::DestroyTextureSampler(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_textureSampler.Size(), "DestroyTextureSampler out of bounds");
-    
-    FlareBase::TextureSampler nullSampler;
-    nullSampler.TextureMode = FlareBase::TextureMode_Null;
-    nullSampler.Data = nullptr;
-
-    const FlareBase::TextureSampler sampler = m_graphicsEngine->m_textureSampler[a_addr];
-
-    m_graphicsEngine->m_textureSampler.LockSet(a_addr, nullSampler);
-
-    if (sampler.Data != nullptr)
-    {
-        delete (VulkanTextureSampler*)sampler.Data;
-    }
+    return m_graphicsEngine->DestroyTextureSampler(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateRenderTexture(uint32_t a_count, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr) const

@@ -35,6 +35,8 @@ namespace IcarianEngine.Rendering.UI
         extern static void AddChildElement(uint a_addr, uint a_childElementAddr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void RemoveChildElement(uint a_addr, uint a_childElementAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint[] GetChildren(uint a_addr);
 
         uint m_bufferAddr;
 
@@ -84,21 +86,15 @@ namespace IcarianEngine.Rendering.UI
         {
             get
             {
-                CanvasBuffer buffer = GetBuffer(m_bufferAddr);
-
-                // C# forcing a copy and conversion in the name of "Memory Safety"
-                // cause apparently if this is to be believed doing a copy makes it "safe"
-                // dont know where they are getting that idea from garbage is garbage
-                byte[] bytes = new byte[buffer.ChildElementCount * sizeof(uint)];
-                Marshal.Copy(buffer.ChildElements, bytes, 0, (int)buffer.ChildElementCount * sizeof(uint));
-
-                UIElement[] elements = new UIElement[buffer.ChildElementCount];
-                for (uint i = 0; i < buffer.ChildElementCount; ++i)
+                uint[] childElementAddrs = GetChildren(m_bufferAddr);
+                foreach (uint childElementAddr in childElementAddrs)
                 {
-                    elements[i] = UIElement.GetUIElement(BitConverter.ToUInt32(bytes, (int)i * sizeof(uint)));
+                    UIElement element = UIElement.GetUIElement(childElementAddr);
+                    if (element != null)
+                    {
+                        yield return element;
+                    }
                 }
-
-                return elements;
             }
         }
 
@@ -111,21 +107,67 @@ namespace IcarianEngine.Rendering.UI
         {
             switch (a_attribue.Name.ToLower())
             {
+            case "name":
+            {
+                a_element.Name = a_attribue.Value;
+
+                return true;
+            }
             case "xpos":
             {
-                break;
+                float val;
+                if (float.TryParse(a_attribue.Value, out val))
+                {
+                    a_element.Position = new Vector2(val, a_element.Position.Y);
+                }
+                else
+                {
+                    Logger.IcarianError($"Failed to parse xpos: {a_attribue.Value}");
+                }
+
+                return true;
             }
             case "ypos":
             {
-                break;
+                float val;
+                if (float.TryParse(a_attribue.Value, out val))
+                {
+                    a_element.Position = new Vector2(a_element.Position.X, val);
+                }
+                else
+                {
+                    Logger.IcarianError($"Failed to parse ypos: {a_attribue.Value}");
+                }
+
+                return true;
             }
             case "width":
             {
-                break;
+                float val;
+                if (float.TryParse(a_attribue.Value, out val))
+                {
+                    a_element.Size = new Vector2(val, a_element.Size.Y);
+                }
+                else
+                {
+                    Logger.IcarianError($"Failed to parse width: {a_attribue.Value}");
+                }
+
+                return true;
             }
             case "height":
             {
-                break;
+                float val;
+                if (float.TryParse(a_attribue.Value, out val))
+                {
+                    a_element.Size = new Vector2(a_element.Size.X, val);
+                }
+                else
+                {
+                    Logger.IcarianError($"Failed to parse height: {a_attribue.Value}");
+                }
+
+                return true;
             }
             }
 
@@ -150,6 +192,42 @@ namespace IcarianEngine.Rendering.UI
                         {
                         case "text":
                         {
+                            textElement.Text = att.Value;
+
+                            break;
+                        }
+                        case "fontsize":
+                        {
+                            float val;
+                            if (float.TryParse(att.Value, out val))
+                            {
+                                textElement.FontSize = val;
+                            }
+                            else
+                            {
+                                Logger.IcarianError($"Failed to parse fontsize: {att.Value}");
+                            }
+
+                            break;
+                        }
+                        case "font":
+                        {
+                            Font font = AssetLibrary.LoadFont(att.Value);
+                            if (font != null)
+                            {
+                                textElement.Font = font;
+                            }
+                            else
+                            {
+                                Logger.IcarianError($"Failed to load font: {att.Value}");
+                            }
+
+                            break;
+                        }
+                        default:
+                        {
+                            Logger.IcarianError($"Unknown TextUIElement attribute: {att.Name}");
+
                             break;
                         }
                         }
@@ -275,6 +353,29 @@ namespace IcarianEngine.Rendering.UI
             RemoveChildElement(m_bufferAddr, a_element.BufferAddr);
         }
 
+        public UIElement GetNamedChild(string a_name)
+        {
+            foreach (UIElement child in Children)
+            {
+                if (child.Name == a_name)
+                {
+                    return child;
+                }
+
+                UIElement element = child.GetNamedChild(a_name);
+                if (element != null)
+                {
+                    return element;
+                }
+            }
+
+            return null;
+        }
+        public T GetNamedChild<T>(string a_name) where T : UIElement
+        {
+            return GetNamedChild(a_name) as T;
+        }
+
         public void Dispose()
         {
             Dispose(true);
@@ -288,6 +389,14 @@ namespace IcarianEngine.Rendering.UI
             {
                 if(a_disposing)
                 {
+                    foreach (UIElement child in Children)
+                    {
+                        if (child is IDestroy destroyable)
+                        {
+                            destroyable.Dispose();
+                        }
+                    }
+
                     DestroyCanvas(m_bufferAddr);
                 }
                 else

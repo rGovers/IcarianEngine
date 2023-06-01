@@ -75,6 +75,17 @@ FileToHeader(
 )
 
 FileToHeader(
+    SOURCE_FILE "shaders/ui.fvert"
+    HEADER_FILE "include/Shaders/UIVertex.h"
+    VARIABLE_NAME "UIVertex"
+)
+FileToHeader(
+    SOURCE_FILE "shaders/uiText.fpix"
+    HEADER_FILE "include/Shaders/UITextPixel.h"
+    VARIABLE_NAME "UITextPixel"
+)
+
+FileToHeader(
     SOURCE_FILE "shaders/post.fpix"
     HEADER_FILE "include/Shaders/PostPixel.h"
     VARIABLE_NAME "PostPixel"

@@ -28,11 +28,12 @@ namespace IcarianEngine.Rendering
         Null = ushort.MaxValue,
         CameraBuffer = 0,
         ModelBuffer = 1,
-        DirectionalLightBuffer = 2,
-        PointLightBuffer = 3,
-        SpotLightBuffer = 4,
-        Texture = 5,
-        PushTexture = 6
+        UIBuffer = 2,
+        DirectionalLightBuffer = 3,
+        PointLightBuffer = 4,
+        SpotLightBuffer = 5,
+        Texture = 6,
+        PushTexture = 7
     };
 
     public enum ShaderSlot : ushort

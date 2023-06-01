@@ -9,11 +9,12 @@ namespace FlareBase
         ShaderBufferType_Null = UINT16_MAX,
         ShaderBufferType_CameraBuffer = 0,
         ShaderBufferType_ModelBuffer = 1,
-        ShaderBufferType_DirectionalLightBuffer = 2,
-        ShaderBufferType_PointLightBuffer = 3,
-        ShaderBufferType_SpotLightBuffer = 4,
-        ShaderBufferType_Texture = 5,
-        ShaderBufferType_PushTexture = 6
+        ShaderBufferType_UIBuffer = 2,
+        ShaderBufferType_DirectionalLightBuffer = 3,
+        ShaderBufferType_PointLightBuffer = 4,
+        ShaderBufferType_SpotLightBuffer = 5,
+        ShaderBufferType_Texture = 6,
+        ShaderBufferType_PushTexture = 7
     };
     
     enum e_ShaderSlot : uint16_t
