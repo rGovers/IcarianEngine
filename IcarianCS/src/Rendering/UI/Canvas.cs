@@ -184,6 +184,8 @@ namespace IcarianEngine.Rendering.UI
                 TextUIElement textElement = new TextUIElement();
                 baseElement = textElement;
 
+                Font scribeFont = null;
+
                 foreach (XmlAttribute att in a_element.Attributes)
                 {
                     if (!SetBaseAttributes(baseElement, att))
@@ -192,7 +194,14 @@ namespace IcarianEngine.Rendering.UI
                         {
                         case "text":
                         {
-                            textElement.Text = att.Value;
+                            string text = att.Value;
+                            if (Scribe.KeyExists(text))
+                            {
+                                text = Scribe.GetString(text);
+                                scribeFont = Scribe.GetFont(text);
+                            }
+
+                            textElement.Text = text;
 
                             break;
                         }
@@ -232,6 +241,11 @@ namespace IcarianEngine.Rendering.UI
                         }
                         }
                     }
+                }
+
+                if (textElement.Font == null)
+                {
+                    textElement.Font = scribeFont;
                 }
 
                 break;
@@ -391,10 +405,7 @@ namespace IcarianEngine.Rendering.UI
                 {
                     foreach (UIElement child in Children)
                     {
-                        if (child is IDestroy destroyable)
-                        {
-                            destroyable.Dispose();
-                        }
+                        child.Dispose();
                     }
 
                     DestroyCanvas(m_bufferAddr);

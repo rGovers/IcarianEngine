@@ -32,6 +32,8 @@ public:
     void SetElementPosition(uint32_t a_addr, const glm::vec2& a_pos) const;
     glm::vec2 GetElementSize(uint32_t a_addr) const;
     void SetElementSize(uint32_t a_addr, const glm::vec2& a_size) const;
+    glm::vec4 GetElementColor(uint32_t a_addr) const;
+    void SetElementColor(uint32_t a_addr, const glm::vec4& a_color) const;
 
     uint32_t CreateTextElement() const;
     void DestroyTextElement(uint32_t a_addr) const;

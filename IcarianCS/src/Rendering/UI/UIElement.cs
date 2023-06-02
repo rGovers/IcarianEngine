@@ -1,11 +1,12 @@
 using IcarianEngine.Maths;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Rendering.UI
 {
-    public abstract class UIElement
+    public abstract class UIElement : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void AddChildElement(uint a_addr, uint a_childAddr);
@@ -22,10 +23,23 @@ namespace IcarianEngine.Rendering.UI
         extern static Vector2 GetSize(uint a_addr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetSize(uint a_addr, Vector2 a_size);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static Vector4 GetColor(uint a_addr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void SetColor(uint a_addr, Vector4 a_color);
 
         static ConcurrentDictionary<uint, UIElement> s_elementLookup = new ConcurrentDictionary<uint, UIElement>();
 
         string m_name;
+        bool   m_destroyed = false;
+
+        public bool IsDisposed
+        {
+            get
+            {
+                return m_destroyed;
+            }
+        }
 
         internal uint BufferAddr
         {
@@ -65,6 +79,18 @@ namespace IcarianEngine.Rendering.UI
             set
             {
                 SetSize(BufferAddr, value);
+            }
+        }
+
+        public Color Color
+        {
+            get
+            {
+                return GetColor(BufferAddr).ToColor();
+            }
+            set
+            {
+                SetColor(BufferAddr, value.ToVector4());
             }
         }
 
@@ -145,6 +171,46 @@ namespace IcarianEngine.Rendering.UI
             }
 
             RemoveChildElement(BufferAddr, a_child.BufferAddr);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool a_disposing)
+        {
+            if (!m_destroyed)
+            {
+                if (a_disposing)
+                {
+                    RemoveLookup(BufferAddr);
+
+                    BufferAddr = uint.MaxValue;
+
+                    foreach (UIElement child in Children)
+                    {
+                        child.Dispose();
+                    }
+                }
+                else
+                {
+                    Logger.IcarianWarning("UIElement failed to Dispose");
+                }
+
+                m_destroyed = true;
+            }
+            else
+            {
+                Logger.IcarianWarning("Multiple Dispose calls on UIElement");
+            }
+        }
+
+        ~UIElement()
+        {
+            Dispose(false);
         }
     }
 }

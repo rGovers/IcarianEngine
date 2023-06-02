@@ -3,6 +3,7 @@
 #include "Flare/IcarianAssert.h"
 #include "ObjectManager.h"
 #include "Rendering/ShaderBuffers.h"
+#include "Rendering/UI/UIElement.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
@@ -511,12 +512,12 @@ void VulkanShaderData::UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, 
         a_commandBuffer.pushConstants(m_layout, GetShaderStage(m_transformBufferInput.ShaderSlot), 0, sizeof(ModelShaderBuffer), &buffer);
     }
 }
-void VulkanShaderData::UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_elementAddr, const CanvasBuffer& a_canvas) const
+void VulkanShaderData::UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, const UIElement* a_element) const
 {
     if (m_uiBufferInput.ShaderSlot != FlareBase::ShaderSlot_Null)
     {
         UIShaderBuffer buffer;
-        buffer.Model = glm::mat4(0.5f);
+        buffer.Color = a_element->GetColor();
 
         a_commandBuffer.pushConstants(m_layout, GetShaderStage(m_uiBufferInput.ShaderSlot), 0, sizeof(UIShaderBuffer), &buffer);
     }

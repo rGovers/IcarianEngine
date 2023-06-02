@@ -58,11 +58,10 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(RuntimeManager* a_runtime, VulkanRend
     program.VertexStride = 0;
     program.VertexInputCount = 0;
     program.VertexAttribs = nullptr;
-    program.ShaderBufferInputCount = 1;
+    program.ShaderBufferInputCount = 2;
     program.ShaderBufferInputs = new FlareBase::ShaderBufferInput[2];
-    // program.ShaderBufferInputs[0] = FlareBase::ShaderBufferInput(-1, FlareBase::ShaderBufferType_UIBuffer, FlareBase::ShaderSlot_Vertex);
-    // program.ShaderBufferInputs[1] = FlareBase::ShaderBufferInput(0, FlareBase::ShaderBufferType_PushTexture, FlareBase::ShaderSlot_Pixel, 0);
-    program.ShaderBufferInputs[0] = FlareBase::ShaderBufferInput(0, FlareBase::ShaderBufferType_PushTexture, FlareBase::ShaderSlot_Pixel, 0);
+    program.ShaderBufferInputs[0] = FlareBase::ShaderBufferInput(-1, FlareBase::ShaderBufferType_UIBuffer, FlareBase::ShaderSlot_Pixel);
+    program.ShaderBufferInputs[1] = FlareBase::ShaderBufferInput(0, FlareBase::ShaderBufferType_PushTexture, FlareBase::ShaderSlot_Pixel, 0);
     program.EnableColorBlending = true;
     program.CullingMode = FlareBase::CullMode_None;
     program.PrimitiveMode = FlareBase::PrimitiveMode_TriangleStrip;
@@ -715,7 +714,7 @@ vk::CommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t a
     return commandBuffer;
 }
 
-void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint32_t a_addr, const CanvasBuffer& a_buffer, const glm::vec2& a_screenSize, uint32_t a_index)
+void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint32_t a_addr, const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize, uint32_t a_index)
 {
     if (a_addr == -1)
     {
@@ -725,7 +724,22 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
     UIElement* element = UIControl::GetUIElement(a_addr);
     if (element != nullptr)
     {
+        const glm::vec2 pos = element->GetCanvasPosition(a_canvas, a_screenSize);
+        const glm::vec2 scale = element->GetCanvasScale(a_canvas, a_screenSize);
+
+        const glm::vec2 screenPos = pos * a_canvas.ReferenceResolution;
+        const glm::vec2 screenSize = scale * a_canvas.ReferenceResolution;
+
+        const vk::Rect2D scissor = vk::Rect2D({ (int32_t)screenPos.x, (int32_t)screenPos.y }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y });
+        a_commandBuffer.setScissor(0, 1, &scissor);
+
+        const vk::Viewport viewport = vk::Viewport(screenPos.x, screenPos.y, screenSize.x, screenSize.y, 0.0f, 1.0f);
+        a_commandBuffer.setViewport(0, 1, &viewport);
+
         element->Update(m_vulkanEngine->GetRenderEngine());
+
+        const glm::vec2 baseSize = element->GetSize();
+        const glm::vec2 size = baseSize;
 
         switch (element->GetType()) 
         {
@@ -745,8 +759,9 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
             pipeline->Bind(a_index, a_commandBuffer);
 
             data->PushTexture(a_commandBuffer, 0, sampler, a_index);
+            data->UpdateUIBuffer(a_commandBuffer, element);
 
-            a_commandBuffer.draw(6, 1, 0, 0);
+            a_commandBuffer.draw(4, 1, 0, 0);
 
             break;
         }
@@ -760,7 +775,7 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
         const uint32_t* children = element->GetChildren();
         for (uint32_t i = 0; i < childCount; ++i)
         {
-            DrawUIElement(a_commandBuffer, children[i], a_buffer, a_screenSize, a_index);
+            DrawUIElement(a_commandBuffer, children[i], a_canvas, a_screenSize, a_index);
         }
     }
 }
@@ -1007,13 +1022,14 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
     // While we wait for other threads can draw UI on main render thread 
     vk::CommandBuffer buffer = StartCommandBuffer(camIndexSize * DrawingPassCount, a_index);
     const glm::ivec2 renderSize = m_swapchain->GetSize();
+    constexpr vk::ClearValue ClearColor = vk::ClearValue();
     const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
     (
         m_swapchain->GetRenderPassNoClear(),
         m_swapchain->GetFramebuffer(m_vulkanEngine->GetImageIndex()),
         vk::Rect2D({ 0, 0 }, { (uint32_t)renderSize.x, (uint32_t)renderSize.y }),
-        0,
-        nullptr
+        1,
+        &ClearColor
     );
 
     buffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
@@ -1023,12 +1039,6 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
     {
         if (!(canvas.Flags & 0b1 << canvas.DestroyedBit))
         {
-            const vk::Rect2D scissor = vk::Rect2D({ 0, 0 }, { (uint32_t)renderSize.x, (uint32_t)renderSize.y });
-            buffer.setScissor(0, 1, &scissor);
-
-            const vk::Viewport viewport = vk::Viewport(0.0f, 0.0f, renderSize.x, renderSize.y, 0.0f, 1.0f);
-            buffer.setViewport(0, 1, &viewport);
-
             for (uint32_t i = 0; i < canvas.ChildElementCount; ++i)
             {
                 DrawUIElement(buffer, canvas.ChildElements[i], canvas, renderSize, a_index);

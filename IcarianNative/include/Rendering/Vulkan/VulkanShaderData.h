@@ -8,9 +8,8 @@
 #include "Flare/ShaderBufferInput.h"
 #include "Flare/TextureSampler.h"
 
-struct CanvasBuffer;
-
 class ObjectManager;
+class UIElement;
 class VulkanGraphicsEngine;
 class VulkanRenderEngineBackend;
 class VulkanUniformBuffer;
@@ -86,7 +85,7 @@ public:
     void PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
 
     void UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_transformAddr, ObjectManager* a_objectManager) const;
-    void UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_elementAddr, const CanvasBuffer& a_canvas) const;
+    void UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, const UIElement* a_element) const;
 
     void Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
 };

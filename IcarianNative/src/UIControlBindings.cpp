@@ -26,6 +26,8 @@ static UIControlBindings* Instance = nullptr;
     F(void, IcarianEngine.Rendering.UI, UIElement, SetPosition, { Instance->SetElementPosition(a_addr, a_pos); }, uint32_t a_addr, glm::vec2 a_pos) \
     F(glm::vec2, IcarianEngine.Rendering.UI, UIElement, GetSize, { return Instance->GetElementSize(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.UI, UIElement, SetSize, { Instance->SetElementSize(a_addr, a_size); }, uint32_t a_addr, glm::vec2 a_size) \
+    F(glm::vec4, IcarianEngine.Rendering.UI, UIElement, GetColor, { return Instance->GetElementColor(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.UI, UIElement, SetColor, { Instance->SetElementColor(a_addr, a_color); }, uint32_t a_addr, glm::vec4 a_color) \
     \
     F(uint32_t, IcarianEngine.Rendering.UI, TextUIElement, CreateTextElement, { return Instance->CreateTextElement(); }) \
     F(void, IcarianEngine.Rendering.UI, TextUIElement, DestroyTextElement, { Instance->DestroyTextElement(a_addr); }, uint32_t a_addr) \
@@ -149,7 +151,8 @@ void UIControlBindings::DestroyCanvas(uint32_t a_addr) const
 void UIControlBindings::AddCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_canvas.Size(), "AddCanvasChild Canvas out of bounds");
-    ICARIAN_ASSERT_MSG(a_uiElementAddr < m_uiControl->m_uiElements.Size(), "AddCanvasChild UIElement out of bounds");
+    ICARIAN_ASSERT_MSG(a_uiElementAddr < m_uiControl->m_uiElements.Size(), "AddCanvasChild UIElement out of bounds");   
+    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_uiElementAddr] != nullptr, "AddCanvasChild UIElement deleted");
 
     CanvasBuffer buffer = m_uiControl->m_canvas[a_addr];
     if (buffer.ChildElements != nullptr)
@@ -183,11 +186,15 @@ void UIControlBindings::AddCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr
     buffer.ChildElements = newBuffer;
 
     m_uiControl->m_canvas.LockSet(a_addr, buffer);    
+
+    UIElement* element = m_uiControl->m_uiElements[a_uiElementAddr];
+    element->SetParent(-1);
 }
 void UIControlBindings::RemoveCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_canvas.Size(), "RemoveCanvasChild Canvas out of bounds");
     ICARIAN_ASSERT_MSG(a_uiElementAddr < m_uiControl->m_uiElements.Size(), "RemoveCanvasChild UIElement out of bounds");
+    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_uiElementAddr] != nullptr, "RemoveCanvasChild UIElement deleted");
 
     const CanvasBuffer buffer = m_uiControl->m_canvas[a_addr];
 
@@ -200,6 +207,9 @@ void UIControlBindings::RemoveCanvasChild(uint32_t a_addr, uint32_t a_uiElementA
             return;
         }
     }
+
+    UIElement* element = m_uiControl->m_uiElements[a_uiElementAddr];
+    element->SetParent(-1);
 }
 uint32_t* UIControlBindings::GetCanvasChildren(uint32_t a_addr, uint32_t* a_count) const
 {
@@ -219,6 +229,7 @@ void UIControlBindings::AddElementChild(uint32_t a_addr, uint32_t a_childAddr) c
     ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_childAddr] != nullptr, "AddElementChild child element deleted");
 
     m_uiControl->m_uiElements[a_addr]->AddChild(a_childAddr);
+    m_uiControl->m_uiElements[a_childAddr]->SetParent(a_addr);
 }
 void UIControlBindings::RemoveElementChild(uint32_t a_addr, uint32_t a_childAddr) const
 {
@@ -228,6 +239,7 @@ void UIControlBindings::RemoveElementChild(uint32_t a_addr, uint32_t a_childAddr
     ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_childAddr] != nullptr, "RemoveElementChild child element deleted");
 
     m_uiControl->m_uiElements[a_addr]->RemoveChild(a_childAddr);
+    m_uiControl->m_uiElements[a_childAddr]->SetParent(-1);
 }
 uint32_t* UIControlBindings::GetElementChildren(uint32_t a_addr, uint32_t* a_count) const
 {
@@ -264,6 +276,20 @@ void UIControlBindings::SetElementSize(uint32_t a_addr, const glm::vec2& a_size)
     ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "SetElementSize element deleted");
 
     m_uiControl->m_uiElements[a_addr]->SetSize(a_size);
+}
+glm::vec4 UIControlBindings::GetElementColor(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "GetElementColor out of bounds");
+    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetElementColor element deleted");
+
+    return m_uiControl->m_uiElements[a_addr]->GetColor();
+}
+void UIControlBindings::SetElementColor(uint32_t a_addr, const glm::vec4& a_color) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "SetElementColor out of bounds");
+    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "SetElementColor element deleted");
+
+    m_uiControl->m_uiElements[a_addr]->SetColor(a_color);
 }
 
 uint32_t UIControlBindings::CreateTextElement() const

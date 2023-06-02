@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Rendering.UI
 {
-    public class TextUIElement : UIElement, IDestroy
+    public class TextUIElement : UIElement
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint CreateTextElement();
@@ -22,14 +22,6 @@ namespace IcarianEngine.Rendering.UI
         extern static float GetFontSize(uint a_addr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetFontSize(uint a_addr, float a_size);
-        
-        public bool IsDisposed
-        {
-            get
-            {
-                return BufferAddr == uint.MaxValue;
-            }
-        }
 
         public string Text
         {
@@ -81,22 +73,13 @@ namespace IcarianEngine.Rendering.UI
             AddLookup(BufferAddr, this);
         }
 
-        public void Dispose()
-        {
-            Dispose(true);
-
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool a_disposing)
+        protected override void Dispose(bool a_disposing)
         {
             if(BufferAddr != uint.MaxValue)
             {
                 if(a_disposing)
                 {
                     DestroyTextElement(BufferAddr);
-
-                    RemoveLookup(BufferAddr);
                 }
                 else
                 {
@@ -109,11 +92,6 @@ namespace IcarianEngine.Rendering.UI
             {
                 Logger.IcarianError("Multiple TextUIElement Dispose");
             }
-        }
-
-        ~TextUIElement()
-        {
-            Dispose(false);
         }
     }
 }
