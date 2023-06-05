@@ -121,7 +121,7 @@ Application::Application(Config* a_config)
 
     m_runtime = new RuntimeManager();
         
-    ThreadPool::Init();
+    ThreadPool::Init(m_runtime);
 
     Logger::InitRuntime(m_runtime);
     
@@ -144,6 +144,10 @@ Application::Application(Config* a_config)
 }
 Application::~Application()
 {
+    // TODO: Proper fix for this problem
+    // Seems that semaphores in mono cause a crash with stl conditional variables so we need to stop the thread pool first
+    ThreadPool::Stop();
+
     TRACE("Disposing App");
 
     // This may seem odd but it seem that with the more recent changes GCC has decided to reorder the calls for some reason

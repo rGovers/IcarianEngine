@@ -2,12 +2,15 @@
 
 #include <chrono>
 
+#include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
 static ThreadPool* Instance = nullptr;
 
-ThreadPool::ThreadPool(uint32_t a_threadCount)
+ThreadPool::ThreadPool(uint32_t a_threadCount, RuntimeManager* a_runtime)
 {
+    m_runtime = a_runtime;
+
     m_shutdown = false;
 
     m_threadCount = a_threadCount;
@@ -54,14 +57,25 @@ void ThreadPool::Start()
         m_threads[i] = std::thread(ThreadPool::Run, i);
     }
 }
+void ThreadPool::Stop()
+{
+    if (Instance != nullptr)
+    {
+        TRACE("Stopping thread pool");
 
-void ThreadPool::Init()
+        Instance->m_shutdown = true;
+        Instance->m_jobAvailable.notify_all();
+    }
+}
+
+void ThreadPool::Init(RuntimeManager* a_runtime)
 {
     if (Instance == nullptr)
     {
         TRACE("Starting thread pool");
 
-        Instance = new ThreadPool((uint32_t)std::thread::hardware_concurrency() / 2);
+        Instance = new ThreadPool((uint32_t)std::thread::hardware_concurrency() / 2, a_runtime);
+        // Instance = new ThreadPool(2, a_runtime);
         Instance->Start();
     }
 }
@@ -94,6 +108,8 @@ void ThreadPool::PushJob(ThreadJob* a_job)
 
 void ThreadPool::Run(uint32_t a_thread)
 {
+    Instance->m_runtime->AttachThread();
+
     while (!Instance->m_shutdown) 
     {
         ThreadJob* job = nullptr;

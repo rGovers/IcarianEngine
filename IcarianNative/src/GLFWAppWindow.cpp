@@ -3,6 +3,7 @@
 #include "Application.h"
 #include "Config.h"
 #include "InputManager.h"
+#include "Rendering/UI/UIControl.h"
 #include "Profiler.h"
 
 static constexpr int GLFWKeyTable[] =
@@ -187,12 +188,29 @@ void GLFWAppWindow::Update()
         PROFILESTACK("Input");
         InputManager* inputManager = app->GetInputManager();
 
+        glm::ivec2 winSize;
+        glfwGetWindowSize(m_window, &winSize.x, &winSize.y);
+
         glm::dvec2 cPos;
         glfwGetCursorPos(m_window, &cPos.x, &cPos.y);
 
         inputManager->SetCursorPos((glm::vec2)cPos);
+        UIControl::UpdateCursor((glm::vec2)cPos, (glm::vec2)winSize);
         
-        inputManager->SetMouseButton(FlareBase::MouseButton_Left, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT));
+        bool leftDown = glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT);
+        if (leftDown)
+        {
+            if (UIControl::SubmitClick((glm::vec2)cPos, (glm::vec2)winSize))
+            {
+                leftDown = false;
+            }
+        }
+        else 
+        {
+            UIControl::SubmitRelease((glm::vec2)cPos, (glm::vec2)winSize);
+        }
+
+        inputManager->SetMouseButton(FlareBase::MouseButton_Left, leftDown);
         inputManager->SetMouseButton(FlareBase::MouseButton_Middle, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_MIDDLE));
         inputManager->SetMouseButton(FlareBase::MouseButton_Right, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT));
 

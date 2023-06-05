@@ -6,6 +6,14 @@ using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Rendering.UI
 {
+    public enum ElementState : uint
+    {
+        Normal = 0,
+        Hovered = 1,
+        Pressed = 2,
+        Released = 3
+    };
+
     public abstract class UIElement : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -28,10 +36,20 @@ namespace IcarianEngine.Rendering.UI
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetColor(uint a_addr, Vector4 a_color);
 
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GetElementState(uint a_addr);
+
         static ConcurrentDictionary<uint, UIElement> s_elementLookup = new ConcurrentDictionary<uint, UIElement>();
+
+        public delegate void UIEvent(Canvas a_canvas, UIElement a_element);
 
         string m_name;
         bool   m_destroyed = false;
+
+        public UIEvent OnNormal = null;
+        public UIEvent OnHover = null;
+        public UIEvent OnPressed = null;
+        public UIEvent OnReleased = null;
 
         public bool IsDisposed
         {
@@ -56,6 +74,14 @@ namespace IcarianEngine.Rendering.UI
             internal set
             {
                 m_name = value;
+            }
+        }
+
+        public ElementState ElementState
+        {
+            get
+            {
+                return (ElementState)GetElementState(BufferAddr);
             }
         }
 
@@ -129,6 +155,47 @@ namespace IcarianEngine.Rendering.UI
             return null;
         }
 
+        static void OnNormalS(uint a_canvasAddr, uint a_elementAddr)
+        {
+            Canvas canvas = Canvas.GetCanvas(a_canvasAddr);
+            UIElement element = GetUIElement(a_elementAddr);
+
+            if (element.OnNormal != null)
+            {
+                element.OnNormal.Invoke(canvas, element);
+            }
+        }
+        static void OnHoverS(uint a_canvasAddr, uint a_elementAddr)
+        {
+            Canvas canvas = Canvas.GetCanvas(a_canvasAddr);
+            UIElement element = GetUIElement(a_elementAddr);
+
+            if (element.OnHover != null)
+            {
+                element.OnHover.Invoke(canvas, element);
+            }
+        }
+        static void OnPressedS(uint a_canvasAddr, uint a_elementAddr)
+        {
+            Canvas canvas = Canvas.GetCanvas(a_canvasAddr);
+            UIElement element = GetUIElement(a_elementAddr);
+
+            if (element.OnPressed != null)
+            {
+                element.OnPressed.Invoke(canvas, element);
+            }
+        }
+        static void OnReleasedS(uint a_canvasAddr, uint a_elementAddr)
+        {
+            Canvas canvas = Canvas.GetCanvas(a_canvasAddr);
+            UIElement element = GetUIElement(a_elementAddr);
+
+            if (element.OnReleased != null)
+            {
+                element.OnReleased.Invoke(canvas, element);
+            }
+        }
+
         public UIElement GetNamedChild(string a_name)
         {
             foreach (UIElement child in Children)
@@ -187,8 +254,6 @@ namespace IcarianEngine.Rendering.UI
                 if (a_disposing)
                 {
                     RemoveLookup(BufferAddr);
-
-                    BufferAddr = uint.MaxValue;
 
                     foreach (UIElement child in Children)
                     {

@@ -12,4 +12,13 @@ struct CanvasBuffer
     uint32_t ChildElementCount;
     uint32_t* ChildElements;
     unsigned char Flags;
+
+    inline bool IsDestroyed() const
+    {
+        return Flags & (0b1 << DestroyedBit);
+    }
+    inline bool CaptureInput() const
+    {
+        return Flags & (0b1 << CaptureInputBit);
+    }
 };

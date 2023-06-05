@@ -21,6 +21,7 @@
 #include "Flare/IcarianAssert.h"
 #include "InputManager.h"
 #include "Profiler.h"
+#include "Rendering/UI/UIControl.h"
 #include "Trace.h"
 
 static std::string GetAddr(const std::string_view& a_addr)
@@ -332,7 +333,11 @@ bool HeadlessAppWindow::PollMessage()
         
         InputManager* inputManager = app->GetInputManager();
         
-        inputManager->SetCursorPos(*(glm::vec2*)msg.Data);
+        const glm::vec2& pos = *(glm::vec2*)msg.Data;
+
+        inputManager->SetCursorPos(pos);
+
+        UIControl::UpdateCursor(pos, glm::vec2((float)m_width, (float)m_height));
 
         break;
     }
@@ -344,7 +349,20 @@ bool HeadlessAppWindow::PollMessage()
         
         const unsigned char mouseState = *(unsigned char*)msg.Data;
 
-        inputManager->SetMouseButton(FlareBase::MouseButton_Left, mouseState & 0b1 << FlareBase::MouseButton_Left);
+        bool leftDown = mouseState & 0b1 << FlareBase::MouseButton_Left;
+        if (leftDown)
+        {
+            if (UIControl::SubmitClick(inputManager->GetCursorPos(), glm::vec2((float)m_width, (float)m_height)))
+            {
+                leftDown = false;
+            }
+        }
+        else 
+        {
+            UIControl::SubmitRelease(inputManager->GetCursorPos(), glm::vec2((float)m_width, (float)m_height));
+        }
+
+        inputManager->SetMouseButton(FlareBase::MouseButton_Left, leftDown);
         inputManager->SetMouseButton(FlareBase::MouseButton_Middle, mouseState & 0b1 << FlareBase::MouseButton_Middle);
         inputManager->SetMouseButton(FlareBase::MouseButton_Right, mouseState & 0b1 << FlareBase::MouseButton_Right);
 

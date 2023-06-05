@@ -75,7 +75,11 @@ namespace IcarianEngine.Rendering.UI
 
         protected override void Dispose(bool a_disposing)
         {
-            if(BufferAddr != uint.MaxValue)
+            bool dispose = !IsDisposed;
+
+            base.Dispose(a_disposing);
+
+            if(dispose)
             {
                 if(a_disposing)
                 {
@@ -85,8 +89,6 @@ namespace IcarianEngine.Rendering.UI
                 {
                     Logger.IcarianWarning("TextUIElement Failed to Dispose");
                 }
-
-                BufferAddr = uint.MaxValue;
             }
             else
             {

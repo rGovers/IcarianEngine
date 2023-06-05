@@ -458,13 +458,6 @@ vk::CommandBuffer VulkanGraphicsEngine::StartCommandBuffer(uint32_t a_bufferInde
 
 vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index) 
 {
-    // While there is no code relating to mono in here for now.
-    // This is used to fix a crash relating to locking a Thread after going from Mono -> Native 
-    // When when another thread tries to aquire a lock after and it is not visible from Mono despite still being native will cause MemMap Crash 
-    // 
-    // ^ No longer applicable as actually using mono functions on this thread however leaving for future reference and reminder to attach all threads
-    m_runtimeManager->AttachThread();
-    
     const RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
     ObjectManager* objectManager = renderEngine->GetObjectManager();
 
@@ -531,8 +524,6 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
 }
 vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index)
 {
-    m_runtimeManager->AttachThread();
-
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
 
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
@@ -692,8 +683,6 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 }
 vk::CommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index)
 {
-    m_runtimeManager->AttachThread();
-
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_bufferIndex));
@@ -756,9 +745,10 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
             ICARIAN_ASSERT_MSG_R(text->GetSamplerAddr() < m_textureSampler.Size(), "Invalid Sampler Address");
             const FlareBase::TextureSampler& sampler = m_textureSampler[text->GetSamplerAddr()];
 
+            data->PushTexture(a_commandBuffer, 0, sampler, a_index);
+            
             pipeline->Bind(a_index, a_commandBuffer);
 
-            data->PushTexture(a_commandBuffer, 0, sampler, a_index);
             data->UpdateUIBuffer(a_commandBuffer, element);
 
             a_commandBuffer.draw(4, 1, 0, 0);

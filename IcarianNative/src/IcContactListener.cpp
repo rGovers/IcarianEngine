@@ -28,8 +28,6 @@ JPH::ValidateResult IcContactListener::OnContactValidate(const JPH::Body &a_lhs,
 
 void IcContactListener::OnContactAdded(const JPH::Body& a_lhs, const JPH::Body& a_rhs, const JPH::ContactManifold& a_manifold, JPH::ContactSettings& a_ioSettings)
 {
-    m_runtime->AttachThread();
-
     DispatchCollisionData data;
 
     data.IsTrigger = a_ioSettings.mIsSensor;
@@ -51,8 +49,6 @@ void IcContactListener::OnContactAdded(const JPH::Body& a_lhs, const JPH::Body& 
 }
 void IcContactListener::OnContactPersisted(const JPH::Body& a_lhs, const JPH::Body& a_rhs, const JPH::ContactManifold& a_manifold, JPH::ContactSettings& a_ioSettings)
 {
-    m_runtime->AttachThread();
-
     DispatchCollisionData data;
 
     data.IsTrigger = a_ioSettings.mIsSensor;
@@ -74,8 +70,6 @@ void IcContactListener::OnContactPersisted(const JPH::Body& a_lhs, const JPH::Bo
 }
 void IcContactListener::OnContactRemoved(const JPH::SubShapeIDPair& a_shapePair)
 {
-    m_runtime->AttachThread();
-
     DispatchCollisionData data;
 
     data.BodyAddrA = m_engine->GetBodyAddr(a_shapePair.GetBody1ID().GetIndex());

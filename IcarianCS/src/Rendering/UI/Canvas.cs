@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Xml;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 
 namespace IcarianEngine.Rendering.UI
 {
@@ -20,6 +21,8 @@ namespace IcarianEngine.Rendering.UI
 
     public class Canvas : IDestroy
     {
+        static ConcurrentDictionary<uint, Canvas> s_canvasLookup = new ConcurrentDictionary<uint, Canvas>();
+
         const int CaptureInputBit = 1;
 
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -101,6 +104,19 @@ namespace IcarianEngine.Rendering.UI
         private Canvas(uint a_bufferAddr)
         {
             m_bufferAddr = a_bufferAddr;
+
+            s_canvasLookup.TryAdd(m_bufferAddr, this);
+        }
+
+        public static Canvas GetCanvas(uint a_addr)
+        {
+            Canvas canvas;
+            if (s_canvasLookup.TryGetValue(a_addr, out canvas))
+            {
+                return canvas;
+            }
+
+            return null;
         }
 
         static bool SetBaseAttributes(UIElement a_element, XmlAttribute a_attribue)
@@ -403,6 +419,8 @@ namespace IcarianEngine.Rendering.UI
             {
                 if(a_disposing)
                 {
+                    s_canvasLookup.TryRemove(m_bufferAddr, out Canvas _);
+
                     foreach (UIElement child in Children)
                     {
                         child.Dispose();

@@ -8,6 +8,8 @@
 #include <thread>
 #include <vector>
 
+class RuntimeManager;
+
 // Want the engine to take precedence over the runtime
 enum e_JobPriority : uint32_t
 {
@@ -88,6 +90,8 @@ private:
 
     uint32_t                                                        m_threadCount;
 
+    RuntimeManager*                                                 m_runtime;
+
     std::thread*                                                    m_threads;
 
     volatile bool*                                                  m_join;
@@ -100,7 +104,7 @@ private:
 
     static void Run(uint32_t a_thread);
 
-    ThreadPool(uint32_t a_threadCount);
+    ThreadPool(uint32_t a_threadCount, RuntimeManager* a_runtime);
 
     void Start();
 
@@ -109,7 +113,8 @@ protected:
 public:
     ~ThreadPool();
 
-    static void Init();
+    static void Init(RuntimeManager* a_runtime);
+    static void Stop();
     static void Destroy();
 
     static uint32_t GetThreadCount();

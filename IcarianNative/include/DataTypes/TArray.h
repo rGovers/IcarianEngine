@@ -150,6 +150,14 @@ public:
 
         return a;
     }
+    TReadLockArray<T> ToReadLockArray()
+    {
+        TReadLockArray<T> a = TReadLockArray<T>(m_mutex);
+
+        a.SetData(m_data, m_size);
+
+        return a;
+    }
 
     inline std::shared_mutex& Lock()
     {

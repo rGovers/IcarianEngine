@@ -97,3 +97,6 @@ public:
         m_data[a_index] = a_value;
     }
 };
+
+template<typename T>
+using TReadLockArray = TLockArray<T, std::shared_mutex, std::shared_lock<std::shared_mutex>>;

@@ -28,6 +28,7 @@ static UIControlBindings* Instance = nullptr;
     F(void, IcarianEngine.Rendering.UI, UIElement, SetSize, { Instance->SetElementSize(a_addr, a_size); }, uint32_t a_addr, glm::vec2 a_size) \
     F(glm::vec4, IcarianEngine.Rendering.UI, UIElement, GetColor, { return Instance->GetElementColor(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.UI, UIElement, SetColor, { Instance->SetElementColor(a_addr, a_color); }, uint32_t a_addr, glm::vec4 a_color) \
+    F(uint32_t, IcarianEngine.Rendering.UI, UIElement, GetElementState, { return Instance->GetElementState(a_addr); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering.UI, TextUIElement, CreateTextElement, { return Instance->CreateTextElement(); }) \
     F(void, IcarianEngine.Rendering.UI, TextUIElement, DestroyTextElement, { Instance->DestroyTextElement(a_addr); }, uint32_t a_addr) \
@@ -290,6 +291,13 @@ void UIControlBindings::SetElementColor(uint32_t a_addr, const glm::vec4& a_colo
     ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "SetElementColor element deleted");
 
     m_uiControl->m_uiElements[a_addr]->SetColor(a_color);
+}
+uint32_t UIControlBindings::GetElementState(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "GetElementState out of bounds");
+    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetElementState element deleted");
+
+    return (uint32_t)m_uiControl->m_uiElements[a_addr]->GetState();
 }
 
 uint32_t UIControlBindings::CreateTextElement() const

@@ -15,20 +15,30 @@ enum e_UIElementType : uint32_t
     UIElementType_Text
 };
 
+enum e_ElementState : uint32_t
+{
+    ElementState_Normal = 0,
+    ElementState_Hovered = 1,
+    ElementState_Pressed = 2,
+    ElementState_Released = 3
+};
+
 class RenderEngine;
 
 class UIElement
 {
 private:
-    uint32_t  m_parent;
+    uint32_t       m_parent;
+     
+    uint32_t*      m_children;
+    uint32_t       m_childCount;
 
-    uint32_t* m_children;
-    uint32_t  m_childCount;
+    e_ElementState m_state;
 
-    glm::vec2 m_pos;
-    glm::vec2 m_size;
-
-    glm::vec4 m_color;
+    glm::vec2      m_pos;
+    glm::vec2      m_size;
+    
+    glm::vec4      m_color;
 
     glm::mat3 GetMatrix(const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize) const
     {
@@ -63,6 +73,8 @@ public:
         m_size = glm::vec2(100.0f);
 
         m_color = glm::vec4(1.0f);
+
+        m_state = ElementState_Normal;
     }
     virtual ~UIElement()
     {
@@ -71,6 +83,15 @@ public:
             delete[] m_children;
             m_children = nullptr;
         }
+    }
+
+    inline e_ElementState GetState() const
+    {
+        return m_state;
+    }
+    inline void SetState(e_ElementState a_state)
+    {
+        m_state = a_state;
     }
 
     inline glm::vec2 GetPosition() const
