@@ -12,7 +12,8 @@
 enum e_UIElementType : uint32_t
 {
     UIElementType_Null,
-    UIElementType_Text
+    UIElementType_Text,
+    UIElementType_Image
 };
 
 enum e_ElementState : uint32_t

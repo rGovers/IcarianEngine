@@ -44,4 +44,9 @@ public:
     void SetTextElementFont(uint32_t a_addr, uint32_t a_fontAddr) const;
     float GetTextElementFontSize(uint32_t a_addr) const;
     void SetTextElementFontSize(uint32_t a_addr, float a_size) const;
+
+    uint32_t CreateImageElement() const;
+    void DestroyImageElement(uint32_t a_addr) const;
+    uint32_t GetImageElementSampler(uint32_t a_addr) const;
+    void SetImageElementSampler(uint32_t a_addr, uint32_t a_samplerAddr) const;
 };

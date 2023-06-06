@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Xml;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using IcarianEngine.Definitions;
 
 namespace IcarianEngine.Rendering.UI
 {
@@ -185,6 +186,62 @@ namespace IcarianEngine.Rendering.UI
 
                 return true;
             }
+            case "onnormal":
+            {
+                UIElement.UIEvent normalEvent = ModControl.GetFunction<UIElement.UIEvent>(a_attribue.Value);
+                if (normalEvent != null)
+                {
+                    a_element.OnNormal += normalEvent;
+                }
+                else
+                {
+                    Logger.IcarianError($"Failed to find OnNormal event: {a_attribue.Value}");
+                }
+
+                return true;
+            }
+            case "onhover":
+            {
+                UIElement.UIEvent hoverEvent = ModControl.GetFunction<UIElement.UIEvent>(a_attribue.Value);
+                if (hoverEvent != null)
+                {
+                    a_element.OnHover += hoverEvent;
+                }
+                else
+                {
+                    Logger.IcarianError($"Failed to find OnHover event: {a_attribue.Value}");
+                }
+
+                return true;
+            }
+            case "onpressed":
+            {
+                UIElement.UIEvent pressedEvent = ModControl.GetFunction<UIElement.UIEvent>(a_attribue.Value);
+                if (pressedEvent != null)
+                {
+                    a_element.OnPressed += pressedEvent;
+                }
+                else
+                {
+                    Logger.IcarianError($"Failed to find OnPressed event: {a_attribue.Value}");
+                }
+
+                return true;
+            }
+            case "onreleased":
+            {
+                UIElement.UIEvent releasedEvent = ModControl.GetFunction<UIElement.UIEvent>(a_attribue.Value);
+                if (releasedEvent != null)
+                {
+                    a_element.OnReleased += releasedEvent;
+                }
+                else
+                {
+                    Logger.IcarianError($"Failed to find OnReleased event: {a_attribue.Value}");
+                }
+
+                return true;
+            }
             }
 
             return false;
@@ -262,6 +319,77 @@ namespace IcarianEngine.Rendering.UI
                 if (textElement.Font == null)
                 {
                     textElement.Font = scribeFont;
+                }
+
+                break;
+            }
+            case "image":
+            {
+                ImageUIElement imageElement = new ImageUIElement();
+                baseElement = imageElement;
+
+                TextureInput input = new TextureInput()
+                {
+                    Slot = 0,
+                    AddressMode = TextureAddress.ClampToEdge,
+                    FilterMode = TextureFilter.Linear
+                };
+
+                foreach (XmlAttribute att in a_element.Attributes)
+                {
+                    if (!SetBaseAttributes(baseElement, att))
+                    {
+                        switch (att.Name.ToLower())
+                        {
+                        case "path":
+                        {
+                            input.Path = att.Value;
+
+                            break;
+                        }
+                        case "addressmode":
+                        {
+                            object val = Enum.Parse(typeof(TextureAddress), att.Value, true);
+                            if (val != null)
+                            {
+                                input.AddressMode = (TextureAddress)val;
+                            }
+                            else
+                            {
+                                Logger.IcarianError($"Failed to parse AddressMode: {att.Value}");
+                            }
+
+                            break;
+                        }
+                        case "filtermode":
+                        {
+                            object val = Enum.Parse(typeof(TextureFilter), att.Value, true);
+                            if (val != null)
+                            {
+                                input.FilterMode = (TextureFilter)val;
+                            }
+                            else
+                            {
+                                Logger.IcarianError($"Failed to parse FilterMode: {att.Value}");
+                            }
+
+                            break;
+                        }
+                        }
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(input.Path))
+                {
+                    TextureSampler sampler = AssetLibrary.GetSampler(input);
+                    if (sampler != null)
+                    {
+                        imageElement.Sampler = sampler;
+                    }
+                    else
+                    {
+                        Logger.IcarianError($"Failed to load sampler: {input.Path}");
+                    }
                 }
 
                 break;

@@ -64,6 +64,86 @@ namespace IcarianEngine.Mod
             }
         }
 
+        public static T GetFunction<T>(string a_name) where T : Delegate
+        {
+            string[] strings = a_name.Split(':');
+
+            if (strings.Length != 2)
+            {
+                Logger.IcarianWarning($"Invalid function name {a_name}");
+
+                return null;
+            }
+
+            foreach (Assembly asm in CoreAssembly.Assemblies)
+            {
+                Type type = asm.GetType(strings[0]);
+                if (type != null)
+                {
+                    MethodInfo method = type.GetMethod(strings[1], BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                    if (method != null)
+                    {
+                        return Delegate.CreateDelegate(typeof(T), method) as T;
+                    }
+                }
+            }
+
+            foreach (IcarianAssembly iAsm in Assemblies)
+            {
+                foreach (Assembly asm in iAsm.Assemblies)
+                {
+                    Type type = asm.GetType(strings[0]);
+                    if (type != null)
+                    {
+                        MethodInfo method = type.GetMethod(strings[1], BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                        if (method != null)
+                        {
+                            return Delegate.CreateDelegate(typeof(T), method) as T;
+                        }
+                    }
+                }
+            }
+
+            Logger.IcarianWarning($"Failed to find function {a_name}");
+
+            return null;
+        }
+        public static T GetFunction<T>(string a_namespace, string a_class, string a_function) where T : Delegate
+        {
+            foreach (Assembly asm in CoreAssembly.Assemblies)
+            {
+                Type type = asm.GetType($"{a_namespace}.{a_class}");
+                if (type != null)
+                {
+                    MethodInfo method = type.GetMethod(a_function);
+                    if (method != null)
+                    {
+                        return Delegate.CreateDelegate(typeof(T), method) as T;
+                    }
+                }
+            }
+
+            foreach (IcarianAssembly iAsm in Assemblies)
+            {
+                foreach (Assembly asm in iAsm.Assemblies)
+                {
+                    Type type = asm.GetType($"{a_namespace}.{a_class}");
+                    if (type != null)
+                    {
+                        MethodInfo method = type.GetMethod(a_function);
+                        if (method != null)
+                        {
+                            return Delegate.CreateDelegate(typeof(T), method) as T;
+                        }
+                    }
+                }
+            }
+
+            Logger.IcarianWarning($"Failed to find function {a_namespace}.{a_class}.{a_function}");
+
+            return null;
+        }
+
         public static Type GetCoreTypeValue(string a_name, bool a_def = false)
         {
             string coreName = $"IcarianEngine.{a_name}";

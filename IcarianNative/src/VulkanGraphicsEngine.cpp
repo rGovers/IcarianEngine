@@ -12,6 +12,7 @@
 #include "Rendering/Light.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/ShaderBuffers.h"
+#include "Rendering/UI/ImageUIElement.h"
 #include "Rendering/UI/TextUIElement.h"
 #include "Rendering/UI/UIControl.h"
 #include "Rendering/UI/UIElement.h"
@@ -31,6 +32,7 @@
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 #include "Shaders/UIVertex.h"
+#include "Shaders/UIImagePixel.h"
 #include "Shaders/UITextPixel.h"
 #include "Trace.h"
 #include "ThreadPool.h"
@@ -51,27 +53,46 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(RuntimeManager* a_runtime, VulkanRend
     m_postLightFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostLightS(uint,uint)");
     m_postProcessFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostProcessS(uint)"); 
 
-    FlareBase::RenderProgram program;
-    program.VertexShader = GenerateFVertexShader(UIVERTEX);
-    program.PixelShader = GenerateFPixelShader(UITEXTPIXEL);
-    program.RenderLayer = 0;
-    program.VertexStride = 0;
-    program.VertexInputCount = 0;
-    program.VertexAttribs = nullptr;
-    program.ShaderBufferInputCount = 2;
-    program.ShaderBufferInputs = new FlareBase::ShaderBufferInput[2];
-    program.ShaderBufferInputs[0] = FlareBase::ShaderBufferInput(-1, FlareBase::ShaderBufferType_UIBuffer, FlareBase::ShaderSlot_Pixel);
-    program.ShaderBufferInputs[1] = FlareBase::ShaderBufferInput(0, FlareBase::ShaderBufferType_PushTexture, FlareBase::ShaderSlot_Pixel, 0);
-    program.EnableColorBlending = true;
-    program.CullingMode = FlareBase::CullMode_None;
-    program.PrimitiveMode = FlareBase::PrimitiveMode_TriangleStrip;
-    program.Flags |= 0b1 << FlareBase::RenderProgram::DestroyFlag;
+    FlareBase::RenderProgram textProgram;
+    textProgram.VertexShader = GenerateFVertexShader(UIVERTEX);
+    textProgram.PixelShader = GenerateFPixelShader(UITEXTPIXEL);
+    textProgram.RenderLayer = 0;
+    textProgram.VertexStride = 0;
+    textProgram.VertexInputCount = 0;
+    textProgram.VertexAttribs = nullptr;
+    textProgram.ShaderBufferInputCount = 2;
+    textProgram.ShaderBufferInputs = new FlareBase::ShaderBufferInput[2];
+    textProgram.ShaderBufferInputs[0] = FlareBase::ShaderBufferInput(-1, FlareBase::ShaderBufferType_UIBuffer, FlareBase::ShaderSlot_Pixel);
+    textProgram.ShaderBufferInputs[1] = FlareBase::ShaderBufferInput(0, FlareBase::ShaderBufferType_PushTexture, FlareBase::ShaderSlot_Pixel, 0);
+    textProgram.EnableColorBlending = true;
+    textProgram.CullingMode = FlareBase::CullMode_None;
+    textProgram.PrimitiveMode = FlareBase::PrimitiveMode_TriangleStrip;
+    textProgram.Flags |= 0b1 << FlareBase::RenderProgram::DestroyFlag;
 
-    m_textUIPipelineAddr = GenerateRenderProgram(program);
+    m_textUIPipelineAddr = GenerateRenderProgram(textProgram);
+
+    FlareBase::RenderProgram imageProgram;
+    imageProgram.VertexShader = GenerateFVertexShader(UIVERTEX);
+    imageProgram.PixelShader = GenerateFPixelShader(UIIMAGEPIXEL);
+    imageProgram.RenderLayer = 0;
+    imageProgram.VertexStride = 0;
+    imageProgram.VertexInputCount = 0;
+    imageProgram.VertexAttribs = nullptr;
+    imageProgram.ShaderBufferInputCount = 2;
+    imageProgram.ShaderBufferInputs = new FlareBase::ShaderBufferInput[2];
+    imageProgram.ShaderBufferInputs[0] = FlareBase::ShaderBufferInput(-1, FlareBase::ShaderBufferType_UIBuffer, FlareBase::ShaderSlot_Pixel);
+    imageProgram.ShaderBufferInputs[1] = FlareBase::ShaderBufferInput(0, FlareBase::ShaderBufferType_PushTexture, FlareBase::ShaderSlot_Pixel, 0);
+    imageProgram.EnableColorBlending = true;
+    imageProgram.CullingMode = FlareBase::CullMode_None;
+    imageProgram.PrimitiveMode = FlareBase::PrimitiveMode_TriangleStrip;
+    imageProgram.Flags |= 0b1 << FlareBase::RenderProgram::DestroyFlag;
+
+    m_imageUIPipelineAddr = GenerateRenderProgram(imageProgram);
 }
 VulkanGraphicsEngine::~VulkanGraphicsEngine()
 {
     DestroyRenderProgram(m_textUIPipelineAddr);
+    DestroyRenderProgram(m_imageUIPipelineAddr);
 
     delete m_runtimeBindings;
 
@@ -730,28 +751,40 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
         const glm::vec2 baseSize = element->GetSize();
         const glm::vec2 size = baseSize;
 
+        VulkanPipeline* pipeline = nullptr;
+        VulkanShaderData* shaderData = nullptr;
+
         switch (element->GetType()) 
         {
         case UIElementType_Text:
         {
             const TextUIElement* text = (TextUIElement*)element;
 
-            VulkanPipeline* pipeline = GetPipeline(-1, m_textUIPipelineAddr);
+            pipeline = GetPipeline(-1, m_textUIPipelineAddr);
             ICARIAN_ASSERT(pipeline != nullptr);
-
-            VulkanShaderData* data = pipeline->GetShaderData();
-            ICARIAN_ASSERT(data != nullptr);
+            shaderData = pipeline->GetShaderData();
+            ICARIAN_ASSERT(shaderData != nullptr);
 
             ICARIAN_ASSERT_MSG_R(text->GetSamplerAddr() < m_textureSampler.Size(), "Invalid Sampler Address");
             const FlareBase::TextureSampler& sampler = m_textureSampler[text->GetSamplerAddr()];
 
-            data->PushTexture(a_commandBuffer, 0, sampler, a_index);
+            shaderData->PushTexture(a_commandBuffer, 0, sampler, a_index);
+
+            break;
+        }
+        case UIElementType_Image:
+        {
+            const ImageUIElement* image = (ImageUIElement*)element;
+
+            pipeline = GetPipeline(-1, m_imageUIPipelineAddr);
+            ICARIAN_ASSERT(pipeline != nullptr);
+            shaderData = pipeline->GetShaderData();
+            ICARIAN_ASSERT(shaderData != nullptr);
             
-            pipeline->Bind(a_index, a_commandBuffer);
+            ICARIAN_ASSERT_MSG_R(image->GetSamplerAddr() < m_textureSampler.Size(), "Invalid Sampler Address");
+            const FlareBase::TextureSampler& sampler = m_textureSampler[image->GetSamplerAddr()];
 
-            data->UpdateUIBuffer(a_commandBuffer, element);
-
-            a_commandBuffer.draw(4, 1, 0, 0);
+            shaderData->PushTexture(a_commandBuffer, 0, sampler, a_index);
 
             break;
         }
@@ -759,6 +792,15 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
         {
             ICARIAN_ASSERT_MSG(0, "Invalid UI Element Type");
         }
+        }
+
+        if (pipeline != nullptr && shaderData != nullptr)
+        {
+            pipeline->Bind(a_index, a_commandBuffer);
+
+            shaderData->UpdateUIBuffer(a_commandBuffer, element);
+
+            a_commandBuffer.draw(4, 1, 0, 0);
         }
 
         const uint32_t childCount = element->GetChildCount();

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Rendering
@@ -28,6 +29,8 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroySampler(uint a_addr);
 
+        static ConcurrentDictionary<uint, TextureSampler> s_samplerLookup = new ConcurrentDictionary<uint, TextureSampler>();
+
         uint m_bufferAddr = uint.MaxValue;
 
         public bool IsDisposed
@@ -46,9 +49,22 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        internal static TextureSampler GetSampler(uint a_bufferAddr)
+        {
+            TextureSampler sampler;
+            if (s_samplerLookup.TryGetValue(a_bufferAddr, out sampler))
+            {
+                return sampler;
+            }
+
+            return null;
+        }
+
         TextureSampler(uint a_bufferAddr)
         {
             m_bufferAddr = a_bufferAddr;
+
+            s_samplerLookup.TryAdd(a_bufferAddr, this);
         }
 
         public static TextureSampler GeneretateTextureSampler(Texture a_texture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
@@ -132,6 +148,8 @@ namespace IcarianEngine.Rendering
                 if(a_disposing)
                 {
                     DestroySampler(m_bufferAddr);
+
+                    s_samplerLookup.TryRemove(m_bufferAddr, out TextureSampler _);
                 }
                 else
                 {

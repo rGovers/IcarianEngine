@@ -3,6 +3,7 @@
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
 #include "Rendering/UI/CanvasBuffer.h"
+#include "Rendering/UI/ImageUIElement.h"
 #include "Rendering/UI/TextUIElement.h"
 #include "Rendering/UI/UIControl.h"
 #include "Runtime/RuntimeManager.h"
@@ -36,6 +37,11 @@ static UIControlBindings* Instance = nullptr;
     F(void, IcarianEngine.Rendering.UI, TextUIElement, SetFontSize, { Instance->SetTextElementFontSize(a_addr, a_size); }, uint32_t a_addr, float a_size) \
     F(uint32_t, IcarianEngine.Rendering.UI, TextUIElement, GetFont, { return Instance->GetTextElementFont(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.UI, TextUIElement, SetFont, { Instance->SetTextElementFont(a_addr, a_fontAddr); }, uint32_t a_addr, uint32_t a_fontAddr) \
+    \
+    F(uint32_t, IcarianEngine.Rendering.UI, ImageUIElement, CreateImageElement, { return Instance->CreateImageElement(); }) \
+    F(void, IcarianEngine.Rendering.UI, ImageUIElement, DestroyImageElement, { Instance->DestroyImageElement(a_addr); }, uint32_t a_addr) \
+    F(uint32_t, IcarianEngine.Rendering.UI, ImageUIElement, GetSampler, { return Instance->GetImageElementSampler(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.UI, ImageUIElement, SetSampler, { Instance->SetImageElementSampler(a_addr, a_samplerAddr); }, uint32_t a_addr, uint32_t a_samplerAddr) \
 
 UICONTROL_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
 
@@ -331,9 +337,8 @@ void UIControlBindings::DestroyTextElement(uint32_t a_addr) const
     ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text, "DestroyTextElement non text element");
 
     const TextUIElement* element = (TextUIElement*)m_uiControl->m_uiElements[a_addr];
+    ICARIAN_DEFER_del(element);
     m_uiControl->m_uiElements.LockSet(a_addr, nullptr);
-
-    delete element;
 }
 std::u32string UIControlBindings::GetTextElementText(uint32_t a_addr) const
 {
@@ -388,4 +393,57 @@ void UIControlBindings::SetTextElementFontSize(uint32_t a_addr, float a_size) co
 
     TextUIElement* element = (TextUIElement*)m_uiControl->m_uiElements[a_addr];
     element->SetFontSize(a_size);
+}
+
+uint32_t UIControlBindings::CreateImageElement() const
+{
+    TRACE("Creating Image UI Element");
+
+    ImageUIElement* element = new ImageUIElement();
+
+    {
+        TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+
+        const uint32_t size = a.Size();
+
+        for (uint32_t i = 0; i < size; ++i)
+        {
+            if (a[i] == nullptr)
+            {
+                a[i] = element;
+
+                return i;
+            }
+        }
+    }
+
+    return m_uiControl->m_uiElements.PushVal(element);
+}
+void UIControlBindings::DestroyImageElement(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "DestroyImageElement out of bounds");
+    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "DestroyImageElement already destroyed");
+    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Image, "DestroyImageElement non image element");
+
+    const ImageUIElement* element = (ImageUIElement*)m_uiControl->m_uiElements[a_addr];
+    ICARIAN_DEFER_del(element);
+    m_uiControl->m_uiElements.LockSet(a_addr, nullptr);
+}
+uint32_t UIControlBindings::GetImageElementSampler(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "GetImageElementSampler out of bounds");
+    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetImageElementSampler element deleted");
+    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Image, "GetImageElementSampler non image element");
+
+    ImageUIElement* element = (ImageUIElement*)m_uiControl->m_uiElements[a_addr];
+    return element->GetSamplerAddr();
+}
+void UIControlBindings::SetImageElementSampler(uint32_t a_addr, uint32_t a_samplerAddr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "SetImageElementSampler out of bounds");
+    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "SetImageElementSampler element deleted");
+    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Image, "SetImageElementSampler non image element");
+
+    ImageUIElement* element = (ImageUIElement*)m_uiControl->m_uiElements[a_addr];
+    element->SetSamplerAddr(a_samplerAddr);
 }

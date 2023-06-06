@@ -345,14 +345,14 @@ bool UIControl::SubmitClick(const glm::vec2& a_pos, const glm::vec2& a_size)
 
         const uint32_t childCount = canvas.ChildElementCount;
         const uint32_t* children = canvas.ChildElements;
-        for (uint32_t i = 0; i < childCount; ++i)
+        for (uint32_t j = 0; j < childCount; ++j)
         {
-            if (children[i] < 0)
+            if (children[j] < 0)
             {
                 continue;
             }
 
-            if (Instance->SendClick(i, children[i], canvasPos))
+            if (Instance->SendClick(i, children[j], canvasPos))
             {
                 return true;
             }
@@ -385,14 +385,14 @@ void UIControl::SubmitRelease(const glm::vec2& a_pos, const glm::vec2& a_size)
 
         const uint32_t childCount = canvas.ChildElementCount;
         const uint32_t* children = canvas.ChildElements;
-        for (uint32_t i = 0; i < childCount; ++i)
+        for (uint32_t j = 0; j < childCount; ++j)
         {
-            if (children[i] < 0)
+            if (children[j] < 0)
             {
                 continue;
             }
 
-            Instance->SendRelease(i, children[i], canvasPos);
+            Instance->SendRelease(i, children[j], canvasPos);
         }
     }
 }

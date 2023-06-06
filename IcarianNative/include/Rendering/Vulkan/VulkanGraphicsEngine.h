@@ -89,6 +89,7 @@ private:
     std::vector<vk::CommandBuffer>                m_commandBuffers[VulkanFlightPoolSize];
     
     uint32_t                                      m_textUIPipelineAddr;
+    uint32_t                                      m_imageUIPipelineAddr;
 
     vk::CommandBuffer StartCommandBuffer(uint32_t a_bufferIndex, uint32_t a_index) const;
 

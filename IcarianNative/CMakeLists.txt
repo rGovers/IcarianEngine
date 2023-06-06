@@ -84,6 +84,11 @@ FileToHeader(
     HEADER_FILE "include/Shaders/UITextPixel.h"
     VARIABLE_NAME "UITextPixel"
 )
+FileToHeader(
+    SOURCE_FILE "shaders/uiImage.fpix"
+    HEADER_FILE "include/Shaders/UIImagePixel.h"
+    VARIABLE_NAME "UIImagePixel"
+)
 
 FileToHeader(
     SOURCE_FILE "shaders/post.fpix"
