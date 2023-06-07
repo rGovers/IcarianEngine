@@ -52,6 +52,14 @@ namespace IcarianEngine.Rendering.UI
             }
         }
 
+        internal uint BufferAddr
+        {
+            get
+            {
+                return m_bufferAddr;
+            }
+        }
+
         public Vector2 ReferenceResolution
         {
             get
@@ -109,7 +117,7 @@ namespace IcarianEngine.Rendering.UI
             s_canvasLookup.TryAdd(m_bufferAddr, this);
         }
 
-        public static Canvas GetCanvas(uint a_addr)
+        internal static Canvas GetCanvas(uint a_addr)
         {
             Canvas canvas;
             if (s_canvasLookup.TryGetValue(a_addr, out canvas))

@@ -30,9 +30,9 @@ private:
 
     UIControl(RuntimeManager* a_runtime);
     
-    void SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos);
-    bool SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos);
-    void SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos);
+    void SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos, const glm::vec2& a_scale);
+    bool SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos, const glm::vec2& a_scale);
+    void SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos, const glm::vec2& a_scale);
 
 protected:
 
@@ -41,9 +41,6 @@ public:
 
     static void Init(RuntimeManager* a_runtime);
     static void Destroy();
-
-    // TODO: Need to remove down the line when implementing canvas render system
-    static std::vector<CanvasBuffer> GetCanvases();
 
     static CanvasBuffer GetCanvas(uint32_t a_addr);
     static void SetCanvas(uint32_t a_addr, const CanvasBuffer& a_buffer);

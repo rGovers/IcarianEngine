@@ -20,6 +20,7 @@ private:
     unsigned char              m_flags;
 
     vk::RenderPass             m_renderPass;
+    vk::RenderPass             m_renderPassNoClear;
     vk::Framebuffer            m_frameBuffer;
 
     vk::Image*                 m_textures;
@@ -99,6 +100,11 @@ public:
     {
         return m_renderPass;
     }
+    inline vk::RenderPass GetRenderPassNoClear() const
+    {
+        return m_renderPassNoClear;
+    }
+
     inline vk::Framebuffer GetFramebuffer() const
     {
         return m_frameBuffer;

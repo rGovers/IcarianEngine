@@ -84,11 +84,6 @@ void UIControl::Destroy()
     }
 }
 
-std::vector<CanvasBuffer> UIControl::GetCanvases()
-{
-    return Instance->m_canvas.ToVector();
-}
-
 CanvasBuffer UIControl::GetCanvas(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < Instance->m_canvas.Size(), "GetCanvas out of bounds");
@@ -109,7 +104,7 @@ UIElement* UIControl::GetUIElement(uint32_t a_addr)
     return Instance->m_uiElements[a_addr];
 }
 
-void UIControl::SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos)
+void UIControl::SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos, const glm::vec2& a_scale)
 {
     ICARIAN_ASSERT_MSG(a_canvasAddr < Instance->m_canvas.Size(), "SendCursor canvas out of bounds");
     ICARIAN_ASSERT_MSG(Instance->m_canvas[a_canvasAddr].IsDestroyed() == false, "SendCursor canvas is destroyed");
@@ -120,12 +115,12 @@ void UIControl::SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const 
     const CanvasBuffer& canvas = Instance->m_canvas[a_canvasAddr];
 
     const glm::vec2 pos = element->GetCanvasPosition(canvas, canvas.ReferenceResolution);
-    const glm::vec2 size = element->GetCanvasScale(canvas, canvas.ReferenceResolution);
+    const glm::vec2 size = element->GetCanvasScale(canvas, canvas.ReferenceResolution) / a_scale;
 
     const glm::vec2 endPos = pos + size;
 
-    if (a_scaledPos.x > pos.x && a_scaledPos.x < endPos.x &&
-        a_scaledPos.y > pos.y && a_scaledPos.y < endPos.y)
+    if (a_scaledPos.x >= pos.x && a_scaledPos.x <= endPos.x &&
+        a_scaledPos.y >= pos.y && a_scaledPos.y <= endPos.y)
     {
         if (element->GetState() == ElementState_Normal)
         {
@@ -154,11 +149,11 @@ void UIControl::SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const 
             continue;
         }
 
-        Instance->SendCursor(a_canvasAddr, children[i], a_scaledPos);
+        Instance->SendCursor(a_canvasAddr, children[i], a_scaledPos, a_scale);
     }
 }
 
-bool UIControl::SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos)
+bool UIControl::SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos, const glm::vec2& a_scale)
 {
     ICARIAN_ASSERT_MSG(a_canvasAddr < Instance->m_canvas.Size(), "SendClick canvas out of bounds");
     ICARIAN_ASSERT_MSG(Instance->m_canvas[a_canvasAddr].IsDestroyed() == false, "SendClick canvas is destroyed");
@@ -169,12 +164,12 @@ bool UIControl::SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const g
     const CanvasBuffer& canvas = Instance->m_canvas[a_canvasAddr];
 
     const glm::vec2 pos = element->GetCanvasPosition(canvas, canvas.ReferenceResolution);
-    const glm::vec2 size = element->GetCanvasScale(canvas, canvas.ReferenceResolution);
+    const glm::vec2 size = element->GetCanvasScale(canvas, canvas.ReferenceResolution) / a_scale;
 
     const glm::vec2 endPos = pos + size;
 
-    if (a_scaledPos.x > pos.x && a_scaledPos.x < endPos.x &&
-        a_scaledPos.y > pos.y && a_scaledPos.y < endPos.y)
+    if (a_scaledPos.x >= pos.x && a_scaledPos.x <= endPos.x &&
+        a_scaledPos.y >= pos.y && a_scaledPos.y <= endPos.y)
     {
         if (element->GetState() != ElementState_Pressed)
         {
@@ -214,7 +209,7 @@ bool UIControl::SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const g
             continue;
         }
 
-        if (Instance->SendClick(a_canvasAddr, children[i], a_scaledPos))
+        if (Instance->SendClick(a_canvasAddr, children[i], a_scaledPos, a_scale))
         {
             return true;
         }
@@ -223,7 +218,7 @@ bool UIControl::SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const g
     return false;
 }
 
-void UIControl::SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos)
+void UIControl::SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos, const glm::vec2& a_scale)
 {
     ICARIAN_ASSERT_MSG(a_canvasAddr < Instance->m_canvas.Size(), "SendRelease canvas out of bounds");
     ICARIAN_ASSERT_MSG(Instance->m_canvas[a_canvasAddr].IsDestroyed() == false, "SendRelease canvas is destroyed");
@@ -234,12 +229,12 @@ void UIControl::SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const
     const CanvasBuffer& canvas = Instance->m_canvas[a_canvasAddr];
 
     const glm::vec2 pos = element->GetCanvasPosition(canvas, canvas.ReferenceResolution);
-    const glm::vec2 size = element->GetCanvasScale(canvas, canvas.ReferenceResolution);
+    const glm::vec2 size = element->GetCanvasScale(canvas, canvas.ReferenceResolution) / a_scale;
 
     const glm::vec2 endPos = pos + size;
 
-    if (a_scaledPos.x > pos.x && a_scaledPos.x < endPos.x &&
-        a_scaledPos.y > pos.y && a_scaledPos.y < endPos.y)
+    if (a_scaledPos.x >= pos.x && a_scaledPos.x <= endPos.x &&
+        a_scaledPos.y >= pos.y && a_scaledPos.y <= endPos.y)
     {
         switch (element->GetState())
         {
@@ -283,7 +278,7 @@ void UIControl::SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const
             continue;
         }
 
-        Instance->SendRelease(a_canvasAddr, children[i], a_scaledPos);
+        Instance->SendRelease(a_canvasAddr, children[i], a_scaledPos, a_scale);
     }
 }
 
@@ -305,8 +300,7 @@ void UIControl::UpdateCursor(const glm::vec2& a_pos, const glm::vec2& a_size)
 
         // Need to get from screen space to canvas space
         const glm::vec2 scale = a_size / canvas.ReferenceResolution;
-        const glm::vec2 scaledPos = a_pos / scale;
-        const glm::vec2 canvasPos = scaledPos / canvas.ReferenceResolution;
+        const glm::vec2 sPos = a_pos / a_size;
 
         const uint32_t childCount = canvas.ChildElementCount;
         const uint32_t* children = canvas.ChildElements;
@@ -317,7 +311,7 @@ void UIControl::UpdateCursor(const glm::vec2& a_pos, const glm::vec2& a_size)
                 continue;
             }
 
-            Instance->SendCursor(i, children[j], canvasPos);
+            Instance->SendCursor(i, children[j], sPos, scale);
         }
     }
 }
@@ -340,8 +334,7 @@ bool UIControl::SubmitClick(const glm::vec2& a_pos, const glm::vec2& a_size)
 
         // Need to get from screen space to canvas space
         const glm::vec2 scale = a_size / canvas.ReferenceResolution;
-        const glm::vec2 scaledPos = a_pos / scale;
-        const glm::vec2 canvasPos = scaledPos / canvas.ReferenceResolution;
+        const glm::vec2 sPos = a_pos / a_size;
 
         const uint32_t childCount = canvas.ChildElementCount;
         const uint32_t* children = canvas.ChildElements;
@@ -352,7 +345,7 @@ bool UIControl::SubmitClick(const glm::vec2& a_pos, const glm::vec2& a_size)
                 continue;
             }
 
-            if (Instance->SendClick(i, children[j], canvasPos))
+            if (Instance->SendClick(i, children[j], sPos, scale))
             {
                 return true;
             }
@@ -380,8 +373,7 @@ void UIControl::SubmitRelease(const glm::vec2& a_pos, const glm::vec2& a_size)
 
         // Need to get from screen space to canvas space
         const glm::vec2 scale = a_size / canvas.ReferenceResolution;
-        const glm::vec2 scaledPos = a_pos / scale;
-        const glm::vec2 canvasPos = scaledPos / canvas.ReferenceResolution;
+        const glm::vec2 sPos = a_pos / a_size;
 
         const uint32_t childCount = canvas.ChildElementCount;
         const uint32_t* children = canvas.ChildElements;
@@ -392,7 +384,7 @@ void UIControl::SubmitRelease(const glm::vec2& a_pos, const glm::vec2& a_size)
                 continue;
             }
 
-            Instance->SendRelease(i, children[j], canvasPos);
+            Instance->SendRelease(i, children[j], sPos, scale);
         }
     }
 }

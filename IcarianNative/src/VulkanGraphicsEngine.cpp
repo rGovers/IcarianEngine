@@ -863,8 +863,11 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
         }
     }
     
+
+    TReadLockArray<CanvasRendererBuffer> canvasBuffer = m_canvasRenderers.ToReadLockArray();
+    const uint32_t canvasCount = canvasBuffer.Size();
     const uint32_t camIndexSize = (uint32_t)camIndices.size();
-    const uint32_t totalPoolSize = camIndexSize * DrawingPassCount + 1;
+    const uint32_t totalPoolSize = camIndexSize * DrawingPassCount + canvasCount;
     const uint32_t poolSize = (uint32_t)m_commandPool[a_index].size();
 
     if (poolSize < totalPoolSize)
@@ -1051,50 +1054,89 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
         ThreadPool::PushJob(postJob);
     }
     
-    // While we wait for other threads can draw UI on main render thread 
-    vk::CommandBuffer buffer = StartCommandBuffer(camIndexSize * DrawingPassCount, a_index);
-    const glm::ivec2 renderSize = m_swapchain->GetSize();
-    constexpr vk::ClearValue ClearColor = vk::ClearValue();
-    const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
-    (
-        m_swapchain->GetRenderPassNoClear(),
-        m_swapchain->GetFramebuffer(m_vulkanEngine->GetImageIndex()),
-        vk::Rect2D({ 0, 0 }, { (uint32_t)renderSize.x, (uint32_t)renderSize.y }),
-        1,
-        &ClearColor
-    );
-
-    buffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
-
-    std::vector<CanvasBuffer> canvasBuffers = UIControl::GetCanvases();
-    for (const CanvasBuffer& canvas : canvasBuffers)
+    std::vector<vk::CommandBuffer> uiBuffers;
     {
-        if (!(canvas.Flags & 0b1 << canvas.DestroyedBit))
+        PROFILESTACK("UI Draw");
+
+        for (uint32_t i = 0; i < canvasCount; ++i)
         {
-            for (uint32_t i = 0; i < canvas.ChildElementCount; ++i)
+            const CanvasRendererBuffer& canvasRenderer = canvasBuffer[i];
+            if (canvasRenderer.IsDestroyed() || canvasRenderer.CanvasAddr == -1)
             {
-                DrawUIElement(buffer, canvas.ChildElements[i], canvas, renderSize, a_index);
+                continue;
+            }
+
+            const CanvasBuffer& canvas = UIControl::GetCanvas(canvasRenderer.CanvasAddr);
+            if (canvas.IsDestroyed())
+            {
+                continue;
+            }
+
+            // While we wait for other threads can draw UI on main render thread 
+            vk::CommandBuffer buffer = StartCommandBuffer(camIndexSize * DrawingPassCount + i, a_index);
+
+            glm::ivec2 renderSize;
+            const VulkanRenderTexture* renderTexture = GetRenderTexture(canvasRenderer.RenderTextureAddr);
+
+            if (renderTexture != nullptr)
+            {
+                renderSize = glm::ivec2((int)renderTexture->GetWidth(), (int)renderTexture->GetHeight());
+                const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
+                (
+                    renderTexture->GetRenderPassNoClear(),
+                    renderTexture->GetFramebuffer(),
+                    vk::Rect2D({ 0, 0 }, { (uint32_t)renderSize.x, (uint32_t)renderSize.y }),
+                    renderTexture->GetTotalTextureCount(),
+                    renderTexture->GetClearValues()
+                );
+
+                buffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+            }
+            else 
+            {
+                renderSize = m_swapchain->GetSize();
+                constexpr vk::ClearValue ClearColor = vk::ClearValue();
+                const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
+                (
+                    m_swapchain->GetRenderPassNoClear(),
+                    m_swapchain->GetFramebuffer(m_vulkanEngine->GetImageIndex()),
+                    vk::Rect2D({ 0, 0 }, { (uint32_t)renderSize.x, (uint32_t)renderSize.y }),
+                    1,
+                    &ClearColor
+                );
+
+                buffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+            }
+
+            for (uint32_t j = 0; j < canvas.ChildElementCount; ++j)
+            {
+                DrawUIElement(buffer, canvas.ChildElements[j], canvas, renderSize, a_index);
+            }
+
+            buffer.endRenderPass();
+
+            buffer.end();
+
+            uiBuffers.emplace_back(buffer);
+        }
+    }
+    
+    std::vector<vk::CommandBuffer> cmdBuffers;
+    {
+        PROFILESTACK("Draw Wait");
+
+        for (std::future<vk::CommandBuffer>& f : futures)
+        {
+            f.wait();
+            vk::CommandBuffer buffer = f.get();
+            if (buffer != vk::CommandBuffer(nullptr))
+            {
+                cmdBuffers.emplace_back(buffer);
             }
         }
+
+        cmdBuffers.insert(cmdBuffers.end(), uiBuffers.begin(), uiBuffers.end());
     }
-
-    buffer.endRenderPass();
-
-    buffer.end();
-
-    std::vector<vk::CommandBuffer> cmdBuffers;
-
-    for (std::future<vk::CommandBuffer>& f : futures)
-    {
-        f.wait();
-        vk::CommandBuffer buffer = f.get();
-        if (buffer != vk::CommandBuffer(nullptr))
-        {
-            cmdBuffers.emplace_back(buffer);
-        }
-    }
-
-    cmdBuffers.emplace_back(buffer);
 
     return cmdBuffers;
 }

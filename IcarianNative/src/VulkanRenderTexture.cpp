@@ -86,6 +86,7 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, ui
 
     TRACE("Creating Attachments");
     std::vector<vk::AttachmentDescription> attachments = std::vector<vk::AttachmentDescription>(totalTextureCount);
+    std::vector<vk::AttachmentDescription> attachmentsNoClear = std::vector<vk::AttachmentDescription>(totalTextureCount);
     for (uint32_t i = 0; i < m_textureCount; ++i)
     {
         attachments[i].format = format;
@@ -96,6 +97,15 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, ui
         attachments[i].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
         attachments[i].initialLayout = vk::ImageLayout::eUndefined;
         attachments[i].finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+        attachmentsNoClear[i].format = format;
+        attachmentsNoClear[i].samples = vk::SampleCountFlagBits::e1;
+        attachmentsNoClear[i].loadOp = vk::AttachmentLoadOp::eLoad;
+        attachmentsNoClear[i].storeOp = vk::AttachmentStoreOp::eStore;
+        attachmentsNoClear[i].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+        attachmentsNoClear[i].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+        attachmentsNoClear[i].initialLayout = vk::ImageLayout::eUndefined;
+        attachmentsNoClear[i].finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     }
     if (a_depthTexture)
     {
@@ -107,6 +117,15 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, ui
         attachments[m_textureCount].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
         attachments[m_textureCount].initialLayout = vk::ImageLayout::eUndefined;
         attachments[m_textureCount].finalLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+
+        attachmentsNoClear[m_textureCount].format = depthFormat;
+        attachmentsNoClear[m_textureCount].samples = vk::SampleCountFlagBits::e1;
+        attachmentsNoClear[m_textureCount].loadOp = vk::AttachmentLoadOp::eLoad;
+        attachmentsNoClear[m_textureCount].storeOp = vk::AttachmentStoreOp::eStore;
+        attachmentsNoClear[m_textureCount].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+        attachmentsNoClear[m_textureCount].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+        attachmentsNoClear[m_textureCount].initialLayout = vk::ImageLayout::eUndefined;
+        attachmentsNoClear[m_textureCount].finalLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
     }
 
     std::vector<vk::AttachmentReference> colorAttachmentRef = std::vector<vk::AttachmentReference>(m_textureCount);
@@ -168,13 +187,19 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, ui
         2,
         dependencies
     );
+    const vk::RenderPassCreateInfo renderPassNoClearInfo = vk::RenderPassCreateInfo
+    (
+        { },
+        totalTextureCount,
+        attachmentsNoClear.data(),
+        1,
+        &subpass,
+        2,
+        dependencies
+    );
 
-    if (device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass) != vk::Result::eSuccess)
-    {
-        Logger::Error("Failed to create render texture render pass");
-
-        assert(0);
-    }    
+    ICARIAN_ASSERT_MSG_R(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass) == vk::Result::eSuccess, "Failed to create render texture render pass");
+    ICARIAN_ASSERT_MSG_R(device.createRenderPass(&renderPassNoClearInfo, nullptr, &m_renderPassNoClear) == vk::Result::eSuccess, "Failed to create render texture render pass");
 
     m_textures = new vk::Image[totalTextureCount];
     m_textureViews = new vk::ImageView[totalTextureCount];
@@ -200,6 +225,7 @@ VulkanRenderTexture::~VulkanRenderTexture()
     Destroy();
 
     device.destroyRenderPass(m_renderPass);
+    device.destroyRenderPass(m_renderPassNoClear);
 
     delete[] m_textures;
     delete[] m_textureViews;

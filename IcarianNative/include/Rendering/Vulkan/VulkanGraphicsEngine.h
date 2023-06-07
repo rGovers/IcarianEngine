@@ -30,6 +30,7 @@ class VulkanVertexShader;
 #include "Rendering/Light.h"
 #include "Rendering/MaterialRenderStack.h"
 #include "Rendering/MeshRenderBuffer.h"
+#include "Rendering/UI/CanvasRendererBuffer.h"
 
 class VulkanGraphicsEngine
 {
@@ -88,6 +89,8 @@ private:
     std::vector<vk::CommandPool>                  m_commandPool[VulkanFlightPoolSize];
     std::vector<vk::CommandBuffer>                m_commandBuffers[VulkanFlightPoolSize];
     
+    TArray<CanvasRendererBuffer>                  m_canvasRenderers;
+
     uint32_t                                      m_textUIPipelineAddr;
     uint32_t                                      m_imageUIPipelineAddr;
 
