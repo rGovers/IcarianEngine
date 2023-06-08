@@ -3,9 +3,18 @@
 #include <chrono>
 
 #include "Runtime/RuntimeManager.h"
+#include "Runtime/RuntimeFunction.h"
+#include "RuntimeThreadJob.h"
 #include "Trace.h"
 
 static ThreadPool* Instance = nullptr;
+
+RUNTIME_FUNCTION(void, ThreadPool, AddJob, 
+{
+    RuntimeThreadJob* job = new RuntimeThreadJob(a_objectAddr, (e_JobPriority)a_priority);
+
+    ThreadPool::PushJob(job);
+}, uint32_t a_objectAddr, uint32_t a_priority)
 
 ThreadPool::ThreadPool(uint32_t a_threadCount, RuntimeManager* a_runtime)
 {
@@ -17,6 +26,8 @@ ThreadPool::ThreadPool(uint32_t a_threadCount, RuntimeManager* a_runtime)
 
     m_threads = new std::thread[m_threadCount];
     m_join = new bool[m_threadCount];
+
+    m_runtimeDispatch = m_runtime->GetFunction("IcarianEngine", "ThreadPool", ":Dispatch(uint)");
 
     for (uint32_t i = 0; i < m_threadCount; ++i)
     {
@@ -48,6 +59,8 @@ ThreadPool::~ThreadPool()
 
         delete job;
     }   
+
+    delete m_runtimeDispatch;
 }
 
 void ThreadPool::Start()
@@ -77,6 +90,8 @@ void ThreadPool::Init(RuntimeManager* a_runtime)
         Instance = new ThreadPool((uint32_t)std::thread::hardware_concurrency() / 2, a_runtime);
         // Instance = new ThreadPool(2, a_runtime);
         Instance->Start();
+
+        BIND_FUNCTION(a_runtime, IcarianEngine, ThreadPool, AddJob);
     }
 }
 void ThreadPool::Destroy()
@@ -135,4 +150,14 @@ void ThreadPool::Run(uint32_t a_thread)
     }
 
     Instance->m_join[a_thread] = true;
+}
+
+void ThreadPool::Dispath(uint32_t a_objectAddr)
+{
+    void* args[] =
+    {
+        &a_objectAddr
+    };
+
+    Instance->m_runtimeDispatch->Exec(args);
 }

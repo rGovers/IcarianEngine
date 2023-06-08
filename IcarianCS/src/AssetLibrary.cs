@@ -5,9 +5,69 @@ using IcarianEngine.Rendering;
 using IcarianEngine.Rendering.UI;
 using System;
 using System.Collections.Concurrent;
+using System.Threading;
 
 namespace IcarianEngine
 {
+    public enum LoadStatus
+    {
+        Unloaded,
+        Loading,
+        Loaded,
+        Failed
+    }
+
+    class LoadModelAsync : ThreadJob
+    {
+        string m_path;
+        Model  m_model;
+        AssetLibrary.LoadModelCallback m_callback;
+
+        public LoadModelAsync(string a_path, AssetLibrary.LoadModelCallback a_callback)
+        {
+            m_path = a_path;
+            m_callback = a_callback;
+        }
+
+        public override void Execute()
+        {
+            LoadStatus status;
+
+            m_model = AssetLibrary.LoadModelInternal(m_path, out status);
+
+            if (m_callback != null)
+            {
+                m_callback(m_model, status);
+            }
+        }
+    }
+
+    class ModelContainer
+    {
+        public LoadStatus Status
+        {
+            get;
+            set;
+        }
+        public EventWaitHandle WaitHandle
+        {
+            get;
+            set;
+        }
+        public Model Model
+        {
+            get;
+            set;
+        }
+
+        public ModelContainer()
+        {
+            Status = LoadStatus.Unloaded;
+            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            Model = null;
+        }
+    }
+
     public static class AssetLibrary
     {
         static ConcurrentDictionary<string, Material>             s_materials;
@@ -17,11 +77,13 @@ namespace IcarianEngine
         static ConcurrentDictionary<string, Texture>              s_textures;
         static ConcurrentDictionary<TextureInput, TextureSampler> s_textureSamplers;
 
-        static ConcurrentDictionary<string, Model>                s_models;
+        static ConcurrentDictionary<string, ModelContainer>       s_models;
      
         static ConcurrentDictionary<string, Font>                 s_fonts;
 
         static ConcurrentDictionary<string, CollisionShape>       s_collisionShapes;
+
+        public delegate void LoadModelCallback(Model a_model, LoadStatus a_status);
 
         internal static void Init()
         {
@@ -33,7 +95,7 @@ namespace IcarianEngine
             s_textures = new ConcurrentDictionary<string, Texture>();
             s_textureSamplers = new ConcurrentDictionary<TextureInput, TextureSampler>();
 
-            s_models = new ConcurrentDictionary<string, Model>();
+            s_models = new ConcurrentDictionary<string, ModelContainer>();
 
             s_fonts = new ConcurrentDictionary<string, Font>();
 
@@ -96,11 +158,16 @@ namespace IcarianEngine
             }
             s_textureSamplers.Clear();
 
-            foreach (Model model in s_models.Values)
+            foreach (ModelContainer model in s_models.Values)
             {
-                if (!model.IsDisposed)
+                if (model.Status != LoadStatus.Loaded)
                 {
-                    model.Dispose();
+                    model.WaitHandle.WaitOne();
+                }
+
+                if (model.Model != null && !model.Model.IsDisposed)
+                {
+                    model.Model.Dispose();
                 }
             }
             s_models.Clear();
@@ -252,15 +319,47 @@ namespace IcarianEngine
             return font;
         }
 
-        public static Model LoadModel(string a_path)
+        internal static Model LoadModelInternal(string a_path, out LoadStatus a_status)
         {
-            Model oldModel = null;
+            a_status = LoadStatus.Failed;
+
+            ModelContainer container = null;
             if (s_models.ContainsKey(a_path))
             {
-                oldModel = s_models[a_path];
-                if (!oldModel.IsDisposed)
+                container = s_models[a_path];
+            }
+            else
+            {
+                return null;
+            }
+
+            lock (container)
+            {
+                switch (container.Status)
                 {
-                    return oldModel;
+                case LoadStatus.Unloaded:
+                {
+                    container.Status = LoadStatus.Loading;
+
+                    break;
+                }
+                case LoadStatus.Loading:
+                {
+                    container.WaitHandle.WaitOne();
+                    a_status = LoadStatus.Loaded;
+
+                    return container.Model;
+                }
+                case LoadStatus.Loaded:
+                {
+                    a_status = LoadStatus.Loaded;
+
+                    return container.Model;
+                }
+                case LoadStatus.Failed:
+                {
+                    return null;
+                }
                 }
             }
 
@@ -272,24 +371,77 @@ namespace IcarianEngine
                 return null;
             }        
 
-            Model model = Model.LoadModel(filepath);
-            if (model == null)
+            container.Model = Model.LoadModel(filepath);
+
+            if (container.Model == null)
             {
+                container.Status = LoadStatus.Failed;
+                container.WaitHandle.Set();
+
                 Logger.IcarianError($"Error loading Model: {a_path} at {filepath}");
 
                 return null;
             }
 
-            if (oldModel == null)
+            container.Status = LoadStatus.Loaded;
+            a_status = LoadStatus.Loaded;
+            container.WaitHandle.Set();
+
+            return container.Model;
+        }
+        public static Model LoadModel(string a_path)
+        {
+            ModelContainer container = new ModelContainer();
+            container.Status = LoadStatus.Unloaded;
+
+            if (s_models.ContainsKey(a_path))
             {
-                s_models.TryAdd(a_path, model);
-            }
-            else
-            {
-                s_models.TryUpdate(a_path, model, oldModel);
+                ModelContainer c = s_models[a_path];
+
+                switch (c.Status)
+                {
+                case LoadStatus.Loading:
+                case LoadStatus.Unloaded:
+                {
+                    c.WaitHandle.WaitOne();
+                    
+                    break;
+                }
+                case LoadStatus.Failed:
+                {
+                    return null;
+                }
+                }
+
+                if (c.Model != null)
+                {
+                    if (!c.Model.IsDisposed)
+                    {
+                        return c.Model;
+                    }
+                }
+                else
+                {
+                    return c.Model;
+                }
             }
 
-            return model;
+            s_models.TryAdd(a_path, container);
+
+            LoadModelInternal(a_path, out LoadStatus _);
+
+            return container.Model;
+        }
+        public static void LoadModelAsync(string a_path, AssetLibrary.LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        {
+            ModelContainer container = new ModelContainer();
+            container.Status = LoadStatus.Unloaded;
+
+            s_models.TryAdd(a_path, container);
+
+            LoadModelAsync job = new LoadModelAsync(a_path, a_callback);
+
+            ThreadPool.PushJob(job, a_priority);
         }
 
         public static Texture LoadTexture(string a_path)
