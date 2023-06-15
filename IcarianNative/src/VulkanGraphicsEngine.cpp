@@ -91,6 +91,33 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(RuntimeManager* a_runtime, VulkanRend
 }
 VulkanGraphicsEngine::~VulkanGraphicsEngine()
 {
+    const FlareBase::RenderProgram textProgram = m_shaderPrograms[m_textUIPipelineAddr];
+    ICARIAN_DEFER(textProgram, 
+    {
+        if (textProgram.VertexAttribs != nullptr)
+        {
+            delete[] textProgram.VertexAttribs;
+        }
+
+        if (textProgram.ShaderBufferInputs != nullptr)
+        {
+            delete[] textProgram.ShaderBufferInputs;
+        }
+    });
+
+    const FlareBase::RenderProgram imageProgram = m_shaderPrograms[m_imageUIPipelineAddr];
+    ICARIAN_DEFER(imageProgram, 
+        if (imageProgram.VertexAttribs != nullptr)
+        {
+            delete[] imageProgram.VertexAttribs;
+        }
+    
+        if (imageProgram.ShaderBufferInputs != nullptr)
+        {
+            delete[] imageProgram.ShaderBufferInputs;
+        }
+    );
+
     DestroyRenderProgram(m_textUIPipelineAddr);
     DestroyRenderProgram(m_imageUIPipelineAddr);
 

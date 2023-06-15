@@ -145,6 +145,8 @@ GLFWAppWindow::GLFWAppWindow(Application* a_app, Config* a_config) : AppWindow(a
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     m_window = glfwCreateWindow(1280, 720, a_config->GetApplicationName().data(), NULL, NULL);
 
+    glfwMakeContextCurrent(m_window);
+
     m_time = glfwGetTime();
     m_prevTime = m_time;
     m_startTime = m_time;
@@ -197,7 +199,7 @@ void GLFWAppWindow::Update()
         inputManager->SetCursorPos((glm::vec2)cPos);
         UIControl::UpdateCursor((glm::vec2)cPos, (glm::vec2)winSize);
         
-        bool leftDown = glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT);
+        bool leftDown = glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
         if (leftDown)
         {
             if (UIControl::SubmitClick((glm::vec2)cPos, (glm::vec2)winSize))
@@ -211,8 +213,8 @@ void GLFWAppWindow::Update()
         }
 
         inputManager->SetMouseButton(FlareBase::MouseButton_Left, leftDown);
-        inputManager->SetMouseButton(FlareBase::MouseButton_Middle, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_MIDDLE));
-        inputManager->SetMouseButton(FlareBase::MouseButton_Right, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT));
+        inputManager->SetMouseButton(FlareBase::MouseButton_Middle, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS);
+        inputManager->SetMouseButton(FlareBase::MouseButton_Right, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
 
         for (unsigned int i = 0; i < FlareBase::KeyCode_Last; ++i)
         {

@@ -527,36 +527,40 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
         fence = m_inFlight[m_currentFlightFrame];
     }
 
-    for (uint32_t i = 0; i < buffersSize; ++i)
     {
-        vk::SubmitInfo submitInfo = vk::SubmitInfo
-        (
-            0,
-            nullptr,
-            WaitStages,
-            1,
-            &buffers[i],
-            1,
-            &m_interSemaphore[m_currentFlightFrame][i]
-        );
+        const std::unique_lock l = std::unique_lock(m_graphicsQueueMutex);
 
-        if (lastSemaphore != vk::Semaphore(nullptr))
+        for (uint32_t i = 0; i < buffersSize; ++i)
         {
-            submitInfo.waitSemaphoreCount = 1;
-            submitInfo.pWaitSemaphores = &lastSemaphore;
-        }
+            vk::SubmitInfo submitInfo = vk::SubmitInfo
+            (
+                0,
+                nullptr,
+                WaitStages,
+                1,
+                &buffers[i],
+                1,
+                &m_interSemaphore[m_currentFlightFrame][i]
+            );
 
-        if (i == endBuffer)
-        {
-            ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, fence) == vk::Result::eSuccess, "Failed to submit command");
-        }
-        else
-        {
-            ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
-        }
+            if (lastSemaphore != vk::Semaphore(nullptr))
+            {
+                submitInfo.waitSemaphoreCount = 1;
+                submitInfo.pWaitSemaphores = &lastSemaphore;
+            }
 
-        lastSemaphore = m_interSemaphore[m_currentFlightFrame][i];
-    }    
+            if (i == endBuffer)
+            {
+                ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, fence) == vk::Result::eSuccess, "Failed to submit command");
+            }
+            else
+            {
+                ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
+            }
+
+            lastSemaphore = m_interSemaphore[m_currentFlightFrame][i];
+        }    
+    }
 
     Profiler::StopFrame();
 
@@ -572,7 +576,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     Profiler::StopFrame();
 }
 
-vk::CommandBuffer VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBufferLevel a_level) const
+vk::CommandBuffer VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBufferLevel a_level)
 {   
     const vk::CommandBufferAllocateInfo allocInfo = vk::CommandBufferAllocateInfo
     (
@@ -582,6 +586,9 @@ vk::CommandBuffer VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBuff
     );
 
     vk::CommandBuffer cmdBuffer;
+
+    const std::unique_lock l = std::unique_lock(m_graphicsQueueMutex);
+
     ICARIAN_ASSERT_MSG_R(m_lDevice.allocateCommandBuffers(&allocInfo, &cmdBuffer) == vk::Result::eSuccess, "Failed to Allocate Command Buffer");
 
     return cmdBuffer;
@@ -591,7 +598,7 @@ void VulkanRenderEngineBackend::DestroyCommandBuffer(const vk::CommandBuffer& a_
     m_lDevice.freeCommandBuffers(m_commandPool, 1, &a_buffer);
 }
 
-vk::CommandBuffer VulkanRenderEngineBackend::BeginSingleCommand() const
+vk::CommandBuffer VulkanRenderEngineBackend::BeginSingleCommand()
 {
     const vk::CommandBuffer cmdBuffer = CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
 
@@ -604,7 +611,7 @@ vk::CommandBuffer VulkanRenderEngineBackend::BeginSingleCommand() const
 
     return cmdBuffer;
 }
-void VulkanRenderEngineBackend::EndSingleCommand(const vk::CommandBuffer& a_buffer) const
+void VulkanRenderEngineBackend::EndSingleCommand(const vk::CommandBuffer& a_buffer)
 {
     a_buffer.end();
 
@@ -617,8 +624,11 @@ void VulkanRenderEngineBackend::EndSingleCommand(const vk::CommandBuffer& a_buff
         &a_buffer
     );
 
-    ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to Submit Command");
+    const std::unique_lock l = std::unique_lock(m_graphicsQueueMutex);
 
+    ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to Submit Command");
+    
+    // Should probably swap to fence down the line
     m_graphicsQueue.waitIdle();
 
     m_lDevice.freeCommandBuffers(m_commandPool, 1, &a_buffer);

@@ -1,9 +1,10 @@
 #pragma once
 
-#include "Rendering/Vulkan/VulkanConstants.h"
-
-
 #include "Rendering/RenderEngineBackend.h"
+
+#include <mutex>
+
+#include "Rendering/Vulkan/VulkanConstants.h"
 
 class AppWindow;
 class RuntimeManager;
@@ -24,6 +25,7 @@ private:
     vk::PhysicalDevice                            m_pDevice;
     vk::Device                                    m_lDevice;
                         
+    std::mutex                                    m_graphicsQueueMutex;
     vk::Queue                                     m_graphicsQueue = nullptr;
     vk::Queue                                     m_presentQueue = nullptr;
     
@@ -50,11 +52,11 @@ public:
 
     virtual void Update(double a_delta, double a_time);
 
-    vk::CommandBuffer CreateCommandBuffer(vk::CommandBufferLevel a_level) const;
+    vk::CommandBuffer CreateCommandBuffer(vk::CommandBufferLevel a_level);
     void DestroyCommandBuffer(const vk::CommandBuffer& a_buffer) const;
 
-    vk::CommandBuffer BeginSingleCommand() const;
-    void EndSingleCommand(const vk::CommandBuffer& a_buffer) const;
+    vk::CommandBuffer BeginSingleCommand();
+    void EndSingleCommand(const vk::CommandBuffer& a_buffer);
 
     virtual uint32_t GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data);
     virtual void DestroyTexture(uint32_t a_addr);
@@ -94,6 +96,10 @@ public:
     inline vk::Queue GetPresentQueue() const
     {
         return m_presentQueue;
+    }
+    inline std::mutex& GetGraphicsQueueMutex()
+    {
+        return m_graphicsQueueMutex;
     }
     inline vk::Queue GetGraphicsQueue() const
     {

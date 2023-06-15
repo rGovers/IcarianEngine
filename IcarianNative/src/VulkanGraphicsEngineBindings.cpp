@@ -235,14 +235,17 @@ FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(Material, DestroyProgram), uint32_
 {
     const FlareBase::RenderProgram program = Engine->GetRenderProgram(a_addr);
 
-    if (program.VertexAttribs != nullptr)
-    {
-        delete[] program.VertexAttribs;
-    }
-    if (program.ShaderBufferInputs != nullptr)
-    {
-        delete[] program.ShaderBufferInputs;
-    }
+    ICARIAN_DEFER(program, 
+        if (program.VertexAttribs != nullptr)
+        {
+            delete[] program.VertexAttribs;
+        }
+        
+        if (program.ShaderBufferInputs != nullptr)
+        {
+            delete[] program.ShaderBufferInputs;
+        }
+    );
 
     Engine->DestroyShaderProgram(a_addr);
 }
@@ -631,11 +634,10 @@ uint32_t VulkanGraphicsEngineBindings::GenerateModel(const char* a_vertices, uin
 
     VulkanModel* model = new VulkanModel(m_graphicsEngine->m_vulkanEngine, a_vertexCount, a_vertices, a_vertexStride, a_indexCount, a_indices);
 
-    uint32_t size = 0;
     {
         TLockArray<VulkanModel*> a = m_graphicsEngine->m_models.ToLockArray();
 
-        size = a.Size();
+        const uint32_t size = a.Size();
         for (uint32_t i = 0; i < size; ++i)
         {
             if (a[i] == nullptr)
@@ -647,21 +649,16 @@ uint32_t VulkanGraphicsEngineBindings::GenerateModel(const char* a_vertices, uin
         }
     }
 
-    TRACE("Allocating Model Buffer");
-    m_graphicsEngine->m_models.Push(model);
-
-    return size;
+    return m_graphicsEngine->m_models.PushVal(model);
 }
 void VulkanGraphicsEngineBindings::DestroyModel(uint32_t a_addr) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_models.Size(), "DestroyModel out of bounds")
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_models[a_addr] != nullptr, "DestroyModel already destroyed");
 
     VulkanModel* model = m_graphicsEngine->m_models[a_addr];
-
-    ICARIAN_ASSERT_MSG(model != nullptr, "DestroyModel already destroyed")
-
-    m_graphicsEngine->m_models[a_addr] = nullptr;
-    delete model;
+    ICARIAN_DEFER_del(model);
+    m_graphicsEngine->m_models.LockSet(a_addr, nullptr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr) const
@@ -669,11 +666,10 @@ uint32_t VulkanGraphicsEngineBindings::GenerateMeshRenderBuffer(uint32_t a_mater
     TRACE("Creating Render Buffer");
     const MeshRenderBuffer buffer = MeshRenderBuffer(a_materialAddr, a_modelAddr, a_transformAddr);
 
-    uint32_t size = 0;
     {
         TLockArray<MeshRenderBuffer> a = m_graphicsEngine->m_renderBuffers.ToLockArray();
 
-        size = a.Size();
+        const uint32_t size = a.Size();
         for (uint32_t i = 0; i < size; ++i)
         {
             if (a[i].MaterialAddr == -1)
@@ -685,17 +681,19 @@ uint32_t VulkanGraphicsEngineBindings::GenerateMeshRenderBuffer(uint32_t a_mater
         }
     }
 
-    TRACE("Allocating Render Buffer");
-    m_graphicsEngine->m_renderBuffers.Push(buffer);
-
-    return size;
+    return m_graphicsEngine->m_renderBuffers.PushVal(buffer);
 }
 void VulkanGraphicsEngineBindings::DestroyMeshRenderBuffer(uint32_t a_addr) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_renderBuffers.Size(), "DestroyMeshRenderBuffer out of bounds");
 
     TRACE("Destroying Render Buffer");
-    m_graphicsEngine->m_renderBuffers[a_addr].MaterialAddr = -1;
+    MeshRenderBuffer nullBuffer;
+    nullBuffer.MaterialAddr = -1;
+    nullBuffer.ModelAddr = -1;
+    nullBuffer.TransformAddr = -1;
+
+    m_graphicsEngine->m_renderBuffers.LockSet(a_addr, nullBuffer);
 }
 void VulkanGraphicsEngineBindings::GenerateRenderStack(uint32_t a_meshAddr) const
 {
@@ -718,7 +716,6 @@ void VulkanGraphicsEngineBindings::GenerateRenderStack(uint32_t a_meshAddr) cons
         }
     }
     
-
     TRACE("Allocating RenderStack");
     m_graphicsEngine->m_renderStacks.Push(buffer);
 }
@@ -729,22 +726,20 @@ void VulkanGraphicsEngineBindings::DestroyRenderStack(uint32_t a_meshAddr) const
     TRACE("Removing RenderStack");
     const MeshRenderBuffer& buffer = m_graphicsEngine->m_renderBuffers[a_meshAddr];
 
+    TLockArray<MaterialRenderStack> a = m_graphicsEngine->m_renderStacks.ToLockArray();
+
+    const uint32_t size = a.Size();
+    for (uint32_t i = 0; i < size; ++i)
     {
-        TLockArray<MaterialRenderStack> a = m_graphicsEngine->m_renderStacks.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
+        if (a[i].Remove(buffer)) 
         {
-            if (a[i].Remove(buffer))
+            if (a[i].Empty()) 
             {
-                if (a[i].Empty())
-                {
-                    TRACE("Destroying RenderStack");
-                    m_graphicsEngine->m_renderStacks.UErase(i);
-                }
-
-                return;
+                TRACE("Destroying RenderStack");
+                m_graphicsEngine->m_renderStacks.UErase(i);
             }
+
+            return;
         }
     }
 }

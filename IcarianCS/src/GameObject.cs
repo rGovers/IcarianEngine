@@ -1,14 +1,23 @@
 using IcarianEngine.Definitions;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 
 namespace IcarianEngine
 {
     public class GameObject : IDestroy
     {
-        static List<Scriptable> ScriptableComps = new List<Scriptable>();
-        static List<GameObject> Objs = new List<GameObject>();
-        static Dictionary<string, GameObject> ObjDictionary = new Dictionary<string, GameObject>();
+        // Naive approach but it works
+        // Some concurrent types seem to cause crashes in C# for some reason often with sigbus errors
+        static List<Scriptable> s_scriptableComps = new List<Scriptable>();
+        static ConcurrentQueue<Scriptable> s_scriptableAddQueue = new ConcurrentQueue<Scriptable>();
+        static ConcurrentQueue<Scriptable> s_scriptableRemoveQueue = new ConcurrentQueue<Scriptable>();
+
+        static List<GameObject> s_objs = new List<GameObject>();
+        static ConcurrentQueue<GameObject> s_objAddQueue = new ConcurrentQueue<GameObject>();
+        static ConcurrentQueue<GameObject> s_objRemoveQueue = new ConcurrentQueue<GameObject>();
+
+        static Dictionary<string, GameObject> s_objDictionary = new Dictionary<string, GameObject>();
 
         GameObjectDef   m_def = null;
 
@@ -86,23 +95,117 @@ namespace IcarianEngine
             m_components = new List<Component>();
         }
 
+        static void RemoveScripts()
+        {
+            while (!s_scriptableRemoveQueue.IsEmpty)
+            {
+                Scriptable script = null;
+
+                s_scriptableRemoveQueue.TryDequeue(out script);
+
+                if (script != null)
+                {
+                    s_scriptableComps.Remove(script);
+                }
+                else
+                {
+                    Logger.IcarianWarning("Scriptable failed to Destroy");
+                }
+            }
+        }
+
         internal static void UpdateObjects()
         {
             Profiler.StartFrame("Object Update");
 
-            foreach (GameObject obj in Objs)
+            while (!s_objRemoveQueue.IsEmpty)
             {
-                obj.Update();
+                GameObject obj = null;
+
+                s_objRemoveQueue.TryDequeue(out obj);
+
+                if (obj != null)
+                {
+                    s_objs.Remove(obj);
+
+                    if (!string.IsNullOrWhiteSpace(obj.m_tag) && s_objDictionary.ContainsKey(obj.m_tag))
+                    {
+                        s_objDictionary.Remove(obj.m_tag);
+                    }
+                }
+                else
+                {
+                    Logger.IcarianWarning("GameObject failed to Destroy");
+                }
+            }
+            while (!s_objAddQueue.IsEmpty)
+            {
+                GameObject obj = null;
+                s_objAddQueue.TryDequeue(out obj);
+                if (obj != null)
+                {
+                    s_objs.Add(obj);
+                    if (!string.IsNullOrWhiteSpace(obj.m_tag))
+                    {
+                        s_objDictionary.Add(obj.m_tag, obj);
+                    }
+
+                    obj.Init();
+                }
+                else
+                {
+                    Logger.IcarianWarning("GameObject failed to Instantiate");
+                }
             }
 
+            foreach (GameObject obj in s_objs)
+            {
+                if (obj == null || obj.IsDisposed)
+                {
+                    continue;
+                }
+
+                obj.Update();
+            }
+            
             Profiler.StopFrame();
         }
         internal static void UpdateScripts()
         {
             Profiler.StartFrame("Script Update");
 
-            foreach (Scriptable script in ScriptableComps)
+            RemoveScripts();
+
+            while (!s_scriptableAddQueue.IsEmpty)
             {
+                Scriptable script = null;
+
+                s_scriptableAddQueue.TryDequeue(out script);
+
+                if (script != null)
+                {
+                    s_scriptableComps.Add(script);
+                }
+                else
+                {
+                    Logger.IcarianWarning("Scriptable failed to Instantiate");
+                }
+            }
+
+            foreach (Scriptable script in s_scriptableComps)
+            {
+                if (script == null)
+                {
+                    continue;
+                }
+                else if (script is IDestroy destroy)
+                {
+                    if (destroy.IsDisposed)
+                    {
+                        continue;
+                    }
+                }
+
                 script.Update();
             }
 
@@ -110,11 +213,25 @@ namespace IcarianEngine
         }
         internal static void DestroyObjects() 
         {
-            List<GameObject> objList = new List<GameObject>(Objs);
-            foreach (GameObject obj in objList)
+            List<GameObject> objs = new List<GameObject>(s_objs);
+
+            foreach (GameObject obj in objs)
             {
+                if (obj == null || obj.IsDisposed)
+                {
+                    continue;
+                }
+
                 obj.Dispose();
             }
+
+            s_objs.Clear();
+            s_objDictionary.Clear();
+
+            s_objRemoveQueue = new ConcurrentQueue<GameObject>();
+            s_objAddQueue = new ConcurrentQueue<GameObject>();
+
+            RemoveScripts();
         }
 
         public virtual void Init() { }
@@ -134,7 +251,7 @@ namespace IcarianEngine
 
                 if (comp is Scriptable script)
                 {
-                    ScriptableComps.Add(script);
+                    s_scriptableAddQueue.Enqueue(script);
                 }
             }
             
@@ -153,7 +270,7 @@ namespace IcarianEngine
 
             if (comp is Scriptable script)
             {
-                ScriptableComps.Add(script);
+                s_scriptableAddQueue.Enqueue(script);
             }
 
             comp.Init();
@@ -206,7 +323,7 @@ namespace IcarianEngine
         {
             if (a_component is Scriptable script)
             {
-                ScriptableComps.Remove(script);
+                s_scriptableRemoveQueue.Enqueue(script);
             }
 
             m_components.Remove(a_component);
@@ -246,14 +363,7 @@ namespace IcarianEngine
                 m_tag = a_tag
             };
 
-            if (!string.IsNullOrEmpty(a_tag))
-            {
-                ObjDictionary.Add(a_tag, obj);
-            }
-
-            Objs.Add(obj);
-
-            obj.Init();
+            s_objAddQueue.Enqueue(obj);
 
             return obj;
         }
@@ -262,14 +372,7 @@ namespace IcarianEngine
             T obj = Activator.CreateInstance<T>();
             obj.m_tag = a_tag;
 
-            if (!string.IsNullOrEmpty(a_tag))
-            {
-                ObjDictionary.Add(a_tag, obj);
-            }
-
-            Objs.Add(obj);
-
-            obj.Init();
+            s_objAddQueue.Enqueue(obj);
 
             return obj;
         }   
@@ -325,16 +428,14 @@ namespace IcarianEngine
 
             foreach (GameObject gameObject in objs)
             {
-                gameObject.Init();
-
-                Objs.Add(gameObject);
+                s_objAddQueue.Enqueue(gameObject);
             }
 
             if (obj != null)
             {
                 if (!string.IsNullOrEmpty(a_tag))
                 {
-                    ObjDictionary.Add(a_tag, obj);
+                    s_objDictionary.Add(a_tag, obj);
                 }
 
                 return obj;
@@ -363,18 +464,13 @@ namespace IcarianEngine
                     m_transform.Dispose();
                     m_transform = null;   
 
-                    Objs.Remove(this);
-
-                    if (!string.IsNullOrWhiteSpace(m_tag) && ObjDictionary.ContainsKey(m_tag))
-                    {
-                        ObjDictionary.Remove(m_tag);
-                    }
+                    s_objRemoveQueue.Enqueue(this);
 
                     foreach (Component comp in m_components)
                     {
                         if (comp is Scriptable script)
                         {
-                            ScriptableComps.Remove(script);
+                            s_scriptableRemoveQueue.Enqueue(script);
                         }
 
                         if (comp is IDestroy dest)
@@ -383,11 +479,8 @@ namespace IcarianEngine
                             {
                                 dest.Dispose();
                             }
-
-                            continue;
                         }
-
-                        if (comp is IDisposable disp)
+                        else if (comp is IDisposable disp)
                         {
                             disp.Dispose();
                         }

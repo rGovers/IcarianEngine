@@ -17,27 +17,49 @@ namespace IcarianEngine
         Failed
     }
 
-    class LoadModelAsync : ThreadJob
+    class LoadModelThreadJob : IThreadJob
     {
-        string m_path;
-        Model  m_model;
+        string                         m_path;
         AssetLibrary.LoadModelCallback m_callback;
 
-        public LoadModelAsync(string a_path, AssetLibrary.LoadModelCallback a_callback)
+        public LoadModelThreadJob(string a_path, AssetLibrary.LoadModelCallback a_callback)
         {
             m_path = a_path;
             m_callback = a_callback;
         }
 
-        public override void Execute()
+        public void Execute()
         {
             LoadStatus status;
 
-            m_model = AssetLibrary.LoadModelInternal(m_path, out status);
+            Model model = AssetLibrary.LoadModelInternal(m_path, out status);
+ 
+            if (m_callback != null)
+            {
+                m_callback(model, status);
+            }
+        }
+    }
+    class LoadTextureThreadJob : IThreadJob
+    {
+        string                           m_path;
+        AssetLibrary.LoadTextureCallback m_callback;
+
+        public LoadTextureThreadJob(string a_path, AssetLibrary.LoadTextureCallback a_callback)
+        {
+            m_path = a_path;
+            m_callback = a_callback;
+        }
+
+        public void Execute()
+        {
+            LoadStatus status;
+
+            Texture texture = AssetLibrary.LoadTextureInternal(m_path, out status);
 
             if (m_callback != null)
             {
-                m_callback(m_model, status);
+                m_callback(texture, status);
             }
         }
     }
@@ -67,6 +89,31 @@ namespace IcarianEngine
             Model = null;
         }
     }
+    class TextureContainer
+    {
+        public LoadStatus Status
+        {
+            get;
+            set;
+        }
+        public EventWaitHandle WaitHandle
+        {
+            get;
+            set;
+        }
+        public Texture Texture
+        {
+            get;
+            set;
+        }
+
+        public TextureContainer()
+        {
+            Status = LoadStatus.Unloaded;
+            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            Texture = null;
+        }
+    }
 
     public static class AssetLibrary
     {
@@ -74,7 +121,7 @@ namespace IcarianEngine
         static ConcurrentDictionary<string, VertexShader>         s_vertexShaders;
         static ConcurrentDictionary<string, PixelShader>          s_pixelShaders;
 
-        static ConcurrentDictionary<string, Texture>              s_textures;
+        static ConcurrentDictionary<string, TextureContainer>     s_textures;
         static ConcurrentDictionary<TextureInput, TextureSampler> s_textureSamplers;
 
         static ConcurrentDictionary<string, ModelContainer>       s_models;
@@ -84,6 +131,7 @@ namespace IcarianEngine
         static ConcurrentDictionary<string, CollisionShape>       s_collisionShapes;
 
         public delegate void LoadModelCallback(Model a_model, LoadStatus a_status);
+        public delegate void LoadTextureCallback(Texture a_texture, LoadStatus a_status);
 
         internal static void Init()
         {
@@ -92,7 +140,7 @@ namespace IcarianEngine
             s_vertexShaders = new ConcurrentDictionary<string, VertexShader>();
             s_pixelShaders = new ConcurrentDictionary<string, PixelShader>();
 
-            s_textures = new ConcurrentDictionary<string, Texture>();
+            s_textures = new ConcurrentDictionary<string, TextureContainer>();
             s_textureSamplers = new ConcurrentDictionary<TextureInput, TextureSampler>();
 
             s_models = new ConcurrentDictionary<string, ModelContainer>();
@@ -141,14 +189,25 @@ namespace IcarianEngine
             }
             s_materials.Clear();
 
-            foreach (Texture texture in s_textures.Values)
+            foreach (TextureContainer texture in s_textures.Values)
             {
-                if (!texture.IsDisposed)
+                if (texture.Status == LoadStatus.Failed)
                 {
-                    texture.Dispose();
+                    continue;
+                }
+
+                if (texture.Status != LoadStatus.Loaded)
+                {
+                    texture.WaitHandle.WaitOne();
+                }
+
+                if (texture.Texture != null && !texture.Texture.IsDisposed)
+                {
+                    texture.Texture.Dispose();
                 }
             }
             s_textures.Clear();
+
             foreach (TextureSampler sampler in s_textureSamplers.Values)
             {
                 if (!sampler.IsDisposed)
@@ -160,6 +219,11 @@ namespace IcarianEngine
 
             foreach (ModelContainer model in s_models.Values)
             {
+                if (model.Status == LoadStatus.Failed)
+                {
+                    continue;
+                }
+
                 if (model.Status != LoadStatus.Loaded)
                 {
                     model.WaitHandle.WaitOne();
@@ -333,6 +397,8 @@ namespace IcarianEngine
                 return null;
             }
 
+            bool alreadyLoading = false;
+
             lock (container)
             {
                 switch (container.Status)
@@ -345,10 +411,9 @@ namespace IcarianEngine
                 }
                 case LoadStatus.Loading:
                 {
-                    container.WaitHandle.WaitOne();
-                    a_status = LoadStatus.Loaded;
+                    alreadyLoading = true;
 
-                    return container.Model;
+                    break;
                 }
                 case LoadStatus.Loaded:
                 {
@@ -363,6 +428,14 @@ namespace IcarianEngine
                 }
             }
 
+            if (alreadyLoading)
+            {
+                container.WaitHandle.WaitOne();
+                a_status = LoadStatus.Loaded;
+
+                return container.Model;
+            }
+
             string filepath = GetPath(a_path);
             if (string.IsNullOrEmpty(filepath))
             {
@@ -371,29 +444,30 @@ namespace IcarianEngine
                 return null;
             }        
 
-            container.Model = Model.LoadModel(filepath);
+            Model model = Model.LoadModel(filepath);
 
-            if (container.Model == null)
+            lock (container)
             {
-                container.Status = LoadStatus.Failed;
-                container.WaitHandle.Set();
+                if (model != null)
+                {
+                    container.Model = model;
+                    container.Status = LoadStatus.Loaded;
 
-                Logger.IcarianError($"Error loading Model: {a_path} at {filepath}");
-
-                return null;
+                    a_status = LoadStatus.Loaded;
+                }
+                else
+                {
+                    container.Model = null;
+                    container.Status = LoadStatus.Failed;
+                }
             }
 
-            container.Status = LoadStatus.Loaded;
-            a_status = LoadStatus.Loaded;
             container.WaitHandle.Set();
 
-            return container.Model;
+            return model;
         }
         public static Model LoadModel(string a_path)
         {
-            ModelContainer container = new ModelContainer();
-            container.Status = LoadStatus.Unloaded;
-
             if (s_models.ContainsKey(a_path))
             {
                 ModelContainer c = s_models[a_path];
@@ -426,34 +500,72 @@ namespace IcarianEngine
                 }
             }
 
-            s_models.TryAdd(a_path, container);
+            s_models.TryAdd(a_path, new ModelContainer());
 
-            LoadModelInternal(a_path, out LoadStatus _);
+            Model model = LoadModelInternal(a_path, out LoadStatus _);
 
-            return container.Model;
+            return model;
         }
-        public static void LoadModelAsync(string a_path, AssetLibrary.LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        public static void LoadModelAsync(string a_path, LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
-            ModelContainer container = new ModelContainer();
-            container.Status = LoadStatus.Unloaded;
+            s_models.TryAdd(a_path, new ModelContainer());
 
-            s_models.TryAdd(a_path, container);
-
-            LoadModelAsync job = new LoadModelAsync(a_path, a_callback);
+            LoadModelThreadJob job = new LoadModelThreadJob(a_path, a_callback);
 
             ThreadPool.PushJob(job, a_priority);
         }
 
-        public static Texture LoadTexture(string a_path)
+        internal static Texture LoadTextureInternal(string a_path, out LoadStatus a_status)
         {
-            Texture oldTexture = null;
+            a_status = LoadStatus.Failed;
+
+            TextureContainer container = null;
             if (s_textures.ContainsKey(a_path))
             {
-                oldTexture = s_textures[a_path];
-                if (!oldTexture.IsDisposed)
+                container = s_textures[a_path];
+            }
+            else
+            {
+                return null;
+            }
+
+            bool alreadyLoading = false;
+
+            lock (container)
+            {
+                switch (container.Status)
                 {
-                    return oldTexture;
+                case LoadStatus.Unloaded:
+                {
+                    container.Status = LoadStatus.Loading;
+
+                    break;
                 }
+                case LoadStatus.Loading:
+                {
+                    alreadyLoading = true;
+
+                    break;
+                }
+                case LoadStatus.Loaded:
+                {
+                    a_status = LoadStatus.Loaded;
+
+                    return container.Texture;
+                }
+                case LoadStatus.Failed:
+                {
+                    return null;
+                }
+                }
+            }
+
+            if (alreadyLoading)
+            {
+                container.WaitHandle.WaitOne();
+                a_status = LoadStatus.Loaded;
+
+                return container.Texture;
             }
 
             string filepath = GetPath(a_path);
@@ -465,24 +577,76 @@ namespace IcarianEngine
             }
 
             Texture texture = Texture.LoadTexture(filepath);
-            if (texture == null)
-            {
-                Logger.IcarianError($"Error loading Texture: {a_path} at {filepath}");
 
-                return null;
+            lock (container)
+            {
+                if (texture != null)
+                {
+                    container.Texture = texture;
+                    container.Status = LoadStatus.Loaded;
+
+                    a_status = LoadStatus.Loaded;
+                }
+                else
+                {
+                    container.Texture = null;
+                    container.Status = LoadStatus.Failed;
+                }
             }
 
-            if (oldTexture == null)
-            {
-                s_textures.TryAdd(a_path, texture);
-            }
-            else
-            {
-                s_textures.TryUpdate(a_path, texture, oldTexture);
-            }
+            container.WaitHandle.Set();
 
             return texture;
         }
+        public static Texture LoadTexture(string a_path)
+        {
+            if (s_textures.ContainsKey(a_path))
+            {
+                TextureContainer c = s_textures[a_path];
+
+                switch (c.Status)
+                {
+                case LoadStatus.Loading:
+                case LoadStatus.Unloaded:
+                {
+                    c.WaitHandle.WaitOne();
+                    
+                    break;
+                }
+                case LoadStatus.Failed:
+                {
+                    return null;
+                }
+                }
+
+                if (c.Texture != null)
+                {
+                    if (!c.Texture.IsDisposed)
+                    {
+                        return c.Texture;
+                    }
+                }
+                else
+                {
+                    return null;
+                }
+            }
+
+            s_textures.TryAdd(a_path, new TextureContainer());
+
+            Texture texture = LoadTextureInternal(a_path, out LoadStatus _);
+
+            return texture;
+        }
+        public static void LoadTextureAsync(string a_path, LoadTextureCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        {
+            s_textures.TryAdd(a_path, new TextureContainer());
+
+            LoadTextureThreadJob job = new LoadTextureThreadJob(a_path, a_callback);
+
+            ThreadPool.PushJob(job, a_priority);
+        }
+
         public static TextureSampler GetSampler(TextureInput a_input)
         {
             TextureSampler oldSampler = null;

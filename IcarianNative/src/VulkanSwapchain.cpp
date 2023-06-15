@@ -632,10 +632,14 @@ void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, const vk::Fence
             1, 
             &cmdBuffer
         );
-        if (graphicsQueue.submit(1, &submitInfo, a_fence) != vk::Result::eSuccess)
         {
-            Logger::Error("Failed to submit swap copy");
-        }
+            const std::unique_lock l = std::unique_lock(m_engine->GetGraphicsQueueMutex());
+
+            if (graphicsQueue.submit(1, &submitInfo, a_fence) != vk::Result::eSuccess)
+            {
+                Logger::Error("Failed to submit swap copy");
+            }
+        }   
 
         m_lastCmd[a_imageIndex] = cmdBuffer;
     }
