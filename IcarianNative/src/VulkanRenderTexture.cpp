@@ -104,7 +104,7 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, ui
         attachmentsNoClear[i].storeOp = vk::AttachmentStoreOp::eStore;
         attachmentsNoClear[i].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
         attachmentsNoClear[i].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachmentsNoClear[i].initialLayout = vk::ImageLayout::eUndefined;
+        attachmentsNoClear[i].initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
         attachmentsNoClear[i].finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     }
     if (a_depthTexture)
@@ -124,7 +124,7 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, ui
         attachmentsNoClear[m_textureCount].storeOp = vk::AttachmentStoreOp::eStore;
         attachmentsNoClear[m_textureCount].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
         attachmentsNoClear[m_textureCount].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachmentsNoClear[m_textureCount].initialLayout = vk::ImageLayout::eUndefined;
+        attachmentsNoClear[m_textureCount].initialLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
         attachmentsNoClear[m_textureCount].finalLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
     }
 

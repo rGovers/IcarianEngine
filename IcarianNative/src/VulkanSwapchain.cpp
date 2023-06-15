@@ -281,10 +281,20 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         
         m_surfaceFormat = GetSurfaceFormatFromFormats(info.Formats);
     }
+    else
+    {
+        m_surfaceFormat = vk::SurfaceFormatKHR
+        (
+            vk::Format::eR8G8B8A8Unorm,
+            vk::ColorSpaceKHR::eSrgbNonlinear
+        );
+    }
+
+    const vk::ImageLayout imageLayout = GetImageLayout();
 
     vk::AttachmentDescription colorAttachment = vk::AttachmentDescription
     (
-        vk::AttachmentDescriptionFlags(),
+        { },
         m_surfaceFormat.format,
         vk::SampleCountFlagBits::e1,
         vk::AttachmentLoadOp::eClear,
@@ -292,8 +302,9 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eDontCare,
         vk::ImageLayout::eUndefined,
-        GetImageLayout()
+        imageLayout
     );
+
     vk::AttachmentDescription colorNoClearAttachment = vk::AttachmentDescription
     (
         { },
@@ -303,14 +314,9 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         vk::AttachmentStoreOp::eStore,
         vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eDontCare,
-        vk::ImageLayout::eUndefined,
-        GetImageLayout()
+        imageLayout,
+        imageLayout
     );
-    if (headless)
-    {
-        colorAttachment.format = vk::Format::eR8G8B8A8Unorm;
-        colorNoClearAttachment.format = vk::Format::eR8G8B8A8Unorm;
-    }
 
     constexpr vk::AttachmentReference ColorAttachmentRef = vk::AttachmentReference
     (
@@ -385,8 +391,8 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         dependencies.data()
     );
 
-    ICARIAN_ASSERT_MSG(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass) == vk::Result::eSuccess, "Failed to create Swapchain Renderpass");
-    ICARIAN_ASSERT_MSG(device.createRenderPass(&renderPassNoClearInfo, nullptr, &m_renderPassNoClear) == vk::Result::eSuccess, "Failed to create Swapchain Renderpass");
+    ICARIAN_ASSERT_MSG_R(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass) == vk::Result::eSuccess, "Failed to create Swapchain Renderpass");
+    ICARIAN_ASSERT_MSG_R(device.createRenderPass(&renderPassNoClearInfo, nullptr, &m_renderPassNoClear) == vk::Result::eSuccess, "Failed to create Swapchain Renderpass");
 
     TRACE("Created Vulkan Swapchain Renderpass");
 

@@ -1162,7 +1162,10 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
             }
         }
 
-        cmdBuffers.insert(cmdBuffers.end(), uiBuffers.begin(), uiBuffers.end());
+        if (!uiBuffers.empty())
+        {
+            cmdBuffers.insert(cmdBuffers.end(), uiBuffers.begin(), uiBuffers.end());
+        }
     }
 
     return cmdBuffers;
