@@ -59,6 +59,7 @@ public:
     uint32_t GenerateTextureSampler(uint32_t a_texture, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const;
     uint32_t GenerateRenderTextureSampler(uint32_t a_renderTexture, uint32_t a_textureIndex, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const;
     uint32_t GenerateRenderTextureDepthSampler(uint32_t a_renderTexture, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const;
+    uint32_t GenerateRenderTextureDepthSamplerDepth(uint32_t a_renderTexture, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const;
     void DestroyTextureSampler(uint32_t a_addr) const;
 
     uint32_t GenerateRenderTexture(uint32_t a_count, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr) const;
@@ -68,6 +69,9 @@ public:
     uint32_t GetRenderTextureWidth(uint32_t a_addr) const;
     uint32_t GetRenderTextureHeight(uint32_t a_addr) const;
     void ResizeRenderTexture(uint32_t a_addr, uint32_t a_width, uint32_t a_height) const;
+
+    uint32_t GenerateDepthRenderTexture(uint32_t a_width, uint32_t a_height) const;
+    void DestroyDepthRenderTexture(uint32_t a_addr) const;
 
     uint32_t GenerateDirectionalLightBuffer(uint32_t a_transformAddr) const;
     void SetDirectionalLightBuffer(uint32_t a_addr, const DirectionalLightBuffer& a_buffer) const;

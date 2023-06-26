@@ -9,7 +9,8 @@ namespace FlareBase
         TextureMode_Null = -1,
         TextureMode_Texture,
         TextureMode_RenderTexture,
-        TextureMode_RenderTextureDepth
+        TextureMode_RenderTextureDepth,
+        TextureMode_DepthRenderTexture
     };
     
     enum e_TextureFilter

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "Rendering/Vulkan/VulkanConstants.h"
+#include "Rendering/Vulkan/VulkanDepthRenderTexture.h"
 
 struct CanvasBuffer;
 
@@ -23,6 +24,7 @@ class VulkanUniformBuffer;
 class VulkanVertexShader;
 
 #include "DataTypes/TArray.h"
+#include "DataTypes/TNCArray.h"
 #include "DataTypes/TStatic.h"
 #include "Flare/RenderProgram.h"
 #include "Flare/TextureSampler.h"
@@ -68,7 +70,11 @@ private:
 
     TArray<VulkanModel*>                          m_models;
     TArray<VulkanTexture*>                        m_textures;
-    TArray<VulkanRenderTexture*>                  m_renderTextures;
+
+    // This comment is to make language server stop showing an error for the next line
+    // it compiles fine but the language server is fucking dumb
+    TNCArray<VulkanRenderTexture*>                m_renderTextures;
+    TNCArray<VulkanDepthRenderTexture*>           m_depthRenderTextures;
 
     TArray<MeshRenderBuffer>                      m_renderBuffers;
     TArray<MaterialRenderStack>                   m_renderStacks;
@@ -141,7 +147,9 @@ public:
     uint32_t GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data);
     void DestroyTexture(uint32_t a_addr);
     VulkanTexture* GetTexture(uint32_t a_addr);
+
     VulkanRenderTexture* GetRenderTexture(uint32_t a_addr);
+    VulkanDepthRenderTexture* GetDepthRenderTexture(uint32_t a_addr);
 
     uint32_t GenerateTextureSampler(uint32_t a_textureAddr, FlareBase::e_TextureMode a_textureMode, FlareBase::e_TextureFilter a_filterMode, FlareBase::e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     void DestroyTextureSampler(uint32_t a_addr);

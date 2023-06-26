@@ -1245,6 +1245,7 @@ VulkanTexture* VulkanGraphicsEngine::GetTexture(uint32_t a_addr)
 
     return m_textures[a_addr];
 }
+
 VulkanRenderTexture* VulkanGraphicsEngine::GetRenderTexture(uint32_t a_addr)
 {
     if (a_addr == -1)
@@ -1255,6 +1256,17 @@ VulkanRenderTexture* VulkanGraphicsEngine::GetRenderTexture(uint32_t a_addr)
     ICARIAN_ASSERT_MSG(a_addr < m_renderTextures.Size(), "GetRenderTexture out of bounds");
 
     return m_renderTextures[a_addr];
+}
+VulkanDepthRenderTexture* VulkanGraphicsEngine::GetDepthRenderTexture(uint32_t a_addr)
+{
+    if (a_addr == -1)
+    {
+        return nullptr;
+    }
+
+    ICARIAN_ASSERT_MSG(a_addr < m_renderTextures.Size(), "GetDepthRenderTexture out of bounds");
+
+    return m_depthRenderTextures[a_addr];
 }
 
 uint32_t VulkanGraphicsEngine::GenerateTextureSampler(uint32_t a_textureAddr, FlareBase::e_TextureMode a_textureMode, FlareBase::e_TextureFilter a_filterMode, FlareBase::e_TextureAddress a_addressMode, uint32_t a_slot)
@@ -1280,6 +1292,13 @@ uint32_t VulkanGraphicsEngine::GenerateTextureSampler(uint32_t a_textureAddr, Fl
     {
         ICARIAN_ASSERT_MSG(a_textureAddr < m_renderTextures.Size(), "GenerateTextureSampler Render Texture out of bounds");
         ICARIAN_ASSERT_MSG(m_renderTextures[a_textureAddr] != nullptr, "GenerateTextureSampler Render Texture already destroyed");
+
+        break;
+    }
+    case FlareBase::TextureMode_DepthRenderTexture:
+    {
+        ICARIAN_ASSERT_MSG(a_textureAddr < m_depthRenderTextures.Size(), "GenerateTextureSampler Depth Render Texture out of bounds");
+        ICARIAN_ASSERT_MSG(m_depthRenderTextures[a_textureAddr] != nullptr, "GenerateTextureSampler Depth Render Texture already destroyed");
 
         break;
     }

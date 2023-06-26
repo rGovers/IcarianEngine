@@ -177,6 +177,15 @@ static vk::DescriptorImageInfo GetDescriptorImageInfo(const FlareBase::TextureSa
 
         break;
     }
+    case FlareBase::TextureMode_DepthRenderTexture:
+    {
+        const VulkanDepthRenderTexture* renderTexture = a_engine->GetDepthRenderTexture(a_baseSampler.Addr);
+
+        imageInfo.imageView = renderTexture->GetImageView();
+        imageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+
+        break;
+    }
     default:
     {
         ICARIAN_ASSERT_MSG(0, "Invalid texture mode");

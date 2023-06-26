@@ -5,7 +5,7 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
-const static std::vector<vk::Format> DepthFormats = 
+constexpr vk::Format DepthFormats[] = 
 {
     vk::Format::eD32Sfloat,
     vk::Format::eD32SfloatS8Uint,
@@ -35,11 +35,9 @@ static vk::Format GetValidDepthFormat(vk::PhysicalDevice a_device)
         }
     }
 
-    Logger::Error("IcarianEngine: No valid depth format");
+    ICARIAN_ASSERT_MSG(0, "No valid depth format");
 
-    assert(0);
-
-    return vk::Format::eD16Unorm;
+    return vk::Format::eUndefined;
 }
 
 static constexpr vk::ImageLayout GetDepthLayout(vk::Format a_format)

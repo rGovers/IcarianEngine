@@ -27,6 +27,8 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateRenderTextureDepthSampler(uint a_renderTexture, uint a_filter, uint a_addressMode);
         [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GenerateRenderTextureDepthSamplerDepth(uint a_renderTexture, uint a_filter, uint a_addressMode);
+        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroySampler(uint a_addr);
 
         static ConcurrentDictionary<uint, TextureSampler> s_samplerLookup = new ConcurrentDictionary<uint, TextureSampler>();
@@ -118,6 +120,18 @@ namespace IcarianEngine.Rendering
             }
 
             return new TextureSampler(GenerateRenderTextureDepthSampler(RenderTextureCmd.GetTextureAddr(a_renderTexture), (uint)a_filter, (uint)a_addressMode));
+        }
+
+        public static TextureSampler GenerateRenderTextureDepthSampler(DepthRenderTexture a_renderTexture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
+        {
+            if (a_renderTexture == null)
+            {
+                Logger.IcarianWarning("GenerateRenderTextureDepthSampler null RenderTexture");
+
+                return null;
+            }
+
+            return new TextureSampler(GenerateRenderTextureDepthSamplerDepth(a_renderTexture.BufferAddr, (uint)a_filter, (uint)a_addressMode));
         }
 
         public override bool Equals(object a_obj)

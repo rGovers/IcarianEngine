@@ -60,6 +60,7 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateTextureSampler, { return Engine->GenerateTextureSampler(a_texture, (FlareBase::e_TextureFilter)a_filter, (FlareBase::e_TextureAddress)a_addressMode ); }, uint32_t a_texture, uint32_t a_filter, uint32_t a_addressMode) \
     F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateRenderTextureSampler, { return Engine->GenerateRenderTextureSampler(a_renderTexture, a_textureIndex, (FlareBase::e_TextureFilter)a_filter, (FlareBase::e_TextureAddress)a_addressMode); }, uint32_t a_renderTexture, uint32_t a_textureIndex, uint32_t a_filter, uint32_t a_addressMode) \
     F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateRenderTextureDepthSampler, { return Engine->GenerateRenderTextureDepthSampler(a_renderTexture, (FlareBase::e_TextureFilter)a_filter, (FlareBase::e_TextureAddress)a_addressMode); }, uint32_t a_renderTexture, uint32_t a_filter, uint32_t a_addressMode) \
+    F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateRenderTextureDepthSamplerDepth, { return Engine->GenerateRenderTextureDepthSamplerDepth(a_renderTexture, (FlareBase::e_TextureFilter)a_filter, (FlareBase::e_TextureAddress)a_addressMode); }, uint32_t a_renderTexture, uint32_t a_filter, uint32_t a_addressMode) \
     F(void, IcarianEngine.Rendering, TextureSampler, DestroySampler, { Engine->DestroyTextureSampler(a_addr); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GenerateRenderTexture, { return Engine->GenerateRenderTexture(a_count, a_width, a_height, (bool)a_depthTexture, (bool)a_hdr); }, uint32_t a_count, uint32_t a_width, uint32_t a_height, uint32_t a_depthTexture, uint32_t a_hdr) \
@@ -68,6 +69,10 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GetWidth, { return Engine->GetRenderTextureWidth(a_addr); }, uint32_t a_addr) \
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GetHeight, { return Engine->GetRenderTextureHeight(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, RenderTextureCmd, Resize, { return Engine->ResizeRenderTexture(a_addr, a_width, a_height); }, uint32_t a_addr, uint32_t a_width, uint32_t a_height) \
+    \
+    F(uint32_t, IcarianEngine.Rendering, DepthRenderTexture, GenerateRenderTexture, {  return Engine->GenerateDepthRenderTexture(a_width, a_height); }, uint32_t a_width, uint32_t a_height) \
+    F(void, IcarianEngine.Rendering, DepthRenderTexture, DestroyRenderTexture, { Engine->DestroyDepthRenderTexture(a_addr); }, uint32_t a_addr) \
+    \
     F(uint32_t, IcarianEngine.Renddering, MultiRenderTexture, GetTextureCount, { return Engine->GetRenderTextureTextureCount(a_addr); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering.Lighting, DirectionalLight, GenerateBuffer, { return Engine->GenerateDirectionalLightBuffer(a_transformAddr); }, uint32_t a_transformAddr) \
@@ -782,6 +787,10 @@ uint32_t VulkanGraphicsEngineBindings::GenerateRenderTextureDepthSampler(uint32_
 {
     return m_graphicsEngine->GenerateTextureSampler(a_renderTexture, FlareBase::TextureMode_RenderTextureDepth, a_filter, a_addressMode);
 }
+uint32_t VulkanGraphicsEngineBindings::GenerateRenderTextureDepthSamplerDepth(uint32_t a_renderTexture, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const
+{
+    return m_graphicsEngine->GenerateTextureSampler(a_renderTexture, FlareBase::TextureMode_DepthRenderTexture, a_filter, a_addressMode);
+}
 void VulkanGraphicsEngineBindings::DestroyTextureSampler(uint32_t a_addr) const
 {
     return m_graphicsEngine->DestroyTextureSampler(a_addr);
@@ -793,40 +802,17 @@ uint32_t VulkanGraphicsEngineBindings::GenerateRenderTexture(uint32_t a_count, u
     ICARIAN_ASSERT_MSG(a_width > 0, "GenerateRenderTexture width 0");
     ICARIAN_ASSERT_MSG(a_height > 0, "GenerateRenderTexture height 0");
 
-    VulkanRenderEngineBackend* engine = m_graphicsEngine->m_vulkanEngine;
+    VulkanRenderTexture* texture = new VulkanRenderTexture(m_graphicsEngine->m_vulkanEngine, a_count, a_width, a_height, a_depthTexture, a_hdr);
 
-    VulkanRenderTexture* texture = new VulkanRenderTexture(engine, a_count, a_width, a_height, a_depthTexture, a_hdr);
-
-    uint32_t size = 0;
-    {
-        TLockArray<VulkanRenderTexture*> a = m_graphicsEngine->m_renderTextures.ToLockArray();
-
-        size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = texture;
-
-                return i;
-            }
-        }
-    }
-
-    TRACE("Allocating RenderTexture Buffer");
-    m_graphicsEngine->m_renderTextures.Push(texture);
-
-    return size;
+    return m_graphicsEngine->m_renderTextures.PushVal(texture);
 }
 void VulkanGraphicsEngineBindings::DestroyRenderTexture(uint32_t a_addr) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_renderTextures.Size(), "DestroyRenderTexture out of bounds");
 
-    VulkanRenderTexture* tex = m_graphicsEngine->m_renderTextures[a_addr];
-
-    m_graphicsEngine->m_renderTextures[a_addr] = nullptr;
-
-    delete tex;
+    const VulkanRenderTexture* tex = m_graphicsEngine->m_renderTextures[a_addr];
+    ICARIAN_DEFER_del(tex);
+    m_graphicsEngine->m_renderTextures.Erase(a_addr);
 }
 uint32_t VulkanGraphicsEngineBindings::GetRenderTextureTextureCount(uint32_t a_addr) const
 {
@@ -869,6 +855,24 @@ void VulkanGraphicsEngineBindings::ResizeRenderTexture(uint32_t a_addr, uint32_t
     VulkanRenderTexture* texture = m_graphicsEngine->m_renderTextures[a_addr];
 
     texture->Resize(a_width, a_height);
+}
+
+uint32_t VulkanGraphicsEngineBindings::GenerateDepthRenderTexture(uint32_t a_width, uint32_t a_height) const
+{
+    ICARIAN_ASSERT_MSG(a_width > 0, "GenerateDepthRenderTexture width 0")
+    ICARIAN_ASSERT_MSG(a_height > 0, "GenerateDepthRenderTexture height 0")
+
+    VulkanDepthRenderTexture* texture = new VulkanDepthRenderTexture(m_graphicsEngine->m_vulkanEngine, a_width, a_height);
+
+    return m_graphicsEngine->m_depthRenderTextures.PushVal(texture);
+}
+void VulkanGraphicsEngineBindings::DestroyDepthRenderTexture(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_depthRenderTextures.Size(), "DestroyDepthRenderTexture out of bounds");
+
+    const VulkanDepthRenderTexture* tex = m_graphicsEngine->m_depthRenderTextures[a_addr];
+    ICARIAN_DEFER_del(tex);
+    m_graphicsEngine->m_depthRenderTextures.Erase(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateDirectionalLightBuffer(uint32_t a_transformAddr) const
