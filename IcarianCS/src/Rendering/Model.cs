@@ -60,7 +60,7 @@ namespace IcarianEngine.Rendering
     public class Model : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateModel(Array a_vertices, uint[] a_indices, ushort a_vertexSize); 
+        extern static uint GenerateModel(Array a_vertices, uint[] a_indices, ushort a_vertexSize, float a_radius); 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateFromFile(string a_path);
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -89,9 +89,9 @@ namespace IcarianEngine.Rendering
             m_bufferAddr = a_addr;
         }
 
-        public static Model CreateModel<T>(T[] a_vertices, uint[] a_indices) where T : struct 
+        public static Model CreateModel<T>(T[] a_vertices, uint[] a_indices, float a_radius) where T : struct 
         {
-            return new Model(GenerateModel(a_vertices, a_indices, (ushort)Marshal.SizeOf<T>()));
+            return new Model(GenerateModel(a_vertices, a_indices, (ushort)Marshal.SizeOf<T>(), a_radius));
         }
 
         public static Model LoadModel(string a_path)

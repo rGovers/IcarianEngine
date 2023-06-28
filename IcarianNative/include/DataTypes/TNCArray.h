@@ -287,6 +287,18 @@ public:
         return m_size <= 0;
     }
 
+    inline bool Exists(uint32_t a_addr)
+    {
+        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+
+        const uint32_t stateIndex = a_addr / StateValBitSize;
+        const uint32_t stateOffset = a_addr % StateValBitSize;
+
+        // While it works cause ifs just check 0 or non zero making sure it is a 0 or 1 value for correctness as it is used externally
+        // Compiler will probably optimize it out anyways
+        return (m_state[stateIndex] & 0b1 << stateOffset) != 0;
+    }
+
     inline T& operator [](uint32_t a_index)
     {
         const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);

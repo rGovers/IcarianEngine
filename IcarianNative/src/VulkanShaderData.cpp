@@ -510,13 +510,13 @@ void VulkanShaderData::PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint
     ICARIAN_ASSERT_MSG(0, "PushUniformBuffer binding not found");
 }
 
-void VulkanShaderData::UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_transformAddr, ObjectManager* a_objectManager) const
+void VulkanShaderData::UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_transform) const
 {
     if (m_transformBufferInput.ShaderSlot != FlareBase::ShaderSlot_Null)
     {
         ModelShaderBuffer buffer;
-        buffer.Model = a_objectManager->GetGlobalMatrix(a_transformAddr);
-        buffer.InvModel = glm::inverse(buffer.Model);
+        buffer.Model = a_transform;
+        buffer.InvModel = glm::inverse(a_transform);
 
         a_commandBuffer.pushConstants(m_layout, GetShaderStage(m_transformBufferInput.ShaderSlot), 0, sizeof(ModelShaderBuffer), &buffer);
     }

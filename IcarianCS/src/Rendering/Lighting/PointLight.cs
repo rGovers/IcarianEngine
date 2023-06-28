@@ -14,6 +14,7 @@ namespace IcarianEngine.Rendering.Lighting
         public Vector4 Color;
         public float Intensity;
         public float Radius;
+        public IntPtr Data;
     }
 
     public class PointLight : Light, IDestroy

@@ -29,7 +29,7 @@ namespace FlareBase
     constexpr std::string_view VertexTexCoordsStr = "vt";
     constexpr std::string_view IndicesFaceStr = "f";
 
-    bool OBJLoader_LoadData(const char* a_data, uint32_t a_size, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices)
+    bool OBJLoader_LoadData(const char* a_data, uint32_t a_size, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius)
     {
         std::vector<glm::vec4> positions;
         std::vector<glm::vec3> normals;
@@ -134,6 +134,12 @@ namespace FlareBase
                     pos.z = std::stof(std::string(zStr, nl - zStr));
 
                     pos.w = 1.0f;
+                }
+
+                const float radius = glm::length(pos.xyz());
+                if (radius > *a_radius)
+                {
+                    *a_radius = radius;
                 }
 
                 positions.emplace_back(pos);
@@ -476,7 +482,7 @@ namespace FlareBase
 
         return true;
     }
-    bool OBJLoader_LoadFile(const std::filesystem::path& a_path, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices)
+    bool OBJLoader_LoadFile(const std::filesystem::path& a_path, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius)
     {
         if (std::filesystem::exists(a_path))
         {
@@ -492,7 +498,7 @@ namespace FlareBase
                 char* dat = new char[size];
                 file.read(dat, size);
 
-                const bool ret = OBJLoader_LoadData(dat, (uint32_t)size, a_vertices, a_indices);
+                const bool ret = OBJLoader_LoadData(dat, (uint32_t)size, a_vertices, a_indices, a_radius);
 
                 delete[] dat;                
             }

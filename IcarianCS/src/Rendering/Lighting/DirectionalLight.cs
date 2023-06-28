@@ -13,6 +13,7 @@ namespace IcarianEngine.Rendering.Lighting
         public uint RenderLayer;
         public Vector4 Color;
         public float Intensity;
+        public IntPtr Data;
     }
 
     public class DirectionalLight : Light, IDestroy

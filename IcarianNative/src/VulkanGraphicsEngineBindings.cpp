@@ -9,6 +9,7 @@
 #include "Flare/IcarianDefer.h"
 #include "Flare/OBJLoader.h"
 #include "ObjectManager.h"
+#include "Rendering/Vulkan/VulkanLightBuffer.h"
 #include "Shaders/DirectionalLightPixel.h"
 #include "Shaders/PointLightPixel.h"
 #include "Shaders/PostPixel.h"
@@ -282,7 +283,7 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Texture, GenerateFromFile), Mo
     return addr;
 }
 
-FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateModel), MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride)
+FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateModel), MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride, float a_radius)
 {
     const uint32_t vertexCount = (uint32_t)mono_array_length(a_vertices);
     const uint32_t indexCount = (uint32_t)mono_array_length(a_indices);
@@ -301,7 +302,7 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateModel), MonoArr
         indices[i] = mono_array_get(a_indices, uint32_t, i);
     }
 
-    const uint32_t addr = Engine->GenerateModel(vertices, vertexCount, indices, indexCount, a_vertexStride);
+    const uint32_t addr = Engine->GenerateModel(vertices, vertexCount, indices, indexCount, a_vertexStride, a_radius);
 
     delete[] vertices;
     delete[] indices;
@@ -311,25 +312,26 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateModel), MonoArr
 FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateFromFile), MonoString* a_path)
 {
     char* str = mono_string_to_utf8(a_path);
-
-    uint32_t addr = -1;
+    ICARIAN_DEFER_monoF(str);
 
     std::vector<FlareBase::Vertex> vertices;
     std::vector<uint32_t> indices;
+    float radius;
     const std::filesystem::path p = std::filesystem::path(str);
+    const std::filesystem::path ext = p.extension();
 
-    if (p.extension() == ".obj")
+    if (ext == ".obj")
     {
-        if (FlareBase::OBJLoader_LoadFile(p, &vertices, &indices))
+        if (FlareBase::OBJLoader_LoadFile(p, &vertices, &indices, &radius))
         {
-            addr = Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(FlareBase::Vertex));
+            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(FlareBase::Vertex), radius);
         }
     }
-    else if (p.extension() == ".dae")
+    else if (ext == ".dae")
     {
-        if (FlareBase::ColladaLoader_LoadFile(p, &vertices, &indices))
+        if (FlareBase::ColladaLoader_LoadFile(p, &vertices, &indices, &radius))
         {
-            addr = Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(FlareBase::Vertex));
+            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(FlareBase::Vertex), radius);
         }
     }
     else
@@ -337,9 +339,7 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateFromFile), Mono
         ICARIAN_ASSERT_MSG_R(0, "GenerateFromFile invalid file extension");
     }
 
-    mono_free(str);
-
-    return addr;
+    return -1;
 }
 FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(Model, DestroyModel), uint32_t a_addr)
 {
@@ -629,7 +629,7 @@ glm::vec3 VulkanGraphicsEngineBindings::CameraScreenToWorld(uint32_t a_addr, con
     return wPos.xyz() / wPos.w;
 }
 
-uint32_t VulkanGraphicsEngineBindings::GenerateModel(const char* a_vertices, uint32_t a_vertexCount, const uint32_t* a_indices, uint32_t a_indexCount, uint16_t a_vertexStride) const
+uint32_t VulkanGraphicsEngineBindings::GenerateModel(const char* a_vertices, uint32_t a_vertexCount, const uint32_t* a_indices, uint32_t a_indexCount, uint16_t a_vertexStride, float a_radius) const
 {
     ICARIAN_ASSERT_MSG(a_vertices != nullptr, "GenerateModel vertices null")
     ICARIAN_ASSERT_MSG(a_vertexCount > 0, "GenerateModel no vertices")
@@ -637,33 +637,18 @@ uint32_t VulkanGraphicsEngineBindings::GenerateModel(const char* a_vertices, uin
     ICARIAN_ASSERT_MSG(a_indexCount > 0, "GenerateModel no indices")
     ICARIAN_ASSERT_MSG(a_vertexStride > 0, "GenerateModel vertex stride 0")
 
-    VulkanModel* model = new VulkanModel(m_graphicsEngine->m_vulkanEngine, a_vertexCount, a_vertices, a_vertexStride, a_indexCount, a_indices);
-
-    {
-        TLockArray<VulkanModel*> a = m_graphicsEngine->m_models.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = model;
-
-                return i;
-            }
-        }
-    }
+    VulkanModel* model = new VulkanModel(m_graphicsEngine->m_vulkanEngine, a_vertexCount, a_vertices, a_vertexStride, a_indexCount, a_indices, a_radius);
 
     return m_graphicsEngine->m_models.PushVal(model);
 }
 void VulkanGraphicsEngineBindings::DestroyModel(uint32_t a_addr) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_models.Size(), "DestroyModel out of bounds")
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_models[a_addr] != nullptr, "DestroyModel already destroyed");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_models.Exists(a_addr), "DestroyModel already destroyed");
 
-    VulkanModel* model = m_graphicsEngine->m_models[a_addr];
+    const VulkanModel* model = m_graphicsEngine->m_models[a_addr];
     ICARIAN_DEFER_del(model);
-    m_graphicsEngine->m_models.LockSet(a_addr, nullptr);
+    m_graphicsEngine->m_models.Erase(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr) const
@@ -877,30 +862,20 @@ void VulkanGraphicsEngineBindings::DestroyDepthRenderTexture(uint32_t a_addr) co
 
 uint32_t VulkanGraphicsEngineBindings::GenerateDirectionalLightBuffer(uint32_t a_transformAddr) const
 {
-    const DirectionalLightBuffer buffer = DirectionalLightBuffer(a_transformAddr);
+    ICARIAN_ASSERT_MSG(a_transformAddr != -1, "GenerateDirectionalLightBuffer no transform");
 
-    ICARIAN_ASSERT_MSG(buffer.TransformAddr != -1, "GenerateDirectionalLightBuffer no transform");
+    DirectionalLightBuffer buffer;
+    buffer.TransformAddr = a_transformAddr;
+    buffer.Color = glm::vec4(1.0f);
+    buffer.Intensity = 1.0f;
+    buffer.RenderLayer = 0b1;
+    
+    VulkanLightBuffer* lightBuffer = new VulkanLightBuffer();
+    lightBuffer->LightRenderTextureCount = 0;
+    lightBuffer->LightRenderTextures = nullptr;
+    buffer.Data = lightBuffer;
 
-    uint32_t size = 0;
-    {
-        TLockArray<DirectionalLightBuffer> a = m_graphicsEngine->m_directionalLights.ToLockArray();
-
-        size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i].TransformAddr == -1)
-            {
-                a[i] = buffer;
-
-                return i;
-            }
-        }
-    }
-
-    TRACE("Allocating DirectionalLight Buffer");
-    m_graphicsEngine->m_directionalLights.Push(buffer);
-
-    return size;
+    return m_graphicsEngine->m_directionalLights.PushVal(buffer);
 }
 void VulkanGraphicsEngineBindings::SetDirectionalLightBuffer(uint32_t a_addr, const DirectionalLightBuffer& a_buffer) const
 {
@@ -918,35 +893,25 @@ void VulkanGraphicsEngineBindings::DestroyDirectionalLightBuffer(uint32_t a_addr
 {
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_directionalLights.Size(), "DestroyDirectionalLightBuffer out of bounds");
 
-    m_graphicsEngine->m_directionalLights.LockSet(a_addr, DirectionalLightBuffer(-1));
+    const DirectionalLightBuffer buffer = m_graphicsEngine->m_directionalLights[a_addr];
+    const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
+    ICARIAN_DEFER_del(lightBuffer);
+    m_graphicsEngine->m_directionalLights.Erase(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GeneratePointLightBuffer(uint32_t a_transformAddr) const
 {
-    const PointLightBuffer buffer = PointLightBuffer(a_transformAddr);
+    ICARIAN_ASSERT_MSG(a_transformAddr != -1, "GeneratePointLightBuffer no transform");
+    
+    PointLightBuffer buffer;
+    buffer.TransformAddr = a_transformAddr;
+    buffer.Color = glm::vec4(1.0f);
+    buffer.Radius = 1.0f;
+    buffer.Intensity = 1.0f;
+    buffer.RenderLayer = 0b1;
+    buffer.Data = nullptr;
 
-    ICARIAN_ASSERT_MSG(buffer.TransformAddr != -1, "GeneratePointLightBuffer no transform");
-
-    uint32_t size = 0;
-    {
-        TLockArray<PointLightBuffer> a = m_graphicsEngine->m_pointLights.ToLockArray();
-
-        size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i].TransformAddr == -1)
-            {
-                a[i] = buffer;
-
-                return i;
-            }
-        }
-    }
-
-    TRACE("Allocating PointLight Buffer");
-    m_graphicsEngine->m_pointLights.Push(buffer);
-
-    return size;
+    return m_graphicsEngine->m_pointLights.PushVal(buffer);
 }
 void VulkanGraphicsEngineBindings::SetPointLightBuffer(uint32_t a_addr, const PointLightBuffer& a_buffer) const
 {
@@ -964,35 +929,23 @@ void VulkanGraphicsEngineBindings::DestroyPointLightBuffer(uint32_t a_addr) cons
 {
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_pointLights.Size(), "DestroyPointLightBuffer out of bounds");
 
-    m_graphicsEngine->m_pointLights.LockSet(a_addr, PointLightBuffer(-1));
+    m_graphicsEngine->m_pointLights.Erase(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateSpotLightBuffer(uint32_t a_transformAddr) const
 {
-    const SpotLightBuffer buffer = SpotLightBuffer(a_transformAddr);
+    ICARIAN_ASSERT_MSG(a_transformAddr != -1, "GenerateSpotLightBuffer no tranform");
+    
+    SpotLightBuffer buffer;
+    buffer.TransformAddr = a_transformAddr;
+    buffer.Color = glm::vec4(1.0f);
+    buffer.Radius = 1.0f;
+    buffer.Intensity = 1.0f;
+    buffer.CutoffAngle = glm::vec2(1.0f, 1.5f);
+    buffer.RenderLayer = 0b1;
+    buffer.Data = nullptr;
 
-    ICARIAN_ASSERT_MSG(buffer.TransformAddr != -1, "GenerateSpotLightBuffer no tranform");
-
-    uint32_t size = 0;
-    {
-        TLockArray<SpotLightBuffer> a = m_graphicsEngine->m_spotLights.ToLockArray();
-
-        size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i].TransformAddr == -1)
-            {
-                a[i] = buffer;
-
-                return i;
-            }
-        }
-    }
-
-    TRACE("Allocating SpotLight Buffer");
-    m_graphicsEngine->m_spotLights.Push(buffer);
-
-    return size;
+    return m_graphicsEngine->m_spotLights.PushVal(buffer);
 }
 void VulkanGraphicsEngineBindings::SetSpotLightBuffer(uint32_t a_addr, const SpotLightBuffer& a_buffer) const
 {
@@ -1010,7 +963,7 @@ void VulkanGraphicsEngineBindings::DestroySpotLightBuffer(uint32_t a_addr) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_spotLights.Size(), "DestroySpotLightBuffer out of bounds");
 
-    m_graphicsEngine->m_spotLights.LockSet(a_addr, SpotLightBuffer(-1));
+    m_graphicsEngine->m_spotLights.Erase(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateFont(const std::string_view& a_path) const

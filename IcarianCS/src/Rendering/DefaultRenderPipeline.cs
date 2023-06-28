@@ -5,6 +5,7 @@ namespace IcarianEngine.Rendering
 {
     public class DefaultRenderPipeline : RenderPipeline, IDisposable
     {
+        DepthRenderTexture m_depthRenderTexture;
         MultiRenderTexture m_drawRenderTexture;
         RenderTexture      m_lightRenderTexture;
 
@@ -13,6 +14,8 @@ namespace IcarianEngine.Rendering
         TextureSampler     m_specularSampler;
         TextureSampler     m_emissionSampler;
         TextureSampler     m_depthSampler;
+
+        TextureSampler     m_testDepthSampler;
 
         TextureSampler     m_lightColorSampler;
 
@@ -40,11 +43,15 @@ namespace IcarianEngine.Rendering
             m_drawRenderTexture = new MultiRenderTexture(4, 1920, 1080, true, true);
             m_lightRenderTexture = new RenderTexture(1920, 1080, false, true);
 
+            m_depthRenderTexture = new DepthRenderTexture(1920, 1080);
+
             m_colorSampler = TextureSampler.GenerateRenderTextureSampler(m_drawRenderTexture, 0);
             m_normalSampler = TextureSampler.GenerateRenderTextureSampler(m_drawRenderTexture, 1);
             m_specularSampler = TextureSampler.GenerateRenderTextureSampler(m_drawRenderTexture, 2);
             m_emissionSampler = TextureSampler.GenerateRenderTextureSampler(m_drawRenderTexture, 3);
             m_depthSampler = TextureSampler.GenerateRenderTextureDepthSampler(m_drawRenderTexture);
+
+            m_testDepthSampler = TextureSampler.GenerateRenderTextureDepthSampler(m_depthRenderTexture);
 
             m_lightColorSampler = TextureSampler.GenerateRenderTextureSampler(m_lightRenderTexture);
 
@@ -67,13 +74,17 @@ namespace IcarianEngine.Rendering
             SetPostTextures();
         }
 
-        public override void PreShadow(Camera a_camera) 
+        public override void ShadowSetup(Camera a_camera)
         {
-
+            Logger.Message("setup shadow");
         }
-        public override void PostShadow(Camera a_camera)
+        public override void PreShadow(Light a_light, Camera a_camera) 
         {
-            
+            Logger.Message("pre shadow");
+        }
+        public override void PostShadow(Light a_light, Camera a_camera)
+        {
+            Logger.Message("post shadow");
         }
 
         public override void PreRender(Camera a_camera)
@@ -135,6 +146,8 @@ namespace IcarianEngine.Rendering
         {
             m_drawRenderTexture.Dispose();
             m_lightRenderTexture.Dispose();
+
+            m_depthRenderTexture.Dispose();
 
             m_colorSampler.Dispose();
             m_normalSampler.Dispose();

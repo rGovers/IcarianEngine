@@ -7,8 +7,9 @@ namespace IcarianEngine.Rendering
     {
         static RenderPipeline Instance = null;
 
-        public abstract void PreShadow(Camera a_camera);
-        public abstract void PostShadow(Camera a_camera);
+        public abstract void ShadowSetup(Camera a_camera);
+        public abstract void PreShadow(Light a_light, Camera a_camera);
+        public abstract void PostShadow(Light a_light, Camera a_camera);
 
         public abstract void PreRender(Camera a_camera);
         public abstract void PostRender(Camera a_camera);
@@ -38,6 +39,22 @@ namespace IcarianEngine.Rendering
             }
         }
         
+        static void ShadowSetupS(uint a_camBuffer)
+        {
+            if (Instance != null)
+            {
+                Camera cam = Camera.GetCamera(a_camBuffer);
+
+                if (cam != null)
+                {
+                    Instance.ShadowSetup(cam);
+                }
+            }
+            else
+            {
+                Logger.IcarianError("RenderPipeline not initialized");
+            }
+        }
         static void PreShadowS(uint a_camBuffer)
         {
             if (Instance != null)
@@ -46,7 +63,7 @@ namespace IcarianEngine.Rendering
 
                 if (cam != null)
                 {
-                    Instance.PreShadow(cam);
+                    Instance.PreShadow(null, cam);
                 }
             }
             else
@@ -62,7 +79,7 @@ namespace IcarianEngine.Rendering
 
                 if (cam != null)
                 {
-                    Instance.PostShadow(cam);
+                    Instance.PostShadow(null, cam);
                 }
             }
             else

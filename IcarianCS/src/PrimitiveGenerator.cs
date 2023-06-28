@@ -209,7 +209,7 @@ namespace IcarianEngine
                 13, 22, 16, 13, 19, 22
             };
 
-            return Model.CreateModel(vertices, indices);
+            return Model.CreateModel(vertices, indices, Vector3.One.Magnitude);
         }   
 
         public static Model CreatePrimitive(PrimitiveType a_primitiveType)

@@ -5,29 +5,25 @@ namespace IcarianEngine.Rendering
 {
     public static class RenderTextureCmd
     {
-        static Dictionary<uint, IRenderTexture> RenderTextureTable;
+        static Dictionary<uint, IRenderTexture> s_renderTextureTable = new Dictionary<uint, IRenderTexture>();
+        static Dictionary<uint, IRenderTexture> s_depthRenderTextureTable = new Dictionary<uint, IRenderTexture>();
 
         internal static void PushRenderTexture(uint a_addr, IRenderTexture a_renderTexture)
         {
-            if (RenderTextureTable == null)
+            if (!s_renderTextureTable.ContainsKey(a_addr))
             {
-                RenderTextureTable = new Dictionary<uint, IRenderTexture>();
-            }   
-
-            if (!RenderTextureTable.ContainsKey(a_addr))
-            {
-                RenderTextureTable.Add(a_addr, a_renderTexture);
+                s_renderTextureTable.Add(a_addr, a_renderTexture);
             }
             else
             {
                 Logger.IcarianWarning($"RenderTexture exists at {a_addr}");
 
-                RenderTextureTable[a_addr] = a_renderTexture;
+                s_renderTextureTable[a_addr] = a_renderTexture;
             }
         } 
         internal static void RemoveRenderTexture(uint a_addr)
         {
-            RenderTextureTable.Remove(a_addr);
+            s_renderTextureTable.Remove(a_addr);
         }
 
         internal static IRenderTexture GetRenderTexture(uint a_addr)
@@ -37,7 +33,7 @@ namespace IcarianEngine.Rendering
                 return null;
             }
 
-            return RenderTextureTable[a_addr];
+            return s_renderTextureTable[a_addr];
         }
 
         internal static uint GetTextureAddr(IRenderTexture a_renderTexture)

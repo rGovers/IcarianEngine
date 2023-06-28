@@ -453,7 +453,7 @@ namespace FlareBase
         return offset;
     }
 
-    bool ColladaLoader_LoadData(const char* a_data, uint32_t a_size, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices)
+    bool ColladaLoader_LoadData(const char* a_data, uint32_t a_size, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius)
     {
         tinyxml2::XMLDocument doc;
         if (doc.Parse(a_data, (size_t)a_size) == tinyxml2::XML_SUCCESS)
@@ -501,7 +501,7 @@ namespace FlareBase
                 }
             }
 
-            for (const ColladaGeometry &g : geometry)
+            for (const ColladaGeometry& g : geometry)
             {
                 if (!g.Mesh.Triangles.P.empty())
                 {
@@ -607,16 +607,17 @@ namespace FlareBase
                                 a_indices->emplace_back(index);
                                 indexMap.emplace(h, index);
 
+                                // TODO: Account for up axis
                                 Vertex v = Vertex();
                                 for (int j = 0; j < posVCount; ++j)
                                 {
                                     if (posOffset[j] == 1)
                                     {
-                                        v.Position[posOffset[j]] = -((float *)posSource.Data.Data)[(posIndex * posSource.Accessor.Stride) + j] * scale;
+                                        v.Position[posOffset[j]] = -((float*)posSource.Data.Data)[(posIndex * posSource.Accessor.Stride) + j] * scale;
                                     }
                                     else
                                     {
-                                        v.Position[posOffset[j]] = ((float *)posSource.Data.Data)[(posIndex * posSource.Accessor.Stride) + j] * scale;
+                                        v.Position[posOffset[j]] = ((float*)posSource.Data.Data)[(posIndex * posSource.Accessor.Stride) + j] * scale;
                                     }
                                 }
 
@@ -624,20 +625,26 @@ namespace FlareBase
                                 {
                                     if (normalOffset[j] == 1)
                                     {
-                                        v.Normal[normalOffset[j]] = ((float *)normalSource.Data.Data)[(normIndex * normalSource.Accessor.Stride) + j];
+                                        v.Normal[normalOffset[j]] = ((float*)normalSource.Data.Data)[(normIndex * normalSource.Accessor.Stride) + j];
                                     }
                                     else
                                     {
-                                        v.Normal[normalOffset[j]] = -((float *)normalSource.Data.Data)[(normIndex * normalSource.Accessor.Stride) + j];
+                                        v.Normal[normalOffset[j]] = -((float*)normalSource.Data.Data)[(normIndex * normalSource.Accessor.Stride) + j];
                                     }
                                 }
 
                                 for (int j = 0; j < texVCount; ++j)
                                 {
-                                    v.TexCoords[texcoordOffset[j]] = ((float *)texcoordSource.Data.Data)[(texIndex * texcoordSource.Accessor.Stride) + j];
+                                    v.TexCoords[texcoordOffset[j]] = ((float*)texcoordSource.Data.Data)[(texIndex * texcoordSource.Accessor.Stride) + j];
                                 }
 
                                 a_vertices->emplace_back(v);
+
+                                const float radius = glm::length(v.Position.xyz());
+                                if (radius > *a_radius)
+                                {
+                                    *a_radius = radius;
+                                }
                             }
                         }
                     }
@@ -759,6 +766,7 @@ namespace FlareBase
 
                                     a_indices->emplace_back(vIndex);
 
+                                    // TODO: Account for up axis
                                     Vertex v = Vertex();
                                     for (int j = 0; j < posVCount; ++j)
                                     {
@@ -792,6 +800,12 @@ namespace FlareBase
                                     a_vertices->emplace_back(v);
 
                                     indexMap.emplace(h, vIndex);
+
+                                    const float radius = glm::length(v.Position.xyz());
+                                    if (radius > *a_radius)
+                                    {
+                                        *a_radius = radius;
+                                    }
                                 }
                             }
 
@@ -820,15 +834,15 @@ namespace FlareBase
                 }
             }
 
-            for (const ColladaGeometry &g : geometry)
+            for (const ColladaGeometry& g : geometry)
             {
-                for (const ColladaSource &s : g.Mesh.Sources)
+                for (const ColladaSource& s : g.Mesh.Sources)
                 {
                     switch (s.Data.Type)
                     {
                     case ColladaSourceDataType_Float:
                     {
-                        delete[] (float *)s.Data.Data;
+                        delete[] (float*)s.Data.Data;
 
                         break;
                     }
@@ -839,7 +853,7 @@ namespace FlareBase
             return true;
         }
     }
-    bool ColladaLoader_LoadFile(const std::filesystem::path& a_path, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices)
+    bool ColladaLoader_LoadFile(const std::filesystem::path& a_path, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius)
     {
         if (std::filesystem::exists(a_path))
         {
@@ -855,7 +869,7 @@ namespace FlareBase
                 char* dat = new char[size];
                 file.read(dat, size);
 
-                const bool ret = ColladaLoader_LoadData(dat, (uint32_t)size, a_vertices, a_indices);
+                const bool ret = ColladaLoader_LoadData(dat, (uint32_t)size, a_vertices, a_indices, a_radius);
 
                 delete[] dat;
 

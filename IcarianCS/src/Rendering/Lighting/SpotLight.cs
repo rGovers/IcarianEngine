@@ -15,6 +15,7 @@ namespace IcarianEngine.Rendering.Lighting
         public float Intensity;
         public Vector2 CutoffAngle;
         public float Radius;
+        public IntPtr Data;
     }
 
     public class SpotLight : Light, IDestroy

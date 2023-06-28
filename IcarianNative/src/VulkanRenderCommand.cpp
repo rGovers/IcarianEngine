@@ -341,9 +341,6 @@ void VulkanRenderCommand::DrawMaterial()
 }
 void VulkanRenderCommand::DrawModel(const glm::mat4& a_transform, uint32_t a_addr)
 {
-    const RenderEngine* renderEngine = m_engine->GetRenderEngine();
-    ObjectManager* objectManager = renderEngine->GetObjectManager();
-
     const VulkanModel* model = m_gEngine->GetModel(a_addr);
 
     model->Bind(m_commandBuffer);
@@ -352,7 +349,7 @@ void VulkanRenderCommand::DrawModel(const glm::mat4& a_transform, uint32_t a_add
 
     const VulkanPipeline* pipeline = GetPipeline();
     const VulkanShaderData* shaderData = pipeline->GetShaderData();
-    shaderData->UpdateTransformBuffer(m_commandBuffer, a_addr, objectManager);
+    shaderData->UpdateTransformBuffer(m_commandBuffer, a_transform);
 
     m_commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
 }

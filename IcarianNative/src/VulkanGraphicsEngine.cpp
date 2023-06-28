@@ -524,9 +524,16 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
 
     m_preRenderFunc->Exec(camArgs);
 
+    const VulkanRenderTexture* renderTexture = renderCommand.GetRenderTexture();
+    glm::vec2 screenSize = (glm::vec2)m_swapchain->GetSize();
+    if (renderTexture != nullptr)
+    {
+        screenSize = glm::vec2(renderTexture->GetWidth(), renderTexture->GetHeight());
+    }
+    const Frustum frustum = camBuffer.ToFrustum(screenSize, objectManager);
+
     const std::vector<MaterialRenderStack> stacks = m_renderStacks.ToVector();
 
-    // TODO: Pre-Culling and batching
     for (const MaterialRenderStack& renderStack : stacks)
     {
         const uint32_t matAddr = renderStack.GetMaterialAddr();
@@ -544,17 +551,37 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
             {
                 if (modelBuff.ModelAddr != -1)
                 {
-                    VulkanModel* model = m_models[modelBuff.ModelAddr];
+                    const VulkanModel* model = m_models[modelBuff.ModelAddr];
                     if (model != nullptr)
                     {
-                        const std::lock_guard mLock = std::lock_guard(model->GetLock());
-                        model->Bind(commandBuffer);
+                        const float radius = model->GetRadius();
                         const uint32_t indexCount = model->GetIndexCount();
+
+                        std::vector<glm::mat4> transforms;
+                        transforms.reserve(modelBuff.TransformAddr.size());
+
                         for (uint32_t tAddr : modelBuff.TransformAddr)
                         {
-                            shaderData->UpdateTransformBuffer(commandBuffer, tAddr, objectManager);
+                            const glm::mat4 matrix = objectManager->GetGlobalMatrix(tAddr);
+                            const glm::vec3 pos = matrix[3];
 
-                            commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
+                            if (frustum.CompareSphere(pos, radius))
+                            {
+                                transforms.emplace_back(matrix);
+                            }
+                        }
+
+                        // TODO: Could probably batch this down the line
+                        if (!transforms.empty())
+                        {
+                            model->Bind(commandBuffer);
+
+                            for (const glm::mat4& mat : transforms)
+                            {
+                                shaderData->UpdateTransformBuffer(commandBuffer, mat);
+
+                                commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
+                            }
                         }
                     }
                 }

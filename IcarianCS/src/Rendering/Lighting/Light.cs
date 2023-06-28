@@ -10,6 +10,19 @@ namespace IcarianEngine.Rendering.Lighting
         Spot = 2
     }
 
+    internal enum LightRenderTextureType : ushort
+    {
+        Null = 0,
+        RenderTexture = 1,
+        DepthRenderTexture = 2
+    }
+
+    internal struct LightRenderTextureBuffer
+    {
+        public uint RenderTextureAddr;
+        public LightRenderTextureType RenderTextureType;
+    }
+
     public abstract class Light : Component
     {
         public abstract LightType LightType

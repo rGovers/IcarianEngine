@@ -2,8 +2,6 @@
 
 #include "Rendering/Vulkan/VulkanConstants.h"
 
-#include <mutex>
-
 class VulkanRenderEngineBackend;
 
 class VulkanModel
@@ -11,7 +9,7 @@ class VulkanModel
 private:
     VulkanRenderEngineBackend* m_engine;
 
-    std::mutex                 m_lock;
+    float                      m_radius;
 
     VmaAllocation              m_vbAlloc;
     VmaAllocation              m_ibAlloc;
@@ -24,17 +22,16 @@ private:
 protected:
 
 public:
-    VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexCount, const char* a_vertices, uint16_t a_vertexSize, uint32_t a_indexCount, const uint32_t* a_indices);
+    VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexCount, const void* a_vertices, uint16_t a_vertexSize, uint32_t a_indexCount, const uint32_t* a_indices, float a_radius);
     ~VulkanModel();
-
-    inline std::mutex& GetLock()
-    {
-        return m_lock;
-    }
 
     inline uint32_t GetIndexCount() const
     {
         return m_indexCount;
+    }
+    inline float GetRadius() const
+    {
+        return m_radius;
     }
 
     void Bind(const vk::CommandBuffer& a_cmdBuffer) const;

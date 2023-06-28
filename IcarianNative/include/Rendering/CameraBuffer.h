@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "Frustum.h"
+#include "ObjectManager.h"
 #include "Rendering/Viewport.h"
 
 #include <glm/ext/matrix_clip_space.hpp>
@@ -31,5 +33,13 @@ struct CameraBuffer
     glm::mat4 ToProjection(const glm::vec2& a_screenSize) const
     {
         return glm::perspective(FOV, a_screenSize.x / a_screenSize.y, Near, Far);
+    }
+
+    Frustum ToFrustum(const glm::vec2& a_screenSize, ObjectManager* a_objectManager) const
+    {
+        const glm::mat4 proj = ToProjection(a_screenSize);
+        const glm::mat4 trans = glm::inverse(a_objectManager->GetGlobalMatrix(TransformAddr));
+
+        return Frustum::FromMat4(proj * trans);
     }
 };

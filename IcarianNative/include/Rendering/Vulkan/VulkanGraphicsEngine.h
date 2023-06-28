@@ -68,7 +68,7 @@ private:
      
     TArray<FlareBase::TextureSampler>             m_textureSampler;
 
-    TArray<VulkanModel*>                          m_models;
+    TNCArray<VulkanModel*>                        m_models;
     TArray<VulkanTexture*>                        m_textures;
 
     // This comment is to make language server stop showing an error for the next line
@@ -79,9 +79,9 @@ private:
     TArray<MeshRenderBuffer>                      m_renderBuffers;
     TArray<MaterialRenderStack>                   m_renderStacks;
 
-    TArray<DirectionalLightBuffer>                m_directionalLights;
-    TArray<PointLightBuffer>                      m_pointLights;
-    TArray<SpotLightBuffer>                       m_spotLights;
+    TNCArray<DirectionalLightBuffer>              m_directionalLights;
+    TNCArray<PointLightBuffer>                    m_pointLights;
+    TNCArray<SpotLightBuffer>                     m_spotLights;
 
     TArray<Font*>                                 m_fonts;
 
