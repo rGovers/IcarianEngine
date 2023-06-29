@@ -4,9 +4,9 @@
 
 enum e_VulkanLightRenderTextureType : uint16_t
 {
-    VulkanRenderTextureType_Null = 0,
-    VulkanRenderTextureType_RenderTexture = 1,
-    VulkanRenderTextureType_DepthRenderTexture = 2,
+    VulkanLightRenderTextureType_Null = 0,
+    VulkanLightRenderTextureType_RenderTexture = 1,
+    VulkanLightRenderTextureType_DepthRenderTexture = 2,
 };
 
 struct VulkanLightRenderTexture

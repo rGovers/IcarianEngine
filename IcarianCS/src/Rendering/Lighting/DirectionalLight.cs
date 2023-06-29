@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using IcarianEngine.Definitions;
@@ -18,6 +19,8 @@ namespace IcarianEngine.Rendering.Lighting
 
     public class DirectionalLight : Light, IDestroy
     {
+        static ConcurrentDictionary<uint, DirectionalLight> s_lightMap = new ConcurrentDictionary<uint, DirectionalLight>();
+
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateBuffer(uint a_transformAddr);
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -26,6 +29,10 @@ namespace IcarianEngine.Rendering.Lighting
         extern static void SetBuffer(uint a_addr, DirectionalLightBuffer a_buffer);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyBuffer(uint a_addr); 
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void AddShadowMap(uint a_addr, uint a_shadowMapAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void RemoveShadowMap(uint a_addr, uint a_shadowMapAddr);
 
         uint m_bufferAddr = uint.MaxValue;
 
@@ -107,6 +114,14 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        public override DepthRenderTexture[] ShadowMaps
+        {
+            get
+            {
+                return null;
+            }
+        }
+
         public override void Init()
         {
             base.Init();
@@ -124,6 +139,40 @@ namespace IcarianEngine.Rendering.Lighting
 
                 SetBuffer(m_bufferAddr, buffer);
             }
+
+            s_lightMap.TryAdd(m_bufferAddr, this);
+        }
+
+        public void AddShadowMap(DepthRenderTexture a_shadowMap)
+        {
+            if (a_shadowMap != null)
+            {
+                AddShadowMap(m_bufferAddr, a_shadowMap.BufferAddr);
+            }
+            else
+            {
+                Logger.IcarianError("DirectionalLight AddShadowMap null DepthRenderTexture");
+            }
+        }
+        public void RemoveShadowMap(DepthRenderTexture a_shadowMap)
+        {
+            if (a_shadowMap != null)
+            {
+                RemoveShadowMap(m_bufferAddr, a_shadowMap.BufferAddr);
+            }
+            else
+            {
+                Logger.IcarianError("DirectionalLight RemoveShadowMap null DepthRenderTexture");
+            }
+        }
+
+        internal static DirectionalLight GetLight(uint a_addr)
+        {
+            DirectionalLight light = null;
+
+            s_lightMap.TryGetValue(a_addr, out light);
+
+            return light;
         }
 
         ~DirectionalLight()
@@ -145,6 +194,8 @@ namespace IcarianEngine.Rendering.Lighting
                 if(a_disposing)
                 {
                     DestroyBuffer(m_bufferAddr);
+
+                    s_lightMap.TryRemove(m_bufferAddr, out DirectionalLight _);
                 }
                 else
                 {

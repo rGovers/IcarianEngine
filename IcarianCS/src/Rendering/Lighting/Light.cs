@@ -47,6 +47,11 @@ namespace IcarianEngine.Rendering.Lighting
             set;
         }
 
+        public abstract DepthRenderTexture[] ShadowMaps
+        {
+            get;
+        }
+
         public LightDef LightDef
         {
             get

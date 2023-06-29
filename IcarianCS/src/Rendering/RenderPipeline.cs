@@ -8,8 +8,8 @@ namespace IcarianEngine.Rendering
         static RenderPipeline Instance = null;
 
         public abstract void ShadowSetup(Camera a_camera);
-        public abstract void PreShadow(Light a_light, Camera a_camera);
-        public abstract void PostShadow(Light a_light, Camera a_camera);
+        public abstract void PreShadow(Light a_light, Camera a_camera, uint a_textureSlot);
+        public abstract void PostShadow(Light a_light, Camera a_camera, uint a_textureSlot);
 
         public abstract void PreRender(Camera a_camera);
         public abstract void PostRender(Camera a_camera);
@@ -55,15 +55,25 @@ namespace IcarianEngine.Rendering
                 Logger.IcarianError("RenderPipeline not initialized");
             }
         }
-        static void PreShadowS(uint a_camBuffer)
+        static void PreShadowS(uint a_lightType, uint a_lightIndex, uint a_camBuffer, uint a_textureSlot)
         {
             if (Instance != null)
             {
                 Camera cam = Camera.GetCamera(a_camBuffer);
-
-                if (cam != null)
+                Light light = null;
+                switch ((LightType)a_lightType)
                 {
-                    Instance.PreShadow(null, cam);
+                case LightType.Directional:
+                {
+                    light = DirectionalLight.GetLight(a_lightIndex);
+
+                    break;
+                }
+                }
+
+                if (cam != null && light != null)
+                {
+                    Instance.PreShadow(light, cam, a_textureSlot);
                 }
             }
             else
@@ -71,15 +81,25 @@ namespace IcarianEngine.Rendering
                 Logger.IcarianError("RenderPipeline not initialized");
             }
         }
-        static void PostShadowS(uint a_camBuffer)
+        static void PostShadowS(uint a_lightType, uint a_lightIndex, uint a_camBuffer, uint a_textureSlot)
         {
             if (Instance != null)
             {
                 Camera cam = Camera.GetCamera(a_camBuffer);
-
-                if (cam != null)
+                Light light = null;
+                switch ((LightType)a_lightType)
                 {
-                    Instance.PostShadow(null, cam);
+                case LightType.Directional:
+                {
+                    light = DirectionalLight.GetLight(a_lightIndex);
+
+                    break;
+                }
+                }
+
+                if (cam != null && light != null)
+                {
+                    Instance.PostShadow(light, cam, a_textureSlot);
                 }
             }
             else

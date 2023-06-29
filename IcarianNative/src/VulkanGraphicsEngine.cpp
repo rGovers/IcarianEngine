@@ -17,6 +17,7 @@
 #include "Rendering/UI/UIControl.h"
 #include "Rendering/UI/UIElement.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngineBindings.h"
+#include "Rendering/Vulkan/VulkanLightBuffer.h"
 #include "Rendering/Vulkan/VulkanModel.h"
 #include "Rendering/Vulkan/VulkanPipeline.h"
 #include "Rendering/Vulkan/VulkanPixelShader.h"
@@ -44,8 +45,10 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(RuntimeManager* a_runtime, VulkanRend
 
     m_runtimeBindings = new VulkanGraphicsEngineBindings(m_runtimeManager, this);
 
-    m_preShadowFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PreShadowS(uint)");
-    m_postShadowFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostShadowS(uint)");
+    TRACE("Getting RenderPipeline Functions");
+    m_shadowSetupFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":ShadowSetupS(uint)");
+    m_preShadowFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PreShadowS(uint,uint,uint,uint)");
+    m_postShadowFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostShadowS(uint,uint,uint,uint)");
     m_preRenderFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PreRenderS(uint)");
     m_postRenderFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostRenderS(uint)");
     m_lightSetupFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":LightSetupS(uint)");
@@ -123,6 +126,7 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
 
     delete m_runtimeBindings;
 
+    delete m_shadowSetupFunc;
     delete m_preShadowFunc;
     delete m_postShadowFunc;
     delete m_preRenderFunc;
@@ -252,6 +256,16 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
 
             delete m_renderTextures[i];
             m_renderTextures[i] = nullptr;
+        }
+    }
+    for (uint32_t i = 0; i < m_depthRenderTextures.Size(); ++i)
+    {
+        if (m_depthRenderTextures[i] != nullptr)
+        {
+            Logger::Warning("Depth Render Texture was not destroyed");
+
+            delete m_depthRenderTextures[i];
+            m_depthRenderTextures[i] = nullptr;
         }
     }
 
@@ -504,6 +518,82 @@ vk::CommandBuffer VulkanGraphicsEngine::StartCommandBuffer(uint32_t a_bufferInde
     return commandBuffer;
 }
 
+vk::CommandBuffer VulkanGraphicsEngine::ShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index)
+{
+    const RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
+    ObjectManager* objectManager = renderEngine->GetObjectManager();
+
+    const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
+
+    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
+
+    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
+
+    void* shadowSetupArgs[] =
+    {
+        &a_camIndex
+    };
+
+    m_shadowSetupFunc->Exec(shadowSetupArgs);
+
+    for (uint32_t i = 0; i < LightType_End; ++i)
+    {
+        switch ((e_LightType)i)
+        {
+        case LightType_Directional:
+        {
+            TReadLockArray<DirectionalLightBuffer> a = m_directionalLights.ToReadLockArray();
+            const std::vector<bool> state = m_directionalLights.ToStateVector();
+
+            const uint32_t size = a.Size();
+            for (uint32_t j = 0; j < size; ++j)
+            {
+                if (state[j])
+                {
+                    const DirectionalLightBuffer& buffer = a[j];
+
+                    if (buffer.RenderLayer & camBuffer.RenderLayer)
+                    {
+                        const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
+                        ICARIAN_ASSERT(lightBuffer != nullptr);
+
+                        for (uint32_t k = 0; k < lightBuffer->LightRenderTextureCount; ++k)
+                        {
+                            void* shadowArgs[] =
+                            {
+                                &i,
+                                &j,
+                                &a_camIndex,
+                                &k
+                            };
+
+                            m_preShadowFunc->Exec(shadowArgs);
+
+                            m_postShadowFunc->Exec(shadowArgs);
+                        }       
+                    }
+                }
+            }
+
+            break;
+        }
+        case LightType_Point:
+        {
+            break;
+        }
+        case LightType_Spot:
+        {
+            break;
+        }
+        }
+    }
+
+    renderCommand.Flush();
+
+    commandBuffer.end();
+
+    return commandBuffer;
+}
 vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index) 
 {
     const RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
@@ -513,9 +603,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
     
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
 
-    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_bufferIndex));
-
-    renderCommand.SetCameraData(a_camIndex);
+    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
 
     void* camArgs[] = 
     { 
@@ -565,6 +653,9 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                             const glm::mat4 matrix = objectManager->GetGlobalMatrix(tAddr);
                             const glm::vec3 pos = matrix[3];
 
+                            // Forgot how stupid fast new gpus are apparently a 3080 can just brute force faster huh... 
+                            // gotta keep that in mind for low tri optimization
+                            // Mostly here for older gpus and pci traffic and scales better with more objects
                             if (frustum.CompareSphere(pos, radius))
                             {
                                 transforms.emplace_back(matrix);
@@ -603,7 +694,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
 
-    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_bufferIndex));
+    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
 
     void* lightSetupArgs[] =
     {
@@ -611,8 +702,6 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
     };
 
     m_lightSetupFunc->Exec(lightSetupArgs);
-
-    renderCommand.SetCameraData(a_camIndex);
 
     for (uint32_t i = 0; i < LightType_End; ++i)
     // for (uint32_t i = 0; i < 1; ++i)
@@ -760,9 +849,7 @@ vk::CommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t a
 {
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
 
-    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_bufferIndex));
-
-    renderCommand.SetCameraData(a_camIndex);
+    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
 
     void* camArgs[] = 
     { 
@@ -916,7 +1003,6 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
             camIndices.emplace_back(i);
         }
     }
-    
 
     TReadLockArray<CanvasRendererBuffer> canvasBuffer = m_canvasRenderers.ToReadLockArray();
     const uint32_t canvasCount = canvasBuffer.Size();
@@ -1080,22 +1166,28 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
         const uint32_t camIndex = camIndices[i];
         const uint32_t poolIndex = i * DrawingPassCount;
 
+        FThreadJob<vk::CommandBuffer, DrawCallBind>* shadowJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
+        (
+            DrawCallBind(this, camIndex, poolIndex + 0, a_index, &VulkanGraphicsEngine::ShadowPass),
+            JobPriority_EngineUrgent
+        );
         FThreadJob<vk::CommandBuffer, DrawCallBind>* drawJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
         (   
-            DrawCallBind(this, camIndex, poolIndex + 0, a_index, &VulkanGraphicsEngine::DrawPass), 
+            DrawCallBind(this, camIndex, poolIndex + 1, a_index, &VulkanGraphicsEngine::DrawPass), 
             JobPriority_EngineUrgent
         );
         FThreadJob<vk::CommandBuffer, DrawCallBind>* lightJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
         (
-            DrawCallBind(this, camIndex, poolIndex + 1, a_index, &VulkanGraphicsEngine::LightPass),
+            DrawCallBind(this, camIndex, poolIndex + 2, a_index, &VulkanGraphicsEngine::LightPass),
             JobPriority_EngineUrgent
         );
         FThreadJob<vk::CommandBuffer, DrawCallBind>* postJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
         (
-            DrawCallBind(this, camIndex, poolIndex + 2, a_index, &VulkanGraphicsEngine::PostPass),
+            DrawCallBind(this, camIndex, poolIndex + 3, a_index, &VulkanGraphicsEngine::PostPass),
             JobPriority_EngineUrgent
         );
 
+        futures.emplace_back(shadowJob->GetFuture());
         futures.emplace_back(drawJob->GetFuture());
         futures.emplace_back(lightJob->GetFuture());
         futures.emplace_back(postJob->GetFuture());
@@ -1103,6 +1195,7 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
         // Quite pleased with myself got a 2x performance improvement by switching to a thread pool over async
         // And that is without using priorities either
         // Now here is hoping that it lasts when doing actual grunt work
+        ThreadPool::PushJob(shadowJob);
         ThreadPool::PushJob(drawJob);
         ThreadPool::PushJob(lightJob);
         ThreadPool::PushJob(postJob);

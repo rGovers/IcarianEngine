@@ -108,6 +108,14 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        public override DepthRenderTexture[] ShadowMaps
+        {
+            get
+            {
+                return null;
+            }
+        }
+
         public override void Init()
         {
             base.Init();

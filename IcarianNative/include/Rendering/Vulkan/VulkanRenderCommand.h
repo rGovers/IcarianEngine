@@ -17,8 +17,6 @@ class VulkanRenderCommand
 {
 private:
     constexpr static uint32_t FlushedBit = 0;
-    constexpr static uint32_t ViewportBit = 1;
-    constexpr static uint32_t CameraBit = 2;
 
     VulkanRenderEngineBackend* m_engine;
     VulkanGraphicsEngine*      m_gEngine;
@@ -30,30 +28,21 @@ private:
 
     uint32_t                   m_renderTexAddr;
     uint32_t                   m_materialAddr;
+    uint32_t                   m_cameraAddr;
 
     vk::CommandBuffer          m_commandBuffer;
 
     void SetFlushedState(bool a_value);
-    void SetViewportState(bool a_value);
-    void SetCameraState(bool a_value);
 
 protected:
 
 public:
-    VulkanRenderCommand(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, VulkanSwapchain* a_swapchain, vk::CommandBuffer a_buffer, uint32_t a_bufferIndex);
+    VulkanRenderCommand(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, VulkanSwapchain* a_swapchain, vk::CommandBuffer a_buffer, uint32_t a_camAddr, uint32_t a_bufferIndex);
     ~VulkanRenderCommand();
 
     inline bool IsFlushed() const
     {
         return m_flags & 0b1 << FlushedBit;
-    }
-    inline bool IsViewportSet() const
-    {
-        return m_flags & 0b1 << ViewportBit;
-    }
-    inline bool IsCameraSet() const
-    {
-        return m_flags & 0b1 << CameraBit;
     }
 
     void Flush();
@@ -71,8 +60,6 @@ public:
     VulkanPipeline* GetPipeline() const;
 
     VulkanPipeline* BindMaterial(uint32_t a_materialAddr);
-
-    void SetCameraData(uint32_t a_bufferAddr);
 
     void PushTexture(uint32_t a_slot, const FlareBase::TextureSampler& a_sampler) const;
     

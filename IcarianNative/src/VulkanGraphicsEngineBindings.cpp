@@ -80,6 +80,8 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, DestroyBuffer, { Engine->DestroyDirectionalLightBuffer(a_addr); }, uint32_t a_addr) \
     F(DirectionalLightBuffer, IcarianEngine.Rendering.Lighting, DirectionalLight, GetBuffer, { return Engine->GetDirectionalLightBuffer(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, SetBuffer, { Engine->SetDirectionalLightBuffer(a_addr, a_buffer); }, uint32_t a_addr, DirectionalLightBuffer a_buffer) \
+    F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, AddShadowMap, { Engine->AddDirectionalLightShadowMap(a_addr, a_shadowMapAddr); }, uint32_t a_addr, uint32_t a_shadowMapAddr) \
+    F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, RemoveShadowMap, { Engine->RemoveDirectionalLightShadowMap(a_addr, a_shadowMapAddr); }, uint32_t a_addr, uint32_t a_shadowMapAddr) \
     \
     F(uint32_t, IcarianEngine.Rendering.Lighting, PointLight, GenerateBuffer, { return Engine->GeneratePointLightBuffer(a_transformAddr); }, uint32_t a_transformAddr) \
     F(void, IcarianEngine.Rendering.Lighting, PointLight, DestroyBuffer, { Engine->DestroyPointLightBuffer(a_addr); }, uint32_t a_addr) \
@@ -897,6 +899,49 @@ void VulkanGraphicsEngineBindings::DestroyDirectionalLightBuffer(uint32_t a_addr
     const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
     ICARIAN_DEFER_del(lightBuffer);
     m_graphicsEngine->m_directionalLights.Erase(a_addr);
+}
+void VulkanGraphicsEngineBindings::AddDirectionalLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_directionalLights.Size(), "AddDirectionalLightShadowMap DirectionalLight out of bounds");
+    ICARIAN_ASSERT_MSG(a_shadowMapAddr < m_graphicsEngine->m_depthRenderTextures.Size(), "AddDirectionalLightShadowMap DepthShadowMap out of bounds");
+
+    const DirectionalLightBuffer& buffer = m_graphicsEngine->m_directionalLights[a_addr];
+    VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
+
+    VulkanLightRenderTexture* renderTexture = new VulkanLightRenderTexture[lightBuffer->LightRenderTextureCount + 1];
+    for (uint32_t i = 0; i < lightBuffer->LightRenderTextureCount; ++i)
+    {
+        renderTexture[i] = lightBuffer->LightRenderTextures[i];
+    }
+    renderTexture[lightBuffer->LightRenderTextureCount].TextureAddr = a_shadowMapAddr;
+    renderTexture[lightBuffer->LightRenderTextureCount].Type = VulkanLightRenderTextureType_DepthRenderTexture;
+
+    // Not the best way to do this, but it works for now
+    const std::unique_lock g = std::unique_lock(m_graphicsEngine->m_directionalLights.Lock());
+    const VulkanLightRenderTexture* renderTextures = lightBuffer->LightRenderTextures;
+    ICARIAN_DEFER(renderTextures, if (renderTextures != nullptr) { delete[] renderTextures; });
+    lightBuffer->LightRenderTextures = renderTexture;
+    ++lightBuffer->LightRenderTextureCount;
+}
+void VulkanGraphicsEngineBindings::RemoveDirectionalLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_directionalLights.Size(), "RemoveDirectionalLightShadowMap DirectionalLight out of bounds");
+    ICARIAN_ASSERT_MSG(a_shadowMapAddr < m_graphicsEngine->m_depthRenderTextures.Size(), "RemoveDirectionalLightShadowMap DepthShadowMap out of bounds");
+
+    const DirectionalLightBuffer& buffer = m_graphicsEngine->m_directionalLights[a_addr];
+    VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
+
+    // Not the best way to do this, but it works for now
+    uint32_t index = 0;
+    const std::unique_lock g = std::unique_lock(m_graphicsEngine->m_directionalLights.Lock());
+    for (uint32_t i = 0; i < lightBuffer->LightRenderTextureCount; ++i)
+    {
+        if (lightBuffer->LightRenderTextures[i].TextureAddr != a_shadowMapAddr)
+        {
+            lightBuffer->LightRenderTextures[index++] = lightBuffer->LightRenderTextures[i];
+        }
+    } 
+    --lightBuffer->LightRenderTextureCount;
 }
 
 uint32_t VulkanGraphicsEngineBindings::GeneratePointLightBuffer(uint32_t a_transformAddr) const

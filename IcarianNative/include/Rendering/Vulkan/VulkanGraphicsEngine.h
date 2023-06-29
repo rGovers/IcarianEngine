@@ -39,12 +39,13 @@ class VulkanGraphicsEngine
 private:
     friend class VulkanGraphicsEngineBindings;
 
-    static constexpr uint32_t DrawingPassCount = 3;
+    static constexpr uint32_t DrawingPassCount = 4;
 
     RuntimeManager*                               m_runtimeManager;
     VulkanGraphicsEngineBindings*                 m_runtimeBindings;
     VulkanSwapchain*                              m_swapchain;
 
+    RuntimeFunction*                              m_shadowSetupFunc;
     RuntimeFunction*                              m_preShadowFunc;
     RuntimeFunction*                              m_postShadowFunc;
     RuntimeFunction*                              m_preRenderFunc;
@@ -102,6 +103,7 @@ private:
 
     vk::CommandBuffer StartCommandBuffer(uint32_t a_bufferIndex, uint32_t a_index) const;
 
+    vk::CommandBuffer ShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
     vk::CommandBuffer DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
     vk::CommandBuffer LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
     vk::CommandBuffer PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);

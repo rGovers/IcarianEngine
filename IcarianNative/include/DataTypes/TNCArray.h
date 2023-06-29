@@ -214,7 +214,7 @@ public:
 
     std::vector<T> ToVector()
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
 
         std::vector<T> vec;
         vec.reserve(m_size);
@@ -227,7 +227,7 @@ public:
     }
     std::vector<bool> ToStateVector()
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
 
         std::vector<bool> vec;
         vec.reserve(m_size);
@@ -243,7 +243,7 @@ public:
     }
     std::vector<T> ToActiveVector()
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
 
         std::vector<T> vec;
         vec.reserve(m_size);
@@ -278,6 +278,10 @@ public:
         return a;
     }
 
+    inline std::shared_mutex& Lock()
+    {
+        return m_mutex;
+    }
     constexpr uint32_t Size() const
     {
         return m_size;

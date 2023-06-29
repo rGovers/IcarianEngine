@@ -13,6 +13,9 @@ class VulkanVertexShader;
 #include "Rendering/Light.h"
 #include "Rendering/MeshRenderBuffer.h"
 
+// Before someone tries to get rid of this compiler seems to be pretty good at optimizing this out so until shown otherwise I'm going to leave it
+// Just glue code to get back into C++ style code from 
+// Goes from C# -> Preprocessor written code -> C++
 class VulkanGraphicsEngineBindings
 {
 private:
@@ -77,6 +80,8 @@ public:
     void SetDirectionalLightBuffer(uint32_t a_addr, const DirectionalLightBuffer& a_buffer) const;
     DirectionalLightBuffer GetDirectionalLightBuffer(uint32_t a_addr) const;
     void DestroyDirectionalLightBuffer(uint32_t a_addr) const;
+    void AddDirectionalLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const;
+    void RemoveDirectionalLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const;
 
     uint32_t GeneratePointLightBuffer(uint32_t a_transformAddr) const;
     void SetPointLightBuffer(uint32_t a_addr, const PointLightBuffer& a_buffer) const;
