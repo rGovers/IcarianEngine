@@ -140,6 +140,28 @@ namespace IcarianEngine
             }
         }
 
+        public Vector3 Forward
+        {
+            get
+            {
+                return Rotation * Vector3.Forward;
+            }
+        }
+        public Vector3 Up
+        {
+            get
+            {
+                return Rotation * Vector3.Up;
+            }
+        }
+        public Vector3 Right
+        {
+            get
+            {
+                return Rotation * Vector3.Right;
+            }
+        }
+
         public Matrix4 ToMatrix()
         {
             // Probably better to do it on the C++ side but will work

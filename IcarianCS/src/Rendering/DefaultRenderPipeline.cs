@@ -1,3 +1,4 @@
+using IcarianEngine.Maths;
 using IcarianEngine.Rendering.Lighting;
 using System;
 
@@ -15,6 +16,9 @@ namespace IcarianEngine.Rendering
         TextureSampler     m_depthSampler;
 
         TextureSampler     m_lightColorSampler;
+
+        uint               m_width;
+        uint               m_height;
 
         void SetTextures(Material a_mat)
         {
@@ -37,8 +41,11 @@ namespace IcarianEngine.Rendering
 
         public DefaultRenderPipeline()
         {
-            m_drawRenderTexture = new MultiRenderTexture(4, 1920, 1080, true, true);
-            m_lightRenderTexture = new RenderTexture(1920, 1080, false, true);
+            m_width = 1920;
+            m_height = 1080;
+
+            m_drawRenderTexture = new MultiRenderTexture(4, m_width, m_height, true, true);
+            m_lightRenderTexture = new RenderTexture(m_width, m_height, false, true);
 
             m_colorSampler = TextureSampler.GenerateRenderTextureSampler(m_drawRenderTexture, 0);
             m_normalSampler = TextureSampler.GenerateRenderTextureSampler(m_drawRenderTexture, 1);
@@ -57,8 +64,11 @@ namespace IcarianEngine.Rendering
 
         public override void Resize(uint a_width, uint a_height)
         {
-            m_drawRenderTexture.Resize(a_width, a_height);
-            m_lightRenderTexture.Resize(a_width, a_height);
+            m_width = a_width;
+            m_height = a_height;
+
+            m_drawRenderTexture.Resize(m_width, m_height);
+            m_lightRenderTexture.Resize(m_width, m_height);
 
             SetTextures(Material.DirectionalLightMaterial);
             SetTextures(Material.PointLightMaterial);
@@ -71,13 +81,58 @@ namespace IcarianEngine.Rendering
         {
             
         }
+        // Multidraw is a bit of a pain so I'm going to leave it for now and do a draw call per shadow map
+        // If I can think of a way to do it while still keeping programability I'll do it
         public override void PreShadow(Light a_light, Camera a_camera, uint a_textureSlot) 
         {
-            Logger.IcarianMessage($"PreShadow {a_light.LightType} {a_textureSlot}");
+            Matrix4 cameraTrans = a_camera.Transform.ToMatrix();
+            Matrix4 proj = a_camera.ToProjection(m_width, m_height);
+            Matrix4 projInv = Matrix4.Inverse(proj);
+
+            Matrix4 viewProjInv = projInv * cameraTrans;
+
+            // I forget everytime so knicked it
+            // https://learnopengl.com/Guest-Articles/2021/CSM
+            Vector4[] corners = new Vector4[8];
+
+            for (uint x = 0; x < 2; ++x)
+            {
+                uint xOff = x * 4;
+
+                for (uint y = 0; y < 2; ++y)
+                {
+                    uint yOff = y * 2;
+
+                    for (uint z = 0; z < 2; ++z)
+                    {
+                        Vector4 point = new Vector4
+                        (
+                            2.0f * x - 1.0f,
+                            2.0f * y - 1.0f,
+                            2.0f * z - 1.0f,
+                            1.0f
+                        );
+
+                        Vector4 pointWorld = viewProjInv * point;
+
+                        corners[z + yOff + xOff] = pointWorld / pointWorld.W;
+                    }
+                }
+            }
+
+            Vector3 mid = Vector3.Zero;
+            foreach (Vector4 corner in corners)
+            {
+                mid += corner.XYZ;
+            }
+            mid /= 8.0f;
+
+            // TODO: Global space instead of local space
+            Matrix4 sView = Matrix4.LookAt(mid, a_light.Transform.Forward, a_light.Transform.Up);
         }
         public override void PostShadow(Light a_light, Camera a_camera, uint a_textureSlot)
         {
-            Logger.IcarianMessage($"PostShadow {a_light.LightType} {a_textureSlot}");
+            
         }
 
         public override void PreRender(Camera a_camera)

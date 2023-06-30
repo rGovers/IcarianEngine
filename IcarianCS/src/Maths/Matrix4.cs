@@ -80,6 +80,66 @@ namespace IcarianEngine.Maths
             return m_data;
         }
 
+        public static Matrix4 Inverse(Matrix4 a_mat)
+        {
+            // I invoke the I see 2 pages of greek therefore fuck that C+V
+            // Do not feel like translating the dead sea scrolls again when it is "just" an inverse
+            // That and people can probably implement it better then me
+            float c00 = a_mat[2][2] * a_mat[3][3] - a_mat[3][2] * a_mat[2][3];
+            float c02 = a_mat[1][2] * a_mat[3][3] - a_mat[3][2] * a_mat[1][3];
+            float c03 = a_mat[1][2] * a_mat[2][3] - a_mat[2][2] * a_mat[1][3];
+
+            float c04 = a_mat[2][1] * a_mat[3][3] - a_mat[3][1] * a_mat[2][3];
+            float c06 = a_mat[1][1] * a_mat[3][3] - a_mat[3][1] * a_mat[1][3];
+            float c07 = a_mat[1][1] * a_mat[2][3] - a_mat[2][1] * a_mat[1][3];
+
+            float c08 = a_mat[2][1] * a_mat[3][2] - a_mat[3][1] * a_mat[2][2];
+            float c10 = a_mat[1][1] * a_mat[3][2] - a_mat[3][1] * a_mat[1][2];
+            float c11 = a_mat[1][1] * a_mat[2][2] - a_mat[2][1] * a_mat[1][2];
+
+            float c12 = a_mat[2][0] * a_mat[3][3] - a_mat[3][0] * a_mat[2][3];
+            float c14 = a_mat[1][0] * a_mat[3][3] - a_mat[3][0] * a_mat[1][3];
+            float c15 = a_mat[1][0] * a_mat[2][3] - a_mat[2][0] * a_mat[1][3];
+
+            float c16 = a_mat[2][0] * a_mat[3][2] - a_mat[3][0] * a_mat[2][2];
+            float c18 = a_mat[1][0] * a_mat[3][2] - a_mat[3][0] * a_mat[1][2];
+            float c19 = a_mat[1][0] * a_mat[2][2] - a_mat[2][0] * a_mat[1][2];
+
+            float c20 = a_mat[2][0] * a_mat[3][1] - a_mat[3][0] * a_mat[2][1];
+            float c22 = a_mat[1][0] * a_mat[3][1] - a_mat[3][0] * a_mat[1][1];
+            float c23 = a_mat[1][0] * a_mat[2][1] - a_mat[2][0] * a_mat[1][1];
+
+            Vector4 fac0 = new Vector4(c00, c00, c02, c03);
+            Vector4 fac1 = new Vector4(c04, c04, c06, c07);
+            Vector4 fac2 = new Vector4(c08, c08, c10, c11);
+            Vector4 fac3 = new Vector4(c12, c12, c14, c15);
+            Vector4 fac4 = new Vector4(c16, c16, c18, c19);
+            Vector4 fac5 = new Vector4(c20, c20, c22, c23);
+
+            Vector4 vec0 = new Vector4(a_mat[1][0], a_mat[0][0], a_mat[0][0], a_mat[0][0]);
+            Vector4 vec1 = new Vector4(a_mat[1][1], a_mat[0][1], a_mat[0][1], a_mat[0][1]);
+            Vector4 vec2 = new Vector4(a_mat[1][2], a_mat[0][2], a_mat[0][2], a_mat[0][2]);
+            Vector4 vec3 = new Vector4(a_mat[1][3], a_mat[0][3], a_mat[0][3], a_mat[0][3]);
+
+            Vector4 inv0 = new Vector4(vec1 * fac0 - vec2 * fac1 + vec3 * fac2);
+            Vector4 inv1 = new Vector4(vec0 * fac0 - vec2 * fac3 + vec3 * fac4);
+            Vector4 inv2 = new Vector4(vec0 * fac1 - vec1 * fac3 + vec3 * fac5);
+            Vector4 inv3 = new Vector4(vec0 * fac2 - vec1 * fac4 + vec2 * fac5);
+
+            Vector4 signA = new Vector4(+1, -1, +1, -1);
+            Vector4 signB = new Vector4(-1, +1, -1, +1);
+
+            Matrix4 inverse = new Matrix4(inv0 * signA, inv1 * signB, inv2 * signA, inv3 * signB);
+
+            Vector4 row0 = new Vector4(inverse[0][0], inverse[1][0], inverse[2][0], inverse[3][0]);
+
+            Vector4 dot0 = new Vector4(a_mat[0] * row0);
+            float dot1 = (dot0.X + dot0.Y) + (dot0.Z + dot0.W);
+
+            float oneOverDeterminant = 1.0f / dot1;
+
+            return inverse * new Matrix4(oneOverDeterminant);
+        }
         public static Matrix4 FromTransform(Vector3 a_translation, Quaternion a_rotation, Vector3 a_scale)
         {
             Matrix4 translation = new Matrix4
@@ -99,6 +159,26 @@ namespace IcarianEngine.Maths
 
             return scale * a_rotation.ToMatrix() * translation;
         }
+
+        public static Matrix4 LookAt(Vector3 a_pos, Vector3 a_forward, Vector3 a_up)
+        {
+            Vector3 zAxis = Vector3.Normalized(a_forward);
+            Vector3 xAxis = Vector3.Normalized(Vector3.Cross(a_up, zAxis));
+            Vector3 yAxis = Vector3.Cross(zAxis, xAxis);
+
+            return new Matrix4
+            (
+                new Vector4(xAxis, 0.0f),
+                new Vector4(yAxis, 0.0f),
+                new Vector4(zAxis, 0.0f),
+                new Vector4(a_pos, 1.0f)
+            );
+        }
+        public static Matrix4 LookTo(Vector3 a_pos, Vector3 a_target, Vector3 a_up)
+        {
+            return LookAt(a_pos, a_target - a_pos, a_up);
+        }
+
         public static void Decompose(Matrix4 a_mat, out Vector3 a_translation, out Quaternion a_rotation, out Vector3 a_scale)
         {
             a_translation = a_mat[3].XYZ;

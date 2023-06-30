@@ -33,6 +33,8 @@ namespace IcarianEngine.Rendering
         extern static CameraBuffer GetBuffer(uint a_addr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetBuffer(uint a_addr, CameraBuffer a_buffer);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static float[] GetProjectionMatrix(uint a_addr, uint a_width, uint a_height);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static Vector3 ScreenToWorld(uint a_addr, Vector3 a_screenPos, Vector2 a_screenSize);
@@ -204,6 +206,15 @@ namespace IcarianEngine.Rendering
         public Vector3 ScreenToWorld(Vector3 a_screenPos, Vector2 a_screenSize)
         {
             return ScreenToWorld(m_bufferAddr, a_screenPos, a_screenSize);
+        }
+        public Matrix4 ToProjection(uint a_width, uint a_height)
+        {
+            float[] matrix = GetProjectionMatrix(m_bufferAddr, a_width, a_height);
+            
+            return new Matrix4(matrix[0],  matrix[1],  matrix[2],  matrix[3],
+                               matrix[4],  matrix[5],  matrix[6],  matrix[7],
+                               matrix[8],  matrix[9],  matrix[10], matrix[11],
+                               matrix[12], matrix[13], matrix[14], matrix[15]);
         }
 
         internal static Camera GetCamera(uint a_buffer)

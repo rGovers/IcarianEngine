@@ -190,6 +190,21 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(PixelShader, GenerateFromFile)
     return -1;
 }
 
+RUNTIME_FUNCTION(MonoArray*, Camera, GetProjectionMatrix, 
+{
+    const glm::mat4 proj = Engine->GetCameraProjectionMatrix(a_addr, a_width, a_height);
+
+    MonoArray* arr = mono_array_new(mono_domain_get(), mono_get_single_class(), 16);
+
+    const float* f = (float*)&proj;
+    for (int i = 0; i < 16; ++i)
+    {
+        mono_array_set(arr, float, i, f[i]);
+    }
+
+    return arr;
+}, uint32_t a_addr, uint32_t a_width, uint32_t a_height)
+
 // Gonna leave theses functions seperate as there is a bit to it
 FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Material, GenerateProgram), uint32_t a_vertexShader, uint32_t a_pixelShader, uint16_t a_vertexStride, MonoArray* a_vertexInputAttribs, MonoArray* a_shaderInputs, uint32_t a_cullingMode, uint32_t a_primitiveMode, uint32_t a_colorBlendingEnabled)
 {
@@ -372,6 +387,8 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(RuntimeManager* a_run
 
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, VertexShader, GenerateFromFile);
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, PixelShader, GenerateFromFile);
+
+    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Camera, GetProjectionMatrix);
 
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Material, GenerateProgram);
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Material, DestroyProgram);
@@ -585,7 +602,6 @@ uint32_t VulkanGraphicsEngineBindings::GenerateCameraBuffer(uint32_t a_transform
             }
         }
     }
-    
 
     TRACE("Allocating Camera Buffer");
     m_graphicsEngine->m_cameraBuffers.Push(buff);
@@ -629,6 +645,15 @@ glm::vec3 VulkanGraphicsEngineBindings::CameraScreenToWorld(uint32_t a_addr, con
     const glm::vec4 wPos = invView * cPos;
 
     return wPos.xyz() / wPos.w;
+}
+glm::mat4 VulkanGraphicsEngineBindings::GetCameraProjectionMatrix(uint32_t a_addr, uint32_t a_width, uint32_t a_height) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_cameraBuffers.Size(), "GetCameraProjectionMatrix out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_cameraBuffers[a_addr].TransformAddr != -1, "GetCameraProjectionMatrix invalid transform");
+
+    const CameraBuffer camBuf = m_graphicsEngine->m_cameraBuffers[a_addr];
+
+    return camBuf.ToProjection(glm::vec2((float)a_width, (float)a_height));
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateModel(const char* a_vertices, uint32_t a_vertexCount, const uint32_t* a_indices, uint32_t a_indexCount, uint16_t a_vertexStride, float a_radius) const

@@ -124,7 +124,11 @@ void PhysicsEngine::Update(double a_delta)
     {
         PROFILESTACK("Physics Sim");
 
+        // TODO: Come back to this and improve as getting different results in editor vs runtime
+        // Fixed time does not seem to fix it so need further investigation as simulation is not deterministic
+        // Could be due to multithreading and the order of the jobs will investigate further later
         m_physicsSystem->Update((float)a_delta, 1, 1, m_allocator, m_jobSystem);
+        // m_physicsSystem->Update(0.016f, 1, 1, m_allocator, m_jobSystem);
     }
 
     {
