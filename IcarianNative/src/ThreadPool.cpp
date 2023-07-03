@@ -19,6 +19,7 @@ static ThreadPool* Instance = nullptr;
 #define THREADPOOL_BINDING_FUNCTION_TABLE(F) \
     F(void, IcarianEngine, ThreadPool, AddJob, { ThreadPool::PushJob(new RuntimeThreadJob(a_objectAddr, (e_JobPriority)a_priority)); }, uint32_t a_objectAddr, uint32_t a_priority) \
     F(uint32_t, IcarianEngine, ThreadPool, GetThreadCount, { return ThreadPool::GetThreadCount(); }) \
+    F(uint32_t, IcarianEngine, ThreadPool, GetQueueSize, { return ThreadPool::GetQueueSize(); }) \
     \
     F(uint32_t, IcarianEngine, NativeLock, GenerateLock, { return ThreadPool::GenerateLock(); }) \
     F(void, IcarianEngine, NativeLock, DestroyLock, { ThreadPool::DestroyLock(a_addr); }, uint32_t a_addr) \
@@ -194,6 +195,10 @@ void ThreadPool::WriteUnlock(uint32_t a_addr)
 uint32_t ThreadPool::GetThreadCount()
 {
     return Instance->m_threadCount;
+}
+uint32_t ThreadPool::GetQueueSize()
+{
+    return (uint32_t)Instance->m_jobQueue.size();
 }
 
 void ThreadPool::PushJob(ThreadJob* a_job)

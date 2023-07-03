@@ -60,6 +60,7 @@ public:
     static void WriteUnlock(uint32_t a_addr);
 
     static uint32_t GetThreadCount();
+    static uint32_t GetQueueSize();
 
     static void PushJob(ThreadJob* a_job);
 

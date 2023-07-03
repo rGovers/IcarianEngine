@@ -12,7 +12,7 @@ TextUIElement::TextUIElement() : UIElement()
     m_textureAddr = -1;
     m_samplerAddr = -1;
 
-    m_refresh = false;
+    m_flags = 0;
 
     m_lastRenderEngine = nullptr;
 }
@@ -36,18 +36,27 @@ void TextUIElement::SetFontAddr(uint32_t a_addr)
 {
     m_fontAddr = a_addr;
 
-    m_refresh = true;
+    m_flags |= 0b1 << RefreshBit;
 }
 void TextUIElement::SetText(const std::u32string_view& a_text)
 {
     m_text = std::u32string(a_text);
 
-    m_refresh = true;
+    m_flags |= 0b1 << RefreshBit;
 }
 
 void TextUIElement::Update(RenderEngine* a_renderEngine)
 {
-    if (m_refresh && m_fontAddr != -1)
+    // TODO: Very strange bug causes driver crash 
+    // Can go a while between crashes or could be immediate
+    // Application persists through driver restart but is unresponsive
+    // Eliminated vulkan validation errors in runtime and still crashing driver
+    // Suspect driver/gpu level memory corruption as other applications get wonky just before driver crash
+    // Likely to be in here as it only happens when updating the text to my knowledge
+    // NV 535.54.03 for future reference
+    // Also probably want to reuse the texture and sampler if the size is the same
+    // Will probably rewrite down the line anyway
+    if (m_flags & 0b1 << RefreshBit && m_fontAddr != -1)
     {
         if (m_textureAddr != -1)
         {
@@ -74,6 +83,7 @@ void TextUIElement::Update(RenderEngine* a_renderEngine)
 
         m_lastRenderEngine = a_renderEngine;
 
-        m_refresh = false;
+        m_flags &= ~(0b1 << RefreshBit);
+        m_flags |= 0b1 << ValidBit;
     }
 }

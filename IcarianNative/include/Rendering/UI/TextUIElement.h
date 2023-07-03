@@ -7,6 +7,9 @@
 class TextUIElement : public UIElement
 {
 private:
+    static constexpr uint32_t RefreshBit = 0;
+    static constexpr uint32_t ValidBit = 1;
+
     RenderEngine*  m_lastRenderEngine;
 
     std::u32string m_text;
@@ -17,7 +20,7 @@ private:
     float          m_fontSize;
     uint32_t       m_fontAddr;
 
-    bool           m_refresh;
+    unsigned char  m_flags;
 
 protected:
 
@@ -48,6 +51,11 @@ public:
     inline void SetFontSize(float a_size)
     {
         m_fontSize = a_size;
+    }
+
+    inline bool IsValid() const
+    {
+        return m_flags & 0b1 << ValidBit;
     }
 
     inline std::u32string GetText() const

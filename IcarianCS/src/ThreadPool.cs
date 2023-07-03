@@ -39,6 +39,8 @@ namespace IcarianEngine
         extern static void AddJob(uint a_job, uint a_priority);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GetThreadCount();
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GetQueueSize();
 
         class ThreadJobFunc : IThreadJob
         {
@@ -55,8 +57,8 @@ namespace IcarianEngine
             }
         }
 
-        static List<IThreadJob> s_jobs = new List<IThreadJob>();
-        static NativeLock s_lock = new NativeLock();
+        static List<IThreadJob> s_jobs;
+        static NativeLock s_lock;
 
         public static uint ThreadCount
         {
@@ -65,6 +67,24 @@ namespace IcarianEngine
                 return GetThreadCount();
             }
         }        
+        public static uint QueuedJobCount
+        {
+            get
+            {
+                return GetQueueSize();
+            }
+        }
+
+        internal static void Init()
+        {
+            s_jobs = new List<IThreadJob>();
+            s_lock = new NativeLock();
+        }
+        internal static void Destroy()
+        {
+            s_jobs.Clear();
+            s_lock.Dispose();
+        }
 
         public delegate void ThreadJobCallback();
 

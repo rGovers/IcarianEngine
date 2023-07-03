@@ -10,6 +10,8 @@ namespace IcarianEngine
 
         static void Main(string[] a_args)
         {
+            ThreadPool.Init();
+
             Logger.IcarianMessage("Started");
 
             Application.WorkingDirectory = string.Empty;
@@ -55,6 +57,8 @@ namespace IcarianEngine
             Material.Destroy();
 
             Logger.IcarianMessage("Shutdown");
+
+            ThreadPool.Destroy();
         }
 
         static void Update(double a_delta, double a_time)

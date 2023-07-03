@@ -901,15 +901,18 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
         {
             const TextUIElement* text = (TextUIElement*)element;
 
-            pipeline = GetPipeline(-1, m_textUIPipelineAddr);
-            ICARIAN_ASSERT(pipeline != nullptr);
-            shaderData = pipeline->GetShaderData();
-            ICARIAN_ASSERT(shaderData != nullptr);
+            if (text->IsValid())
+            {
+                pipeline = GetPipeline(-1, m_textUIPipelineAddr);
+                ICARIAN_ASSERT(pipeline != nullptr);
+                shaderData = pipeline->GetShaderData();
+                ICARIAN_ASSERT(shaderData != nullptr);
 
-            ICARIAN_ASSERT_MSG_R(text->GetSamplerAddr() < m_textureSampler.Size(), "Invalid Sampler Address");
-            const FlareBase::TextureSampler& sampler = m_textureSampler[text->GetSamplerAddr()];
+                ICARIAN_ASSERT_MSG_R(text->GetSamplerAddr() < m_textureSampler.Size(), "Invalid Sampler Address");
+                const FlareBase::TextureSampler& sampler = m_textureSampler[text->GetSamplerAddr()];
 
-            shaderData->PushTexture(a_commandBuffer, 0, sampler, a_index);
+                shaderData->PushTexture(a_commandBuffer, 0, sampler, a_index);
+            }
 
             break;
         }

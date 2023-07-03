@@ -133,6 +133,13 @@ VulkanTexture::~VulkanTexture()
 
     TRACE("Destroying Texture");
 
+    // TODO: Seems to fix driver crash so suspect read after free causing driver crash
+    // weird there was no validation error
+    // Need to investigate further and confirm as bug is inconsistent refer to TextUIElement.cpp for more info
+    // Didnt crash while making and eating dinner so probably fixed
+    // Improve resource destruction down the line anyway so will probably rewrite
+    device.waitIdle();
+
     device.destroyImageView(m_view);
     vmaDestroyImage(allocator, m_image, m_allocation);
 }

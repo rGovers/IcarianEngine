@@ -452,7 +452,6 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
     }
 
     TRACE("Destroying Vulkan Instance");
-    // TODO: Need to work out why this take longer to dispose the longer the app is open
     m_instance.destroy();
 
     TRACE("Vulkan cleaned up");

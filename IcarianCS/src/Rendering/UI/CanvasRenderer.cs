@@ -22,7 +22,7 @@ namespace IcarianEngine.Rendering.UI
         {
             get
             {
-                return m_bufferAddr != uint.MaxValue;
+                return m_bufferAddr == uint.MaxValue;
             }
         }
 
@@ -77,12 +77,9 @@ namespace IcarianEngine.Rendering.UI
             {
                 if (a_disposing)
                 {
-                    if (m_bufferAddr != uint.MaxValue)
-                    {
-                        DestroyBuffer(m_bufferAddr);
+                    DestroyBuffer(m_bufferAddr);
 
-                        m_bufferAddr = uint.MaxValue;
-                    }
+                    m_bufferAddr = uint.MaxValue;
                 }
                 else
                 {

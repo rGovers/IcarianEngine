@@ -127,6 +127,9 @@ void PhysicsEngine::Update(double a_delta)
         // TODO: Come back to this and improve as getting different results in editor vs runtime
         // Fixed time does not seem to fix it so need further investigation as simulation is not deterministic
         // Could be due to multithreading and the order of the jobs will investigate further later
+        // Update: Upon further investigation it seems after hooking up ui to see engine stats the runtime is running at 10,000hz on (Linux)5950x while the editor is running at 60-400hz
+        // so likely to be floating point precision issues as the editor as delta time is a float and explains the cant see anything when I done the "fixed" test
+        // Now if you dont mind I need to go figure out where I put my jaw as modern cpus are insane
         m_physicsSystem->Update((float)a_delta, 1, 1, m_allocator, m_jobSystem);
         // m_physicsSystem->Update(0.016f, 1, 1, m_allocator, m_jobSystem);
     }
