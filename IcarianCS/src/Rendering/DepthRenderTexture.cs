@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Rendering
@@ -17,6 +18,8 @@ namespace IcarianEngine.Rendering
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void Resize(uint a_addr, uint a_width, uint a_height);
+
+        static ConcurrentDictionary<uint, DepthRenderTexture> s_bufferLookup = new ConcurrentDictionary<uint, DepthRenderTexture>();
 
         uint m_bufferAddr = uint.MaxValue;
 
@@ -62,6 +65,16 @@ namespace IcarianEngine.Rendering
         public DepthRenderTexture(uint a_width, uint a_height)
         {
             m_bufferAddr = GenerateRenderTexture(a_width, a_height);
+
+            s_bufferLookup.TryAdd(m_bufferAddr, this);
+        }
+
+        internal static DepthRenderTexture GetDepthRenderTexture(uint a_addr)
+        {
+            DepthRenderTexture buffer = null;
+            s_bufferLookup.TryGetValue(a_addr, out buffer);
+
+            return buffer;
         }
 
         public void Dispose()
@@ -75,6 +88,8 @@ namespace IcarianEngine.Rendering
             {
                 if (a_disposing)
                 {
+                    s_bufferLookup.TryRemove(m_bufferAddr, out DepthRenderTexture _);
+
                     DestroyRenderTexture(m_bufferAddr);   
                 }
                 else

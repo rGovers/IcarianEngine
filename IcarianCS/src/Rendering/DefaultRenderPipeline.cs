@@ -1,6 +1,7 @@
 using IcarianEngine.Maths;
 using IcarianEngine.Rendering.Lighting;
 using System;
+using System.Collections.Generic;
 
 namespace IcarianEngine.Rendering
 {
@@ -85,50 +86,79 @@ namespace IcarianEngine.Rendering
         // If I can think of a way to do it while still keeping programability I'll do it
         public override void PreShadow(Light a_light, Camera a_camera, uint a_textureSlot) 
         {
+            // I forget everytime so knicked it
+            // https://learnopengl.com/Guest-Articles/2021/CSM
+            // On second though something did not look right in the maths so I knicked this
+            // https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf
+
+            // I believe I need l near (far / near) ^ (i / N) + (1 - l)(near + (i / N)(far - near))
+            List<IRenderTexture> shadowMaps = new List<IRenderTexture>(a_light.ShadowMaps);
+            uint cascadeCount = (uint)shadowMaps.Count;
+            float near = a_camera.Near;
+            float far = a_camera.Far;
+            float fnDiff = far - near;
+            float fON = far / near;
+
+            // TODO: Tweak this to get better results
+            const float Lambda = 0.5f;
+            const float InvLambda = 1.0f - Lambda;
+
+            float cN = (float)a_textureSlot / cascadeCount;
+            float cF = (float)(a_textureSlot + 1) / cascadeCount;
+
+            float cascadeNear = Lambda * near * Mathf.Pow(fON, cN) + InvLambda * (near + cN * fnDiff);
+            float cascadeFar = Lambda * near * Mathf.Pow(fON, cF) + InvLambda * (near + cF * fnDiff);
+
             Matrix4 cameraTrans = a_camera.Transform.ToMatrix();
-            Matrix4 proj = a_camera.ToProjection(m_width, m_height);
+            Matrix4 proj = a_camera.ToProjection(m_width, m_height, cascadeNear, cascadeFar);
             Matrix4 projInv = Matrix4.Inverse(proj);
 
             Matrix4 viewProjInv = projInv * cameraTrans;
 
-            // I forget everytime so knicked it
-            // https://learnopengl.com/Guest-Articles/2021/CSM
-            Vector4[] corners = new Vector4[8];
-
-            for (uint x = 0; x < 2; ++x)
+            Vector4[] corners = new Vector4[8]
             {
-                uint xOff = x * 4;
-
-                for (uint y = 0; y < 2; ++y)
-                {
-                    uint yOff = y * 2;
-
-                    for (uint z = 0; z < 2; ++z)
-                    {
-                        Vector4 point = new Vector4
-                        (
-                            2.0f * x - 1.0f,
-                            2.0f * y - 1.0f,
-                            2.0f * z - 1.0f,
-                            1.0f
-                        );
-
-                        Vector4 pointWorld = viewProjInv * point;
-
-                        corners[z + yOff + xOff] = pointWorld / pointWorld.W;
-                    }
-                }
-            }
+                new Vector4(-1.0f, -1.0f, 1.0f, 1.0f),
+                new Vector4( 1.0f, -1.0f, 1.0f, 1.0f),
+                new Vector4( 1.0f,  1.0f, 1.0f, 1.0f),
+                new Vector4(-1.0f,  1.0f, 1.0f, 1.0f),
+                new Vector4(-1.0f, -1.0f, 0.0f, 1.0f),
+                new Vector4( 1.0f, -1.0f, 0.0f, 1.0f),
+                new Vector4( 1.0f,  1.0f, 0.0f, 1.0f),
+                new Vector4(-1.0f,  1.0f, 0.0f, 1.0f)
+            };
 
             Vector3 mid = Vector3.Zero;
-            foreach (Vector4 corner in corners)
+            for (int i = 0; i < 8; ++i)
             {
-                mid += corner.XYZ;
+                corners[i] = viewProjInv * corners[i];
+                corners[i] /= corners[i].W;
             }
-            mid /= 8.0f;
 
-            // TODO: Global space instead of local space
-            Matrix4 sView = Matrix4.LookAt(mid, a_light.Transform.Forward, a_light.Transform.Up);
+            Matrix4 lightTrans = a_light.Transform.ToMatrix();
+            Matrix4 lightView = Matrix4.Inverse(lightTrans);
+
+            Vector3 min = Vector3.One * float.MaxValue;
+            Vector3 max = Vector3.One * float.MinValue;
+
+            for (int i = 0; i < 8; ++i)
+            {
+                Vector4 c = lightView * corners[i];
+
+                min.X = Mathf.Min(min.X, c.X);
+                min.Y = Mathf.Min(min.Y, c.Y);
+                min.Z = Mathf.Min(min.Z, c.Z);
+
+                max.X = Mathf.Max(max.X, c.X);
+                max.Y = Mathf.Max(max.Y, c.Y);
+                max.Z = Mathf.Max(max.Z, c.Z);
+            }
+
+            Vector3 extents = max - min;
+
+            // Ensure stuff behind the light in camera frustum is rendered
+            Matrix4 lightProj = Matrix4.CreateOrthographic(extents.X * 2, extents.Y * 2, -extents.Z * 2, extents.Z);
+
+            Matrix4 lightViewProj = lightProj * lightView;
         }
         public override void PostShadow(Light a_light, Camera a_camera, uint a_textureSlot)
         {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using IcarianEngine.Definitions;
@@ -33,6 +34,8 @@ namespace IcarianEngine.Rendering.Lighting
         extern static void AddShadowMap(uint a_addr, uint a_shadowMapAddr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void RemoveShadowMap(uint a_addr, uint a_shadowMapAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint[] GetShadowMaps(uint a_addr);
 
         uint m_bufferAddr = uint.MaxValue;
 
@@ -114,11 +117,19 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
-        public override DepthRenderTexture[] ShadowMaps
+        public override IEnumerable<IRenderTexture> ShadowMaps
         {
             get
             {
-                return null;
+                uint[] shadowMapAddrs = GetShadowMaps(m_bufferAddr);
+                foreach (uint shadowMapAddr in shadowMapAddrs)
+                {
+                    DepthRenderTexture shadowMap = DepthRenderTexture.GetDepthRenderTexture(shadowMapAddr);
+                    if (shadowMap != null)
+                    {
+                        yield return shadowMap;
+                    }
+                }
             }
         }
 

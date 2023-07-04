@@ -76,6 +76,8 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     \
     F(uint32_t, IcarianEngine.Renddering, MultiRenderTexture, GetTextureCount, { return Engine->GetRenderTextureTextureCount(a_addr); }, uint32_t a_addr) \
     \
+    F(void, IcarianEngine.Rendering, Model, DestroyModel, { Engine->DestroyModel(a_addr); }, uint32_t a_addr) \
+    \
     F(uint32_t, IcarianEngine.Rendering.Lighting, DirectionalLight, GenerateBuffer, { return Engine->GenerateDirectionalLightBuffer(a_transformAddr); }, uint32_t a_transformAddr) \
     F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, DestroyBuffer, { Engine->DestroyDirectionalLightBuffer(a_addr); }, uint32_t a_addr) \
     F(DirectionalLightBuffer, IcarianEngine.Rendering.Lighting, DirectionalLight, GetBuffer, { return Engine->GetDirectionalLightBuffer(a_addr); }, uint32_t a_addr) \
@@ -204,6 +206,36 @@ RUNTIME_FUNCTION(MonoArray*, Camera, GetProjectionMatrix,
 
     return arr;
 }, uint32_t a_addr, uint32_t a_width, uint32_t a_height)
+RUNTIME_FUNCTION(MonoArray*, Camera, GetProjectionMatrixNF, 
+{
+    const glm::mat4 proj = Engine->GetCameraProjectionMatrix(a_addr, a_width, a_height, a_near, a_far);
+
+    MonoArray* arr = mono_array_new(mono_domain_get(), mono_get_single_class(), 16);
+
+    const float* f = (float*)&proj;
+    for (int i = 0; i < 16; ++i)
+    {
+        mono_array_set(arr, float, i, f[i]);
+    }
+
+    return arr;
+}, uint32_t a_addr, uint32_t a_width, uint32_t a_height, float a_near, float a_far)
+
+RUNTIME_FUNCTION(MonoArray*, DirectionalLight, GetShadowMaps, 
+{
+    const DirectionalLightBuffer buffer = Engine->GetDirectionalLightBuffer(a_addr);
+
+    const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
+    
+    MonoArray* arr = mono_array_new(mono_domain_get(), mono_get_uint32_class(), lightBuffer->LightRenderTextureCount);
+
+    for (uint32_t i = 0; i < lightBuffer->LightRenderTextureCount; ++i)
+    {
+        mono_array_set(arr, uint32_t, i, lightBuffer->LightRenderTextures[i].TextureAddr);
+    }
+
+    return arr;
+}, uint32_t a_addr)
 
 // Gonna leave theses functions seperate as there is a bit to it
 FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Material, GenerateProgram), uint32_t a_vertexShader, uint32_t a_pixelShader, uint16_t a_vertexStride, MonoArray* a_vertexInputAttribs, MonoArray* a_shaderInputs, uint32_t a_cullingMode, uint32_t a_primitiveMode, uint32_t a_colorBlendingEnabled)
@@ -358,10 +390,6 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateFromFile), Mono
 
     return -1;
 }
-FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(Model, DestroyModel), uint32_t a_addr)
-{
-    Engine->DestroyModel(a_addr);
-}
 
 FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(RenderCommand, DrawModel), MonoArray* a_transform, uint32_t a_addr)
 {
@@ -389,6 +417,9 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(RuntimeManager* a_run
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, PixelShader, GenerateFromFile);
 
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Camera, GetProjectionMatrix);
+    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Camera, GetProjectionMatrixNF);
+
+    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.Lighting, DirectionalLight, GetShadowMaps);
 
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Material, GenerateProgram);
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Material, DestroyProgram);
@@ -397,7 +428,6 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(RuntimeManager* a_run
 
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Model, GenerateModel);
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Model, GenerateFromFile);
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Model, DestroyModel);
 
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, RenderCommand, DrawModel);
 }
@@ -654,6 +684,15 @@ glm::mat4 VulkanGraphicsEngineBindings::GetCameraProjectionMatrix(uint32_t a_add
     const CameraBuffer camBuf = m_graphicsEngine->m_cameraBuffers[a_addr];
 
     return camBuf.ToProjection(glm::vec2((float)a_width, (float)a_height));
+}
+glm::mat4 VulkanGraphicsEngineBindings::GetCameraProjectionMatrix(uint32_t a_addr, uint32_t a_width, uint32_t a_height, float a_near, float a_far) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_cameraBuffers.Size(), "GetCameraProjectionMatrix out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_cameraBuffers[a_addr].TransformAddr != -1, "GetCameraProjectionMatrix invalid transform");
+
+    const CameraBuffer camBuf = m_graphicsEngine->m_cameraBuffers[a_addr];
+
+    return camBuf.ToProjection(glm::vec2((float)a_width, (float)a_height), a_near, a_far);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateModel(const char* a_vertices, uint32_t a_vertexCount, const uint32_t* a_indices, uint32_t a_indexCount, uint16_t a_vertexStride, float a_radius) const

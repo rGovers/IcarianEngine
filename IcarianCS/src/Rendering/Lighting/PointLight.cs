@@ -1,6 +1,7 @@
 using IcarianEngine.Definitions;
 using IcarianEngine.Maths;
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -108,7 +109,7 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
-        public override DepthRenderTexture[] ShadowMaps
+        public override IEnumerable<IRenderTexture> ShadowMaps
         {
             get
             {

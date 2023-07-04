@@ -30,9 +30,13 @@ struct CameraBuffer
 
     }
 
-    glm::mat4 ToProjection(const glm::vec2& a_screenSize) const
+    inline glm::mat4 ToProjection(const glm::vec2& a_screenSize) const
     {
         return glm::perspective(FOV, a_screenSize.x / a_screenSize.y, Near, Far);
+    }
+    inline glm::mat4 ToProjection(const glm::vec2& a_screenSize, float a_near, float a_far) const
+    {
+        return glm::perspective(FOV, a_screenSize.x / a_screenSize.y, a_near, a_far);
     }
 
     Frustum ToFrustum(const glm::vec2& a_screenSize, ObjectManager* a_objectManager) const

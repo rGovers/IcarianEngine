@@ -40,5 +40,28 @@ namespace IcarianEngine.Maths
         {
             return (float)Math.Sqrt(a_a);
         }
+        public static float Pow(float a_a, float a_b)
+        {
+            return (float)Math.Pow(a_a, a_b);
+        }
+
+        public static float Min(float a_a, float a_b)
+        {
+            if (a_a < a_b)
+            {
+                return a_a;
+            }
+
+            return a_b;
+        }
+        public static float Max(float a_a, float a_b)
+        {
+            if (a_a > a_b)
+            {
+                return a_a;
+            }
+
+            return a_b;
+        }
     }
 }

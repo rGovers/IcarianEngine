@@ -179,6 +179,17 @@ namespace IcarianEngine.Maths
             return LookAt(a_pos, a_target - a_pos, a_up);
         }
 
+        public static Matrix4 CreateOrthographic(float a_x, float a_y, float a_near, float a_far)
+        {
+            return new Matrix4
+            (
+                2.0f / a_x, 0.0f,       0.0f,                      0.0f,
+                0.0f,       2.0f / a_y, 0.0f,                      0.0f,
+                0.0f,       0.0f,       1.0f / (a_far - a_near),   0.0f,
+                0.0f,       0.0f,       a_near / (a_near - a_far), 1.0f
+            );
+        }
+
         public static void Decompose(Matrix4 a_mat, out Vector3 a_translation, out Quaternion a_rotation, out Vector3 a_scale)
         {
             a_translation = a_mat[3].XYZ;

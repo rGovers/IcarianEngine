@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using IcarianEngine.Definitions;
 using IcarianEngine.Maths;
 
@@ -47,7 +48,7 @@ namespace IcarianEngine.Rendering.Lighting
             set;
         }
 
-        public abstract DepthRenderTexture[] ShadowMaps
+        public abstract IEnumerable<IRenderTexture> ShadowMaps
         {
             get;
         }
