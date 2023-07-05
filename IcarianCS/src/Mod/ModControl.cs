@@ -195,7 +195,7 @@ namespace IcarianEngine.Mod
                 Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
                 foreach (Assembly asm in assemblies)
                 {
-                    Type type = asm.GetType(a_name);
+                    Type type = asm.GetType(a_name, false);
                     if (type != null)
                     {
                         return type;

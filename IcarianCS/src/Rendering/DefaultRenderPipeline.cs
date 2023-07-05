@@ -84,7 +84,7 @@ namespace IcarianEngine.Rendering
         }
         // Multidraw is a bit of a pain so I'm going to leave it for now and do a draw call per shadow map
         // If I can think of a way to do it while still keeping programability I'll do it
-        public override void PreShadow(Light a_light, Camera a_camera, uint a_textureSlot) 
+        public override Matrix4 PreShadow(Light a_light, Camera a_camera, uint a_textureSlot) 
         {
             // I forget everytime so knicked it
             // https://learnopengl.com/Guest-Articles/2021/CSM
@@ -158,7 +158,7 @@ namespace IcarianEngine.Rendering
             // Ensure stuff behind the light in camera frustum is rendered
             Matrix4 lightProj = Matrix4.CreateOrthographic(extents.X * 2, extents.Y * 2, -extents.Z * 2, extents.Z);
 
-            Matrix4 lightViewProj = lightProj * lightView;
+            return lightProj * lightView;
         }
         public override void PostShadow(Light a_light, Camera a_camera, uint a_textureSlot)
         {

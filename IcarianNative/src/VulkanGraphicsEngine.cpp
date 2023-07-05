@@ -18,6 +18,7 @@
 #include "Rendering/UI/UIElement.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngineBindings.h"
 #include "Rendering/Vulkan/VulkanLightBuffer.h"
+#include "Rendering/Vulkan/VulkanLightData.h"
 #include "Rendering/Vulkan/VulkanModel.h"
 #include "Rendering/Vulkan/VulkanPipeline.h"
 #include "Rendering/Vulkan/VulkanPixelShader.h"
@@ -478,7 +479,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetPipeline(uint32_t a_renderTexture, uint
 
     {
         const std::shared_lock g = std::shared_lock(m_pipeLock);
-        auto iter = m_pipelines.find(addr);
+        const auto iter = m_pipelines.find(addr);
         if (iter != m_pipelines.end())
         {
             return iter->second;
@@ -528,6 +529,7 @@ vk::CommandBuffer VulkanGraphicsEngine::ShadowPass(uint32_t a_camIndex, uint32_t
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
+    VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
 
     void* shadowSetupArgs[] =
     {

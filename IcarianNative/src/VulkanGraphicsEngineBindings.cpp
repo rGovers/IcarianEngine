@@ -10,6 +10,7 @@
 #include "Flare/OBJLoader.h"
 #include "ObjectManager.h"
 #include "Rendering/Vulkan/VulkanLightBuffer.h"
+#include "Rendering/Vulkan/VulkanLightData.h"
 #include "Shaders/DirectionalLightPixel.h"
 #include "Shaders/PointLightPixel.h"
 #include "Shaders/PostPixel.h"
@@ -404,6 +405,19 @@ FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(RenderCommand, DrawModel), MonoArr
     Engine->DrawModel(transform, a_addr);
 }
 
+RUNTIME_FUNCTION(void, RenderPipeline, SetLightLVP,
+{
+    glm::mat4 lightLVP = glm::mat4(1.0f);
+
+    float* f = (float*)&lightLVP;
+    for (int i = 0; i < 16; ++i)
+    {
+        f[i] = mono_array_get(a_lightLVP, float, i);
+    }
+
+    Engine->SetLightLVP(lightLVP);
+}, MonoArray* a_lightLVP)
+
 VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(RuntimeManager* a_runtime, VulkanGraphicsEngine* a_graphicsEngine)
 {
     m_graphicsEngine = a_graphicsEngine;
@@ -430,6 +444,8 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(RuntimeManager* a_run
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Model, GenerateFromFile);
 
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, RenderCommand, DrawModel);
+
+    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, RenderPipeline, SetLightLVP);
 }
 VulkanGraphicsEngineBindings::~VulkanGraphicsEngineBindings()
 {
@@ -1238,4 +1254,11 @@ void VulkanGraphicsEngineBindings::DrawModel(const glm::mat4& a_transform, uint3
     ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderCommands.Exists(), "DrawModel RenderCommand does not exist");
 
     m_graphicsEngine->m_renderCommands->DrawModel(a_transform, a_addr);
+}
+
+void VulkanGraphicsEngineBindings::SetLightLVP(const glm::mat4 &a_lvp) const
+{
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_lightData.Exists(), "SetLightLVP LightData does not exist");
+
+    m_graphicsEngine->m_lightData->SetLVP(a_lvp);
 }

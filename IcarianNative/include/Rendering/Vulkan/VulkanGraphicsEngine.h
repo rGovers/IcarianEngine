@@ -12,6 +12,7 @@ class Font;
 class RuntimeFunction;
 class RuntimeManager;
 class VulkanGraphicsEngineBindings;
+class VulkanLightData;
 class VulkanModel;
 class VulkanPipeline;
 class VulkanPixelShader;
@@ -61,6 +62,7 @@ private:
     std::unordered_map<uint64_t, VulkanPipeline*> m_pipelines;
 
     TStatic<VulkanRenderCommand>                  m_renderCommands;
+    TStatic<VulkanLightData>                      m_lightData;
 
     TArray<FlareBase::RenderProgram>              m_shaderPrograms;
      

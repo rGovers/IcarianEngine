@@ -1,14 +1,19 @@
+using IcarianEngine.Maths;
 using IcarianEngine.Rendering.Lighting;
 using System;
+using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Rendering
 {
     public abstract class RenderPipeline
     {
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void SetLightLVP(float[] a_lvp);
+
         static RenderPipeline Instance = null;
 
         public abstract void ShadowSetup(Camera a_camera);
-        public abstract void PreShadow(Light a_light, Camera a_camera, uint a_textureSlot);
+        public abstract Matrix4 PreShadow(Light a_light, Camera a_camera, uint a_textureSlot);
         public abstract void PostShadow(Light a_light, Camera a_camera, uint a_textureSlot);
 
         public abstract void PreRender(Camera a_camera);
@@ -73,7 +78,9 @@ namespace IcarianEngine.Rendering
 
                 if (cam != null && light != null)
                 {
-                    Instance.PreShadow(light, cam, a_textureSlot);
+                    Matrix4 mat = Instance.PreShadow(light, cam, a_textureSlot);
+
+                    SetLightLVP(mat.ToArray());
                 }
             }
             else
