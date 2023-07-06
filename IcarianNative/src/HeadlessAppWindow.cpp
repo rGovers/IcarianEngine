@@ -1,24 +1,14 @@
 #include "AppWindow/HeadlessAppWindow.h"
 
-#ifdef min
-#undef min
-#endif // min
-
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
-
-#ifndef WIN32
-#include <poll.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <unistd.h>
-#endif
 
 #include <filesystem>
 #include <string>
 
 #include "Application.h"
 #include "Flare/IcarianAssert.h"
+#include "Flare/IcarianDefer.h"
 #include "InputManager.h"
 #include "Profiler.h"
 #include "Rendering/UI/UIControl.h"
@@ -100,49 +90,13 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app) : AppWindow(a_app)
 #if WIN32
     WSADATA wsaData = { };
     ICARIAN_ASSERT_MSG_R(WSAStartup(MAKEWORD(2, 2), &wsaData) == 0, "Failed to start WSA");
-
-    m_sock = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (m_sock == INVALID_SOCKET)
-    {
-        Logger::Error("Failed creating IPC");
-        perror("socket");
-        ICARIAN_ASSERT(0);
-    }
-
-    sockaddr_un addr;
-    ZeroMemory(&addr, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strcpy_s(addr.sun_path, addrStr.c_str());
-    
-    if (connect(m_sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR)
-    {
-        Logger::Error("IcarianEngine: Failed to connect to IPC");
-        perror("connect");
-        ICARIAN_ASSERT(0);
-    }
-#else
-    m_sock = socket(AF_UNIX, SOCK_STREAM, 0);
-    ICARIAN_ASSERT_R(m_sock >= 0);
-
-    struct sockaddr_un addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sun_family = AF_UNIX;
-    strcpy(addr.sun_path, addrStr.c_str());
-    
-    if (connect(m_sock, (struct sockaddr*)&addr, SUN_LEN(&addr)) < 0)
-    {
-        Logger::Error("IcarianEngine: Failed to connect to IPC");
-        perror("connect");
-        ICARIAN_ASSERT(0);
-    }
 #endif
 
-    const FlareBase::PipeMessage msg = ReceiveMessage();
-    const glm::ivec2 size = *(glm::ivec2*)msg.Data;
+    m_pipe = FlareBase::IPCPipe::Connect(addrStr);
+    ICARIAN_ASSERT_MSG_R(m_pipe != nullptr, "Failed to connect to pipe");
 
-    m_width = (uint32_t)size.x;
-    m_height = (uint32_t)size.y;
-    delete[] msg.Data;
+    m_width = 1280;
+    m_height = 720;
 
     Logger::CallbackFunc = new Logger::Callback(std::bind(&HeadlessAppWindow::MessageCallback, this, std::placeholders::_1, std::placeholders::_2));
     Profiler::CallbackFunc = new Profiler::Callback(std::bind(&HeadlessAppWindow::ProfilerCallback, this, std::placeholders::_1));
@@ -157,21 +111,13 @@ HeadlessAppWindow::~HeadlessAppWindow()
 
     PushMessageQueue();
 
-    PushMessage({ FlareBase::PipeMessageType_Close });
-
-#if WIN32
-    if (m_sock != INVALID_SOCKET)
+    if (m_pipe != nullptr)
     {
-        closesocket(m_sock);
-    }
+        m_pipe->Send({ FlareBase::PipeMessageType_Close });
 
-    WSACleanup();
-#else
-    if (m_sock >= 0)
-    {
-        close(m_sock);
+        delete m_pipe;
+        m_pipe = nullptr;
     }
-#endif
 
     if (m_frameData != nullptr)
     {
@@ -195,91 +141,31 @@ void HeadlessAppWindow::PushMessageQueue()
 
         for (uint32_t i = 0; i < size; ++i)
         {
-            PushMessage(a[i]);   
+            const FlareBase::PipeMessage& msg = a[i];
+            ICARIAN_DEFER(msg, if (msg.Data != nullptr) { delete[] msg.Data; });
 
-            delete[] a[i].Data;
+            if (!m_pipe->Send(msg))
+            {
+                m_close = true;
+
+                delete m_pipe;
+                m_pipe = nullptr;
+
+                printf("Failed to send message \n");
+
+                assert(0);
+
+                return;
+            }
         }
 
         m_queuedMessages.UClear();
     }
 }
 
-FlareBase::PipeMessage HeadlessAppWindow::ReceiveMessage() const
-{
-    FlareBase::PipeMessage msg;
-#if WIN32
-    const int size = recv(m_sock, (char*)&msg, FlareBase::PipeMessage::Size, 0);
-    if (size >= FlareBase::PipeMessage::Size)
-    {
-        if (msg.Length <= 0)
-        {
-            msg.Data = nullptr;
-
-            return msg;
-        }
-
-        msg.Data = new char[msg.Length];
-        char* dataBuffer = msg.Data;
-        uint32_t len = (uint32_t)(dataBuffer - msg.Data);
-        while (len < msg.Length)
-        {
-            dataBuffer += recv(m_sock, dataBuffer, (int)(msg.Length - len), 0);
-
-            len = (uint32_t)(dataBuffer - msg.Data);
-        }
-
-        return msg;
-    }
-#else
-    const uint32_t size = (uint32_t)read(m_sock, &msg, FlareBase::PipeMessage::Size);
-    if (size >= FlareBase::PipeMessage::Size)
-    {
-        if (msg.Length <= 0)
-        {
-            msg.Data = nullptr;
-
-            return msg;
-        }
-
-        msg.Data = new char[msg.Length];
-        char* dataBuffer = msg.Data;
-        uint32_t len = (uint32_t)(dataBuffer - msg.Data);
-        while (len < msg.Length)
-        {
-            dataBuffer += read(m_sock, dataBuffer, msg.Length - len);
-
-            len = (uint32_t)(dataBuffer - msg.Data);
-        }
-
-        return msg;
-    }
-#endif
-    
-    return FlareBase::PipeMessage();
-}
-void HeadlessAppWindow::PushMessage(const FlareBase::PipeMessage& a_message) const
-{
-    ICARIAN_ASSERT(a_message.Type != FlareBase::PipeMessageType_Null);
-
-#if WIN32
-    // TODO: CRITICAL: Find a better way of handling messages seems to be 2-3 orders of magnitude slower on Windows
-    send(m_sock, (const char*)&a_message, FlareBase::PipeMessage::Size, 0);
-    if (a_message.Data != nullptr)
-    {
-        send(m_sock, a_message.Data, (int)a_message.Length, 0);
-    }
-#else
-    write(m_sock, &a_message, FlareBase::PipeMessage::Size);
-    if (a_message.Data != nullptr)
-    {
-        write(m_sock, a_message.Data, a_message.Length);
-    }
-#endif
-}
-
 bool HeadlessAppWindow::ShouldClose() const
 {
-    return m_close || m_sock < 0;
+    return m_close || m_pipe == nullptr;
 }
 
 double HeadlessAppWindow::GetDelta() const
@@ -293,168 +179,143 @@ double HeadlessAppWindow::GetTime() const
 
 bool HeadlessAppWindow::PollMessage()
 {
-    bool ret = true;
-
-    const FlareBase::PipeMessage msg = ReceiveMessage();
-
-    switch (msg.Type)
+    std::queue<FlareBase::PipeMessage> messages;
+    if (!m_pipe->Receive(&messages))
     {
-    case FlareBase::PipeMessageType_Close:
-    {
+        printf("Failed to receive message \n");
+
         m_close = true;
 
-        break;
+        delete m_pipe;
+        m_pipe = nullptr;
+
+        assert(0);
+
+        return false;
     }
-    case FlareBase::PipeMessageType_UnlockFrame:
+
+    while (!messages.empty())
     {
-        m_unlockWindow = true;
+        const FlareBase::PipeMessage msg = messages.front();
+        messages.pop();
+        ICARIAN_DEFER(msg, if (msg.Data != nullptr) { delete[] msg.Data; });
 
-        break;
-    }
-    case FlareBase::PipeMessageType_Resize:
-    {
-        const std::lock_guard g = std::lock_guard(m_fLock);
-        const glm::ivec2 size = *(glm::ivec2*)msg.Data;
-
-        m_width = (uint32_t)size.x;
-        m_height = (uint32_t)size.y;
-
-        if (m_frameData != nullptr)
+        switch (msg.Type)
         {
-            delete[] m_frameData;
-            m_frameData = nullptr;
+        case FlareBase::PipeMessageType_Close:
+        {
+            m_close = true;
+
+            break;
         }
-
-        break;
-    }
-    case FlareBase::PipeMessageType_CursorPos:
-    {
-        const Application* app = GetApplication();
-        
-        InputManager* inputManager = app->GetInputManager();
-        
-        const glm::vec2& pos = *(glm::vec2*)msg.Data;
-
-        inputManager->SetCursorPos(pos);
-
-        UIControl::UpdateCursor(pos, glm::vec2((float)m_width, (float)m_height));
-
-        break;
-    }
-    case FlareBase::PipeMessageType_MouseState:
-    {
-        const Application* app = GetApplication();
-
-        InputManager* inputManager = app->GetInputManager();
-        
-        const unsigned char mouseState = *(unsigned char*)msg.Data;
-
-        bool leftDown = mouseState & 0b1 << FlareBase::MouseButton_Left;
-        if (leftDown)
+        case FlareBase::PipeMessageType_UnlockFrame:
         {
-            if (UIControl::SubmitClick(inputManager->GetCursorPos(), glm::vec2((float)m_width, (float)m_height)))
+            m_unlockWindow = true;
+
+            break;
+        }
+        case FlareBase::PipeMessageType_Resize:
+        {
+            const std::lock_guard g = std::lock_guard(m_fLock);
+            const glm::ivec2 size = *(glm::ivec2*)msg.Data;
+
+            m_width = (uint32_t)size.x;
+            m_height = (uint32_t)size.y;
+
+            if (m_frameData != nullptr)
             {
-                leftDown = false;
+                delete[] m_frameData;
+                m_frameData = nullptr;
             }
+
+            break;
         }
-        else 
+        case FlareBase::PipeMessageType_CursorPos:
         {
-            UIControl::SubmitRelease(inputManager->GetCursorPos(), glm::vec2((float)m_width, (float)m_height));
+            const Application* app = GetApplication();
+
+            InputManager* inputManager = app->GetInputManager();
+
+            const glm::vec2& pos = *(glm::vec2*)msg.Data;
+
+            inputManager->SetCursorPos(pos);
+
+            UIControl::UpdateCursor(pos, glm::vec2((float)m_width, (float)m_height));
+
+            break;
         }
-
-        inputManager->SetMouseButton(FlareBase::MouseButton_Left, leftDown);
-        inputManager->SetMouseButton(FlareBase::MouseButton_Middle, mouseState & 0b1 << FlareBase::MouseButton_Middle);
-        inputManager->SetMouseButton(FlareBase::MouseButton_Right, mouseState & 0b1 << FlareBase::MouseButton_Right);
-
-        break;
-    }
-    case FlareBase::PipeMessageType_KeyboardState:
-    {
-        const Application* app = GetApplication();
-
-        InputManager* inputManager = app->GetInputManager();
-
-        const FlareBase::KeyboardState state = FlareBase::KeyboardState::FromData((unsigned char*)msg.Data);
-
-        for (unsigned int i = 0; i < FlareBase::KeyCode_Last; ++i)
+        case FlareBase::PipeMessageType_MouseState:
         {
-            const FlareBase::e_KeyCode keyCode = (FlareBase::e_KeyCode)i;
+            const Application* app = GetApplication();
 
-            inputManager->SetKeyboardKey(keyCode, state.IsKeyDown(keyCode));
+            InputManager* inputManager = app->GetInputManager();
+
+            const unsigned char mouseState = *(unsigned char*)msg.Data;
+
+            bool leftDown = mouseState & 0b1 << FlareBase::MouseButton_Left;
+            if (leftDown)
+            {
+                if (UIControl::SubmitClick(inputManager->GetCursorPos(), glm::vec2((float)m_width, (float)m_height)))
+                {
+                    leftDown = false;
+                }
+            }
+            else 
+            {
+                UIControl::SubmitRelease(inputManager->GetCursorPos(), glm::vec2((float)m_width, (float)m_height));
+            }
+
+            inputManager->SetMouseButton(FlareBase::MouseButton_Left, leftDown);
+            inputManager->SetMouseButton(FlareBase::MouseButton_Middle, mouseState & 0b1 << FlareBase::MouseButton_Middle);
+            inputManager->SetMouseButton(FlareBase::MouseButton_Right, mouseState & 0b1 << FlareBase::MouseButton_Right);
+
+            break;
         }
+        case FlareBase::PipeMessageType_KeyboardState:
+        {
+            const Application* app = GetApplication();
 
-        break;
-    }
-    case FlareBase::PipeMessageType_Null:
-    {
-        Logger::Warning("Engine: Null Message");
+            InputManager* inputManager = app->GetInputManager();
 
-        ret = false;
+            const FlareBase::KeyboardState state = FlareBase::KeyboardState::FromData((unsigned char*)msg.Data);
 
-        break;
-    }
-    default:
-    {
-        Logger::Error("IcarianEngine: Invalid Pipe Message: " + std::to_string(msg.Type) + " " + std::to_string(msg.Length));
-        
-        break;
-    }
-    }
+            for (unsigned int i = 0; i < FlareBase::KeyCode_Last; ++i)
+            {
+                const FlareBase::e_KeyCode keyCode = (FlareBase::e_KeyCode)i;
 
-    if (msg.Data)
-    {
-        delete[] msg.Data;
-    }
+                inputManager->SetKeyboardKey(keyCode, state.IsKeyDown(keyCode));
+            }
 
-    return ret;
+            break;
+        }
+        case FlareBase::PipeMessageType_Null:
+        {
+            Logger::Warning("Engine: Null Message");
+
+            return false;
+        }
+        default:
+        {
+            Logger::Error("IcarianEngine: Invalid Pipe Message: " + std::to_string(msg.Type) + " " + std::to_string(msg.Length));
+
+            break;
+        }
+        }
+    }    
+
+    return true;
 }
 
 void HeadlessAppWindow::Update()
 {
-    Profiler::StartFrame("Polling");
-#if WIN32
-    if (m_sock == INVALID_SOCKET)
     {
-        return;
-    }
+        PROFILESTACK("Polling");
 
-    timeval tv;
-    tv.tv_sec = 0;
-    tv.tv_usec = 5;
-
-    fd_set fdSet;
-    FD_ZERO(&fdSet);
-    FD_SET(m_sock, &fdSet);
-    if (select((int)(m_sock + 1), &fdSet, NULL, NULL, &tv) > 0)
-    {
-        PollMessage();
-    }
-#else
-    if (m_sock < 0)
-    {
-        return;
-    }
-
-    struct pollfd fds;
-    fds.fd = m_sock;
-    fds.events = POLLIN;
-
-    while (poll(&fds, 1, 1) > 0)
-    {
-        if (fds.revents & (POLLNVAL | POLLERR | POLLHUP))
+        if (!PollMessage())
         {
-            m_sock = -1;
-
             return;
         }
-
-        if (fds.revents & POLLIN)
-        {
-            PollMessage();
-        }
     }
-#endif
-    Profiler::StopFrame();
 
     {
         PROFILESTACK("Timing");
@@ -467,7 +328,19 @@ void HeadlessAppWindow::Update()
 
         const glm::dvec2 tVec = glm::vec2(m_delta, m_time);
 
-        PushMessage({ FlareBase::PipeMessageType_UpdateData, sizeof(glm::dvec2), (char*)&tVec});
+        if (!m_pipe->Send({ FlareBase::PipeMessageType_UpdateData, sizeof(glm::dvec2), (char*)&tVec}))
+        {
+            m_close = true;
+
+            delete m_pipe;
+            m_pipe = nullptr;
+
+            printf("Failed to send update data \n");
+
+            assert(0);
+
+            return;
+        }
     }
 
     {
@@ -478,7 +351,19 @@ void HeadlessAppWindow::Update()
 
             const std::lock_guard g = std::lock_guard(m_fLock);
 
-            PushMessage({ FlareBase::PipeMessageType_PushFrame, m_width * m_height * 4, m_frameData });
+            if (!m_pipe->Send({ FlareBase::PipeMessageType_PushFrame, m_width * m_height * 4, m_frameData }))
+            {
+                m_close = true;
+
+                delete m_pipe;
+                m_pipe = nullptr;
+
+                printf("Failed to send frame data \n");
+
+                assert(0);
+
+                return;
+            }
         }
     }
 

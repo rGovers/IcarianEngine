@@ -176,6 +176,10 @@ Application::~Application()
 
 void Application::Run(int32_t a_argc, char* a_argv[])
 {
+    // TODO: Figure out how the thread get locked to refresh rate after running for a while
+    // unlocks again after interacting with editor window
+    // the weird part is that occurs across all threads so suspect os/kernel level throttling
+    // If that is the case should not be an issue but need to confirm not a bug in the engine
     m_runtime->Exec(a_argc, a_argv);
 
     m_renderEngine->Start();

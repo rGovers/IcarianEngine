@@ -18,7 +18,7 @@ namespace FlareBase
         PipeMessageType_UnlockFrame,
         PipeMessageType_PushFrame,
         PipeMessageType_Message,
-        PipeMessageType_EndStream
+        PipeMessageType_End
     };
 
     struct PipeMessage

@@ -6,10 +6,10 @@
 #include <cstdint>
 #include <mutex>
 
-#include "Flare/WindowsHeaders.h"
-
 #include "DataTypes/TArray.h"
+#include "Flare/IPCPipe.h"
 #include "Flare/PipeMessage.h"
+#include "Flare/WindowsHeaders.h"
 #include "Logger.h"
 #include "Profiler.h"
 
@@ -35,11 +35,7 @@ private:
 
     static constexpr std::string_view PipeName = "IcarianEngine-IPC";
 
-#if WIN32
-    SOCKET                                         m_sock;
-#else
-    int                                            m_sock;
-#endif
+    FlareBase::IPCPipe*                            m_pipe;
 
     volatile bool                                  m_unlockWindow;    
     bool                                           m_close;
@@ -59,9 +55,6 @@ private:
     double                                         m_time;
 
     void PushMessageQueue();
-
-    FlareBase::PipeMessage ReceiveMessage() const;
-    void PushMessage(const FlareBase::PipeMessage& a_msg) const;
 
     void MessageCallback(const std::string_view& a_message, e_LoggerMessageType a_type);
     void ProfilerCallback(const Profiler::PData& a_profilerData);
