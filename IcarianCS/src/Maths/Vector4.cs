@@ -1075,5 +1075,10 @@ namespace IcarianEngine.Maths
         {
             return new Quaternion(X, Y, Z, W);
         }
+
+        public static Vector4 Lerp(Vector4 a_start, Vector4 a_end, float a_t)
+        {
+            return a_start + (a_end - a_start) * a_t;
+        }
     }
 }

@@ -6,6 +6,7 @@
 #include "Flare/IcarianAssert.h"
 #include "Logger.h"
 #include "Profiler.h"
+#include "Rendering/AnimationController.h"
 #include "Rendering/SpirvTools.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
@@ -85,6 +86,12 @@ void RenderEngine::Run()
 
             const double delta = std::chrono::duration<double>(time - prevTime).count();
             m_time += delta;
+
+            {
+                PROFILESTACK("Animators");
+                
+                AnimationController::UpdateAnimators(AnimationUpdateMode_FrameUpdate, (float)delta);
+            }
 
             m_backend->Update(delta, m_time);
 

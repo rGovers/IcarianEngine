@@ -15,6 +15,7 @@
         <Compile Include="src/Physics/*.cs"/>
         <Compile Include="src/Physics/Shapes/*.cs"/>
         <Compile Include="src/Rendering/*.cs"/>
+        <Compile Include="src/Rendering/Animation/*.cs"/>
         <Compile Include="src/Rendering/UI/*.cs"/>
         <Compile Include="src/Rendering/Lighting/*.cs"/>
     </ItemGroup>

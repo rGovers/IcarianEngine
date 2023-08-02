@@ -162,6 +162,15 @@ namespace IcarianEngine.Maths
             }
         }
 
+        public static Quaternion operator +(Quaternion a_lhs, Quaternion a_rhs)
+        {
+            return new Quaternion(a_lhs.X + a_rhs.X, a_lhs.Y + a_rhs.Y, a_lhs.Z + a_rhs.Z, a_lhs.W + a_rhs.W);
+        }
+        public static Quaternion operator -(Quaternion a_lhs, Quaternion a_rhs)
+        {
+            return new Quaternion(a_lhs.X - a_rhs.X, a_lhs.Y - a_rhs.Y, a_lhs.Z - a_rhs.Z, a_lhs.W - a_rhs.W);
+        }
+
         public static Quaternion operator *(Quaternion a_lhs, Quaternion a_rhs)
         {
             return new Quaternion
@@ -171,6 +180,10 @@ namespace IcarianEngine.Maths
                 a_lhs.W * a_rhs.Z + a_lhs.Z * a_rhs.W + a_lhs.X * a_rhs.Y - a_lhs.Y * a_rhs.X, 
                 a_lhs.W * a_rhs.W - a_lhs.X * a_rhs.X - a_lhs.Y * a_rhs.Y - a_lhs.Z * a_rhs.Z
             );
+        }
+        public static Quaternion operator *(Quaternion a_lhs, float a_rhs)
+        {
+            return new Quaternion(a_lhs.X * a_rhs, a_lhs.Y * a_rhs, a_lhs.Z * a_rhs, a_lhs.W * a_rhs);
         }
         public static Vector3 operator *(Quaternion a_lhs, Vector3 a_rhs)
         {
@@ -184,7 +197,7 @@ namespace IcarianEngine.Maths
         {
             return new Vector4(a_lhs * a_rhs.XYZ, a_rhs.W);
         }
-
+    
         public static bool operator ==(Quaternion a_lhs, Quaternion a_rhs)
         {
             return a_lhs.X == a_rhs.X && a_lhs.Y == a_rhs.Y && a_lhs.Z == a_rhs.Z && a_lhs.W == a_rhs.W;
@@ -327,6 +340,30 @@ namespace IcarianEngine.Maths
                 Z * sInv,
                 2 * Mathf.Acos(W)
             );
+        }
+
+        public static Quaternion Inverse(Quaternion a_quat)
+        {
+            float mag = a_quat.MagnitudeSqr;
+
+            return new Quaternion(-a_quat.X / mag, -a_quat.Y / mag, -a_quat.Z / mag, a_quat.W / mag);
+        }
+
+        public static Quaternion Slerp(Quaternion a_lhs, Quaternion a_rhs, float a_t)
+        {
+            // Cant remember off the top of my head so just assuming this works
+            // Seems correct as using the inverse to do a local translation but memory is hazy
+            // Credit: https://en.wikipedia.org/wiki/Slerp
+            Quaternion invQ = Inverse(a_rhs);
+
+            Quaternion q = a_lhs * invQ;
+            Quaternion powQ = new Quaternion(Mathf.Pow(q.X, a_t), Mathf.Pow(q.Y, a_t), Mathf.Pow(q.Z, a_t), Mathf.Pow(q.W, a_t));
+
+            return powQ * a_rhs;
+        }
+        public static Quaternion Lerp(Quaternion a_lhs, Quaternion a_rhs, float a_t)
+        {
+            return a_lhs * (1.0f - a_t) + a_rhs * a_t;
         }
     }
 }

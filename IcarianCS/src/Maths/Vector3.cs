@@ -373,5 +373,10 @@ namespace IcarianEngine.Maths
                 a_lhs.X * a_rhs.Y - a_lhs.Y * a_rhs.X
             );
         }
+
+        public static Vector3 Lerp(Vector3 a_start, Vector3 a_end, float a_t)
+        {
+            return a_start + (a_end - a_start) * a_t;
+        }
     }
 }

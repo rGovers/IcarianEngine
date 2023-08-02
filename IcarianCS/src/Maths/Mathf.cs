@@ -63,5 +63,10 @@ namespace IcarianEngine.Maths
 
             return a_b;
         }
+
+        public static float Lerp(float a_a, float a_b, float a_t)
+        {
+            return a_a + (a_b - a_a) * a_t;
+        }
     }
 }

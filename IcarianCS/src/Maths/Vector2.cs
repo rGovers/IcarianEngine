@@ -229,4 +229,9 @@ namespace IcarianEngine.Maths
         {
             return a_lhs.X * a_rhs.X + a_lhs.Y * a_rhs.Y;
         }
+
+        public static Vector2 Lerp(Vector2 a_start, Vector2 a_end, float a_t)
+        {
+            return a_start + (a_end - a_start) * a_t;
+        }
     }}

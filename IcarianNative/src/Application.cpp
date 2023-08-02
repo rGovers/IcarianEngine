@@ -9,6 +9,7 @@
 #include "ObjectManager.h"
 #include "Physics/PhysicsEngine.h"
 #include "Profiler.h"
+#include "Rendering/AnimationController.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/UI/UIControl.h"
 #include "Runtime/RuntimeManager.h"
@@ -130,6 +131,8 @@ Application::Application(Config* a_config)
 
     UIControl::Init(m_runtime);
 
+    AnimationController::Init(m_runtime);
+
     m_inputManager = new InputManager(m_runtime);
 
     m_objectManager = new ObjectManager(m_runtime);
@@ -156,6 +159,8 @@ Application::~Application()
     // Do not know why C++ does not have a standard way to disable reordering
     // TLDR: Do not inline otherwise crash
     PlzNoReorder(m_runtime);
+
+    AnimationController::Destroy();
 
     UIControl::Destroy();
 
@@ -199,6 +204,22 @@ void Application::Run(int32_t a_argc, char* a_argv[])
 
             // Naive approach but helps fix weirdness from large time scales
             const double delta = glm::min(0.1, m_appWindow->GetDelta());
+
+            {
+                PROFILESTACK("Animators");
+
+                {
+                    PROFILESTACK("Anim Dispatch");
+
+                    AnimationController::DispatchUpdate((float)delta);
+                }
+
+                {
+                    PROFILESTACK("Anim Update");
+
+                    AnimationController::UpdateAnimators(AnimationUpdateMode_Update, (float)delta);
+                }
+            }
 
             m_runtime->Update(delta, m_appWindow->GetTime());
 
