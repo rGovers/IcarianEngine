@@ -45,8 +45,8 @@ public:
 
     static std::vector<uint32_t> GetAnimators(e_AnimationUpdateMode a_updateMode);
 
-    static void UpdateAnimator(uint32_t a_index, float a_deltaTime);
-    static void UpdateAnimators(e_AnimationUpdateMode a_updateMode, float a_deltaTime);
+    static void UpdateAnimator(uint32_t a_index, double a_deltaTime);
+    static void UpdateAnimators(e_AnimationUpdateMode a_updateMode, double a_deltaTime);
 
-    static void DispatchUpdate(float a_deltaTime);
+    static void DispatchUpdate(double a_deltaTime);
 };

@@ -39,6 +39,8 @@ private:
 
     AppWindow*           m_window;
 
+    RuntimeManager*      m_runtime;
+
     void Update(double a_delta, double a_time);
     void Run();
 protected:

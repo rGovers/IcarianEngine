@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Rendering
 {
-    public class MeshRenderer : Component, IDestroy
+    public class MeshRenderer : Renderer, IDestroy
     {
         bool     m_disposed = false;
 
@@ -42,7 +42,7 @@ namespace IcarianEngine.Rendering
             }
         }
 
-        public bool Visible
+        public override bool Visible
         {
             get
             {
@@ -81,7 +81,7 @@ namespace IcarianEngine.Rendering
             }
         }
 
-        public Material Material
+        public override Material Material
         {
             get
             {

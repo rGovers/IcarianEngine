@@ -14,7 +14,9 @@ namespace IcarianEngine.Rendering.Animation
             internal set;
         }
 
-        public abstract bool Update(Animator a_animator, float a_deltaTime);
-        public abstract void UpdateObject(Animator a_animator, string a_object, float a_deltaTime);
+        public virtual void Init() { }
+
+        public abstract bool Update(Animator a_animator, double a_deltaTime);
+        public abstract void UpdateObject(Animator a_animator, string a_object, double a_deltaTime);
     }
 }

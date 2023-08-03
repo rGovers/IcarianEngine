@@ -3,6 +3,7 @@
 #include "Flare/IcarianAssert.h"
 #include "Rendering/AnimationController.h"
 #include "Runtime/RuntimeManager.h"
+#include "Trace.h"
 
 static AnimationControllerBindings* Instance = nullptr;
 
@@ -18,6 +19,7 @@ ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
 
 AnimationControllerBindings::AnimationControllerBindings(AnimationController* a_controller, RuntimeManager* a_runtime)
 {
+    TRACE("Binding AnimationController functions to C#");
     m_controller = a_controller;
 
     Instance = this;

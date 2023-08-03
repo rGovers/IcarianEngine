@@ -31,17 +31,21 @@ namespace IcarianEngine.Rendering.Animation
             base.Init();
         }
 
-        public override void Update(float a_deltaTime)
+        public override void Update(double a_deltaTime)
         {
             AnimationController controller = AnimationController;
 
             if (controller != null)
             {
-                controller.Update(this, a_deltaTime);
-
-                foreach (Bone bone in m_skeleton.Bones)
+                if (controller.Update(this, a_deltaTime))
                 {
-                    controller.UpdateObject(this, bone.Name, a_deltaTime);
+                    if (m_skeleton != null)
+                    {
+                        foreach (Bone bone in m_skeleton.Bones)
+                        {
+                            controller.UpdateObject(this, bone.Name, a_deltaTime);
+                        }
+                    }
                 }
             }
         }  

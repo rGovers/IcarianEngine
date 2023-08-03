@@ -57,5 +57,25 @@ namespace FlareBase
 
         }
     };
+    struct SkinnedVertex
+    {
+        glm::vec4 Position;
+        glm::vec3 Normal;
+        glm::vec4 Color;
+        glm::vec2 TexCoords;
+        glm::vec4 BoneWeights;
+        glm::ivec4 BoneIndices;    
+
+        constexpr SkinnedVertex(const glm::vec4& a_pos = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), const glm::vec3& a_normal = glm::vec3(0.0f), const glm::vec4& a_color = glm::vec4(1.0f), const glm::vec2& a_texCoords = glm::vec2(0.0f), const glm::vec4& a_boneWeights = glm::vec4(0.0f), const glm::ivec4& a_boneIndices = glm::ivec4(0)) :
+            Position(a_pos),
+            Normal(a_normal),
+            Color(a_color),
+            TexCoords(a_texCoords),
+            BoneWeights(a_boneWeights),
+            BoneIndices(a_boneIndices)
+        {   
+
+        }
+    };
 }
 

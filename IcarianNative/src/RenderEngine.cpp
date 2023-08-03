@@ -9,12 +9,15 @@
 #include "Rendering/AnimationController.h"
 #include "Rendering/SpirvTools.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
+#include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
 RenderEngine::RenderEngine(RuntimeManager* a_runtime, ObjectManager* a_objectManager, AppWindow* a_window, Config* a_config)
 {
     TRACE("Initializing Rendering");
     m_config = a_config;
+
+    m_runtime = a_runtime;
 
     m_objectManager = a_objectManager;
 
@@ -73,6 +76,8 @@ void RenderEngine::Stop()
 
 void RenderEngine::Run()
 {
+    m_runtime->AttachThread();
+
     std::chrono::time_point prevTime = std::chrono::high_resolution_clock::now();
 
     while (!m_shutdown)

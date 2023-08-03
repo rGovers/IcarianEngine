@@ -4,6 +4,7 @@ namespace IcarianEngine.Definitions
 {
     public class AnimatorDef : ComponentDef
     {
+        [EditorTooltip("AnimationControllerDef that will be used to control the animation.")]
         public AnimationControllerDef ControllerDef;
 
         public AnimatorDef()

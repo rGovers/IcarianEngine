@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using IcarianEngine.Definitions;
+using IcarianEngine.Maths;
 
 namespace IcarianEngine.Rendering.Animation
 {
@@ -84,13 +85,24 @@ namespace IcarianEngine.Rendering.Animation
                 if (def.ControllerDef != null && def.ControllerDef.ControllerType != null)
                 {
                     m_controller = Activator.CreateInstance(def.ControllerDef.ControllerType) as AnimationController;
+
+                    if (m_controller == null)
+                    {
+                        Logger.IcarianError("Failed to create animation controller");
+                    }
+                    else
+                    {
+                        m_controller.ControllerDef = def.ControllerDef;
+
+                        m_controller.Init();
+                    }
                 }
             }
 
             s_animators.TryAdd(m_bufferAddr, this);
         }
 
-        public abstract void Update(float a_deltaTime);
+        public abstract void Update(double a_deltaTime);
 
         // Yes I am passing as double and down casting to float 
         // for some reason if I have a float parameter it will fail to find the function
@@ -104,7 +116,7 @@ namespace IcarianEngine.Rendering.Animation
             {
                 if (animator != null && !animator.IsDisposed)
                 {
-                    animator.Update((float)a_deltaTime);
+                    animator.Update(a_deltaTime);
                 }
             }
         }
@@ -118,10 +130,16 @@ namespace IcarianEngine.Rendering.Animation
                 {
                     if (animator != null && !animator.IsDisposed)
                     {
-                        animator.Update((float)a_deltaTime);
+                        animator.Update(a_deltaTime);
                     }
                 }
             }
+        }
+
+        public void PushTransform(string a_object, Matrix4 a_transform)
+        {
+            // TODO: Need to implement
+            Logger.IcarianWarning("Need to implement transform push");
         }
 
         public void Dispose()

@@ -5,11 +5,13 @@
 #include "Runtime/RuntimeManager.h"
 #include "ThreadJob.h"
 #include "ThreadPool.h"
+#include "Trace.h"
 
 static AnimationController* Instance = nullptr;
 
 AnimationController::AnimationController(RuntimeManager* a_runtime)
 {
+    TRACE("Initializing AnimationController");
     m_updateAnimatorFunc = a_runtime->GetFunction("IcarianEngine.Rendering.Animation", "Animator", ":UpdateAnimatorS(uint,double)");
     m_updateAnimatorsFunc = a_runtime->GetFunction("IcarianEngine.Rendering.Animation", "Animator", ":UpdateAnimatorsS(uint[],double)");
 
@@ -60,7 +62,7 @@ std::vector<uint32_t> AnimationController::GetAnimators(e_AnimationUpdateMode a_
     return animators;
 }
 
-void AnimationController::UpdateAnimator(uint32_t a_index, float a_deltaTime)
+void AnimationController::UpdateAnimator(uint32_t a_index, double a_deltaTime)
 {
     void* args[] = 
     { 
@@ -70,7 +72,7 @@ void AnimationController::UpdateAnimator(uint32_t a_index, float a_deltaTime)
 
     Instance->m_updateAnimatorFunc->Exec(args);
 }
-void AnimationController::UpdateAnimators(e_AnimationUpdateMode a_updateMode, float a_deltaTime)
+void AnimationController::UpdateAnimators(e_AnimationUpdateMode a_updateMode, double a_deltaTime)
 {
     const std::vector<uint32_t> animators = GetAnimators(a_updateMode);
 
@@ -97,12 +99,12 @@ class AnimatorThreadJob : public ThreadJob
 {
 private:
     uint32_t m_animator;
-    float    m_deltaTime;
+    double    m_deltaTime;
 
 protected:
 
 public:
-    constexpr AnimatorThreadJob(uint32_t a_animator, float a_deltaTime, e_JobPriority a_priority) : ThreadJob(a_priority),
+    constexpr AnimatorThreadJob(uint32_t a_animator, double a_deltaTime, e_JobPriority a_priority) : ThreadJob(a_priority),
         m_animator(a_animator),
         m_deltaTime(a_deltaTime)
     {
@@ -115,7 +117,7 @@ public:
     }
 };
 
-void AnimationController::DispatchUpdate(float a_deltaTime)
+void AnimationController::DispatchUpdate(double a_deltaTime)
 {
     const std::vector<bool> stateVector = Instance->m_animators.ToStateVector();
     const std::vector<e_AnimationUpdateMode> modeVector = Instance->m_animators.ToVector();
