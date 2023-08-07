@@ -1261,6 +1261,29 @@ namespace FlareBase
             ColladaLoader_BuildJointMap(n, a_index, a_map);
         }
     }
+    void ColladaLoader_BuildJointData(const ColladaSceneNode& a_node, uint32_t* a_index, uint32_t a_parent, std::vector<BoneData>* a_dat)
+    {
+        uint32_t pIndex = a_parent;
+        if (a_node.Type == "JOINT")
+        {
+            BoneData d;
+            d.Parent = a_parent;
+            d.Name = a_node.Name;
+            for (int i = 0; i < 16; ++i)
+            {
+                d.Transform[i / 4][i % 4] = a_node.Transform[i];
+            }
+
+            a_dat->emplace_back(d);
+
+            pIndex = (*a_index)++;
+        }
+
+        for (const ColladaSceneNode& n : a_node.Children)
+        {
+            ColladaLoader_BuildJointData(n, a_index, pIndex, a_dat);
+        }
+    }
 
     bool ColladaLoader_LoadSkinnedData(const char* a_data, uint32_t a_size, std::vector<SkinnedVertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius)
     {
@@ -1865,6 +1888,60 @@ namespace FlareBase
                 file.read(dat, size);
 
                 return ColladaLoader_LoadSkinnedData(dat, (uint32_t)size, a_vertices, a_indices, a_radius);
+            }
+        }
+
+        return false;
+    }
+
+    bool ColladaLoader_LoadBoneData(const char* a_data, uint32_t a_size, std::vector<BoneData>* a_bones)
+    {
+        tinyxml2::XMLDocument doc;
+        if (doc.Parse(a_data, (size_t)a_size) == tinyxml2::XML_SUCCESS)
+        {
+            const tinyxml2::XMLElement* rootElement = doc.RootElement();
+
+            std::vector<ColladaVisualScene> scenes;
+
+            for (const tinyxml2::XMLElement* element = rootElement->FirstChildElement(); element != nullptr; element = element->NextSiblingElement())
+            {
+                const char* elementName = element->Value();
+
+                if (strcmp(elementName, "library_visual_scenes") == 0)
+                {
+                    scenes = LoadScene(element);
+                }
+            }
+
+            uint32_t jointIndex = 0;
+            for (const ColladaVisualScene& s : scenes)
+            {
+                for (const ColladaSceneNode& n : s.Nodes)
+                {
+                    ColladaLoader_BuildJointData(n, &jointIndex, -1, a_bones);
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+    bool ColladaLoader_LoadBoneFile(const std::filesystem::path& a_path, std::vector<BoneData>* a_bones)
+    {
+        if (std::filesystem::exists(a_path))
+        {
+            std::ifstream file = std::ifstream(a_path);
+
+            if (file.good() && file.is_open())
+            {
+                const uint32_t size = (uint32_t)std::filesystem::file_size(a_path);
+
+                char* dat = new char[size];
+                ICARIAN_DEFER_delA(dat);
+                file.read(dat, size);
+
+                return ColladaLoader_LoadBoneData(dat, (uint32_t)size, a_bones);
             }
         }
 
