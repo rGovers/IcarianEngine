@@ -32,17 +32,14 @@ Font* Font::LoadFont(const std::filesystem::path& a_path)
     std::ifstream file = std::ifstream(a_path, std::ios::binary);
     if (file.good() && file.is_open())
     {
-        ICARIAN_DEFER_closeIFile(file);
+        IDEFER(file.close());
 
-        file.ignore(std::numeric_limits<std::streamsize>::max());
-        const std::streamsize size = file.gcount();
-        file.clear();
-        file.seekg(0, std::ios::beg);
+        const uint32_t size = (uint32_t)std::filesystem::file_size(a_path);
 
         ICARIAN_ASSERT_R(size != 0);
 
         unsigned char* dat = new unsigned char[size];
-        file.read((char*)dat, size);
+        file.read((char*)dat, (std::streamsize)size);
 
         return new Font(dat);
     }
@@ -97,7 +94,7 @@ unsigned char* Font::StringToTexture(const std::u32string_view& a_string, float 
         const unsigned int gHeight = y1 - y0;
         const unsigned int gSize = gWidth * gHeight;
         unsigned char* data = new unsigned char[gSize];
-        ICARIAN_DEFER_delA(data);
+        IDEFER(delete[] data);
         memset(data, 0, gSize);
         stbtt_MakeCodepointBitmap(&m_fontInfo, data, gWidth, gHeight, gWidth, scale, scale, codePoint);
 

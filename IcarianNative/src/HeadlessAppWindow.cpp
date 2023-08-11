@@ -142,7 +142,11 @@ void HeadlessAppWindow::PushMessageQueue()
         for (uint32_t i = 0; i < size; ++i)
         {
             const FlareBase::PipeMessage& msg = a[i];
-            ICARIAN_DEFER(msg, if (msg.Data != nullptr) { delete[] msg.Data; });
+            IDEFER(
+            if (msg.Data != nullptr)
+            {
+                delete[] msg.Data;
+            });
 
             if (!m_pipe->Send(msg))
             {
@@ -198,7 +202,11 @@ bool HeadlessAppWindow::PollMessage()
     {
         const FlareBase::PipeMessage msg = messages.front();
         messages.pop();
-        ICARIAN_DEFER(msg, if (msg.Data != nullptr) { delete[] msg.Data; });
+        IDEFER(
+        if (msg.Data != nullptr)
+        {
+            delete[] msg.Data;
+        });
 
         switch (msg.Type)
         {

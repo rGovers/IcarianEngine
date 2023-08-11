@@ -76,7 +76,7 @@ void TextUIElement::Update(RenderEngine* a_renderEngine)
         const glm::vec2 size = GetSize();
 
         const unsigned char* data = font->StringToTexture(m_text, m_fontSize, (uint32_t)size.x, (uint32_t)size.y);
-        ICARIAN_DEFER_delA(data);
+        IDEFER(delete[] data);
 
         m_textureAddr = a_renderEngine->GenerateAlphaTexture((uint32_t)size.x, (uint32_t)size.y, data);
         m_samplerAddr = a_renderEngine->GenerateTextureSampler(m_textureAddr, FlareBase::TextureMode_Texture, FlareBase::TextureFilter_Linear, FlareBase::TextureAddress_ClampToEdge);

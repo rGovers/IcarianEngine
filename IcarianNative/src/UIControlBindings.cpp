@@ -84,7 +84,7 @@ RUNTIME_FUNCTION(MonoString*, TextUIElement, GetText,
 RUNTIME_FUNCTION(void, TextUIElement, SetText, 
 {
     mono_unichar4* str = mono_string_to_utf32(a_str);
-    ICARIAN_DEFER_monoF(str);
+    IDEFER(mono_free(str));
 
     Instance->SetTextElementText(a_addr, (char32_t*)str);
 }, uint32_t a_addr, MonoString* a_str)
@@ -182,7 +182,7 @@ void UIControlBindings::AddCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr
 
     uint32_t* newBuffer = new uint32_t[buffer.ChildElementCount + 1];
     const uint32_t* oldBuffer = buffer.ChildElements;
-    ICARIAN_DEFER_delA(oldBuffer);
+    IDEFER(delete[] oldBuffer);
 
     for (uint32_t i = 0; i < buffer.ChildElementCount; ++i)
     {
@@ -337,7 +337,7 @@ void UIControlBindings::DestroyTextElement(uint32_t a_addr) const
     ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text, "DestroyTextElement non text element");
 
     const TextUIElement* element = (TextUIElement*)m_uiControl->m_uiElements[a_addr];
-    ICARIAN_DEFER_del(element);
+    IDEFER(delete element);
     m_uiControl->m_uiElements.LockSet(a_addr, nullptr);
 }
 std::u32string UIControlBindings::GetTextElementText(uint32_t a_addr) const
@@ -426,7 +426,7 @@ void UIControlBindings::DestroyImageElement(uint32_t a_addr) const
     ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Image, "DestroyImageElement non image element");
 
     const ImageUIElement* element = (ImageUIElement*)m_uiControl->m_uiElements[a_addr];
-    ICARIAN_DEFER_del(element);
+    IDEFER(delete element);
     m_uiControl->m_uiElements.LockSet(a_addr, nullptr);
 }
 uint32_t UIControlBindings::GetImageElementSampler(uint32_t a_addr) const

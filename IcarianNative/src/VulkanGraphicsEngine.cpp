@@ -96,7 +96,7 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(RuntimeManager* a_runtime, VulkanRend
 VulkanGraphicsEngine::~VulkanGraphicsEngine()
 {
     const FlareBase::RenderProgram textProgram = m_shaderPrograms[m_textUIPipelineAddr];
-    ICARIAN_DEFER(textProgram, 
+    IDEFER(
     {
         if (textProgram.VertexAttribs != nullptr)
         {
@@ -110,17 +110,18 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
     });
 
     const FlareBase::RenderProgram imageProgram = m_shaderPrograms[m_imageUIPipelineAddr];
-    ICARIAN_DEFER(imageProgram, 
+    IDEFER(
+    {
         if (imageProgram.VertexAttribs != nullptr)
         {
             delete[] imageProgram.VertexAttribs;
         }
-    
+
         if (imageProgram.ShaderBufferInputs != nullptr)
         {
             delete[] imageProgram.ShaderBufferInputs;
         }
-    );
+    });
 
     DestroyRenderProgram(m_textUIPipelineAddr);
     DestroyRenderProgram(m_imageUIPipelineAddr);
@@ -350,8 +351,8 @@ void VulkanGraphicsEngine::DestroyVertexShader(uint32_t a_addr)
     ICARIAN_ASSERT_MSG(a_addr < m_vertexShaders.Size(), "DestroyVertexShader out of bounds");
     ICARIAN_ASSERT_MSG(m_vertexShaders[a_addr] != nullptr, "DestroyVertexShader already destroyed");
 
-    VulkanVertexShader* shader = m_vertexShaders[a_addr];
-    ICARIAN_DEFER_del(shader);
+    const VulkanVertexShader* shader = m_vertexShaders[a_addr];
+    IDEFER(delete shader);
 
     m_vertexShaders.LockSet(a_addr, nullptr);
 }
@@ -407,8 +408,8 @@ void VulkanGraphicsEngine::DestroyPixelShader(uint32_t a_addr)
     ICARIAN_ASSERT_MSG(a_addr < m_pixelShaders.Size(), "DestroyPixelShader out of bounds");
     ICARIAN_ASSERT_MSG(m_pixelShaders[a_addr] != nullptr, "DestroyPixelShader already destroyed");
 
-    VulkanPixelShader* shader = m_pixelShaders[a_addr];
-    ICARIAN_DEFER_del(shader);
+    const VulkanPixelShader* shader = m_pixelShaders[a_addr];
+    IDEFER(delete shader);
 
     m_pixelShaders.LockSet(a_addr, nullptr);
 }
@@ -453,8 +454,12 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
     nullProgram.Data = nullptr;
     nullProgram.Flags |= 0b1 << FlareBase::RenderProgram::FreeFlag;
 
-    FlareBase::RenderProgram program = m_shaderPrograms[a_addr];
-    ICARIAN_DEFER(program, if (program.Data != nullptr) { delete (VulkanShaderData*)program.Data; });
+    const FlareBase::RenderProgram program = m_shaderPrograms[a_addr];
+    IDEFER(
+    if (program.Data != nullptr)
+    {
+        delete (VulkanShaderData*)program.Data;
+    });
     
     m_shaderPrograms.LockSet(a_addr, nullProgram);
 
@@ -1354,8 +1359,8 @@ void VulkanGraphicsEngine::DestroyTexture(uint32_t a_addr)
     ICARIAN_ASSERT_MSG(a_addr < m_textures.Size(), "DestroyTexture Texture out of bounds");
     ICARIAN_ASSERT_MSG(m_textures[a_addr] != nullptr, "DestroyTexture already destroyed");
     
-    VulkanTexture* texture = m_textures[a_addr];
-    ICARIAN_DEFER_del(texture);
+    const VulkanTexture* texture = m_textures[a_addr];
+    IDEFER(delete texture);
 
     m_textures.LockSet(a_addr, nullptr);
 }
@@ -1472,7 +1477,11 @@ void VulkanGraphicsEngine::DestroyTextureSampler(uint32_t a_addr)
     nullSampler.Data = nullptr;
 
     const FlareBase::TextureSampler sampler = m_textureSampler[a_addr];
-    ICARIAN_DEFER(sampler, if (sampler.Data != nullptr) { delete (VulkanTextureSampler*)sampler.Data; });
+    IDEFER(
+    if (sampler.Data != nullptr) 
+    { 
+        delete (VulkanTextureSampler*)sampler.Data; 
+    });
 
     m_textureSampler.LockSet(a_addr, nullSampler);
 }

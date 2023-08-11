@@ -36,13 +36,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     VmaAllocationInfo stagingVBInfo = { 0 };
     ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &vBInfo, &vBAInfo, &stagingVBuffer, &stagingVBAlloc, &stagingVBInfo) == VK_SUCCESS, "Failed to create vertex staging buffer");
     
-    const struct
-    {
-        VmaAllocator allocator;
-        VmaAllocation allocation;
-        VkBuffer buffer;
-    } vStagingD = { allocator, stagingVBAlloc, stagingVBuffer };
-    ICARIAN_DEFER(vStagingD, vmaDestroyBuffer(vStagingD.allocator, vStagingD.buffer, vStagingD.allocation));
+    IDEFER(vmaDestroyBuffer(allocator, stagingVBuffer, stagingVBAlloc));
 
     memcpy(stagingVBInfo.pMappedData, a_vertices, vbSize);
 
@@ -70,13 +64,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     VmaAllocationInfo stagingIBInfo = { 0 };
     ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &iBInfo, &iBAInfo, &stagingIBuffer, &stagingIBAlloc, &stagingIBInfo) == VK_SUCCESS, "Failed to create index staging buffer");
 
-    const struct
-    {
-        VmaAllocator allocator;
-        VmaAllocation allocation;
-        VkBuffer buffer;
-    } iStagingD = { allocator, stagingIBAlloc, stagingIBuffer };
-    ICARIAN_DEFER(iStagingD, vmaDestroyBuffer(iStagingD.allocator, iStagingD.buffer, iStagingD.allocation));
+    IDEFER(vmaDestroyBuffer(allocator, stagingIBuffer, stagingIBAlloc));
 
     memcpy(stagingIBInfo.pMappedData, a_indices, ibSize);
 

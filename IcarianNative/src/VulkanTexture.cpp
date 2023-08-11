@@ -37,7 +37,7 @@ void VulkanTexture::Init(VulkanRenderEngineBackend* a_engine, uint32_t a_width, 
     VmaAllocationInfo stagingAllocationInfo;
     ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBufferInfoStruct.buffer, &stagingBufferInfoStruct.allocation, &stagingAllocationInfo) == VK_SUCCESS, "Failed to create staging texture");
 
-    ICARIAN_DEFER(stagingBufferInfoStruct, vmaDestroyBuffer(stagingBufferInfoStruct.allocator, stagingBufferInfoStruct.buffer, stagingBufferInfoStruct.allocation));
+    IDEFER(vmaDestroyBuffer(allocator, stagingBufferInfoStruct.buffer, stagingBufferInfoStruct.allocation));
 
     if (a_data != nullptr)
     {

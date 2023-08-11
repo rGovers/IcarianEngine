@@ -159,7 +159,7 @@ void ThreadPool::DestroyLock(uint32_t a_addr)
     ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "DetroyLock lock is already destroyed");
 
     const std::shared_mutex* mutex = Instance->m_runtimeLocks[a_addr];
-    ICARIAN_DEFER_del(mutex);
+    IDEFER(delete mutex);
     Instance->m_runtimeLocks.LockSet(a_addr, nullptr);
 }
 
@@ -220,7 +220,11 @@ void ThreadPool::Run(uint32_t a_thread)
     {
         ThreadJob* job = nullptr;
         ThreadJob** jobPtr = &job;
-        ICARIAN_DEFER(jobPtr, if (*jobPtr != nullptr) { delete *jobPtr; });
+        IDEFER(
+        if (*jobPtr != nullptr) 
+        {
+            delete *jobPtr; 
+        });
 
         {
             std::unique_lock l = std::unique_lock(Instance->m_lock);

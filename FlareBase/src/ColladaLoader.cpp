@@ -826,7 +826,7 @@ namespace FlareBase
             e_ColladaUpAxis up = ColladaUpAxis_YUp;
             float scale = 1.0f;
             std::vector<ColladaGeometry> geometry;
-            ICARIAN_DEFER(geometry, 
+            IDEFER( 
             {
                 for (const ColladaGeometry& g : geometry)
                 {
@@ -963,11 +963,11 @@ namespace FlareBase
                     int texVCount;
 
                     const int* posOffset = ColladaLoader_GetOffsets(posSource, &posVCount);
-                    ICARIAN_DEFER_delA(posOffset);
+                    IDEFER(delete[] posOffset);
                     const int* normalOffset = ColladaLoader_GetOffsets(normalSource, &normVCount);
-                    ICARIAN_DEFER_delA(normalOffset);
+                    IDEFER(delete[] normalOffset);
                     const int* texcoordOffset = ColladaLoader_GetOffsets(texcoordSource, &texVCount);
-                    ICARIAN_DEFER_delA(texcoordOffset);
+                    IDEFER(delete[] texcoordOffset);
 
                     std::unordered_map<uint64_t, uint32_t> indexMap;
 
@@ -1112,11 +1112,11 @@ namespace FlareBase
                     int texVCount;
 
                     int* posOffset = ColladaLoader_GetOffsets(posSource, &posVCount);
-                    ICARIAN_DEFER_delA(posOffset);
+                    IDEFER(delete[] posOffset);
                     int* normalOffset = ColladaLoader_GetOffsets(normalSource, &normVCount);
-                    ICARIAN_DEFER_delA(normalOffset);
+                    IDEFER(delete[] normalOffset);
                     int* texcoordOffset = ColladaLoader_GetOffsets(texcoordSource, &texVCount);
-                    ICARIAN_DEFER_delA(texcoordOffset);
+                    IDEFER(delete[] texcoordOffset);
 
                     std::unordered_map<uint64_t, uint32_t> indexMap;
 
@@ -1236,10 +1236,11 @@ namespace FlareBase
 
             if (file.good() && file.is_open())
             {
+                IDEFER(file.close());
                 const uint32_t size = (uint32_t)std::filesystem::file_size(a_path);
 
                 char* dat = new char[size];
-                ICARIAN_DEFER_delA(dat);
+                IDEFER(delete[] dat);
                 file.read(dat, size);
 
                 return ColladaLoader_LoadData(dat, (uint32_t)size, a_vertices, a_indices, a_radius);
@@ -1295,7 +1296,7 @@ namespace FlareBase
             e_ColladaUpAxis up = ColladaUpAxis_YUp;
             float scale = 1.0f;
             std::vector<ColladaGeometry> geometry;
-            ICARIAN_DEFER(geometry,
+            IDEFER(
             {
                 for (const ColladaGeometry& g : geometry)
                 {
@@ -1324,7 +1325,7 @@ namespace FlareBase
                 }
             });
             std::vector<ColladaController> controllers;
-            ICARIAN_DEFER(controllers,
+            IDEFER(
             {
                 for (const ColladaController& c : controllers)
                 {
@@ -1513,9 +1514,9 @@ namespace FlareBase
                             }
 
                             glm::vec4* weights = new glm::vec4[controller.Skin.VertexWeights.Count];
-                            ICARIAN_DEFER_delA(weights);
+                            IDEFER(delete[] weights);
                             glm::ivec4* joints = new glm::ivec4[controller.Skin.VertexWeights.Count];
-                            ICARIAN_DEFER_delA(joints);
+                            IDEFER(delete[] joints);
 
                             memset(weights, 0, sizeof(glm::vec4) * controller.Skin.VertexWeights.Count);
                             memset(joints, 0, sizeof(glm::ivec4) * controller.Skin.VertexWeights.Count);
@@ -1546,11 +1547,11 @@ namespace FlareBase
                             int texVCount;
 
                             const int* posOffset = ColladaLoader_GetOffsets(posSource, &posVCount);
-                            ICARIAN_DEFER_delA(posOffset);
+                            IDEFER(delete[] posOffset);
                             const int* normalOffset = ColladaLoader_GetOffsets(normalSource, &normVCount);
-                            ICARIAN_DEFER_delA(normalOffset);
+                            IDEFER(delete[] normalOffset);
                             const int* texcoordOffset = ColladaLoader_GetOffsets(texcoordSource, &texVCount);
-                            ICARIAN_DEFER_delA(texcoordOffset);
+                            IDEFER(delete[] texcoordOffset);
 
                             std::unordered_map<uint64_t, uint32_t> indexMap;
 
@@ -1751,9 +1752,9 @@ namespace FlareBase
                             }
 
                             glm::vec4* weights = new glm::vec4[controller.Skin.VertexWeights.Count];
-                            ICARIAN_DEFER_delA(weights);
+                            IDEFER(delete[] weights);
                             glm::ivec4* joints = new glm::ivec4[controller.Skin.VertexWeights.Count];
-                            ICARIAN_DEFER_delA(joints);
+                            IDEFER(delete[] joints);
 
                             memset(weights, 0, sizeof(glm::vec4) * controller.Skin.VertexWeights.Count);
                             memset(joints, 0, sizeof(glm::ivec4) * controller.Skin.VertexWeights.Count);
@@ -1785,11 +1786,11 @@ namespace FlareBase
                             int texVCount;
 
                             const int* posOffset = ColladaLoader_GetOffsets(posSource, &posVCount);
-                            ICARIAN_DEFER_delA(posOffset);
+                            IDEFER(delete[] posOffset);
                             const int* normalOffset = ColladaLoader_GetOffsets(normalSource, &normVCount);
-                            ICARIAN_DEFER_delA(normalOffset);
+                            IDEFER(delete[] normalOffset);
                             const int* texcoordOffset = ColladaLoader_GetOffsets(texcoordSource, &texVCount);
-                            ICARIAN_DEFER_delA(texcoordOffset);
+                            IDEFER(delete[] texcoordOffset);
 
                             std::unordered_map<uint64_t, uint32_t> indexMap;
 
@@ -1884,7 +1885,7 @@ namespace FlareBase
                 const uint32_t size = (uint32_t)std::filesystem::file_size(a_path);
 
                 char* dat = new char[size];
-                ICARIAN_DEFER_delA(dat);
+                IDEFER(delete[] dat);
                 file.read(dat, size);
 
                 return ColladaLoader_LoadSkinnedData(dat, (uint32_t)size, a_vertices, a_indices, a_radius);
@@ -1935,10 +1936,11 @@ namespace FlareBase
 
             if (file.good() && file.is_open())
             {
+                IDEFER(file.close());
                 const uint32_t size = (uint32_t)std::filesystem::file_size(a_path);
 
                 char* dat = new char[size];
-                ICARIAN_DEFER_delA(dat);
+                IDEFER(delete[] dat);
                 file.read(dat, size);
 
                 return ColladaLoader_LoadBoneData(dat, (uint32_t)size, a_bones);

@@ -135,6 +135,7 @@ public:
     void AddChild(uint32_t a_childAddr)
     {
         uint32_t* newBuffer = new uint32_t[m_childCount + 1];
+        const uint32_t* oldBuffer = m_children;
 
         for (uint32_t i = 0; i < m_childCount; ++i)
         {
@@ -143,7 +144,11 @@ public:
 
         newBuffer[m_childCount++] = a_childAddr;
 
-        ICARIAN_DEFER(m_children, if (m_children != nullptr) { delete[] m_children; });
+        IDEFER(
+        if (oldBuffer != nullptr) 
+        { 
+            delete[] oldBuffer;
+        });
         m_children = newBuffer;
     }
     void RemoveChild(uint32_t a_childAddr)

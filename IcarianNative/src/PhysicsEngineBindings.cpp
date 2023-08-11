@@ -437,13 +437,7 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
     JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
     const JPH::BodyID id = interface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
 
-    const struct 
-    {
-        IcBodyActivationListener* Listener;
-        JPH::BodyID ID;
-    } activationVal = { m_engine->m_activationListener, id };
-
-    ICARIAN_DEFER(activationVal, activationVal.Listener->OnBodyActivated(activationVal.ID, 0));
+    IDEFER(m_engine->m_activationListener->OnBodyActivated(id, 0));
 
     const BodyBinding binding = BodyBinding(a_transformAddr, id);
     {
@@ -680,10 +674,10 @@ RaycastResult* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm:
 MonoArray* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir) const
 {
     uint32_t resultCount;
-    RaycastResult* results = Raycast(a_pos, a_dir, &resultCount);
+    const RaycastResult* results = Raycast(a_pos, a_dir, &resultCount);
     if (results != nullptr)
     {
-        ICARIAN_DEFER_delA(results);
+        IDEFER(delete[] results);
 
         MonoClass* klass = m_runtime->GetClass("IcarianEngine.Physics", "RaycastResultS");
         MonoArray* arr = mono_array_new(m_runtime->GetDomain(), klass, (uintptr_t)resultCount);
@@ -728,10 +722,10 @@ uint32_t* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float a
 MonoArray* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float a_radius) const
 {
     uint32_t resultCount;
-    uint32_t* data = SphereCollision(a_pos, a_radius, &resultCount);
+    const uint32_t* data = SphereCollision(a_pos, a_radius, &resultCount);
     if (data != nullptr)
     {
-        ICARIAN_DEFER_delA(data);
+        IDEFER(delete[] data);
 
         MonoArray* arr = mono_array_new(m_runtime->GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
 
@@ -796,11 +790,11 @@ MonoArray* PhysicsEngineBindings::BoxCollision(MonoArray* a_transform, const glm
     }
 
     uint32_t resultCount;
-    uint32_t* data = BoxCollision(t, a_extents, &resultCount);
+    const uint32_t* data = BoxCollision(t, a_extents, &resultCount);
 
     if (data != nullptr)
     {
-        ICARIAN_DEFER_delA(data);
+        IDEFER(delete[] data);
 
         MonoArray* arr = mono_array_new(m_runtime->GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
 
@@ -849,11 +843,11 @@ uint32_t* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm
 MonoArray* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm::vec3& a_max) const
 {
     uint32_t resultCount;
-    uint32_t* data = AABBCollision(a_min, a_max, &resultCount);
+    const uint32_t* data = AABBCollision(a_min, a_max, &resultCount);
 
     if (data != nullptr)
     {
-        ICARIAN_DEFER_delA(data);
+        IDEFER(delete[] data);
 
         MonoArray* arr = mono_array_new(m_runtime->GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
 

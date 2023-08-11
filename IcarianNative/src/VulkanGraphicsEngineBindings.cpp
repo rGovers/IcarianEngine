@@ -96,7 +96,7 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     F(SpotLightBuffer, IcarianEngine.Rendering.Lighting, SpotLight, GetBuffer, { return Engine->GetSpotLightBuffer(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Lighting, SpotLight, SetBuffer, { Engine->SetSpotLightBuffer(a_addr, a_buffer); }, uint32_t a_addr, SpotLightBuffer a_buffer) \
     \
-    F(uint32_t, IcarianEngine.Rendering.UI, Font, GenerateFont, { char* str = mono_string_to_utf8(a_path); ICARIAN_DEFER_monoF(str); return Engine->GenerateFont(str); }, MonoString* a_path) \
+    F(uint32_t, IcarianEngine.Rendering.UI, Font, GenerateFont, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return Engine->GenerateFont(str); }, MonoString* a_path) \
     F(void, IcarianEngine.Rendering.UI, Font, DestroyFont, { Engine->DestroyFont(a_addr); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering.UI, CanvasRenderer, GenerateBuffer, { return Engine->GenerateCanvasRenderer(); }) \
@@ -291,7 +291,8 @@ FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(Material, DestroyProgram), uint32_
 {
     const FlareBase::RenderProgram program = Engine->GetRenderProgram(a_addr);
 
-    ICARIAN_DEFER(program, 
+    IDEFER(
+    {
         if (program.VertexAttribs != nullptr)
         {
             delete[] program.VertexAttribs;
@@ -301,7 +302,7 @@ FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(Material, DestroyProgram), uint32_
         {
             delete[] program.ShaderBufferInputs;
         }
-    );
+    });
 
     Engine->DestroyShaderProgram(a_addr);
 }
@@ -309,10 +310,8 @@ FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(Material, DestroyProgram), uint32_
 FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Texture, GenerateFromFile), MonoString* a_path)
 {
     char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
     const std::filesystem::path p = std::filesystem::path(str);
-    mono_free(str);
-
-    uint32_t addr = -1;
 
     if (p.extension() == ".png")
     {
@@ -324,13 +323,17 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Texture, GenerateFromFile), Mo
 		stbi_uc* pixels = stbi_load(str.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 		if (pixels != nullptr)
 		{
-			addr = Engine->GenerateTexture((uint32_t)width, (uint32_t)height, pixels);
+            IDEFER(stbi_image_free(pixels));
 
-			stbi_image_free(pixels);
+			return Engine->GenerateTexture((uint32_t)width, (uint32_t)height, pixels);
 		}
     }
+    else 
+    {
+        ICARIAN_ASSERT_MSG_R(0, "GenerateFromFile invalid file type");
+    }
 
-    return addr;
+    return -1;
 }
 
 FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateModel), MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride, float a_radius)
@@ -362,7 +365,7 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateModel), MonoArr
 FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateFromFile), MonoString* a_path)
 {
     char* str = mono_string_to_utf8(a_path);
-    ICARIAN_DEFER_monoF(str);
+    IDEFER(mono_free(str));
 
     std::vector<FlareBase::Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -729,7 +732,7 @@ void VulkanGraphicsEngineBindings::DestroyModel(uint32_t a_addr) const
     ICARIAN_ASSERT_MSG(m_graphicsEngine->m_models.Exists(a_addr), "DestroyModel already destroyed");
 
     const VulkanModel* model = m_graphicsEngine->m_models[a_addr];
-    ICARIAN_DEFER_del(model);
+    IDEFER(delete model);
     m_graphicsEngine->m_models.Erase(a_addr);
 }
 
@@ -878,7 +881,7 @@ void VulkanGraphicsEngineBindings::DestroyRenderTexture(uint32_t a_addr) const
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_renderTextures.Size(), "DestroyRenderTexture out of bounds");
 
     const VulkanRenderTexture* tex = m_graphicsEngine->m_renderTextures[a_addr];
-    ICARIAN_DEFER_del(tex);
+    IDEFER(delete tex);
     m_graphicsEngine->m_renderTextures.Erase(a_addr);
 }
 uint32_t VulkanGraphicsEngineBindings::GetRenderTextureTextureCount(uint32_t a_addr) const
@@ -938,7 +941,7 @@ void VulkanGraphicsEngineBindings::DestroyDepthRenderTexture(uint32_t a_addr) co
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_depthRenderTextures.Size(), "DestroyDepthRenderTexture out of bounds");
 
     const VulkanDepthRenderTexture* tex = m_graphicsEngine->m_depthRenderTextures[a_addr];
-    ICARIAN_DEFER_del(tex);
+    IDEFER(delete tex);
     m_graphicsEngine->m_depthRenderTextures.Erase(a_addr);
 }
 
@@ -977,7 +980,7 @@ void VulkanGraphicsEngineBindings::DestroyDirectionalLightBuffer(uint32_t a_addr
 
     const DirectionalLightBuffer buffer = m_graphicsEngine->m_directionalLights[a_addr];
     const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
-    ICARIAN_DEFER_del(lightBuffer);
+    IDEFER(delete lightBuffer);
     m_graphicsEngine->m_directionalLights.Erase(a_addr);
 }
 void VulkanGraphicsEngineBindings::AddDirectionalLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const
@@ -999,7 +1002,11 @@ void VulkanGraphicsEngineBindings::AddDirectionalLightShadowMap(uint32_t a_addr,
     // Not the best way to do this, but it works for now
     const std::unique_lock g = std::unique_lock(m_graphicsEngine->m_directionalLights.Lock());
     const VulkanLightRenderTexture* renderTextures = lightBuffer->LightRenderTextures;
-    ICARIAN_DEFER(renderTextures, if (renderTextures != nullptr) { delete[] renderTextures; });
+    IDEFER(
+    if (renderTextures != nullptr)
+    {
+        delete[] renderTextures;
+    });
     lightBuffer->LightRenderTextures = renderTexture;
     ++lightBuffer->LightRenderTextureCount;
 }
