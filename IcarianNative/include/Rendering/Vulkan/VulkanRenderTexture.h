@@ -30,7 +30,6 @@ private:
     vk::ClearValue*            m_clearValues;
     
     void Init(uint32_t a_width, uint32_t a_height);
-    void Destroy();
 
 protected:
 

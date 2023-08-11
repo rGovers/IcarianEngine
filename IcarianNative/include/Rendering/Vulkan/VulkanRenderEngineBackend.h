@@ -1,15 +1,28 @@
 #pragma once
 
+#include "Rendering/Vulkan/VulkanConstants.h"
+
+#include "DataTypes/TArray.h"
 #include "Rendering/RenderEngineBackend.h"
 
 #include <mutex>
-
-#include "Rendering/Vulkan/VulkanConstants.h"
 
 class AppWindow;
 class RuntimeManager;
 class VulkanGraphicsEngine;
 class VulkanSwapchain;
+
+class VulkanDeletionObject
+{
+private:
+
+protected:
+
+public:
+    virtual ~VulkanDeletionObject() { }
+
+    virtual void Destroy() = 0;
+};
 
 class VulkanRenderEngineBackend : public RenderEngineBackend
 {
@@ -30,6 +43,8 @@ private:
     vk::Queue                                     m_presentQueue = nullptr;
     
     vk::PhysicalDevicePushDescriptorPropertiesKHR m_pushDescriptorProperties;
+
+    TArray<VulkanDeletionObject*>                 m_deletionObjects[VulkanMaxFlightFrames];
 
     std::vector<vk::Semaphore>                    m_interSemaphore[VulkanMaxFlightFrames];
     vk::Semaphore                                 m_imageAvailable[VulkanMaxFlightFrames];
@@ -65,6 +80,8 @@ public:
     virtual void DestroyTextureSampler(uint32_t a_addr);
 
     virtual Font* GetFont(uint32_t a_addr);
+
+    void PushDeletionObject(VulkanDeletionObject* a_object);
 
     inline VmaAllocator GetAllocator() const
     {

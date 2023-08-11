@@ -5,6 +5,98 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
+class VulkanRenderTextureDeletionObject : public VulkanDeletionObject
+{
+private:
+    VulkanRenderEngineBackend* m_engine;
+
+    vk::Image*                 m_images;
+    vk::ImageView*             m_views;
+    VmaAllocation*             m_allocations;
+
+    vk::Framebuffer            m_framebuffer;
+
+    uint32_t                   m_textureCount;
+
+protected:
+
+public:
+    VulkanRenderTextureDeletionObject(VulkanRenderEngineBackend* a_engine, uint32_t a_textureCount, const vk::Image* a_images, const vk::ImageView* a_views, const VmaAllocation* a_allocations, vk::Framebuffer a_framebuffer)
+    {
+        m_engine = a_engine;
+
+        m_textureCount = a_textureCount;
+
+        m_images = new vk::Image[m_textureCount];
+        m_views = new vk::ImageView[m_textureCount];
+        m_allocations = new VmaAllocation[m_textureCount];
+
+        for (uint32_t i = 0; i < m_textureCount; ++i)
+        {
+            m_images[i] = a_images[i];
+            m_views[i] = a_views[i];
+            m_allocations[i] = a_allocations[i];
+        }
+
+        m_framebuffer = a_framebuffer;
+    }
+    virtual ~VulkanRenderTextureDeletionObject()
+    {
+        delete[] m_images;
+        delete[] m_views;
+        delete[] m_allocations;
+    }
+
+    virtual void Destroy()
+    {
+        const vk::Device device = m_engine->GetLogicalDevice();
+        const VmaAllocator allocator = m_engine->GetAllocator();
+
+        TRACE("Destroying Render Texture Textures");
+        for (uint32_t i = 0; i < m_textureCount; ++i)
+        {
+            vmaDestroyImage(allocator, m_images[i], m_allocations[i]);
+            device.destroyImageView(m_views[i]);
+        }
+
+        TRACE("Destroying Framebuffer");
+        device.destroyFramebuffer(m_framebuffer);
+    }
+};
+
+class VulkanRenderTextureRenderPassDeletionObject : public VulkanDeletionObject
+{
+private:
+    VulkanRenderEngineBackend* m_engine;
+
+    vk::RenderPass             m_renderPass;
+    vk::RenderPass             m_renderPassNoClear;
+
+protected:
+
+public:
+    VulkanRenderTextureRenderPassDeletionObject(VulkanRenderEngineBackend* a_engine, vk::RenderPass a_renderPass, vk::RenderPass a_renderPassNoClear)
+    {
+        m_engine = a_engine;
+
+        m_renderPass = a_renderPass;
+        m_renderPassNoClear = a_renderPassNoClear;
+    }
+    virtual ~VulkanRenderTextureRenderPassDeletionObject()
+    {
+
+    }
+
+    virtual void Destroy()
+    {
+        const vk::Device device = m_engine->GetLogicalDevice();
+
+        TRACE("Destroying Render Pass");
+        device.destroyRenderPass(m_renderPass);
+        device.destroyRenderPass(m_renderPassNoClear);
+    }
+};
+
 constexpr vk::Format DepthFormats[] = 
 {
     vk::Format::eD32Sfloat,
@@ -220,10 +312,8 @@ VulkanRenderTexture::~VulkanRenderTexture()
     
     const vk::Device device = m_engine->GetLogicalDevice();
 
-    Destroy();
-
-    device.destroyRenderPass(m_renderPass);
-    device.destroyRenderPass(m_renderPassNoClear);
+    m_engine->PushDeletionObject(new VulkanRenderTextureDeletionObject(m_engine, GetTotalTextureCount(), m_textures, m_textureViews, m_textureAllocations, m_frameBuffer));
+    m_engine->PushDeletionObject(new VulkanRenderTextureRenderPassDeletionObject(m_engine, m_renderPass, m_renderPassNoClear));
 
     delete[] m_textures;
     delete[] m_textureViews;
@@ -371,30 +461,11 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 
     ICARIAN_ASSERT_R(device.createFramebuffer(&fbCreateInfo, nullptr, &m_frameBuffer) == vk::Result::eSuccess);
 }
-void VulkanRenderTexture::Destroy()
-{
-    const vk::Device device = m_engine->GetLogicalDevice();
-    const VmaAllocator allocator = m_engine->GetAllocator();
-
-    device.waitIdle();
-
-    const uint32_t totalTextureCount = GetTotalTextureCount();
-
-    TRACE("Destroying Render Texture Textures");
-    for (uint32_t i = 0; i < totalTextureCount; ++i)
-    {
-        vmaDestroyImage(allocator, m_textures[i], m_textureAllocations[i]);
-        device.destroyImageView(m_textureViews[i]);
-    }
-
-    TRACE("Destroying Framebuffer");
-    device.destroyFramebuffer(m_frameBuffer);
-}
 
 void VulkanRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 {
     TRACE("Resizing Render Texture");
-    Destroy();
+    m_engine->PushDeletionObject(new VulkanRenderTextureDeletionObject(m_engine, GetTotalTextureCount(), m_textures, m_textureViews, m_textureAllocations, m_frameBuffer));
 
     Init(a_width, a_height);
 }

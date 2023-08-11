@@ -5,6 +5,42 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
+class VulkanTextureDeletionObject : public VulkanDeletionObject
+{
+private:
+    VulkanRenderEngineBackend* m_engine;
+
+    vk::Image                  m_image;
+    vk::ImageView              m_view;
+    VmaAllocation              m_allocation;
+
+protected:
+
+public:
+    VulkanTextureDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Image a_image, vk::ImageView a_view, VmaAllocation a_allocation)
+    {
+        m_engine = a_engine;
+
+        m_image = a_image;
+        m_view = a_view;
+        m_allocation = a_allocation;
+    }
+    virtual ~VulkanTextureDeletionObject()
+    {
+        
+    }
+
+    virtual void Destroy() override
+    {
+        TRACE("Destroying Texture");
+        const vk::Device device = m_engine->GetLogicalDevice();
+        const VmaAllocator allocator = m_engine->GetAllocator();
+
+        device.destroyImageView(m_view);
+        vmaDestroyImage(allocator, m_image, m_allocation);
+    }
+};
+
 void VulkanTexture::Init(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, const void* a_data, vk::Format a_format, uint32_t a_channels)
 {
     m_engine = a_engine;
@@ -128,20 +164,8 @@ VulkanTexture::VulkanTexture()
 }
 VulkanTexture::~VulkanTexture()
 {
-    const vk::Device device = m_engine->GetLogicalDevice();
-    const VmaAllocator allocator = m_engine->GetAllocator();
-
-    TRACE("Destroying Texture");
-
-    // TODO: Seems to fix driver crash so suspect read after free causing driver crash
-    // weird there was no validation error
-    // Need to investigate further and confirm as bug is inconsistent refer to TextUIElement.cpp for more info
-    // Didnt crash while making and eating dinner so probably fixed
-    // Improve resource destruction down the line anyway so will probably rewrite
-    device.waitIdle();
-
-    device.destroyImageView(m_view);
-    vmaDestroyImage(allocator, m_image, m_allocation);
+    TRACE("Queueing Texture Deletion");
+    m_engine->PushDeletionObject(new VulkanTextureDeletionObject(m_engine, m_image, m_view, m_allocation));
 }
 
 VulkanTexture* VulkanTexture::CreateRGBA(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, const void* a_data)

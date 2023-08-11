@@ -59,6 +59,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
 
         break;
     }
+    default:
+    {
+        break;
+    }
     }
 
     return VK_FALSE;
@@ -410,10 +414,28 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
     TRACE("Begin Vulkan clean up");
     m_lDevice.waitIdle();
 
+    delete m_graphicsEngine;
+
+    for (uint32_t i = 0; i < VulkanMaxFlightFrames; ++i)
+    {
+        const TLockArray a = m_deletionObjects[i].ToLockArray();
+
+        for (VulkanDeletionObject* obj : a)
+        {
+            if (obj != nullptr)
+            {
+                obj->Destroy();
+
+                delete obj;
+            }
+        }
+
+        m_deletionObjects[i].UClear();
+    }
+
     TRACE("Destroy Command Pool");
     m_lDevice.destroyCommandPool(m_commandPool);
 
-    delete m_graphicsEngine;
     if (m_swapchain != nullptr)
     {
         delete m_swapchain;
@@ -459,25 +481,46 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
 
 void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 {
-    Profiler::StartFrame("Swap Setup");
-
     m_runtime->AttachThread();
 
     AppWindow* window = GetRenderEngine()->m_window;
-    if (m_swapchain == nullptr)
     {
-        m_swapchain = new VulkanSwapchain(this, window, m_runtime);
-        m_graphicsEngine->SetSwapchain(m_swapchain);
-    }
+        PROFILESTACK("Swap Setup");
 
-    if (!m_swapchain->StartFrame(m_imageAvailable[m_currentFlightFrame], m_inFlight[m_currentFlightFrame], &m_imageIndex, a_delta, a_time))
+        if (m_swapchain == nullptr)
+        {
+            m_swapchain = new VulkanSwapchain(this, window, m_runtime);
+            m_graphicsEngine->SetSwapchain(m_swapchain);
+        }
+
+        if (!m_swapchain->StartFrame(m_imageAvailable[m_currentFlightFrame], m_inFlight[m_currentFlightFrame], &m_imageIndex, a_delta, a_time))
+        {
+            return;
+        }
+    }
+    
+    // I have this queue setup because resources may be used as they are being deleted
+    // The proper way to do this seem to be doing elaborate semaphore/fence setups
+    // Followed the KISS philosophy so just queue resources to be deleted on the next time round on the flight frame
+    // Seems to be working fine without having to fuck around more with fences have not had a driver crash so far
+    // Only problem is have to wait the number of flight frames for resources to be de-allocated
     {
-        Profiler::StopFrame();
+        PROFILESTACK("Queue Cleanup");
 
-        return;
+        const TLockArray a = m_deletionObjects[m_currentFlightFrame].ToLockArray();
+
+        for (VulkanDeletionObject* obj : a)
+        {
+            if (obj != nullptr)
+            {
+                obj->Destroy();
+
+                delete obj;
+            }
+        }
+
+        m_deletionObjects[m_currentFlightFrame].UClear();
     }
-
-    Profiler::StopFrame();
 
     Profiler::StartFrame("Render Update");
 
@@ -565,14 +608,14 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
     Profiler::StopFrame();
 
-    Profiler::StartFrame("Swap Present");
+    {
+        PROFILESTACK("Swap Present");
 
-    m_swapchain->EndFrame(m_interSemaphore[m_currentFlightFrame][endBuffer], m_inFlight[m_currentFlightFrame], m_imageIndex);
+        m_swapchain->EndFrame(m_interSemaphore[m_currentFlightFrame][endBuffer], m_inFlight[m_currentFlightFrame], m_imageIndex);
 
-    m_currentFrame = (m_currentFrame + 1) % VulkanFlightPoolSize;
-    m_currentFlightFrame = (m_currentFlightFrame + 1) % VulkanMaxFlightFrames;
-
-    Profiler::StopFrame();
+        m_currentFrame = (m_currentFrame + 1) % VulkanFlightPoolSize;
+        m_currentFlightFrame = (m_currentFlightFrame + 1) % VulkanMaxFlightFrames;
+    }
 }
 
 vk::CommandBuffer VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBufferLevel a_level)
@@ -658,6 +701,11 @@ void VulkanRenderEngineBackend::DestroyTextureSampler(uint32_t a_addr)
 Font* VulkanRenderEngineBackend::GetFont(uint32_t a_addr)
 {
     return m_graphicsEngine->GetFont(a_addr);
+}
+
+void VulkanRenderEngineBackend::PushDeletionObject(VulkanDeletionObject* a_object)
+{
+    m_deletionObjects[m_currentFlightFrame].Push(a_object);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(VkInstance a_instance, const VkDebugUtilsMessengerCreateInfoEXT* a_createInfo, const VkAllocationCallbacks* a_allocator, VkDebugUtilsMessengerEXT* a_messenger)

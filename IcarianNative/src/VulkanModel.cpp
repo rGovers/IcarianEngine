@@ -6,6 +6,45 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
+class VulkanModelDeletionObject : public VulkanDeletionObject
+{
+private:
+    VulkanRenderEngineBackend* m_engine;
+
+    VmaAllocation              m_vbAlloc;
+    VmaAllocation              m_ibAlloc;
+         
+    vk::Buffer                 m_vertexBuffer;
+    vk::Buffer                 m_indexBuffer;
+
+protected:
+
+public:
+    VulkanModelDeletionObject(VulkanRenderEngineBackend* a_engine, VmaAllocation a_vbAlloc, VmaAllocation a_ibAlloc, vk::Buffer a_vertexBuffer, vk::Buffer a_indexBuffer)
+    {
+        m_engine = a_engine;
+
+        m_vbAlloc = a_vbAlloc;
+        m_ibAlloc = a_ibAlloc;
+
+        m_vertexBuffer = a_vertexBuffer;
+        m_indexBuffer = a_indexBuffer;
+    }
+    virtual ~VulkanModelDeletionObject()
+    {
+
+    }
+
+    virtual void Destroy() override
+    {
+        TRACE("Destroying Model");
+        const VmaAllocator allocator = m_engine->GetAllocator();
+
+        vmaDestroyBuffer(allocator, m_vertexBuffer, m_vbAlloc);
+        vmaDestroyBuffer(allocator, m_indexBuffer, m_ibAlloc);
+    }
+};
+
 VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexCount, const void* a_vertices, uint16_t a_vertexSize, uint32_t a_indexCount, const uint32_t* a_indices, float a_radius)
 {
     TRACE("Creating Vulkan Model");
@@ -89,15 +128,8 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
 }   
 VulkanModel::~VulkanModel()
 {
-    TRACE("Destroying Model");
-    const VmaAllocator allocator = m_engine->GetAllocator();
-    const vk::Device device = m_engine->GetLogicalDevice();
-
-    // TODO: Seems like it could be destroyed in a better way
-    device.waitIdle();
-
-    vmaDestroyBuffer(allocator, m_vertexBuffer, m_vbAlloc);
-    vmaDestroyBuffer(allocator, m_indexBuffer, m_ibAlloc);
+    TRACE("Queuing Model Deletion");
+    m_engine->PushDeletionObject(new VulkanModelDeletionObject(m_engine, m_vbAlloc, m_ibAlloc, m_vertexBuffer, m_indexBuffer));
 }
 
 void VulkanModel::Bind(const vk::CommandBuffer& a_cmdBuffer) const
