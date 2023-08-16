@@ -152,8 +152,6 @@ namespace FlareBase
             return nullptr;
         }
 
-        ICARIAN_DEFER(serverSock, closesocket(serverSock));
-
         struct sockaddr_un serverAddr;
         memset(&serverAddr, 0, sizeof(serverAddr));
         serverAddr.sun_family = AF_UNIX;

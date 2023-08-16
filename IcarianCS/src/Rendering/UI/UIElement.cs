@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace IcarianEngine.Rendering.UI
 {
@@ -24,11 +25,15 @@ namespace IcarianEngine.Rendering.UI
         extern static uint[] GetChildren(uint a_addr);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static Vector2 GetPosition(uint a_addr);
+        // extern static Vector2 GetPosition(uint a_addr);
+        // Getting stack corruption on Windows 10 using extern static Vector2 GetPosition(uint a_addr);
+        // Fix is to use IntPtr instead of Vector2
+        extern static void GetPosition(uint a_addr, IntPtr a_ptr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetPosition(uint a_addr, Vector2 a_pos);
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static Vector2 GetSize(uint a_addr);
+        // extern static Vector2 GetSize(uint a_addr);
+        extern static void GetSize(uint a_addr, IntPtr a_ptr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetSize(uint a_addr, Vector2 a_size);
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -39,7 +44,7 @@ namespace IcarianEngine.Rendering.UI
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GetElementState(uint a_addr);
 
-        static ConcurrentDictionary<uint, UIElement> s_elementLookup = new ConcurrentDictionary<uint, UIElement>();
+        static readonly ConcurrentDictionary<uint, UIElement> s_elementLookup = new ConcurrentDictionary<uint, UIElement>();
 
         public delegate void UIEvent(Canvas a_canvas, UIElement a_element);
 
@@ -89,7 +94,13 @@ namespace IcarianEngine.Rendering.UI
         {
             get
             {
-                return GetPosition(BufferAddr);
+                IntPtr ptr = Marshal.AllocHGlobal(Marshal.SizeOf<Vector2>());
+
+                GetPosition(BufferAddr, ptr);
+                Vector2 val = Marshal.PtrToStructure<Vector2>(ptr);
+                Marshal.FreeHGlobal(ptr);
+
+                return val;
             }
             set
             {
@@ -100,7 +111,15 @@ namespace IcarianEngine.Rendering.UI
         {
             get
             {
-                return GetSize(BufferAddr);
+                IntPtr ptr = Marshal.AllocHGlobal(Marshal.SizeOf<Vector2>());
+
+                GetSize(BufferAddr, ptr);
+                Vector2 val = Marshal.PtrToStructure<Vector2>(ptr);
+                Marshal.FreeHGlobal(ptr);
+
+                return val;
+                // return GetSize(BufferAddr);
+                // return Vector2.One;
             }
             set
             {

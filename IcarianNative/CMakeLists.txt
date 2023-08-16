@@ -124,6 +124,12 @@ set(ENABLE_GLSLANG_BINARIES OFF)
 set(BUILD_EXTERNAL OFF)
 set(ENABLE_CTEST OFF)
 
+set(CROSS_PLATFORM_DETERMINISTIC ON)
+if (MSVC)
+    # MSVC is being annoying
+    set(ENABLE_ALL_WARNINGS OFF)
+endif()
+
 if (NOT TARGET glfw)
     add_subdirectory("${PROJECT_SOURCE_DIR}/../deps/flare-glfw/" "build/glfw")
 endif()

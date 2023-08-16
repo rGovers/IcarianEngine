@@ -8,16 +8,19 @@ struct MeshRenderBuffer;
 struct ModelBuffer
 {
     uint32_t ModelAddr;
-    std::vector<uint32_t> TransformAddr;
+    uint32_t* TransformAddr;
+    uint32_t TransformCount;
 };
 
 class MaterialRenderStack
 {
 private:
-    uint32_t                 m_materialAddr;
+    uint32_t     m_materialAddr;
 
-    std::vector<ModelBuffer> m_modelBuffers;
-    
+    ModelBuffer* m_modelBuffers;
+    uint32_t     m_modelBufferCount;
+
+    void InsertTransform(uint32_t a_addr, uint32_t a_transformAddr);
 protected:
 
 public:
@@ -26,7 +29,7 @@ public:
 
     inline bool Empty()
     {
-        return m_modelBuffers.empty();
+        return m_modelBufferCount == 0;
     }
 
     inline uint32_t GetMaterialAddr() const
@@ -34,9 +37,13 @@ public:
         return m_materialAddr;
     }
 
-    inline const std::vector<ModelBuffer>& GetModelBuffers() const
+    inline const ModelBuffer* GetModelBuffers() const
+	{
+		return m_modelBuffers;
+	}
+    inline uint32_t GetModelBufferCount() const
     {
-        return m_modelBuffers;
+        return m_modelBufferCount;
     }
 
     bool Add(const MeshRenderBuffer& a_renderBuffer);

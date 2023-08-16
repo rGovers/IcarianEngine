@@ -463,6 +463,38 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
     
     m_shaderPrograms.LockSet(a_addr, nullProgram);
 
+    {
+        TLockArray<MaterialRenderStack*> a = m_renderStacks.ToLockArray();
+
+        const uint32_t size = a.Size();
+        for (uint32_t i = 0; i < size; ++i)
+        {
+            if (a[i]->GetMaterialAddr() == a_addr)
+			{
+                m_renderStacks.UErase(i);
+
+                break;
+			}
+        }
+    }
+
+    {
+        const std::unique_lock g = std::unique_lock(m_pipeLock);
+
+        for (auto iter = m_pipelines.begin(); iter != m_pipelines.end(); ++iter)
+        {
+            const uint32_t val = (uint32_t)(iter->first >> 32);
+            if (val == a_addr)
+            {
+                const VulkanPipeline* pipeline = iter->second;
+                IDEFER(delete pipeline);
+
+                const auto vIter = iter--;
+                m_pipelines.erase(vIter);
+            }
+        }
+    }
+
     if (program.Flags & 0b1 << FlareBase::RenderProgram::DestroyFlag)
     {
         DestroyVertexShader(program.VertexShader);
@@ -627,51 +659,65 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
     }
     const Frustum frustum = camBuffer.ToFrustum(screenSize, objectManager);
 
-    const std::vector<MaterialRenderStack> stacks = m_renderStacks.ToVector();
+    const TReadLockArray<MaterialRenderStack*> stacks = m_renderStacks.ToReadLockArray();
 
-    for (const MaterialRenderStack& renderStack : stacks)
+    for (const MaterialRenderStack* renderStack : stacks)
     {
-        const uint32_t matAddr = renderStack.GetMaterialAddr();
+        const uint32_t matAddr = renderStack->GetMaterialAddr();
         const FlareBase::RenderProgram& program = m_shaderPrograms[matAddr];
+
         if (camBuffer.RenderLayer & program.RenderLayer)
         {
+            const uint32_t modelCount = renderStack->GetModelBufferCount();
+            const ModelBuffer* modelBuffers = renderStack->GetModelBuffers();
+
             const VulkanPipeline* pipeline = renderCommand.BindMaterial(matAddr);
             ICARIAN_ASSERT(pipeline != nullptr);
-
             const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
             ICARIAN_ASSERT(shaderData != nullptr);
-            
-            const std::vector<ModelBuffer> modelBuffers = renderStack.GetModelBuffers();
-            for (const ModelBuffer& modelBuff : modelBuffers)
+
+            bool bound = false;
+
+            for (uint32_t i = 0; i < modelCount; ++i)
             {
-                if (modelBuff.ModelAddr != -1)
+                const ModelBuffer& modelBuffer = modelBuffers[i];
+                if (modelBuffer.ModelAddr != -1)
                 {
-                    const VulkanModel* model = m_models[modelBuff.ModelAddr];
+                    const VulkanModel* model = m_models[modelBuffer.ModelAddr];
+                    
                     if (model != nullptr)
                     {
                         const float radius = model->GetRadius();
                         const uint32_t indexCount = model->GetIndexCount();
 
                         std::vector<glm::mat4> transforms;
-                        transforms.reserve(modelBuff.TransformAddr.size());
+                        transforms.reserve(modelBuffer.TransformCount);
 
-                        for (uint32_t tAddr : modelBuff.TransformAddr)
+                        const uint32_t transformCount = modelBuffer.TransformCount;
+                        for (uint32_t j = 0; j < transformCount; ++j)
                         {
-                            const glm::mat4 matrix = objectManager->GetGlobalMatrix(tAddr);
-                            const glm::vec3 pos = matrix[3];
-
-                            // Forgot how stupid fast new gpus are apparently a 3080 can just brute force faster huh... 
-                            // gotta keep that in mind for low tri optimization
-                            // Mostly here for older gpus and pci traffic and scales better with more objects
-                            if (frustum.CompareSphere(pos, radius))
+                            const uint32_t transformAddr = modelBuffer.TransformAddr[j];
+                            if (transformAddr != -1)
                             {
-                                transforms.emplace_back(matrix);
+                                const glm::mat4 transform = objectManager->GetGlobalMatrix(modelBuffers[i].TransformAddr[j]);
+                                const glm::vec3 position = transform[3];
+
+                                if (frustum.CompareSphere(position, radius))
+                                {
+                                    transforms.emplace_back(transform);
+                                }
                             }
                         }
 
-                        // TODO: Could probably batch this down the line
                         if (!transforms.empty())
                         {
+                            if (!bound)
+                            {
+                                pipeline->Bind(a_index, commandBuffer);
+
+                                bound = true;
+                            }
+
                             model->Bind(commandBuffer);
 
                             for (const glm::mat4& mat : transforms)

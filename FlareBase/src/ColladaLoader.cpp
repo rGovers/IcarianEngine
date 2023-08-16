@@ -1237,7 +1237,12 @@ namespace FlareBase
             if (file.good() && file.is_open())
             {
                 IDEFER(file.close());
-                const uint32_t size = (uint32_t)std::filesystem::file_size(a_path);
+
+                // Read comment in ColladaLoader_LoadBoneFile
+                file.ignore(std::numeric_limits<std::streamsize>::max());
+                const std::streamsize size = file.gcount();
+                file.clear();
+                file.seekg(0, std::ios::beg);
 
                 char* dat = new char[size];
                 IDEFER(delete[] dat);
@@ -1882,7 +1887,11 @@ namespace FlareBase
 
             if (file.good() && file.is_open())
             {
-                const uint32_t size = (uint32_t)std::filesystem::file_size(a_path);
+                // Read comment in ColladaLoader_LoadBoneFile
+                file.ignore(std::numeric_limits<std::streamsize>::max());
+                const std::streamsize size = file.gcount();
+                file.clear();
+                file.seekg(0, std::ios::beg);
 
                 char* dat = new char[size];
                 IDEFER(delete[] dat);
@@ -1937,7 +1946,15 @@ namespace FlareBase
             if (file.good() && file.is_open())
             {
                 IDEFER(file.close());
-                const uint32_t size = (uint32_t)std::filesystem::file_size(a_path);
+                // Well that is time out of my life I am never getting back
+                // Apparently std::filesystem::file_size does not report the correct size of the file on WIN32 systems
+                // Only discovered this after getting back weird sizes and reading an article trying to figure out why
+                // Fuck Windows and fuck the STL
+                // const uint32_t size = (uint32_t)std::filesystem::file_size(a_path);
+                file.ignore(std::numeric_limits<std::streamsize>::max());
+                const std::streamsize size = file.gcount();
+                file.clear();
+                file.seekg(0, std::ios::beg);
 
                 char* dat = new char[size];
                 IDEFER(delete[] dat);

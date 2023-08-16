@@ -34,7 +34,12 @@ Font* Font::LoadFont(const std::filesystem::path& a_path)
     {
         IDEFER(file.close());
 
-        const uint32_t size = (uint32_t)std::filesystem::file_size(a_path);
+        // Fuck Windows
+        // const uint32_t size = (uint32_t)std::filesystem::file_size(a_path);
+        file.ignore(std::numeric_limits<std::streamsize>::max());
+        const std::streamsize size = file.gcount();
+        file.clear();
+        file.seekg(0, std::ios::beg);
 
         ICARIAN_ASSERT_R(size != 0);
 

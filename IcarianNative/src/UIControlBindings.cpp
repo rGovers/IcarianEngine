@@ -9,6 +9,8 @@
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
+#include <glm/glm.hpp>
+
 static UIControlBindings* Instance = nullptr;
 
 #define UICONTROL_RUNTIME_ATTACH(ret, namespace, klass, name, code, ...) BIND_FUNCTION(a_runtime, namespace, klass, name);
@@ -23,9 +25,7 @@ static UIControlBindings* Instance = nullptr;
     \
     F(void, IcarianEngine.Rendering.UI, UIElement, AddChildElement, { Instance->AddElementChild(a_addr, a_childAddr); }, uint32_t a_addr, uint32_t a_childAddr) \
     F(void, IcarianEngine.Rendering.UI, UIElement, RemoveChildElement, { Instance->RemoveElementChild(a_addr, a_childAddr); }, uint32_t a_addr, uint32_t a_childAddr) \
-    F(glm::vec2, IcarianEngine.Rendering.UI, UIElement, GetPosition, { return Instance->GetElementPosition(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.UI, UIElement, SetPosition, { Instance->SetElementPosition(a_addr, a_pos); }, uint32_t a_addr, glm::vec2 a_pos) \
-    F(glm::vec2, IcarianEngine.Rendering.UI, UIElement, GetSize, { return Instance->GetElementSize(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.UI, UIElement, SetSize, { Instance->SetElementSize(a_addr, a_size); }, uint32_t a_addr, glm::vec2 a_size) \
     F(glm::vec4, IcarianEngine.Rendering.UI, UIElement, GetColor, { return Instance->GetElementColor(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.UI, UIElement, SetColor, { Instance->SetElementColor(a_addr, a_color); }, uint32_t a_addr, glm::vec4 a_color) \
@@ -43,9 +43,14 @@ static UIControlBindings* Instance = nullptr;
     F(uint32_t, IcarianEngine.Rendering.UI, ImageUIElement, GetSampler, { return Instance->GetImageElementSampler(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.UI, ImageUIElement, SetSampler, { Instance->SetImageElementSampler(a_addr, a_samplerAddr); }, uint32_t a_addr, uint32_t a_samplerAddr) \
 
+    // Decomissioned for stack corruption on Windows 10 64bit 19045.3324
+    // Probably me doing something wrong but only on Windows to my knowledge so suspicious
+    // F(glm::vec2, IcarianEngine.Rendering.UI, UIElement, GetPosition, { return Instance->GetElementPosition(a_addr); }, uint32_t a_addr) 
+    // F(glm::vec2, IcarianEngine.Rendering.UI, UIElement, GetSize, { return Instance->GetElementSize(a_addr); }, uint32_t a_addr) \
+
 UICONTROL_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
 
-RUNTIME_FUNCTION(MonoArray*, Canvas, GetChildren, 
+RUNTIME_FUNCTION(MonoArray*, Canvas, GetChildren,
 {
     uint32_t count = 0;
     const uint32_t* children = Instance->GetCanvasChildren(a_addr, &count);
@@ -75,6 +80,15 @@ RUNTIME_FUNCTION(MonoArray*, UIElement, GetChildren,
     return arr;
 }, uint32_t a_addr)
 
+RUNTIME_FUNCTION(void, UIElement, GetPosition,
+{
+    *a_ptr = Instance->GetElementPosition(a_addr);
+    }, uint32_t a_addr, glm::vec2* a_ptr)
+RUNTIME_FUNCTION(void, UIElement, GetSize,
+{
+    *a_ptr = Instance->GetElementSize(a_addr);
+}, uint32_t a_addr, glm::vec2* a_ptr);
+
 RUNTIME_FUNCTION(MonoString*, TextUIElement, GetText, 
 {
     const std::u32string text = Instance->GetTextElementText(a_addr);
@@ -100,6 +114,8 @@ UIControlBindings::UIControlBindings(UIControl* a_uiControl, RuntimeManager* a_r
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.UI, Canvas, GetChildren);
 
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.UI, UIElement, GetChildren);
+    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.UI, UIElement, GetPosition);
+    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.UI, UIElement, GetSize);
 
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.UI, TextUIElement, GetText);
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.UI, TextUIElement, SetText);
@@ -148,12 +164,12 @@ void UIControlBindings::DestroyCanvas(uint32_t a_addr) const
     destroyedBuffer.Flags |= 0b1 << CanvasBuffer::DestroyedBit;
 
     const CanvasBuffer buffer = m_uiControl->m_canvas[a_addr];
-    m_uiControl->m_canvas.LockSet(a_addr, destroyedBuffer);
-
+    IDEFER(
     if (buffer.ChildElements != nullptr)
-    {
-        delete[] buffer.ChildElements;
-    }
+	{
+		delete[] buffer.ChildElements;
+	});
+    m_uiControl->m_canvas.LockSet(a_addr, destroyedBuffer);
 }
 void UIControlBindings::AddCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr) const
 {

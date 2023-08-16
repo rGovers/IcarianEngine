@@ -80,7 +80,7 @@ private:
     TNCArray<VulkanDepthRenderTexture*>           m_depthRenderTextures;
 
     TArray<MeshRenderBuffer>                      m_renderBuffers;
-    TArray<MaterialRenderStack>                   m_renderStacks;
+    TArray<MaterialRenderStack*>                  m_renderStacks;
 
     TNCArray<DirectionalLightBuffer>              m_directionalLights;
     TNCArray<PointLightBuffer>                    m_pointLights;
