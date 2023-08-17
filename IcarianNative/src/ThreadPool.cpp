@@ -1,6 +1,7 @@
 #include "ThreadPool.h"
 
 #include <chrono>
+#include <glm/glm.hpp>
 
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
@@ -114,7 +115,8 @@ void ThreadPool::Init(RuntimeManager* a_runtime)
         TRACE("Starting thread pool");
 
         // Should give me a lot of threads without overallocating unless the system is really bad (<= 4 threads) and/or Mono says fuck you JIT/GC time
-        Instance = new ThreadPool((uint32_t)std::thread::hardware_concurrency() / 2, a_runtime);
+        // TODO: Do proper fix just to stop Jolt from crashing
+        Instance = new ThreadPool(glm::max((uint32_t)std::thread::hardware_concurrency() / 2, 3U), a_runtime);
         // Instance = new ThreadPool(2, a_runtime);
         Instance->Start();
 

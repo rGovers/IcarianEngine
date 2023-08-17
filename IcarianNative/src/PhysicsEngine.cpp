@@ -121,6 +121,7 @@ uint32_t PhysicsEngine::GetBodyAddr(JPH::uint a_joltIndex)
 
 void PhysicsEngine::Update(double a_delta)
 {
+    // TODO: Need to figure out why Jolt crashes with less then 3 threads
     {
         PROFILESTACK("Physics Sim");
 

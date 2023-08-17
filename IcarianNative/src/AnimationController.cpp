@@ -1,6 +1,6 @@
 #include "Rendering/AnimationController.h"
 
-#include "Rendering/AnimtionControllerBindings.h"
+#include "Rendering/AnimationControllerBindings.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 #include "ThreadJob.h"

@@ -1,4 +1,4 @@
-#include "Rendering/AnimtionControllerBindings.h"
+#include "Rendering/AnimationControllerBindings.h"
 
 #include "Flare/ColladaLoader.h"
 #include "Flare/IcarianAssert.h"
