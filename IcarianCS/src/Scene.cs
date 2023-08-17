@@ -15,8 +15,39 @@ namespace IcarianEngine
         public string DefName;
     }
 
+    class LoadSceneThreadJob : IThreadJob
+    {
+        string                  m_path;
+        Scene.LoadSceneCallback m_callback;
+
+        public LoadSceneThreadJob(string a_path, Scene.LoadSceneCallback a_callback)
+        {
+            m_path = a_path;
+            m_callback = a_callback;
+        }
+
+        public void Execute()
+        {
+            Scene scene = Scene.LoadScene(m_path);
+
+            if (m_callback != null)
+            {
+                if (scene != null)
+                {
+                    m_callback(scene, LoadStatus.Loaded);
+                }
+                else
+                {
+                    m_callback(null, LoadStatus.Failed);
+                }
+            }
+        }
+    }
+
     public class Scene : IDestroy
     {
+        public delegate void LoadSceneCallback(Scene a_scene, LoadStatus a_status);
+
         bool              m_disposed = false;
 
         List<Def>         m_defs;
@@ -220,6 +251,12 @@ namespace IcarianEngine
             doc.Load(path);
 
             return new Scene(doc);
+        }
+        public static void LoadSceneAsync(string a_path, LoadSceneCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        {
+            LoadSceneThreadJob job = new LoadSceneThreadJob(a_path, a_callback);
+
+            ThreadPool.PushJob(job, a_priority);
         }
 
         void GenerateGameObject(Matrix4 a_transform, GameObjectDef a_def)

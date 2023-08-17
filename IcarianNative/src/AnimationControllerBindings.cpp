@@ -1,6 +1,8 @@
 #include "Rendering/AnimtionControllerBindings.h"
 
+#include "Flare/ColladaLoader.h"
 #include "Flare/IcarianAssert.h"
+#include "Flare/IcarianDefer.h"
 #include "Rendering/AnimationController.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
@@ -24,12 +26,55 @@ struct RuntimeBoneData
 
 ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
 
+RUNTIME_FUNCTION(RuntimeBoneData, Skeleton, LoadBoneData,
+{
+    char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
+
+    RuntimeBoneData data;
+
+    data.BindPoses = NULL;
+    data.Names = NULL;
+    data.Parents = NULL;
+
+    std::vector<BoneData> bones;
+    if (FlareBase::ColladaLoader_LoadBoneFile(str, &bones))
+    {
+        MonoDomain* domain = mono_domain_get();
+        MonoClass* fClass = mono_get_single_class();
+
+        const uint32_t count = (uint32_t)bones.size();
+        data.BindPoses = mono_array_new(domain, mono_get_array_class(), (uintptr_t)count);
+        data.Names = mono_array_new(domain, mono_get_string_class(), (uintptr_t)count);
+        data.Parents = mono_array_new(domain, mono_get_uint32_class(), (uintptr_t)count);
+
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            const BoneData& bone = bones[i];
+
+            MonoArray* bindPose = mono_array_new(domain, fClass, 16);
+            for (uint32_t j = 0; j < 16; ++j)
+            {
+                mono_array_set(bindPose, float, j, bone.Transform[j / 4][j % 4]);
+            }
+
+            mono_array_set(data.BindPoses, MonoArray*, i, bindPose);
+            mono_array_set(data.Names, MonoString*, i, mono_string_new(domain, bone.Name.c_str()));
+            mono_array_set(data.Parents, uint32_t, i, bone.Parent);
+        }
+    }
+
+    return data;
+}, MonoString* a_path)
+
 AnimationControllerBindings::AnimationControllerBindings(AnimationController* a_controller, RuntimeManager* a_runtime)
 {
     TRACE("Binding AnimationController functions to C#");
     m_controller = a_controller;
 
     Instance = this;
+
+    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.Animation, Skeleton, LoadBoneData);
 
     ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(ANIMATIONCONTROLLER_RUNTIME_ATTACH);
 }

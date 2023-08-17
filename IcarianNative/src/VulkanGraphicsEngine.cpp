@@ -480,18 +480,23 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
     {
         const std::unique_lock g = std::unique_lock(m_pipeLock);
-
+        
+        std::vector<uint64_t> keys;
         for (auto iter = m_pipelines.begin(); iter != m_pipelines.end(); ++iter)
         {
             const uint32_t val = (uint32_t)(iter->first >> 32);
             if (val == a_addr)
             {
-                const VulkanPipeline* pipeline = iter->second;
-                IDEFER(delete pipeline);
-
-                const auto vIter = iter--;
-                m_pipelines.erase(vIter);
+                keys.emplace_back(iter->first);
             }
+        }
+
+        for (const uint64_t key : keys)
+        {
+            const VulkanPipeline* pipeline = m_pipelines[key];
+            IDEFER(delete pipeline);
+
+            m_pipelines.erase(key);
         }
     }
 

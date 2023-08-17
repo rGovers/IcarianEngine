@@ -2,6 +2,7 @@ using IcarianEngine.Definitions;
 using IcarianEngine.Mod;
 using IcarianEngine.Physics.Shapes;
 using IcarianEngine.Rendering;
+using IcarianEngine.Rendering.Animation;
 using IcarianEngine.Rendering.UI;
 using System;
 using System.Collections.Concurrent;
@@ -63,6 +64,29 @@ namespace IcarianEngine
             }
         }
     }
+    class LoadSkeletonThreadJob : IThreadJob
+    {
+        string                            m_path;
+        AssetLibrary.LoadSkeletonCallback m_callback;
+
+        public LoadSkeletonThreadJob(string a_path, AssetLibrary.LoadSkeletonCallback a_callback)
+        {
+            m_path = a_path;
+            m_callback = a_callback;
+        }
+
+        public void Execute()
+        {
+            LoadStatus status;
+
+            Skeleton skeleton = AssetLibrary.LoadSkeletonInternal(m_path, out status);
+
+            if (m_callback != null)
+            {
+                m_callback(skeleton, status);
+            }
+        }
+    }
 
     class ModelContainer
     {
@@ -114,6 +138,31 @@ namespace IcarianEngine
             Texture = null;
         }
     }
+    class SkeletonContainer
+    {
+        public LoadStatus Status
+        {
+            get;
+            set;
+        }
+        public EventWaitHandle WaitHandle
+        {
+            get;
+            set;
+        }
+        public Skeleton Skeleton
+        {
+            get;
+            set;
+        }
+
+        public SkeletonContainer()
+        {
+            Status = LoadStatus.Unloaded;
+            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            Skeleton = null;
+        }
+    }
 
     public static class AssetLibrary
     {
@@ -125,13 +174,16 @@ namespace IcarianEngine
         static ConcurrentDictionary<TextureInput, TextureSampler> s_textureSamplers;
 
         static ConcurrentDictionary<string, ModelContainer>       s_models;
-     
+
+        static ConcurrentDictionary<string, SkeletonContainer>    s_skeletons;
+
         static ConcurrentDictionary<string, Font>                 s_fonts;
 
         static ConcurrentDictionary<string, CollisionShape>       s_collisionShapes;
 
         public delegate void LoadModelCallback(Model a_model, LoadStatus a_status);
         public delegate void LoadTextureCallback(Texture a_texture, LoadStatus a_status);
+        public delegate void LoadSkeletonCallback(Skeleton a_skeleton, LoadStatus a_status);
 
         internal static void Init()
         {
@@ -144,6 +196,8 @@ namespace IcarianEngine
             s_textureSamplers = new ConcurrentDictionary<TextureInput, TextureSampler>();
 
             s_models = new ConcurrentDictionary<string, ModelContainer>();
+
+            s_skeletons = new ConcurrentDictionary<string, SkeletonContainer>();
 
             s_fonts = new ConcurrentDictionary<string, Font>();
 
@@ -643,6 +697,127 @@ namespace IcarianEngine
             s_textures.TryAdd(a_path, new TextureContainer());
 
             LoadTextureThreadJob job = new LoadTextureThreadJob(a_path, a_callback);
+
+            ThreadPool.PushJob(job, a_priority);
+        }
+
+        internal static Skeleton LoadSkeletonInternal(string a_path, out LoadStatus a_status)
+        {
+            a_status = LoadStatus.Failed;
+
+            SkeletonContainer container = null;
+            if (s_skeletons.ContainsKey(a_path))
+            {
+                container = s_skeletons[a_path];
+            }
+            else
+            {
+                return null;
+            }
+
+            bool alreadyLoading = false;
+            lock (container)
+            {
+                switch (container.Status)
+                {
+                case LoadStatus.Unloaded:
+                {
+                    container.Status = LoadStatus.Loading;
+
+                    break;
+                }
+                case LoadStatus.Loading:
+                {
+                    alreadyLoading = true;
+
+                    break;
+                }
+                case LoadStatus.Loaded:
+                {
+                    a_status = LoadStatus.Loaded;
+
+                    return container.Skeleton;
+                }
+                case LoadStatus.Failed:
+                {
+                    return null;
+                }
+                }
+            }
+
+            if (alreadyLoading)
+            {
+                container.WaitHandle.WaitOne();
+                a_status = LoadStatus.Loaded;
+
+                return container.Skeleton;
+            }
+
+            string filepath = GetPath(a_path);
+            if (string.IsNullOrEmpty(filepath))
+            {
+                Logger.IcarianError($"Cannot find filepath: {a_path}");
+
+                return null;
+            }
+
+            Skeleton skeleton = Skeleton.LoadSkeleton(filepath);
+
+            lock (container)
+            {
+                if (skeleton != null)
+                {
+                    container.Skeleton = skeleton;
+                    container.Status = LoadStatus.Loaded;
+
+                    a_status = LoadStatus.Loaded;
+                }
+                else
+                {
+                    container.Skeleton = null;
+                    container.Status = LoadStatus.Failed;
+                }
+            }
+
+            container.WaitHandle.Set();
+
+            return skeleton;
+        }
+        public static Skeleton LoadSkeleton(string a_path)
+        {
+            if (s_skeletons.ContainsKey(a_path))
+            {
+                SkeletonContainer c = s_skeletons[a_path];
+
+                switch (c.Status)
+                {
+                case LoadStatus.Loading:
+                case LoadStatus.Unloaded:
+                {
+                    c.WaitHandle.WaitOne();
+                    
+                    break;
+                }
+                case LoadStatus.Failed:
+                {
+                    return null;
+                }
+                }
+
+                return c.Skeleton;
+            }
+
+            s_skeletons.TryAdd(a_path, new SkeletonContainer());
+
+            Skeleton skeleton = LoadSkeletonInternal(a_path, out LoadStatus _);
+
+            return skeleton;
+        }
+        public static void LoadSkeletonAsync(string a_path, LoadSkeletonCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        {
+            s_skeletons.TryAdd(a_path, new SkeletonContainer());
+
+            LoadSkeletonThreadJob job = new LoadSkeletonThreadJob(a_path, a_callback);
 
             ThreadPool.PushJob(job, a_priority);
         }

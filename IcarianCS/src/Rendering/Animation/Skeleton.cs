@@ -49,9 +49,14 @@ namespace IcarianEngine.Rendering.Animation
             m_bones = new Bone[0];
         }
 
-        public static Skeleton Load(string a_path)
+        public static Skeleton LoadSkeleton(string a_path)
         {
             BoneData data = LoadBoneData(a_path);
+            if (data.Names == null)
+            {
+                return null;
+            }
+            
             uint count = (uint)data.Names.Length;
             if (count > 0)
             {
