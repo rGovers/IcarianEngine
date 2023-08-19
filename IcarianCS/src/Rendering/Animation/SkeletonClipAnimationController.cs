@@ -16,6 +16,13 @@ namespace IcarianEngine.Rendering.Animation
                 return m_time;
             }
         }
+        public AnimationClip Clip
+        {
+            get
+            {
+                return m_clip;
+            }
+        }
 
         public SkeletonClipAnimationControllerDef SkeletonClipAnimationControllerDef
         {
@@ -51,11 +58,17 @@ namespace IcarianEngine.Rendering.Animation
         }
         public override void UpdateObject(Animator a_animator, string a_object, double a_deltaTime)
         {
+            SkeletonAnimator animator = a_animator as SkeletonAnimator;
+            if (animator == null)
+            {
+                return;
+            }
+
             if (m_clip != null)
             {
                 Matrix4 mat = m_clip.GetTransform(a_object, m_time);
 
-                a_animator.PushTransform(a_object, mat);
+                animator.PushTransform(a_object, mat);
             }   
         }
     }

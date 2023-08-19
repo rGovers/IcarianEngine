@@ -7,6 +7,7 @@ namespace IcarianEngine.Rendering.Animation
     public struct Bone
     {
         public string Name;
+        public uint Index;
         public uint Parent;
         public Matrix4 BindingPose;
     }
@@ -42,6 +43,31 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
+        public IEnumerable<Bone> RootBones
+        {
+            get
+            {
+                foreach (Bone bone in m_bones)
+                {
+                    if (bone.Parent == uint.MaxValue)
+                    {
+                        yield return bone;
+                    }
+                }
+            }
+        }
+
+        public IEnumerable<Bone> GetChildren(Bone a_parent)
+        {
+            foreach (Bone bone in m_bones)
+            {
+                if (bone.Parent == a_parent.Index)
+                {
+                    yield return bone;
+                }
+            }
+        }
+
         public Skeleton(string a_name)
         {
             m_name = a_name;
@@ -67,6 +93,7 @@ namespace IcarianEngine.Rendering.Animation
                 for (uint i = 0; i < count; ++i)
                 {
                     bone.Name = data.Names[i];
+                    bone.Index = i;
                     bone.Parent = data.Parents[i];
                     bone.BindingPose = new Matrix4
                     (

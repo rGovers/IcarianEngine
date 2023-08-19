@@ -24,6 +24,7 @@ namespace IcarianEngine
         List<Component> m_components;
 
         string          m_tag = null;
+        string          m_name = null;
 
         bool            m_disposed = false;
 
@@ -50,6 +51,18 @@ namespace IcarianEngine
             get
             {
                 return m_tag;
+            }
+        }
+
+        public string Name
+        {
+            get
+            {
+                return m_name;
+            }
+            set
+            {
+                m_name = value;
             }
         }
 
@@ -377,7 +390,7 @@ namespace IcarianEngine
             return obj;
         }   
 
-        public static GameObject ChildDef(GameObjectDef a_def, ref List<Component> a_comps, ref List<GameObject> a_objs)
+        static GameObject ChildDef(GameObjectDef a_def, ref List<Component> a_comps, ref List<GameObject> a_objs)
         {
             GameObject obj = Activator.CreateInstance(a_def.ObjectType) as GameObject;
             if (obj != null)
@@ -461,6 +474,16 @@ namespace IcarianEngine
             {
                 if(a_disposing)
                 {
+                    IEnumerable<Transform> children = Transform.Children;
+                    foreach (Transform t in children)
+                    {
+                        GameObject obj = t.Object;
+                        if (obj != null && !obj.IsDisposed)
+                        {
+                            obj.Dispose();
+                        }
+                    }
+
                     m_transform.Dispose();
                     m_transform = null;   
 

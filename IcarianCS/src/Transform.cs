@@ -25,14 +25,21 @@ namespace IcarianEngine
         Transform       m_parent;
         List<Transform> m_children;
 
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateTransformBuffer();
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static TransformBuffer GetTransformBuffer(uint a_addr);
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetTransformBuffer(uint a_addr, TransformBuffer a_buffer);
-        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyTransformBuffer(uint a_addr); 
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static float[] GetTransformMatrix(uint a_addr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static float[] GetGlobalTransformMatrix(uint a_addr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void SetTransformMatrix(uint a_addr, float[] a_matrix);
 
         public bool IsDisposed
         {
@@ -162,12 +169,28 @@ namespace IcarianEngine
             }
         }
 
+        public void SetMatrix(Matrix4 a_mat)
+        {
+            SetTransformMatrix(m_bufferAddr, a_mat.ToArray());
+        }
+
         public Matrix4 ToMatrix()
         {
-            // Probably better to do it on the C++ side but will work
-            TransformBuffer buffer = GetTransformBuffer(m_bufferAddr);
+            float[] matrix = GetTransformMatrix(m_bufferAddr);
 
-            return Matrix4.FromTransform(buffer.Translation, buffer.Rotation, buffer.Scale);
+            return new Matrix4(matrix[0],  matrix[1],  matrix[2],  matrix[3],
+                               matrix[4],  matrix[5],  matrix[6],  matrix[7],
+                               matrix[8],  matrix[9],  matrix[10], matrix[11],
+                               matrix[12], matrix[13], matrix[14], matrix[15]);
+        }
+        public Matrix4 ToGlobalMatrix()
+        {
+            float[] matrix = GetGlobalTransformMatrix(m_bufferAddr);
+
+            return new Matrix4(matrix[0],  matrix[1],  matrix[2],  matrix[3],
+                               matrix[4],  matrix[5],  matrix[6],  matrix[7],
+                               matrix[8],  matrix[9],  matrix[10], matrix[11],
+                               matrix[12], matrix[13], matrix[14], matrix[15]);
         }
 
         internal Transform(GameObject a_object)

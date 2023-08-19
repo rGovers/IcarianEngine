@@ -1,5 +1,7 @@
 #include "ObjectManager.h"
 
+#include <glm/gtx/matrix_decompose.hpp>
+
 #include "Flare/IcarianAssert.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
@@ -14,6 +16,54 @@ static ObjectManager* OManager = nullptr;
     F(void, IcarianEngine, Transform, SetTransformBuffer, { OManager->SetTransformBuffer(a_addr, a_buffer); }, uint32_t a_addr, TransformBuffer a_buffer) \
     F(void, IcarianEngine, Transform, DestroyTransformBuffer, { OManager->DestroyTransformBuffer(a_addr); }, uint32_t a_addr)
 
+RUNTIME_FUNCTION(MonoArray*, Transform, GetTransformMatrix, 
+{
+    MonoArray* a = mono_array_new(mono_domain_get(), mono_get_single_class(), 16);
+
+    const TransformBuffer buffer = OManager->GetTransformBuffer(a_addr);
+    const glm::mat4 mat = buffer.ToMat4();
+
+    for (int i = 0; i < 16; ++i)
+    {
+        mono_array_set(a, float, i, mat[i / 4][i % 4]);
+    }
+
+    return a;
+}, uint32_t a_addr)
+RUNTIME_FUNCTION(MonoArray*, Transform, GetGlobalTransformMatrix,
+{
+    MonoArray* a = mono_array_new(mono_domain_get(), mono_get_single_class(), 16);
+
+    const glm::mat4 mat = OManager->GetGlobalMatrix(a_addr);
+
+    for (int i = 0; i < 16; ++i)
+    {
+        mono_array_set(a, float, i, mat[i / 4][i % 4]);
+    }
+
+    return a;
+}, uint32_t a_addr)
+
+RUNTIME_FUNCTION(void, Transform, SetTransformMatrix,
+{
+    glm::mat4 mat;
+    float* dat = (float*)&mat;
+
+    for (uint32_t i = 0; i < 16; ++i)
+    {
+        dat[i] = mono_array_get(a_mat, float, i);
+    }
+
+    TransformBuffer buffer = OManager->GetTransformBuffer(a_addr);
+    
+    glm::vec3 skew;
+    glm::vec4 perspective;
+
+    glm::decompose(mat, buffer.Scale, buffer.Rotation, buffer.Translation, skew, perspective);
+
+    OManager->SetTransformBuffer(a_addr, buffer);
+}, uint32_t a_addr, MonoArray* a_mat)
+
 OBJECTMANAGER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 ObjectManager::ObjectManager(RuntimeManager* a_runtime)
@@ -22,6 +72,10 @@ ObjectManager::ObjectManager(RuntimeManager* a_runtime)
 
     TRACE("Binding Object functions to C#");
     OBJECTMANAGER_BINDING_FUNCTION_TABLE(OBJECTMANAGER_RUNTIME_ATTACH);
+
+    BIND_FUNCTION(a_runtime, IcarianEngine, Transform, GetTransformMatrix);
+    BIND_FUNCTION(a_runtime, IcarianEngine, Transform, GetGlobalTransformMatrix);
+    BIND_FUNCTION(a_runtime, IcarianEngine, Transform, SetTransformMatrix);
 }
 ObjectManager::~ObjectManager()
 {
@@ -44,10 +98,8 @@ uint32_t ObjectManager::CreateTransformBuffer()
     }
 
     TRACE("Allocating Transform Buffer");
-
-    m_transformBuffer.Push(Buffer);
-
-    return m_transformBuffer.Size() - 1;
+    
+    return m_transformBuffer.PushVal(Buffer);
 }
 TransformBuffer ObjectManager::GetTransformBuffer(uint32_t a_addr)
 {

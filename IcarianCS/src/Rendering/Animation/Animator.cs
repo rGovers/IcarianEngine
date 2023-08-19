@@ -136,12 +136,6 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
-        public void PushTransform(string a_object, Matrix4 a_transform)
-        {
-            // TODO: Need to implement
-            Logger.IcarianWarning("Need to implement transform push");
-        }
-
         public void Dispose()
         {
             Dispose(true);
