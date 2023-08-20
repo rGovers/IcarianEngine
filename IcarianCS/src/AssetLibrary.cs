@@ -868,7 +868,7 @@ namespace IcarianEngine
             }
 
             Material oldMat = null;
-            string str = $"[{a_def.VertexShaderPath}] [{a_def.PixelShaderPath}]";
+            string str = $"{a_def.DefName}: [{a_def.VertexShaderPath}] [{a_def.PixelShaderPath}]";
             if (s_materials.ContainsKey(str))
             {
                 oldMat = s_materials[str];
