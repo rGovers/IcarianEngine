@@ -369,7 +369,7 @@ namespace FlareBase
                         const char* s = data;
                         while (*s != 0)
                         {
-                            while (*s == ' ')
+                            while (*s == ' ' || *s == '\n')
                             {
                                 ++s;
                             }
@@ -899,6 +899,7 @@ namespace FlareBase
                     ColladaInput posInput;
                     ColladaInput normalInput;
                     ColladaInput texcoordInput;
+                    uint32_t cIndexStride = 1;
 
                     for (const ColladaInput& tI : g.Mesh.Triangles.Inputs)
                     {
@@ -935,6 +936,8 @@ namespace FlareBase
                                 }
                             }
                         }
+
+                        cIndexStride = glm::max(cIndexStride, tI.Offset + 1);
                     }
 
                     ColladaSource posSource;
@@ -972,7 +975,6 @@ namespace FlareBase
                     std::unordered_map<uint64_t, uint32_t> indexMap;
 
                     const uint32_t cIndexCount = (uint32_t)g.Mesh.Triangles.P.size();
-                    const uint32_t cIndexStride = (uint32_t)g.Mesh.Triangles.Inputs.size();
                     const uint32_t cNext = cIndexStride * 3;
 
                     for (uint32_t i = 0; i < cIndexCount; i += cNext)

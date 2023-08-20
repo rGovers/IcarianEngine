@@ -33,8 +33,6 @@ private:
     vk::Buffer                   m_buffer;
     VmaAllocation                m_allocBuffer;
 
-    vk::CommandBuffer            m_lastCmd[VulkanMaxFlightFrames];
-
     vk::SwapchainKHR             m_swapchain = nullptr;
     vk::RenderPass               m_renderPass = nullptr;
     vk::RenderPass               m_renderPassNoClear = nullptr;

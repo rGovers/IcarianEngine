@@ -139,6 +139,11 @@ namespace IcarianEngine
 
         internal static void LoadDirectory(string a_path)
         {
+            if (!Directory.Exists(a_path))
+            {
+                return;
+            }
+
             string[] files = Directory.GetFiles(a_path);
             foreach (string f in files)
             {

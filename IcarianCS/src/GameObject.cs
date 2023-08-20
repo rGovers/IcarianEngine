@@ -261,11 +261,6 @@ namespace IcarianEngine
                 {
                     m_components.Add(comp);
                 }
-
-                if (comp is Scriptable script)
-                {
-                    s_scriptableAddQueue.Enqueue(script);
-                }
             }
             
             return comp;
@@ -437,6 +432,11 @@ namespace IcarianEngine
             foreach (Component comp in comps)
             {
                 comp.Init();
+
+                if (comp is Scriptable script)
+                {
+                    s_scriptableAddQueue.Enqueue(script);
+                }
             }
 
             foreach (GameObject gameObject in objs)

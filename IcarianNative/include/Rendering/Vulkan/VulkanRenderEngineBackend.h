@@ -3,6 +3,7 @@
 #include "Rendering/Vulkan/VulkanConstants.h"
 
 #include "DataTypes/TArray.h"
+#include "DataTypes/TLockObj.h"
 #include "Rendering/RenderEngineBackend.h"
 
 #include <mutex>
@@ -44,7 +45,7 @@ private:
     
     vk::PhysicalDevicePushDescriptorPropertiesKHR m_pushDescriptorProperties;
 
-    TArray<VulkanDeletionObject*>                 m_deletionObjects[VulkanMaxFlightFrames];
+    TArray<VulkanDeletionObject*>                 m_deletionObjects[VulkanFlightPoolSize];
 
     std::vector<vk::Semaphore>                    m_interSemaphore[VulkanMaxFlightFrames];
     vk::Semaphore                                 m_imageAvailable[VulkanMaxFlightFrames];
@@ -55,7 +56,8 @@ private:
     uint32_t                                      m_imageIndex = -1;
     uint32_t                                      m_currentFrame = 0;
     uint32_t                                      m_currentFlightFrame = 0;
-            
+    uint32_t                                      m_dQueueIndex = 0;
+
     uint32_t                                      m_graphicsQueueIndex = -1;
     uint32_t                                      m_presentQueueIndex = -1;
 
@@ -67,11 +69,11 @@ public:
 
     virtual void Update(double a_delta, double a_time);
 
-    vk::CommandBuffer CreateCommandBuffer(vk::CommandBufferLevel a_level);
-    void DestroyCommandBuffer(const vk::CommandBuffer& a_buffer) const;
+    TLockObj<vk::CommandBuffer, std::mutex>* CreateCommandBuffer(vk::CommandBufferLevel a_level);
+    void DestroyCommandBuffer(TLockObj<vk::CommandBuffer, std::mutex>* a_buffer);
 
-    vk::CommandBuffer BeginSingleCommand();
-    void EndSingleCommand(const vk::CommandBuffer& a_buffer);
+    TLockObj<vk::CommandBuffer, std::mutex>* BeginSingleCommand();
+    void EndSingleCommand(TLockObj<vk::CommandBuffer, std::mutex>* a_buffer);
 
     virtual uint32_t GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data);
     virtual void DestroyTexture(uint32_t a_addr);

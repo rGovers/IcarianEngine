@@ -40,6 +40,37 @@ public:
         vmaDestroyImage(allocator, m_image, m_allocation);
     }
 };
+class VulkanBufferDeletionObject : public VulkanDeletionObject
+{
+private:
+    VulkanRenderEngineBackend* m_engine;
+
+    vk::Buffer                 m_buffer;
+    VmaAllocation              m_allocation;
+
+protected:
+
+public:
+    VulkanBufferDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Buffer a_buffer, VmaAllocation a_allocation)
+    {
+        m_engine = a_engine;
+
+        m_buffer = a_buffer;
+        m_allocation = a_allocation;
+    }
+    virtual ~VulkanBufferDeletionObject()
+    {
+        
+    }
+
+    virtual void Destroy() override
+    {
+        TRACE("Destroying Buffer");
+        const VmaAllocator allocator = m_engine->GetAllocator();
+
+        vmaDestroyBuffer(allocator, m_buffer, m_allocation);
+    }
+};
 
 void VulkanTexture::Init(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, const void* a_data, vk::Format a_format, uint32_t a_channels)
 {
@@ -73,7 +104,7 @@ void VulkanTexture::Init(VulkanRenderEngineBackend* a_engine, uint32_t a_width, 
     VmaAllocationInfo stagingAllocationInfo;
     ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBufferInfoStruct.buffer, &stagingBufferInfoStruct.allocation, &stagingAllocationInfo) == VK_SUCCESS, "Failed to create staging texture");
 
-    IDEFER(vmaDestroyBuffer(allocator, stagingBufferInfoStruct.buffer, stagingBufferInfoStruct.allocation));
+    IDEFER(m_engine->PushDeletionObject(new VulkanBufferDeletionObject(m_engine, stagingBufferInfoStruct.buffer, stagingBufferInfoStruct.allocation)));
 
     if (a_data != nullptr)
     {
@@ -107,7 +138,8 @@ void VulkanTexture::Init(VulkanRenderEngineBackend* a_engine, uint32_t a_width, 
     ICARIAN_ASSERT_MSG_R(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &m_allocation, nullptr) == VK_SUCCESS, "Failed to create VulkanTexture image");
     m_image = image;
 
-    vk::CommandBuffer cmd = m_engine->BeginSingleCommand();
+    TLockObj<vk::CommandBuffer, std::mutex>* buffer = m_engine->BeginSingleCommand();
+    const vk::CommandBuffer cmd = buffer->Get();
 
     constexpr vk::ImageSubresourceRange SubresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
     constexpr vk::ImageSubresourceLayers SubresourceLayers = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1);
@@ -144,7 +176,7 @@ void VulkanTexture::Init(VulkanRenderEngineBackend* a_engine, uint32_t a_width, 
 
     cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, { }, 0, nullptr, 0, nullptr, 1, &endImageBarrier);
 
-    m_engine->EndSingleCommand(cmd);
+    m_engine->EndSingleCommand(buffer);
 
     const vk::ImageViewCreateInfo viewInfo = vk::ImageViewCreateInfo
     (

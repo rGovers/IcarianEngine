@@ -8,6 +8,7 @@
 #include "AppWindow/AppWindow.h"
 #include "Config.h"
 #include "Flare/IcarianAssert.h"
+#include "Flare/IcarianDefer.h"
 #include "IcarianNativeConfig.h"
 #include "Logger.h"
 #include "Profiler.h"
@@ -499,29 +500,6 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
         }
     }
     
-    // I have this queue setup because resources may be used as they are being deleted
-    // The proper way to do this seem to be doing elaborate semaphore/fence setups
-    // Followed the KISS philosophy so just queue resources to be deleted on the next time round on the flight frame
-    // Seems to be working fine without having to fuck around more with fences have not had a driver crash so far
-    // Only problem is have to wait the number of flight frames for resources to be de-allocated
-    {
-        PROFILESTACK("Queue Cleanup");
-
-        const TLockArray a = m_deletionObjects[m_currentFlightFrame].ToLockArray();
-
-        for (VulkanDeletionObject* obj : a)
-        {
-            if (obj != nullptr)
-            {
-                obj->Destroy();
-
-                delete obj;
-            }
-        }
-
-        m_deletionObjects[m_currentFlightFrame].UClear();
-    }
-
     Profiler::StartFrame("Render Update");
 
     const std::vector<vk::CommandBuffer> buffers = m_graphicsEngine->Update(m_currentFrame);
@@ -606,6 +584,31 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
     Profiler::StopFrame();
 
+    // I have this queue setup because resources may be used as they are being deleted
+    // The proper way to do this seem to be doing elaborate semaphore/fence setups
+    // Followed the KISS philosophy so just queue resources to be deleted on the next time round on the flight frame
+    // Seems to be working fine without having to fuck around more with fences have not had a driver crash so far
+    // Only problem is have to wait the number of flight frames for resources to be de-allocated
+    {
+        PROFILESTACK("Queue Cleanup");
+
+        m_dQueueIndex = (m_dQueueIndex + 1) % VulkanFlightPoolSize;
+
+        const TLockArray a = m_deletionObjects[m_dQueueIndex].ToLockArray();
+
+        for (VulkanDeletionObject* obj : a)
+        {
+            if (obj != nullptr)
+            {
+                obj->Destroy();
+
+                delete obj;
+            }
+        }
+
+        m_deletionObjects[m_dQueueIndex].UClear();
+    }
+
     Profiler::StopFrame();
 
     {
@@ -618,7 +621,34 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     }
 }
 
-vk::CommandBuffer VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBufferLevel a_level)
+class VulkanCommandBufferDeletionObject : public VulkanDeletionObject
+{
+private:
+    vk::Device        m_device;
+    vk::CommandPool   m_pool;
+    vk::CommandBuffer m_buffer;
+
+protected:
+
+public:
+    VulkanCommandBufferDeletionObject(vk::Device a_device, vk::CommandPool a_pool, vk::CommandBuffer a_buffer)
+    {
+        m_device = a_device;
+        m_pool = a_pool;
+        m_buffer = a_buffer;
+    }
+    virtual ~VulkanCommandBufferDeletionObject() 
+    {
+        
+    }
+
+    virtual void Destroy()
+    {
+        m_device.freeCommandBuffers(m_pool, 1, &m_buffer);
+    }
+};
+
+TLockObj<vk::CommandBuffer, std::mutex>* VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBufferLevel a_level)
 {   
     const vk::CommandBufferAllocateInfo allocInfo = vk::CommandBufferAllocateInfo
     (
@@ -627,22 +657,29 @@ vk::CommandBuffer VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBuff
         1
     );
 
-    vk::CommandBuffer cmdBuffer;
+    TLockObj<vk::CommandBuffer, std::mutex>* lockObj = new TLockObj<vk::CommandBuffer, std::mutex>(&m_graphicsQueueMutex); 
 
-    const std::unique_lock l = std::unique_lock(m_graphicsQueueMutex);
+    vk::CommandBuffer cmdBuffer;
 
     ICARIAN_ASSERT_MSG_R(m_lDevice.allocateCommandBuffers(&allocInfo, &cmdBuffer) == vk::Result::eSuccess, "Failed to Allocate Command Buffer");
 
-    return cmdBuffer;
+    lockObj->Set(cmdBuffer);
+
+    return lockObj;
 }
-void VulkanRenderEngineBackend::DestroyCommandBuffer(const vk::CommandBuffer& a_buffer) const
+void VulkanRenderEngineBackend::DestroyCommandBuffer(TLockObj<vk::CommandBuffer, std::mutex>* a_buffer)
 {
-    m_lDevice.freeCommandBuffers(m_commandPool, 1, &a_buffer);
+    IDEFER(delete a_buffer);
+
+    const vk::CommandBuffer buffer = a_buffer->Get();
+
+    PushDeletionObject(new VulkanCommandBufferDeletionObject(m_lDevice, m_commandPool, buffer));
 }
 
-vk::CommandBuffer VulkanRenderEngineBackend::BeginSingleCommand()
+TLockObj<vk::CommandBuffer, std::mutex>* VulkanRenderEngineBackend::BeginSingleCommand()
 {
-    const vk::CommandBuffer cmdBuffer = CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
+    TLockObj<vk::CommandBuffer, std::mutex>* buffer = CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
+    const vk::CommandBuffer cmdBuffer = buffer->Get();
 
     constexpr vk::CommandBufferBeginInfo BufferBeginInfo = vk::CommandBufferBeginInfo
     (
@@ -655,11 +692,14 @@ vk::CommandBuffer VulkanRenderEngineBackend::BeginSingleCommand()
     // Running NV driver 535.54.03 on RTX 3080 for future reference
     ICARIAN_ASSERT_R(cmdBuffer.begin(&BufferBeginInfo) == vk::Result::eSuccess);
 
-    return cmdBuffer;
+    return buffer;
 }
-void VulkanRenderEngineBackend::EndSingleCommand(const vk::CommandBuffer& a_buffer)
+void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, std::mutex>* a_buffer)
 {
-    a_buffer.end();
+    IDEFER(DestroyCommandBuffer(a_buffer));
+    
+    const vk::CommandBuffer cmdBuffer = a_buffer->Get();
+    cmdBuffer.end();
 
     const vk::SubmitInfo submitInfo = vk::SubmitInfo
     (
@@ -667,17 +707,10 @@ void VulkanRenderEngineBackend::EndSingleCommand(const vk::CommandBuffer& a_buff
         nullptr, 
         nullptr,
         1, 
-        &a_buffer
+        &cmdBuffer
     );
 
-    const std::unique_lock l = std::unique_lock(m_graphicsQueueMutex);
-
     ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to Submit Command");
-    
-    // Should probably swap to fence down the line
-    m_graphicsQueue.waitIdle();
-
-    m_lDevice.freeCommandBuffers(m_commandPool, 1, &a_buffer);
 }
 
 uint32_t VulkanRenderEngineBackend::GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data)
@@ -705,7 +738,7 @@ Font* VulkanRenderEngineBackend::GetFont(uint32_t a_addr)
 
 void VulkanRenderEngineBackend::PushDeletionObject(VulkanDeletionObject* a_object)
 {
-    m_deletionObjects[m_currentFlightFrame].Push(a_object);
+    m_deletionObjects[m_dQueueIndex].Push(a_object);
 }
 
 VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(VkInstance a_instance, const VkDebugUtilsMessengerCreateInfoEXT* a_createInfo, const VkAllocationCallbacks* a_allocator, VkDebugUtilsMessengerEXT* a_messenger)

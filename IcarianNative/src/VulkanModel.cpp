@@ -116,7 +116,8 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     m_indexBuffer = tIndexBuffer;
 
     TRACE("Copying buffers");
-    vk::CommandBuffer cmdBuffer = m_engine->BeginSingleCommand();
+    TLockObj<vk::CommandBuffer, std::mutex>* buffer = m_engine->BeginSingleCommand();
+    const vk::CommandBuffer cmdBuffer = buffer->Get();
 
     const vk::BufferCopy vBCopy = vk::BufferCopy(0, 0, (vk::DeviceSize)vbSize);
     cmdBuffer.copyBuffer(stagingVBuffer, m_vertexBuffer, 1, &vBCopy);
@@ -124,7 +125,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     const vk::BufferCopy iBCopy = vk::BufferCopy(0, 0, (vk::DeviceSize)ibSize);
     cmdBuffer.copyBuffer(stagingIBuffer, m_indexBuffer, 1, &iBCopy);
 
-    m_engine->EndSingleCommand(cmdBuffer);
+    m_engine->EndSingleCommand(buffer);
 }   
 VulkanModel::~VulkanModel()
 {

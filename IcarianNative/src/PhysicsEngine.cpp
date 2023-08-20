@@ -150,7 +150,7 @@ void PhysicsEngine::Update(double a_delta)
             const auto iter = m_bodyMap.find(id.GetIndex());
             if (iter != m_bodyMap.end())
             {
-                const BodyBinding& binding = m_bodyBindings[iter->second];
+                const BodyBinding binding = m_bodyBindings[iter->second];
 
                 TransformBuffer buffer = m_objectManager->GetTransformBuffer(binding.TransformAddr);
 

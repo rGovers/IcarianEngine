@@ -261,11 +261,6 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
     
     m_resizeFunc = a_runtime->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":ResizeS(uint,uint)");
 
-    for (uint32_t i = 0; i < VulkanMaxFlightFrames; ++i)
-    {
-        m_lastCmd[i] = nullptr;
-    }
-
     const vk::Instance instance = m_engine->GetInstance();
     const vk::Device device = m_engine->GetLogicalDevice();
     const vk::PhysicalDevice pDevice = m_engine->GetPhysicalDevice();
@@ -513,12 +508,6 @@ bool VulkanSwapchain::StartFrame(const vk::Semaphore& a_semaphore, const vk::Fen
             return true;
         }
 
-        if (m_lastCmd[*a_imageIndex] != vk::CommandBuffer(nullptr))
-        {
-            m_engine->DestroyCommandBuffer(m_lastCmd[*a_imageIndex]);
-            m_lastCmd[*a_imageIndex] = nullptr;
-        }
-
         char* dat;
         if (vmaMapMemory(allocator, m_allocBuffer, (void**)&dat) != VK_SUCCESS)
         {
@@ -598,13 +587,14 @@ void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, const vk::Fence
             return;
         }
         
-        const vk::CommandBuffer cmdBuffer = m_engine->CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
+        TLockObj<vk::CommandBuffer, std::mutex>* buffer = m_engine->CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
+        const vk::CommandBuffer cmdBuffer = buffer->Get();
 
         constexpr vk::CommandBufferBeginInfo BufferBeginInfo = vk::CommandBufferBeginInfo
         (
             vk::CommandBufferUsageFlagBits::eOneTimeSubmit
         );
-        std::ignore = cmdBuffer.begin(&BufferBeginInfo);
+        ICARIAN_ASSERT_R(cmdBuffer.begin(&BufferBeginInfo) == vk::Result::eSuccess);
         
         constexpr vk::ImageSubresourceLayers SubResource = vk::ImageSubresourceLayers
         (
@@ -638,16 +628,13 @@ void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, const vk::Fence
             1, 
             &cmdBuffer
         );
+        
+        if (graphicsQueue.submit(1, &submitInfo, a_fence) != vk::Result::eSuccess)
         {
-            const std::unique_lock l = std::unique_lock(m_engine->GetGraphicsQueueMutex());
+            Logger::Error("Failed to submit swap copy");
+        }
 
-            if (graphicsQueue.submit(1, &submitInfo, a_fence) != vk::Result::eSuccess)
-            {
-                Logger::Error("Failed to submit swap copy");
-            }
-        }   
-
-        m_lastCmd[a_imageIndex] = cmdBuffer;
+        m_engine->DestroyCommandBuffer(buffer);
     }
     else
     {
