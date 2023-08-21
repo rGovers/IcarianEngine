@@ -669,7 +669,9 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
     for (const MaterialRenderStack* renderStack : stacks)
     {
         const uint32_t matAddr = renderStack->GetMaterialAddr();
-        const FlareBase::RenderProgram& program = m_shaderPrograms[matAddr];
+        const TReadLockArray<FlareBase::RenderProgram> programs = m_shaderPrograms.ToReadLockArray();
+
+        const FlareBase::RenderProgram& program = programs.Get(matAddr);
 
         if (camBuffer.RenderLayer & program.RenderLayer)
         {
