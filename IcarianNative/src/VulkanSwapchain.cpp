@@ -43,6 +43,8 @@ void VulkanSwapchain::Init(const glm::ivec2& a_size)
     const vk::SurfaceKHR surface = m_window->GetSurface(instance);
     const vk::Device lDevice = m_engine->GetLogicalDevice();
 
+    lDevice.waitIdle();
+
     const SwapChainSupportInfo info = QuerySwapChainSupport(pDevice, surface);
 
     constexpr vk::PresentModeKHR PresentMode = vk::PresentModeKHR::eFifo;
@@ -225,6 +227,8 @@ void VulkanSwapchain::Destroy()
 {
     const VmaAllocator allocator = m_engine->GetAllocator();
     const vk::Device device = m_engine->GetLogicalDevice();
+
+    device.waitIdle();
 
     TRACE("Destroying ImageViews");
     for (const vk::ImageView& imageView : m_imageViews)

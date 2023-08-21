@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "Flare/IcarianAssert.h"
+#include "Flare/IcarianDefer.h"
 
 namespace FlareBase
 {
@@ -496,11 +497,10 @@ namespace FlareBase
                 file.seekg(0, std::ios::beg);
 
                 char* dat = new char[size];
+                IDEFER(delete[] dat);
                 file.read(dat, size);
 
-                const bool ret = OBJLoader_LoadData(dat, (uint32_t)size, a_vertices, a_indices, a_radius);
-
-                delete[] dat;                
+                return OBJLoader_LoadData(dat, (uint32_t)size, a_vertices, a_indices, a_radius);          
             }
         }
 

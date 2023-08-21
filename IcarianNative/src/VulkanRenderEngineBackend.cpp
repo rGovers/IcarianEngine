@@ -584,6 +584,8 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
     Profiler::StopFrame();
 
+    Profiler::StopFrame();
+
     // I have this queue setup because resources may be used as they are being deleted
     // The proper way to do this seem to be doing elaborate semaphore/fence setups
     // Followed the KISS philosophy so just queue resources to be deleted on the next time round on the flight frame
@@ -592,9 +594,9 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     {
         PROFILESTACK("Queue Cleanup");
 
-        m_dQueueIndex = (m_dQueueIndex + 1) % VulkanFlightPoolSize;
+        const uint32_t nextIndex = (m_dQueueIndex + 1) % VulkanFlightPoolSize;
 
-        const TLockArray a = m_deletionObjects[m_dQueueIndex].ToLockArray();
+        const TLockArray a = m_deletionObjects[nextIndex].ToLockArray();
 
         for (VulkanDeletionObject* obj : a)
         {
@@ -606,10 +608,10 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
             }
         }
 
-        m_deletionObjects[m_dQueueIndex].UClear();
-    }
+        m_deletionObjects[nextIndex].UClear();
 
-    Profiler::StopFrame();
+        m_dQueueIndex = nextIndex;
+    }   
 
     {
         PROFILESTACK("Swap Present");
