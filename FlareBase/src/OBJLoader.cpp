@@ -33,10 +33,18 @@ namespace FlareBase
     bool OBJLoader_LoadData(const char* a_data, uint32_t a_size, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius)
     {
         std::vector<glm::vec4> positions;
+        positions.reserve(1024);
         std::vector<glm::vec3> normals;
+        normals.reserve(1024);
         std::vector<glm::vec2> texcoords;
+        texcoords.reserve(1024);
 
         std::vector<OBJIndexMap> indices;
+        indices.reserve(1024);
+
+        *a_radius = 0;
+
+        float radSqr = 0;
 
         const char* s = a_data;
         while (s - a_data < a_size)
@@ -137,10 +145,11 @@ namespace FlareBase
                     pos.w = 1.0f;
                 }
 
-                const float radius = glm::length(pos.xyz());
-                if (radius > *a_radius)
+                const glm::vec3 pos3 = pos.xyz();
+                const float radius = glm::dot(pos3, pos3);
+                if (radius > radSqr)
                 {
-                    *a_radius = radius;
+                    radSqr = radius;
                 }
 
                 positions.emplace_back(pos);
@@ -350,7 +359,7 @@ namespace FlareBase
                         const char* cur = indMap[i];
                         const char* next = indMap[i + 1];
 
-                        tIndices[i].PositionIndex = (uint32_t)std::stoll(std::string(cur, next - cur));
+                        tIndices[i].PositionIndex = (uint32_t)std::stoul(std::string(cur, next - cur));
                         tIndices[i].NormalIndex = -1;
                         tIndices[i].TexCoordsIndex = -1;
                     }
@@ -370,9 +379,9 @@ namespace FlareBase
                             ++s;
                         }
 
-                        tIndices[i].PositionIndex = (uint32_t)std::stoll(std::string(cur, s - cur));
+                        tIndices[i].PositionIndex = (uint32_t)std::stoul(std::string(cur, s - cur));
                         tIndices[i].NormalIndex = -1;
-                        tIndices[i].TexCoordsIndex = (uint32_t)std::stoll(std::string(s + 1, next - s - 1));
+                        tIndices[i].TexCoordsIndex = (uint32_t)std::stoul(std::string(s + 1, next - s - 1));
                     }
 
                     break;
@@ -396,9 +405,9 @@ namespace FlareBase
                             ++sB;
                         }
 
-                        tIndices[i].PositionIndex = (uint32_t)std::stoll(std::string(cur, sA - cur));
-                        tIndices[i].NormalIndex = (uint32_t)std::stoll(std::string(sB + 1, (next - sB) - 1));
-                        tIndices[i].TexCoordsIndex = (uint32_t)std::stoll(std::string(sA + 1, (sB - sA) - 1));
+                        tIndices[i].PositionIndex = (uint32_t)std::stoul(std::string(cur, sA - cur));
+                        tIndices[i].NormalIndex = (uint32_t)std::stoul(std::string(sB + 1, (next - sB) - 1));
+                        tIndices[i].TexCoordsIndex = (uint32_t)std::stoul(std::string(sA + 1, (sB - sA) - 1));
                     }
 
                     break;
@@ -416,8 +425,8 @@ namespace FlareBase
                             ++s;
                         }
 
-                        tIndices[i].PositionIndex = (uint32_t)std::stoll(std::string(cur, s - cur));
-                        tIndices[i].NormalIndex = (uint32_t)std::stoll(std::string(s + 2, next - s - 2));
+                        tIndices[i].PositionIndex = (uint32_t)std::stoul(std::string(cur, s - cur));
+                        tIndices[i].NormalIndex = (uint32_t)std::stoul(std::string(s + 2, next - s - 2));
                         tIndices[i].TexCoordsIndex = -1;
                     }
 
@@ -442,8 +451,12 @@ namespace FlareBase
 
     Exit:;
 
+        *a_radius = glm::sqrt(radSqr);
+
         std::unordered_map<uint64_t, uint32_t> indexMap;
 
+        a_indices->reserve(indices.size());
+        a_vertices->reserve(indices.size());
         for (const OBJIndexMap& iMap : indices)
         {
             // https://en.wikipedia.org/wiki/Pairing_function#Cantor_pairing_function

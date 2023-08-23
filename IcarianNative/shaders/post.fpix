@@ -18,7 +18,7 @@ float rand(vec2 co)
 layout(location = 0) out vec4 fragColor;
 
 const int kernelSize = 8;
-const float ssaoRadius = 0.5;
+const float ssaoRadius = 0.05;
 
 // Tone map settings
 const float exposure = 1.5;
@@ -41,8 +41,8 @@ void main()
     vec4 mP = camBuffer.InvView * vP;
     
     // SSAO
-    // vec3 v = normalize(vec3(rand(vUV) * 2.0 + -1.0, rand(vUV + vec2(0.0, 1.0)) * 2.0 + -1.0, 0.0));
-    vec3 v = normalize(vec3(rand(vec2(0.0)) * 2.0 + -1.0, rand(vec2(1.0)) * 2.0 + -1.0, 0.0));
+    vec3 v = normalize(vec3(rand(vUV) * 2.0 + -1.0, rand(vUV + vec2(0.0, 1.0)) * 2.0 + -1.0, 0.0));
+    // vec3 v = normalize(vec3(rand(vec2(0.0)) * 2.0 + -1.0, rand(vec2(1.0)) * 2.0 + -1.0, 0.0));
 
     vec3 t = normalize(v - normal.xyz * dot(v, normal.xyz));
     vec3 bT = cross(normal.xyz, t);
@@ -67,7 +67,7 @@ void main()
 
         float sD = texture(depthSampler, t.xy).x;
 
-        occlusion += max(sign(oF.z - (sD + 0.0001)), 0.0);
+        occlusion += max(sign(oF.z - (sD + 0.001)), 0.0);
     }
 
     occlusion = 1.0 - (occlusion / kernelSize) * max(sign(normal.w - 0.5), 0.0);
@@ -88,8 +88,11 @@ void main()
 
     emissive /= quality * directions;
 
-    vec3 fColor = color.xyz * occlusion + emissive.xyz;
-    
+    float oB = occlusion * 0.5 + 0.5;
+
+    vec3 fColor = color.xyz * oB + emissive.xyz * occlusion;
+    // vec3 fColor = color.xyz + emissive.xyz;
+
     // Tone map
     vec3 map = vec3(1.0f) - exp(-fColor.xyz * exposure);
 
