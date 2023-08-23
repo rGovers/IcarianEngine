@@ -64,6 +64,8 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateFromFile(string a_path);
         [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GenerateSkinnedFromFile(string a_path);
+        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyModel(uint a_addr);
 
         uint m_bufferAddr = uint.MaxValue;
@@ -103,6 +105,18 @@ namespace IcarianEngine.Rendering
             }
 
             Logger.IcarianError($"Model Failed to load: {a_path}");
+
+            return null;
+        }
+        public static Model LoadSkinnedModel(string a_path)
+        {
+            uint addr = GenerateSkinnedFromFile(a_path);
+            if (addr != uint.MaxValue)
+            {
+                return new Model(addr);
+            }
+
+            Logger.IcarianError($"Model Skinned Failed to load: {a_path}");
 
             return null;
         }

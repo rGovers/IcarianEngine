@@ -41,6 +41,30 @@ namespace IcarianEngine
             }
         }
     }
+    class LoadSkinnedModelThreadJob : IThreadJob
+    {
+        string                         m_path;
+        AssetLibrary.LoadModelCallback m_callback;
+
+        public LoadSkinnedModelThreadJob(string a_path, AssetLibrary.LoadModelCallback a_callback)
+        {
+            m_path = a_path;
+            m_callback = a_callback;
+        }
+
+        public void Execute()
+        {
+            LoadStatus status;
+
+            Model model = AssetLibrary.LoadSkinnedModelInternal(m_path, out status);
+
+            if (m_callback != null)
+            {
+                m_callback(model, status);
+            }
+        }
+    }
+
     class LoadTextureThreadJob : IThreadJob
     {
         string                           m_path;
@@ -174,6 +198,7 @@ namespace IcarianEngine
         static ConcurrentDictionary<TextureInput, TextureSampler> s_textureSamplers;
 
         static ConcurrentDictionary<string, ModelContainer>       s_models;
+        static ConcurrentDictionary<string, ModelContainer>       s_skinnedModels;
 
         static ConcurrentDictionary<string, SkeletonContainer>    s_skeletons;
 
@@ -196,6 +221,7 @@ namespace IcarianEngine
             s_textureSamplers = new ConcurrentDictionary<TextureInput, TextureSampler>();
 
             s_models = new ConcurrentDictionary<string, ModelContainer>();
+            s_skinnedModels = new ConcurrentDictionary<string, ModelContainer>();
 
             s_skeletons = new ConcurrentDictionary<string, SkeletonContainer>();
 
@@ -289,6 +315,25 @@ namespace IcarianEngine
                 }
             }
             s_models.Clear();
+
+            foreach (ModelContainer model in s_skinnedModels.Values)
+            {
+                if (model.Status == LoadStatus.Failed)
+                {
+                    continue;
+                }
+
+                if (model.Status != LoadStatus.Loaded)
+                {
+                    model.WaitHandle.WaitOne();
+                }
+
+                if (model.Model != null && !model.Model.IsDisposed)
+                {
+                    model.Model.Dispose();
+                }
+            }
+            s_skinnedModels.Clear();
 
             foreach (Font font in s_fonts.Values)
             {
@@ -485,7 +530,7 @@ namespace IcarianEngine
             if (alreadyLoading)
             {
                 container.WaitHandle.WaitOne();
-                a_status = LoadStatus.Loaded;
+                a_status = container.Status;
 
                 return container.Model;
             }
@@ -556,15 +601,142 @@ namespace IcarianEngine
 
             s_models.TryAdd(a_path, new ModelContainer());
 
-            Model model = LoadModelInternal(a_path, out LoadStatus _);
-
-            return model;
+            return LoadModelInternal(a_path, out LoadStatus _);
         }
         public static void LoadModelAsync(string a_path, LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             s_models.TryAdd(a_path, new ModelContainer());
 
             LoadModelThreadJob job = new LoadModelThreadJob(a_path, a_callback);
+
+            ThreadPool.PushJob(job, a_priority);
+        }
+
+        internal static Model LoadSkinnedModelInternal(string a_path, out LoadStatus a_status)
+        {
+            a_status = LoadStatus.Failed;
+
+            ModelContainer container = null;
+            if (s_skinnedModels.ContainsKey(a_path))
+            {
+                container = s_skinnedModels[a_path];
+            }
+            else
+            {
+                return null;
+            }
+
+            bool alreadyLoading = false;
+            lock (container)
+            {
+                switch (container.Status)
+                {
+                case LoadStatus.Unloaded:
+                {
+                    container.Status = LoadStatus.Loading;
+
+                    break;
+                }
+                case LoadStatus.Loading:
+                {
+                    alreadyLoading = true;
+
+                    break;
+                }
+                case LoadStatus.Loaded:
+                {
+                    a_status = LoadStatus.Loaded;
+
+                    return container.Model;
+                }
+                case LoadStatus.Failed:
+                {
+                    return null;
+                }
+                }
+            }
+
+            if (alreadyLoading)
+            {
+                container.WaitHandle.WaitOne();
+                a_status = container.Status;
+
+                return container.Model;
+            }
+
+            string filepath = GetPath(a_path);
+            if (string.IsNullOrEmpty(filepath))
+            {
+                Logger.IcarianError($"Cannot find filepath: {a_path}");
+
+                return null;
+            }
+
+            Model model = Model.LoadSkinnedModel(filepath);
+
+            lock (container)
+            {
+                if (model != null)
+                {
+                    container.Model = model;
+                    container.Status = LoadStatus.Loaded;
+
+                    a_status = LoadStatus.Loaded;
+                }
+                else
+                {
+                    container.Model = null;
+                    container.Status = LoadStatus.Failed;
+                }
+            }
+
+            container.WaitHandle.Set();
+
+            return model;
+        }
+        public static Model LoadSkinnedModel(string a_path)
+        {
+            if (s_skinnedModels.ContainsKey(a_path))
+            {
+                ModelContainer c = s_skinnedModels[a_path];
+
+                switch (c.Status)
+                {
+                case LoadStatus.Loading:
+                case LoadStatus.Unloaded:
+                {
+                    c.WaitHandle.WaitOne();
+                    
+                    break;
+                }
+                case LoadStatus.Failed:
+                {
+                    return null;
+                }
+                }
+
+                if (c.Model != null)
+                {
+                    if (!c.Model.IsDisposed)
+                    {
+                        return c.Model;
+                    }
+                }
+                else
+                {
+                    return c.Model;
+                }
+            }
+
+            s_skinnedModels.TryAdd(a_path, new ModelContainer());
+
+            return LoadSkinnedModelInternal(a_path, out LoadStatus _);
+        }
+        public static void LoadSkinnedModelAsync(string a_path, LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        {
+            s_skinnedModels.TryAdd(a_path, new ModelContainer());
+
+            LoadSkinnedModelThreadJob job = new LoadSkinnedModelThreadJob(a_path, a_callback);
 
             ThreadPool.PushJob(job, a_priority);
         }
@@ -617,7 +789,7 @@ namespace IcarianEngine
             if (alreadyLoading)
             {
                 container.WaitHandle.WaitOne();
-                a_status = LoadStatus.Loaded;
+                a_status = container.Status;
 
                 return container.Texture;
             }
@@ -748,7 +920,7 @@ namespace IcarianEngine
             if (alreadyLoading)
             {
                 container.WaitHandle.WaitOne();
-                a_status = LoadStatus.Loaded;
+                a_status = container.Status;
 
                 return container.Skeleton;
             }

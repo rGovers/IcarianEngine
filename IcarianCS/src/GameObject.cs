@@ -310,10 +310,91 @@ namespace IcarianEngine
 
             return null;
         }
+        public IEnumerable<T> GetComponents<T>() where T : Component
+        {
+            foreach (Component comp in m_components)
+            {
+                if (comp is T val)
+                {
+                    yield return val;
+                }
+            }
+        }
         public Component GetComponent(ComponentDef a_def)
         {
             return GetComponent<Component>(a_def);
         }
+
+        public T GetComponentInChild<T>(bool a_recursive = false) where T : Component
+        {
+            if (a_recursive)
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    GameObject childObj = child.Object;
+                    T comp = childObj.GetComponent<T>();
+                    if (comp != null)
+                    {
+                        return comp;
+                    }
+
+                    comp = childObj.GetComponentInChild<T>(true);
+                    if (comp != null)
+                    {
+                        return comp;
+                    }
+                }
+            }
+            else
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    GameObject obj = child.Object;
+                    T comp = obj.GetComponent<T>();
+                    if (comp != null)
+                    {
+                        return comp;
+                    }
+                }
+            }
+
+            return null;
+        }
+        public IEnumerable<T> GetComponentsInChildren<T>(bool a_recursive = false) where T : Component
+        {
+            if (a_recursive)
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    GameObject childObj = child.Object;
+
+                    IEnumerable<T> comps = childObj.GetComponents<T>();
+                    foreach (T c in comps)
+                    {
+                        yield return c;
+                    }
+
+                    comps = childObj.GetComponentsInChildren<T>(true);
+                    foreach (T c in comps)
+                    {
+                        yield return c;
+                    }
+                }
+            }
+            else
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    GameObject obj = child.Object;
+                    IEnumerable<T> comps = obj.GetComponents<T>();
+                    foreach (T c in comps)
+                    {
+                        yield return c;
+                    }
+                }
+            }
+        }
+
         public T GetComponent<T>(ComponentDef a_def) where T : Component
         {
             foreach (Component comp in m_components)
@@ -384,6 +465,137 @@ namespace IcarianEngine
 
             return obj;
         }   
+
+        public GameObject GetChildWithName(string a_name, bool a_recursive = false)
+        {
+            if (a_recursive)
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    GameObject childObj = child.Object;
+                    if (childObj.m_name == a_name)
+                    {
+                        return childObj;
+                    }
+
+                    GameObject obj = childObj.GetChildWithName(a_name, true);
+                    if (obj != null)
+                    {
+                        return obj;
+                    }
+                }
+            }
+            else
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    GameObject obj = child.Object;
+                    if (obj.m_name == a_name)
+                    {
+                        return obj;
+                    }
+                }
+            }
+
+            return null;
+        }
+        public GameObject GetChildWithTag(string a_tag, bool a_recursive = false)
+        {
+            if (a_recursive)
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    GameObject childObj = child.Object;
+                    if (childObj.m_tag == a_tag)
+                    {
+                        return childObj;
+                    }
+
+                    GameObject obj = childObj.GetChildWithTag(a_tag, true);
+                    if (obj != null)
+                    {
+                        return obj;
+                    }
+                }
+            }
+            else
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    GameObject obj = child.Object;
+                    if (obj.m_tag == a_tag)
+                    {
+                        return obj;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        public IEnumerable<GameObject> GetChildrenWithName(string a_name, bool a_recursive = false)
+        {
+            if (a_recursive)
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    GameObject childObj = child.Object;
+                    if (childObj.m_name == a_name)
+                    {
+                        yield return childObj;
+                    }
+
+                    IEnumerable<GameObject> objs = childObj.GetChildrenWithName(a_name, true);
+                    foreach (GameObject obj in objs)
+                    {
+                        yield return obj;
+                    }
+                }
+            }
+            else
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    GameObject obj = child.Object;
+                    if (obj.m_name == a_name)
+                    {
+                        yield return obj;
+                    }
+                }
+            }
+            
+        }
+        public IEnumerable<GameObject> GetChildrenWithTag(string a_tag, bool a_recursive = false)
+        {
+            if (a_recursive)
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    GameObject childObj = child.Object;
+                    if (childObj.m_tag == a_tag)
+                    {
+                        yield return childObj;
+                    }
+
+                    IEnumerable<GameObject> objs = childObj.GetChildrenWithTag(a_tag, true);
+                    foreach (GameObject obj in objs)
+                    {
+                        yield return obj;
+                    }
+                }
+            }
+            else
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    GameObject obj = child.Object;
+                    if (obj.m_tag == a_tag)
+                    {
+                        yield return obj;
+                    }
+                }
+            }
+        }
 
         static GameObject ChildDef(GameObjectDef a_def, ref List<Component> a_comps, ref List<GameObject> a_objs)
         {

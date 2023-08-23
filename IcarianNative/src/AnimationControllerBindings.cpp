@@ -22,7 +22,11 @@ struct RuntimeBoneData
     F(uint32_t, IcarianEngine.Rendering.Animation, Animator, GenerateBuffer, { return Instance->GenerateAnimatorBuffer(); }) \
     F(void, IcarianEngine.Rendering.Animation, Animator, DestroyBuffer, { Instance->DestroyAnimatorBuffer(a_addr); }, uint32_t a_addr) \
     F(uint32_t, IcarianEngine.Rendering.Animation, Animator, GetUpdateMode, { return (uint32_t)Instance->GetAnimatorUpdateMode(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering.Animation, Animator, SetUpdateMode, { Instance->SetAnimatorUpdateMode(a_addr, (e_AnimationUpdateMode)a_updateMode); }, uint32_t a_addr, uint32_t a_updateMode) 
+    F(void, IcarianEngine.Rendering.Animation, Animator, SetUpdateMode, { Instance->SetAnimatorUpdateMode(a_addr, (e_AnimationUpdateMode)a_updateMode); }, uint32_t a_addr, uint32_t a_updateMode) \
+    \
+    F(uint32_t, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, CreateSkeletonBuffer, { return Instance->CreateSkeletonBuffer(); }) \
+    F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, DestroySkeletonBuffer, { Instance->DestroySkeletonBuffer(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, ClearSkeletonBuffer, { Instance->ClearSkeletonBuffer(a_addr); }, uint32_t a_addr) \
 
 ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
 
@@ -67,6 +71,20 @@ RUNTIME_FUNCTION(RuntimeBoneData, Skeleton, LoadBoneData,
     return data;
 }, MonoString* a_path)
 
+RUNTIME_FUNCTION(void, SkinnedMeshRenderer, PushBoneData,
+{
+    glm::mat4 bindPose;
+
+    float* f = (float*)&bindPose;
+
+    for (uint32_t i = 0; i < 16; ++i)
+    {
+        f[i] = mono_array_get(a_bindPose, float, i);
+    }
+
+    Instance->PushSkeletonBoneData(a_addr, a_transformIndex, bindPose);
+}, uint32_t a_addr, uint32_t a_transformIndex, MonoArray* a_bindPose)
+
 AnimationControllerBindings::AnimationControllerBindings(AnimationController* a_controller, RuntimeManager* a_runtime)
 {
     TRACE("Binding AnimationController functions to C#");
@@ -75,6 +93,8 @@ AnimationControllerBindings::AnimationControllerBindings(AnimationController* a_
     Instance = this;
 
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.Animation, Skeleton, LoadBoneData);
+
+    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, PushBoneData);
 
     ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(ANIMATIONCONTROLLER_RUNTIME_ATTACH);
 }
@@ -106,4 +126,35 @@ void AnimationControllerBindings::SetAnimatorUpdateMode(uint32_t a_addr, e_Anima
     ICARIAN_ASSERT_MSG(m_controller->m_animators.Exists(a_addr), "SetAnimatorUpdateMode value does not exist");
 
     m_controller->m_animators.LockSet(a_addr, a_updateMode);
+}
+
+uint32_t AnimationControllerBindings::CreateSkeletonBuffer() const
+{
+    SkeletonData data;
+
+    return m_controller->m_skeletons.PushVal(data);
+}
+void AnimationControllerBindings::DestroySkeletonBuffer(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_controller->m_skeletons.Size(), "DestroySkeletonBuffer out of bounds");
+
+    m_controller->m_skeletons.Erase(a_addr);
+}
+void AnimationControllerBindings::ClearSkeletonBuffer(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_controller->m_skeletons.Size(), "ClearSkeletonBuffer out of bounds");
+
+    TLockArray<SkeletonData> a = m_controller->m_skeletons.ToLockArray();
+    a[a_addr].BoneData.clear();
+}
+void AnimationControllerBindings::PushSkeletonBoneData(uint32_t a_addr, uint32_t a_transformIndex, glm::mat4 a_inverseBindPose) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_controller->m_skeletons.Size(), "PushSkeletonBoneData out of bounds");
+
+    BoneTransformData data;
+    data.TransformIndex = a_transformIndex;
+    data.InverseBindPose = a_inverseBindPose;
+
+    TLockArray<SkeletonData> a = m_controller->m_skeletons.ToLockArray();
+    a[a_addr].BoneData.push_back(data);
 }

@@ -1,25 +1,37 @@
 using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using IcarianEngine.Definitions;
+using IcarianEngine.Maths;
 
 namespace IcarianEngine.Rendering.Animation
 {
     public class SkinnedMeshRenderer : Renderer, IDestroy
     {   
-        bool     m_disposed = false;
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint CreateSkeletonBuffer();
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void DestroySkeletonBuffer(uint a_bufferAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void ClearSkeletonBuffer(uint a_bufferAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void PushBoneData(uint a_bufferAddr, uint a_transformIndex, float[] a_inverseBindPose);
 
-        bool     m_visible = true;
+        bool       m_visible = true;
 
-        uint     m_bufferAddr = uint.MaxValue;
+        uint       m_rendererBufferAddr = uint.MaxValue;
+        uint       m_skeletonBufferAddr = uint.MaxValue;
 
-        Skeleton m_skeleton = null;
-        Material m_material = null;
-        Model    m_model = null;
+        GameObject m_root = null;
+        Skeleton   m_skeleton = null;
+        Material   m_material = null;
+        Model      m_model = null;
 
         public bool IsDisposed 
         {
             get
             {
-                return m_disposed;
+                return m_skeletonBufferAddr != uint.MaxValue;
             }
         }
         public SkinnedMeshRendererDef SkinnedMeshRendererDef
@@ -60,10 +72,6 @@ namespace IcarianEngine.Rendering.Animation
             {
                 return m_skeleton;
             }
-            set
-            {
-                m_skeleton = value;
-            }
         }
         public Model Model
         {
@@ -81,18 +89,93 @@ namespace IcarianEngine.Rendering.Animation
         {
             base.Init();
 
+            m_skeletonBufferAddr = CreateSkeletonBuffer();
+
             SkinnedMeshRendererDef def = SkinnedMeshRendererDef;
             if (def != null)
             {
-                Material = AssetLibrary.GetMaterial(def.MaterialDef);
+                if (def.MaterialDef != null)
+                {
+                    Material = AssetLibrary.GetMaterial(def.MaterialDef);
+                }
                 if (!string.IsNullOrWhiteSpace(def.ModelPath))
                 {
-                    Logger.IcarianWarning("Implement skinned model loading");
+                    Model = AssetLibrary.LoadSkinnedModel(def.ModelPath);
                 }
                 if (!string.IsNullOrWhiteSpace(def.SkeletonPath))
                 {
-                    Logger.IcarianWarning("Implement skeleton loading");
+                    SetSkeleton(AssetLibrary.LoadSkeleton(def.SkeletonPath));
                 }
+            }
+        }
+
+        struct BoneData
+        {
+            public uint TransformAddr;
+            public Matrix4 InverseBindPose;
+        }
+
+        void GenerateBone(Bone a_bone, Transform a_parent, ref Dictionary<uint, BoneData> a_data)
+        {
+            GameObject boneObject = GameObject.Instantiate();
+            boneObject.Name = a_bone.Name;
+            boneObject.Transform.Parent = a_parent;
+
+            Matrix4 invPose = Matrix4.Inverse(a_bone.BindingPose);
+
+            BoneData data = new BoneData()
+            {
+                TransformAddr = boneObject.Transform.InternalAddr,
+                InverseBindPose = invPose
+            };
+
+            Transform.SetMatrix(a_bone.BindingPose);
+
+            a_data.Add(a_bone.Index, data);
+
+            IEnumerable<Bone> children = m_skeleton.GetChildren(a_bone);
+            foreach (Bone child in children)
+            {
+                GenerateBone(child, boneObject.Transform, ref a_data);
+            }
+        }
+
+        public void SetSkeleton(Skeleton a_skeleton)
+        {
+            if (m_root != null && !m_root.IsDisposed)
+            {
+                m_root.Dispose();
+            }
+
+            ClearSkeletonBuffer(m_skeletonBufferAddr);
+
+            m_skeleton = a_skeleton;
+
+            if (m_skeleton != null)
+            {
+                m_root = GameObject.Instantiate();
+                m_root.Name = "Root";
+                m_root.Transform.Parent = Transform;
+
+                Dictionary<uint, BoneData> data = new Dictionary<uint, BoneData>();
+
+                foreach (Bone bone in m_skeleton.RootBones)
+                {
+                    GenerateBone(bone, m_root.Transform, ref data);
+                }
+
+                foreach (Bone b in m_skeleton.Bones)
+                {
+                    BoneData boneData = data[b.Index];
+                    PushBoneData(m_skeletonBufferAddr, boneData.TransformAddr, boneData.InverseBindPose.ToArray());
+                }
+            }
+
+            // Cant guarantee order of execution so animators and renderers trigger refresh
+            IEnumerable<SkeletonAnimator> animators = GameObject.GetComponents<SkeletonAnimator>();
+            foreach (SkeletonAnimator anim in animators)
+            {
+                anim.RefreshSkeleton();
             }
         }
 
@@ -104,7 +187,7 @@ namespace IcarianEngine.Rendering.Animation
         }
         protected virtual void Dispose(bool a_disposing)
         {
-            if (!m_disposed)
+            if (m_skeletonBufferAddr != uint.MaxValue)
             {
                 if (a_disposing)
                 {
@@ -112,17 +195,14 @@ namespace IcarianEngine.Rendering.Animation
                     m_material = null;
                     m_skeleton = null;
 
-                    if (m_bufferAddr != uint.MaxValue)
-                    {
-                        m_bufferAddr = uint.MaxValue;
-                    }
+                    DestroySkeletonBuffer(m_skeletonBufferAddr);
                 }
                 else
                 {
                     Logger.IcarianWarning("SkinnedMeshRenderer Failed to Dispose");
                 }
 
-                m_disposed = true;
+                m_skeletonBufferAddr = uint.MaxValue;
             }
             else
             {

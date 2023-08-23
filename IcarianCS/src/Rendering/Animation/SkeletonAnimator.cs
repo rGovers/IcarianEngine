@@ -6,9 +6,8 @@ namespace IcarianEngine.Rendering.Animation
 {
     public class SkeletonAnimator : Animator
     {
-        GameObject                     m_root;
-        Skeleton                       m_skeleton;
-        Dictionary<string, GameObject> m_bones;
+        Skeleton                       m_skeleton = null;
+        Dictionary<string, GameObject> m_bones = new Dictionary<string, GameObject>();
 
         public SkeletonAnimatorDef SkeletonAnimatorDef
         {
@@ -30,9 +29,6 @@ namespace IcarianEngine.Rendering.Animation
         {
             base.Init();
 
-            m_root = null;
-            m_bones = new Dictionary<string, GameObject>();
-
             SkeletonAnimatorDef def = SkeletonAnimatorDef;
             if (def != null)
             {
@@ -43,43 +39,34 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
-        void GenerateBone(Bone a_bone)
-        {
-            GameObject boneObject = GameObject.Instantiate();
-            boneObject.Name = a_bone.Name;
-            boneObject.Transform.Parent = m_root.Transform;
-
-            m_bones.Add(a_bone.Name, boneObject);
-
-            Transform.SetMatrix(a_bone.BindingPose);
-
-            IEnumerable<Bone> children = m_skeleton.GetChildren(a_bone);
-            foreach (Bone child in children)
-            {
-                GenerateBone(child);
-            }
-        }
-
         public void SetSkeleton(Skeleton a_skeleton)
         {
-            if (m_root != null)
-            {
-                m_root.Dispose();
-            }
-
-            m_bones.Clear();
-
             m_skeleton = a_skeleton;
+
+            RefreshSkeleton();
+        }
+
+        internal void RefreshSkeleton()
+        {
+            m_bones.Clear();
 
             if (m_skeleton != null)
             {
-                m_root = GameObject.Instantiate();
-                m_root.Name = "Root";
-                m_root.Transform.Parent = Transform;
+                GameObject root = GameObject.GetChildWithName("Root");
 
-                foreach (Bone bone in m_skeleton.RootBones)
+                if (root != null)
                 {
-                    GenerateBone(bone);
+                    foreach (Bone bone in m_skeleton.Bones)
+                    {   
+                        // Should probably not use a recursive search as it should match the hierarchy
+                        // but lazy for now
+                        GameObject boneObject = root.GetChildWithName(bone.Name, true);
+
+                        if (boneObject != null)
+                        {
+                            m_bones.Add(bone.Name, boneObject);
+                        }
+                    }
                 }
             }
         }

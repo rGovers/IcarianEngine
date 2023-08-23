@@ -230,6 +230,8 @@ namespace FlareBase
 
                     sC = next;
                 }
+
+                s.Data = d;
             } 
             else if (strcmp(name, "technique_common") == 0) 
             {
@@ -489,6 +491,15 @@ namespace FlareBase
     {
         ColladaSkin skin;
 
+        for (const tinyxml2::XMLAttribute* att = a_skinElement->FirstAttribute(); att != nullptr; att = att->Next())
+        {
+            const char* name = att->Name();
+            if (strcmp(name, "source") == 0)
+            {
+                skin.Source = att->Value();
+            }
+        }
+
         for (const tinyxml2::XMLElement* element = a_skinElement->FirstChildElement(); element != nullptr; element = element->NextSiblingElement())
         {
             const char* name = element->Value();
@@ -535,7 +546,7 @@ namespace FlareBase
                     const char* name = att->Name();
                     if (strcmp(name, "count") == 0)
                     {
-                        skin.VertexWeights.Count = (uint32_t)att->IntValue();
+                        w.Count = (uint32_t)att->IntValue();
                     }
                 }
 
@@ -621,6 +632,8 @@ namespace FlareBase
                         }
                     }
                 }
+
+                skin.VertexWeights = w;
             }
         }
 
@@ -1422,7 +1435,7 @@ namespace FlareBase
                 for (const ColladaGeometry& geom : geometry)
                 {
                     const std::string geomID = "#" + geom.ID;
-                    if (controller.ID == geomID)
+                    if (controller.Skin.Source == geomID)
                     {
                         if (geom.Mesh.Triangles.P.empty())
                         {
@@ -1542,6 +1555,7 @@ namespace FlareBase
                                     const uint32_t weightIndex = controller.Skin.VertexWeights.V[iIndex + weightInput.Offset];
                                     const uint32_t jointIndex = controller.Skin.VertexWeights.V[iIndex + jointInput.Offset];
 
+                                    // TODO: Solve release mode crash from garbage for stride value
                                     weights[i][j] = ((float*)weightSource.Data.Data)[(weightIndex * weightSource.Accessor.Stride) + weightInput.Offset];
                                     joints[i][j] = jointMap[((std::string*)jointSource.Data.Data)[(jointIndex * jointSource.Accessor.Stride) + jointInput.Offset]];
                                 }

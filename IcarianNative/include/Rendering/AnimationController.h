@@ -1,5 +1,8 @@
 #pragma once
 
+#define GLM_FORCE_SWIZZLE 
+#include <glm/glm.hpp>
+
 #include <cstdint>
 
 #include "DataTypes/TNCArray.h"
@@ -21,6 +24,16 @@ enum e_AnimationUpdateMode : uint16_t
     AnimationUpdateMode_PooledUpdateHigh = 0b1 << 4
 };
 
+struct BoneTransformData
+{
+    glm::mat4 InverseBindPose;
+    uint32_t TransformIndex;
+};
+struct SkeletonData
+{
+    std::vector<BoneTransformData> BoneData;
+};
+
 class AnimationController
 {
 private:
@@ -29,6 +42,7 @@ private:
     AnimationControllerBindings*    m_bindings;
 
     TNCArray<e_AnimationUpdateMode> m_animators;
+    TNCArray<SkeletonData>          m_skeletons;  
 
     RuntimeFunction*                m_updateAnimatorFunc;
     RuntimeFunction*                m_updateAnimatorsFunc;

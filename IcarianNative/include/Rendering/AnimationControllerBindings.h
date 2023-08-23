@@ -21,4 +21,9 @@ public:
     void DestroyAnimatorBuffer(uint32_t a_addr) const;
     e_AnimationUpdateMode GetAnimatorUpdateMode(uint32_t a_addr) const;
     void SetAnimatorUpdateMode(uint32_t a_addr, e_AnimationUpdateMode a_updateMode) const;
+
+    uint32_t CreateSkeletonBuffer() const;
+    void DestroySkeletonBuffer(uint32_t a_addr) const;
+    void ClearSkeletonBuffer(uint32_t a_addr) const;
+    void PushSkeletonBoneData(uint32_t a_addr, uint32_t a_transformIndex, glm::mat4 a_inverseBindPose) const;
 };

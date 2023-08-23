@@ -336,7 +336,7 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Texture, GenerateFromFile), Mo
     return -1;
 }
 
-FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateModel), MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride, float a_radius)
+RUNTIME_FUNCTION(uint32_t, Model, GenerateModel, 
 {
     const uint32_t vertexCount = (uint32_t)mono_array_length(a_vertices);
     const uint32_t indexCount = (uint32_t)mono_array_length(a_indices);
@@ -344,25 +344,22 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateModel), MonoArr
     const uint32_t vertexSize = vertexCount * a_vertexStride;
 
     char* vertices = new char[vertexSize];
+    IDEFER(delete[] vertices);
     for (uint32_t i = 0; i < vertexSize; ++i)
     {
         vertices[i] = *mono_array_addr_with_size(a_vertices, 1, i);
     }
 
     uint32_t* indices = new uint32_t[indexCount];
+    IDEFER(delete[] indices);
     for (uint32_t i = 0; i < indexCount; ++i)
     {
         indices[i] = mono_array_get(a_indices, uint32_t, i);
     }
 
-    const uint32_t addr = Engine->GenerateModel(vertices, vertexCount, indices, indexCount, a_vertexStride, a_radius);
-
-    delete[] vertices;
-    delete[] indices;
-
-    return addr;
-}
-FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateFromFile), MonoString* a_path)
+    return Engine->GenerateModel(vertices, vertexCount, indices, indexCount, a_vertexStride, a_radius);
+}, MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride, float a_radius);
+RUNTIME_FUNCTION(uint32_t, Model, GenerateFromFile,
 {
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
@@ -393,7 +390,32 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Model, GenerateFromFile), Mono
     }
 
     return -1;
-}
+}, MonoString* a_path)
+RUNTIME_FUNCTION(uint32_t, Model, GenerateSkinnedFromFile, 
+{
+    char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
+
+    std::vector<FlareBase::SkinnedVertex> vertices;
+    std::vector<uint32_t> indices;
+    float radius;
+    const std::filesystem::path p = std::filesystem::path(str);
+    const std::filesystem::path ext = p.extension();
+
+    if (ext == ".dae")
+    {
+        if (FlareBase::ColladaLoader_LoadSkinnedFile(p, &vertices, &indices, &radius))
+        {
+            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(FlareBase::SkinnedVertex), radius);
+        }
+    }
+    else 
+    {
+        ICARIAN_ASSERT_MSG_R(0, "GenerateSkinnedFromFile invalid file extension");
+    }
+
+    return -1;
+}, MonoString* a_path)
 
 FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(RenderCommand, DrawModel), MonoArray* a_transform, uint32_t a_addr)
 {
@@ -445,6 +467,7 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(RuntimeManager* a_run
 
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Model, GenerateModel);
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Model, GenerateFromFile);
+    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Model, GenerateSkinnedFromFile);
 
     BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, RenderCommand, DrawModel);
 

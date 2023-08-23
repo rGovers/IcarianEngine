@@ -152,13 +152,13 @@ namespace IcarianEngine.Rendering.Animation
             return false;
         }
 
-        public bool GetVector3Lerp(string a_object, string a_component, string a_filed, float a_time, out Vector3 a_val)
+        public bool GetVector3Lerp(string a_object, string a_component, string a_field, float a_time, out Vector3 a_val)
         {
             a_val = Vector3.Zero;
 
             foreach (AnimationField field in m_fields)
             {
-                if (field.Object == a_object && field.Component == a_component && field.Field == a_filed)
+                if (field.Object == a_object && field.Component == a_component && field.Field == a_field)
                 {
                     int count = field.Keys.Count;
 
@@ -178,20 +178,20 @@ namespace IcarianEngine.Rendering.Animation
 
                             return true;
                         }
+                    }
 
-                        if (count > 0)
-                        {
-                            a_val = (Vector3)field.Keys[count - 1].Value;
+                    if (count > 0)
+                    {
+                        a_val = (Vector3)field.Keys[count - 1].Value;
 
-                            return true;
-                        }
-                        else
-                        {
-                            // Not sure what to do as the field exists but there is no value 
-                            // I think returning false makes sense but may change down the line
-                            // Could potentially switch to enum
-                            return false;
-                        }
+                        return true;
+                    }
+                    else
+                    {
+                        // Not sure what to do as the field exists but there is no value 
+                        // I think returning false makes sense but may change down the line
+                        // Could potentially switch to enum
+                        return false;
                     }
                 }
             }
