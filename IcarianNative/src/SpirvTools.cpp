@@ -82,6 +82,10 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 			{
 				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_TIME_SHADER_STRUCTURE);
 			}
+			else if (args[0] == "SSModelBuffer")
+			{
+				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_MODEL_SHADER_STRUCTURE);
+			}
 		}
 		else if (defName == "pushbuffer")
 		{

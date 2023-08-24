@@ -20,6 +20,7 @@
 
 #define SHADER_UNIFORM_STR(S) #S
 #define GLSL_UNIFORM_STRING(set, location, name, structure) std::string("layout(binding=") + (set) + ",set=" + (location) + ") " SHADER_UNIFORM_STR(structure) " " + (name) + ";" 
+#define GLSL_SSBO_STRING(set, location, name, structure) std::string("struct ") + (name) + "Data { " + SHADER_UNIFORM_STR(structure) + " }; layout(std140,binding=" + (set) + ",set=" + (location) + ") readonly buffer " + (name) + " { " + (name) + "Data objects[]; }" + (name) + ";" 
 #define GLSL_PUSHBUFFER_STRING(name, structure) std::string("layout(push_constant) " SHADER_UNIFORM_STR(structure) " ") + (name) + ";"
 
 #define CAMERA_SHADER_STRUCTURE(D, M4) \
