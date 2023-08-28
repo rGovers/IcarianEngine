@@ -12,7 +12,14 @@ class ObjectManager;
 class UIElement;
 class VulkanGraphicsEngine;
 class VulkanRenderEngineBackend;
+class VulkanShaderStorageObject;
 class VulkanUniformBuffer;
+
+struct ShaderSlotInput
+{
+    FlareBase::ShaderBufferInput Input;
+    void*                        Data;
+};
 
 class VulkanShaderData
 {
@@ -27,8 +34,8 @@ private:
         vk::DescriptorPool DescriptorPool;
     };
 
-
     static constexpr uint32_t PushCount = 128;
+    static constexpr uint32_t SSBOMaxSize = 1024;
     static constexpr uint32_t StaticIndex = 0;
 
     VulkanRenderEngineBackend*   m_engine;
@@ -44,12 +51,10 @@ private:
     vk::DescriptorPool           m_staticDescriptorPool;
     vk::DescriptorSet            m_staticDescriptorSet;
 
-    FlareBase::ShaderBufferInput m_cameraBufferInput;
+    std::vector<ShaderSlotInput> m_slotInputs;
+    // Want quick access to these so they are stored separately
     FlareBase::ShaderBufferInput m_transformBufferInput;
     FlareBase::ShaderBufferInput m_uiBufferInput;
-    FlareBase::ShaderBufferInput m_directionalLightBufferInput;
-    FlareBase::ShaderBufferInput m_pointLightBufferInput;
-    FlareBase::ShaderBufferInput m_spotLightBufferInput;
 
 protected:
 
@@ -62,27 +67,19 @@ public:
         return m_layout;
     }
 
-    inline FlareBase::ShaderBufferInput GetCameraInput() const
-    {
-        return m_cameraBufferInput;
-    }
-    inline FlareBase::ShaderBufferInput GetDirectionalLightInput() const
-    {
-        return m_directionalLightBufferInput;
-    }
-    inline FlareBase::ShaderBufferInput GetPointLightInput() const
-    {
-        return m_pointLightBufferInput;
-    }
-    inline FlareBase::ShaderBufferInput GetSpotLightInput() const
-    {
-        return m_spotLightBufferInput;
-    }
+    bool GetCameraInput(FlareBase::ShaderBufferInput* a_input) const;
+
+    bool GetDirectionalLightInput(FlareBase::ShaderBufferInput* a_input) const;
+    bool GetPointLightInput(FlareBase::ShaderBufferInput* a_input) const;
+    bool GetSpotLightInput(FlareBase::ShaderBufferInput* a_input) const;
+
+    bool GetBatchModelBufferInput(FlareBase::ShaderBufferInput* a_input) const;
 
     void SetTexture(uint32_t a_slot, const FlareBase::TextureSampler& a_sampler) const;
 
     void PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const FlareBase::TextureSampler& a_sampler, uint32_t a_index) const;
-    void PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
+    void PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
+    void PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanShaderStorageObject* a_object, uint32_t a_index) const;
 
     void UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_transform) const;
     void UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, const UIElement* a_element) const;

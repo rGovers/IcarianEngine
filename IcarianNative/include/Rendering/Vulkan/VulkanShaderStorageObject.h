@@ -10,20 +10,18 @@ private:
     VulkanRenderEngineBackend* m_engine;
 
     uint32_t                   m_bufferSize;
-    vk::Buffer                 m_buffers[VulkanFlightPoolSize];
-    VmaAllocation              m_allocations[VulkanFlightPoolSize];
+    vk::Buffer                 m_buffer;
+    VmaAllocation              m_allocation;
 
 protected:
 
 public:
-    VulkanShaderStorageObject(VulkanRenderEngineBackend* a_engine, uint32_t a_bufferSize);
+    VulkanShaderStorageObject(VulkanRenderEngineBackend* a_engine, uint32_t a_bufferSize, const void* a_data);
     ~VulkanShaderStorageObject();
 
-    void SetData(uint32_t a_index, const void* a_data);
-
-    inline vk::Buffer GetBuffer(uint32_t a_index) const
+    inline vk::Buffer GetBuffer() const
     {
-        return m_buffers[a_index];
+        return m_buffer;
     }
     inline uint32_t GetSize() const
     {

@@ -26,6 +26,7 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
 #include "Rendering/Vulkan/VulkanShaderData.h"
+#include "Rendering/Vulkan/VulkanShaderStorageObject.h"
 #include "Rendering/Vulkan/VulkanSwapchain.h"
 #include "Rendering/Vulkan/VulkanTexture.h"
 #include "Rendering/Vulkan/VulkanTextureSampler.h"
@@ -629,6 +630,12 @@ vk::CommandBuffer VulkanGraphicsEngine::ShadowPass(uint32_t a_camIndex, uint32_t
         {
             break;
         }
+        default:
+        {
+            ICARIAN_ASSERT_MSG(0, "Unknown Light Type");
+
+            break;
+        }
         }
     }
 
@@ -727,11 +734,37 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
 
                             model->Bind(commandBuffer);
 
-                            for (const glm::mat4& mat : transforms)
+                            FlareBase::ShaderBufferInput modelSlot;
+                            if (shaderData->GetBatchModelBufferInput(&modelSlot))
                             {
-                                shaderData->UpdateTransformBuffer(commandBuffer, mat);
+                                const uint32_t count = (uint32_t)transforms.size();
 
-                                commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
+                                ModelShaderBuffer* modelBuffer = new ModelShaderBuffer[count];
+                                IDEFER(delete[] modelBuffer);
+
+                                for (uint32_t j = 0; j < count; ++j)
+                                {
+                                    const glm::mat4& mat = transforms[j];
+
+                                    modelBuffer[j].Model = mat;
+                                    modelBuffer[j].InvModel = glm::inverse(mat);
+                                }
+
+                                VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(ModelShaderBuffer) * count, modelBuffer);
+                                IDEFER(delete storage);
+
+                                shaderData->PushShaderStorageObject(commandBuffer, modelSlot.Set, storage, a_index);
+
+                                commandBuffer.drawIndexed(indexCount, count, 0, 0, 0);
+                            }
+                            else 
+                            {
+                                for (const glm::mat4& mat : transforms)
+                                {
+                                    shaderData->UpdateTransformBuffer(commandBuffer, mat);
+
+                                    commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
+                                }
                             }
                         }
                     }
@@ -790,9 +823,8 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             const std::vector<DirectionalLightBuffer> lights = m_directionalLights.ToVector();
 
-            const FlareBase::ShaderBufferInput dirLightInput = data->GetDirectionalLightInput();
-
-            if (dirLightInput.BufferType == FlareBase::ShaderBufferType_DirectionalLightBuffer)
+            FlareBase::ShaderBufferInput dirLightInput;
+            if (data->GetDirectionalLightInput(&dirLightInput))
             {
                 const uint32_t dirLightCount = (uint32_t)lights.size();
                 for (uint32_t i = 0; i < dirLightCount; ++i)
@@ -824,9 +856,8 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             const std::vector<PointLightBuffer> lights = m_pointLights.ToVector();
 
-            const FlareBase::ShaderBufferInput pointLightInput = data->GetPointLightInput();
-
-            if (pointLightInput.BufferType == FlareBase::ShaderBufferType_PointLightBuffer)
+            FlareBase::ShaderBufferInput pointLightInput;
+            if (data->GetPointLightInput(&pointLightInput))
             {
                 const uint32_t pointLightCount = (uint32_t)lights.size();
                 for (uint32_t i = 0; i < pointLightCount; ++i)
@@ -858,9 +889,8 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             const std::vector<SpotLightBuffer> lights = m_spotLights.ToVector();
 
-            const FlareBase::ShaderBufferInput spotLightInput = data->GetSpotLightInput();
-
-            if (spotLightInput.BufferType == FlareBase::ShaderBufferType_SpotLightBuffer)
+            FlareBase::ShaderBufferInput spotLightInput;
+            if (data->GetSpotLightInput(&spotLightInput))
             {
                 const uint32_t spotLightCount = (uint32_t)lights.size();
                 for (uint32_t i = 0; i < spotLightCount; ++i)
@@ -890,7 +920,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         }
         default:
         {
-            Logger::Warning("IcarianEngine: Invalid light type when drawing");
+            ICARIAN_ASSERT_MSG(0, "Unknown Light Type");
 
             break;
         }

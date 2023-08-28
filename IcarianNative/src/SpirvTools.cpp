@@ -84,12 +84,18 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 			}
 			else if (args[0] == "SSModelBuffer")
 			{
-				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_MODEL_SHADER_STRUCTURE);
+				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_MODEL_SSBO_STRUCTURE, MODEL_SHADER_NAMESTR);
 			}
+		}
+		else if (defName == "instancedstructure")
+		{
+			ICARIAN_ASSERT_MSG_R(args.size() == 1, "Flare Shader instancedstructure requires 1 argument");
+
+			rStr = args[0] + ".objects[gl_InstanceIndex]";
 		}
 		else if (defName == "pushbuffer")
 		{
-			ICARIAN_ASSERT_MSG_R(args.size() == 2, "Flare Shader push buffer requires 2 arguments");
+			ICARIAN_ASSERT_MSG_R(args.size() == 2, "Flare Shader pushbuffer requires 2 arguments");
 
 			if (args[0] == "ModelBuffer")
 			{

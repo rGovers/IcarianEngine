@@ -89,10 +89,13 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr)
     if (bind)
     {
         const VulkanShaderData* shaderData = pipeline->GetShaderData();
-        const FlareBase::ShaderBufferInput camInput = shaderData->GetCameraInput();
-        if (camInput.BufferType == FlareBase::ShaderBufferType_CameraBuffer)
+        FlareBase::ShaderBufferInput camInput;
+        if (shaderData->GetCameraInput(&camInput))
         {
-            shaderData->PushUniformBuffer(m_commandBuffer, camInput.Set, m_gEngine->GetCameraUniformBuffer(m_bufferIndex), m_engine->GetCurrentFrame());
+            const uint32_t currentFrame = m_engine->GetCurrentFrame();
+            VulkanUniformBuffer* camBuffer = m_gEngine->GetCameraUniformBuffer(m_bufferIndex);
+
+            shaderData->PushUniformBuffer(m_commandBuffer, camInput.Set, camBuffer, currentFrame);
         }
 
         pipeline->Bind(m_engine->GetCurrentFrame(), m_commandBuffer);
