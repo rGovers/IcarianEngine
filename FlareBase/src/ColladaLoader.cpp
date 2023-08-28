@@ -239,6 +239,8 @@ namespace FlareBase
                 ICARIAN_ASSERT(accessorElement != nullptr);
 
                 ColladaAccessor a;
+                a.Offset = 0;
+                a.Stride = 1;
                 for (const tinyxml2::XMLAttribute* att = accessorElement->FirstAttribute(); att != nullptr; att = att->Next()) 
                 {
                     const char* name = att->Name();
@@ -257,7 +259,7 @@ namespace FlareBase
                     } 
                     else if (strcmp(name, "offset") == 0) 
                     {
-                      a.Offset = (uint32_t)att->IntValue();
+                        a.Offset = (uint32_t)att->IntValue();
                     }
                 }
 
@@ -290,7 +292,7 @@ namespace FlareBase
                     }
                 }
 
-              s.Accessor = a;
+                s.Accessor = a;
             }
         }
 
@@ -1541,6 +1543,9 @@ namespace FlareBase
                             memset(weights, 0, sizeof(glm::vec4) * controller.Skin.VertexWeights.Count);
                             memset(joints, 0, sizeof(glm::ivec4) * controller.Skin.VertexWeights.Count);
 
+                            const float* weightDataSource = (float*)weightSource.Data.Data;
+                            const std::string* jointDataSource = (std::string*)jointSource.Data.Data;
+
                             uint32_t index = 0;
                             const uint32_t count = (uint32_t)controller.Skin.VertexWeights.Inputs.size();
                             for (uint32_t i = 0; i < controller.Skin.VertexWeights.Count; ++i)
@@ -1555,9 +1560,8 @@ namespace FlareBase
                                     const uint32_t weightIndex = controller.Skin.VertexWeights.V[iIndex + weightInput.Offset];
                                     const uint32_t jointIndex = controller.Skin.VertexWeights.V[iIndex + jointInput.Offset];
 
-                                    // TODO: Solve release mode crash from garbage for stride value
-                                    weights[i][j] = ((float*)weightSource.Data.Data)[(weightIndex * weightSource.Accessor.Stride) + weightInput.Offset];
-                                    joints[i][j] = jointMap[((std::string*)jointSource.Data.Data)[(jointIndex * jointSource.Accessor.Stride) + jointInput.Offset]];
+                                    weights[i][j] = weightDataSource[weightIndex * weightSource.Accessor.Stride];
+                                    joints[i][j] = jointMap[jointDataSource[jointIndex * jointSource.Accessor.Stride]];
                                 }
 
                                 index += count * vCount;
