@@ -63,4 +63,6 @@ public:
     static void UpdateAnimators(e_AnimationUpdateMode a_updateMode, double a_deltaTime);
 
     static void DispatchUpdate(double a_deltaTime);
+
+    static SkeletonData GetSkeleton(uint32_t a_index);
 };

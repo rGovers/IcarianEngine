@@ -46,7 +46,7 @@ std::vector<uint32_t> AnimationController::GetAnimators(e_AnimationUpdateMode a_
     const std::vector<bool> stateVector = Instance->m_animators.ToStateVector();
     const std::vector<e_AnimationUpdateMode> modeVector = Instance->m_animators.ToVector();
 
-    const uint32_t size = stateVector.size();
+    const uint32_t size = (uint32_t)stateVector.size();
     
     std::vector<uint32_t> animators;
     animators.reserve(size);
@@ -76,7 +76,7 @@ void AnimationController::UpdateAnimators(e_AnimationUpdateMode a_updateMode, do
 {
     const std::vector<uint32_t> animators = GetAnimators(a_updateMode);
 
-    const uint32_t count = animators.size();
+    const uint32_t count = (uint32_t)animators.size();
     if (count > 0)
     {
         MonoArray* animatorsArray = mono_array_new(mono_domain_get(), mono_get_uint32_class(), (uintptr_t)count);
@@ -99,7 +99,7 @@ class AnimatorThreadJob : public ThreadJob
 {
 private:
     uint32_t m_animator;
-    double    m_deltaTime;
+    double   m_deltaTime;
 
 protected:
 
@@ -122,7 +122,7 @@ void AnimationController::DispatchUpdate(double a_deltaTime)
     const std::vector<bool> stateVector = Instance->m_animators.ToStateVector();
     const std::vector<e_AnimationUpdateMode> modeVector = Instance->m_animators.ToVector();
 
-    const uint32_t size = stateVector.size();
+    const uint32_t size = (uint32_t)stateVector.size();
 
     for (uint32_t i = 0; i < size; ++i)
     {
@@ -150,9 +150,14 @@ void AnimationController::DispatchUpdate(double a_deltaTime)
             }
             default:
             {
-                break;
+                continue;
             }
             }
         }
     }
+}
+
+SkeletonData AnimationController::GetSkeleton(uint32_t a_index)
+{
+    return Instance->m_skeletons[a_index];
 }

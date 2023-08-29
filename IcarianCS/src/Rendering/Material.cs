@@ -35,6 +35,7 @@ namespace IcarianEngine.Rendering
         Texture = 6,
         PushTexture = 7,
         SSModelBuffer = 8,
+        SSBoneBuffer = 9,
     };
 
     public enum ShaderSlot : ushort

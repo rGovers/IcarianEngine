@@ -833,6 +833,8 @@ namespace FlareBase
 
     bool ColladaLoader_LoadData(const char* a_data, uint32_t a_size, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius)
     {
+        *a_radius = 0.0f;
+
         tinyxml2::XMLDocument doc;
         if (doc.Parse(a_data, (size_t)a_size) == tinyxml2::XML_SUCCESS)
         {
@@ -1128,18 +1130,18 @@ namespace FlareBase
                     int normVCount;
                     int texVCount;
 
-                    int* posOffset = ColladaLoader_GetOffsets(posSource, &posVCount);
+                    const int* posOffset = ColladaLoader_GetOffsets(posSource, &posVCount);
                     IDEFER(delete[] posOffset);
-                    int* normalOffset = ColladaLoader_GetOffsets(normalSource, &normVCount);
+                    const int* normalOffset = ColladaLoader_GetOffsets(normalSource, &normVCount);
                     IDEFER(delete[] normalOffset);
-                    int* texcoordOffset = ColladaLoader_GetOffsets(texcoordSource, &texVCount);
+                    const int* texcoordOffset = ColladaLoader_GetOffsets(texcoordSource, &texVCount);
                     IDEFER(delete[] texcoordOffset);
 
                     std::unordered_map<uint64_t, uint32_t> indexMap;
 
                     uint32_t index = 0;
                     const uint32_t count = (uint32_t)g.Mesh.Polylist.Inputs.size();
-                    for (uint32_t vCount : g.Mesh.Polylist.VCount)
+                    for (const uint32_t vCount : g.Mesh.Polylist.VCount)
                     {
                         uint32_t posIndices[4];
                         uint32_t normalIndices[4];
@@ -1284,7 +1286,7 @@ namespace FlareBase
             ColladaLoader_BuildJointMap(n, a_index, a_map);
         }
     }
-    void ColladaLoader_BuildJointData(const ColladaSceneNode& a_node, uint32_t* a_index, uint32_t a_parent, std::vector<BoneData>* a_dat)
+    void ColladaLoader_BuildJointData(const ColladaSceneNode& a_node, uint32_t* a_index, uint32_t a_parent, std::vector<BoneData>* a_dat, float a_scale)
     {
         uint32_t pIndex = a_parent;
         if (a_node.Type == "JOINT")
@@ -1294,8 +1296,10 @@ namespace FlareBase
             d.Name = a_node.Name;
             for (int i = 0; i < 16; ++i)
             {
-                d.Transform[i / 4][i % 4] = a_node.Transform[i];
+                d.Transform[i % 4][i / 4] = a_node.Transform[i];
             }
+
+            d.Transform[3] = glm::vec4(d.Transform[3].xyz() * a_scale, 1.0f);
 
             a_dat->emplace_back(d);
 
@@ -1304,12 +1308,14 @@ namespace FlareBase
 
         for (const ColladaSceneNode& n : a_node.Children)
         {
-            ColladaLoader_BuildJointData(n, a_index, pIndex, a_dat);
+            ColladaLoader_BuildJointData(n, a_index, pIndex, a_dat, a_scale);
         }
     }
 
     bool ColladaLoader_LoadSkinnedData(const char* a_data, uint32_t a_size, std::vector<SkinnedVertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius)
     {
+        *a_radius = 0.0f;
+
         tinyxml2::XMLDocument doc;
         if (doc.Parse(a_data, (size_t)a_size) == tinyxml2::XML_SUCCESS)
         {
@@ -1562,6 +1568,8 @@ namespace FlareBase
 
                                     weights[i][j] = weightDataSource[weightIndex * weightSource.Accessor.Stride];
                                     joints[i][j] = jointMap[jointDataSource[jointIndex * jointSource.Accessor.Stride]];
+
+                                    ICARIAN_ASSERT(weights[i][j] != NAN);
                                 }
 
                                 index += count * vCount;
@@ -1580,6 +1588,10 @@ namespace FlareBase
 
                             std::unordered_map<uint64_t, uint32_t> indexMap;
 
+                            const float* posData = (float*)posSource.Data.Data;
+                            const float* normData = (float*)normalSource.Data.Data;
+                            const float* texcoordData = (float*)texcoordSource.Data.Data;
+
                             index = 0;
                             const uint32_t cIndexCount = (uint32_t)geom.Mesh.Polylist.Inputs.size();
                             for (const uint32_t vCount : geom.Mesh.Polylist.VCount)
@@ -1593,7 +1605,7 @@ namespace FlareBase
                                 for (uint32_t i = 0; i < vCount; ++i)
                                 {
                                     // Flip faces so back culling work correctly
-                                    const uint32_t iIndex = index + ((vCount - 1) - i) * count;
+                                    const uint32_t iIndex = index + ((vCount - 1) - i) * cIndexCount;
 
                                     posIndices[i] = geom.Mesh.Polylist.P[iIndex + posInput.Offset];
                                     normalIndices[i] = geom.Mesh.Polylist.P[iIndex + normInput.Offset];
@@ -1627,11 +1639,11 @@ namespace FlareBase
                                             {
                                                 if (posOffset[j] == 1)
                                                 {
-                                                    v.Position[posOffset[j]] = -((float*)posSource.Data.Data)[(posIndices[i] * posSource.Accessor.Stride) + j] * scale;
+                                                    v.Position[posOffset[j]] = -posData[(posIndices[i] * posSource.Accessor.Stride) + j] * scale;
                                                 }
                                                 else
                                                 {
-                                                    v.Position[posOffset[j]] = ((float*)posSource.Data.Data)[(posIndices[i] * posSource.Accessor.Stride) + j] * scale;
+                                                    v.Position[posOffset[j]] = posData[(posIndices[i] * posSource.Accessor.Stride) + j] * scale;
                                                 }
                                             }
 
@@ -1639,17 +1651,17 @@ namespace FlareBase
                                             {
                                                 if (normalOffset[j] == 1)
                                                 {
-                                                    v.Normal[normalOffset[j]] = ((float*)normalSource.Data.Data)[(normalIndices[i] * normalSource.Accessor.Stride) + j];
+                                                    v.Normal[normalOffset[j]] = normData[(normalIndices[i] * normalSource.Accessor.Stride) + j];
                                                 }
                                                 else
                                                 {
-                                                    v.Normal[normalOffset[j]] = -((float*)normalSource.Data.Data)[(normalIndices[i] * normalSource.Accessor.Stride) + j];
+                                                    v.Normal[normalOffset[j]] = -normData[(normalIndices[i] * normalSource.Accessor.Stride) + j];
                                                 }
                                             }
 
                                             for (int j = 0; j < texVCount; ++j)
                                             {
-                                                v.TexCoords[texcoordOffset[j]] = ((float*)texcoordSource.Data.Data)[(texcoordIndices[i] * texcoordSource.Accessor.Stride) + j];
+                                                v.TexCoords[texcoordOffset[j]] = texcoordData[(texcoordIndices[i] * texcoordSource.Accessor.Stride) + j];
                                             }
 
                                             const uint32_t iVIndex = vertexIndices[i];
@@ -1659,7 +1671,13 @@ namespace FlareBase
 
                                             a_vertices->emplace_back(v);
                                             a_indices->emplace_back(vIndex);
-                                            indexMap.emplace(h, vIndex);                                            
+                                            indexMap.emplace(h, vIndex);      
+
+                                            const float radius = glm::length(v.Position.xyz());
+                                            if (radius > *a_radius)
+                                            {
+                                                *a_radius = radius;
+                                            }
                                         }
                                     }
 
@@ -1678,6 +1696,8 @@ namespace FlareBase
                                     break;
                                 }
                                 }
+
+                                index += cIndexCount * vCount;
                             }
                         }
                         else
@@ -1884,6 +1904,12 @@ namespace FlareBase
                                         a_vertices->emplace_back(v);
                                         a_indices->emplace_back(vIndex);
                                         indexMap.emplace(h, vIndex);
+
+                                        const float radius = glm::length(v.Position.xyz());
+                                        if (radius > *a_radius)
+                                        {
+                                            *a_radius = radius;
+                                        }
                                     }
                                 }
                             }
@@ -1929,6 +1955,8 @@ namespace FlareBase
         tinyxml2::XMLDocument doc;
         if (doc.Parse(a_data, (size_t)a_size) == tinyxml2::XML_SUCCESS)
         {
+            float scale = 1.0f;
+
             const tinyxml2::XMLElement* rootElement = doc.RootElement();
 
             std::vector<ColladaVisualScene> scenes;
@@ -1936,8 +1964,19 @@ namespace FlareBase
             for (const tinyxml2::XMLElement* element = rootElement->FirstChildElement(); element != nullptr; element = element->NextSiblingElement())
             {
                 const char* elementName = element->Value();
-
-                if (strcmp(elementName, "library_visual_scenes") == 0)
+                
+                if (strcmp(elementName, "asset") == 0)
+                {
+                    for (const tinyxml2::XMLElement* assetElement = element->FirstChildElement(); assetElement != nullptr; assetElement = assetElement->NextSiblingElement())
+                    {
+                        const char* name = assetElement->Value();
+                        if (strcmp(name, "unit") == 0)
+                        {
+                            scale = assetElement->FloatAttribute("meter");
+                        }
+                    }
+                }
+                else if (strcmp(elementName, "library_visual_scenes") == 0)
                 {
                     scenes = LoadScene(element);
                 }
@@ -1948,7 +1987,7 @@ namespace FlareBase
             {
                 for (const ColladaSceneNode& n : s.Nodes)
                 {
-                    ColladaLoader_BuildJointData(n, &jointIndex, -1, a_bones);
+                    ColladaLoader_BuildJointData(n, &jointIndex, -1, a_bones, scale);
                 }
             }
 

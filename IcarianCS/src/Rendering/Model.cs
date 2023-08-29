@@ -39,6 +39,55 @@ namespace IcarianEngine.Rendering
             return attributes;
         }
     }
+    [StructLayout(LayoutKind.Sequential, Pack = 0)]
+    public struct SkinnedVertex
+    {
+        public Vector4 Position;
+        public Vector3 Normal;
+        public Vector4 Color;
+        public Vector2 TexCoords;
+        public Vector4 BoneWeights;
+        public int BoneIndexA;
+        public int BoneIndexB;
+        public int BoneIndexC;
+        public int BoneIndexD;
+
+        public static VertexInputAttribute[] GetAttributes()
+        {
+            VertexInputAttribute[] attributes = new VertexInputAttribute[6];
+            attributes[0].Location = 0;
+            attributes[0].Type = VertexType.Float;
+            attributes[0].Count = 4;
+            attributes[0].Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("Position");
+
+            attributes[1].Location = 1;
+            attributes[1].Type = VertexType.Float;
+            attributes[1].Count = 3;
+            attributes[1].Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("Normal");
+
+            attributes[2].Location = 2;
+            attributes[2].Type = VertexType.Float;
+            attributes[2].Count = 4;
+            attributes[2].Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("Color");
+
+            attributes[3].Location = 3;
+            attributes[3].Type = VertexType.Float;
+            attributes[3].Count = 2;
+            attributes[3].Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("TexCoords");
+
+            attributes[4].Location = 4;
+            attributes[4].Type = VertexType.Float;
+            attributes[4].Count = 4;
+            attributes[4].Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("BoneWeights");
+
+            attributes[5].Location = 5;
+            attributes[5].Type = VertexType.Int;
+            attributes[5].Count = 4;
+            attributes[5].Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("BoneIndexA");
+
+            return attributes;
+        }
+    }
 
     public enum VertexType : ushort
     {

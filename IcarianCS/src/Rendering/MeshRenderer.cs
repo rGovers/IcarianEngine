@@ -67,20 +67,6 @@ namespace IcarianEngine.Rendering
             }
         }
 
-        public Model Model
-        {
-            get
-            {
-                return m_model;
-            }
-            set
-            {
-                m_model = value;
-
-                PushData();
-            }
-        }
-
         public override Material Material
         {
             get
@@ -89,9 +75,29 @@ namespace IcarianEngine.Rendering
             }
             set
             {
-                m_material = value;
+                if (m_material != value)
+                {
+                    m_material = value;
 
-                PushData();
+                    PushData();
+                }
+            }
+        }
+
+        public Model Model
+        {
+            get
+            {
+                return m_model;
+            }
+            set
+            {
+                if (m_model != value)
+                {
+                    m_model = value;
+
+                    PushData();
+                }
             }
         }
 

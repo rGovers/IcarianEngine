@@ -57,6 +57,11 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     F(void, IcarianEngine.Rendering, MeshRenderer, GenerateRenderStack, { Engine->GenerateRenderStack(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, MeshRenderer, DestroyRenderStack, { Engine->DestroyRenderStack(a_addr); }, uint32_t a_addr) \
     \
+    F(uint32_t, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, GenerateBuffer, { return Engine->GenerateSkinnedMeshRenderBuffer(a_materialAddr, a_modelAddr, a_transformAddr, a_skeletonAddr); }, uint32_t a_transformAddr, uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_skeletonAddr) \
+    F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, DestroyBuffer, { Engine->DestroySkinnedMeshRenderBuffer(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, GenerateRenderStack, { Engine->GenerateSkinnedRenderStack(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, DestroyRenderStack, { Engine->DestroySkinnedRenderStack(a_addr); }, uint32_t a_addr) \
+    \
     F(void, IcarianEngine.Rendering, Texture, DestroyTexture, { Engine->DestroyTexture(a_addr); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateTextureSampler, { return Engine->GenerateTextureSampler(a_texture, (FlareBase::e_TextureFilter)a_filter, (FlareBase::e_TextureAddress)a_addressMode ); }, uint32_t a_texture, uint32_t a_filter, uint32_t a_addressMode) \
@@ -764,21 +769,6 @@ uint32_t VulkanGraphicsEngineBindings::GenerateMeshRenderBuffer(uint32_t a_mater
     TRACE("Creating Render Buffer");
     const MeshRenderBuffer buffer = MeshRenderBuffer(a_materialAddr, a_modelAddr, a_transformAddr);
 
-    {
-        TLockArray<MeshRenderBuffer> a = m_graphicsEngine->m_renderBuffers.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i].MaterialAddr == -1)
-            {
-                a[i] = buffer;
-
-                return i;
-            }
-        }
-    }
-
     return m_graphicsEngine->m_renderBuffers.PushVal(buffer);
 }
 void VulkanGraphicsEngineBindings::DestroyMeshRenderBuffer(uint32_t a_addr) const
@@ -786,12 +776,7 @@ void VulkanGraphicsEngineBindings::DestroyMeshRenderBuffer(uint32_t a_addr) cons
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_renderBuffers.Size(), "DestroyMeshRenderBuffer out of bounds");
 
     TRACE("Destroying Render Buffer");
-    MeshRenderBuffer nullBuffer;
-    nullBuffer.MaterialAddr = -1;
-    nullBuffer.ModelAddr = -1;
-    nullBuffer.TransformAddr = -1;
-
-    m_graphicsEngine->m_renderBuffers.LockSet(a_addr, nullBuffer);
+    m_graphicsEngine->m_renderBuffers.Erase(a_addr);
 }
 void VulkanGraphicsEngineBindings::GenerateRenderStack(uint32_t a_meshAddr) const
 {
@@ -837,6 +822,72 @@ void VulkanGraphicsEngineBindings::DestroyRenderStack(uint32_t a_meshAddr) const
                 IDEFER(delete stack);
 
                 TRACE("Destroying RenderStack");
+                m_graphicsEngine->m_renderStacks.UErase(i);
+            }
+
+            return;
+        }
+    }
+}
+
+uint32_t VulkanGraphicsEngineBindings::GenerateSkinnedMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr, uint32_t a_skeletonAddr) const
+{   
+    TRACE("Creating Skinned Render Buffer");
+    const SkinnedMeshRenderBuffer buffer = SkinnedMeshRenderBuffer(a_skeletonAddr, a_materialAddr, a_modelAddr, a_transformAddr);
+
+    return m_graphicsEngine->m_skinnedRenderBuffers.PushVal(buffer);
+}
+void VulkanGraphicsEngineBindings::DestroySkinnedMeshRenderBuffer(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_skinnedRenderBuffers.Size(), "DestroySkinnedMeshRenderBuffer out of bounds");
+
+    TRACE("Destroying Skinned Render Buffer");
+    m_graphicsEngine->m_skinnedRenderBuffers.Erase(a_addr);
+}
+void VulkanGraphicsEngineBindings::GenerateSkinnedRenderStack(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_skinnedRenderBuffers.Size(), "GenerateSkinnedRenderStack out of bounds");
+
+    TRACE("Pushing Skinned RenderStack");
+    const SkinnedMeshRenderBuffer& buffer = m_graphicsEngine->m_skinnedRenderBuffers[a_addr];
+
+    {
+        TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
+
+        const uint32_t size = a.Size();
+
+        for (uint32_t i = 0; i < size; ++i)
+        {
+            if (a[i]->Add(buffer))
+            {
+                return;
+            }
+        }
+    }
+
+    TRACE("Allocating Skinned RenderStack");
+    m_graphicsEngine->m_renderStacks.Push(new MaterialRenderStack(buffer));
+}
+void VulkanGraphicsEngineBindings::DestroySkinnedRenderStack(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_skinnedRenderBuffers.Size(), "DestroySkinnedRenderStack out of bounds");
+
+    TRACE("Removing Skinned RenderStack");
+    const SkinnedMeshRenderBuffer& buffer = m_graphicsEngine->m_skinnedRenderBuffers[a_addr];
+
+    TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
+
+    const uint32_t size = a.Size();
+    for (uint32_t i = 0; i < size; ++i)
+    {
+        if (a[i]->Remove(buffer))
+        {
+            if (a[i]->Empty())
+            {
+                const MaterialRenderStack* stack = a[i];
+                IDEFER(delete stack);
+
+                TRACE("Destroying Skinned RenderStack");
                 m_graphicsEngine->m_renderStacks.UErase(i);
             }
 

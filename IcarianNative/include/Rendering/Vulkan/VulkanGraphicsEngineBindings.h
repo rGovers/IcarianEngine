@@ -58,6 +58,11 @@ public:
     void GenerateRenderStack(uint32_t a_meshAddr) const;
     void DestroyRenderStack(uint32_t a_meshAddr) const;
 
+    uint32_t GenerateSkinnedMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr, uint32_t a_skeletonAddr) const;
+    void DestroySkinnedMeshRenderBuffer(uint32_t a_addr) const;
+    void GenerateSkinnedRenderStack(uint32_t a_addr) const;
+    void DestroySkinnedRenderStack(uint32_t a_addr) const;
+
     uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, const void* a_data);
     void DestroyTexture(uint32_t a_addr) const;
 

@@ -9,6 +9,7 @@
 #include "Logger.h"
 #include "ObjectManager.h"
 #include "Profiler.h"
+#include "Rendering/AnimationController.h"
 #include "Rendering/Light.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/ShaderBuffers.h"
@@ -682,16 +683,13 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
 
         if (camBuffer.RenderLayer & program.RenderLayer)
         {
-            const uint32_t modelCount = renderStack->GetModelBufferCount();
-            const ModelBuffer* modelBuffers = renderStack->GetModelBuffers();
-
             const VulkanPipeline* pipeline = renderCommand.BindMaterial(matAddr);
             ICARIAN_ASSERT(pipeline != nullptr);
             const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
             ICARIAN_ASSERT(shaderData != nullptr);
 
-            bool bound = false;
-
+            const uint32_t modelCount = renderStack->GetModelBufferCount();
+            const ModelBuffer* modelBuffers = renderStack->GetModelBuffers();
             for (uint32_t i = 0; i < modelCount; ++i)
             {
                 const ModelBuffer& modelBuffer = modelBuffers[i];
@@ -714,7 +712,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                             if (transformAddr != -1)
                             {
                                 const glm::mat4 transform = objectManager->GetGlobalMatrix(modelBuffers[i].TransformAddr[j]);
-                                const glm::vec3 position = transform[3];
+                                const glm::vec3 position = transform[3].xyz();
 
                                 if (frustum.CompareSphere(position, radius))
                                 {
@@ -725,13 +723,6 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
 
                         if (!transforms.empty())
                         {
-                            if (!bound)
-                            {
-                                pipeline->Bind(a_index, commandBuffer);
-
-                                bound = true;
-                            }
-
                             model->Bind(commandBuffer);
 
                             FlareBase::ShaderBufferInput modelSlot;
@@ -764,6 +755,75 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                     shaderData->UpdateTransformBuffer(commandBuffer, mat);
 
                                     commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            const uint32_t skinnedModelCount = renderStack->GetSkinnedModelBufferCount();
+            const SkinnedModelBuffer* skinnedModelBuffers = renderStack->GetSkinnedModelBuffers();
+            for (uint32_t i = 0; i < skinnedModelCount; ++i)
+            {
+                const SkinnedModelBuffer& modelBuffer = skinnedModelBuffers[i];
+                if (modelBuffer.ModelAddr != -1)
+                {
+                    const VulkanModel* model = m_models[modelBuffer.ModelAddr];
+                    
+                    if (model != nullptr)
+                    {
+                        bool modelBound = false;
+
+                        const float radius = model->GetRadius();
+                        const uint32_t indexCount = model->GetIndexCount();
+
+                        const uint32_t objectCount = modelBuffer.ObjectCount;
+                        for (uint32_t j = 0; j < objectCount; ++j)
+                        {
+                            const uint32_t transformAddr = modelBuffer.TransformAddr[j];
+                            if (transformAddr != -1)
+                            {
+                                const glm::mat4 transform = objectManager->GetGlobalMatrix(transformAddr);
+                                const glm::vec3 position = transform[3].xyz();
+
+                                if (frustum.CompareSphere(position, radius))
+                                {
+                                    if (!modelBound)
+                                    {
+                                        model->Bind(commandBuffer);
+
+                                        modelBound = true;
+                                    }
+
+                                    FlareBase::ShaderBufferInput boneSlot;
+                                    if (shaderData->GetBoneBufferInput(&boneSlot))
+                                    {
+                                        const SkeletonData skeleton = AnimationController::GetSkeleton(modelBuffer.SkeletonAddr[j]);
+                                        const uint32_t boneCount = (uint32_t)skeleton.BoneData.size();
+
+                                        BoneShaderBuffer* boneBuffer = new BoneShaderBuffer[boneCount];
+                                        IDEFER(delete[] boneBuffer);
+
+                                        for (uint32_t k = 0; k < boneCount; ++k)
+                                        {
+                                            const BoneTransformData& bone = skeleton.BoneData[k];
+
+                                            const TransformBuffer tBuffer = objectManager->GetTransformBuffer(bone.TransformIndex);
+                                            const glm::mat4 tMatrix = tBuffer.ToMat4();
+
+                                            boneBuffer[k].BoneMatrix = bone.InverseBindPose * tMatrix;
+                                        }
+
+                                        const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(BoneShaderBuffer) * boneCount, boneBuffer);
+                                        IDEFER(delete storage);
+
+                                        shaderData->PushShaderStorageObject(commandBuffer, boneSlot.Set, storage, a_index);
+                                    }      
+
+                                    shaderData->UpdateTransformBuffer(commandBuffer, transform);
+
+                                    commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);                              
                                 }
                             }
                         }

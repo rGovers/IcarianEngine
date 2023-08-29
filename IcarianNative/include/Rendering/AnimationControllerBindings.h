@@ -25,5 +25,5 @@ public:
     uint32_t CreateSkeletonBuffer() const;
     void DestroySkeletonBuffer(uint32_t a_addr) const;
     void ClearSkeletonBuffer(uint32_t a_addr) const;
-    void PushSkeletonBoneData(uint32_t a_addr, uint32_t a_transformIndex, glm::mat4 a_inverseBindPose) const;
+    void PushSkeletonBoneData(uint32_t a_addr, uint32_t a_transformIndex, const glm::mat4& a_inverseBindPose) const;
 };

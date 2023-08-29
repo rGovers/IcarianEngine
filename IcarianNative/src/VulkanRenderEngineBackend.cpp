@@ -688,10 +688,6 @@ TLockObj<vk::CommandBuffer, std::mutex>* VulkanRenderEngineBackend::BeginSingleC
         vk::CommandBufferUsageFlagBits::eOneTimeSubmit
     );
 
-    // TODO: Rare crash here not sure why further investigation needed
-    // seems to be extermely rare and only happens on startup so ignoring for now
-    // hopefully becomes easier to replicate in the future
-    // Running NV driver 535.54.03 on RTX 3080 for future reference
     ICARIAN_ASSERT_R(cmdBuffer.begin(&BufferBeginInfo) == vk::Result::eSuccess);
 
     return buffer;

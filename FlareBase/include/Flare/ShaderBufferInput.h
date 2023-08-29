@@ -16,6 +16,7 @@ namespace FlareBase
         ShaderBufferType_Texture = 6,
         ShaderBufferType_PushTexture = 7,
         ShaderBufferType_SSModelBuffer = 8,
+        ShaderBufferType_SSBoneBuffer = 9,
     };
     
     enum e_ShaderSlot : uint16_t

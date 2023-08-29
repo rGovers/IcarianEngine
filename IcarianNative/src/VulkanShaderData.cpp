@@ -87,6 +87,7 @@ constexpr static vk::DescriptorType GetDescriptorType(FlareBase::e_ShaderBufferT
     {
         return vk::DescriptorType::eCombinedImageSampler;
     }
+    case FlareBase::ShaderBufferType_SSBoneBuffer:
     case FlareBase::ShaderBufferType_SSModelBuffer:
     {
         return vk::DescriptorType::eStorageBuffer;
@@ -134,6 +135,7 @@ static void GetLayoutInfo(const FlareBase::RenderProgram& a_program, std::vector
         case FlareBase::ShaderBufferType_SpotLightBuffer:
         case FlareBase::ShaderBufferType_PushTexture:
         case FlareBase::ShaderBufferType_SSModelBuffer:
+        case FlareBase::ShaderBufferType_SSBoneBuffer:
         {
             Input in;
             in.Slot = i;
@@ -245,6 +247,7 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
         case FlareBase::ShaderBufferType_PointLightBuffer:
         case FlareBase::ShaderBufferType_SpotLightBuffer:
         case FlareBase::ShaderBufferType_SSModelBuffer:
+        case FlareBase::ShaderBufferType_SSBoneBuffer:
         {
             ShaderSlotInput input;
             input.Input = program.ShaderBufferInputs[i];
@@ -684,6 +687,21 @@ bool VulkanShaderData::GetBatchModelBufferInput(FlareBase::ShaderBufferInput* a_
     for (const ShaderSlotInput& input : m_slotInputs)
     {
         if (input.Input.BufferType == FlareBase::ShaderBufferType_SSModelBuffer)
+        {
+            *a_input = input.Input;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool VulkanShaderData::GetBoneBufferInput(FlareBase::ShaderBufferInput* a_input) const
+{
+    for (const ShaderSlotInput& input : m_slotInputs)
+    {
+        if (input.Input.BufferType == FlareBase::ShaderBufferType_SSBoneBuffer)
         {
             *a_input = input.Input;
 

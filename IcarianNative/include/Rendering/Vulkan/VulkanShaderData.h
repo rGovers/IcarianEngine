@@ -74,6 +74,8 @@ public:
     bool GetSpotLightInput(FlareBase::ShaderBufferInput* a_input) const;
 
     bool GetBatchModelBufferInput(FlareBase::ShaderBufferInput* a_input) const;
+    
+    bool GetBoneBufferInput(FlareBase::ShaderBufferInput* a_input) const;
 
     void SetTexture(uint32_t a_slot, const FlareBase::TextureSampler& a_sampler) const;
 

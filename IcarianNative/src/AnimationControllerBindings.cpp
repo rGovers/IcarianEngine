@@ -147,7 +147,7 @@ void AnimationControllerBindings::ClearSkeletonBuffer(uint32_t a_addr) const
     TLockArray<SkeletonData> a = m_controller->m_skeletons.ToLockArray();
     a[a_addr].BoneData.clear();
 }
-void AnimationControllerBindings::PushSkeletonBoneData(uint32_t a_addr, uint32_t a_transformIndex, glm::mat4 a_inverseBindPose) const
+void AnimationControllerBindings::PushSkeletonBoneData(uint32_t a_addr, uint32_t a_transformIndex, const glm::mat4& a_inverseBindPose) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_controller->m_skeletons.Size(), "PushSkeletonBoneData out of bounds");
 

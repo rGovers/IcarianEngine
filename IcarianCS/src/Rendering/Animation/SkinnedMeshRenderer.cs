@@ -17,6 +17,16 @@ namespace IcarianEngine.Rendering.Animation
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void PushBoneData(uint a_bufferAddr, uint a_transformIndex, float[] a_inverseBindPose);
 
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GenerateBuffer(uint a_transformAddr, uint a_materialAddr, uint a_modelAddr, uint a_skeletonAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void DestroyBuffer(uint a_bufferAddr);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void GenerateRenderStack(uint a_bufferAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void DestroyRenderStack(uint a_bufferAddr);
+
         bool       m_visible = true;
 
         uint       m_rendererBufferAddr = uint.MaxValue;
@@ -50,7 +60,20 @@ namespace IcarianEngine.Rendering.Animation
             }
             set
             {
-                m_visible = value;
+                if (m_visible != value)
+                {
+                    if (m_visible && m_rendererBufferAddr != uint.MaxValue)
+                    {
+                        DestroyRenderStack(m_rendererBufferAddr);
+                    }
+
+                    m_visible = value;
+
+                    if (m_visible && m_rendererBufferAddr != uint.MaxValue)
+                    {
+                        GenerateRenderStack(m_rendererBufferAddr);
+                    }
+                }
             }
         }
 
@@ -62,7 +85,12 @@ namespace IcarianEngine.Rendering.Animation
             }
             set
             {
-                m_material = value;
+                if (m_material != value)
+                {
+                    m_material = value;
+
+                    PushData();
+                }
             }
         }
 
@@ -81,7 +109,37 @@ namespace IcarianEngine.Rendering.Animation
             }
             set
             {
-                m_model = value;
+                if (m_model != value)
+                {
+                    m_model = value;
+
+                    PushData();
+                }
+            }
+        }
+
+        void PushData()
+        {
+            if (m_rendererBufferAddr != uint.MaxValue)
+            {
+                if (m_visible)
+                {
+                    DestroyRenderStack(m_rendererBufferAddr);
+                }
+
+                DestroyBuffer(m_rendererBufferAddr);
+
+                m_rendererBufferAddr = uint.MaxValue;
+            }
+
+            if (m_model != null && m_material != null)
+            {
+                m_rendererBufferAddr = GenerateBuffer(Transform.InternalAddr, m_material.InternalAddr, m_model.InternalAddr, m_skeletonBufferAddr);
+
+                if (m_visible)
+                {
+                    GenerateRenderStack(m_rendererBufferAddr);
+                }
             }
         }
 
@@ -94,6 +152,10 @@ namespace IcarianEngine.Rendering.Animation
             SkinnedMeshRendererDef def = SkinnedMeshRendererDef;
             if (def != null)
             {
+                if (!string.IsNullOrWhiteSpace(def.SkeletonPath))
+                {
+                    SetSkeleton(AssetLibrary.LoadSkeleton(def.SkeletonPath));
+                }
                 if (def.MaterialDef != null)
                 {
                     Material = AssetLibrary.GetMaterial(def.MaterialDef);
@@ -101,10 +163,6 @@ namespace IcarianEngine.Rendering.Animation
                 if (!string.IsNullOrWhiteSpace(def.ModelPath))
                 {
                     Model = AssetLibrary.LoadSkinnedModel(def.ModelPath);
-                }
-                if (!string.IsNullOrWhiteSpace(def.SkeletonPath))
-                {
-                    SetSkeleton(AssetLibrary.LoadSkeleton(def.SkeletonPath));
                 }
             }
         }
@@ -129,7 +187,7 @@ namespace IcarianEngine.Rendering.Animation
                 InverseBindPose = invPose
             };
 
-            Transform.SetMatrix(a_bone.BindingPose);
+            boneObject.Transform.SetMatrix(a_bone.BindingPose);
 
             a_data.Add(a_bone.Index, data);
 
@@ -191,6 +249,11 @@ namespace IcarianEngine.Rendering.Animation
             {
                 if (a_disposing)
                 {
+                    if (m_root != null && !m_root.IsDisposed)
+                    {
+                        m_root.Dispose();
+                    }
+
                     m_model = null;
                     m_material = null;
                     m_skeleton = null;

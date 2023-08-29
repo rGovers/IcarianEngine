@@ -33,6 +33,7 @@ class VulkanVertexShader;
 #include "Rendering/Light.h"
 #include "Rendering/MaterialRenderStack.h"
 #include "Rendering/MeshRenderBuffer.h"
+#include "Rendering/SkinnedMeshRenderBuffer.h"
 #include "Rendering/UI/CanvasRendererBuffer.h"
 
 class VulkanGraphicsEngine
@@ -79,7 +80,8 @@ private:
     TNCArray<VulkanRenderTexture*>                m_renderTextures;
     TNCArray<VulkanDepthRenderTexture*>           m_depthRenderTextures;
 
-    TArray<MeshRenderBuffer>                      m_renderBuffers;
+    TNCArray<MeshRenderBuffer>                    m_renderBuffers;
+    TNCArray<SkinnedMeshRenderBuffer>             m_skinnedRenderBuffers;
     TArray<MaterialRenderStack*>                  m_renderStacks;
 
     TNCArray<DirectionalLightBuffer>              m_directionalLights;
