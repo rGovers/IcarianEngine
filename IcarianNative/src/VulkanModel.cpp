@@ -45,7 +45,7 @@ public:
     }
 };
 
-class VulkanBufferDeletionObject : public VulkanDeletionObject
+class VulkanModelBufferDeletionObject : public VulkanDeletionObject
 {
 private:
     VulkanRenderEngineBackend* m_engine;
@@ -56,21 +56,21 @@ private:
 protected:
 
 public:
-    VulkanBufferDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Buffer a_buffer, VmaAllocation a_allocation)
+    VulkanModelBufferDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Buffer a_buffer, VmaAllocation a_allocation)
     {
         m_engine = a_engine;
 
         m_buffer = a_buffer;
         m_allocation = a_allocation;
     }
-    virtual ~VulkanBufferDeletionObject()
+    virtual ~VulkanModelBufferDeletionObject()
     {
 
     }
 
     virtual void Destroy() 
     {
-        TRACE("Destroying Buffer");
+        TRACE("Destroying Model Buffer");
         const VmaAllocator allocator = m_engine->GetAllocator();
 
         vmaDestroyBuffer(allocator, m_buffer, m_allocation);
@@ -107,7 +107,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     VmaAllocationInfo stagingVBInfo = { 0 };
     ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &vBInfo, &vBAInfo, &stagingVBuffer, &stagingVBAlloc, &stagingVBInfo) == VK_SUCCESS, "Failed to create vertex staging buffer");
     
-    IDEFER(m_engine->PushDeletionObject(new VulkanBufferDeletionObject(m_engine, stagingVBuffer, stagingVBAlloc)));
+    IDEFER(m_engine->PushDeletionObject(new VulkanModelBufferDeletionObject(m_engine, stagingVBuffer, stagingVBAlloc)));
 
     memcpy(stagingVBInfo.pMappedData, a_vertices, vbSize);
 
@@ -135,7 +135,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     VmaAllocationInfo stagingIBInfo = { 0 };
     ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &iBInfo, &iBAInfo, &stagingIBuffer, &stagingIBAlloc, &stagingIBInfo) == VK_SUCCESS, "Failed to create index staging buffer");
 
-    IDEFER(m_engine->PushDeletionObject(new VulkanBufferDeletionObject(m_engine, stagingIBuffer, stagingIBAlloc)));
+    IDEFER(m_engine->PushDeletionObject(new VulkanModelBufferDeletionObject(m_engine, stagingIBuffer, stagingIBAlloc)));
 
     memcpy(stagingIBInfo.pMappedData, a_indices, ibSize);
 

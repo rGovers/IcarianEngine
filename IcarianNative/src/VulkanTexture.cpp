@@ -40,7 +40,7 @@ public:
         vmaDestroyImage(allocator, m_image, m_allocation);
     }
 };
-class VulkanBufferDeletionObject : public VulkanDeletionObject
+class VulkanTextureBufferDeletionObject : public VulkanDeletionObject
 {
 private:
     VulkanRenderEngineBackend* m_engine;
@@ -51,21 +51,21 @@ private:
 protected:
 
 public:
-    VulkanBufferDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Buffer a_buffer, VmaAllocation a_allocation)
+    VulkanTextureBufferDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Buffer a_buffer, VmaAllocation a_allocation)
     {
         m_engine = a_engine;
 
         m_buffer = a_buffer;
         m_allocation = a_allocation;
     }
-    virtual ~VulkanBufferDeletionObject()
+    virtual ~VulkanTextureBufferDeletionObject()
     {
         
     }
 
     virtual void Destroy() override
     {
-        TRACE("Destroying Buffer");
+        TRACE("Destroying Texture Buffer");
         const VmaAllocator allocator = m_engine->GetAllocator();
 
         vmaDestroyBuffer(allocator, m_buffer, m_allocation);
@@ -104,7 +104,7 @@ void VulkanTexture::Init(VulkanRenderEngineBackend* a_engine, uint32_t a_width, 
     VmaAllocationInfo stagingAllocationInfo;
     ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBufferInfoStruct.buffer, &stagingBufferInfoStruct.allocation, &stagingAllocationInfo) == VK_SUCCESS, "Failed to create staging texture");
 
-    IDEFER(m_engine->PushDeletionObject(new VulkanBufferDeletionObject(m_engine, stagingBufferInfoStruct.buffer, stagingBufferInfoStruct.allocation)));
+    IDEFER(m_engine->PushDeletionObject(new VulkanTextureBufferDeletionObject(m_engine, stagingBufferInfoStruct.buffer, stagingBufferInfoStruct.allocation)));
 
     if (a_data != nullptr)
     {

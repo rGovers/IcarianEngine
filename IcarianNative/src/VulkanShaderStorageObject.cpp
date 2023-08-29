@@ -5,24 +5,25 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
-class VulkanBufferDeletionObject : public VulkanDeletionObject
+class VulkanSSBOBufferDeletionObject : public VulkanDeletionObject
 {
 private:
     VulkanRenderEngineBackend* m_engine;
 
     vk::Buffer                 m_buffer;
     VmaAllocation              m_allocation;
+
 protected:
 
 public:
-    VulkanBufferDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Buffer a_buffer, VmaAllocation a_allocation)
+    VulkanSSBOBufferDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Buffer a_buffer, VmaAllocation a_allocation)
     {
         m_engine = a_engine;
 
         m_buffer = a_buffer;
         m_allocation = a_allocation;
     }
-    virtual ~VulkanBufferDeletionObject()
+    virtual ~VulkanSSBOBufferDeletionObject()
     {
 
     }
@@ -62,5 +63,5 @@ VulkanShaderStorageObject::VulkanShaderStorageObject(VulkanRenderEngineBackend* 
 }
 VulkanShaderStorageObject::~VulkanShaderStorageObject()
 {
-    m_engine->PushDeletionObject(new VulkanBufferDeletionObject(m_engine, m_buffer, m_allocation));
+    m_engine->PushDeletionObject(new VulkanSSBOBufferDeletionObject(m_engine, m_buffer, m_allocation));
 }
