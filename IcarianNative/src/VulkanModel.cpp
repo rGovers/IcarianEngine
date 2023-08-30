@@ -79,6 +79,8 @@ public:
 
 VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexCount, const void* a_vertices, uint16_t a_vertexSize, uint32_t a_indexCount, const uint32_t* a_indices, float a_radius)
 {
+    // TODO: There seems to be an issue with NaN values in the X component of skinned weights and I do not know why
+    // it seems to be semi random which vertices so I suspect transfer issues but I am not sure
     TRACE("Creating Vulkan Model");
     m_engine = a_engine;
 

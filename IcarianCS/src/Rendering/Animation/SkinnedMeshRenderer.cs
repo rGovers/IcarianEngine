@@ -41,7 +41,7 @@ namespace IcarianEngine.Rendering.Animation
         {
             get
             {
-                return m_skeletonBufferAddr != uint.MaxValue;
+                return m_skeletonBufferAddr == uint.MaxValue;
             }
         }
         public SkinnedMeshRendererDef SkinnedMeshRendererDef

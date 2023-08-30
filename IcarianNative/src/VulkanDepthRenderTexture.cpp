@@ -66,7 +66,7 @@ VulkanDepthRenderTexture::VulkanDepthRenderTexture(VulkanRenderEngineBackend* a_
         vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eDontCare,
         vk::ImageLayout::eUndefined,
-        vk::ImageLayout::eDepthAttachmentStencilReadOnlyOptimal
+        vk::ImageLayout::eDepthStencilReadOnlyOptimal
     );
     const vk::AttachmentDescription depthAttachmentNoClear = vk::AttachmentDescription
     (
@@ -77,8 +77,8 @@ VulkanDepthRenderTexture::VulkanDepthRenderTexture(VulkanRenderEngineBackend* a_
         vk::AttachmentStoreOp::eStore,
         vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eDontCare,
-        vk::ImageLayout::eDepthAttachmentStencilReadOnlyOptimal,
-        vk::ImageLayout::eDepthAttachmentStencilReadOnlyOptimal
+        vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+        vk::ImageLayout::eDepthStencilReadOnlyOptimal
     );
 
     const vk::AttachmentReference depthAttachmentRef = vk::AttachmentReference
