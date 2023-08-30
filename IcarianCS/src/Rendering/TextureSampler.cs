@@ -69,7 +69,7 @@ namespace IcarianEngine.Rendering
             s_samplerLookup.TryAdd(a_bufferAddr, this);
         }
 
-        public static TextureSampler GeneretateTextureSampler(Texture a_texture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
+        public static TextureSampler GenerateTextureSampler(Texture a_texture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
         {
             if (a_texture == null)
             {
