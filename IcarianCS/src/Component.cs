@@ -15,6 +15,10 @@ namespace IcarianEngine
             {
                 return m_def;
             }
+            internal set
+            {
+                m_def = value;
+            }
         }
 
         public GameObject GameObject

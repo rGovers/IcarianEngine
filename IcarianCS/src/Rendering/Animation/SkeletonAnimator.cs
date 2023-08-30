@@ -43,7 +43,10 @@ namespace IcarianEngine.Rendering.Animation
         {
             m_skeleton = a_skeleton;
 
-            RefreshSkeleton();
+            if (!Application.IsEditor)
+            {
+                RefreshSkeleton();
+            }
         }
 
         internal void RefreshSkeleton()

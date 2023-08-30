@@ -77,7 +77,14 @@ namespace IcarianEngine.Rendering.Animation
         {
             base.Init();
 
-            m_bufferAddr = GenerateBuffer();
+            if (!Application.IsEditor)
+            {
+                m_bufferAddr = GenerateBuffer();
+            }
+            else
+            {
+                m_bufferAddr = 0;
+            }
 
             AnimatorDef def = AnimatorDef;
             if (def != null)
@@ -99,7 +106,10 @@ namespace IcarianEngine.Rendering.Animation
                 }
             }
 
-            s_animators.TryAdd(m_bufferAddr, this);
+            if (!Application.IsEditor)
+            {
+                s_animators.TryAdd(m_bufferAddr, this);
+            }
         }
 
         public abstract void Update(double a_deltaTime);
@@ -150,7 +160,10 @@ namespace IcarianEngine.Rendering.Animation
                 {
                     s_animators.TryRemove(m_bufferAddr, out Animator _);
 
-                    DestroyBuffer(m_bufferAddr);
+                    if (!Application.IsEditor)
+                    {
+                        DestroyBuffer(m_bufferAddr);
+                    }
                 }
                 else
                 {
