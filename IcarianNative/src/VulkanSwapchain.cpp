@@ -17,7 +17,10 @@ static vk::SurfaceFormatKHR GetSurfaceFormatFromFormats(const std::vector<vk::Su
 {
     for (const vk::SurfaceFormatKHR& format : a_formats)
     {
-        if (format.format == vk::Format::eB8G8R8A8Srgb && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
+        // if (format.format == vk::Format::eB8G8R8A8Srgb && format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
+        // To bring it in line with the editor
+        // TODO: Make this configurable
+        if (format.format == vk::Format::eB8G8R8A8Uint)
         {
             return format;
         }
