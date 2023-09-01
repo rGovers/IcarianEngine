@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include <string_view>
 
 #include "Rendering/Vulkan/VulkanShader.h"
@@ -18,3 +19,4 @@ public:
     static VulkanPixelShader* CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const std::string_view& a_str);
     static VulkanPixelShader* CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::string_view& a_str);
 };
+#endif

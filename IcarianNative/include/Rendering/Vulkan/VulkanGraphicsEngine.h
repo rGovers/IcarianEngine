@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include <unordered_map>
 #include <vector>
 
@@ -162,3 +163,4 @@ public:
 
     Font* GetFont(uint32_t a_addr);
 };
+#endif

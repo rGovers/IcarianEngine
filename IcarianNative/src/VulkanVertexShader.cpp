@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanVertexShader.h"
 
 #include "Flare/IcarianAssert.h"
@@ -40,3 +42,4 @@ VulkanVertexShader* VulkanVertexShader::CreateFromGLSL(VulkanRenderEngineBackend
 
     return new VulkanVertexShader(a_engine, spirv);
 }
+#endif

@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 
 #include <future>
@@ -1635,3 +1637,4 @@ Font* VulkanGraphicsEngine::GetFont(uint32_t a_addr)
 
     return m_fonts[a_addr];
 }
+#endif

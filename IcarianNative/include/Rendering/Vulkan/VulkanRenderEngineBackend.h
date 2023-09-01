@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/VulkanConstants.h"
 
 #include "DataTypes/TArray.h"
@@ -138,3 +139,4 @@ public:
         return m_currentFlightFrame;
     }
 };
+#endif

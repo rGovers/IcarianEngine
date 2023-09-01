@@ -7,10 +7,14 @@
 #include "Logger.h"
 #include "Profiler.h"
 #include "Rendering/AnimationController.h"
+#include "Rendering/Null/NullRenderEngineBackend.h"
 #include "Rendering/SpirvTools.h"
-#include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
+
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+#include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
+#endif
 
 RenderEngine::RenderEngine(RuntimeManager* a_runtime, ObjectManager* a_objectManager, AppWindow* a_window, Config* a_config)
 {
@@ -25,19 +29,27 @@ RenderEngine::RenderEngine(RuntimeManager* a_runtime, ObjectManager* a_objectMan
 
     spirv_init();
 
-    ICARIAN_ASSERT(m_config->GetRenderingEngine() != RenderingEngine_Null);
-
     switch (m_config->GetRenderingEngine())
     {
+    case RenderingEngine_Null:
+    {
+        m_backend = new NullRenderEngineBackend(a_runtime, this);
+
+        break;
+    }
     case RenderingEngine_Vulkan:
     {
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
         m_backend = new VulkanRenderEngineBackend(a_runtime, this);
+#else
+        ICARIAN_ASSERT_MSG_R(0, "Vulkan is not enabled");
+#endif
 
         break;
     }
     default:
     {
-        ICARIAN_ASSERT_MSG(0, "Failed to create RenderEngine");
+        ICARIAN_ASSERT_MSG_R(0, "Failed to create RenderEngine");
 
         break;
     }

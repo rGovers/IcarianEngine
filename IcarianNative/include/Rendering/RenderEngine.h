@@ -21,7 +21,9 @@ class RuntimeManager;
 class RenderEngine
 {
 private:
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
     friend class VulkanRenderEngineBackend;
+#endif
 
     double               m_time;
 

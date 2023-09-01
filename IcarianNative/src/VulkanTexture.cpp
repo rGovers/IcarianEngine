@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanTexture.h"
 
 #include "Flare/IcarianAssert.h"
@@ -216,3 +218,4 @@ VulkanTexture* VulkanTexture::CreateAlpha(VulkanRenderEngineBackend* a_engine, u
     texture->Init(a_engine, a_width, a_height, a_data, vk::Format::eR8Unorm, 1);
     return texture;
 }
+#endif

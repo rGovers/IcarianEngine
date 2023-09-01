@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/VulkanConstants.h"
 
 class VulkanRenderEngineBackend;
@@ -65,3 +66,4 @@ public:
 
     void Resize(uint32_t a_width, uint32_t a_height);
 };
+#endif

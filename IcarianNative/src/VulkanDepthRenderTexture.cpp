@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanDepthRenderTexture.h"
 
 #include "Flare/IcarianAssert.h"
@@ -241,3 +243,4 @@ void VulkanDepthRenderTexture::Destroy()
 
     vmaDestroyImage(allocator, m_texture, m_textureAllocation);
 }
+#endif

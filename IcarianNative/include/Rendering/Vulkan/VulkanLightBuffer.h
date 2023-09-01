@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include <cstdint>
 
 enum e_VulkanLightRenderTextureType : uint16_t
@@ -20,3 +21,4 @@ struct VulkanLightBuffer
     uint32_t LightRenderTextureCount;
     VulkanLightRenderTexture* LightRenderTextures;
 };
+#endif

@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanRenderCommand.h"
 
 #include "Flare/IcarianAssert.h"
@@ -313,3 +315,4 @@ void VulkanRenderCommand::DrawModel(const glm::mat4& a_transform, uint32_t a_add
 
     m_commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
 }
+#endif

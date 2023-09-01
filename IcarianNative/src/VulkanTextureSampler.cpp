@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanTextureSampler.h"
 
 #include "Flare/IcarianAssert.h"
@@ -64,3 +66,4 @@ VulkanTextureSampler::~VulkanTextureSampler()
 
     device.destroySampler(m_sampler);
 }
+#endif

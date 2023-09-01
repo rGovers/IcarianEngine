@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include <vulkan/vulkan.hpp>
 
 #define ICARIAN_VMA_VULKAN_VERSION 1000000
@@ -15,4 +16,5 @@ static constexpr uint32_t VulkanFlightPoolSize = VulkanMaxFlightFrames + 1;
 static constexpr bool VulkanEnableValidationLayers = false;
 #else
 static constexpr bool VulkanEnableValidationLayers = true;
+#endif
 #endif

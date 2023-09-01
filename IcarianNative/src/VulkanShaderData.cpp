@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanShaderData.h"
 
 #include "Flare/IcarianAssert.h"
@@ -711,3 +713,4 @@ bool VulkanShaderData::GetBoneBufferInput(FlareBase::ShaderBufferInput* a_input)
 
     return false;
 }
+#endif

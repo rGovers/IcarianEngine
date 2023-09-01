@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanUniformBuffer.h"
 
 #include "Flare/IcarianAssert.h"
@@ -55,3 +57,4 @@ void VulkanUniformBuffer::SetData(uint32_t a_index, const void* a_data)
 
     vmaUnmapMemory(allocator, m_allocations[a_index]);
 }
+#endif

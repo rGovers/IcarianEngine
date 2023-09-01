@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 
 #define VMA_IMPLEMENTATION
@@ -761,3 +763,4 @@ VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(VkInstance a_instance
         func(a_instance, a_messenger, a_allocator);
     }
 }
+#endif

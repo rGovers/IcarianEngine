@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/VulkanConstants.h"
 
 #include "Flare/TextureSampler.h"
@@ -24,3 +25,4 @@ public:
         return m_sampler;
     }
 };
+#endif

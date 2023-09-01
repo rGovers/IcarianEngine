@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanShaderStorageObject.h"
 
 #include "Flare/IcarianAssert.h"
@@ -65,3 +67,4 @@ VulkanShaderStorageObject::~VulkanShaderStorageObject()
 {
     m_engine->PushDeletionObject(new VulkanSSBOBufferDeletionObject(m_engine, m_buffer, m_allocation));
 }
+#endif

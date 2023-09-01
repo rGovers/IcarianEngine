@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/VulkanConstants.h"
 
 class VulkanRenderEngineBackend;
@@ -29,3 +30,4 @@ public:
         return m_uniformSize;
     }
 };
+#endif

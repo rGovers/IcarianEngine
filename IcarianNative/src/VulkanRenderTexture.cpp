@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
 
 #include "Flare/IcarianAssert.h"
@@ -469,3 +471,4 @@ void VulkanRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 
     Init(a_width, a_height);
 }
+#endif

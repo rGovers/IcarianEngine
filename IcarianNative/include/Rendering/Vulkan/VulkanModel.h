@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/VulkanConstants.h"
 
 class VulkanRenderEngineBackend;
@@ -36,3 +37,4 @@ public:
 
     void Bind(const vk::CommandBuffer& a_cmdBuffer) const;
 };
+#endif

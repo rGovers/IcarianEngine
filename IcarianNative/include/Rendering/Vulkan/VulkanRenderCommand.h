@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
@@ -70,3 +71,4 @@ public:
     void DrawMaterial();
     void DrawModel(const glm::mat4& a_transform, uint32_t a_addr);
 };
+#endif

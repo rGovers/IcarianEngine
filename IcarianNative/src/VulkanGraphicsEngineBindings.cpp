@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanGraphicsEngineBindings.h"
 
 #include <fstream>
@@ -1346,3 +1348,4 @@ void VulkanGraphicsEngineBindings::SetLightLVP(const glm::mat4 &a_lvp) const
 
     m_graphicsEngine->m_lightData->SetLVP(a_lvp);
 }
+#endif

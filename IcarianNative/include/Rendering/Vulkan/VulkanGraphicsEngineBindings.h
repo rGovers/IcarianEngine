@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include <string_view>
 
 class RuntimeManager;
@@ -119,3 +120,4 @@ public:
 
     void SetLightLVP(const glm::mat4& a_lvp) const;
 };
+#endif

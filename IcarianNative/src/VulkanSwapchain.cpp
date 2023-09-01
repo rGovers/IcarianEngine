@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanSwapchain.h"
 
 #include "AppWindow/AppWindow.h"
@@ -662,3 +664,4 @@ void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, const vk::Fence
         }
     }
 }
+#endif

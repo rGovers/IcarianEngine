@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanPipeline.h"
 
 #include "Flare/IcarianAssert.h"
@@ -348,3 +350,4 @@ void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) c
 
     a_commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
 }
+#endif

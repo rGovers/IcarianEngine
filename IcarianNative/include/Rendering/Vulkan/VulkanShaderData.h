@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
@@ -88,3 +89,4 @@ public:
 
     void Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
 };
+#endif

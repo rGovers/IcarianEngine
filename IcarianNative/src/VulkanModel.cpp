@@ -1,3 +1,5 @@
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/VulkanModel.h"
 
 #include "Flare/IcarianAssert.h"
@@ -174,3 +176,4 @@ void VulkanModel::Bind(const vk::CommandBuffer& a_cmdBuffer) const
     a_cmdBuffer.bindVertexBuffers(0, 1, &m_vertexBuffer, Offsets);
     a_cmdBuffer.bindIndexBuffer(m_indexBuffer, 0, vk::IndexType::eUint32);
 }
+#endif

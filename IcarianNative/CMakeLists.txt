@@ -7,6 +7,7 @@ option(ENABLE_TRACE "Enables tracing" OFF)
 option(ENABLE_PROFILER "Enables inbuilt profiler" OFF)
 option(ENABLE_ASSERT "Enables flare asserts" OFF)
 option(OUTPUT_BIN "Outputs application to bin/" OFF)
+option(ENABLE_GRAPHICS_VULKAN "Enables Vulkan graphics" ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
@@ -33,6 +34,9 @@ configure_file(
 
 if (ENABLE_TRACE)
     add_compile_definitions(ICARIANNATIVE_ENABLE_TRACE)
+endif()
+if (ENABLE_GRAPHICS_VULKAN)
+    add_compile_definitions(ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN)
 endif()
 if (ENABLE_PROFILER)
     add_compile_definitions(ICARIANNATIVE_ENABLE_PROFILER)

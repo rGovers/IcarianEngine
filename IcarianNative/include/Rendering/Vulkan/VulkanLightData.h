@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #define GLM_SWIZZLE
 #include <glm/glm.hpp>
 
@@ -23,3 +24,4 @@ public:
         return m_lvp; 
     }
 };
+#endif

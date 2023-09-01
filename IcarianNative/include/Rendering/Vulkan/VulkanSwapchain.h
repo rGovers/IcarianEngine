@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
@@ -94,3 +95,4 @@ public:
     bool StartFrame(const vk::Semaphore& a_semaphore, const vk::Fence& a_fence, uint32_t* a_imageIndex, double a_delta, double a_time);
     void EndFrame(const vk::Semaphore& a_semaphores, const vk::Fence& a_fence, uint32_t a_imageIndex);
 };
+#endif
