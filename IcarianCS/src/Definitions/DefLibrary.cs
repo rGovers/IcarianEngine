@@ -837,7 +837,7 @@ namespace IcarianEngine.Definitions
             }
         }
 
-        public static List<T> GetDefs<T>() where T : Def
+        public static IEnumerable<T> GetDefs<T>() where T : Def
         {
             List<T> defs = new List<T>();
             
@@ -865,7 +865,7 @@ namespace IcarianEngine.Definitions
             
             return defs;
         }
-        public static List<Def> GetDefs()
+        public static IEnumerable<Def> GetDefs()
         {
             List<Def> defs = new List<Def>();
             lock (s_defs)
