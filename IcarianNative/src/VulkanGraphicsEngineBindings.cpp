@@ -117,7 +117,9 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     F(void, IcarianEngine.Rendering, RenderCommand, PushTexture, { Engine->PushTexture(a_slot, a_samplerAddr); }, uint32_t a_slot, uint32_t a_samplerAddr) \
     F(void, IcarianEngine.Rendering, RenderCommand, BindRenderTexture, { Engine->BindRenderTexture(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, RenderCommand, RTRTBlit, { Engine->BlitRTRT(a_srcAddr, a_dstAddr); }, uint32_t a_srcAddr, uint32_t a_dstAddr) \
-    F(void, IcarianEngine.Rendering, RenderCommand, DrawMaterial, { Engine->DrawMaterial(); }) 
+    F(void, IcarianEngine.Rendering, RenderCommand, DrawMaterial, { Engine->DrawMaterial(); }) \
+    \
+    F(void, IcarianEngine.Rendering.Animation, SkeletonAnimator, PushTransform, { }, uint32_t a_addr, MonoString* a_object, MonoArray* a_transform) \
 
 VULKANGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
 

@@ -104,6 +104,8 @@
     F(void, IcarianEngine.Rendering, RenderCommand, DrawModel, { }, MonoArray* a_transform, uint32_t a_addr) \
     \
     F(void, IcarianEngine.Rendering, RenderPipeline, SetLightLVP, { }, MonoArray* a_lvp) \
+    \
+    F(void, IcarianEngine.Rendering.Animation, SkeletonAnimator, PushTransform, { }, uint32_t a_addr, MonoString* a_object, MonoArray* a_transform) \
 
 NULLGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
 

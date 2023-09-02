@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using IcarianEngine.Definitions;
 using IcarianEngine.Maths;
 
@@ -6,6 +7,10 @@ namespace IcarianEngine.Rendering.Animation
 {
     public class SkeletonAnimator : Animator
     {
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void PushTransform(uint a_buffer, string a_object, Matrix4 a_transform);
+
+        uint                           m_buffer = uint.MaxValue;
         Skeleton                       m_skeleton = null;
         Dictionary<string, GameObject> m_bones = new Dictionary<string, GameObject>();
 
@@ -83,7 +88,7 @@ namespace IcarianEngine.Rendering.Animation
             }
             else
             {
-                Logger.IcarianError("PushTransform not implemented in editor");
+                // PushTransform(m_buffer, a_object, a_transform);
             }
         }
 

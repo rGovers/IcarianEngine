@@ -164,18 +164,22 @@ namespace FlareBase
                 {
                     while (*sC == ' ' || *sC == '\n') 
                     {
-                      ++sC;
+                        ++sC;
                     }
 
                     if (*sC == 0) 
                     {
-                      break;
+                        break;
                     }
 
-                    const char *next = sC + 1;
-                    while (*next != ' ' && *next != 0) 
+                    const char* next = sC + 1;
+                    while (*next != ' ' && *next != '\n' && *next != 0) 
+                    //                      ^^^^^
+                    // Forgetting that fucker cost me a week of debugging
+                    // Apparently only an issue when skinning meshes 
+                    // Good to know it is safe with garbage data however
                     {
-                      ++next;
+                        ++next;
                     }
 
                     fDat[index++] = std::stof(std::string(sC, next - sC));
@@ -221,7 +225,7 @@ namespace FlareBase
                     }
 
                     const char* next = sC + 1;
-                    while (*next != ' ' && *next != 0)
+                    while (*next != ' ' && *next != '\n' && *next != 0)
                     {
                         ++next;
                     }
@@ -1298,9 +1302,11 @@ namespace FlareBase
             {
                 d.Transform[i % 4][i / 4] = a_node.Transform[i];
             }
-
+            
             d.Transform[3] = glm::vec4(d.Transform[3].xyz() * a_scale, 1.0f);
-
+            
+            // Hey future me if you crash here you probably have a stack corruption again
+            // I don't know why it realises it's corrupted here but it does
             a_dat->emplace_back(d);
 
             pIndex = (*a_index)++;
@@ -1566,8 +1572,12 @@ namespace FlareBase
                                     const uint32_t weightIndex = controller.Skin.VertexWeights.V[iIndex + weightInput.Offset];
                                     const uint32_t jointIndex = controller.Skin.VertexWeights.V[iIndex + jointInput.Offset];
 
+                                    const std::string& jointName = jointDataSource[jointIndex * jointSource.Accessor.Stride];
+
+                                    ICARIAN_ASSERT(jointName != "");
+
                                     weights[i][j] = weightDataSource[weightIndex * weightSource.Accessor.Stride];
-                                    joints[i][j] = jointMap[jointDataSource[jointIndex * jointSource.Accessor.Stride]];
+                                    joints[i][j] = jointMap[jointName];
 
                                     ICARIAN_ASSERT(weights[i][j] != NAN);
                                 }
