@@ -804,6 +804,12 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                         const SkeletonData skeleton = AnimationController::GetSkeleton(modelBuffer.SkeletonAddr[j]);
                                         const uint32_t boneCount = (uint32_t)skeleton.BoneData.size();
 
+                                        std::unordered_map<uint32_t, uint32_t> boneMap;
+                                        for (uint32_t i = 0; i < boneCount; ++i)
+                                        {
+                                            boneMap.emplace(skeleton.BoneData[i].TransformIndex, i);
+                                        }
+
                                         BoneShaderBuffer* boneBuffer = new BoneShaderBuffer[boneCount];
                                         IDEFER(delete[] boneBuffer);
 
@@ -811,10 +817,24 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                         {
                                             const BoneTransformData& bone = skeleton.BoneData[k];
 
-                                            const TransformBuffer tBuffer = objectManager->GetTransformBuffer(bone.TransformIndex);
-                                            const glm::mat4 tMatrix = tBuffer.ToMat4();
+                                            const TransformBuffer& buffer = objectManager->GetTransformBuffer(bone.TransformIndex);
+                                            glm::mat4 bTransform = buffer.ToMat4() * bone.InverseBindPose;
 
-                                            boneBuffer[k].BoneMatrix = bone.InverseBindPose * tMatrix;
+                                            auto iter = boneMap.find(buffer.Parent);
+                                            while (iter != boneMap.end())
+                                            {
+                                                const uint32_t index = iter->second;
+
+                                                const BoneTransformData& parentBone = skeleton.BoneData[index];
+                                                const TransformBuffer& parentBuffer = objectManager->GetTransformBuffer(parentBone.TransformIndex);
+                                                
+                                                const glm::mat4 parentTransform = parentBuffer.ToMat4() * parentBone.InverseBindPose;
+                                                bTransform = parentTransform * bTransform;
+
+                                                iter = boneMap.find(parentBuffer.Parent);
+                                            }
+
+                                            boneBuffer[k].BoneMatrix = bTransform;
                                         }
 
                                         const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(BoneShaderBuffer) * boneCount, boneBuffer);

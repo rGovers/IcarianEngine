@@ -46,7 +46,7 @@ private:
     
     vk::PhysicalDevicePushDescriptorPropertiesKHR m_pushDescriptorProperties;
 
-    TArray<VulkanDeletionObject*>                 m_deletionObjects[VulkanFlightPoolSize];
+    TArray<VulkanDeletionObject*>                 m_deletionObjects[VulkanDeletionQueueSize];
 
     std::vector<vk::Semaphore>                    m_interSemaphore[VulkanMaxFlightFrames];
     vk::Semaphore                                 m_imageAvailable[VulkanMaxFlightFrames];

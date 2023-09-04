@@ -596,7 +596,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     {
         PROFILESTACK("Queue Cleanup");
 
-        const uint32_t nextIndex = (m_dQueueIndex + 1) % VulkanFlightPoolSize;
+        const uint32_t nextIndex = (m_dQueueIndex + 1) % VulkanDeletionQueueSize;
 
         const TLockArray a = m_deletionObjects[nextIndex].ToLockArray();
 

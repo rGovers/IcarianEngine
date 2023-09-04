@@ -11,6 +11,7 @@
 
 static constexpr uint32_t VulkanMaxFlightFrames = 2;
 static constexpr uint32_t VulkanFlightPoolSize = VulkanMaxFlightFrames + 1;
+static constexpr uint32_t VulkanDeletionQueueSize = VulkanFlightPoolSize * 2;
 
 #ifdef NDEBUG
 static constexpr bool VulkanEnableValidationLayers = false;
