@@ -43,11 +43,13 @@ namespace IcarianEngine
     }
     class LoadVertexShaderThreadJob : IThreadJob
     {
-        string                                m_path;
-        AssetLibrary.LoadVertexShaderCallback m_callback;
+        ConcurrentDictionary<string, VertexShaderContainer> m_shaders;
+        string                                              m_path;
+        AssetLibrary.LoadVertexShaderCallback               m_callback;
 
-        public LoadVertexShaderThreadJob(string a_path, AssetLibrary.LoadVertexShaderCallback a_callback)
+        public LoadVertexShaderThreadJob(ConcurrentDictionary<string, VertexShaderContainer> a_shaders, string a_path, AssetLibrary.LoadVertexShaderCallback a_callback)
         {
+            m_shaders = a_shaders;
             m_path = a_path;
             m_callback = a_callback;
         }
@@ -56,7 +58,7 @@ namespace IcarianEngine
         {
             LoadStatus status;
 
-            VertexShader shader = AssetLibrary.LoadVertexShaderInternal(m_path, out status);
+            VertexShader shader = AssetLibrary.LoadInternalData<VertexShader, VertexShaderContainer>(m_path, m_shaders, out status);
 
             if (m_callback != null)
             {
@@ -66,11 +68,13 @@ namespace IcarianEngine
     }
     class LoadPixelShaderThreadJob : IThreadJob
     {
-        string                               m_path;
-        AssetLibrary.LoadPixelShaderCallback m_callback;
+        ConcurrentDictionary<string, PixelShaderContainer> m_shaders;
+        string                                             m_path;
+        AssetLibrary.LoadPixelShaderCallback               m_callback;
 
-        public LoadPixelShaderThreadJob(string a_path, AssetLibrary.LoadPixelShaderCallback a_callback)
+        public LoadPixelShaderThreadJob(ConcurrentDictionary<string, PixelShaderContainer> a_shaders, string a_path, AssetLibrary.LoadPixelShaderCallback a_callback)
         {
+            m_shaders = a_shaders;
             m_path = a_path;
             m_callback = a_callback;
         }
@@ -79,7 +83,7 @@ namespace IcarianEngine
         {
             LoadStatus status;
 
-            PixelShader shader = AssetLibrary.LoadPixelShaderInternal(m_path, out status);
+            PixelShader shader = AssetLibrary.LoadInternalData<PixelShader, PixelShaderContainer>(m_path, m_shaders, out status);
 
             if (m_callback != null)
             {
@@ -89,11 +93,13 @@ namespace IcarianEngine
     }
     class LoadModelThreadJob : IThreadJob
     {
-        string                         m_path;
-        AssetLibrary.LoadModelCallback m_callback;
+        ConcurrentDictionary<string, ModelContainer> m_models;
+        string                                       m_path;
+        AssetLibrary.LoadModelCallback               m_callback;
 
-        public LoadModelThreadJob(string a_path, AssetLibrary.LoadModelCallback a_callback)
+        public LoadModelThreadJob(ConcurrentDictionary<string, ModelContainer> a_models, string a_path, AssetLibrary.LoadModelCallback a_callback)
         {
+            m_models = a_models;
             m_path = a_path;
             m_callback = a_callback;
         }
@@ -102,7 +108,7 @@ namespace IcarianEngine
         {
             LoadStatus status;
 
-            Model model = AssetLibrary.LoadModelInternal(m_path, out status);
+            Model model = AssetLibrary.LoadInternalData<Model, ModelContainer>(m_path, m_models, out status);
  
             if (m_callback != null)
             {
@@ -112,8 +118,8 @@ namespace IcarianEngine
     }
     class LoadSkinnedModelThreadJob : IThreadJob
     {
-        string                         m_path;
-        AssetLibrary.LoadModelCallback m_callback;
+        string                                       m_path;
+        AssetLibrary.LoadModelCallback               m_callback;
 
         public LoadSkinnedModelThreadJob(string a_path, AssetLibrary.LoadModelCallback a_callback)
         {
@@ -135,11 +141,13 @@ namespace IcarianEngine
     }
     class LoadTextureThreadJob : IThreadJob
     {
-        string                           m_path;
-        AssetLibrary.LoadTextureCallback m_callback;
+        ConcurrentDictionary<string, TextureContainer> m_textures;
+        string                                         m_path;
+        AssetLibrary.LoadTextureCallback               m_callback;
 
-        public LoadTextureThreadJob(string a_path, AssetLibrary.LoadTextureCallback a_callback)
+        public LoadTextureThreadJob(ConcurrentDictionary<string, TextureContainer> a_textures, string a_path, AssetLibrary.LoadTextureCallback a_callback)
         {
+            m_textures = a_textures;
             m_path = a_path;
             m_callback = a_callback;
         }
@@ -148,7 +156,7 @@ namespace IcarianEngine
         {
             LoadStatus status;
 
-            Texture texture = AssetLibrary.LoadTextureInternal(m_path, out status);
+            Texture texture = AssetLibrary.LoadInternalData<Texture, TextureContainer>(m_path, m_textures, out status);
 
             if (m_callback != null)
             {
@@ -156,13 +164,15 @@ namespace IcarianEngine
             }
         }
     }
-    class LoadSkeletonThreadJob : IThreadJob
+    class LoadAnimationClipThreadJob : IThreadJob
     {
-        string                            m_path;
-        AssetLibrary.LoadSkeletonCallback m_callback;
+        ConcurrentDictionary<string, AnimationClipContainer> m_clips;
+        string                                               m_path;
+        AssetLibrary.LoadAnimationClipCallback               m_callback;
 
-        public LoadSkeletonThreadJob(string a_path, AssetLibrary.LoadSkeletonCallback a_callback)
+        public LoadAnimationClipThreadJob(ConcurrentDictionary<string, AnimationClipContainer> a_clips, string a_path, AssetLibrary.LoadAnimationClipCallback a_callback)
         {
+            m_clips = a_clips;
             m_path = a_path;
             m_callback = a_callback;
         }
@@ -171,7 +181,32 @@ namespace IcarianEngine
         {
             LoadStatus status;
 
-            Skeleton skeleton = AssetLibrary.LoadSkeletonInternal(m_path, out status);
+            AnimationClip clip = AssetLibrary.LoadInternalData<AnimationClip, AnimationClipContainer>(m_path, m_clips, out status);
+
+            if (m_callback != null)
+            {
+                m_callback(clip, status);
+            }
+        }
+    }
+    class LoadSkeletonThreadJob : IThreadJob
+    {
+        ConcurrentDictionary<string, SkeletonContainer> m_skeletons;
+        string                                          m_path;
+        AssetLibrary.LoadSkeletonCallback               m_callback;
+
+        public LoadSkeletonThreadJob(ConcurrentDictionary<string, SkeletonContainer> a_skeletons, string a_path, AssetLibrary.LoadSkeletonCallback a_callback)
+        {
+            m_skeletons = a_skeletons;
+            m_path = a_path;
+            m_callback = a_callback;
+        }
+
+        public void Execute()
+        {
+            LoadStatus status;
+
+            Skeleton skeleton = AssetLibrary.LoadInternalData<Skeleton, SkeletonContainer>(m_path, m_skeletons, out status);
 
             if (m_callback != null)
             {
@@ -191,6 +226,14 @@ namespace IcarianEngine
         {
             get;
         }
+
+        object Value
+        {
+            get;
+            set;
+        }
+
+        object LoadValue(string a_input);
     }
     
     class MaterialContainer : IAssetContainer
@@ -211,11 +254,28 @@ namespace IcarianEngine
             set;
         }
 
+        public object Value
+        {
+            get
+            {
+                return Material;
+            }
+            set
+            {
+                Material = (Material)value;
+            }
+        }
+
         public MaterialContainer()
         {
             Status = LoadStatus.Unloaded;
             WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             Material = null;
+        }
+
+        public object LoadValue(string a_input) 
+        { 
+            return null; 
         }
     }
     class VertexShaderContainer : IAssetContainer
@@ -236,11 +296,28 @@ namespace IcarianEngine
             set;
         }
 
+        public object Value
+        {
+            get
+            {
+                return Shader;
+            }
+            set
+            {
+                Shader = (VertexShader)value;
+            }
+        }
+
         public VertexShaderContainer()
         {
             Status = LoadStatus.Unloaded;
             WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             Shader = null;
+        }
+
+        public object LoadValue(string a_input)
+        {
+            return VertexShader.LoadVertexShader(a_input);
         }
     }
     class PixelShaderContainer : IAssetContainer
@@ -261,11 +338,28 @@ namespace IcarianEngine
             set;
         }
 
+        public object Value
+        {
+            get
+            {
+                return Shader;
+            }
+            set
+            {
+                Shader = (PixelShader)value;
+            }
+        }
+
         public PixelShaderContainer()
         {
             Status = LoadStatus.Unloaded;
             WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             Shader = null;
+        }
+
+        public object LoadValue(string a_input)
+        {
+            return PixelShader.LoadPixelShader(a_input);
         }
     }
     class ModelContainer : IAssetContainer
@@ -286,11 +380,28 @@ namespace IcarianEngine
             set;
         }
 
+        public object Value
+        {
+            get
+            {
+                return Model;
+            }
+            set
+            {
+                Model = (Model)value;
+            }
+        }
+
         public ModelContainer()
         {
             Status = LoadStatus.Unloaded;
             WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             Model = null;
+        }
+
+        public object LoadValue(string a_input)
+        {
+            return Model.LoadModel(a_input);
         }
     }
     class TextureContainer : IAssetContainer
@@ -311,11 +422,70 @@ namespace IcarianEngine
             set;
         }
 
+        public object Value
+        {
+            get
+            {
+                return Texture;
+            }
+            set
+            {
+                Texture = (Texture)value;
+            }
+        }
+
         public TextureContainer()
         {
             Status = LoadStatus.Unloaded;
             WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             Texture = null;
+        }
+
+        public object LoadValue(string a_input)
+        {
+            return Texture.LoadTexture(a_input);
+        }
+    }
+    class AnimationClipContainer : IAssetContainer
+    {
+        public LoadStatus Status
+        {
+            get;
+            set;
+        }
+        public EventWaitHandle WaitHandle
+        {
+            get;
+            set;
+        }
+        public AnimationClip Clip
+        {
+            get;
+            set;
+        }
+
+        public object Value
+        {
+            get
+            {
+                return Clip;
+            }
+            set
+            {
+                Clip = (AnimationClip)value;
+            }
+        }
+
+        public AnimationClipContainer()
+        {
+            Status = LoadStatus.Unloaded;
+            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            Clip = null;
+        }
+
+        public object LoadValue(string a_input)
+        {
+            return AnimationClip.LoadAnimationClip(a_input);
         }
     }
     class SkeletonContainer : IAssetContainer
@@ -336,31 +506,50 @@ namespace IcarianEngine
             set;
         }
 
+        public object Value
+        {
+            get
+            {
+                return Skeleton;
+            }
+            set
+            {
+                Skeleton = (Skeleton)value;
+            }
+        }
+
         public SkeletonContainer()
         {
             Status = LoadStatus.Unloaded;
             WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             Skeleton = null;
         }
+
+        public object LoadValue(string a_input)
+        {
+            return Skeleton.LoadSkeleton(a_input);
+        }
     }
 
     public static class AssetLibrary
     {
-        static ConcurrentDictionary<string, MaterialContainer>     s_materials;
-        static ConcurrentDictionary<string, VertexShaderContainer> s_vertexShaders;
-        static ConcurrentDictionary<string, PixelShaderContainer>  s_pixelShaders;
+        static ConcurrentDictionary<string, MaterialContainer>      s_materials;
+        static ConcurrentDictionary<string, VertexShaderContainer>  s_vertexShaders;
+        static ConcurrentDictionary<string, PixelShaderContainer>   s_pixelShaders;
+  
+        static ConcurrentDictionary<string, TextureContainer>       s_textures;
+        static ConcurrentDictionary<TextureInput, TextureSampler>   s_textureSamplers;
+  
+        static ConcurrentDictionary<string, ModelContainer>         s_models;
+        static ConcurrentDictionary<string, ModelContainer>         s_skinnedModels;
  
-        static ConcurrentDictionary<string, TextureContainer>      s_textures;
-        static ConcurrentDictionary<TextureInput, TextureSampler>  s_textureSamplers;
- 
-        static ConcurrentDictionary<string, ModelContainer>        s_models;
-        static ConcurrentDictionary<string, ModelContainer>        s_skinnedModels;
- 
-        static ConcurrentDictionary<string, SkeletonContainer>     s_skeletons;
- 
-        static ConcurrentDictionary<string, Font>                  s_fonts;
- 
-        static ConcurrentDictionary<string, CollisionShape>        s_collisionShapes;
+        static ConcurrentDictionary<string, AnimationClipContainer> s_animationClips;
+
+        static ConcurrentDictionary<string, SkeletonContainer>      s_skeletons;
+  
+        static ConcurrentDictionary<string, Font>                   s_fonts;
+  
+        static ConcurrentDictionary<string, CollisionShape>         s_collisionShapes;
 
         public delegate void GetMaterialCallback(Material a_material, LoadStatus a_status);
         public delegate void LoadVertexShaderCallback(VertexShader a_shader, LoadStatus a_status);
@@ -368,6 +557,7 @@ namespace IcarianEngine
         public delegate void LoadModelCallback(Model a_model, LoadStatus a_status);
         public delegate void LoadTextureCallback(Texture a_texture, LoadStatus a_status);
         public delegate void LoadSkeletonCallback(Skeleton a_skeleton, LoadStatus a_status);
+        public delegate void LoadAnimationClipCallback(AnimationClip a_clip, LoadStatus a_status);
 
         internal static void Init()
         {
@@ -381,6 +571,8 @@ namespace IcarianEngine
 
             s_models = new ConcurrentDictionary<string, ModelContainer>();
             s_skinnedModels = new ConcurrentDictionary<string, ModelContainer>();
+
+            s_animationClips = new ConcurrentDictionary<string, AnimationClipContainer>();
 
             s_skeletons = new ConcurrentDictionary<string, SkeletonContainer>();
 
@@ -551,6 +743,9 @@ namespace IcarianEngine
                 }
             }
             s_collisionShapes.Clear();
+
+            s_skeletons.Clear();
+            s_animationClips.Clear();
         }
 
         static void ProcessContainer(IAssetContainer a_container) 
@@ -579,15 +774,61 @@ namespace IcarianEngine
 
             a_container.WaitHandle.WaitOne();
         }
+        static T LoadData<T, C>(string a_path, ConcurrentDictionary<string, C> a_data) where T : class where C : IAssetContainer
+        {
+            if (a_data.ContainsKey(a_path))
+            {
+                C container = a_data[a_path];
 
-        internal static VertexShader LoadVertexShaderInternal(string a_path, out LoadStatus a_status)
+                switch (container.Status)
+                {
+                case LoadStatus.Loading:
+                case LoadStatus.Unloaded:
+                {
+                    container.WaitHandle.WaitOne();
+                    
+                    break;
+                }
+                case LoadStatus.Failed:
+                {
+                    return null;
+                }
+                }
+
+                if (container.Status == LoadStatus.Failed)
+                {
+                    return null;
+                }
+
+                if (container.Value != null)
+                {
+                    IDestroy dest = container.Value as IDestroy;
+                    if (dest != null)
+                    {
+                        if (!dest.IsDisposed)
+                        {
+                            return container.Value as T;
+                        }
+                    }
+                    else
+                    {
+                        return container.Value as T;
+                    }
+                }
+            }
+
+            a_data.TryAdd(a_path, (C)Activator.CreateInstance(typeof(C)));
+
+            return LoadInternalData<T, C>(a_path, a_data, out LoadStatus _);
+        }
+        internal static T LoadInternalData<T, C>(string a_path, ConcurrentDictionary<string, C> a_data, out LoadStatus a_status) where T : class where C : IAssetContainer
         {
             a_status = LoadStatus.Failed;
 
-            VertexShaderContainer container = null;
-            if (s_vertexShaders.ContainsKey(a_path))
+            C container = default(C);
+            if (a_data.ContainsKey(a_path))
             {
-                container = s_vertexShaders[a_path];
+                container = a_data[a_path];
             }
             else
             {
@@ -600,7 +841,7 @@ namespace IcarianEngine
             {
                 a_status = container.Status;
 
-                return container.Shader;
+                return (T)container.Value;
             }
 
             string filepath = GetPath(a_path);
@@ -611,13 +852,13 @@ namespace IcarianEngine
                 return null;
             }
 
-            VertexShader shader = VertexShader.LoadVertexShader(filepath);
+            object obj = container.LoadValue(filepath);
 
             lock (container)
             {
-                container.Shader = shader;
+                container.Value = obj;
 
-                if (shader != null)
+                if (obj != null)
                 {
                     container.Status = LoadStatus.Loaded;
                     a_status = LoadStatus.Loaded;
@@ -628,154 +869,34 @@ namespace IcarianEngine
                 }
             }
 
-            container.WaitHandle.Set();
-
-            return shader;
+            return (T)obj;
         }
+
         public static VertexShader LoadVertexShader(string a_path)
         {
-            if (s_vertexShaders.ContainsKey(a_path))
-            {
-                VertexShaderContainer c = s_vertexShaders[a_path];
-
-                switch (c.Status)
-                {
-                case LoadStatus.Loading:
-                case LoadStatus.Unloaded:
-                {
-                    c.WaitHandle.WaitOne();
-                    
-                    break;
-                }
-                case LoadStatus.Failed:
-                {
-                    return null;
-                }
-                }
-
-                if (c.Shader != null)
-                {
-                    if (!c.Shader.IsDisposed)
-                    {
-                        return c.Shader;
-                    }
-                }
-                else
-                {
-                    return null;
-                }
-            }
-
-            s_vertexShaders.TryAdd(a_path, new VertexShaderContainer());
-
-            return LoadVertexShaderInternal(a_path, out LoadStatus _);
+            return LoadData<VertexShader, VertexShaderContainer>(a_path, s_vertexShaders);
         }
         public static void LoadVertexShaderAsync(string a_path, LoadVertexShaderCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             s_vertexShaders.TryAdd(a_path, new VertexShaderContainer());
 
-            LoadVertexShaderThreadJob job = new LoadVertexShaderThreadJob(a_path, a_callback);
+            LoadVertexShaderThreadJob job = new LoadVertexShaderThreadJob(s_vertexShaders, a_path, a_callback);
 
             ThreadPool.PushJob(job, a_priority);
         }
-        internal static PixelShader LoadPixelShaderInternal(string a_path, out LoadStatus a_status)
-        {
-            a_status = LoadStatus.Failed;
-
-            PixelShaderContainer container = null;
-            if (s_pixelShaders.ContainsKey(a_path))
-            {
-                container = s_pixelShaders[a_path];
-            }
-            else
-            {
-                return null;
-            }
-
-            ProcessContainer(container);
-
-            if (container.Status != LoadStatus.Loading)
-            {
-                a_status = container.Status;
-
-                return container.Shader;
-            }
-
-            string filepath = GetPath(a_path);
-            if (string.IsNullOrEmpty(filepath))
-            {
-                Logger.IcarianError($"Cannot find filepath: {a_path}");
-
-                return null;
-            }
-
-            PixelShader shader = PixelShader.LoadPixelShader(filepath);
-
-            lock (container)
-            {
-                container.Shader = shader;
-
-                if (shader != null)
-                {
-                    container.Status = LoadStatus.Loaded;
-                    a_status = LoadStatus.Loaded;
-                }
-                else
-                {
-                    container.Status = LoadStatus.Failed;
-                }
-            }
-
-            container.WaitHandle.Set();
-
-            return shader;
-        }
         public static PixelShader LoadPixelShader(string a_path)
         {
-            if (s_pixelShaders.ContainsKey(a_path))
-            {
-                PixelShaderContainer c = s_pixelShaders[a_path];
-
-                switch (c.Status)
-                {
-                case LoadStatus.Loading:
-                case LoadStatus.Unloaded:
-                {
-                    c.WaitHandle.WaitOne();
-                    
-                    break;
-                }
-                case LoadStatus.Failed:
-                {
-                    return null;
-                }
-                }
-
-                if (c.Shader != null)
-                {
-                    if (!c.Shader.IsDisposed)
-                    {
-                        return c.Shader;
-                    }
-                }
-                else
-                {
-                    return null;
-                }
-            }
-
-            s_pixelShaders.TryAdd(a_path, new PixelShaderContainer());
-
-            return LoadPixelShaderInternal(a_path, out LoadStatus _);
+            return LoadData<PixelShader, PixelShaderContainer>(a_path, s_pixelShaders);
         }
         public static void LoadPixelShaderAsync(string a_path, LoadPixelShaderCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             s_pixelShaders.TryAdd(a_path, new PixelShaderContainer());
 
-            LoadPixelShaderThreadJob job = new LoadPixelShaderThreadJob(a_path, a_callback);
+            LoadPixelShaderThreadJob job = new LoadPixelShaderThreadJob(s_pixelShaders, a_path, a_callback);
 
             ThreadPool.PushJob(job, a_priority);
         }
+
         public static Font LoadFont(string a_path)
         {
             Font oldFont = null;
@@ -816,102 +937,15 @@ namespace IcarianEngine
             return font;
         }
 
-        internal static Model LoadModelInternal(string a_path, out LoadStatus a_status)
-        {
-            a_status = LoadStatus.Failed;
-
-            ModelContainer container = null;
-            if (s_models.ContainsKey(a_path))
-            {
-                container = s_models[a_path];
-            }
-            else
-            {
-                return null;
-            }
-
-            ProcessContainer(container);
-
-            if (container.Status != LoadStatus.Loading)
-            {
-                a_status = container.Status;
-
-                return container.Model;
-            }
-
-            string filepath = GetPath(a_path);
-            if (string.IsNullOrEmpty(filepath))
-            {
-                Logger.IcarianError($"Cannot find filepath: {a_path}");
-
-                return null;
-            }        
-
-            Model model = Model.LoadModel(filepath);
-
-            lock (container)
-            {
-                if (model != null)
-                {
-                    container.Model = model;
-                    container.Status = LoadStatus.Loaded;
-
-                    a_status = LoadStatus.Loaded;
-                }
-                else
-                {
-                    container.Model = null;
-                    container.Status = LoadStatus.Failed;
-                }
-            }
-
-            container.WaitHandle.Set();
-
-            return model;
-        }
         public static Model LoadModel(string a_path)
         {
-            if (s_models.ContainsKey(a_path))
-            {
-                ModelContainer c = s_models[a_path];
-
-                switch (c.Status)
-                {
-                case LoadStatus.Loading:
-                case LoadStatus.Unloaded:
-                {
-                    c.WaitHandle.WaitOne();
-                    
-                    break;
-                }
-                case LoadStatus.Failed:
-                {
-                    return null;
-                }
-                }
-
-                if (c.Model != null)
-                {
-                    if (!c.Model.IsDisposed)
-                    {
-                        return c.Model;
-                    }
-                }
-                else
-                {
-                    return c.Model;
-                }
-            }
-
-            s_models.TryAdd(a_path, new ModelContainer());
-
-            return LoadModelInternal(a_path, out LoadStatus _);
+            return LoadData<Model, ModelContainer>(a_path, s_models);
         }
         public static void LoadModelAsync(string a_path, LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             s_models.TryAdd(a_path, new ModelContainer());
 
-            LoadModelThreadJob job = new LoadModelThreadJob(a_path, a_callback);
+            LoadModelThreadJob job = new LoadModelThreadJob(s_models, a_path, a_callback);
 
             ThreadPool.PushJob(job, a_priority);
         }
@@ -1016,194 +1050,41 @@ namespace IcarianEngine
             ThreadPool.PushJob(job, a_priority);
         }
 
-        internal static Texture LoadTextureInternal(string a_path, out LoadStatus a_status)
-        {
-            a_status = LoadStatus.Failed;
-
-            TextureContainer container = null;
-            if (s_textures.ContainsKey(a_path))
-            {
-                container = s_textures[a_path];
-            }
-            else
-            {
-                return null;
-            }
-
-            ProcessContainer(container);
-
-            if (container.Status != LoadStatus.Loading)
-            {
-                a_status = container.Status;
-
-                return container.Texture;
-            }
-
-            string filepath = GetPath(a_path);
-            if (string.IsNullOrEmpty(filepath))
-            {
-                Logger.IcarianError($"Cannot find filepath: {a_path}");
-
-                return null;
-            }
-
-            Texture texture = Texture.LoadTexture(filepath);
-
-            lock (container)
-            {
-                if (texture != null)
-                {
-                    container.Texture = texture;
-                    container.Status = LoadStatus.Loaded;
-
-                    a_status = LoadStatus.Loaded;
-                }
-                else
-                {
-                    container.Texture = null;
-                    container.Status = LoadStatus.Failed;
-                }
-            }
-
-            container.WaitHandle.Set();
-
-            return texture;
-        }
         public static Texture LoadTexture(string a_path)
         {
-            if (s_textures.ContainsKey(a_path))
-            {
-                TextureContainer c = s_textures[a_path];
-
-                switch (c.Status)
-                {
-                case LoadStatus.Loading:
-                case LoadStatus.Unloaded:
-                {
-                    c.WaitHandle.WaitOne();
-                    
-                    break;
-                }
-                case LoadStatus.Failed:
-                {
-                    return null;
-                }
-                }
-
-                if (c.Texture != null)
-                {
-                    if (!c.Texture.IsDisposed)
-                    {
-                        return c.Texture;
-                    }
-                }
-                else
-                {
-                    return null;
-                }
-            }
-
-            s_textures.TryAdd(a_path, new TextureContainer());
-
-            Texture texture = LoadTextureInternal(a_path, out LoadStatus _);
-
-            return texture;
+            return LoadData<Texture, TextureContainer>(a_path, s_textures);
         }
         public static void LoadTextureAsync(string a_path, LoadTextureCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             s_textures.TryAdd(a_path, new TextureContainer());
 
-            LoadTextureThreadJob job = new LoadTextureThreadJob(a_path, a_callback);
+            LoadTextureThreadJob job = new LoadTextureThreadJob(s_textures, a_path, a_callback);
 
             ThreadPool.PushJob(job, a_priority);
         }
 
-        internal static Skeleton LoadSkeletonInternal(string a_path, out LoadStatus a_status)
+        public static AnimationClip LoadAnimationClip(string a_path)
         {
-            a_status = LoadStatus.Failed;
-
-            SkeletonContainer container = null;
-            if (s_skeletons.ContainsKey(a_path))
-            {
-                container = s_skeletons[a_path];
-            }
-            else
-            {
-                return null;
-            }
-
-            ProcessContainer(container);
-
-            if (container.Status != LoadStatus.Loading)
-            {
-                a_status = container.Status;
-
-                return container.Skeleton;
-            }
-
-            string filepath = GetPath(a_path);
-            if (string.IsNullOrEmpty(filepath))
-            {
-                Logger.IcarianError($"Cannot find filepath: {a_path}");
-
-                return null;
-            }
-
-            Skeleton skeleton = Skeleton.LoadSkeleton(filepath);
-
-            lock (container)
-            {
-                if (skeleton != null)
-                {
-                    container.Skeleton = skeleton;
-                    container.Status = LoadStatus.Loaded;
-
-                    a_status = LoadStatus.Loaded;
-                }
-                else
-                {
-                    container.Skeleton = null;
-                    container.Status = LoadStatus.Failed;
-                }
-            }
-
-            container.WaitHandle.Set();
-
-            return skeleton;
+            return LoadData<AnimationClip, AnimationClipContainer>(a_path, s_animationClips);
         }
+        public static void LoadAnimationClipAsync(string a_path, LoadAnimationClipCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        {
+            s_animationClips.TryAdd(a_path, new AnimationClipContainer());
+
+            LoadAnimationClipThreadJob job = new LoadAnimationClipThreadJob(s_animationClips, a_path, a_callback);
+
+            ThreadPool.PushJob(job, a_priority);
+        }
+
         public static Skeleton LoadSkeleton(string a_path)
         {
-            if (s_skeletons.ContainsKey(a_path))
-            {
-                SkeletonContainer c = s_skeletons[a_path];
-
-                switch (c.Status)
-                {
-                case LoadStatus.Loading:
-                case LoadStatus.Unloaded:
-                {
-                    c.WaitHandle.WaitOne();
-                    
-                    break;
-                }
-                case LoadStatus.Failed:
-                {
-                    return null;
-                }
-                }
-
-                return c.Skeleton;
-            }
-
-            s_skeletons.TryAdd(a_path, new SkeletonContainer());
-
-            return LoadSkeletonInternal(a_path, out LoadStatus _);
+            return LoadData<Skeleton, SkeletonContainer>(a_path, s_skeletons);
         }
         public static void LoadSkeletonAsync(string a_path, LoadSkeletonCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             s_skeletons.TryAdd(a_path, new SkeletonContainer());
 
-            LoadSkeletonThreadJob job = new LoadSkeletonThreadJob(a_path, a_callback);
+            LoadSkeletonThreadJob job = new LoadSkeletonThreadJob(s_skeletons, a_path, a_callback);
 
             ThreadPool.PushJob(job, a_priority);
         }

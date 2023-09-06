@@ -9,7 +9,7 @@
 
 static AnimationControllerBindings* Instance = nullptr;
 
-#define ANIMATIONCONTROLLER_RUNTIME_ATTACH(ret, namespace, klass, name, code, ...) BIND_FUNCTION(a_runtime, namespace, klass, name);
+#define ANIMATIONCONTROLLER_RUNTIME_ATTACH(ret, namespace, klass, name, code, ...) BIND_FUNCTION(m_runtime, namespace, klass, name);
 
 struct RuntimeBoneData
 {
@@ -18,11 +18,24 @@ struct RuntimeBoneData
     MonoArray* BindPoses;
 };
 
+struct RuntimeAnimationFrame
+{
+    float Time;
+    MonoArray* Transform;
+};
+struct RuntimeAnimationData
+{
+    MonoString* Name;
+    MonoArray* Frames;
+};
+
 #define ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(F) \
     F(uint32_t, IcarianEngine.Rendering.Animation, Animator, GenerateBuffer, { return Instance->GenerateAnimatorBuffer(); }) \
     F(void, IcarianEngine.Rendering.Animation, Animator, DestroyBuffer, { Instance->DestroyAnimatorBuffer(a_addr); }, uint32_t a_addr) \
     F(uint32_t, IcarianEngine.Rendering.Animation, Animator, GetUpdateMode, { return (uint32_t)Instance->GetAnimatorUpdateMode(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Animation, Animator, SetUpdateMode, { Instance->SetAnimatorUpdateMode(a_addr, (e_AnimationUpdateMode)a_updateMode); }, uint32_t a_addr, uint32_t a_updateMode) \
+    \
+    F(MonoArray*, IcarianEngine.Rendering.Animation, AnimationClip, LoadColladaAnimation, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return Instance->LoadAnimationClip(str); }, MonoString* a_path) \
     \
     F(uint32_t, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, CreateSkeletonBuffer, { return Instance->CreateSkeletonBuffer(); }) \
     F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, DestroySkeletonBuffer, { Instance->DestroySkeletonBuffer(a_addr); }, uint32_t a_addr) \
@@ -88,13 +101,15 @@ RUNTIME_FUNCTION(void, SkinnedMeshRenderer, PushBoneData,
 AnimationControllerBindings::AnimationControllerBindings(AnimationController* a_controller, RuntimeManager* a_runtime)
 {
     TRACE("Binding AnimationController functions to C#");
+    Instance = this;
+    
+    m_runtime = a_runtime;
+
     m_controller = a_controller;
 
-    Instance = this;
+    BIND_FUNCTION(m_runtime, IcarianEngine.Rendering.Animation, Skeleton, LoadBoneData);
 
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.Animation, Skeleton, LoadBoneData);
-
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, PushBoneData);
+    BIND_FUNCTION(m_runtime, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, PushBoneData);
 
     ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(ANIMATIONCONTROLLER_RUNTIME_ATTACH);
 }
@@ -157,4 +172,56 @@ void AnimationControllerBindings::PushSkeletonBoneData(uint32_t a_addr, uint32_t
 
     TLockArray<SkeletonData> a = m_controller->m_skeletons.ToLockArray();
     a[a_addr].BoneData.push_back(data);
+}
+
+MonoArray* AnimationControllerBindings::LoadAnimationClip(const std::filesystem::path& a_path) const
+{
+    MonoArray* data = NULL;
+
+    MonoDomain* domain = m_runtime->GetDomain();
+    MonoClass* animationDataClass = m_runtime->GetClass("IcarianEngine.Rendering.Animation", "AnimationData");
+    ICARIAN_ASSERT(animationDataClass != NULL);
+    MonoClass* animationFrameClass = m_runtime->GetClass("IcarianEngine.Rendering.Animation", "AnimationFrame");
+    ICARIAN_ASSERT(animationFrameClass != NULL);
+    MonoClass* floatClass = mono_get_single_class();
+
+    std::vector<ColladaAnimationData> animations;
+    if (FlareBase::ColladaLoader_LoadAnimationFile(a_path, &animations))
+    {
+        const uint32_t count = (uint32_t)animations.size();
+        data = mono_array_new(domain, animationDataClass, (uintptr_t)count);
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            const ColladaAnimationData& animation = animations[i];
+
+            RuntimeAnimationData animData;
+            animData.Name = mono_string_new(domain, animation.Name.c_str());
+
+            const uint32_t frameCount = (uint32_t)animation.Frames.size();
+            animData.Frames = mono_array_new(domain, animationFrameClass, (uintptr_t)frameCount);
+            for (uint32_t j = 0; j < frameCount; ++j)
+            {
+                const ColladaAnimationFrame& frame = animation.Frames[j];
+
+                RuntimeAnimationFrame animFrame;
+                animFrame.Time = frame.Time;
+
+                const float* t = (float*)&frame.Transform;
+
+                MonoArray* transform = mono_array_new(domain, floatClass, 16);
+                for (uint32_t k = 0; k < 16; ++k)
+                {
+                    mono_array_set(transform, float, k, t[k]);
+                }
+
+                animFrame.Transform = transform;
+
+                mono_array_set(animData.Frames, RuntimeAnimationFrame, j, animFrame);
+            }
+
+            mono_array_set(data, RuntimeAnimationData, i, animData);
+        }
+    }
+
+    return data;
 }

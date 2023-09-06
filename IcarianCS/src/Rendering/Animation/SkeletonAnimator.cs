@@ -88,7 +88,7 @@ namespace IcarianEngine.Rendering.Animation
             }
             else
             {
-                // PushTransform(m_buffer, a_object, a_transform);
+                PushTransform(m_buffer, a_object, a_transform);
             }
         }
 

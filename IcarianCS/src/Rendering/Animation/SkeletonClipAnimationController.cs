@@ -37,7 +37,7 @@ namespace IcarianEngine.Rendering.Animation
             SkeletonClipAnimationControllerDef def = SkeletonClipAnimationControllerDef;
             if (def != null)
             {
-                Logger.IcarianWarning("Need to implement loading of animation clips");
+                m_clip = AssetLibrary.LoadAnimationClip(def.ClipPath);
             }
         }
 

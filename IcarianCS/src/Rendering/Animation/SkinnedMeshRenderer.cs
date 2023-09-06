@@ -173,13 +173,14 @@ namespace IcarianEngine.Rendering.Animation
             public Matrix4 InverseBindPose;
         }
 
-        void GenerateBone(Bone a_bone, Transform a_parent, ref Dictionary<uint, BoneData> a_data)
+        void GenerateBone(Bone a_bone, Matrix4 a_inverse, Transform a_parent, ref Dictionary<uint, BoneData> a_data)
         {
             GameObject boneObject = GameObject.Instantiate();
             boneObject.Name = a_bone.Name;
             boneObject.Transform.Parent = a_parent;
 
-            Matrix4 invPose = Matrix4.Inverse(a_bone.BindingPose);
+            Matrix4 bindingPose = a_bone.BindingPose;
+            Matrix4 invPose = Matrix4.Inverse(bindingPose);
 
             BoneData data = new BoneData()
             {
@@ -187,14 +188,14 @@ namespace IcarianEngine.Rendering.Animation
                 InverseBindPose = invPose
             };
 
-            boneObject.Transform.SetMatrix(a_bone.BindingPose);
+            boneObject.Transform.SetMatrix(bindingPose * a_inverse);
 
             a_data.Add(a_bone.Index, data);
 
             IEnumerable<Bone> children = m_skeleton.GetChildren(a_bone);
             foreach (Bone child in children)
             {
-                GenerateBone(child, boneObject.Transform, ref a_data);
+                GenerateBone(child, invPose, boneObject.Transform, ref a_data);
             }
         }
 
@@ -219,7 +220,7 @@ namespace IcarianEngine.Rendering.Animation
 
                 foreach (Bone bone in m_skeleton.RootBones)
                 {
-                    GenerateBone(bone, m_root.Transform, ref data);
+                    GenerateBone(bone, Matrix4.Identity, m_root.Transform, ref data);
                 }
 
                 foreach (Bone b in m_skeleton.Bones)

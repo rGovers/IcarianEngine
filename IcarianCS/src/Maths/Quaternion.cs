@@ -351,13 +351,16 @@ namespace IcarianEngine.Maths
 
         public static Quaternion Slerp(Quaternion a_lhs, Quaternion a_rhs, float a_t)
         {
+            // TODO: Need to fix this
             // Cant remember off the top of my head so just assuming this works
             // Seems correct as using the inverse to do a local translation but memory is hazy
             // Credit: https://en.wikipedia.org/wiki/Slerp
             Quaternion invQ = Inverse(a_rhs);
 
             Quaternion q = a_lhs * invQ;
-            Quaternion powQ = new Quaternion(Mathf.Pow(q.X, a_t), Mathf.Pow(q.Y, a_t), Mathf.Pow(q.Z, a_t), Mathf.Pow(q.W, a_t));
+            Vector4 sign = new Vector4(Math.Sign(q.X), Math.Sign(q.Y), Math.Sign(q.Z), Math.Sign(q.W));
+            Vector4 abs = new Vector4(Math.Abs(q.X), Math.Abs(q.Y), Math.Abs(q.Z), Math.Abs(q.W));
+            Quaternion powQ = new Quaternion(Mathf.Pow(abs.X, a_t) * sign.X, Mathf.Pow(abs.Y, a_t) * sign.Y, Mathf.Pow(abs.Z, a_t) * sign.Z, Mathf.Pow(abs.W, a_t) * sign.W);
 
             return powQ * a_rhs;
         }

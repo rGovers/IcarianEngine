@@ -1,6 +1,9 @@
+using IcarianEngine.Maths;
 using System;
 using System.Collections.Generic;
-using IcarianEngine.Maths;
+using System.IO;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace IcarianEngine.Rendering.Animation
 {
@@ -18,8 +21,24 @@ namespace IcarianEngine.Rendering.Animation
         public List<AnimationKey> Keys;
     }
 
+    [StructLayout(LayoutKind.Sequential, Pack = 0)]
+    struct AnimationFrame
+    {
+        public float Time;
+        public float[] Transform;
+    }
+    [StructLayout(LayoutKind.Sequential, Pack = 0)]
+    struct AnimationData
+    {
+        public string Name;
+        public AnimationFrame[] Frames;
+    };
+
     public class AnimationClip
     {
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static AnimationData[] LoadColladaAnimation(string a_path);
+
         string               m_name;
         float                m_duration;
 
@@ -53,6 +72,13 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
+        AnimationClip()
+        {
+            m_name = "";
+            m_duration = 0.0f;
+
+            m_fields = new List<AnimationField>();
+        }
         public AnimationClip(string a_name, float a_duration)
         {
             m_name = a_name;
@@ -63,7 +89,112 @@ namespace IcarianEngine.Rendering.Animation
 
         public static AnimationClip LoadAnimationClip(string a_path)
         {
-            // TODO: Need to implement this
+            string ext = Path.GetExtension(a_path);
+
+            switch (ext)
+            {
+            case ".dae":
+            {
+                // Collada is a transform based animation format so we need to convert it to a native field based format
+                AnimationData[] data = LoadColladaAnimation(a_path);
+                if (data != null)
+                {
+                    AnimationClip clip = new AnimationClip();
+                    clip.m_name = Path.GetFileNameWithoutExtension(a_path);
+
+                    foreach (AnimationData animObj in data)
+                    {
+                        string name = animObj.Name;
+
+                        AnimationField translationField = new AnimationField()
+                        {
+                            Object = name,
+                            Component = "Transform",
+                            Field = "Translation",
+                            Keys = new List<AnimationKey>()
+                        };
+
+                        AnimationField rotationField = new AnimationField()
+                        {
+                            Object = name,
+                            Component = "Transform",
+                            Field = "Rotation",
+                            Keys = new List<AnimationKey>()
+                        };
+
+                        AnimationField scaleField = new AnimationField()
+                        {
+                            Object = name,
+                            Component = "Transform",
+                            Field = "Scale",
+                            Keys = new List<AnimationKey>()
+                        };
+
+                        foreach (AnimationFrame frame in animObj.Frames)
+                        {
+                            float time = frame.Time;
+                            float[] transform = frame.Transform;
+
+                            Matrix4 mat = new Matrix4(transform[0],  transform[1],  transform[2],  transform[3],
+                                                      transform[4],  transform[5],  transform[6],  transform[7],
+                                                      transform[8],  transform[9],  transform[10], transform[11],
+                                                      transform[12], transform[13], transform[14], transform[15]);
+
+                            Vector3 translation;
+                            Quaternion rotation;
+                            Vector3 scale;
+                            Matrix4.Decompose(mat, out translation, out rotation, out scale);
+
+                            translationField.Keys.Add(new AnimationKey()
+                            {
+                                Time = time,
+                                Value = translation
+                            });
+
+                            rotationField.Keys.Add(new AnimationKey()
+                            {
+                                Time = time,
+                                Value = rotation
+                            });
+
+                            scaleField.Keys.Add(new AnimationKey()
+                            {
+                                Time = time,
+                                Value = scale
+                            });
+
+                            if (time > clip.m_duration)
+                            {
+                                clip.m_duration = time;
+                            }
+                        }
+
+                        clip.m_fields.Add(translationField);
+                        clip.m_fields.Add(rotationField);
+                        clip.m_fields.Add(scaleField);
+                    }
+
+                    return clip;
+                }
+
+                Logger.IcarianError($"Failed to load animation clip: {a_path}");
+
+                break;
+            }
+            case ".ianim":
+            {
+                // TODO: Need to implement this
+                Logger.IcarianError($"Not implemented yet");
+
+                break;
+            }
+            default:
+            {
+                Logger.IcarianError($"Invalid file extension for animation clip: {a_path}");
+
+                break;
+            }
+            }
 
             return null;
         }
@@ -81,7 +212,7 @@ namespace IcarianEngine.Rendering.Animation
         public Quaternion GetRotation(string a_object, float a_time)
         {
             Quaternion val;
-            if (GetQuaternionSlerp(a_object, "Transform", "Rotation", a_time, out val))
+            if (GetQuaternionLerp(a_object, "Transform", "Rotation", a_time, out val))
             {
                 return val;
             }
@@ -260,13 +391,14 @@ namespace IcarianEngine.Rendering.Animation
                         AnimationKey key = field.Keys[i];
                         if (key.Time > a_time)
                         {
-                            AnimationKey prevKey = field.Keys[i];
+                            AnimationKey prevKey = field.Keys[i - 1];
 
                             float t = (a_time - prevKey.Time) / (key.Time - prevKey.Time);
 
                             Quaternion prevValue = (Quaternion)prevKey.Value;
                             Quaternion nextValue = (Quaternion)key.Value;
 
+                            // TODO: Fix slerp
                             a_val = Quaternion.Slerp(prevValue, nextValue, t);
 
                             return true;

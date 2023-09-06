@@ -75,6 +75,11 @@ namespace IcarianEngine.Maths
             }
         }
 
+        public override string ToString()
+        {
+            return $"( ({m_data[0]}, {m_data[1]}, {m_data[2]}, {m_data[3]}), ({m_data[4]}, {m_data[5]}, {m_data[6]}, {m_data[7]}), ({m_data[8]}, {m_data[9]}, {m_data[10]}, {m_data[11]}), ({m_data[12]}, {m_data[13]}, {m_data[14]}, {m_data[15]}) )";
+        }
+
         public float[] ToArray()
         {
             return m_data;

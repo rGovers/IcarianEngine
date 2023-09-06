@@ -818,7 +818,8 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                             const BoneTransformData& bone = skeleton.BoneData[k];
 
                                             const TransformBuffer& buffer = objectManager->GetTransformBuffer(bone.TransformIndex);
-                                            glm::mat4 bTransform = buffer.ToMat4() * bone.InverseBindPose;
+
+                                            glm::mat4 transform = buffer.ToMat4();
 
                                             auto iter = boneMap.find(buffer.Parent);
                                             while (iter != boneMap.end())
@@ -828,13 +829,12 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                                 const BoneTransformData& parentBone = skeleton.BoneData[index];
                                                 const TransformBuffer& parentBuffer = objectManager->GetTransformBuffer(parentBone.TransformIndex);
                                                 
-                                                const glm::mat4 parentTransform = parentBuffer.ToMat4() * parentBone.InverseBindPose;
-                                                bTransform = parentTransform * bTransform;
+                                                transform = parentBuffer.ToMat4() * transform;
 
                                                 iter = boneMap.find(parentBuffer.Parent);
                                             }
 
-                                            boneBuffer[k].BoneMatrix = bTransform;
+                                            boneBuffer[k].BoneMatrix = transform * bone.InverseBindPose;
                                         }
 
                                         const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(BoneShaderBuffer) * boneCount, boneBuffer);

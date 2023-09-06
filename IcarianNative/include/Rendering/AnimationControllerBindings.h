@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
+#include <mono/metadata/object.h>
 
 #include "Rendering/AnimationController.h"
 
@@ -9,6 +11,8 @@ class RuntimeManager;
 class AnimationControllerBindings
 {
 private:
+    RuntimeManager*      m_runtime;
+
     AnimationController* m_controller;
     
 protected:
@@ -26,4 +30,6 @@ public:
     void DestroySkeletonBuffer(uint32_t a_addr) const;
     void ClearSkeletonBuffer(uint32_t a_addr) const;
     void PushSkeletonBoneData(uint32_t a_addr, uint32_t a_transformIndex, const glm::mat4& a_inverseBindPose) const;
+
+    MonoArray* LoadAnimationClip(const std::filesystem::path& a_path) const;
 };

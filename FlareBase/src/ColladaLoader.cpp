@@ -1,6 +1,9 @@
 #include "Flare/ColladaLoader.h"
 
 #include <fstream>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <string>
 #include <tinyxml2.h>
 #include <unordered_map>
@@ -84,6 +87,10 @@ namespace FlareBase
         ColladaMesh Mesh;
     };
 
+    struct ColladaJoints
+    {
+        std::vector<ColladaInput> Inputs;
+    };
     struct ColladaVertexWeights
     {
         uint32_t Count;
@@ -98,6 +105,7 @@ namespace FlareBase
         float BindShapeMatrix[16];
         std::vector<ColladaSource> Sources;
         ColladaVertexWeights VertexWeights;
+        ColladaJoints Joints;
     };
 
     struct ColladaSceneNode
@@ -119,6 +127,25 @@ namespace FlareBase
     {
         std::string ID;
         ColladaSkin Skin;
+    };
+
+    struct ColladaAnimationChannel
+    {
+        std::string Target;
+        std::string Source;
+    
+    };
+    struct ColladaAnimationSampler
+    {
+        std::string ID;
+        std::vector<ColladaInput> Inputs;
+    };
+    struct ColladaAnimation
+    {
+        std::string ID;
+        std::vector<ColladaSource> Sources;
+        std::vector<ColladaAnimationChannel> Channels;
+        std::vector<ColladaAnimationSampler> Samplers;
     };
 
     static ColladaSource LoadSource(const tinyxml2::XMLElement* a_sourceElement)
@@ -544,6 +571,41 @@ namespace FlareBase
 
                 skin.Sources.emplace_back(s);
             }
+            else if (strcmp(name, "joints") == 0)
+            {
+                ColladaJoints j;
+
+                for (const tinyxml2::XMLElement* inputElement = element->FirstChildElement(); inputElement != nullptr; inputElement = inputElement->NextSiblingElement())
+                {
+                    const char* name = inputElement->Value();
+
+                    if (strcmp(name, "input") == 0)
+                    {
+                        ColladaInput i;
+
+                        for (const tinyxml2::XMLAttribute* att = inputElement->FirstAttribute(); att != nullptr; att = att->Next())
+                        {
+                            const char* name = att->Name();
+                            if (strcmp(name, "semantic") == 0)
+                            {
+                                i.Semantic = att->Value();
+                            }
+                            else if (strcmp(name, "source") == 0)
+                            {
+                                i.Source = att->Value();
+                            }
+                            else if (strcmp(name, "offset") == 0)
+                            {
+                                i.Offset = (uint32_t)att->IntValue();
+                            }
+                        }
+
+                        j.Inputs.emplace_back(i);
+                    }
+                }
+
+                skin.Joints = j;
+            }
             else if (strcmp(name, "vertex_weights") == 0)
             {
                 ColladaVertexWeights w;
@@ -704,6 +766,103 @@ namespace FlareBase
         }
 
         return controllerLib;
+    }
+
+    static std::vector<ColladaAnimation> LoadAnimation(const tinyxml2::XMLElement* a_libraryElement)
+    {
+        std::vector<ColladaAnimation> animationLib;
+
+        for (const tinyxml2::XMLElement* animationElement = a_libraryElement->FirstChildElement(); animationElement != nullptr; animationElement = animationElement->NextSiblingElement())
+        {
+            if (strcmp(animationElement->Value(), "animation") == 0)
+            {
+                ColladaAnimation a;
+                for (const tinyxml2::XMLAttribute* att = animationElement->FirstAttribute(); att != nullptr; att = att->Next())
+                {
+                    const char* name = att->Name();
+                    if (strcmp(name, "id") == 0)
+                    {
+                        a.ID = att->Value();
+                    }
+                }
+
+                for (const tinyxml2::XMLElement* sourceElement = animationElement->FirstChildElement(); sourceElement != nullptr; sourceElement = sourceElement->NextSiblingElement())
+                {
+                    const char* name = sourceElement->Value();
+
+                    if (strcmp(name, "source") == 0)
+                    {
+                        const ColladaSource s = LoadSource(sourceElement);
+
+                        a.Sources.emplace_back(s);
+                    }
+                    else if (strcmp(name, "sampler") == 0)
+                    {
+                        ColladaAnimationSampler s;
+                        for (const tinyxml2::XMLAttribute* att = sourceElement->FirstAttribute(); att != nullptr; att = att->Next())
+                        {
+                            const char* name = att->Name();
+                            if (strcmp(name, "id") == 0)
+                            {
+                                s.ID = att->Value();
+                            }
+                        }
+
+                        for (const tinyxml2::XMLElement* inputElement = sourceElement->FirstChildElement(); inputElement != nullptr; inputElement = inputElement->NextSiblingElement())
+                        {
+                            const char* name = inputElement->Value();
+
+                            if (strcmp(name, "input") == 0)
+                            {
+                                ColladaInput i;
+                                for (const tinyxml2::XMLAttribute* att = inputElement->FirstAttribute(); att != nullptr; att = att->Next())
+                                {
+                                    const char* name = att->Name();
+                                    if (strcmp(name, "semantic") == 0)
+                                    {
+                                        i.Semantic = att->Value();
+                                    }
+                                    else if (strcmp(name, "source") == 0)
+                                    {
+                                        i.Source = att->Value();
+                                    }
+                                    else if (strcmp(name, "offset") == 0)
+                                    {
+                                        i.Offset = (uint32_t)att->IntValue();
+                                    }
+                                }
+
+                                s.Inputs.emplace_back(i);
+                            }
+                        }
+
+                        a.Samplers.emplace_back(s);
+                    }
+                    else if (strcmp(name, "channel") == 0)
+                    {
+                        ColladaAnimationChannel c;
+                        for (const tinyxml2::XMLAttribute* att = sourceElement->FirstAttribute(); att != nullptr; att = att->Next())
+                        {
+                            const char* name = att->Name();
+                            if (strcmp(name, "target") == 0)
+                            {
+                                c.Target = att->Value();
+                            }
+                            else if (strcmp(name, "source") == 0)
+                            {
+                                c.Source = att->Value();
+                            }
+                        }
+
+                        a.Channels.emplace_back(c);
+                    }
+                }
+
+                animationLib.emplace_back(a);
+            }
+        }
+
+        return animationLib;
     }
 
     static ColladaSceneNode LoadSceneNode(const tinyxml2::XMLElement* a_element)
@@ -1290,31 +1449,25 @@ namespace FlareBase
             ColladaLoader_BuildJointMap(n, a_index, a_map);
         }
     }
-    void ColladaLoader_BuildJointData(const ColladaSceneNode& a_node, uint32_t* a_index, uint32_t a_parent, std::vector<BoneData>* a_dat, float a_scale)
+    void ColladaLoader_BuildBoneJointMap(const ColladaSceneNode& a_node, uint32_t* a_index, uint32_t a_parent, std::unordered_map<std::string, uint32_t>* a_map, std::vector<BoneData>* a_bones)
     {
-        uint32_t pIndex = a_parent;
+        uint32_t parent = a_parent;
         if (a_node.Type == "JOINT")
         {
-            BoneData d;
-            d.Parent = a_parent;
-            d.Name = a_node.Name;
-            for (int i = 0; i < 16; ++i)
-            {
-                d.Transform[i % 4][i / 4] = a_node.Transform[i];
-            }
-            
-            d.Transform[3] = glm::vec4(d.Transform[3].xyz() * a_scale, 1.0f);
-            
-            // Hey future me if you crash here you probably have a stack corruption again
-            // I don't know why it realises it's corrupted here but it does
-            a_dat->emplace_back(d);
+            parent = (*a_index)++;
+            a_map->emplace(a_node.Name, parent);
 
-            pIndex = (*a_index)++;
+            BoneData bone;
+            bone.Parent = a_parent;
+            bone.Name = a_node.Name;
+            bone.Transform = glm::mat4(1.0f);
+
+            a_bones->emplace_back(bone);
         }
 
         for (const ColladaSceneNode& n : a_node.Children)
         {
-            ColladaLoader_BuildJointData(n, a_index, pIndex, a_dat, a_scale);
+            ColladaLoader_BuildBoneJointMap(n, a_index, parent, a_map, a_bones);
         }
     }
 
@@ -1970,6 +2123,35 @@ namespace FlareBase
             const tinyxml2::XMLElement* rootElement = doc.RootElement();
 
             std::vector<ColladaVisualScene> scenes;
+            std::vector<ColladaController> controllers;
+            IDEFER(
+            {
+                for (const ColladaController& c : controllers)
+                {
+                    for (const ColladaSource& s : c.Skin.Sources)
+                    {
+                        switch (s.Data.Type)
+                        {
+                        case ColladaSourceDataType_Float:
+                        {
+                            delete[] (float*)s.Data.Data;
+
+                            break;
+                        }
+                        case ColladaSourceDataType_Name:
+                        {
+                            delete[] (std::string*)s.Data.Data;
+
+                            break;
+                        }
+                        default:
+                        {
+                            continue;
+                        }
+                        }
+                    }
+                }
+            });
 
             for (const tinyxml2::XMLElement* element = rootElement->FirstChildElement(); element != nullptr; element = element->NextSiblingElement())
             {
@@ -1990,14 +2172,99 @@ namespace FlareBase
                 {
                     scenes = LoadScene(element);
                 }
+                else if (strcmp(elementName, "library_controllers") == 0)
+                {
+                    ICARIAN_ASSERT(controllers.empty());
+
+                    controllers = LoadController(element);
+                }
             }
+
+            std::unordered_map<std::string, uint32_t> jointMap;
 
             uint32_t jointIndex = 0;
             for (const ColladaVisualScene& s : scenes)
             {
                 for (const ColladaSceneNode& n : s.Nodes)
                 {
-                    ColladaLoader_BuildJointData(n, &jointIndex, -1, a_bones, scale);
+                    ColladaLoader_BuildBoneJointMap(n, &jointIndex, -1, &jointMap, a_bones);
+                }
+            }
+
+            a_bones->reserve(jointIndex);
+
+            for (const ColladaController& c : controllers)
+            {
+                ColladaInput bindShapeMatrixInput;
+                ColladaInput jointInput;
+                for (const ColladaInput& input : c.Skin.Joints.Inputs)
+                {
+                    if (input.Semantic == "INV_BIND_MATRIX")
+                    {
+                        bindShapeMatrixInput = input;
+                    }
+                    else if (input.Semantic == "JOINT")
+                    {
+                        jointInput = input;
+                    }
+                }
+
+                ColladaSource bindShapeMatrixSource;
+                ColladaSource jointSource;
+                for (const ColladaSource& s : c.Skin.Sources)
+                {
+                    const std::string idStr = "#" + s.ID;
+                    if (idStr == bindShapeMatrixInput.Source)
+                    {
+                        bindShapeMatrixSource = s;
+                    }
+                    else if (idStr == jointInput.Source)
+                    {
+                        jointSource = s;
+                    }
+                }
+
+                const float* bindShapeMatrixData = (float*)bindShapeMatrixSource.Data.Data;
+                const std::string* jointData = (std::string*)jointSource.Data.Data;
+
+                const uint32_t count = (uint32_t)jointSource.Accessor.Count;
+
+                for (uint32_t i = 0; i < count; ++i)
+                {
+                    const std::string& jointName = jointData[i * jointSource.Accessor.Stride];
+
+                    const uint32_t jointIndex = jointMap[jointName];
+
+                    glm::mat4 mat;
+
+                    for (uint32_t j = 0; j < 16; ++j)
+                    {
+                        mat[j % 4][j / 4] = bindShapeMatrixData[(i * bindShapeMatrixSource.Accessor.Stride) + j];
+                    }
+
+                    mat = glm::inverse(mat);
+
+                    glm::vec3 translation;
+                    glm::quat rotation;
+                    glm::vec3 sScale;
+                    glm::vec3 skew;
+                    glm::vec4 perspective;
+
+                    glm::decompose(mat, sScale, rotation, translation, skew, perspective);
+
+                    const glm::vec3 forward = rotation * glm::vec3(0.0f, 0.0f, 1.0f);
+                    // const glm::vec3 up = rotation * glm::vec3(0.0f, 1.0f, 0.0f);
+                    const glm::vec3 right = rotation * glm::vec3(1.0f, 0.0f, 0.0f);
+
+                    const glm::vec3 tForward = glm::vec3(forward.x, -forward.y, forward.z);
+                    const glm::vec3 tRight = glm::vec3(right.x, -right.y, right.z);
+                    const glm::vec3 tUp = glm::cross(tForward, tRight);
+
+                    const glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), glm::vec3(translation.x, -translation.y, translation.z) * scale);
+                    const glm::mat4 rotationMat = glm::mat4(glm::vec4(tRight, 0.0f), glm::vec4(tUp, 0.0f), glm::vec4(tForward, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+                    const glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), sScale);
+
+                    (*a_bones)[jointIndex].Transform = translationMat * rotationMat * scaleMat;
                 }
             }
 
@@ -2030,6 +2297,210 @@ namespace FlareBase
                 file.read(dat, size);
 
                 return ColladaLoader_LoadBoneData(dat, (uint32_t)size, a_bones);
+            }
+        }
+
+        return false;
+    }
+
+    bool ColladaLoader_LoadAnimationData(const char* a_data, uint32_t a_size, std::vector<ColladaAnimationData>* a_animation)
+    {
+        tinyxml2::XMLDocument doc;
+        if (doc.Parse(a_data, a_size) == tinyxml2::XML_SUCCESS)
+        {
+            float scale = 1.0f;
+
+            const tinyxml2::XMLElement* rootElement = doc.RootElement();
+
+            std::vector<ColladaAnimation> animations;
+            IDEFER(
+            {
+                for (const ColladaAnimation& anim : animations)
+                {
+                    for (const ColladaSource& s : anim.Sources)
+                    {
+                        switch (s.Data.Type)
+                        {
+                        case ColladaSourceDataType_Float:
+                        {
+                            delete[] (float*)s.Data.Data;
+
+                            break;
+                        }
+                        case ColladaSourceDataType_Name:
+                        {
+                            delete[] (std::string*)s.Data.Data;
+
+                            break;
+                        }
+                        default:
+                        {
+                            continue;
+                        }
+                        }
+                    }
+                }
+            });
+
+            for (const tinyxml2::XMLElement* element = rootElement->FirstChildElement(); element != nullptr; element = element->NextSiblingElement())
+            {
+                const char* elementName = element->Value();
+                if (strcmp(elementName, "asset") == 0)
+                {
+                    for (const tinyxml2::XMLElement* assetElement = element->FirstChildElement(); assetElement != nullptr; assetElement = assetElement->NextSiblingElement())
+                    {
+                        const char* name = assetElement->Value();
+                        if (strcmp(name, "unit") == 0)
+                        {
+                            scale = assetElement->FloatAttribute("meter");
+                        }
+                    }
+                }
+                else if (strcmp(elementName, "library_animations") == 0)
+                {
+                    ICARIAN_ASSERT(animations.empty());
+
+                    animations = LoadAnimation(element);
+                }
+            }
+
+            for (const ColladaAnimation& anim : animations)
+            {
+                for (const ColladaAnimationChannel& c : anim.Channels)
+                {
+                    ColladaAnimationData data;
+
+                    const std::string objectName = c.Target.substr(0, c.Target.find('/'));
+
+                    data.Name = objectName;
+
+                    for (const ColladaAnimationSampler& s : anim.Samplers)
+                    {
+                        const std::string idStr = "#" + s.ID;
+                        if (idStr == c.Source)
+                        {
+                            ColladaInput input;
+                            ColladaInput output;
+                            
+                            for (const ColladaInput& i : s.Inputs)
+                            {
+                                if (i.Semantic == "INPUT")
+                                {
+                                    input = i;
+                                }
+                                else if (i.Semantic == "OUTPUT")
+                                {
+                                    output = i;
+                                }
+                            }
+
+                            ColladaSource inputSource;
+                            ColladaSource outputSource;
+
+                            for (const ColladaSource& src : anim.Sources)
+                            {
+                                const std::string idStr = "#" + src.ID;
+
+                                if (idStr == input.Source)
+                                {
+                                    inputSource = src;
+                                }
+                                else if (idStr == output.Source)
+                                {
+                                    outputSource = src;
+                                }
+                            }
+
+                            const bool isTransform = outputSource.Accessor.Stride == 16;
+
+                            if (isTransform)
+                            {
+                                const float* inputDat = (float*)inputSource.Data.Data;
+                                const float* outputDat = (float*)outputSource.Data.Data;
+
+                                const uint32_t count = inputSource.Accessor.Count;
+                                for (uint32_t i = 0; i < count; ++i)
+                                {
+                                    const float time = inputDat[i * inputSource.Accessor.Stride];
+
+                                    ColladaAnimationFrame frame;
+                                    frame.Time = time;
+                                    
+                                    glm::mat4 mat;
+
+                                    const uint32_t outIndex = i * outputSource.Accessor.Stride;
+                                    for (uint32_t j = 0; j < 16; ++j)
+                                    {
+                                        mat[j % 4][j / 4] = outputDat[outIndex + j];
+                                    }
+
+                                    // So turns out gets a bit complicated as the coordinate system is different
+                                    // Need to get it to a -Y up system
+                                    // Do not know of a better way to do this figured it with napkin maths and trial and error
+                                    // The main issue is getting the rotation to work correctly so have to decompse and do axis maths
+                                    glm::vec3 translation;
+                                    glm::quat rotation;
+                                    glm::vec3 sScale;
+                                    glm::vec3 skew;
+                                    glm::vec4 perspective;
+
+                                    glm::decompose(mat, sScale, rotation, translation, skew, perspective);
+
+                                    const glm::vec3 forward = rotation * glm::vec3(0.0f, 0.0f, 1.0f);
+                                    // const glm::vec3 up = rotation * glm::vec3(0.0f, 1.0f, 0.0f);
+                                    const glm::vec3 right = rotation * glm::vec3(1.0f, 0.0f, 0.0f);
+
+                                    const glm::vec3 tForward = glm::vec3(forward.x, -forward.y, forward.z);
+                                    const glm::vec3 tRight = glm::vec3(right.x, -right.y, right.z);
+                                    const glm::vec3 tUp = glm::cross(tForward, tRight);
+
+                                    const glm::mat4 translationMat = glm::translate(glm::mat4(1.0f), glm::vec3(translation.x, -translation.y, translation.z) * scale);
+                                    const glm::mat4 rotationMat = glm::mat4(glm::vec4(tRight, 0.0f), glm::vec4(tUp, 0.0f), glm::vec4(tForward, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+                                    const glm::mat4 scaleMat = glm::scale(glm::mat4(1.0f), sScale);
+
+                                    frame.Transform = translationMat * rotationMat * scaleMat;
+
+                                    data.Frames.emplace_back(frame);
+                                }
+                            }
+                            else
+                            {
+                                // TODO: Implement me
+                            }   
+
+                            break;
+                        }
+                    }
+
+                    a_animation->emplace_back(data);
+                }
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+    bool ColladaLoader_LoadAnimationFile(const std::filesystem::path& a_path, std::vector<ColladaAnimationData>* a_animation)
+    {
+        if (std::filesystem::exists(a_path))
+        {
+            std::ifstream file = std::ifstream(a_path);
+
+            if (file.good() && file.is_open())
+            {
+                IDEFER(file.close());
+
+                file.ignore(std::numeric_limits<std::streamsize>::max());
+                const std::streamsize size = file.gcount();
+                file.clear();
+                file.seekg(0, std::ios::beg);
+
+                char* dat = new char[size];
+                IDEFER(delete[] dat);
+                file.read(dat, size);
+
+                return ColladaLoader_LoadAnimationData(dat, (uint32_t)size, a_animation);
             }
         }
 
