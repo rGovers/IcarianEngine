@@ -9,7 +9,7 @@ namespace IcarianEngine.Maths
         public const float TwoPI = PI * 2.0f;
 
         public const float DegToRad = PI / 180.0f;
-        public const float RadToDef = 180.0f / PI;
+        public const float RadToDeg = 180.0f / PI;
         
         public static float Asin(float a_v)
         {
