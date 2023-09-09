@@ -332,7 +332,11 @@ namespace IcarianEngine.Definitions
                     }
                     else
                     {
-                        obj = Activator.CreateInstance(fieldType);
+                        // If there is already an object do not want to overwrite it.
+                        if (obj == null)
+                        {
+                            obj = Activator.CreateInstance(fieldType);
+                        }
 
                         foreach (DefDataObject objVal in a_datObj.Children)
                         {
