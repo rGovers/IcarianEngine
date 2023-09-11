@@ -323,7 +323,7 @@ namespace IcarianEngine
                 }
                 else
                 {
-                    Logger.IcarianError("Scene Failed to Dispose");
+                    Logger.IcarianWarning("Scene Failed to Dispose");
                 }
 
                 m_disposed = true;
