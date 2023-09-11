@@ -18,6 +18,8 @@ private:
     double         m_prevTime;
     double         m_startTime;
 
+    glm::dvec2     m_lastCursorPos;
+
     vk::SurfaceKHR m_surface;
     
 protected:
@@ -30,6 +32,8 @@ public:
 
     virtual double GetDelta() const;
     virtual double GetTime() const;
+
+    virtual void SetCursorState(FlareBase::e_CursorState a_state);
 
     virtual void Update();
 

@@ -151,6 +151,8 @@ GLFWAppWindow::GLFWAppWindow(Application* a_app, Config* a_config) : AppWindow(a
     m_prevTime = m_time;
     m_startTime = m_time;
 
+    glfwGetCursorPos(m_window, &m_lastCursorPos.x, &m_lastCursorPos.y);
+
     m_surface = nullptr;
 
     m_shouldClose = false;
@@ -175,6 +177,36 @@ double GLFWAppWindow::GetTime() const
     return m_time - m_startTime;
 }
 
+void GLFWAppWindow::SetCursorState(FlareBase::e_CursorState a_state)
+{
+    switch (a_state) 
+    {
+    case FlareBase::CursorState_Normal:
+    {
+        glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+
+        break;
+    }
+    case FlareBase::CursorState_Hidden:
+    {
+        glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+
+        break;
+    }
+    case FlareBase::CursorState_Locked:
+    {
+        glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+        if (glfwRawMouseMotionSupported())
+        {
+            glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+        }
+
+        break;
+    }
+    }
+}
+
 void GLFWAppWindow::Update()
 {
     glfwPollEvents();
@@ -196,7 +228,19 @@ void GLFWAppWindow::Update()
         glm::dvec2 cPos;
         glfwGetCursorPos(m_window, &cPos.x, &cPos.y);
 
-        inputManager->SetCursorPos((glm::vec2)cPos);
+        if (app->GetCursorState() == FlareBase::CursorState_Locked)
+        {
+            const glm::dvec2 delta = cPos - m_lastCursorPos;
+
+            inputManager->SetCursorPos((glm::vec2)delta);
+        }
+        else
+        {
+            inputManager->SetCursorPos((glm::vec2)cPos);
+        }
+
+        m_lastCursorPos = cPos;
+
         UIControl::UpdateCursor((glm::vec2)cPos, (glm::vec2)winSize);
         
         bool leftDown = glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;

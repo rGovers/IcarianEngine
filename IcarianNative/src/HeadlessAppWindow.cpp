@@ -183,6 +183,19 @@ double HeadlessAppWindow::GetTime() const
     return m_time;
 }
 
+void HeadlessAppWindow::SetCursorState(FlareBase::e_CursorState a_state)
+{
+    constexpr uint32_t Size = sizeof(FlareBase::e_CursorState);
+
+    FlareBase::PipeMessage msg;
+    msg.Type = FlareBase::PipeMessageType_SetCursorState;
+    msg.Length = Size;
+    msg.Data = new char[Size];
+    *(FlareBase::e_CursorState*)msg.Data = a_state;
+
+    m_queuedMessages.Push(msg);
+}
+
 bool HeadlessAppWindow::PollMessage()
 {
     std::queue<FlareBase::PipeMessage> messages;

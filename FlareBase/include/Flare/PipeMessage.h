@@ -10,6 +10,7 @@ namespace FlareBase
         PipeMessageType_Close,
         PipeMessageType_Resize,
         PipeMessageType_CursorPos,
+        PipeMessageType_SetCursorState,
         PipeMessageType_MouseState,
         PipeMessageType_KeyboardState,
         PipeMessageType_FrameData,

@@ -145,10 +145,21 @@ namespace IcarianEngine
         Menu = 117,
     };
 
+    public enum CursorState : ushort
+    {
+        Normal = 0,
+        Hidden = 1,
+        Locked = 2
+    }
+
     public static class Input
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static Vector2 GetCursorPos();
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GetCursorState();
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void SetCursorState(uint a_state);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GetMouseDownState(uint a_button);
@@ -173,11 +184,23 @@ namespace IcarianEngine
         public static KeyCallback KeyPressedCallback;
         public static KeyCallback KeyReleaseCallback;
 
-        public static Vector2 CursorPos
+        public static Vector2 CursorPosition
         {
             get
             {
                 return GetCursorPos();
+            }
+        }
+
+        public static CursorState CursorState
+        {
+            get
+            {
+                return (CursorState)GetCursorState();
+            }
+            set
+            {
+                SetCursorState((uint)value);
             }
         }
 

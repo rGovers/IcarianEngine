@@ -5,6 +5,8 @@
 
 #include <vulkan/vulkan.hpp>
 
+#include "Flare/InputBindings.h"
+
 class Application;
 
 struct AppMonitor
@@ -33,6 +35,8 @@ public:
 
     virtual double GetDelta() const = 0;
     virtual double GetTime() const = 0;
+    
+    virtual void SetCursorState(FlareBase::e_CursorState a_state) = 0;
 
     virtual void Update() = 0;
 

@@ -41,7 +41,10 @@ struct Monitor
     F(uint32_t, IcarianEngine, Application, GetHeadlessState, { return (uint32_t)Instance->IsHeadless(); }) \
     F(uint32_t, IcarianEngine, Application, GetEditorState, { return 0; }) \
     \
-    F(void, IcarianEngine, Application, Close, { Instance->Close(); }) 
+    F(void, IcarianEngine, Application, Close, { Instance->Close(); }) \
+    \
+    F(uint32_t, IcarianEngine, Input, GetCursorState, { return (uint32_t)Instance->GetCursorState(); }) \
+    F(void, IcarianEngine, Input, SetCursorState, { Instance->SetCursorState((FlareBase::e_CursorState)a_state); }, uint32_t a_state) \
 
 APPLICATION_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
@@ -179,6 +182,12 @@ Application::~Application()
     delete m_appWindow;
 }
 
+void Application::SetCursorState(FlareBase::e_CursorState a_state)
+{
+    m_cursorState = a_state;
+
+    m_appWindow->SetCursorState(m_cursorState);
+}
 void Application::Run(int32_t a_argc, char* a_argv[])
 {
     // TODO: Figure out how the thread get locked to refresh rate after running for a while

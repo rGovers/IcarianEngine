@@ -14,17 +14,18 @@ class RuntimeManager;
 class Application
 {
 private:
-    AppWindow*      m_appWindow;
+    AppWindow*               m_appWindow;
+         
+    bool                     m_close;
+    FlareBase::e_CursorState m_cursorState;
+         
+    Config*                  m_config;
+    InputManager*            m_inputManager;
+    ObjectManager*           m_objectManager;
+    RuntimeManager*          m_runtime;
 
-    bool            m_close;
-
-    Config*         m_config;
-    InputManager*   m_inputManager;
-    ObjectManager*  m_objectManager;
-    RuntimeManager* m_runtime;
-
-    PhysicsEngine*  m_physicsEngine;
-    RenderEngine*   m_renderEngine;
+    PhysicsEngine*           m_physicsEngine;
+    RenderEngine*            m_renderEngine;
 
 protected:
 
@@ -42,6 +43,12 @@ public:
     {
         return (uint32_t)m_appWindow->GetSize().y;
     }
+
+    inline FlareBase::e_CursorState GetCursorState() const
+    {
+        return m_cursorState;
+    }
+    void SetCursorState(FlareBase::e_CursorState a_state);
 
     inline void Resize(uint32_t a_width, uint32_t a_height)
     {

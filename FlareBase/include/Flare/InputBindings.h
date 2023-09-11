@@ -12,6 +12,13 @@ namespace FlareBase
         MouseButton_Last
     };
     
+    enum e_CursorState : uint16_t
+    {
+        CursorState_Normal = 0,
+        CursorState_Hidden = 1,
+        CursorState_Locked = 2
+    };
+
     enum e_KeyCode : uint16_t
     {
         KeyCode_Null = UINT16_MAX,
