@@ -8,11 +8,7 @@
 class RenderEngine;
 class RuntimeFunction;
 
-#if WIN32
-#define FLARE_MONO_EXPORT(ret, func, ...) __declspec(dllexport) ret func(__VA_ARGS__)
-#else
 #define FLARE_MONO_EXPORT(ret, func, ...) static ret func(__VA_ARGS__)
-#endif
 
 #define RUNTIME_FUNCTION_NAME(klass, name) MRF_##klass##_##name
 #define RUNTIME_FUNCTION_STRING(namespace, klass, name) #namespace "." #klass "::" #name

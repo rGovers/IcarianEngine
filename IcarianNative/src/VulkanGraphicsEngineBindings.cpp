@@ -345,7 +345,8 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Texture, GenerateFromFile), Mo
     return -1;
 }
 
-RUNTIME_FUNCTION(uint32_t, Model, GenerateModel, 
+// MSVC workaround
+static uint32_t M_Model_GenerateModel(MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride, float a_radius)
 {
     const uint32_t vertexCount = (uint32_t)mono_array_length(a_vertices);
     const uint32_t indexCount = (uint32_t)mono_array_length(a_indices);
@@ -367,6 +368,10 @@ RUNTIME_FUNCTION(uint32_t, Model, GenerateModel,
     }
 
     return Engine->GenerateModel(vertices, vertexCount, indices, indexCount, a_vertexStride, a_radius);
+}
+RUNTIME_FUNCTION(uint32_t, Model, GenerateModel,
+{
+    return M_Model_GenerateModel(a_vertices, a_indices, a_vertexStride, a_radius);
 }, MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride, float a_radius);
 RUNTIME_FUNCTION(uint32_t, Model, GenerateFromFile,
 {

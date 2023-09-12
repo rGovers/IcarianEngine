@@ -21,7 +21,7 @@
         { \
             m_val(); \
         } \
-    } ICARIAN_DEFER_NAME(_defer_struct)(ICARIAN_DEFER_NAME(_defer))
+    } ICARIAN_DEFER_NAME(_defer_var)(ICARIAN_DEFER_NAME(_defer))
 
 // Old version of defer
 // Will be cleaned up later here for reference
