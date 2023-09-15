@@ -14,7 +14,7 @@ CUBE_CProject BuildFlareBaseProject(CBBOOL a_enableAssert)
     project.Name = CUBE_StackString_CreateC("FlareBase");
     project.Target = CUBE_CProjectTarget_StaticLibrary;
     project.Language = CUBE_CProjectLanguage_CPP;
-    project.OutputPath = CUBE_Path_CreateC("./build/FlareBase");
+    project.OutputPath = CUBE_Path_CreateC("./build/");
 
     if (a_enableAssert)
     {
