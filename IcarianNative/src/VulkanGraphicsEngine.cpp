@@ -37,9 +37,7 @@
 #include "Rendering/Vulkan/VulkanVertexShader.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
-#include "Shaders/UIVertex.h"
-#include "Shaders/UIImagePixel.h"
-#include "Shaders/UITextPixel.h"
+#include "Shaders.h"
 #include "Trace.h"
 #include "ThreadPool.h"
 
@@ -62,8 +60,8 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(RuntimeManager* a_runtime, VulkanRend
     m_postProcessFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostProcessS(uint)"); 
 
     FlareBase::RenderProgram textProgram;
-    textProgram.VertexShader = GenerateFVertexShader(UIVERTEX);
-    textProgram.PixelShader = GenerateFPixelShader(UITEXTPIXEL);
+    textProgram.VertexShader = GenerateFVertexShader(UIVertexShader);
+    textProgram.PixelShader = GenerateFPixelShader(UITextPixelShader);
     textProgram.RenderLayer = 0;
     textProgram.VertexStride = 0;
     textProgram.VertexInputCount = 0;
@@ -80,8 +78,8 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(RuntimeManager* a_runtime, VulkanRend
     m_textUIPipelineAddr = GenerateRenderProgram(textProgram);
 
     FlareBase::RenderProgram imageProgram;
-    imageProgram.VertexShader = GenerateFVertexShader(UIVERTEX);
-    imageProgram.PixelShader = GenerateFPixelShader(UIIMAGEPIXEL);
+    imageProgram.VertexShader = GenerateFVertexShader(UIVertexShader);
+    imageProgram.PixelShader = GenerateFPixelShader(UIImagePixelShader);
     imageProgram.RenderLayer = 0;
     imageProgram.VertexStride = 0;
     imageProgram.VertexInputCount = 0;

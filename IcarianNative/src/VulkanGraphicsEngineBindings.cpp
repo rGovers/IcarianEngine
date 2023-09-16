@@ -13,11 +13,6 @@
 #include "ObjectManager.h"
 #include "Rendering/Vulkan/VulkanLightBuffer.h"
 #include "Rendering/Vulkan/VulkanLightData.h"
-#include "Shaders/DirectionalLightPixel.h"
-#include "Shaders/PointLightPixel.h"
-#include "Shaders/PostPixel.h"
-#include "Shaders/QuadVertex.h"
-#include "Shaders/SpotLightPixel.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/UI/Font.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
@@ -31,6 +26,7 @@
 #include "Rendering/Vulkan/VulkanTextureSampler.h"
 #include "Rendering/Vulkan/VulkanVertexShader.h"
 #include "Runtime/RuntimeManager.h"
+#include "Shaders.h"
 #include "Trace.h"
 
 static VulkanGraphicsEngineBindings* Engine = nullptr;
@@ -531,8 +527,8 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(FlareBase::
     case FlareBase::InternalRenderProgram_DirectionalLight:
     {
         TRACE("Creating Directional Light Shader");
-        program.VertexShader = GenerateGLSLVertexShaderAddr(QUADVERTEX);
-        program.PixelShader = GenerateFPixelShaderAddr(DIRECTIONALLIGHTPIXEL);
+        program.VertexShader = GenerateGLSLVertexShaderAddr(QuadVertexShader);
+        program.PixelShader = GenerateFPixelShaderAddr(DirectionalLightPixelShader);
         program.CullingMode = FlareBase::CullMode_None;
         program.PrimitiveMode = FlareBase::PrimitiveMode_TriangleStrip;
         program.EnableColorBlending = 1;
@@ -555,8 +551,8 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(FlareBase::
     case FlareBase::InternalRenderProgram_PointLight:
     {
         TRACE("Creating Point Light Shader");
-        program.VertexShader = GenerateGLSLVertexShaderAddr(QUADVERTEX);
-        program.PixelShader = GenerateFPixelShaderAddr(POINTLIGHTPIXEL);
+        program.VertexShader = GenerateGLSLVertexShaderAddr(QuadVertexShader);
+        program.PixelShader = GenerateFPixelShaderAddr(PointLightPixelShader);
         program.CullingMode = FlareBase::CullMode_None;
         program.PrimitiveMode = FlareBase::PrimitiveMode_TriangleStrip;
         program.EnableColorBlending = 1;
@@ -579,8 +575,8 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(FlareBase::
     case FlareBase::InternalRenderProgram_SpotLight:
     {
         TRACE("Creating Spot Light Shader");
-        program.VertexShader = GenerateGLSLVertexShaderAddr(QUADVERTEX);
-        program.PixelShader = GenerateFPixelShaderAddr(SPOTLIGHTPIXEL);
+        program.VertexShader = GenerateGLSLVertexShaderAddr(QuadVertexShader);
+        program.PixelShader = GenerateFPixelShaderAddr(SpotLightPixelShader);
         program.CullingMode = FlareBase::CullMode_None;
         program.PrimitiveMode = FlareBase::PrimitiveMode_TriangleStrip;
         program.EnableColorBlending = 1;
@@ -603,8 +599,8 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(FlareBase::
     case FlareBase::InternalRenderProgram_Post:
     {
         TRACE("Creating Post Shader");
-        program.VertexShader = GenerateGLSLVertexShaderAddr(QUADVERTEX);
-        program.PixelShader = GenerateFPixelShaderAddr(POSTPIXEL);
+        program.VertexShader = GenerateGLSLVertexShaderAddr(QuadVertexShader);
+        program.PixelShader = GenerateFPixelShaderAddr(PostPixelShader);
         program.CullingMode = FlareBase::CullMode_None;
         program.PrimitiveMode = FlareBase::PrimitiveMode_TriangleStrip;
         program.EnableColorBlending = 1;

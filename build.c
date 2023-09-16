@@ -6,9 +6,10 @@
 
 #include "BuildBase.h"
 
+#include "deps/BuildDepenencies.h"
 #include "FlareBase/BuildFlareBase.h"
 #include "IcarianCS/BuildIcarianCS.h"
-#include "deps/BuildDepenencies.h"
+#include "IcarianNative/BuildIcarianNative.h"
 
 void PrintHeader(const char* a_str)
 {
@@ -24,6 +25,8 @@ void PrintHeader(const char* a_str)
 
 static const char PlatformString[] = "--platform";
 static const CBUINT32 PlatformStringLen = sizeof(PlatformString) - 1;
+static const char BuildConfigurationString[] = "--configuration";
+static const CBUINT32 BuildConfigurationStringLen = sizeof(BuildConfigurationString) - 1;
 static const char HelpString[] = "--help";
 static const CBUINT32 HelpStringLen = sizeof(HelpString) - 1;
 
@@ -35,6 +38,13 @@ void PrintHelp()
     printf("    Valid values are: \n");
     printf("      windows - Windows\n");
     printf("      linux - Linux\n");
+    printf("\n");
+
+    printf("  --configuration=<configuration> - Set the build configuration. \n");
+    printf("    Valid values are: \n");
+    printf("      debug - Debug\n");
+    printf("      releasewithdebug - Release with debug symbols\n");
+    printf("      release - Release\n");
     printf("\n");
 
     printf("  --help - Print this help message.\n");
@@ -63,9 +73,11 @@ void FlushLines(CUBE_String** a_lines, CBUINT32* a_lineCount)
 int main(int a_argc, char** a_argv)
 {
     e_TargetPlatform targetPlatform;
+    e_BuildConfiguration buildConfiguration;
 
     CUBE_CProject flareBaseProject;
     CUBE_CSProject icarianCSProject;
+    CUBE_CProject icarianNativeProject;
 
     CBUINT32 dependencyProjectCount;
     DependencyProject* dependencyProjects;
@@ -80,6 +92,8 @@ int main(int a_argc, char** a_argv)
 #else
     targetPlatform = TargetPlatform_Linux;
 #endif
+
+    buildConfiguration = BuildConfiguration_Debug;
 
     lineCount = 0;
     lines = CBNULL;
@@ -122,11 +136,55 @@ int main(int a_argc, char** a_argv)
                 return 1;
             }
         }
+        else if (strncmp(a_argv[i], BuildConfigurationString, BuildConfigurationStringLen) == 0)
+        {
+            const char* buildConfigurationStr = a_argv[i] + BuildConfigurationStringLen;
+            while (*buildConfigurationStr != '=' && *buildConfigurationStr != '\0')
+            {
+                ++buildConfigurationStr;
+            }
+
+            if (*buildConfigurationStr == '\0')
+            {
+                printf("Invalid build configuration argument: %s\n", a_argv[i]);
+
+                return 1;
+            }
+
+            ++buildConfigurationStr;
+
+            if (strcmp(buildConfigurationStr, "debug") == 0)
+            {
+                buildConfiguration = BuildConfiguration_Debug;
+            }
+            else if (strcmp(buildConfigurationStr, "releasewithdebug") == 0)
+            {
+                buildConfiguration = BuildConfiguration_ReleaseWithDebug;
+            }
+            else if (strcmp(buildConfigurationStr, "release") == 0)
+            {
+                buildConfiguration = BuildConfiguration_Release;
+            }
+            else 
+            {
+                printf("Unknown build configuration: %s\n", buildConfigurationStr);
+
+                return 1;
+            }
+        }
         else if (strncmp(a_argv[i], HelpString, HelpStringLen) == 0)
         {
             PrintHelp();
 
             return 0;
+        }
+        else if (strcmp(a_argv[i], "-D") == 0)
+        {
+            buildConfiguration = BuildConfiguration_Debug;
+        }
+        else if (strcmp(a_argv[i], "-R") == 0)
+        {
+            buildConfiguration = BuildConfiguration_Release;
         }
         else 
         {
@@ -159,7 +217,7 @@ int main(int a_argc, char** a_argv)
 
     printf("Creating Dependencies projects...\n");
 
-    dependencyProjects = BuildDependencies(&dependencyProjectCount, targetPlatform);
+    dependencyProjects = BuildDependencies(&dependencyProjectCount, targetPlatform, buildConfiguration);
 
     printf("Compiling Dependencies...\n");
     for (CBUINT32 i = 0; i < dependencyProjectCount; ++i)
@@ -185,7 +243,7 @@ int main(int a_argc, char** a_argv)
     PrintHeader("Building FlareBase");
 
     printf("Creating FlareBase project...\n");
-    flareBaseProject = BuildFlareBaseProject(CBTRUE);
+    flareBaseProject = BuildFlareBaseProject(CBTRUE, buildConfiguration);
 
     printf("Compiling FlareBase...\n");
     ret = CUBE_CProject_Compile(&flareBaseProject, CUBE_CProjectCompiler_GCC, "FlareBase", CBNULL, &lines, &lineCount);
@@ -223,6 +281,16 @@ int main(int a_argc, char** a_argv)
     }
 
     printf("IcarianCS Compiled!\n");
+
+    PrintHeader("Building IcarianNative");
+
+    printf("Writing shaders to Header files...\n");
+    if (!WriteShadersToHeader("IcarianNative"))
+    {
+        printf("Failed to write shaders to header files\n");
+
+        return 1;
+    }
 
     printf("Done!\n");
 

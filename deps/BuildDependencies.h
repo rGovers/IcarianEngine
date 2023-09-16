@@ -17,13 +17,22 @@ typedef struct
     const char* WorkingDirectory;
 } DependencyProject;
 
-CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform)
+CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
     project.Name = CUBE_StackString_CreateC("GLFW");
     project.Target = CUBE_CProjectTarget_StaticLibrary;
     project.Language = CUBE_CProjectLanguage_C;
     project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    if (a_configuration == BuildConfiguration_Debug)
+    {
+        CUBE_CProject_AppendDefine(&project, "DEBUG");
+    }
+    else 
+    {
+        CUBE_CProject_AppendDefine(&project, "NDEBUG");
+    }
 
     CUBE_CProject_AppendIncludePath(&project, "include");
     CUBE_CProject_AppendIncludePath(&project, "src");
@@ -80,11 +89,11 @@ CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform)
     return project;
 }
 
-DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform)
+DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * 1);
 
-    projects[0].Project = BuildGLFW(a_targetPlatform);
+    projects[0].Project = BuildGLFW(a_targetPlatform, a_configuration);
     projects[0].WorkingDirectory = "deps/flare-glfw";
 
     *a_count = 1;

@@ -3,11 +3,13 @@
 
 #include "CUBE/CUBE.h"
 
+#include "../BuildBase.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-CUBE_CProject BuildFlareBaseProject(CBBOOL a_enableAssert)
+CUBE_CProject BuildFlareBaseProject(CBBOOL a_enableAssert, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
 
@@ -19,6 +21,15 @@ CUBE_CProject BuildFlareBaseProject(CBBOOL a_enableAssert)
     if (a_enableAssert)
     {
         CUBE_CProject_AppendDefine(&project, "FLARE_ENABLE_ASSERT");
+    }
+
+    if (a_configuration == BuildConfiguration_Debug)
+    {
+        CUBE_CProject_AppendDefine(&project, "DEBUG");
+    }
+    else
+    {
+        CUBE_CProject_AppendDefine(&project, "NDEBUG");
     }
 
     CUBE_CProject_AppendDefine(&project, "GLM_FORCE_QUAT_DATA_XYZW");
