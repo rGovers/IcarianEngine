@@ -46,6 +46,7 @@ CUBE_CProject BuildGLSLangProject(e_TargetPlatform a_targetPlatform, e_BuildConf
     }
 
     CUBE_CProject_AppendIncludePath(&project, ".");
+    CUBE_CProject_AppendIncludePath(&project, "../gen/glslang/include");
 
     CUBE_CProject_AppendSource(&project, "glslang/GenericCodeGen/CodeGen.cpp");
     CUBE_CProject_AppendSource(&project, "glslang/GenericCodeGen/Link.cpp");
@@ -173,6 +174,7 @@ CUBE_CProject BuildSPIRVProject(e_TargetPlatform a_targetPlatform, e_BuildConfig
     }
 
     CUBE_CProject_AppendIncludePath(&project, ".");
+    CUBE_CProject_AppendIncludePath(&project, "../gen/glslang/include");
 
     CUBE_CProject_AppendSource(&project, "SPIRV/GlslangToSpv.cpp");
     CUBE_CProject_AppendSource(&project, "SPIRV/InReadableOrder.cpp");

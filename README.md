@@ -3,7 +3,8 @@ Icarian Engine is a cross platform game engine to allow ease of modding.
 
 ## Prerequisites
 * Vulkan SDK
-* GCC
+* (Linux)GCC
+* (Windows)MinGW
 
 ## Building
 
@@ -13,4 +14,7 @@ The project can be built by running build.sh.
 
 For extra options refer to --help on setup.sh.
 
-Currently the only compiler supported is GCC.
+Output is in the build folder.
+
+Windows builds are done via cross compilation with MinGW.
+MSVC is currently not supported.

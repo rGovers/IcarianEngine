@@ -52,6 +52,7 @@ CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfiguration 
         CUBE_CProject_AppendDefine(&project, "WIN32");
         CUBE_CProject_AppendDefine(&project, "_GLFW_WIN32");
 
+        CUBE_CProject_AppendSource(&project, "src/wgl_context.c");
         CUBE_CProject_AppendSource(&project, "src/win32_init.c");
         CUBE_CProject_AppendSource(&project, "src/win32_joystick.c");
         CUBE_CProject_AppendSource(&project, "src/win32_module.c");

@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-CUBE_CProject BuildFlareBaseProject(CBBOOL a_enableAssert, e_BuildConfiguration a_configuration)
+CUBE_CProject BuildFlareBaseProject(CBBOOL a_enableAssert, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
 
@@ -35,6 +35,11 @@ CUBE_CProject BuildFlareBaseProject(CBBOOL a_enableAssert, e_BuildConfiguration 
     CUBE_CProject_AppendDefine(&project, "GLM_FORCE_QUAT_DATA_XYZW");
     CUBE_CProject_AppendDefine(&project, "GLM_FORCE_DEPTH_ZERO_TO_ONE");
     CUBE_CProject_AppendDefine(&project, "GLM_FORCE_RADIANS");
+
+    if (a_targetPlatform == TargetPlatform_Windows)
+    {
+        CUBE_CProject_AppendDefine(&project, "WIN32");
+    }
 
     CUBE_CProject_AppendIncludePath(&project, "include");
     CUBE_CProject_AppendIncludePath(&project, "../deps/flare-glm");

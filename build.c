@@ -80,6 +80,8 @@ int main(int a_argc, char** a_argv)
     CUBE_CSProject icarianCSProject;
     CUBE_CProject icarianNativeProject;
 
+    e_CUBE_CProjectCompiler compiler;
+
     CBUINT32 dependencyProjectCount;
     DependencyProject* dependencyProjects;
 
@@ -204,11 +206,15 @@ int main(int a_argc, char** a_argv)
     {
         printf("Target Platform: Windows\n");
 
+        compiler = CUBE_CProjectCompiler_MinGW;
+
         break;
     }
     case TargetPlatform_Linux:
     {
         printf("Target Platform: Linux\n");
+
+        compiler = CUBE_CProjectCompiler_GCC;
 
         break;
     }
@@ -225,7 +231,7 @@ int main(int a_argc, char** a_argv)
     {
         printf("Compiling %s...\n", dependencyProjects[i].Project.Name.Data);
 
-        ret = CUBE_CProject_Compile(&dependencyProjects[i].Project, CUBE_CProjectCompiler_GCC, dependencyProjects[i].WorkingDirectory, CBNULL, &lines, &lineCount);
+        ret = CUBE_CProject_Compile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, &lines, &lineCount);
 
         FlushLines(&lines, &lineCount);
 
@@ -246,10 +252,10 @@ int main(int a_argc, char** a_argv)
     PrintHeader("Building FlareBase");
 
     printf("Creating FlareBase project...\n");
-    flareBaseProject = BuildFlareBaseProject(CBTRUE, buildConfiguration);
+    flareBaseProject = BuildFlareBaseProject(CBTRUE, targetPlatform, buildConfiguration);
 
     printf("Compiling FlareBase...\n");
-    ret = CUBE_CProject_Compile(&flareBaseProject, CUBE_CProjectCompiler_GCC, "FlareBase", CBNULL, &lines, &lineCount);
+    ret = CUBE_CProject_Compile(&flareBaseProject, compiler, "FlareBase", CBNULL, &lines, &lineCount);
 
     FlushLines(&lines, &lineCount);
 
@@ -303,7 +309,7 @@ int main(int a_argc, char** a_argv)
     {
         printf("Compiling %s...\n", dependencyProjects[i].Project.Name.Data);
 
-        ret = CUBE_CProject_Compile(&dependencyProjects[i].Project, CUBE_CProjectCompiler_GCC, dependencyProjects[i].WorkingDirectory, CBNULL, &lines, &lineCount);
+        ret = CUBE_CProject_Compile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, &lines, &lineCount);
 
         FlushLines(&lines, &lineCount);
 
@@ -325,7 +331,7 @@ int main(int a_argc, char** a_argv)
     icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration);
 
     printf("Compiling IcarianNative...\n");
-    ret = CUBE_CProject_Compile(&icarianNativeProject, CUBE_CProjectCompiler_GCC, "IcarianNative", CBNULL, &lines, &lineCount);
+    ret = CUBE_CProject_Compile(&icarianNativeProject, compiler, "IcarianNative", CBNULL, &lines, &lineCount);
 
     FlushLines(&lines, &lineCount);
 
@@ -348,6 +354,14 @@ int main(int a_argc, char** a_argv)
     {
     case TargetPlatform_Windows:
     {
+        CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative.exe", "build/IcarianNative.exe");
+
+        CUBE_IO_CopyDirectoryC("deps/Mono/Windows/lib/mono/", "build/lib/mono/", CBTRUE);
+        CUBE_IO_CopyDirectoryC("deps/Mono/Windows/etc/", "build/etc/", CBTRUE);
+
+        CUBE_IO_CopyFileC("deps/Mono/Windows/bin/mono-2.0-sgen.dll", "build/mono-2.0-sgen.dll");
+        CUBE_IO_CopyFileC("deps/Mono/Windows/bin/MonoPosixHelper.dll", "build/MonoPosixHelper.dll");
+
         break;
     }
     case TargetPlatform_Linux:

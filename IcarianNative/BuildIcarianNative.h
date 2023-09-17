@@ -167,6 +167,27 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     {
     case TargetPlatform_Windows:
     {
+        CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Windows/include");
+
+        CUBE_CProject_AppendLibrary(&project, "../FlareBase/build/FlareBase.lib");
+
+        CUBE_CProject_AppendLibrary(&project, "../deps/flare-glfw/build/GLFW.lib");
+        CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Windows/lib/mono-2.0-sgen.lib");
+        CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Windows/lib/MonoPosixHelper.lib");
+
+        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/glslang.lib");
+        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/OGLCompiler.lib");
+        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/SPIRV.lib");
+        CUBE_CProject_AppendLibrary(&project, "lib/JoltPhysics/build/Jolt.lib");
+
+        CUBE_CProject_AppendReference(&project, "gdi32");
+        CUBE_CProject_AppendReference(&project, "vulkan-1");
+        CUBE_CProject_AppendReference(&project, "wsock32");
+        CUBE_CProject_AppendReference(&project, "ws2_32");
+
+        // Magic string to get std library to link with MinGW
+        CUBE_CProject_AppendCFlag(&project, "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic");
+
         break;
     }
     case TargetPlatform_Linux:
@@ -184,14 +205,14 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendLibrary(&project, "lib/JoltPhysics/build/libJolt.a");
 
         CUBE_CProject_AppendReference(&project, "vulkan");
+        CUBE_CProject_AppendReference(&project, "z");
+
+        CUBE_CProject_AppendReference(&project, "stdc++");
+        CUBE_CProject_AppendReference(&project, "m");
 
         break;
     }
     }
-
-    CUBE_CProject_AppendReference(&project, "stdc++");
-    CUBE_CProject_AppendReference(&project, "m");
-    CUBE_CProject_AppendReference(&project, "z");
 
     return project;
 }
