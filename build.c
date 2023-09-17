@@ -321,6 +321,25 @@ int main(int a_argc, char** a_argv)
 
     free(dependencyProjects);
 
+    printf("Creating IcarianNative project...\n");
+    icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration);
+
+    printf("Compiling IcarianNative...\n");
+    ret = CUBE_CProject_Compile(&icarianNativeProject, CUBE_CProjectCompiler_GCC, "IcarianNative", CBNULL, &lines, &lineCount);
+
+    FlushLines(&lines, &lineCount);
+
+    if (!ret)
+    {
+        printf("Failed to compile IcarianNative\n");
+
+        return 1;
+    }
+
+    printf("IcarianNative Compiled!\n");
+
+    CUBE_CProject_Destroy(&icarianNativeProject);
+
     printf("Done!\n");
 
     return 0;

@@ -4,7 +4,6 @@
 #include "Application.h"
 #include "Config.h"
 #include "Flare/IcarianAssert.h"
-#include "IcarianNativeConfig.h"
 
 #define STBI_ASSERT(x) ICARIAN_ASSERT_MSG(x, "STBI Assert")
 

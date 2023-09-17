@@ -11,7 +11,6 @@
 #include "Config.h"
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
-#include "IcarianNativeConfig.h"
 #include "Logger.h"
 #include "Profiler.h"
 #include "Rendering/RenderEngine.h"

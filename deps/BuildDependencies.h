@@ -68,6 +68,7 @@ CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfiguration 
         
         CUBE_CProject_AppendSource(&project, "src/glx_context.c");
         CUBE_CProject_AppendSource(&project, "src/linux_joystick.c");
+        CUBE_CProject_AppendSource(&project, "src/posix_poll.c");
         CUBE_CProject_AppendSource(&project, "src/posix_module.c");
         CUBE_CProject_AppendSource(&project, "src/posix_time.c");
         CUBE_CProject_AppendSource(&project, "src/posix_thread.c");

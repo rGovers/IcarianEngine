@@ -292,6 +292,7 @@ CUBE_CProject BuildJoltPhysicsProject(e_TargetPlatform a_targetPlatform, e_Build
     CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/CapsuleShape.cpp");
     CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/CompoundShape.cpp");
     CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/ConvexHullShape.cpp");
+    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/ConvexShape.cpp");
     CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/CylinderShape.cpp");
     CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/DecoratedShape.cpp");
     CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/HeightFieldShape.cpp");
@@ -316,6 +317,8 @@ CUBE_CProject BuildJoltPhysicsProject(e_TargetPlatform a_targetPlatform, e_Build
     CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/HingeConstraint.cpp");
     CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/MotorSettings.cpp");
     CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/PathConstraint.cpp");
+    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/PathConstraintPath.cpp");
+    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/PathConstraintPathHermite.cpp");
     CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/PointConstraint.cpp");
     CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/PulleyConstraint.cpp");
     CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/RackAndPinionConstraint.cpp");
