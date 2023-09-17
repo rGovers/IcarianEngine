@@ -270,7 +270,7 @@ int main(int a_argc, char** a_argv)
     icarianCSProject = BuildIcarianCSProject(CBTRUE);
 
     printf("Compiling IcarianCS...\n");
-    CUBE_CSProject_Compile(&icarianCSProject, "IcarianCS", CBNULL, &lines, &lineCount);
+    CUBE_CSProject_Compile(&icarianCSProject, "IcarianCS", "../deps/Mono/Linux/bin/csc", &lines, &lineCount);
 
     FlushLines(&lines, &lineCount);
 
