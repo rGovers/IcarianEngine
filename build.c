@@ -233,10 +233,12 @@ int main(int a_argc, char** a_argv)
         {
             printf("Failed to compile %s\n", dependencyProjects[i].Project.Name.Data);
 
-            free(dependencyProjects);
-
             return 1;
         }
+
+        printf("Compiled %s\n", dependencyProjects[i].Project.Name.Data);
+
+        CUBE_CProject_Destroy(&dependencyProjects[i].Project);
     }
 
     free(dependencyProjects);
@@ -303,15 +305,21 @@ int main(int a_argc, char** a_argv)
 
         ret = CUBE_CProject_Compile(&dependencyProjects[i].Project, CUBE_CProjectCompiler_GCC, dependencyProjects[i].WorkingDirectory, CBNULL, &lines, &lineCount);
 
+        FlushLines(&lines, &lineCount);
+
         if (!ret)
         {
             printf("Failed to compile %s\n", dependencyProjects[i].Project.Name.Data);
 
-            free(dependencyProjects);
-
             return 1;
         }
+
+        printf("Compiled %s\n", dependencyProjects[i].Project.Name.Data);
+
+        CUBE_CProject_Destroy(&dependencyProjects[i].Project);
     }
+
+    free(dependencyProjects);
 
     printf("Done!\n");
 

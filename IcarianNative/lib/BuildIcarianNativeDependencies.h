@@ -7,7 +7,210 @@
 extern "C" {
 #endif
 
-CUBE_CProject BuildJoltPhysics(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+CUBE_CProject BuildGLSLangProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    CUBE_CProject project = { 0 };
+
+    project.Name = CUBE_StackString_CreateC("glslang");
+    project.Target = CUBE_CProjectTarget_StaticLibrary;
+    project.Language = CUBE_CProjectLanguage_CPP;
+    project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    if (a_configuration == BuildConfiguration_Debug)
+    {
+        CUBE_CProject_AppendDefine(&project, "DEBUG");
+    }
+    else 
+    {
+        CUBE_CProject_AppendDefine(&project, "NDEBUG");
+    }
+
+    CUBE_CProject_AppendIncludePath(&project, "glslang/OSDependent");
+
+    switch (a_targetPlatform)
+    {
+    case TargetPlatform_Windows:
+    {
+        CUBE_CProject_AppendDefine(&project, "WIN32");
+
+        CUBE_CProject_AppendSource(&project, "glslang/OSDependent/Windows/ossource.cpp");
+
+        break;
+    }
+    case TargetPlatform_Linux:
+    {
+        CUBE_CProject_AppendSource(&project, "glslang/OSDependent/Unix/ossource.cpp");
+
+        break;
+    }
+    }
+
+    CUBE_CProject_AppendIncludePath(&project, ".");
+
+    CUBE_CProject_AppendSource(&project, "glslang/GenericCodeGen/CodeGen.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/GenericCodeGen/Link.cpp");
+
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/glslang_tab.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/attribute.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/Constant.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/iomapper.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/InfoSink.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/Initialize.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/IntermTraverse.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/Intermediate.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/ParseContextBase.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/ParseHelper.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/PoolAlloc.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/RemoveTree.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/Scan.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/ShaderLang.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/SpirvIntrinsics.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/SymbolTable.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/Versions.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/intermOut.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/limits.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/linkValidate.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/parseConst.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/reflection.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/preprocessor/Pp.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/preprocessor/PpAtom.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/preprocessor/PpContext.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/preprocessor/PpScanner.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/preprocessor/PpTokens.cpp");
+    CUBE_CProject_AppendSource(&project, "glslang/MachineIndependent/propagateNoContraction.cpp");
+
+    CUBE_CProject_AppendSource(&project, "glslang/CInterface/glslang_c_interface.cpp");
+
+    CUBE_CProject_AppendCFlag(&project, "-std=c++17");
+
+    switch (a_configuration)
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    }
+
+    return project;
+}
+
+CUBE_CProject BuildOGLCompilersProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    CUBE_CProject project = { 0 };
+
+    project.Name = CUBE_StackString_CreateC("OGLCompiler");
+    project.Target = CUBE_CProjectTarget_StaticLibrary;
+    project.Language = CUBE_CProjectLanguage_CPP;
+    project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    if (a_configuration == BuildConfiguration_Debug)
+    {
+        CUBE_CProject_AppendDefine(&project, "DEBUG");
+    }
+    else 
+    {
+        CUBE_CProject_AppendDefine(&project, "NDEBUG");
+    }
+
+    CUBE_CProject_AppendSource(&project, "OGLCompilersDLL/InitializeDll.cpp");
+
+    switch (a_configuration)
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    }
+
+    return project;
+}
+CUBE_CProject BuildSPIRVProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    CUBE_CProject project = { 0 };
+
+    project.Name = CUBE_StackString_CreateC("SPIRV");
+    project.Target = CUBE_CProjectTarget_StaticLibrary;
+    project.Language = CUBE_CProjectLanguage_CPP;
+    project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    if (a_configuration == BuildConfiguration_Debug)
+    {
+        CUBE_CProject_AppendDefine(&project, "DEBUG");
+    }
+    else 
+    {
+        CUBE_CProject_AppendDefine(&project, "NDEBUG");
+    }
+
+    CUBE_CProject_AppendIncludePath(&project, ".");
+
+    CUBE_CProject_AppendSource(&project, "SPIRV/GlslangToSpv.cpp");
+    CUBE_CProject_AppendSource(&project, "SPIRV/InReadableOrder.cpp");
+    CUBE_CProject_AppendSource(&project, "SPIRV/Logger.cpp");
+    CUBE_CProject_AppendSource(&project, "SPIRV/SpvBuilder.cpp");
+    CUBE_CProject_AppendSource(&project, "SPIRV/SpvPostProcess.cpp");
+    CUBE_CProject_AppendSource(&project, "SPIRV/doc.cpp");
+    CUBE_CProject_AppendSource(&project, "SPIRV/SpvTools.cpp");
+    CUBE_CProject_AppendSource(&project, "SPIRV/disassemble.cpp");
+    CUBE_CProject_AppendSource(&project, "SPIRV/CInterface/spirv_c_interface.cpp");
+
+    switch (a_configuration)
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    }
+
+    return project;
+}
+
+CUBE_CProject BuildJoltPhysicsProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
 
@@ -160,17 +363,49 @@ CUBE_CProject BuildJoltPhysics(e_TargetPlatform a_targetPlatform, e_BuildConfigu
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
 
+    switch (a_configuration)
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    }
+
     return project;   
 }
 
 DependencyProject* BuildIcarianNativeIDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
-    *a_count = 1;
+    *a_count = 4;
 
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * (*a_count));
     
-    projects[0].Project = BuildJoltPhysics(a_targetPlatform, a_configuration);
-    projects[0].WorkingDirectory = "IcarianNative/lib/JoltPhysics";
+    projects[0].Project = BuildGLSLangProject(a_targetPlatform, a_configuration);
+    projects[0].WorkingDirectory = "IcarianNative/lib/glslang";
+
+    projects[1].Project = BuildOGLCompilersProject(a_targetPlatform, a_configuration);
+    projects[1].WorkingDirectory = "IcarianNative/lib/glslang";
+
+    projects[2].Project = BuildSPIRVProject(a_targetPlatform, a_configuration);
+    projects[2].WorkingDirectory = "IcarianNative/lib/glslang";
+
+    projects[3].Project = BuildJoltPhysicsProject(a_targetPlatform, a_configuration);
+    projects[3].WorkingDirectory = "IcarianNative/lib/JoltPhysics";
 
     return projects;
 }
