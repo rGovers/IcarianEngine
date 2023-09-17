@@ -48,6 +48,31 @@ CUBE_CProject BuildFlareBaseProject(CBBOOL a_enableAssert, e_BuildConfiguration 
     
     CUBE_CProject_AppendReference(&project, "stdc++");
 
+    CUBE_CProject_AppendCFlag(&project, "-std=c++17");
+
+    switch (a_configuration)
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    }
+
     return project;
 }
 

@@ -11,12 +11,6 @@
 extern "C" {
 #endif
 
-typedef struct 
-{
-    CUBE_CProject Project;
-    const char* WorkingDirectory;
-} DependencyProject;
-
 CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
@@ -81,6 +75,29 @@ CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfiguration 
         CUBE_CProject_AppendSource(&project, "src/x11_monitor.c");
         CUBE_CProject_AppendSource(&project, "src/x11_window.c");
         CUBE_CProject_AppendSource(&project, "src/xkb_unicode.c");
+
+        break;
+    }
+    }
+
+    switch (a_configuration)
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
 
         break;
     }

@@ -10,6 +10,12 @@
 extern "C" {
 #endif
 
+typedef struct 
+{
+    CUBE_CProject Project;
+    const char* WorkingDirectory;
+} DependencyProject;
+
 typedef enum 
 {
     TargetPlatform_Windows,

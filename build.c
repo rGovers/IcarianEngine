@@ -1,4 +1,5 @@
 #define CUBE_IMPLEMENTATION
+#define CUBE_PRINT_COMMANDS
 #include "CUBE/CUBE.h"
 
 #include <stdio.h>
@@ -6,7 +7,7 @@
 
 #include "BuildBase.h"
 
-#include "deps/BuildDepenencies.h"
+#include "deps/BuildDependencies.h"
 #include "FlareBase/BuildFlareBase.h"
 #include "IcarianCS/BuildIcarianCS.h"
 #include "IcarianNative/BuildIcarianNative.h"
@@ -230,9 +231,9 @@ int main(int a_argc, char** a_argv)
 
         if (!ret)
         {
-            free(dependencyProjects);
-
             printf("Failed to compile %s\n", dependencyProjects[i].Project.Name.Data);
+
+            free(dependencyProjects);
 
             return 1;
         }
@@ -290,6 +291,26 @@ int main(int a_argc, char** a_argv)
         printf("Failed to write shaders to header files\n");
 
         return 1;
+    }
+
+    printf("Creating IcarianNative Dependencies projects...\n");
+    dependencyProjects = BuildIcarianNativeDependencies(&dependencyProjectCount, targetPlatform, buildConfiguration);
+
+    printf("Compiling IcarianNative Dependencies...\n");
+    for (CBUINT32 i = 0; i < dependencyProjectCount; ++i)
+    {
+        printf("Compiling %s...\n", dependencyProjects[i].Project.Name.Data);
+
+        ret = CUBE_CProject_Compile(&dependencyProjects[i].Project, CUBE_CProjectCompiler_GCC, dependencyProjects[i].WorkingDirectory, CBNULL, &lines, &lineCount);
+
+        if (!ret)
+        {
+            printf("Failed to compile %s\n", dependencyProjects[i].Project.Name.Data);
+
+            free(dependencyProjects);
+
+            return 1;
+        }
     }
 
     printf("Done!\n");

@@ -4,6 +4,7 @@
 #include "CUBE/CUBE.h"
 
 #include "../BuildBase.h"
+#include "lib/BuildIcarianNativeDependencies.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -50,6 +51,11 @@ CBBOOL WriteShadersToHeader(const char* a_workingPath)
     CUBE_Path_Destroy(&workingPath);
 
     return ret;
+}
+
+DependencyProject* BuildIcarianNativeDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    return BuildIcarianNativeIDependencies(a_count, a_targetPlatform, a_configuration);
 }
 
 #ifdef __cplusplus
