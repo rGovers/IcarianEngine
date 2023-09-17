@@ -1,6 +1,0 @@
-*.dll
-*.exe
-*.pdb
-lib/
-etc/
-config.xml

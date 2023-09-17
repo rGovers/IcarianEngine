@@ -340,6 +340,29 @@ int main(int a_argc, char** a_argv)
 
     CUBE_CProject_Destroy(&icarianNativeProject);
 
+    PrintHeader("Copying Files");
+
+    CUBE_IO_CreateDirectoryC("build");
+
+    switch (targetPlatform)
+    {
+    case TargetPlatform_Windows:
+    {
+        break;
+    }
+    case TargetPlatform_Linux:
+    {
+        CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative", "build/IcarianNative");
+
+        CUBE_IO_CopyDirectoryC("deps/Mono/Linux/lib/mono/", "build/lib/mono/", CBTRUE);
+        CUBE_IO_CopyDirectoryC("deps/Mono/Linux/etc/", "build/etc/", CBTRUE);
+
+        break;
+    }
+    }
+
+    CUBE_IO_CopyFileC("IcarianCS/build/IcarianCS.dll", "build/IcarianCS.dll");
+
     printf("Done!\n");
 
     return 0;
