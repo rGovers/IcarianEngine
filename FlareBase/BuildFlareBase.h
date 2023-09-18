@@ -48,6 +48,7 @@ CUBE_CProject BuildFlareBaseProject(CBBOOL a_enableAssert, e_TargetPlatform a_ta
     CUBE_CProject_AppendSource(&project, "src/ColladaLoader.cpp");
     CUBE_CProject_AppendSource(&project, "src/InputBindings.cpp");
     CUBE_CProject_AppendSource(&project, "src/IPCPipe.cpp");
+    CUBE_CProject_AppendSource(&project, "src/MonoNativeImpl.cpp");
     CUBE_CProject_AppendSource(&project, "src/OBJLoader.cpp");
     CUBE_CProject_AppendSource(&project, "../deps/flare-tinyxml2/tinyxml2.cpp");
     

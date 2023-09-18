@@ -12,65 +12,6 @@
 #include "IcarianCS/BuildIcarianCS.h"
 #include "IcarianNative/BuildIcarianNative.h"
 
-void PrintHeader(const char* a_str)
-{
-    printf("\n");
-    printf("----------------------------------------\n");
-    printf("----------------------------------------\n");
-    printf("\n");
-    printf("%s\n", a_str);
-    printf("\n");
-    printf("----------------------------------------\n");
-    printf("----------------------------------------\n");
-}
-
-static const char PlatformString[] = "--platform";
-static const CBUINT32 PlatformStringLen = sizeof(PlatformString) - 1;
-static const char BuildConfigurationString[] = "--configuration";
-static const CBUINT32 BuildConfigurationStringLen = sizeof(BuildConfigurationString) - 1;
-static const char HelpString[] = "--help";
-static const CBUINT32 HelpStringLen = sizeof(HelpString) - 1;
-
-void PrintHelp()
-{
-    printf("Help:\n");
-
-    printf("  --platform=<platform> - Set the target platform. \n");
-    printf("    Valid values are: \n");
-    printf("      windows - Windows\n");
-    printf("      linux - Linux\n");
-    printf("\n");
-
-    printf("  --configuration=<configuration> - Set the build configuration. \n");
-    printf("    Valid values are: \n");
-    printf("      debug - Debug\n");
-    printf("      releasewithdebug - Release with debug symbols\n");
-    printf("      release - Release\n");
-    printf("\n");
-
-    printf("  --help - Print this help message.\n");
-    
-    printf("\n");
-}
-
-void FlushLines(CUBE_String** a_lines, CBUINT32* a_lineCount)
-{
-    for (CBUINT32 i = 0; i < *a_lineCount; ++i)
-    {
-        printf("%s\n", (*a_lines)[i].Data);
-
-        CUBE_String_Destroy(&(*a_lines)[i]);
-    }
-
-    if (*a_lines != CBNULL)
-    {
-        free(*a_lines);
-        *a_lines = CBNULL;
-    }
-
-    *a_lineCount = 0;
-}
-
 int main(int a_argc, char** a_argv)
 {
     e_TargetPlatform targetPlatform;
@@ -276,7 +217,7 @@ int main(int a_argc, char** a_argv)
     icarianCSProject = BuildIcarianCSProject(CBTRUE);
 
     printf("Compiling IcarianCS...\n");
-    CUBE_CSProject_Compile(&icarianCSProject, "IcarianCS", "../deps/Mono/Linux/bin/csc", &lines, &lineCount);
+    ret = CUBE_CSProject_Compile(&icarianCSProject, "IcarianCS", "../deps/Mono/Linux/bin/csc", &lines, &lineCount);
 
     FlushLines(&lines, &lineCount);
 
@@ -294,7 +235,7 @@ int main(int a_argc, char** a_argv)
     PrintHeader("Building IcarianNative");
 
     printf("Writing shaders to Header files...\n");
-    if (!WriteShadersToHeader("IcarianNative"))
+    if (!WriteIcarianNativeShadersToHeader("IcarianNative"))
     {
         printf("Failed to write shaders to header files\n");
 
@@ -356,7 +297,7 @@ int main(int a_argc, char** a_argv)
     {
         CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative.exe", "build/IcarianNative.exe");
 
-        CUBE_IO_CopyDirectoryC("deps/Mono/Windows/lib/mono/", "build/lib/mono/", CBTRUE);
+        CUBE_IO_CopyDirectoryC("deps/Mono/Windows/lib/", "build/lib/", CBTRUE);
         CUBE_IO_CopyDirectoryC("deps/Mono/Windows/etc/", "build/etc/", CBTRUE);
 
         CUBE_IO_CopyFileC("deps/Mono/Windows/bin/mono-2.0-sgen.dll", "build/mono-2.0-sgen.dll");
@@ -368,14 +309,14 @@ int main(int a_argc, char** a_argv)
     {
         CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative", "build/IcarianNative");
 
-        CUBE_IO_CopyDirectoryC("deps/Mono/Linux/lib/mono/", "build/lib/mono/", CBTRUE);
+        CUBE_IO_CopyDirectoryC("deps/Mono/Linux/lib/", "build/lib/", CBTRUE);
         CUBE_IO_CopyDirectoryC("deps/Mono/Linux/etc/", "build/etc/", CBTRUE);
 
         break;
     }
     }
 
-    CUBE_IO_CopyFileC("IcarianCS/build/IcarianCS.dll", "build/IcarianCS.dll");
+    CUBE_IO_CopyFileC("IcarianCS/build/IcarianCS.exe", "build/IcarianCS.dll");
 
     printf("Done!\n");
 

@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-const static char* BasePaths[] =
+const static char* IcarianNativeShaderBasePaths[] =
 {
     "shaders/DirectionalLight.fpix",
     "shaders/PointLight.fpix",
@@ -22,28 +22,28 @@ const static char* BasePaths[] =
     "shaders/UIText.fpix"
 };
 
-const static CBUINT32 BasePathCount = sizeof(BasePaths) / sizeof(char*);
+const static CBUINT32 IcarianNativeShaderBasePathCount = sizeof(IcarianNativeShaderBasePaths) / sizeof(*IcarianNativeShaderBasePaths);
 
-CBBOOL WriteShadersToHeader(const char* a_workingPath)
+CBBOOL WriteIcarianNativeShadersToHeader(const char* a_workingPath)
 {
     CUBE_Path workingPath = CUBE_Path_CreateC(a_workingPath);
 
-    CUBE_Path shaderPaths[BasePathCount];
+    CUBE_Path shaderPaths[IcarianNativeShaderBasePathCount];
 
-    for (CBUINT32 i = 0; i < BasePathCount; ++i)
+    for (CBUINT32 i = 0; i < IcarianNativeShaderBasePathCount; ++i)
     {
-        shaderPaths[i] = CUBE_Path_CombineC(&workingPath, BasePaths[i]);
+        shaderPaths[i] = CUBE_Path_CombineC(&workingPath, IcarianNativeShaderBasePaths[i]);
     }
 
     CUBE_Path outPath = CUBE_Path_CombineC(&workingPath, "include/Shaders.h");
     CUBE_String outPathStr = CUBE_Path_ToString(&outPath);
 
-    const CBBOOL ret = ShadersToHeader(shaderPaths, BasePathCount, outPathStr.Data);
+    const CBBOOL ret = ShadersToHeader(shaderPaths, IcarianNativeShaderBasePathCount, outPathStr.Data);
 
     CUBE_String_Destroy(&outPathStr);
     CUBE_Path_Destroy(&outPath);
 
-    for (CBUINT32 i = 0; i < BasePathCount; ++i)
+    for (CBUINT32 i = 0; i < IcarianNativeShaderBasePathCount; ++i)
     {
         CUBE_Path_Destroy(&shaderPaths[i]);
     }

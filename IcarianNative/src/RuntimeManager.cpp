@@ -1,65 +1,116 @@
 #include "Runtime/RuntimeManager.h"
 
-#include <assert.h>
+#include <cstring>
+#include <filesystem>
 #include <mono/metadata/debug-helpers.h>
 #include <mono/metadata/mono-config.h>
+#include <mono/utils/mono-dl-fallback.h>
 
+#include "Flare/IcarianAssert.h"
+#include "Flare/IcarianDefer.h"
 #include "Profiler.h"
 #include "Rendering/RenderEngine.h"
 #include "Runtime/RuntimeFunction.h"
+
+#ifndef WIN32
+#include "Flare/MonoNativeImpl.h"
+
+static constexpr char MonoNativeLibName[] = "libmono-native.so";
+static constexpr uint32_t MonoNativeLibNameLength = sizeof(MonoNativeLibName) - 1;
+
+#define MonoThisLibHandle ((void*)-1)
+
+static void* RuntimeDLOpen(const char* a_name, int a_flags, char** a_error, void* a_userData)
+{
+    const uint32_t len = (uint32_t)strlen(a_name);
+    const char* ptr = a_name + len - MonoNativeLibNameLength;
+
+    if (len > MonoNativeLibNameLength && strcmp(ptr, MonoNativeLibName) == 0)
+    {
+        return MonoThisLibHandle;
+    }
+
+    return NULL;
+}
+static void* RuntimeDLSymbol(void* a_handle, const char* a_name, char** a_error, void* a_userData)
+{
+    if (a_handle == MonoThisLibHandle)
+    {
+        return FlareBase::MonoNativeImpl::GetFunction(a_name);
+    }
+
+    return NULL;
+}
+#endif
 
 RuntimeManager::RuntimeManager()
 {
     mono_config_parse(NULL);
 
-    mono_set_dirs("./lib", "./etc");
+    const std::filesystem::path currentDir = std::filesystem::current_path();
+
+    const std::filesystem::path libDir = currentDir / "lib";
+    const std::filesystem::path etcDir = currentDir / "etc";
+
+    mono_set_dirs(libDir.string().c_str(), etcDir.string().c_str());
     
+#ifndef WIN32
+    FlareBase::MonoNativeImpl::Init();
+
+    mono_dl_fallback_register(RuntimeDLOpen, RuntimeDLSymbol, NULL, NULL);
+#endif
+
     m_domain = mono_jit_init_version("Core", "v4.0");
     m_assembly = mono_domain_assembly_open(m_domain, "IcarianCS.dll");
-    assert(m_assembly != nullptr);
+    ICARIAN_ASSERT(m_assembly != NULL);
 
     m_image = mono_assembly_get_image(m_assembly);
-    assert(m_image != nullptr);
+    ICARIAN_ASSERT(m_image != NULL);
     m_programClass = mono_class_from_name(m_image, "IcarianEngine", "Program");
-    assert(m_programClass != nullptr);
+    ICARIAN_ASSERT(m_programClass != NULL);
 
     MonoMethodDesc* updateDesc = mono_method_desc_new(":Update(double,double)", 0);
     m_updateMethod = mono_method_desc_search_in_class(updateDesc, m_programClass);
-    assert(m_updateMethod != nullptr);
+    IDEFER(mono_method_desc_free(updateDesc));
+    ICARIAN_ASSERT(m_updateMethod != NULL);
 
     MonoMethodDesc* shutdownDesc = mono_method_desc_new(":Shutdown()", 0);
     m_shutdownMethod = mono_method_desc_search_in_class(shutdownDesc, m_programClass);
-    assert(m_shutdownMethod != nullptr);
-
-    mono_method_desc_free(updateDesc);
-    mono_method_desc_free(shutdownDesc);
+    IDEFER(mono_method_desc_free(shutdownDesc));
+    ICARIAN_ASSERT(m_shutdownMethod != NULL);
 }
 RuntimeManager::~RuntimeManager()
 {
-    mono_runtime_invoke(m_shutdownMethod, nullptr, nullptr, nullptr);
+    mono_runtime_invoke(m_shutdownMethod, NULL, NULL, NULL);
 
     mono_free_method(m_updateMethod);
     mono_free_method(m_shutdownMethod);
 
     mono_jit_cleanup(m_domain);
 
-    // TODO: Find non-locking mono cleanup
+#ifndef WIN32
+    mono_dl_fallback_unregister(NULL);
+
+    FlareBase::MonoNativeImpl::Destroy();
+#endif
 }
 
 void RuntimeManager::Exec(int a_argc, char* a_argv[])
 {
     const int retVal = mono_jit_exec(m_domain, m_assembly, a_argc, a_argv);
-    assert(retVal == 0);
+    ICARIAN_ASSERT(retVal == 0);
 }
 void RuntimeManager::Update(double a_delta, double a_time)
 {
     PROFILESTACK("Runtime Update");
     
-    void* args[2];
-    args[0] = &a_delta;
-    args[1] = &a_time;
+    void* args[] =
+    {
+        &a_delta,
+        &a_time
+    };
 
-    mono_runtime_invoke(m_updateMethod, nullptr, args, nullptr);
+    mono_runtime_invoke(m_updateMethod, NULL, args, NULL);
 }
 
 void RuntimeManager::BindFunction(const std::string_view& a_location, void* a_function)
@@ -80,15 +131,12 @@ MonoClass* RuntimeManager::GetClass(const std::string_view& a_namespace, const s
 RuntimeFunction* RuntimeManager::GetFunction(const std::string_view& a_namespace, const std::string_view& a_class, const std::string_view& a_method) const
 {
     MonoClass* cls = mono_class_from_name(m_image, a_namespace.data(), a_class.data());
-    assert(cls != nullptr);
+    ICARIAN_ASSERT(cls != NULL);
 
     MonoMethodDesc* desc = mono_method_desc_new(a_method.data(), 0);
+    IDEFER(mono_method_desc_free(desc));
     MonoMethod* method = mono_method_desc_search_in_class(desc, cls);
-    assert(method != nullptr);
+    ICARIAN_ASSERT(method != NULL);
 
-    RuntimeFunction* func = new RuntimeFunction(method);
-
-    mono_method_desc_free(desc);
-
-    return func;
+    return new RuntimeFunction(method);
 }

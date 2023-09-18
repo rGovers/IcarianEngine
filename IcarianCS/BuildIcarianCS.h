@@ -12,7 +12,7 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject project = { 0 };
 
     project.Name = CUBE_StackString_CreateC("IcarianCS");
-    project.Target = CUBE_CSProjectTarget_Library;
+    project.Target = CUBE_CSProjectTarget_Exe;
     project.OutputPath = CUBE_Path_CreateC("./build/");
     project.Optimise = a_optimise;
 
