@@ -12,6 +12,21 @@
 #include "IcarianCS/BuildIcarianCS.h"
 #include "IcarianNative/BuildIcarianNative.h"
 
+void PrintEngineHelp()
+{
+    PrintHelp();
+
+    printf("Engine Arguments:\n");
+
+    printf("  --enable-trace - Enables debug logging for the engine \n");
+    printf("  --enable-profiler - Enables the internal profiler for the engine \n");
+}
+
+static const char EnableTraceString[] = "--enable-trace";
+static const CBUINT32 EnableTraceStringLen = sizeof(EnableTraceString) - 1;
+static const char EnableProfilerString[] = "--enable-profiler";
+static const CBUINT32 EnableProfilerStringLen = sizeof(EnableProfilerString) - 1;
+
 int main(int a_argc, char** a_argv)
 {
     e_TargetPlatform targetPlatform;
@@ -31,6 +46,9 @@ int main(int a_argc, char** a_argv)
 
     CBBOOL ret;
 
+    CBBOOL enableTrace;
+    CBBOOL enableProfiler;
+
 #ifdef _WIN32
     targetPlatform = TargetPlatform_Windows;
 #else
@@ -41,6 +59,9 @@ int main(int a_argc, char** a_argv)
 
     lineCount = 0;
     lines = CBNULL;
+
+    enableTrace = CBFALSE;
+    enableProfiler = CBFALSE;
 
     printf("IcarianEngine Build\n");
     printf("\n");
@@ -116,9 +137,17 @@ int main(int a_argc, char** a_argv)
                 return 1;
             }
         }
+        else if (strncmp(a_argv[i], EnableTraceString, EnableTraceStringLen) == 0)
+        {
+            enableTrace = CBTRUE;
+        }
+        else if (strncmp(a_argv[i], EnableProfilerString, EnableProfilerStringLen) == 0)
+        {
+            enableProfiler = CBTRUE;
+        }
         else if (strncmp(a_argv[i], HelpString, HelpStringLen) == 0)
         {
-            PrintHelp();
+            PrintEngineHelp();
 
             return 0;
         }
@@ -135,7 +164,7 @@ int main(int a_argc, char** a_argv)
             printf("Unknown argument: %s\n", a_argv[i]);
             printf("\n");
 
-            PrintHelp();
+            PrintEngineHelp();
 
             return 1;
         }
@@ -269,7 +298,7 @@ int main(int a_argc, char** a_argv)
     free(dependencyProjects);
 
     printf("Creating IcarianNative project...\n");
-    icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration);
+    icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration, enableTrace, enableProfiler);
 
     printf("Compiling IcarianNative...\n");
     ret = CUBE_CProject_Compile(&icarianNativeProject, compiler, "IcarianNative", CBNULL, &lines, &lineCount);

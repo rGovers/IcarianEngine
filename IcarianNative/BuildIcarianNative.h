@@ -53,7 +53,7 @@ CBBOOL WriteIcarianNativeShadersToHeader(const char* a_workingPath)
     return ret;
 }
 
-CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, CBBOOL a_enableTrace, CBBOOL a_enableProfiler)
 {
     CUBE_CProject project = { 0 };
 
@@ -74,6 +74,19 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_MAJOR=0");
     CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_MINOR=1");
     CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN");
+
+    if (a_enableTrace)
+    {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_TRACE");
+    }
+    if (a_enableProfiler)
+    {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_PROFILER");
+    }
+
+    CUBE_CProject_AppendDefine(&project, "GLM_FORCE_QUAT_DATA_XYZW");
+    CUBE_CProject_AppendDefine(&project, "GLM_FORCE_DEPTH_ZERO_TO_ONE");
+    CUBE_CProject_AppendDefine(&project, "GLM_FORCE_RADIANS");
 
     CUBE_CProject_AppendIncludePath(&project, "include");
     CUBE_CProject_AppendIncludePath(&project, "../FlareBase/include");
