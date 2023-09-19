@@ -180,6 +180,8 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     {
     case TargetPlatform_Windows:
     {
+        CUBE_CProject_AppendDefine(&project, "WIN32");
+
         CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Windows/include");
 
         CUBE_CProject_AppendLibrary(&project, "../FlareBase/build/FlareBase.lib");

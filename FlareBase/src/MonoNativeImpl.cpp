@@ -6,7 +6,6 @@
 #ifndef WIN32
 #include <dirent.h>
 #include <sys/stat.h>
-#endif
 
 // Reimplementation of System.Native as have been having issues with it on Linux.
 // SystemNative_LChflagsCanSetHiddenFlag is the main culprit.
@@ -482,7 +481,6 @@ constexpr int32_t SystemNative_ConvertErrorPlatformToPal(int32_t a_platformError
     return Error_ENONSTANDARD;
 }
 
-#ifndef WIN32
 static FileStatus ToFileStatus(const struct stat* a_stat)
 {
     FileStatus status;
@@ -505,11 +503,9 @@ static FileStatus ToFileStatus(const struct stat* a_stat)
 
     return status;
 }   
-#endif
 
 static int32_t SystemNative_Stat2(const char* a_path, FileStatus* a_output)
 {
-#ifndef WIN32
     struct stat result = { 0 };
 
     int32_t ret;
@@ -526,13 +522,9 @@ static int32_t SystemNative_Stat2(const char* a_path, FileStatus* a_output)
     }
 
     return ret;
-#else
-    return -1;
-#endif
 }
 static int32_t SystemNative_LStat2(const char* a_path, FileStatus* a_output)
 {
-#ifndef WIN32
     struct stat result = { 0 };
 
     int32_t ret;
@@ -549,12 +541,8 @@ static int32_t SystemNative_LStat2(const char* a_path, FileStatus* a_output)
     }
 
     return ret;
-#else
-    return -1;
-#endif
 }
 
-#ifndef WIN32
 static DIR* SystemNative_OpenDir(const char* a_path)
 {
     return opendir(a_path);
@@ -581,7 +569,6 @@ static int32_t SystemNative_ReadDirR(DIR* a_dir, uint8_t* a_buffer, int32_t a_bu
 
     return 0;
 }
-#endif
 
 static int32_t SystemNative_GetReadDirRBufferSize()
 {
@@ -592,6 +579,7 @@ static int32_t SystemNative_LChflagsCanSetHiddenFlag()
 {
     return 0;
 }
+#endif
 
 namespace FlareBase
 {
@@ -612,20 +600,20 @@ namespace FlareBase
         {
             Instance = new MonoNativeImpl();
 
+#ifndef WIN32
             Instance->m_functions.emplace("SystemNative_ConvertErrorPlatformToPal", (void*)SystemNative_ConvertErrorPlatformToPal);
 
             Instance->m_functions.emplace("SystemNative_Stat2", (void*)SystemNative_Stat2);
             Instance->m_functions.emplace("SystemNative_LStat2", (void*)SystemNative_LStat2);
 
-#ifndef WIN32
             Instance->m_functions.emplace("SystemNative_OpenDir", (void*)SystemNative_OpenDir);
             Instance->m_functions.emplace("SystemNative_CloseDir", (void*)SystemNative_CloseDir);
             Instance->m_functions.emplace("SystemNative_ReadDirR", (void*)SystemNative_ReadDirR);
-#endif
 
             Instance->m_functions.emplace("SystemNative_GetReadDirRBufferSize", (void*)SystemNative_GetReadDirRBufferSize);
 
             Instance->m_functions.emplace("SystemNative_LChflagsCanSetHiddenFlag", (void*)SystemNative_LChflagsCanSetHiddenFlag);
+#endif
         }
     }
 
@@ -642,7 +630,7 @@ namespace FlareBase
     {
         if (Instance != nullptr)
         {
-            const auto iter = Instance->m_functions.find(a_name.data());
+            const auto iter = Instance->m_functions.find(std::string(a_name));
             if (iter != Instance->m_functions.end())
             {
                 return iter->second;
