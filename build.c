@@ -320,6 +320,8 @@ int main(int a_argc, char** a_argv)
 
     CUBE_IO_CreateDirectoryC("build");
 
+    CUBE_IO_CopyFileC("IcarianCS/build/IcarianCS.exe", "build/IcarianCS.dll");
+
     switch (targetPlatform)
     {
     case TargetPlatform_Windows:
@@ -338,14 +340,14 @@ int main(int a_argc, char** a_argv)
     {
         CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative", "build/IcarianNative");
 
+        CUBE_IO_CHMODC("build/IcarianNative", 0755);
+
         CUBE_IO_CopyDirectoryC("deps/Mono/Linux/lib/", "build/lib/", CBTRUE);
         CUBE_IO_CopyDirectoryC("deps/Mono/Linux/etc/", "build/etc/", CBTRUE);
 
         break;
     }
     }
-
-    CUBE_IO_CopyFileC("IcarianCS/build/IcarianCS.exe", "build/IcarianCS.dll");
 
     printf("Done!\n");
 
