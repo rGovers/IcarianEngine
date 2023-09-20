@@ -355,7 +355,12 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
             ICARIAN_ASSERT_MSG_R(device.createDescriptorSetLayout(&descriptorLayoutInfo, nullptr, &layout) == vk::Result::eSuccess, "Failed to create Push Descriptor Layout");
             layouts.emplace_back(layout);
 
-            const vk::DescriptorPoolSize poolSize = vk::DescriptorPoolSize(binding.Binding.descriptorType, 1);
+            vk::DescriptorPoolSize poolSize = vk::DescriptorPoolSize(binding.Binding.descriptorType, 1);
+            if (binding.Binding.descriptorType == vk::DescriptorType::eStorageBuffer)
+            {
+                poolSize.descriptorCount = SSBOMaxSize;
+            }
+            
             const vk::DescriptorPoolCreateInfo poolInfo = vk::DescriptorPoolCreateInfo
             (
                 { },
@@ -454,7 +459,7 @@ void VulkanShaderData::SetTexture(uint32_t a_slot, const FlareBase::TextureSampl
     device.updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
 }
 
-void VulkanShaderData::PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const FlareBase::TextureSampler& a_sampler, uint32_t a_index) const
+void VulkanShaderData::PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const FlareBase::TextureSampler& a_sampler, uint32_t a_index) const
 {   
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -463,7 +468,7 @@ void VulkanShaderData::PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a
 
     for (const PushDescriptor& d : m_pushDescriptors[a_index])
     {
-        if (d.Set == a_slot)
+        if (d.Set == a_set)
         {
             const vk::DescriptorSetAllocateInfo descriptorSetInfo = vk::DescriptorSetAllocateInfo
             (
@@ -497,13 +502,13 @@ void VulkanShaderData::PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a
 
     ICARIAN_ASSERT_MSG(0, "PushTexture binding not found");
 }
-void VulkanShaderData::PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const
+void VulkanShaderData::PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const
 {
     const vk::Device device = m_engine->GetLogicalDevice();
 
     for (const PushDescriptor& d : m_pushDescriptors[a_index])
     {
-        if (d.Set == a_slot)
+        if (d.Set == a_set)
         {
             const vk::DescriptorSetAllocateInfo descriptorSetInfo = vk::DescriptorSetAllocateInfo
             (
@@ -543,13 +548,13 @@ void VulkanShaderData::PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint
 
     ICARIAN_ASSERT_MSG(0, "PushUniformBuffer binding not found");
 }
-void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanShaderStorageObject* a_object, uint32_t a_index) const
+void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanShaderStorageObject* a_object, uint32_t a_index) const
 {
     const vk::Device device = m_engine->GetLogicalDevice();
 
     for (const PushDescriptor& d : m_pushDescriptors[a_index])
     {
-        if (d.Set == a_slot)
+        if (d.Set == a_set)
         {
             const vk::DescriptorSetAllocateInfo descriptorSetInfo = vk::DescriptorSetAllocateInfo
             (
