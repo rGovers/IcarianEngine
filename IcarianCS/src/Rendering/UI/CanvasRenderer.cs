@@ -59,7 +59,7 @@ namespace IcarianEngine.Rendering.UI
             }
         }
 
-        public CanvasRenderer()
+        CanvasRenderer()
         {
             m_bufferAddr = GenerateBuffer();
         }
