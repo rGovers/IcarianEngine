@@ -5,7 +5,7 @@ namespace IcarianEngine.Definitions
     public class MeshRendererDef : RendererDef
     {
         [EditorTooltip("Path relative to the project for the model file to be used.")]
-        public string ModelPath = null;        
+        public string ModelPath;        
 
         public MeshRendererDef()
         {

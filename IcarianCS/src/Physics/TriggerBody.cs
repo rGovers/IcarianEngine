@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Physics
 {
-    public abstract class TriggerBody : PhysicsBody
+    public class TriggerBody : PhysicsBody
     {
         // RREEEEEEEE!
 
@@ -12,6 +12,12 @@ namespace IcarianEngine.Physics
         extern static uint CreateTriggerBody(uint a_transformAddr, uint a_colliderAddr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyTriggerBody(uint a_addr);
+
+        public delegate void TriggerCallback(PhysicsBody a_other);
+
+        public TriggerCallback OnTriggerStartCallback;
+        public TriggerCallback OnTriggerStayCallback;
+        public TriggerCallback OnTriggerEndCallback;
 
         public TriggerBodyDef TriggerBodyDef
         {
@@ -35,9 +41,5 @@ namespace IcarianEngine.Physics
                 InternalAddr = CreateTriggerBody(Transform.InternalAddr, a_newShape.InternalAddr);
             }
         }
-
-        public abstract void OnTriggerEnter(PhysicsBody a_other);
-        public abstract void OnTriggerStay(PhysicsBody a_other);
-        public abstract void OnTriggerExit(PhysicsBody a_other);
     }
 }

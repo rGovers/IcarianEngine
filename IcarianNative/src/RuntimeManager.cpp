@@ -17,15 +17,19 @@
 
 static constexpr char MonoNativeLibName[] = "libmono-native.so";
 static constexpr uint32_t MonoNativeLibNameLength = sizeof(MonoNativeLibName) - 1;
+// Ludum Dare 54 hack 
+static constexpr char MonoNativeBaseName[] = "System.Native";
+static constexpr uint32_t MonoNativeBaseNameLength = sizeof(MonoNativeBaseName) - 1;
 
 #define MonoThisLibHandle ((void*)-1)
 
 static void* RuntimeDLOpen(const char* a_name, int a_flags, char** a_error, void* a_userData)
 {
     const uint32_t len = (uint32_t)strlen(a_name);
-    const char* ptr = a_name + len - MonoNativeLibNameLength;
+    const char* ptrLib = a_name + len - MonoNativeLibNameLength;
+    const char* ptrBase = a_name + len - MonoNativeBaseNameLength;
 
-    if (len > MonoNativeLibNameLength && strcmp(ptr, MonoNativeLibName) == 0)
+    if ((len > MonoNativeLibNameLength && strcmp(ptrLib, MonoNativeLibName) == 0) || (len > MonoNativeBaseNameLength && strcmp(ptrBase, MonoNativeBaseName) == 0))
     {
         return MonoThisLibHandle;
     }

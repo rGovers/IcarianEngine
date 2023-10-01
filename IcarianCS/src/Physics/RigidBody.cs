@@ -33,6 +33,15 @@ namespace IcarianEngine.Physics
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void AddTorque(uint a_addr, Vector3 a_torque, uint a_mode);
 
+        public delegate void CollisionCallback(PhysicsBody a_other, CollisionData a_data);
+        public delegate void EndCollisionCallback(PhysicsBody a_other);
+
+        float m_mass = 10.0f;
+
+        public CollisionCallback OnCollisionStartCallback;
+        public CollisionCallback OnCollisionStayCallback;
+        public EndCollisionCallback OnCollisionEndCallback;
+
         public RigidBodyDef RigidBodyDef
         {
             get
@@ -40,8 +49,6 @@ namespace IcarianEngine.Physics
                 return Def as RigidBodyDef;
             }
         }
-
-        float m_mass = 10.0f;
 
         public float Mass
         {
@@ -138,8 +145,8 @@ namespace IcarianEngine.Physics
             }
         }
 
-        public virtual void OnCollisionEnter(PhysicsBody a_other, CollisionData a_data) { }
-        public virtual void OnCollisionStay(PhysicsBody a_other, CollisionData a_data) { }
-        public virtual void OnCollisionExit(PhysicsBody a_other) { }
+        // public virtual void OnCollisionEnter(PhysicsBody a_other, CollisionData a_data) { }
+        // public virtual void OnCollisionStay(PhysicsBody a_other, CollisionData a_data) { }
+        // public virtual void OnCollisionExit(PhysicsBody a_other) { }
     };
 }

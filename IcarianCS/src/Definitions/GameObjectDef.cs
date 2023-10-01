@@ -8,12 +8,15 @@ namespace IcarianEngine.Definitions
     {
         public Type ObjectType = typeof(GameObject);
 
+        [EditorTooltip("GameObject name.")]
+        public string Name;
+
         [EditorTooltip("GameObject position offset.")]
         public Vector3 Translation = Vector3.Zero;
         [EditorTooltip("GameObject rotation offset.")]
         public Quaternion Rotation = Quaternion.Identity;
         [EditorTooltip("GameObject scale offset.")]
-        public Vector3 Scale = Vector3.One;
+        public Vector3 Scale = Vector3.One;        
 
         [EditorTooltip("List of components the GameObject is composed of.")]
         public List<ComponentDef> Components = new List<ComponentDef>();

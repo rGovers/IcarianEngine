@@ -145,12 +145,16 @@ namespace IcarianEngine
                     {
                         s_objDictionary.Remove(obj.m_tag);
                     }
+
+                    obj.m_transform.Dispose();
+                    obj.m_transform = null;
                 }
                 else
                 {
                     Logger.IcarianWarning("GameObject failed to Destroy");
                 }
             }
+            
             while (!s_objAddQueue.IsEmpty)
             {
                 GameObject obj = null;
@@ -499,39 +503,6 @@ namespace IcarianEngine
 
             return null;
         }
-        public GameObject GetChildWithTag(string a_tag, bool a_recursive = false)
-        {
-            if (a_recursive)
-            {
-                foreach (Transform child in m_transform.Children)
-                {
-                    GameObject childObj = child.Object;
-                    if (childObj.m_tag == a_tag)
-                    {
-                        return childObj;
-                    }
-
-                    GameObject obj = childObj.GetChildWithTag(a_tag, true);
-                    if (obj != null)
-                    {
-                        return obj;
-                    }
-                }
-            }
-            else
-            {
-                foreach (Transform child in m_transform.Children)
-                {
-                    GameObject obj = child.Object;
-                    if (obj.m_tag == a_tag)
-                    {
-                        return obj;
-                    }
-                }
-            }
-
-            return null;
-        }
 
         public IEnumerable<GameObject> GetChildrenWithName(string a_name, bool a_recursive = false)
         {
@@ -565,36 +536,24 @@ namespace IcarianEngine
             }
             
         }
-        public IEnumerable<GameObject> GetChildrenWithTag(string a_tag, bool a_recursive = false)
-        {
-            if (a_recursive)
-            {
-                foreach (Transform child in m_transform.Children)
-                {
-                    GameObject childObj = child.Object;
-                    if (childObj.m_tag == a_tag)
-                    {
-                        yield return childObj;
-                    }
 
-                    IEnumerable<GameObject> objs = childObj.GetChildrenWithTag(a_tag, true);
-                    foreach (GameObject obj in objs)
-                    {
-                        yield return obj;
-                    }
-                }
-            }
-            else
+        public static GameObject FindGameObjectWithTag(string a_tag)
+        {
+            if (s_objDictionary.ContainsKey(a_tag))
             {
-                foreach (Transform child in m_transform.Children)
-                {
-                    GameObject obj = child.Object;
-                    if (obj.m_tag == a_tag)
-                    {
-                        yield return obj;
-                    }
-                }
+                return s_objDictionary[a_tag];
             }
+
+            return null;
+        }
+        public static T FindGameObjectWithTag<T>(string a_tag) where T : GameObject
+        {
+            if (s_objDictionary.ContainsKey(a_tag))
+            {
+                return s_objDictionary[a_tag] as T;
+            }
+
+            return null;
         }
 
         static GameObject ChildDef(GameObjectDef a_def, ref List<Component> a_comps, ref List<GameObject> a_objs)
@@ -603,6 +562,8 @@ namespace IcarianEngine
             if (obj != null)
             {
                 obj.m_def = a_def;
+
+                obj.m_name = a_def.Name;
 
                 obj.m_transform.Translation = a_def.Translation;
                 obj.m_transform.Rotation = a_def.Rotation;
@@ -695,9 +656,6 @@ namespace IcarianEngine
                             obj.Dispose();
                         }
                     }
-
-                    m_transform.Dispose();
-                    m_transform = null;   
 
                     s_objRemoveQueue.Enqueue(this);
 

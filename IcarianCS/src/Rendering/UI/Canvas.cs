@@ -110,7 +110,7 @@ namespace IcarianEngine.Rendering.UI
             }
         }
 
-        private Canvas(uint a_bufferAddr)
+        Canvas(uint a_bufferAddr)
         {
             m_bufferAddr = a_bufferAddr;
 

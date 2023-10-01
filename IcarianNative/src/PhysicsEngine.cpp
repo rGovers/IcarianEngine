@@ -151,6 +151,16 @@ void PhysicsEngine::Update(double a_delta)
             if (iter != m_bodyMap.end())
             {
                 const BodyBinding binding = m_bodyBindings[iter->second];
+                if (binding.TransformAddr == -1)
+                {
+                    continue;
+                }
+
+                const JPH::Body* body = interface.TryGetBody(id);
+                if (body == nullptr)
+                {
+                    continue;
+                }
 
                 TransformBuffer buffer = m_objectManager->GetTransformBuffer(binding.TransformAddr);
 
@@ -170,8 +180,6 @@ void PhysicsEngine::Update(double a_delta)
                 }
 
                 const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(id, interface);
-
-                const JPH::Body* body = interface.TryGetBody(id);
 
                 JPH::RVec3 jTranslation = body->GetPosition();
                 JPH::Quat jRotation = body->GetRotation();

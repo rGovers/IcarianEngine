@@ -173,6 +173,7 @@ public:
     {
         if (m_parent != -1)
         {
+            // TODO: I need to parented fix transforms
             const glm::mat3 transform = glm::translate(glm::mat3(1.0f), m_pos / a_canvas.ReferenceResolution);
 
             const UIElement* parent = UIControl::GetUIElement(m_parent);

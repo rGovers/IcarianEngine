@@ -155,7 +155,7 @@ namespace IcarianEngine.Maths
         }
         public static Vector2 operator /(Vector2 a_lhs, Vector2 a_rhs)
         {
-            return new Vector2(a_lhs.X / a_lhs.X, a_lhs.Y / a_rhs.Y);
+            return new Vector2(a_lhs.X / a_rhs.X, a_lhs.Y / a_rhs.Y);
         }
 
         public static bool operator ==(Vector2 a_lhs, Vector2 a_rhs)

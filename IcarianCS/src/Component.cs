@@ -41,8 +41,6 @@ namespace IcarianEngine
             }
         }
 
-        internal Component() { }
-
         public virtual void Init() { }
 
         internal static Component FromDef(ComponentDef a_def) 

@@ -109,6 +109,24 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        public float Radius
+        {
+            get
+            {
+                PointLightBuffer buffer = GetBuffer(m_bufferAddr);
+
+                return buffer.Radius;
+            }
+            set
+            {
+                PointLightBuffer buffer = GetBuffer(m_bufferAddr);
+
+                buffer.Radius = value;
+
+                SetBuffer(m_bufferAddr, buffer);
+            }
+        }
+
         public override IEnumerable<IRenderTexture> ShadowMaps
         {
             get

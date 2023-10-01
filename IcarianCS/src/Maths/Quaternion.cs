@@ -198,6 +198,11 @@ namespace IcarianEngine.Maths
             return new Vector4(a_lhs * a_rhs.XYZ, a_rhs.W);
         }
     
+        public static Quaternion operator -(Quaternion a_quat)
+        {
+            return new Quaternion(-a_quat.X, -a_quat.Y, -a_quat.Z, -a_quat.W);
+        }
+
         public static bool operator ==(Quaternion a_lhs, Quaternion a_rhs)
         {
             return a_lhs.X == a_rhs.X && a_lhs.Y == a_rhs.Y && a_lhs.Z == a_rhs.Z && a_lhs.W == a_rhs.W;

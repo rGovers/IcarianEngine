@@ -355,6 +355,7 @@ void PhysicsEngineBindings::DestroyPhysicsBody(uint32_t a_addr) const
 
     JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
     interface.RemoveBody(binding.Body);
+    interface.DestroyBody(binding.Body);
 
     binding.TransformAddr = -1;
 }

@@ -18,6 +18,8 @@ namespace IcarianEngine.Rendering.UI
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GetRenderTexture(uint a_addr);
 
+        uint m_bufferAddr = uint.MaxValue;
+
         public bool IsDisposed
         {
             get
@@ -25,8 +27,6 @@ namespace IcarianEngine.Rendering.UI
                 return m_bufferAddr == uint.MaxValue;
             }
         }
-
-        uint m_bufferAddr = uint.MaxValue;
 
         public Canvas Canvas
         {
@@ -59,7 +59,7 @@ namespace IcarianEngine.Rendering.UI
             }
         }
 
-        public CanvasRenderer()
+        public override void Init()
         {
             m_bufferAddr = GenerateBuffer();
         }

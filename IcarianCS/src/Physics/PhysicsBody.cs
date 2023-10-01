@@ -50,10 +50,18 @@ namespace IcarianEngine.Physics
 
         CollisionShape m_collisionShape = null;
 
+        uint           m_internalAddr = uint.MaxValue;
+
         internal uint InternalAddr
         {
-            get;
-            set;
+            get
+            {
+                return m_internalAddr;
+            }
+            set
+            {
+                m_internalAddr = value;
+            }
         }
 
         public bool IsDisposed
@@ -76,21 +84,17 @@ namespace IcarianEngine.Physics
 
                 m_collisionShape = value;
 
-                if (s_bodies.ContainsKey(InternalAddr))
+                if (s_bodies.ContainsKey(m_internalAddr))
                 {
-                    s_bodies[InternalAddr] = this;
+                    s_bodies[m_internalAddr] = this;
                 }
                 else
                 {
-                    s_bodies.TryAdd(InternalAddr, this);
+                    s_bodies.TryAdd(m_internalAddr, this);
                 }
             }
         }
-
-        public PhysicsBody()
-        {
-            InternalAddr = uint.MaxValue;
-        }        
+       
 
         internal static PhysicsBody GetBody(uint a_addr)
         {
@@ -115,16 +119,16 @@ namespace IcarianEngine.Physics
 
         protected internal virtual void CollisionShapeSet(CollisionShape a_oldShape, CollisionShape a_newShape)
         {
-            if (InternalAddr != uint.MaxValue)
+            if (m_internalAddr != uint.MaxValue)
             {
-                DestroyPhysicsBody(InternalAddr);
+                DestroyPhysicsBody(m_internalAddr);
 
-                InternalAddr = uint.MaxValue;
+                m_internalAddr = uint.MaxValue;
             }
 
             if (a_newShape != null)
             {
-                InternalAddr = CreatePhysicsBody(Transform.InternalAddr, a_newShape.InternalAddr);
+                m_internalAddr = CreatePhysicsBody(Transform.InternalAddr, a_newShape.InternalAddr);
             }
         }
 
@@ -150,7 +154,7 @@ namespace IcarianEngine.Physics
                     Logger.IcarianWarning("PhysicsBody Failed to Dispose");
                 }
 
-                InternalAddr = uint.MaxValue;
+                m_internalAddr = uint.MaxValue;
             }
             else
             {
@@ -165,11 +169,11 @@ namespace IcarianEngine.Physics
 
         public void SetPosition(Vector3 a_pos)
         {
-            SetPosition(InternalAddr, a_pos);
+            SetPosition(m_internalAddr, a_pos);
         }
         public void SetRotation(Quaternion a_rotation)
         {
-            SetRotation(InternalAddr, a_rotation);
+            SetRotation(m_internalAddr, a_rotation);
         }
 
         static void OnCollisionEnter(DispatchCollisionData a_data)
@@ -186,7 +190,7 @@ namespace IcarianEngine.Physics
 
             if (a_data.IsTrigger == 0)
             {
-                if (bodyA is RigidBody rBodyA)
+                if (bodyA is RigidBody rBodyA && rBodyA.OnCollisionStartCallback != null)
                 {
                     CollisionData data = new CollisionData()
                     {
@@ -194,10 +198,10 @@ namespace IcarianEngine.Physics
                         Depth = a_data.Depth  
                     };
 
-                    rBodyA.OnCollisionEnter(bodyB, data);
+                    rBodyA.OnCollisionStartCallback(bodyB, data);
                 }
 
-                if (bodyB is RigidBody rBodyB)
+                if (bodyB is RigidBody rBodyB && rBodyB.OnCollisionStartCallback != null)
                 {
                     CollisionData data = new CollisionData()
                     {
@@ -205,19 +209,19 @@ namespace IcarianEngine.Physics
                         Depth = a_data.Depth
                     };
 
-                    rBodyB.OnCollisionEnter(bodyA, data);
+                    rBodyB.OnCollisionStartCallback(bodyA, data);
                 }
             }
             else
             {
-                if (bodyA is TriggerBody tBodyA)
+                if (bodyA is TriggerBody tBodyA && tBodyA.OnTriggerStartCallback != null)
                 {
-                    tBodyA.OnTriggerEnter(bodyB);
+                    tBodyA.OnTriggerStartCallback(bodyB);
                 }
 
-                if (bodyB is TriggerBody tBodyB)
+                if (bodyB is TriggerBody tBodyB && tBodyB.OnTriggerStartCallback != null)
                 {
-                    tBodyB.OnTriggerEnter(bodyA);
+                    tBodyB.OnTriggerStartCallback(bodyA);
                 }
             }
         }
@@ -235,7 +239,7 @@ namespace IcarianEngine.Physics
 
             if (a_data.IsTrigger == 0)
             {
-                if (bodyA is RigidBody rBodyA)
+                if (bodyA is RigidBody rBodyA && rBodyA.OnCollisionStayCallback != null)
                 {
                     CollisionData data = new CollisionData()
                     {
@@ -243,10 +247,10 @@ namespace IcarianEngine.Physics
                         Depth = a_data.Depth
                     };
 
-                    rBodyA.OnCollisionStay(bodyB, data);
+                    rBodyA.OnCollisionStayCallback(bodyB, data);
                 }
 
-                if (bodyB is RigidBody rBodyB)
+                if (bodyB is RigidBody rBodyB && rBodyB.OnCollisionStayCallback != null)
                 {
                     CollisionData data = new CollisionData()
                     {
@@ -254,19 +258,19 @@ namespace IcarianEngine.Physics
                         Depth = a_data.Depth
                     };
 
-                    rBodyB.OnCollisionStay(bodyA, data);
+                    rBodyB.OnCollisionStayCallback(bodyA, data);
                 }
             }
             else
             {
-                if (bodyA is TriggerBody tBodyA)
+                if (bodyA is TriggerBody tBodyA && tBodyA.OnTriggerStayCallback != null)
                 {
-                    tBodyA.OnTriggerStay(bodyB);
+                    tBodyA.OnTriggerStayCallback(bodyB);
                 }
 
-                if (bodyB is TriggerBody tBodyB)
+                if (bodyB is TriggerBody tBodyB && tBodyB.OnTriggerStayCallback != null)
                 {
-                    tBodyB.OnTriggerStay(bodyA);
+                    tBodyB.OnTriggerStayCallback(bodyA);
                 }
             }
         }
@@ -284,26 +288,26 @@ namespace IcarianEngine.Physics
 
             if (a_data.IsTrigger == 0)
             {
-                if (bodyA is RigidBody rBodyA)
+                if (bodyA is RigidBody rBodyA && rBodyA.OnCollisionEndCallback != null)
                 {
-                    rBodyA.OnCollisionExit(bodyB);
+                    rBodyA.OnCollisionEndCallback(bodyB);
                 }
 
-                if (bodyB is RigidBody rBodyB)
+                if (bodyB is RigidBody rBodyB && rBodyB.OnCollisionEndCallback != null)
                 {
-                    rBodyB.OnCollisionExit(bodyA);
+                    rBodyB.OnCollisionEndCallback(bodyA);
                 }
             }
             else
             {
-                if (bodyA is TriggerBody tBodyA)
+                if (bodyA is TriggerBody tBodyA && tBodyA.OnTriggerEndCallback != null)
                 {
-                    tBodyA.OnTriggerExit(bodyB);
+                    tBodyA.OnTriggerEndCallback(bodyB);
                 }
 
-                if (bodyB is TriggerBody tBodyB)
+                if (bodyB is TriggerBody tBodyB && tBodyB.OnTriggerEndCallback != null)
                 {
-                    tBodyB.OnTriggerExit(bodyA);
+                    tBodyB.OnTriggerEndCallback(bodyA);
                 }
             }
         }

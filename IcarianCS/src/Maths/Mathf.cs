@@ -45,6 +45,25 @@ namespace IcarianEngine.Maths
             return (float)Math.Pow(a_a, a_b);
         }
 
+        public static float Abs(float a_a)
+        {
+            return (float)Math.Abs(a_a);
+        }
+        public static float Sign(float a_a)
+        {
+            if (a_a == 0.0f)
+            {
+                return 0.0f;
+            }
+            
+            if (a_a < 0.0f)
+            {
+                return -1.0f;
+            }
+
+            return 1.0f;
+        }
+
         public static float Min(float a_a, float a_b)
         {
             if (a_a < a_b)
