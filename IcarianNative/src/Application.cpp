@@ -84,6 +84,9 @@ FLARE_MONO_EXPORT(MonoArray*, RUNTIME_FUNCTION_NAME(Application, GetMonitors))
 }
 FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(Application, SetFullscreenState), Monitor a_monitor, uint32_t a_state, uint32_t a_width, uint32_t a_height)
 {
+    // TODO: There is an extremely rare crash relating to fullscreen state changes that I have not been able to reproduce
+    // This crash has been haunting me for months and I have no idea what is causing it
+    // And the rule of a crash that happens once will affect every user when released
     AppMonitor appMonitor;
     appMonitor.Width = a_monitor.Width;
     appMonitor.Height = a_monitor.Height;
