@@ -16,6 +16,7 @@ class Config;
 class Font;
 class ObjectManager;
 class RenderEngineBackend;
+class RuntimeFunction;
 class RuntimeManager;
 
 class RenderEngine
@@ -24,8 +25,6 @@ private:
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
     friend class VulkanRenderEngineBackend;
 #endif
-
-    double               m_time;
 
     // If not volatile GCC may optimize away the stop function
     // Program will not terminate if stop is optimized away
@@ -40,6 +39,8 @@ private:
     RenderEngineBackend* m_backend;
 
     AppWindow*           m_window;
+
+    RuntimeFunction*     m_frameUpdateFunction;
 
     RuntimeManager*      m_runtime;
 

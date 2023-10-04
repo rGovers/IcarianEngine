@@ -8,12 +8,18 @@ namespace IcarianEngine.Mod
 {
     public static class ModControl
     {
+        /// <summary>
+        /// The core assembly loaded by Icarian Engine.
+        /// </summary>
         public static IcarianAssembly CoreAssembly
         {
             get;
             private set;
         }
 
+        /// <summary>
+        /// The list of mod assemblies loaded by Icarian Engine.
+        /// </summary>
         public static List<IcarianAssembly> Assemblies
         {
             get;
@@ -64,6 +70,12 @@ namespace IcarianEngine.Mod
             }
         }
 
+        /// <summary>
+        /// Gets a function from all loaded assemblies.
+        /// </summary>
+        /// <typeparam name="T">The delegate type.</typeparam>
+        /// <param name="a_name">The name of the function.</param>
+        /// <returns>The function. Null if failed</returns>
         public static T GetFunction<T>(string a_name) where T : Delegate
         {
             string[] strings = a_name.Split(':');
@@ -108,6 +120,14 @@ namespace IcarianEngine.Mod
 
             return null;
         }
+        /// <summary>
+        /// Gets a function from all loaded assemblies.
+        /// </summary>
+        /// <typeparam name="T">The delegate type.</typeparam>
+        /// <param name="a_namespace">The namespace that contains the function.</param>
+        /// <param name="a_class">The class that contains the function.</param>
+        /// <param name="a_function">The function name.</param>
+        /// <returns>The function. Null if failed</returns>
         public static T GetFunction<T>(string a_namespace, string a_class, string a_function) where T : Delegate
         {
             foreach (Assembly asm in CoreAssembly.Assemblies)
@@ -144,6 +164,12 @@ namespace IcarianEngine.Mod
             return null;
         }
 
+        /// <summary>
+        /// Gets a Type in the core assembly.
+        /// </summary>
+        /// <param name="a_name">The name of the Type.</param>
+        /// <param name="a_def">If the Type is a definition.</param>
+        /// <returns>The Type. Null if failed</returns>
         public static Type GetCoreTypeValue(string a_name, bool a_def = false)
         {
             string coreName = $"IcarianEngine.{a_name}";
@@ -171,6 +197,12 @@ namespace IcarianEngine.Mod
             
             return null;
         }
+        /// <summary>
+        /// Gets a Type in all loaded assemblies.
+        /// </summary>
+        /// <param name="a_name">The name of the Type.</param>
+        /// <param name="a_def">If the Type is a definition.</param>
+        /// <returns>The Type. Null if failed</returns>
         public static Type GetTypeValue(string a_name, bool a_def = false)
         {
             Type t = GetCoreTypeValue(a_name, a_def);
@@ -222,6 +254,30 @@ namespace IcarianEngine.Mod
 
             Profiler.StopFrame();
         }
+        internal static void FixedUpdate()
+        {
+            CoreAssembly.AssemblyControl.FixedUpdate();
+
+            foreach (IcarianAssembly asm in Assemblies)
+            {
+                if (asm.AssemblyControl != null)
+                {
+                    asm.AssemblyControl.FixedUpdate();
+                }
+            }
+        }
+        internal static void FrameUpdate()
+        {
+            CoreAssembly.AssemblyControl.FrameUpdate();
+
+            foreach (IcarianAssembly asm in Assemblies)
+            {
+                if (asm.AssemblyControl != null)
+                {
+                    asm.AssemblyControl.FrameUpdate();
+                }
+            }
+        }
 
         internal static void Close()
         {
@@ -238,6 +294,11 @@ namespace IcarianEngine.Mod
             Assemblies.Clear();
         }
 
+        /// <summary>
+        /// Gets the full path of a mod asset. Searches LIFO.
+        /// </summary>
+        /// <param name="a_path">The path of the asset.</param>
+        /// <returns>The full path of the asset. Null if failed</returns>
         public static string GetAssetPath(string a_path)
         {
             if (File.Exists(a_path))
@@ -262,6 +323,12 @@ namespace IcarianEngine.Mod
 
             return null;
         } 
+        /// <summary>
+        /// Gets the full path of a mod scene in a specific mod.
+        /// </summary>
+        /// <param name="a_path">The path of the scene.</param>
+        /// <param name="a_modID">The ID of the mod.</param>
+        /// <returns>The full path of the scene. Null if failed</returns>
         public static string GetScenePath(string a_path, string a_modID)
         {
             if (a_modID == CoreAssembly.AssemblyInfo.ID)
@@ -279,6 +346,11 @@ namespace IcarianEngine.Mod
 
             return null;
         }
+        /// <summary>
+        /// Gets the full path of a mod scene. Searches LIFO.
+        /// </summary>
+        /// <param name="a_path">The path of the scene.</param>
+        /// <returns>The full path of the scene. Null if failed</returns>
         public static string GetScenePath(string a_path)
         {
             if (File.Exists(a_path))

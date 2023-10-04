@@ -24,8 +24,6 @@ namespace IcarianEngine
                 }
             }
 
-            Time.Init();
-
             Material.Init();
 
             RenderPipeline.Init(new DefaultRenderPipeline());
@@ -70,6 +68,24 @@ namespace IcarianEngine
 
             GameObject.UpdateObjects();
             GameObject.UpdateScripts();
+        }
+
+        static void FixedUpdate(double a_delta, double a_time)
+        {
+            Time.DFixedDeltaTime = a_delta;
+            Time.DFixedTimePassed = a_time;
+
+            ModControl.FixedUpdate();
+
+            GameObject.FixedUpdateScripts();
+        }
+
+        static void FrameUpdate(double a_delta, double a_time)
+        {
+            Time.DFrameDeltaTime = a_delta;
+            Time.DFrameTimePassed = a_time;
+
+            ModControl.FrameUpdate();
         }
     }
 }

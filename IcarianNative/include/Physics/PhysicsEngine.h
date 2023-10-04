@@ -22,8 +22,10 @@
 #include "Physics/IcObjectLayerPairFilter.h"
 #include "Physics/IcPhysicsJobSystem.h"
 
+class Config;
 class ObjectManager;
 class PhysicsEngineBindings;
+class RuntimeFunction;
 class RuntimeManager;
 
 struct BodyBinding
@@ -49,7 +51,13 @@ private:
     static constexpr uint32_t MaxContactConstraints = 1024 * 10;
     static constexpr uint32_t AllocatorSize = 1024 * 1024 * 10;
 
+    double                                    m_fixedTimePassed;
+    double                                    m_fixedTimeStep;
+    double                                    m_fixedTimeTimer;
+
     ObjectManager*                            m_objectManager;
+
+    RuntimeFunction*                          m_fixedUpdateFunction;
 
     // FFS got foot gunned by RAII. Raw pointers it is then.
     IcPhysicsJobSystem*                       m_jobSystem;
@@ -75,7 +83,7 @@ private:
 protected:
 
 public:
-    PhysicsEngine(RuntimeManager* a_runtime, ObjectManager* a_objectManager);
+    PhysicsEngine(Config* a_config, RuntimeManager* a_runtime, ObjectManager* a_objectManager);
     ~PhysicsEngine();
 
     void Update(double a_delta);

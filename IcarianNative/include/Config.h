@@ -12,6 +12,8 @@ private:
 
     bool              m_headless = false;
 
+    double            m_fixedTimeStep = 1.0 / 50.0;
+
     std::string       m_appName = std::string(DefaultAppName);
 
     e_RenderingEngine m_renderingEngine = RenderingEngine_Vulkan;
@@ -21,6 +23,11 @@ protected:
 public:
     Config(const std::string_view& a_path);
     ~Config();
+
+    inline double GetFixedTimeStep() const
+    {
+        return m_fixedTimeStep;
+    }
 
     inline const std::string_view GetApplicationName() const
     {

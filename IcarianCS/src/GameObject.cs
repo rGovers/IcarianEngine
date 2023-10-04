@@ -30,6 +30,9 @@ namespace IcarianEngine
 
         Transform       m_transform;
 
+        /// <summary>
+        /// Whether or not the GameObject has been disposed
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -38,6 +41,9 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// The GameObjectDef used to create this GameObject
+        /// </summary>
         public GameObjectDef Def
         {
             get
@@ -46,6 +52,9 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// The tag of the GameObject
+        /// </summary>
         public string Tag
         {
             get
@@ -54,6 +63,9 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// The name of the GameObject
+        /// </summary>
         public string Name
         {
             get
@@ -66,6 +78,9 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// The Transform of the GameObject
+        /// </summary>
         public Transform Transform
         {
             get
@@ -74,6 +89,9 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// The parent of the GameObject
+        /// </summary>
         public GameObject Parent 
         {
             get
@@ -93,11 +111,28 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// The components of the GameObject
+        /// </summary>
         public IEnumerable<Component> Components
         {
             get
             {
                 return m_components;
+            }
+        }
+
+        /// <summary>
+        /// The children of the GameObject
+        /// </summary>
+        public IEnumerable<GameObject> Children
+        {
+            get
+            {
+                foreach (Transform child in m_transform.Children)
+                {
+                    yield return child.Object;
+                }
             }
         }
 
@@ -127,10 +162,8 @@ namespace IcarianEngine
             }
         }
 
-        internal static void UpdateObjects()
+        static void RemoveObjects()
         {
-            Profiler.StartFrame("Object Update");
-
             while (!s_objRemoveQueue.IsEmpty)
             {
                 GameObject obj = null;
@@ -154,6 +187,13 @@ namespace IcarianEngine
                     Logger.IcarianWarning("GameObject failed to Destroy");
                 }
             }
+        }
+
+        internal static void UpdateObjects()
+        {
+            Profiler.StartFrame("Object Update");
+
+            RemoveObjects();
             
             while (!s_objAddQueue.IsEmpty)
             {
@@ -228,6 +268,26 @@ namespace IcarianEngine
 
             Profiler.StopFrame();
         }
+        internal static void FixedUpdateScripts()
+        {
+            foreach (Scriptable script in s_scriptableComps)
+            {
+                if (script == null)
+                {
+                    continue;
+                }
+                else if (script is IDestroy destroy)
+                {
+                    if (destroy.IsDisposed)
+                    {
+                        continue;
+                    }
+                }
+
+                script.FixedUpdate();
+            }
+        }
+
         internal static void DestroyObjects() 
         {
             List<GameObject> objs = new List<GameObject>(s_objs);
@@ -242,6 +302,8 @@ namespace IcarianEngine
                 obj.Dispose();
             }
 
+            RemoveObjects();
+            
             s_objs.Clear();
             s_objDictionary.Clear();
 
@@ -251,7 +313,13 @@ namespace IcarianEngine
             RemoveScripts();
         }
 
+        /// <summary>
+        /// Called when the GameObject is created
+        /// </summary>
         public virtual void Init() { }
+        /// <summary>
+        /// Called on Update
+        /// </summary>
         public virtual void Update() { }
 
         Component AddComponentN(ComponentDef a_def)
@@ -270,6 +338,10 @@ namespace IcarianEngine
             return comp;
         }
 
+        /// <summary>
+        /// Adds a component of Type T to the GameObject
+        /// </summary>
+        /// <returns>The added component</returns>
         public T AddComponent<T>() where T : Component
         {
             T comp = Activator.CreateInstance<T>();
@@ -289,6 +361,11 @@ namespace IcarianEngine
 
             return comp; 
         }
+        /// <summary>
+        /// Adds a component from a ComponentDef to the GameObject
+        /// </summary>
+        /// <param name="a_def">The ComponentDef to add</param>
+        /// <returns>The added component</returns>
         public Component AddComponent(ComponentDef a_def)
         {
             Component comp = AddComponentN(a_def);
@@ -297,11 +374,20 @@ namespace IcarianEngine
 
             return comp;
         }
+        /// <summary>
+        /// Adds a component of Type T from a ComponentDef to the GameObject
+        /// </summary>
+        /// <param name="a_def">The ComponentDef to add</param>
+        /// <returns>The added component</returns>
         public T AddComponent<T>(ComponentDef a_def) where T : Component
         {
             return AddComponent(a_def) as T;
         }
 
+        /// <summary>
+        /// Gets a component of Type T from the GameObject
+        /// </summary>
+        /// <returns>The component of Type T. Null on failure.</returns>
         public T GetComponent<T>() where T : Component
         {
             foreach (Component comp in m_components)
@@ -314,6 +400,10 @@ namespace IcarianEngine
 
             return null;
         }
+        /// <summary>
+        /// Gets all components of Type T from the GameObject
+        /// </summary>
+        /// <returns>All components of Type T</returns>
         public IEnumerable<T> GetComponents<T>() where T : Component
         {
             foreach (Component comp in m_components)
@@ -324,11 +414,39 @@ namespace IcarianEngine
                 }
             }
         }
+        /// <summary>
+        /// Gets a component from a ComponentDef from the GameObject
+        /// </summary>
+        /// <param name="a_def">The ComponentDef to get</param>
+        /// <returns>The component from the ComponentDef. Null on failure.</returns>
         public Component GetComponent(ComponentDef a_def)
         {
             return GetComponent<Component>(a_def);
         }
 
+        /// <summary>
+        /// Gets a component of Type T from a ComponentDef from the GameObject
+        /// </summary>
+        /// <param name="a_def">The ComponentDef to get</param>
+        /// <returns>The component of Type T from the ComponentDef. Null on failure.</returns>
+        public T GetComponent<T>(ComponentDef a_def) where T : Component
+        {
+            foreach (Component comp in m_components)
+            {
+                if (comp.Def == a_def)
+                {
+                    return comp as T;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Gets a component of Type T from children of the GameObject
+        /// </summary>
+        /// <param name="a_recursive">Whether or not to search recursively</param>
+        /// <returns>The component of Type T from children of the GameObject. Null on failure.</returns>
         public T GetComponentInChild<T>(bool a_recursive = false) where T : Component
         {
             if (a_recursive)
@@ -364,6 +482,11 @@ namespace IcarianEngine
 
             return null;
         }
+        /// <summary>
+        /// Gets all components of Type T from children of the GameObject
+        /// </summary>
+        /// <param name="a_recursive">Whether or not to search recursively</param>
+        /// <returns>All components of Type T from children of the GameObject</returns>
         public IEnumerable<T> GetComponentsInChildren<T>(bool a_recursive = false) where T : Component
         {
             if (a_recursive)
@@ -399,19 +522,10 @@ namespace IcarianEngine
             }
         }
 
-        public T GetComponent<T>(ComponentDef a_def) where T : Component
-        {
-            foreach (Component comp in m_components)
-            {
-                if (comp.Def == a_def)
-                {
-                    return comp as T;
-                }
-            }
-
-            return null;
-        }
-
+        /// <summary>
+        /// Removes the component from the GameObject
+        /// </summary>
+        /// <param name="a_component">The component to remove</param>
         public void RemoveComponent(Component a_component)
         {
             if (a_component is Scriptable script)
@@ -420,7 +534,23 @@ namespace IcarianEngine
             }
 
             m_components.Remove(a_component);
+
+            if (a_component is IDestroy dest)
+            {
+                if (!dest.IsDisposed)
+                {
+                    dest.Dispose();
+                }
+            }
+            else if (a_component is IDisposable disp)
+            {
+                disp.Dispose();
+            }
         }
+        /// <summary>
+        /// Removes the component of the def from the GameObject
+        /// </summary>
+        /// <param name="a_def">The ComponentDef of the component to remove</param>
         public void RemoveComponent(ComponentDef a_def)
         {
             foreach (Component comp in m_components)
@@ -449,6 +579,11 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// Instantiates a GameObject
+        /// </summary>
+        /// <param name="a_tag">The tag of the GameObject</param>
+        /// <returns>The instantiated GameObject</returns>
         public static GameObject Instantiate(string a_tag = null)
         {
             GameObject obj = new GameObject()
@@ -460,6 +595,11 @@ namespace IcarianEngine
 
             return obj;
         }
+        /// <summary>
+        /// Instantiates a GameObject of Type T
+        /// </summary>
+        /// <param name="a_tag">The tag of the GameObject</param>
+        /// <returns>The instantiated GameObject of Type T</returns>
         public static T Instantiate<T>(string a_tag = null) where T : GameObject
         {
             T obj = Activator.CreateInstance<T>();
@@ -470,6 +610,12 @@ namespace IcarianEngine
             return obj;
         }   
 
+        /// <summary>
+        /// Gets a child of the GameObject with the name
+        /// </summary>
+        /// <param name="a_name">The name of the child</param>
+        /// <param name="a_recursive">Whether or not to search recursively</param>
+        /// <returns>The child of the GameObject with the name. Null on failure.</returns>
         public GameObject GetChildWithName(string a_name, bool a_recursive = false)
         {
             if (a_recursive)
@@ -504,6 +650,12 @@ namespace IcarianEngine
             return null;
         }
 
+        /// <summary>
+        /// Gets all children of the GameObject with the name
+        /// </summary>
+        /// <param name="a_name">The name of the children</param>
+        /// <param name="a_recursive">Whether or not to search recursively</param>
+        /// <returns>All children of the GameObject with the name</returns>
         public IEnumerable<GameObject> GetChildrenWithName(string a_name, bool a_recursive = false)
         {
             if (a_recursive)
@@ -537,6 +689,11 @@ namespace IcarianEngine
             
         }
 
+        /// <summary>
+        /// Finds a GameObject with the tag
+        /// </summary>
+        /// <param name="a_tag">The tag of the GameObject</param>
+        /// <returns>The GameObject with the tag. Null on failure.</returns>
         public static GameObject FindGameObjectWithTag(string a_tag)
         {
             if (s_objDictionary.ContainsKey(a_tag))
@@ -546,6 +703,11 @@ namespace IcarianEngine
 
             return null;
         }
+        /// <summary>
+        /// Finds a GameObject of Type T with the tag
+        /// </summary>
+        /// <param name="a_tag">The tag of the GameObject</param>
+        /// <returns>The GameObject of Type T with the tag. Null on failure.</returns>
         public static T FindGameObjectWithTag<T>(string a_tag) where T : GameObject
         {
             if (s_objDictionary.ContainsKey(a_tag))
@@ -594,6 +756,13 @@ namespace IcarianEngine
             
             return obj;
         }
+
+        /// <summary>
+        /// Creates a GameObject from a GameObjectDef
+        /// </summary>
+        /// <param name="a_def">The GameObjectDef to create the GameObject from</param>
+        /// <param name="a_tag">The tag of the GameObject</param>
+        /// <returns>The created GameObject</returns>
         public static GameObject FromDef(GameObjectDef a_def, string a_tag = null)
         {
             List<Component> comps = new List<Component>();
@@ -629,11 +798,20 @@ namespace IcarianEngine
             
             return null;
         }
+        /// <summary>
+        /// Creates a GameObject of Type T from a GameObjectDef
+        /// </summary>
+        /// <param name="a_def">The GameObjectDef to create the GameObject from</param>
+        /// <param name="a_tag">The tag of the GameObject</param>
+        /// <returns>The created GameObject of Type T</returns>
         public static T FromDef<T>(GameObjectDef a_def, string a_tag = null) where T : GameObject
         {
             return FromDef(a_def, a_tag) as T;
         }
 
+        /// <summary>
+        /// Destroys the GameObject
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -641,6 +819,10 @@ namespace IcarianEngine
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// Called when the GameObject is destroyed
+        /// </summary>
+        /// <param name="a_disposing">Whether or not the GameObject is being disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(!m_disposed)

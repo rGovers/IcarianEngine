@@ -31,6 +31,10 @@ Config::Config(const std::string_view& a_path)
                     m_renderingEngine = RenderingEngine_Null;
                 }
             }
+            else if (name == "FixedTimeStep")
+            {
+                m_fixedTimeStep = element->DoubleText();
+            }
         }
     }
 }

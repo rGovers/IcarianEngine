@@ -9,6 +9,7 @@
 #include "Rendering/AnimationController.h"
 #include "Rendering/Null/NullRenderEngineBackend.h"
 #include "Rendering/SpirvTools.h"
+#include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
@@ -22,6 +23,8 @@ RenderEngine::RenderEngine(RuntimeManager* a_runtime, ObjectManager* a_objectMan
     m_config = a_config;
 
     m_runtime = a_runtime;
+
+    m_frameUpdateFunction = m_runtime->GetFunction("IcarianEngine", "Program", ":FrameUpdate(double,double)");
 
     m_objectManager = a_objectManager;
 
@@ -59,11 +62,15 @@ RenderEngine::RenderEngine(RuntimeManager* a_runtime, ObjectManager* a_objectMan
 }
 RenderEngine::~RenderEngine()
 {
+    TRACE("Destroying Rendering");
+
     Stop();
 
     spirv_destroy();
 
     delete m_backend;
+
+    delete m_frameUpdateFunction;
 }
 
 void RenderEngine::Start()
@@ -92,6 +99,8 @@ void RenderEngine::Run()
 
     std::chrono::time_point prevTime = std::chrono::high_resolution_clock::now();
 
+    double timePassed = 0.0;
+
     while (!m_shutdown)
     {
         Profiler::Start("Render Thread");
@@ -101,8 +110,8 @@ void RenderEngine::Run()
 
             const std::chrono::time_point time = std::chrono::high_resolution_clock::now();
 
-            const double delta = std::chrono::duration<double>(time - prevTime).count();
-            m_time += delta;
+            double delta = std::chrono::duration<double>(time - prevTime).count();
+            timePassed += delta;
 
             {
                 PROFILESTACK("Animators");
@@ -110,7 +119,19 @@ void RenderEngine::Run()
                 AnimationController::UpdateAnimators(AnimationUpdateMode_FrameUpdate, (float)delta);
             }
 
-            m_backend->Update(delta, m_time);
+            void* args[] =
+            {
+                &delta,
+                &timePassed
+            };
+
+            {
+                PROFILESTACK("Frame Update");
+                
+                m_frameUpdateFunction->Exec(args);
+            }
+
+            m_backend->Update(delta, timePassed);
 
             prevTime = time;
         }   

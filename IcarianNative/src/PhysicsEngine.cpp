@@ -12,6 +12,7 @@
 #include <sstream>
 #include <vector>
 
+#include "Config.h"
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
 #include "Jolt/Physics/Body/Body.h"
@@ -20,6 +21,7 @@
 #include "Physics/InterfaceLock.h"
 #include "Physics/PhysicsEngineBindings.h"
 #include "Profiler.h"
+#include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
@@ -51,9 +53,15 @@ static bool AssertImpl(const char* a_expression, const char* a_message, const ch
     return true;
 }
 
-PhysicsEngine::PhysicsEngine(RuntimeManager* a_runtime, ObjectManager* a_objectManager) 
+PhysicsEngine::PhysicsEngine(Config* a_config, RuntimeManager* a_runtime, ObjectManager* a_objectManager) 
 {
     m_objectManager = a_objectManager;
+
+    m_fixedUpdateFunction = a_runtime->GetFunction("IcarianEngine", "Program", ":FixedUpdate(double,double)");
+
+    m_fixedTimeStep = a_config->GetFixedTimeStep();
+    m_fixedTimeTimer = 0.0;
+    m_fixedTimePassed = 0.0;
 
     JPH::RegisterDefaultAllocator();
 
@@ -85,6 +93,8 @@ PhysicsEngine::PhysicsEngine(RuntimeManager* a_runtime, ObjectManager* a_objectM
 }
 PhysicsEngine::~PhysicsEngine()
 {
+    delete m_fixedUpdateFunction;
+
     delete m_physicsSystem;
 
     delete m_contactListener;
@@ -125,14 +135,28 @@ void PhysicsEngine::Update(double a_delta)
     {
         PROFILESTACK("Physics Sim");
 
-        // TODO: Come back to this and improve as getting different results in editor vs runtime
-        // Fixed time does not seem to fix it so need further investigation as simulation is not deterministic
-        // Could be due to multithreading and the order of the jobs will investigate further later
-        // Update: Upon further investigation it seems after hooking up ui to see engine stats the runtime is running at 10,000hz on (Linux)5950x while the editor is running at 60-400hz
-        // so likely to be floating point precision issues as the editor as delta time is a float and explains the cant see anything when I done the "fixed" test
-        // Now if you dont mind I need to go figure out where I put my jaw as modern cpus are insane
-        m_physicsSystem->Update((float)a_delta, 1, 1, m_allocator, m_jobSystem);
-        // m_physicsSystem->Update(0.016f, 1, 1, m_allocator, m_jobSystem);
+        m_fixedTimeTimer += a_delta;
+
+        // Done some digging and found a note about stability above 60hz needing to be done in steps
+        constexpr double JoltStepMagicNumber = 1.0 / 60.0;
+
+        const int steps = (int)(m_fixedTimeStep / JoltStepMagicNumber + 1);
+
+        while (m_fixedTimeTimer >= m_fixedTimeStep)
+        {
+            m_fixedTimeTimer -= m_fixedTimeStep;
+            m_fixedTimePassed += m_fixedTimeStep;
+
+            m_physicsSystem->Update((float)m_fixedTimeStep, steps, 2, m_allocator, m_jobSystem);
+
+            void* args[] = 
+            { 
+                &m_fixedTimeStep, 
+                &m_fixedTimePassed
+            };
+
+            m_fixedUpdateFunction->Exec(args);
+        }
     }
 
     {
