@@ -7,7 +7,6 @@
 #include "ThreadJob.h"
 
 class RuntimeFunction;
-class RuntimeManager;
 
 class ThreadPool
 {
@@ -22,7 +21,6 @@ private:
 
     uint32_t                                                        m_threadCount;
 
-    RuntimeManager*                                                 m_runtime;
     RuntimeFunction*                                                m_runtimeDispatch;
 
     std::thread*                                                    m_threads;
@@ -39,16 +37,16 @@ private:
 
     static void Run(uint32_t a_thread);
 
-    ThreadPool(uint32_t a_threadCount, RuntimeManager* a_runtime);
-
     void Start();
+
+    ThreadPool(uint32_t a_threadCount);
 
 protected:
 
 public:
     ~ThreadPool();
 
-    static void Init(RuntimeManager* a_runtime);
+    static void Init();
     static void Stop();
     static void Destroy();
 

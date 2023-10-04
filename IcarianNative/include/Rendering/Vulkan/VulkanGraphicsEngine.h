@@ -11,7 +11,6 @@ struct CanvasBuffer;
 
 class Font;
 class RuntimeFunction;
-class RuntimeManager;
 class VulkanGraphicsEngineBindings;
 class VulkanLightData;
 class VulkanModel;
@@ -44,7 +43,6 @@ private:
 
     static constexpr uint32_t DrawingPassCount = 4;
 
-    RuntimeManager*                               m_runtimeManager;
     VulkanGraphicsEngineBindings*                 m_runtimeBindings;
     VulkanSwapchain*                              m_swapchain;
 
@@ -118,7 +116,7 @@ private:
 protected:
 
 public:
-    VulkanGraphicsEngine(RuntimeManager* a_runtime, VulkanRenderEngineBackend* a_vulkanEngine);
+    VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEngine);
     ~VulkanGraphicsEngine();
 
     inline void SetSwapchain(VulkanSwapchain* a_swapchaing)

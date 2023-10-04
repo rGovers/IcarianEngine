@@ -3,6 +3,7 @@
 #include <cassert>
 #include <mutex>
 
+#include "Flare/IcarianDefer.h"
 #include "Logger.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
@@ -10,23 +11,22 @@
 Profiler* Profiler::Instance = nullptr;
 Profiler::Callback* Profiler::CallbackFunc = nullptr;
 
-FLARE_MONO_EXPORT(void, Profiler_StartFrame, MonoString* a_frameName)
+RUNTIME_FUNCTION(void, Profiler, StartFrame, 
 {
     char* str = mono_string_to_utf8(a_frameName);
+    IDEFER(mono_free(str));
 
     Profiler::StartFrame(str);
-
-    mono_free(str);
-}
-FLARE_MONO_EXPORT(void, Profiler_StopFrame)
+}, MonoString* a_frameName)
+RUNTIME_FUNCTION(void, Profiler, StopFrame, 
 {
     Profiler::StopFrame();
-}
+})
 
-Profiler::Profiler(RuntimeManager* a_runtimeManager)
+Profiler::Profiler()
 {
-    a_runtimeManager->BindFunction("IcarianEngine.Profiler::StartFrame", (void*)Profiler_StartFrame);
-    a_runtimeManager->BindFunction("IcarianEngine.Profiler::StopFrame", (void*)Profiler_StopFrame);
+    BIND_FUNCTION(IcarianEngine, Profiler, StartFrame);
+    BIND_FUNCTION(IcarianEngine, Profiler, StopFrame);
 }
 Profiler::~Profiler()
 {
@@ -36,12 +36,12 @@ Profiler::~Profiler()
     }
 }
 
-void Profiler::Init(RuntimeManager* a_runtimeManager)
+void Profiler::Init()
 {
     TRACE("Initializing Profiler");
     if (Instance == nullptr)
     {
-        Instance = new Profiler(a_runtimeManager);
+        Instance = new Profiler();
     }
 }
 void Profiler::Destroy()

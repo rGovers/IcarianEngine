@@ -6,8 +6,6 @@
 #include "DataTypes/TUMap.h"
 #include "Flare/IcarianAssert.h"
 
-class RuntimeManager;
-
 class Scribe
 {
 private:
@@ -25,7 +23,7 @@ protected:
 public:
     ~Scribe();
 
-    static void Init(RuntimeManager* a_runtime);
+    static void Init();
     static void Destroy();
 
     inline static std::string GetCurrentLanguage()

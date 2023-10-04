@@ -9,7 +9,6 @@
 
 class AnimationControllerBindings;
 class RuntimeFunction;
-class RuntimeManager;
 
 enum e_AnimationUpdateMode : uint16_t
 {
@@ -47,14 +46,14 @@ private:
     RuntimeFunction*                m_updateAnimatorFunc;
     RuntimeFunction*                m_updateAnimatorsFunc;
 
-    AnimationController(RuntimeManager* a_runtime);
+    AnimationController();
 
 protected:
 
 public:
     ~AnimationController();
 
-    static void Init(RuntimeManager* a_runtime);
+    static void Init();
     static void Destroy();
 
     static std::vector<uint32_t> GetAnimators(e_AnimationUpdateMode a_updateMode);

@@ -34,8 +34,6 @@
 
 static PhysicsEngineBindings* Instance = nullptr;
 
-#define PHYSICSENGINE_RUNTIME_ATTACH(ret, namespace, klass, name, code, ...) a_runtime->BindFunction(RUNTIME_FUNCTION_STRING(namespace, klass, name), (void*)RUNTIME_FUNCTION_NAME(klass, name));
-
 #define PHYSICSENGINE_BINDING_FUNCTION_TABLE(F) \
     F(uint32_t, IcarianEngine.Physics.Shapes, SphereCollisionShape, CreateSphere, { return Instance->CreateSphereShape(a_radius); }, float a_radius) \
     F(float, IcarianEngine.Physics.Shapes, SphereCollisionShape, GetRadius, { return Instance->GetSphereShapeRadius(a_addr); }, uint32_t a_addr) \
@@ -80,16 +78,15 @@ static PhysicsEngineBindings* Instance = nullptr;
 
 PHYSICSENGINE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
-PhysicsEngineBindings::PhysicsEngineBindings(PhysicsEngine* a_engine, RuntimeManager* a_runtime)
+PhysicsEngineBindings::PhysicsEngineBindings(PhysicsEngine* a_engine)
 {
     TRACE("Binding physics functions to C#");
     
     m_engine = a_engine;
-    m_runtime = a_runtime;
 
     Instance = this;
 
-    PHYSICSENGINE_BINDING_FUNCTION_TABLE(PHYSICSENGINE_RUNTIME_ATTACH);
+    PHYSICSENGINE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 }
 PhysicsEngineBindings::~PhysicsEngineBindings()
 {
@@ -680,8 +677,8 @@ MonoArray* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm::vec
     {
         IDEFER(delete[] results);
 
-        MonoClass* klass = m_runtime->GetClass("IcarianEngine.Physics", "RaycastResultS");
-        MonoArray* arr = mono_array_new(m_runtime->GetDomain(), klass, (uintptr_t)resultCount);
+        MonoClass* klass = RuntimeManager::GetClass("IcarianEngine.Physics", "RaycastResultS");
+        MonoArray* arr = mono_array_new(RuntimeManager::GetDomain(), klass, (uintptr_t)resultCount);
 
         for (uint32_t i = 0; i < resultCount; ++i)
         {
@@ -718,7 +715,7 @@ uint32_t* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float a
         return results;
     }
 
-    return nullptr;
+    return NULL;
 }
 MonoArray* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float a_radius) const
 {
@@ -728,7 +725,7 @@ MonoArray* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float 
     {
         IDEFER(delete[] data);
 
-        MonoArray* arr = mono_array_new(m_runtime->GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
+        MonoArray* arr = mono_array_new(RuntimeManager::GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
 
         for (uint32_t i = 0; i < resultCount; ++i)
         {
@@ -738,7 +735,7 @@ MonoArray* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float 
         return arr;
     }
 
-    return nullptr;
+    return NULL;
 }
 
 uint32_t* PhysicsEngineBindings::BoxCollision(const glm::mat4& a_transform, const glm::vec3& a_extents, uint32_t* a_resultCount) const
@@ -797,7 +794,7 @@ MonoArray* PhysicsEngineBindings::BoxCollision(MonoArray* a_transform, const glm
     {
         IDEFER(delete[] data);
 
-        MonoArray* arr = mono_array_new(m_runtime->GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
+        MonoArray* arr = mono_array_new(RuntimeManager::GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
 
         for (uint32_t i = 0; i < resultCount; ++i)
         {
@@ -807,7 +804,7 @@ MonoArray* PhysicsEngineBindings::BoxCollision(MonoArray* a_transform, const glm
         return arr;
     }
     
-    return nullptr;
+    return NULL;
 }
 
 uint32_t* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm::vec3& a_max, uint32_t* a_resultCount) const
@@ -850,7 +847,7 @@ MonoArray* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const gl
     {
         IDEFER(delete[] data);
 
-        MonoArray* arr = mono_array_new(m_runtime->GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
+        MonoArray* arr = mono_array_new(RuntimeManager::GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
 
         for (uint32_t i = 0; i < resultCount; ++i)
         {
@@ -860,5 +857,5 @@ MonoArray* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const gl
         return arr;
     }
 
-    return nullptr;
+    return NULL;
 }

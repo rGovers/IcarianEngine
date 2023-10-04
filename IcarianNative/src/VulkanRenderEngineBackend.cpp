@@ -162,10 +162,8 @@ static std::vector<const char*> GetRequiredExtensions(const AppWindow* a_window)
     return extensions;
 }
 
-VulkanRenderEngineBackend::VulkanRenderEngineBackend(RuntimeManager* a_runtime, RenderEngine* a_engine) : RenderEngineBackend(a_engine)
+VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : RenderEngineBackend(a_engine)
 {
-    m_runtime = a_runtime;
-
     const RenderEngine* renderEngine = GetRenderEngine();
     AppWindow* window = renderEngine->m_window;
 
@@ -407,7 +405,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RuntimeManager* a_runtime, 
     GetPhysicalDeviceProperties2KHRFunc(m_pDevice, &deviceProps2);
     m_pushDescriptorProperties = pushProperties;
 
-    m_graphicsEngine = new VulkanGraphicsEngine(a_runtime, this);
+    m_graphicsEngine = new VulkanGraphicsEngine(this);
 }
 VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
 {
@@ -483,15 +481,13 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
 
 void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 {
-    m_runtime->AttachThread();
-
     AppWindow* window = GetRenderEngine()->m_window;
     {
         PROFILESTACK("Swap Setup");
 
         if (m_swapchain == nullptr)
         {
-            m_swapchain = new VulkanSwapchain(this, window, m_runtime);
+            m_swapchain = new VulkanSwapchain(this, window);
             m_graphicsEngine->SetSwapchain(m_swapchain);
         }
 

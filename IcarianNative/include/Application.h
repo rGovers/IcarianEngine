@@ -22,7 +22,6 @@ private:
     Config*                  m_config;
     InputManager*            m_inputManager;
     ObjectManager*           m_objectManager;
-    RuntimeManager*          m_runtime;
 
     PhysicsEngine*           m_physicsEngine;
     RenderEngine*            m_renderEngine;
@@ -77,9 +76,5 @@ public:
     inline InputManager* GetInputManager() const
     {
         return m_inputManager;
-    }
-    inline RuntimeManager* GetRuntime() const
-    {
-        return m_runtime;
     }
 };

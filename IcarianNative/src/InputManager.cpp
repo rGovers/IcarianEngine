@@ -6,8 +6,6 @@
 
 static InputManager* Instance = nullptr;
 
-#define INPUTMANAGER_RUNTIME_ATTACH(ret, namespace, klass, name, code, ...) a_runtime->BindFunction(RUNTIME_FUNCTION_STRING(namespace, klass, name), (void*)RUNTIME_FUNCTION_NAME(klass, name));
-
 #define INPUTMANAGER_BINDING_FUNCTION_TABLE(F) \
     F(glm::vec2, IcarianEngine, Input, GetCursorPos, { return Instance->GetCursorPos(); }) \
     \
@@ -21,7 +19,7 @@ static InputManager* Instance = nullptr;
 
 INPUTMANAGER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
-InputManager::InputManager(RuntimeManager* a_runtime)
+InputManager::InputManager()
 {
     Instance = this;
 
@@ -30,12 +28,12 @@ InputManager::InputManager(RuntimeManager* a_runtime)
     m_mouseButton = 0;
     m_curPos = glm::vec2(0.0f);
 
-    INPUTMANAGER_BINDING_FUNCTION_TABLE(INPUTMANAGER_RUNTIME_ATTACH);
+    INPUTMANAGER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 
-    m_mousePressedFunc = a_runtime->GetFunction("IcarianEngine", "Input", ":MousePressedEvent(uint)");
-    m_mouseReleasedFunc = a_runtime->GetFunction("IcarianEngine", "Input", ":MouseReleasedEvent(uint)");
-    m_keyPressedFunc = a_runtime->GetFunction("IcarianEngine", "Input", ":KeyPressedEvent(uint)");
-    m_keyReleasedFunc = a_runtime->GetFunction("IcarianEngine", "Input", ":KeyReleasedEvent(uint)");
+    m_mousePressedFunc = RuntimeManager::GetFunction("IcarianEngine", "Input", ":MousePressedEvent(uint)");
+    m_mouseReleasedFunc = RuntimeManager::GetFunction("IcarianEngine", "Input", ":MouseReleasedEvent(uint)");
+    m_keyPressedFunc = RuntimeManager::GetFunction("IcarianEngine", "Input", ":KeyPressedEvent(uint)");
+    m_keyReleasedFunc = RuntimeManager::GetFunction("IcarianEngine", "Input", ":KeyReleasedEvent(uint)");
 }
 InputManager::~InputManager()
 {
@@ -126,7 +124,7 @@ void InputManager::SetKeyboardKey(FlareBase::e_KeyCode a_keyCode, bool a_state)
 
 void InputManager::Update()
 {
-    // Required for frame events can get multiple press and release events cause majority of time engine runs faster then editor 
+    // Required for frame events can get multiple press and release events cause majority of the time the engine runs faster then the editor 
     for (uint32_t i = 0; i < FlareBase::MouseButton_Last; ++i)
     {
         if (m_mouseButton & 0b1 << (i * 2))

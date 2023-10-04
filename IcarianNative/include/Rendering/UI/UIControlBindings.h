@@ -16,7 +16,7 @@ private:
 protected:
 
 public:
-    UIControlBindings(UIControl* a_uiControl, RuntimeManager* a_runtime);
+    UIControlBindings(UIControl* a_uiControl);
     ~UIControlBindings();
 
     uint32_t CreateCanvas(const glm::vec2& a_refResolution) const;

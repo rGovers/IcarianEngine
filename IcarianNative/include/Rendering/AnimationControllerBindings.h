@@ -6,19 +6,15 @@
 
 #include "Rendering/AnimationController.h"
 
-class RuntimeManager;
-
 class AnimationControllerBindings
 {
 private:
-    RuntimeManager*      m_runtime;
-
     AnimationController* m_controller;
     
 protected:
 
 public:
-    AnimationControllerBindings(AnimationController* a_controller, RuntimeManager* a_runtime);
+    AnimationControllerBindings(AnimationController* a_controller);
     ~AnimationControllerBindings();
 
     uint32_t GenerateAnimatorBuffer() const;

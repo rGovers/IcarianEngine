@@ -4,15 +4,13 @@
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 
-IcContactListener::IcContactListener(PhysicsEngine* a_engine, RuntimeManager* a_runtime)
+IcContactListener::IcContactListener(PhysicsEngine* a_engine)
 {
     m_engine = a_engine;
 
-    m_runtime = a_runtime;
-
-    m_onCollisionEnterFunc = a_runtime->GetFunction("IcarianEngine.Physics", "PhysicsBody", ":OnCollisionEnter");
-    m_onCollisionStayFunc = a_runtime->GetFunction("IcarianEngine.Physics", "PhysicsBody", ":OnCollisionStay");
-    m_onCollisionExitFunc = a_runtime->GetFunction("IcarianEngine.Physics", "PhysicsBody", ":OnCollisionExit");
+    m_onCollisionEnterFunc = RuntimeManager::GetFunction("IcarianEngine.Physics", "PhysicsBody", ":OnCollisionEnter");
+    m_onCollisionStayFunc = RuntimeManager::GetFunction("IcarianEngine.Physics", "PhysicsBody", ":OnCollisionStay");
+    m_onCollisionExitFunc = RuntimeManager::GetFunction("IcarianEngine.Physics", "PhysicsBody", ":OnCollisionExit");
 }
 IcContactListener::~IcContactListener()
 {

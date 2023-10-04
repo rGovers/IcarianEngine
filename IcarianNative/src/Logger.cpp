@@ -2,35 +2,33 @@
 
 #include <iostream>
 
+#include "Flare/IcarianDefer.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
 Logger::Callback* Logger::CallbackFunc = nullptr;
 
-FLARE_MONO_EXPORT(void, Logger_PushMessage, MonoString* a_string)
+RUNTIME_FUNCTION(void, Logger, PushMessage, 
 {
     char* str = mono_string_to_utf8(a_string);
+    IDEFER(mono_free(str));
 
     Logger::Message(str);
-
-    mono_free(str);
-}
-FLARE_MONO_EXPORT(void, Logger_PushWarning, MonoString* a_string)
+}, MonoString* a_string)
+RUNTIME_FUNCTION(void, Logger, PushWarning, 
 {
     char* str = mono_string_to_utf8(a_string);
+    IDEFER(mono_free(str));
 
     Logger::Warning(str);
-
-    mono_free(str);
-}
-FLARE_MONO_EXPORT(void, Logger_PushError, MonoString* a_string)
+}, MonoString* a_string)
+RUNTIME_FUNCTION(void, Logger, PushError, 
 {
     char* str = mono_string_to_utf8(a_string);
+    IDEFER(mono_free(str));
 
     Logger::Error(str);
-
-    mono_free(str);
-}
+}, MonoString* a_string)
 
 void Logger::Message(const std::string_view& a_msg)
 {
@@ -59,11 +57,11 @@ void Logger::Error(const std::string_view& a_msg)
     
     std::cout << "FEL: " << a_msg << "\n";
 }
-void Logger::InitRuntime(RuntimeManager* a_runtime)
+void Logger::Init()
 {
     TRACE("Initializing C# Logger");
 
-    a_runtime->BindFunction("IcarianEngine.Logger::PushMessage", (void*)Logger_PushMessage);
-    a_runtime->BindFunction("IcarianEngine.Logger::PushWarning", (void*)Logger_PushWarning);
-    a_runtime->BindFunction("IcarianEngine.Logger::PushError", (void*)Logger_PushError);
+    BIND_FUNCTION(IcarianEngine, Logger, PushMessage);
+    BIND_FUNCTION(IcarianEngine, Logger, PushWarning);
+    BIND_FUNCTION(IcarianEngine, Logger, PushError);
 }

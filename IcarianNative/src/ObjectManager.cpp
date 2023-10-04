@@ -8,8 +8,6 @@
 
 static ObjectManager* OManager = nullptr;
 
-#define OBJECTMANAGER_RUNTIME_ATTACH(ret, namespace, klass, name, code, ...) a_runtime->BindFunction(RUNTIME_FUNCTION_STRING(namespace, klass, name), (void*)RUNTIME_FUNCTION_NAME(klass, name));
-
 #define OBJECTMANAGER_BINDING_FUNCTION_TABLE(F) \
     F(uint32_t, IcarianEngine, Transform, GenerateTransformBuffer, { return OManager->CreateTransformBuffer(); }) \
     F(TransformBuffer, IcarianEngine, Transform, GetTransformBuffer, { return OManager->GetTransformBuffer(a_addr); }, uint32_t a_addr) \
@@ -66,16 +64,16 @@ RUNTIME_FUNCTION(void, Transform, SetTransformMatrix,
 
 OBJECTMANAGER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
-ObjectManager::ObjectManager(RuntimeManager* a_runtime)
+ObjectManager::ObjectManager()
 {
     OManager = this;
 
     TRACE("Binding Object functions to C#");
-    OBJECTMANAGER_BINDING_FUNCTION_TABLE(OBJECTMANAGER_RUNTIME_ATTACH);
+    OBJECTMANAGER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 
-    BIND_FUNCTION(a_runtime, IcarianEngine, Transform, GetTransformMatrix);
-    BIND_FUNCTION(a_runtime, IcarianEngine, Transform, GetGlobalTransformMatrix);
-    BIND_FUNCTION(a_runtime, IcarianEngine, Transform, SetTransformMatrix);
+    BIND_FUNCTION(IcarianEngine, Transform, GetTransformMatrix);
+    BIND_FUNCTION(IcarianEngine, Transform, GetGlobalTransformMatrix);
+    BIND_FUNCTION(IcarianEngine, Transform, SetTransformMatrix);
 }
 ObjectManager::~ObjectManager()
 {

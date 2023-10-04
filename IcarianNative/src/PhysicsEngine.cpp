@@ -53,11 +53,11 @@ static bool AssertImpl(const char* a_expression, const char* a_message, const ch
     return true;
 }
 
-PhysicsEngine::PhysicsEngine(Config* a_config, RuntimeManager* a_runtime, ObjectManager* a_objectManager) 
+PhysicsEngine::PhysicsEngine(Config* a_config, ObjectManager* a_objectManager) 
 {
     m_objectManager = a_objectManager;
 
-    m_fixedUpdateFunction = a_runtime->GetFunction("IcarianEngine", "Program", ":FixedUpdate(double,double)");
+    m_fixedUpdateFunction = RuntimeManager::GetFunction("IcarianEngine", "Program", ":FixedUpdate(double,double)");
 
     m_fixedTimeStep = a_config->GetFixedTimeStep();
     m_fixedTimeTimer = 0.0;
@@ -83,13 +83,13 @@ PhysicsEngine::PhysicsEngine(Config* a_config, RuntimeManager* a_runtime, Object
     m_physicsSystem = new JPH::PhysicsSystem();
     m_physicsSystem->Init((JPH::uint)MaxBodies, 0, (JPH::uint)MaxBodies, (JPH::uint)MaxContactConstraints, *m_broadPhase, *m_objectBroad, *m_pairFilter);
 
-    m_contactListener = new IcContactListener(this, a_runtime);
+    m_contactListener = new IcContactListener(this);
     m_activationListener = new IcBodyActivationListener();
 
     m_physicsSystem->SetContactListener(m_contactListener);
     m_physicsSystem->SetGravity(JPH::Vec3(0.0f, 9.807f, 0.0f));
 
-    m_runtimeBindings = new PhysicsEngineBindings(this, a_runtime);
+    m_runtimeBindings = new PhysicsEngineBindings(this);
 }
 PhysicsEngine::~PhysicsEngine()
 {

@@ -51,7 +51,7 @@ private:
 protected:
 
 public:
-    VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow* a_window, RuntimeManager* a_runtime);
+    VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow* a_window);
     ~VulkanSwapchain();
 
     static SwapChainSupportInfo QuerySwapChainSupport(const vk::PhysicalDevice& a_device, const vk::SurfaceKHR& a_surface);

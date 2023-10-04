@@ -9,8 +9,6 @@
 
 static AnimationControllerBindings* Instance = nullptr;
 
-#define ANIMATIONCONTROLLER_RUNTIME_ATTACH(ret, namespace, klass, name, code, ...) BIND_FUNCTION(m_runtime, namespace, klass, name);
-
 struct RuntimeBoneData
 {
     MonoArray* Names;
@@ -57,7 +55,7 @@ RUNTIME_FUNCTION(RuntimeBoneData, Skeleton, LoadBoneData,
     std::vector<BoneData> bones;
     if (FlareBase::ColladaLoader_LoadBoneFile(str, &bones))
     {
-        MonoDomain* domain = mono_domain_get();
+        MonoDomain* domain = RuntimeManager::GetDomain();
         MonoClass* fClass = mono_get_single_class();
 
         const uint32_t count = (uint32_t)bones.size();
@@ -98,20 +96,18 @@ RUNTIME_FUNCTION(void, SkinnedMeshRenderer, PushBoneData,
     Instance->PushSkeletonBoneData(a_addr, a_transformIndex, bindPose);
 }, uint32_t a_addr, uint32_t a_transformIndex, MonoArray* a_bindPose)
 
-AnimationControllerBindings::AnimationControllerBindings(AnimationController* a_controller, RuntimeManager* a_runtime)
+AnimationControllerBindings::AnimationControllerBindings(AnimationController* a_controller)
 {
     TRACE("Binding AnimationController functions to C#");
     Instance = this;
-    
-    m_runtime = a_runtime;
 
     m_controller = a_controller;
 
-    BIND_FUNCTION(m_runtime, IcarianEngine.Rendering.Animation, Skeleton, LoadBoneData);
+    BIND_FUNCTION(IcarianEngine.Rendering.Animation, Skeleton, LoadBoneData);
 
-    BIND_FUNCTION(m_runtime, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, PushBoneData);
+    BIND_FUNCTION(IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, PushBoneData);
 
-    ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(ANIMATIONCONTROLLER_RUNTIME_ATTACH);
+    ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 }
 AnimationControllerBindings::~AnimationControllerBindings()
 {
@@ -178,10 +174,10 @@ MonoArray* AnimationControllerBindings::LoadAnimationClip(const std::filesystem:
 {
     MonoArray* data = NULL;
 
-    MonoDomain* domain = m_runtime->GetDomain();
-    MonoClass* animationDataClass = m_runtime->GetClass("IcarianEngine.Rendering.Animation", "AnimationData");
+    MonoDomain* domain = RuntimeManager::GetDomain();
+    MonoClass* animationDataClass = RuntimeManager::GetClass("IcarianEngine.Rendering.Animation", "AnimationData");
     ICARIAN_ASSERT(animationDataClass != NULL);
-    MonoClass* animationFrameClass = m_runtime->GetClass("IcarianEngine.Rendering.Animation", "AnimationFrame");
+    MonoClass* animationFrameClass = RuntimeManager::GetClass("IcarianEngine.Rendering.Animation", "AnimationFrame");
     ICARIAN_ASSERT(animationFrameClass != NULL);
     MonoClass* floatClass = mono_get_single_class();
 

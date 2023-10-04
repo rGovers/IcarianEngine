@@ -42,14 +42,12 @@ private:
 
     RuntimeFunction*     m_frameUpdateFunction;
 
-    RuntimeManager*      m_runtime;
-
     void Update(double a_delta, double a_time);
     void Run();
 protected:
 
 public:
-    RenderEngine(RuntimeManager* a_runtime, ObjectManager* a_objectManager, AppWindow* a_window, Config* a_config);
+    RenderEngine(ObjectManager* a_objectManager, AppWindow* a_window, Config* a_config);
     ~RenderEngine();
 
     void Start();

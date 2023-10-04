@@ -16,8 +16,9 @@ class RuntimeFunction;
 #define RUNTIME_FUNCTION(ret, klass, name, code, ...) FLARE_MONO_EXPORT(ret, RUNTIME_FUNCTION_NAME(klass, name), __VA_ARGS__) code
 
 #define RUNTIME_FUNCTION_DEFINITION(ret, namespace, klass, name, code, ...) RUNTIME_FUNCTION(ret, klass, name, code, __VA_ARGS__)
+#define RUNTIME_FUNCTION_ATTACH(ret, namespace, klass, name, code, ...) BIND_FUNCTION(namespace, klass, name);
 
-#define BIND_FUNCTION(runtime, namespace, klass, name) runtime->BindFunction(RUNTIME_FUNCTION_STRING(namespace, klass, name), (void*)RUNTIME_FUNCTION_NAME(klass, name))
+#define BIND_FUNCTION(namespace, klass, name) RuntimeManager::BindFunction(RUNTIME_FUNCTION_STRING(namespace, klass, name), (void*)RUNTIME_FUNCTION_NAME(klass, name))
 
 class RuntimeManager
 {
@@ -32,25 +33,25 @@ private:
     MonoMethod*   m_updateMethod;
     MonoMethod*   m_shutdownMethod;
 
+    RuntimeManager();
 protected:
 
 public:
-    RuntimeManager();
     ~RuntimeManager();
 
-    void BindFunction(const std::string_view& a_location, void* a_function);
+    static void Init();
+    static void Destroy();
 
-    void Exec(int32_t a_argc, char* a_argv[]);
-    void Update(double a_delta, double a_time);
+    static void BindFunction(const std::string_view& a_location, void* a_function);
 
-    void AttachThread();
+    static void Exec(int32_t a_argc, char* a_argv[]);
+    static void Update(double a_delta, double a_time);
 
-    inline MonoDomain* GetDomain() const
-    {
-        return m_domain;
-    }
+    static void AttachThread();
 
-    MonoClass* GetClass(const std::string_view& a_namespace, const std::string_view& a_name) const;
+    static MonoDomain* GetDomain();
 
-    RuntimeFunction* GetFunction(const std::string_view& a_namespace, const std::string_view& a_class, const std::string_view& a_method) const;
+    static MonoClass* GetClass(const std::string_view& a_namespace, const std::string_view& a_name);
+
+    static RuntimeFunction* GetFunction(const std::string_view& a_namespace, const std::string_view& a_class, const std::string_view& a_method);
 };

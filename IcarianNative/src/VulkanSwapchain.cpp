@@ -263,12 +263,12 @@ void VulkanSwapchain::Destroy()
     }
 }
 
-VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow* a_window, RuntimeManager* a_runtime)
+VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow* a_window)
 {
     m_window = a_window;
     m_engine = a_engine;
     
-    m_resizeFunc = a_runtime->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":ResizeS(uint,uint)");
+    m_resizeFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":ResizeS(uint,uint)");
 
     const vk::Instance instance = m_engine->GetInstance();
     const vk::Device device = m_engine->GetLogicalDevice();

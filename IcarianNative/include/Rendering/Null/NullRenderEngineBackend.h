@@ -2,8 +2,6 @@
 
 #include "Rendering/RenderEngineBackend.h"
 
-class RuntimeManager;
-
 class NullRenderEngineBackend : public RenderEngineBackend
 {
 private:
@@ -11,7 +9,7 @@ private:
 protected:
 
 public:
-    NullRenderEngineBackend(RuntimeManager* a_runtime, RenderEngine* a_engine);
+    NullRenderEngineBackend(RenderEngine* a_engine);
     virtual ~NullRenderEngineBackend();
 
     virtual uint32_t GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data);

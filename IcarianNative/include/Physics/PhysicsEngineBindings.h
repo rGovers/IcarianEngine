@@ -6,9 +6,9 @@
 #include <cstdint>
 #include <Jolt/Core/Core.h>
 
-#include "Runtime/RuntimeManager.h"
-
 class PhysicsEngine;
+
+#include "Runtime/RuntimeManager.h"
 
 struct RaycastResult
 {
@@ -27,14 +27,13 @@ class PhysicsEngineBindings
 {
 private:
     PhysicsEngine*  m_engine;
-    RuntimeManager* m_runtime;
 
     void AddBody(JPH::uint32 a_id, uint32_t a_index) const;
     
 protected:
 
 public:
-    PhysicsEngineBindings(PhysicsEngine* a_engine, RuntimeManager* a_runtime);
+    PhysicsEngineBindings(PhysicsEngine* a_engine);
     ~PhysicsEngineBindings();
 
     uint32_t CreateSphereShape(float a_radius) const;

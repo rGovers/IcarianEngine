@@ -10,7 +10,6 @@
 #include <mutex>
 
 class AppWindow;
-class RuntimeManager;
 class VulkanGraphicsEngine;
 class VulkanSwapchain;
 
@@ -29,7 +28,6 @@ public:
 class VulkanRenderEngineBackend : public RenderEngineBackend
 {
 private:
-    RuntimeManager*                               m_runtime;
     VulkanGraphicsEngine*                         m_graphicsEngine;
     VulkanSwapchain*                              m_swapchain = nullptr;
                 
@@ -65,7 +63,7 @@ private:
 protected:
 
 public:
-    VulkanRenderEngineBackend(RuntimeManager* a_runtime, RenderEngine* a_engine);
+    VulkanRenderEngineBackend(RenderEngine* a_engine);
     virtual ~VulkanRenderEngineBackend();
 
     virtual void Update(double a_delta, double a_time);

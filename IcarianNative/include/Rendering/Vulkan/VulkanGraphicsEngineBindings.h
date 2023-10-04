@@ -3,7 +3,6 @@
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include <string_view>
 
-class RuntimeManager;
 class VulkanGraphicsEngine;
 class VulkanPixelShader;
 class VulkanVertexShader;
@@ -25,7 +24,7 @@ private:
 protected:
 
 public:
-    VulkanGraphicsEngineBindings(RuntimeManager* a_runtime, VulkanGraphicsEngine* a_graphicsEngine);
+    VulkanGraphicsEngineBindings(VulkanGraphicsEngine* a_graphicsEngine);
     ~VulkanGraphicsEngineBindings();
 
     uint32_t GenerateFVertexShaderAddr(const std::string_view& a_str) const;

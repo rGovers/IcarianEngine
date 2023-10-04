@@ -47,6 +47,8 @@ static void* RuntimeDLSymbol(void* a_handle, const char* a_name, char** a_error,
 }
 #endif
 
+static RuntimeManager* Instance = nullptr;
+
 RuntimeManager::RuntimeManager()
 {
     mono_config_parse(NULL);
@@ -99,9 +101,25 @@ RuntimeManager::~RuntimeManager()
 #endif
 }
 
+void RuntimeManager::Init()
+{
+    if (Instance == nullptr)
+    {
+        Instance = new RuntimeManager();
+    }
+}
+void RuntimeManager::Destroy()
+{
+    if (Instance != nullptr)
+    {
+        delete Instance;
+        Instance = nullptr;
+    }
+}
+
 void RuntimeManager::Exec(int a_argc, char* a_argv[])
 {
-    const int retVal = mono_jit_exec(m_domain, m_assembly, a_argc, a_argv);
+    const int retVal = mono_jit_exec(Instance->m_domain, Instance->m_assembly, a_argc, a_argv);
     ICARIAN_ASSERT(retVal == 0);
 }
 void RuntimeManager::Update(double a_delta, double a_time)
@@ -114,7 +132,7 @@ void RuntimeManager::Update(double a_delta, double a_time)
         &a_time
     };
 
-    mono_runtime_invoke(m_updateMethod, NULL, args, NULL);
+    mono_runtime_invoke(Instance->m_updateMethod, NULL, args, NULL);
 }
 
 void RuntimeManager::BindFunction(const std::string_view& a_location, void* a_function)
@@ -124,17 +142,22 @@ void RuntimeManager::BindFunction(const std::string_view& a_location, void* a_fu
 
 void RuntimeManager::AttachThread()
 {
-    mono_jit_thread_attach(m_domain);
+    mono_jit_thread_attach(Instance->m_domain);
 }
 
-MonoClass* RuntimeManager::GetClass(const std::string_view& a_namespace, const std::string_view& a_name) const
+MonoDomain* RuntimeManager::GetDomain()
 {
-    return mono_class_from_name(m_image, a_namespace.data(), a_name.data());
+    return Instance->m_domain;
 }
 
-RuntimeFunction* RuntimeManager::GetFunction(const std::string_view& a_namespace, const std::string_view& a_class, const std::string_view& a_method) const
+MonoClass* RuntimeManager::GetClass(const std::string_view& a_namespace, const std::string_view& a_name)
 {
-    MonoClass* cls = mono_class_from_name(m_image, a_namespace.data(), a_class.data());
+    return mono_class_from_name(Instance->m_image, a_namespace.data(), a_name.data());
+}
+
+RuntimeFunction* RuntimeManager::GetFunction(const std::string_view& a_namespace, const std::string_view& a_class, const std::string_view& a_method)
+{
+    MonoClass* cls = mono_class_from_name(Instance->m_image, a_namespace.data(), a_class.data());
     ICARIAN_ASSERT(cls != NULL);
 
     MonoMethodDesc* desc = mono_method_desc_new(a_method.data(), 0);

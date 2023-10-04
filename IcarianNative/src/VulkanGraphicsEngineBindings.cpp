@@ -31,8 +31,6 @@
 
 static VulkanGraphicsEngineBindings* Engine = nullptr;
 
-#define VULKANGRAPHICS_RUNTIME_ATTACH(ret, namespace, klass, name, code, ...) a_runtime->BindFunction(RUNTIME_FUNCTION_STRING(namespace, klass, name), (void*)RUNTIME_FUNCTION_NAME(klass, name));
-
 // The lazy part of me won against the part that wants to write clean code
 // My apologies to the poor soul that has to decipher this definition
 #define VULKANGRAPHICS_BINDING_FUNCTION_TABLE(F) \
@@ -453,35 +451,35 @@ RUNTIME_FUNCTION(void, RenderPipeline, SetLightLVP,
     Engine->SetLightLVP(lightLVP);
 }, MonoArray* a_lightLVP)
 
-VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(RuntimeManager* a_runtime, VulkanGraphicsEngine* a_graphicsEngine)
+VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(VulkanGraphicsEngine* a_graphicsEngine)
 {
     m_graphicsEngine = a_graphicsEngine;
 
     Engine = this;
 
     TRACE("Binding Vulkan functions to C#");
-    VULKANGRAPHICS_BINDING_FUNCTION_TABLE(VULKANGRAPHICS_RUNTIME_ATTACH)
+    VULKANGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH)
 
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, VertexShader, GenerateFromFile);
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, PixelShader, GenerateFromFile);
+    BIND_FUNCTION(IcarianEngine.Rendering, VertexShader, GenerateFromFile);
+    BIND_FUNCTION(IcarianEngine.Rendering, PixelShader, GenerateFromFile);
 
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Camera, GetProjectionMatrix);
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Camera, GetProjectionMatrixNF);
+    BIND_FUNCTION(IcarianEngine.Rendering, Camera, GetProjectionMatrix);
+    BIND_FUNCTION(IcarianEngine.Rendering, Camera, GetProjectionMatrixNF);
 
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.Lighting, DirectionalLight, GetShadowMaps);
+    BIND_FUNCTION(IcarianEngine.Rendering.Lighting, DirectionalLight, GetShadowMaps);
 
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Material, GenerateProgram);
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Material, DestroyProgram);
+    BIND_FUNCTION(IcarianEngine.Rendering, Material, GenerateProgram);
+    BIND_FUNCTION(IcarianEngine.Rendering, Material, DestroyProgram);
     
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Texture, GenerateFromFile);
+    BIND_FUNCTION(IcarianEngine.Rendering, Texture, GenerateFromFile);
 
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Model, GenerateModel);
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Model, GenerateFromFile);
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, Model, GenerateSkinnedFromFile);
+    BIND_FUNCTION(IcarianEngine.Rendering, Model, GenerateModel);
+    BIND_FUNCTION(IcarianEngine.Rendering, Model, GenerateFromFile);
+    BIND_FUNCTION(IcarianEngine.Rendering, Model, GenerateSkinnedFromFile);
 
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, RenderCommand, DrawModel);
+    BIND_FUNCTION(IcarianEngine.Rendering, RenderCommand, DrawModel);
 
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering, RenderPipeline, SetLightLVP);
+    BIND_FUNCTION(IcarianEngine.Rendering, RenderPipeline, SetLightLVP);
 }
 VulkanGraphicsEngineBindings::~VulkanGraphicsEngineBindings()
 {

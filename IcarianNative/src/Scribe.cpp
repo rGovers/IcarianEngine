@@ -3,52 +3,47 @@
 #include <codecvt>
 #include <locale>
 
+#include "Flare/IcarianDefer.h"
 #include "Runtime/RuntimeManager.h"
 
 Scribe* Scribe::Instance = nullptr;
 
 static std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> converter;
 
-FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(Scribe, SetInternalLanguage), MonoString* a_language)
+RUNTIME_FUNCTION(void, Scribe, SetInternalLanguage, 
 {
     char* language = mono_string_to_utf8(a_language);
+    IDEFER(mono_free(language));
 
     Scribe::SetCurrentLanguage(language);
-
-    mono_free(language);
-}
-FLARE_MONO_EXPORT(MonoString*, RUNTIME_FUNCTION_NAME(Scribe, GetInternalLanguage))
+}, MonoString* a_language)
+RUNTIME_FUNCTION(MonoString*, Scribe, GetInternalLanguage,
 {
     return mono_string_new_wrapper(Scribe::GetCurrentLanguage().c_str());
-}
+})
 
-FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Scribe, GetFontAddr), MonoString* a_key)
+RUNTIME_FUNCTION(uint32_t, Scribe, GetFontAddr, 
 {
     char* key = mono_string_to_utf8(a_key);
+    IDEFER(mono_free(key));
 
-    const uint32_t ret = Scribe::GetFont(key);
-
-    mono_free(key);
-
-    return ret;
-}
-FLARE_MONO_EXPORT(MonoString*, RUNTIME_FUNCTION_NAME(Scribe, GetString), MonoString* a_key)
+    return Scribe::GetFont(key);
+}, MonoString* a_key);
+RUNTIME_FUNCTION(MonoString*, Scribe, GetString,
 {
     char* key = mono_string_to_utf8(a_key);
+    IDEFER(mono_free(key));
 
     const std::u32string str = Scribe::GetString(key);
-    
-    MonoString* mStr = nullptr;
+
     if (!str.empty())
     {
-        mStr = mono_string_from_utf32((mono_unichar4*)str.c_str());
+        return mono_string_from_utf32((mono_unichar4*)str.c_str());
     }
 
-    mono_free(key);
-
-    return mStr;
-}
-FLARE_MONO_EXPORT(MonoString*, RUNTIME_FUNCTION_NAME(Scribe, GetStringFormated), MonoString* a_key, MonoArray* a_args)
+    return NULL;
+}, MonoString* a_key)
+RUNTIME_FUNCTION(MonoString*, Scribe, GetStringFormated, 
 {
     const uintptr_t size = mono_array_length(a_args);
 
@@ -61,11 +56,8 @@ FLARE_MONO_EXPORT(MonoString*, RUNTIME_FUNCTION_NAME(Scribe, GetStringFormated),
             args[i] = (char32_t*)mono_string_to_utf32(mono_array_get(a_args, MonoString*, i));
         }
     }
-    
-    char* key = mono_string_to_utf8(a_key);
 
-    const std::u32string str = Scribe::GetStringFormated(key, args, (uint32_t)size);
-
+    IDEFER(
     if (args != nullptr)
     {
         for (uint32_t i = 0; i < size; ++i)
@@ -74,46 +66,45 @@ FLARE_MONO_EXPORT(MonoString*, RUNTIME_FUNCTION_NAME(Scribe, GetStringFormated),
         }
 
         delete[] args;
-    }
+    });
 
-    MonoString* mStr = nullptr;
+    char* key = mono_string_to_utf8(a_key);
+    IDEFER(mono_free(key));
+
+    const std::u32string str = Scribe::GetStringFormated(key, args, (uint32_t)size);
+
     if (!str.empty())
     {
-        mStr = mono_string_from_utf32((mono_unichar4*)str.c_str());
+        return mono_string_from_utf32((mono_unichar4*)str.c_str());
     }
 
-    return mStr;
-}
+    return NULL;
+}, MonoString* a_key, MonoArray* a_args)
 
-FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(Scribe, SetFont), MonoString* a_key, uint32_t a_value)
+RUNTIME_FUNCTION(void, Scribe, SetFont,
 {
     char* key = mono_string_to_utf8(a_key);
+    IDEFER(mono_free(key));
 
     Scribe::SetFont(key, a_value);
-
-    mono_free(key);
-}
-FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(Scribe, SetString), MonoString* a_key, MonoString* a_value)
+}, MonoString* a_key, uint32_t a_value)
+RUNTIME_FUNCTION(void, Scribe, SetString,
 {
     char* key = mono_string_to_utf8(a_key);
+    IDEFER(mono_free(key));
     char32_t* value = (char32_t*)mono_string_to_utf32(a_value);
+    IDEFER(mono_free(value));
 
     Scribe::SetString(key, value);
+}, MonoString* a_key, MonoString* a_value)
 
-    mono_free(key);
-    mono_free(value);
-}
-
-FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Scribe, Exists), MonoString* a_key)
+RUNTIME_FUNCTION(uint32_t, Scribe, Exists,
 {
     char* key = mono_string_to_utf8(a_key);
+    IDEFER(mono_free(key));
 
-    const bool exists = Scribe::KeyExists(key);
-
-    mono_free(key);
-
-    return (uint32_t)exists;
-}
+    return (uint32_t)Scribe::KeyExists(key);
+}, MonoString* a_key)
 
 Scribe::Scribe()
 {
@@ -124,23 +115,23 @@ Scribe::~Scribe()
 
 }
 
-void Scribe::Init(RuntimeManager* a_runtime)
+void Scribe::Init()
 {
     if (Instance == nullptr)
     {
         Instance = new Scribe();
 
-        BIND_FUNCTION(a_runtime, IcarianEngine, Scribe, SetInternalLanguage);
-        BIND_FUNCTION(a_runtime, IcarianEngine, Scribe, GetInternalLanguage);
+        BIND_FUNCTION(IcarianEngine, Scribe, SetInternalLanguage);
+        BIND_FUNCTION(IcarianEngine, Scribe, GetInternalLanguage);
 
-        BIND_FUNCTION(a_runtime, IcarianEngine, Scribe, GetFontAddr);
-        BIND_FUNCTION(a_runtime, IcarianEngine, Scribe, GetString);
-        BIND_FUNCTION(a_runtime, IcarianEngine, Scribe, GetStringFormated);
+        BIND_FUNCTION(IcarianEngine, Scribe, GetFontAddr);
+        BIND_FUNCTION(IcarianEngine, Scribe, GetString);
+        BIND_FUNCTION(IcarianEngine, Scribe, GetStringFormated);
 
-        BIND_FUNCTION(a_runtime, IcarianEngine, Scribe, SetFont);
-        BIND_FUNCTION(a_runtime, IcarianEngine, Scribe, SetString);
+        BIND_FUNCTION(IcarianEngine, Scribe, SetFont);
+        BIND_FUNCTION(IcarianEngine, Scribe, SetString);
 
-        BIND_FUNCTION(a_runtime, IcarianEngine, Scribe, Exists);
+        BIND_FUNCTION(IcarianEngine, Scribe, Exists);
     }
 }
 void Scribe::Destroy()

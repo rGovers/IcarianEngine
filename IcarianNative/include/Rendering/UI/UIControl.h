@@ -7,7 +7,6 @@
 #include "DataTypes/TArray.h"
 
 class RuntimeFunction;
-class RuntimeManager;
 class UIControlBindings;
 class UIElement;
 
@@ -28,7 +27,7 @@ private:
     RuntimeFunction*     m_onPressed;
     RuntimeFunction*     m_onReleased;
 
-    UIControl(RuntimeManager* a_runtime);
+    UIControl();
     
     void SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos, const glm::vec2& a_scale);
     bool SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos, const glm::vec2& a_scale);
@@ -39,7 +38,7 @@ protected:
 public:
     ~UIControl();
 
-    static void Init(RuntimeManager* a_runtime);
+    static void Init();
     static void Destroy();
 
     static CanvasBuffer GetCanvas(uint32_t a_addr);

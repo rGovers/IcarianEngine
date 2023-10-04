@@ -10,8 +10,6 @@
 
 #include "DataTypes/TArray.h"
 
-class RuntimeManager;
-
 struct TransformBuffer;
 
 class ObjectManager
@@ -23,7 +21,7 @@ private:
 protected:
 
 public:
-    ObjectManager(RuntimeManager* a_runtime);
+    ObjectManager();
     ~ObjectManager();
 
     uint32_t CreateTransformBuffer();

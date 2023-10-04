@@ -11,8 +11,6 @@ enum e_LoggerMessageType : uint32_t
     LoggerMessageType_Error
 };
 
-class RuntimeManager;
-
 class Logger
 {
 public:
@@ -28,5 +26,5 @@ public:
     static void Warning(const std::string_view& a_msg);
     static void Error(const std::string_view& a_msg);
 
-    static void InitRuntime(RuntimeManager* a_runtime);
+    static void Init();
 };

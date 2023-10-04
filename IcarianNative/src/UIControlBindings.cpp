@@ -13,8 +13,6 @@
 
 static UIControlBindings* Instance = nullptr;
 
-#define UICONTROL_RUNTIME_ATTACH(ret, namespace, klass, name, code, ...) BIND_FUNCTION(a_runtime, namespace, klass, name);
-
 #define UICONTROL_BINDING_FUNCTION_TABLE(F) \
     F(uint32_t, IcarianEngine.Rendering.UI, Canvas, CreateCanvas, { return Instance->CreateCanvas(a_refRes); }, glm::vec2 a_refRes) \
     F(void, IcarianEngine.Rendering.UI, Canvas, DestroyCanvas, { Instance->DestroyCanvas(a_addr); }, uint32_t a_addr) \
@@ -103,22 +101,22 @@ RUNTIME_FUNCTION(void, TextUIElement, SetText,
     Instance->SetTextElementText(a_addr, (char32_t*)str);
 }, uint32_t a_addr, MonoString* a_str)
 
-UIControlBindings::UIControlBindings(UIControl* a_uiControl, RuntimeManager* a_runtime)
+UIControlBindings::UIControlBindings(UIControl* a_uiControl)
 {
     Instance = this;
 
     m_uiControl = a_uiControl;
 
-    UICONTROL_BINDING_FUNCTION_TABLE(UICONTROL_RUNTIME_ATTACH);
+    UICONTROL_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.UI, Canvas, GetChildren);
+    BIND_FUNCTION(IcarianEngine.Rendering.UI, Canvas, GetChildren);
 
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.UI, UIElement, GetChildren);
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.UI, UIElement, GetPosition);
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.UI, UIElement, GetSize);
+    BIND_FUNCTION(IcarianEngine.Rendering.UI, UIElement, GetChildren);
+    BIND_FUNCTION(IcarianEngine.Rendering.UI, UIElement, GetPosition);
+    BIND_FUNCTION(IcarianEngine.Rendering.UI, UIElement, GetSize);
 
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.UI, TextUIElement, GetText);
-    BIND_FUNCTION(a_runtime, IcarianEngine.Rendering.UI, TextUIElement, SetText);
+    BIND_FUNCTION(IcarianEngine.Rendering.UI, TextUIElement, GetText);
+    BIND_FUNCTION(IcarianEngine.Rendering.UI, TextUIElement, SetText);
 }
 UIControlBindings::~UIControlBindings()
 {

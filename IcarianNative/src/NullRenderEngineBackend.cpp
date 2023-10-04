@@ -9,8 +9,6 @@
 #include "Rendering/UI/Font.h"
 #include "Runtime/RuntimeManager.h"
 
-#define NULLGRAPHICS_RUNTIME_ATTACH(ret, namespace, klass, name, code, ...) BIND_FUNCTION(a_runtime, namespace, klass, name);
-
 #define NULLGRAPHICS_BINDING_FUNCTION_TABLE(F) \
     F(uint32_t, IcarianEngine.Rendering, VertexShader, GenerateFromFile, { return 0; }, MonoString* a_path) \
     F(void, IcarianEngine.Rendering, VertexShader, DestroyShader, { }, uint32_t a_addr) \
@@ -109,9 +107,9 @@
 
 NULLGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
 
-NullRenderEngineBackend::NullRenderEngineBackend(RuntimeManager* a_runtime, RenderEngine* a_engine) : RenderEngineBackend(a_engine)
+NullRenderEngineBackend::NullRenderEngineBackend(RenderEngine* a_engine) : RenderEngineBackend(a_engine)
 {
-    NULLGRAPHICS_BINDING_FUNCTION_TABLE(NULLGRAPHICS_RUNTIME_ATTACH);
+    NULLGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 }
 NullRenderEngineBackend::~NullRenderEngineBackend()
 {

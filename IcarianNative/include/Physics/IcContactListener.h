@@ -21,14 +21,11 @@ struct DispatchCollisionData
 
 class PhysicsEngine;
 class RuntimeFunction;
-class RuntimeManager;
 
 class IcContactListener : public JPH::ContactListener
 {
 private:
     PhysicsEngine*   m_engine;
-
-    RuntimeManager*  m_runtime;
     
     RuntimeFunction* m_onCollisionEnterFunc;
     RuntimeFunction* m_onCollisionStayFunc;
@@ -37,7 +34,7 @@ private:
 protected:
 
 public:
-    IcContactListener(PhysicsEngine* a_engine, RuntimeManager* a_runtime);
+    IcContactListener(PhysicsEngine* a_engine);
     virtual ~IcContactListener();
 
     virtual JPH::ValidateResult OnContactValidate(const JPH::Body& a_lhs, const JPH::Body& a_rhs, JPH::RVec3Arg a_baseOffset, const JPH::CollideShapeResult& a_collisionResult);

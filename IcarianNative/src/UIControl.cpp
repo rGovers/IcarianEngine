@@ -10,14 +10,14 @@
 
 UIControl* UIControl::Instance = nullptr;
 
-UIControl::UIControl(RuntimeManager* a_runtime)
+UIControl::UIControl()
 {
-    m_bindings = new UIControlBindings(this, a_runtime);
+    m_bindings = new UIControlBindings(this);
 
-    m_onNormal = a_runtime->GetFunction("IcarianEngine.Rendering.UI", "UIElement", ":OnNormalS(uint,uint)");
-    m_onHover = a_runtime->GetFunction("IcarianEngine.Rendering.UI", "UIElement", ":OnHoverS(uint,uint)");
-    m_onPressed = a_runtime->GetFunction("IcarianEngine.Rendering.UI", "UIElement", ":OnPressedS(uint,uint)");
-    m_onReleased = a_runtime->GetFunction("IcarianEngine.Rendering.UI", "UIElement", ":OnReleasedS(uint,uint)");
+    m_onNormal = RuntimeManager::GetFunction("IcarianEngine.Rendering.UI", "UIElement", ":OnNormalS(uint,uint)");
+    m_onHover = RuntimeManager::GetFunction("IcarianEngine.Rendering.UI", "UIElement", ":OnHoverS(uint,uint)");
+    m_onPressed = RuntimeManager::GetFunction("IcarianEngine.Rendering.UI", "UIElement", ":OnPressedS(uint,uint)");
+    m_onReleased = RuntimeManager::GetFunction("IcarianEngine.Rendering.UI", "UIElement", ":OnReleasedS(uint,uint)");
 }
 UIControl::~UIControl()
 {
@@ -68,11 +68,11 @@ UIControl::~UIControl()
     }
 }
 
-void UIControl::Init(RuntimeManager* a_runtime)
+void UIControl::Init()
 {
     if (Instance == nullptr)
     {
-        Instance = new UIControl(a_runtime);
+        Instance = new UIControl();
     }
 }
 void UIControl::Destroy()

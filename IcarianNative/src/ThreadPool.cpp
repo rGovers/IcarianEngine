@@ -13,8 +13,6 @@
 
 static ThreadPool* Instance = nullptr;
 
-#define THREADPOOL_RUNTIME_ATTACH(ret, namespace, klass, name, code, ...) BIND_FUNCTION(a_runtime, namespace, klass, name);
-
 // The lazy part of me won against the part that wants to write clean code
 // My apologies to the poor soul that has to decipher this definition
 #define THREADPOOL_BINDING_FUNCTION_TABLE(F) \
@@ -31,10 +29,8 @@ static ThreadPool* Instance = nullptr;
 
 THREADPOOL_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
 
-ThreadPool::ThreadPool(uint32_t a_threadCount, RuntimeManager* a_runtime)
+ThreadPool::ThreadPool(uint32_t a_threadCount)
 {
-    m_runtime = a_runtime;
-
     m_shutdown = false;
 
     m_threadCount = a_threadCount;
@@ -42,7 +38,7 @@ ThreadPool::ThreadPool(uint32_t a_threadCount, RuntimeManager* a_runtime)
     m_threads = new std::thread[m_threadCount];
     m_join = new bool[m_threadCount];
 
-    m_runtimeDispatch = m_runtime->GetFunction("IcarianEngine", "ThreadPool", ":Dispatch(uint)");
+    m_runtimeDispatch = RuntimeManager::GetFunction("IcarianEngine", "ThreadPool", ":Dispatch(uint)");
 
     for (uint32_t i = 0; i < m_threadCount; ++i)
     {
@@ -108,7 +104,7 @@ void ThreadPool::Stop()
     }
 }
 
-void ThreadPool::Init(RuntimeManager* a_runtime)
+void ThreadPool::Init()
 {
     if (Instance == nullptr)
     {
@@ -116,11 +112,11 @@ void ThreadPool::Init(RuntimeManager* a_runtime)
 
         // Should give me a lot of threads without overallocating unless the system is really bad (<= 4 threads) and/or Mono says fuck you JIT/GC time
         // TODO: Do proper fix just to stop Jolt from crashing
-        Instance = new ThreadPool(glm::max((uint32_t)std::thread::hardware_concurrency() / 2, 3U), a_runtime);
+        Instance = new ThreadPool(glm::max((uint32_t)std::thread::hardware_concurrency() / 2, 3U));
         // Instance = new ThreadPool(2, a_runtime);
         Instance->Start();
 
-        THREADPOOL_BINDING_FUNCTION_TABLE(THREADPOOL_RUNTIME_ATTACH);
+        THREADPOOL_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
     }
 }
 void ThreadPool::Destroy()
@@ -216,7 +212,7 @@ void ThreadPool::PushJob(ThreadJob* a_job)
 
 void ThreadPool::Run(uint32_t a_thread)
 {
-    Instance->m_runtime->AttachThread();
+    RuntimeManager::AttachThread();
 
     while (!Instance->m_shutdown) 
     {

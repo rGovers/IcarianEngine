@@ -41,23 +41,22 @@
 #include "Trace.h"
 #include "ThreadPool.h"
 
-VulkanGraphicsEngine::VulkanGraphicsEngine(RuntimeManager* a_runtime, VulkanRenderEngineBackend* a_vulkanEngine)
+VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEngine)
 {
     m_vulkanEngine = a_vulkanEngine;
-    m_runtimeManager = a_runtime;
 
-    m_runtimeBindings = new VulkanGraphicsEngineBindings(m_runtimeManager, this);
+    m_runtimeBindings = new VulkanGraphicsEngineBindings(this);
 
     TRACE("Getting RenderPipeline Functions");
-    m_shadowSetupFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":ShadowSetupS(uint)");
-    m_preShadowFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PreShadowS(uint,uint,uint,uint)");
-    m_postShadowFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostShadowS(uint,uint,uint,uint)");
-    m_preRenderFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PreRenderS(uint)");
-    m_postRenderFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostRenderS(uint)");
-    m_lightSetupFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":LightSetupS(uint)");
-    m_preLightFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PreLightS(uint,uint)");
-    m_postLightFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostLightS(uint,uint)");
-    m_postProcessFunc = m_runtimeManager->GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostProcessS(uint)"); 
+    m_shadowSetupFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":ShadowSetupS(uint)");
+    m_preShadowFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PreShadowS(uint,uint,uint,uint)");
+    m_postShadowFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostShadowS(uint,uint,uint,uint)");
+    m_preRenderFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PreRenderS(uint)");
+    m_postRenderFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostRenderS(uint)");
+    m_lightSetupFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":LightSetupS(uint)");
+    m_preLightFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PreLightS(uint,uint)");
+    m_postLightFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostLightS(uint,uint)");
+    m_postProcessFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostProcessS(uint)"); 
 
     FlareBase::RenderProgram textProgram;
     textProgram.VertexShader = GenerateFVertexShader(UIVertexShader);

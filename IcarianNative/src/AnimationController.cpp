@@ -9,13 +9,13 @@
 
 static AnimationController* Instance = nullptr;
 
-AnimationController::AnimationController(RuntimeManager* a_runtime)
+AnimationController::AnimationController()
 {
     TRACE("Initializing AnimationController");
-    m_updateAnimatorFunc = a_runtime->GetFunction("IcarianEngine.Rendering.Animation", "Animator", ":UpdateAnimatorS(uint,double)");
-    m_updateAnimatorsFunc = a_runtime->GetFunction("IcarianEngine.Rendering.Animation", "Animator", ":UpdateAnimatorsS(uint[],double)");
+    m_updateAnimatorFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering.Animation", "Animator", ":UpdateAnimatorS(uint,double)");
+    m_updateAnimatorsFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering.Animation", "Animator", ":UpdateAnimatorsS(uint[],double)");
 
-    m_bindings = new AnimationControllerBindings(this, a_runtime);
+    m_bindings = new AnimationControllerBindings(this);
 }
 AnimationController::~AnimationController()
 {
@@ -25,11 +25,11 @@ AnimationController::~AnimationController()
     delete m_updateAnimatorsFunc;
 }
 
-void AnimationController::Init(RuntimeManager* a_runtime)
+void AnimationController::Init()
 {
     if (Instance == nullptr)
     {
-        Instance = new AnimationController(a_runtime);
+        Instance = new AnimationController();
     }
 }
 void AnimationController::Destroy()

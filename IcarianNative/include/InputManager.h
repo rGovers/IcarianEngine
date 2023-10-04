@@ -6,7 +6,6 @@
 #include "Flare/InputBindings.h"
 
 class RuntimeFunction;
-class RuntimeManager;
 
 class InputManager
 {
@@ -26,7 +25,7 @@ private:
 protected:
 
 public:
-    InputManager(RuntimeManager* a_runtime);
+    InputManager();
     ~InputManager();
 
     inline void SetCursorPos(const glm::vec2& a_pos)

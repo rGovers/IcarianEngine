@@ -26,7 +26,6 @@ class Config;
 class ObjectManager;
 class PhysicsEngineBindings;
 class RuntimeFunction;
-class RuntimeManager;
 
 struct BodyBinding
 {
@@ -83,7 +82,7 @@ private:
 protected:
 
 public:
-    PhysicsEngine(Config* a_config, RuntimeManager* a_runtime, ObjectManager* a_objectManager);
+    PhysicsEngine(Config* a_config, ObjectManager* a_objectManager);
     ~PhysicsEngine();
 
     void Update(double a_delta);

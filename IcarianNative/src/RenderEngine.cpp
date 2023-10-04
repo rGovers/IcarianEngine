@@ -17,14 +17,12 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #endif
 
-RenderEngine::RenderEngine(RuntimeManager* a_runtime, ObjectManager* a_objectManager, AppWindow* a_window, Config* a_config)
+RenderEngine::RenderEngine(ObjectManager* a_objectManager, AppWindow* a_window, Config* a_config)
 {
     TRACE("Initializing Rendering");
     m_config = a_config;
 
-    m_runtime = a_runtime;
-
-    m_frameUpdateFunction = m_runtime->GetFunction("IcarianEngine", "Program", ":FrameUpdate(double,double)");
+    m_frameUpdateFunction = RuntimeManager::GetFunction("IcarianEngine", "Program", ":FrameUpdate(double,double)");
 
     m_objectManager = a_objectManager;
 
@@ -36,14 +34,14 @@ RenderEngine::RenderEngine(RuntimeManager* a_runtime, ObjectManager* a_objectMan
     {
     case RenderingEngine_Null:
     {
-        m_backend = new NullRenderEngineBackend(a_runtime, this);
+        m_backend = new NullRenderEngineBackend(this);
 
         break;
     }
     case RenderingEngine_Vulkan:
     {
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-        m_backend = new VulkanRenderEngineBackend(a_runtime, this);
+        m_backend = new VulkanRenderEngineBackend(this);
 #else
         ICARIAN_ASSERT_MSG_R(0, "Vulkan is not enabled");
 #endif
@@ -95,7 +93,7 @@ void RenderEngine::Stop()
 
 void RenderEngine::Run()
 {
-    m_runtime->AttachThread();
+    RuntimeManager::AttachThread();
 
     std::chrono::time_point prevTime = std::chrono::high_resolution_clock::now();
 
