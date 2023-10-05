@@ -23,7 +23,6 @@
 #include "Physics/IcPhysicsJobSystem.h"
 
 class Config;
-class ObjectManager;
 class PhysicsEngineBindings;
 class RuntimeFunction;
 
@@ -54,8 +53,6 @@ private:
     double                                    m_fixedTimeStep;
     double                                    m_fixedTimeTimer;
 
-    ObjectManager*                            m_objectManager;
-
     RuntimeFunction*                          m_fixedUpdateFunction;
 
     // FFS got foot gunned by RAII. Raw pointers it is then.
@@ -82,7 +79,7 @@ private:
 protected:
 
 public:
-    PhysicsEngine(Config* a_config, ObjectManager* a_objectManager);
+    PhysicsEngine(Config* a_config);
     ~PhysicsEngine();
 
     void Update(double a_delta);

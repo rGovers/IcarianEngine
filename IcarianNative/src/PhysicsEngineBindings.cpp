@@ -298,7 +298,7 @@ uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint
 
     ICARIAN_ASSERT_MSG(a_colliderAddr < m_engine->m_collisionShapes.Size(), "CreatePhysicsBody out of bounds");
 
-    const glm::mat4 globalTransform = m_engine->m_objectManager->GetGlobalMatrix(a_transformAddr);
+    const glm::mat4 globalTransform = ObjectManager::GetGlobalMatrix(a_transformAddr);
 
     glm::vec3 translation;
     glm::quat rotation;
@@ -366,18 +366,18 @@ void PhysicsEngineBindings::SetPhysicsBodyPosition(uint32_t a_addr, const glm::v
 
     interface.SetPosition(binding.Body, JPH::Vec3(a_pos.x, a_pos.y, a_pos.z), JPH::EActivation::Activate);
 
-    TransformBuffer buffer = m_engine->m_objectManager->GetTransformBuffer(binding.TransformAddr);
+    TransformBuffer buffer = ObjectManager::GetTransformBuffer(binding.TransformAddr);
 
     glm::mat4 invMat = glm::identity<glm::mat4>();
     if (buffer.Parent != -1)
     {
-        const glm::mat4 transformMat = m_engine->m_objectManager->GetGlobalMatrix(buffer.Parent);
+        const glm::mat4 transformMat = ObjectManager::GetGlobalMatrix(buffer.Parent);
         invMat = glm::inverse(transformMat);
     }
 
     buffer.Translation = (invMat * glm::vec4(a_pos, 1.0f)).xyz();
 
-    m_engine->m_objectManager->SetTransformBuffer(binding.TransformAddr, buffer);
+    ObjectManager::SetTransformBuffer(binding.TransformAddr, buffer);
 }
 void PhysicsEngineBindings::SetPhysicsBodyRotation(uint32_t a_addr, const glm::quat& a_rot) const
 {
@@ -389,12 +389,12 @@ void PhysicsEngineBindings::SetPhysicsBodyRotation(uint32_t a_addr, const glm::q
 
     interface.SetRotation(binding.Body, JPH::Quat(a_rot.x, a_rot.y, a_rot.z, a_rot.w), JPH::EActivation::Activate);
 
-    TransformBuffer buffer = m_engine->m_objectManager->GetTransformBuffer(binding.TransformAddr);
+    TransformBuffer buffer = ObjectManager::GetTransformBuffer(binding.TransformAddr);
 
     glm::quat invQuat = glm::identity<glm::quat>();
     if (buffer.Parent != -1)
     {
-        const glm::mat4 transformMat = m_engine->m_objectManager->GetGlobalMatrix(buffer.Parent);
+        const glm::mat4 transformMat = ObjectManager::GetGlobalMatrix(buffer.Parent);
         const glm::mat4 inv = glm::inverse(transformMat);
 
         glm::vec3 trans;
@@ -406,14 +406,14 @@ void PhysicsEngineBindings::SetPhysicsBodyRotation(uint32_t a_addr, const glm::q
 
     buffer.Rotation = a_rot * invQuat;
 
-    m_engine->m_objectManager->SetTransformBuffer(binding.TransformAddr, buffer);
+    ObjectManager::SetTransformBuffer(binding.TransformAddr, buffer);
 }
 
 uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) const
 {
     ICARIAN_ASSERT_MSG(a_colliderAddr < m_engine->m_collisionShapes.Size(), "CreateRigidBody out of bounds");
 
-    const glm::mat4 globalTransform = m_engine->m_objectManager->GetGlobalMatrix(a_transformAddr);
+    const glm::mat4 globalTransform = ObjectManager::GetGlobalMatrix(a_transformAddr);
 
     glm::vec3 translation;
     glm::quat rotation;
@@ -578,7 +578,7 @@ uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint
 {
     ICARIAN_ASSERT_MSG(a_colliderAddr < m_engine->m_collisionShapes.Size(), "CreateTriggerBody out of bounds");
 
-    const glm::mat4 globalTransform = m_engine->m_objectManager->GetGlobalMatrix(a_transformAddr);
+    const glm::mat4 globalTransform = ObjectManager::GetGlobalMatrix(a_transformAddr);
 
     glm::vec3 translation;
     glm::quat rotation;

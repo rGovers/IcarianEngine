@@ -718,8 +718,7 @@ glm::vec3 VulkanGraphicsEngineBindings::CameraScreenToWorld(uint32_t a_addr, con
     const glm::mat4 proj = camBuf.ToProjection(a_screenSize);
     const glm::mat4 invProj = glm::inverse(proj);
 
-    ObjectManager* objManager = m_graphicsEngine->m_vulkanEngine->GetRenderEngine()->GetObjectManager();
-    const glm::mat4 invView = objManager->GetGlobalMatrix(camBuf.TransformAddr);
+    const glm::mat4 invView = ObjectManager::GetGlobalMatrix(camBuf.TransformAddr);
 
     const glm::vec4 cPos = invProj * glm::vec4(a_screenPos.xy() * 2.0f - 1.0f, a_screenPos.z, 1.0f);
     const glm::vec4 wPos = invView * cPos;

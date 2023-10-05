@@ -119,7 +119,6 @@ void VulkanRenderCommand::PushTexture(uint32_t a_slot, const FlareBase::TextureS
 void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr)
 {
     const RenderEngine* renderEngine = m_engine->GetRenderEngine();
-    ObjectManager* objectManager = renderEngine->GetObjectManager();
 
     Flush();
 
@@ -180,7 +179,7 @@ void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr)
     m_commandBuffer.setViewport(0, 1, &viewport);
 
     CameraShaderBuffer cameraShaderData;
-    cameraShaderData.InvView = objectManager->GetGlobalMatrix(camBuffer.TransformAddr);
+    cameraShaderData.InvView = ObjectManager::GetGlobalMatrix(camBuffer.TransformAddr);
     cameraShaderData.View = glm::inverse(cameraShaderData.InvView);
     cameraShaderData.Proj = camBuffer.ToProjection(viewSize);
     cameraShaderData.InvProj = glm::inverse(cameraShaderData.Proj);

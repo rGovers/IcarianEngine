@@ -17,14 +17,12 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #endif
 
-RenderEngine::RenderEngine(ObjectManager* a_objectManager, AppWindow* a_window, Config* a_config)
+RenderEngine::RenderEngine(AppWindow* a_window, Config* a_config)
 {
     TRACE("Initializing Rendering");
     m_config = a_config;
 
     m_frameUpdateFunction = RuntimeManager::GetFunction("IcarianEngine", "Program", ":FrameUpdate(double,double)");
-
-    m_objectManager = a_objectManager;
 
     m_window = a_window;
 

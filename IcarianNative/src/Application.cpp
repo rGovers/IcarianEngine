@@ -130,10 +130,10 @@ Application::Application(Config* a_config)
 
     m_inputManager = new InputManager();
 
-    m_objectManager = new ObjectManager();
+    ObjectManager::Init();
 
-    m_physicsEngine = new PhysicsEngine(a_config, m_objectManager);
-    m_renderEngine = new RenderEngine(m_objectManager, m_appWindow, m_config);
+    m_physicsEngine = new PhysicsEngine(a_config);
+    m_renderEngine = new RenderEngine(m_appWindow, m_config);
 
     APPLICATION_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 
@@ -156,9 +156,10 @@ Application::~Application()
 
     delete m_physicsEngine;
     delete m_renderEngine;
-    delete m_objectManager;
     delete m_inputManager;
     delete m_config;
+
+    ObjectManager::Destroy();
 
     Profiler::Destroy();
     Scribe::Destroy();

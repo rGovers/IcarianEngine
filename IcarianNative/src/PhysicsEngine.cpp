@@ -53,10 +53,8 @@ static bool AssertImpl(const char* a_expression, const char* a_message, const ch
     return true;
 }
 
-PhysicsEngine::PhysicsEngine(Config* a_config, ObjectManager* a_objectManager) 
+PhysicsEngine::PhysicsEngine(Config* a_config) 
 {
-    m_objectManager = a_objectManager;
-
     m_fixedUpdateFunction = RuntimeManager::GetFunction("IcarianEngine", "Program", ":FixedUpdate(double,double)");
 
     m_fixedTimeStep = a_config->GetFixedTimeStep();
@@ -186,7 +184,7 @@ void PhysicsEngine::Update(double a_delta)
                     continue;
                 }
 
-                TransformBuffer buffer = m_objectManager->GetTransformBuffer(binding.TransformAddr);
+                TransformBuffer buffer = ObjectManager::GetTransformBuffer(binding.TransformAddr);
 
                 glm::vec3 iTranslation = glm::vec3(0.0f);
                 glm::quat iRotation = glm::identity<glm::quat>();
@@ -197,7 +195,7 @@ void PhysicsEngine::Update(double a_delta)
                     glm::vec3 iSkew;
                     glm::vec4 iPerspectice;
 
-                    const glm::mat4 pMat = m_objectManager->GetGlobalMatrix(buffer.Parent);
+                    const glm::mat4 pMat = ObjectManager::GetGlobalMatrix(buffer.Parent);
                     const glm::mat4 pInv = glm::inverse(pMat);
 
                     glm::decompose(pInv, iTranslation, iRotation, iScale, iSkew, iPerspectice);
@@ -213,7 +211,7 @@ void PhysicsEngine::Update(double a_delta)
                 buffer.Translation = (iRotation * diff).xyz();
                 buffer.Rotation = glm::quat(jRotation.GetX(), jRotation.GetY(), jRotation.GetZ(), jRotation.GetW()) * iRotation;
 
-                m_objectManager->SetTransformBuffer(binding.TransformAddr, buffer);
+                ObjectManager::SetTransformBuffer(binding.TransformAddr, buffer);
             }
         }
     }

@@ -565,7 +565,6 @@ vk::CommandBuffer VulkanGraphicsEngine::StartCommandBuffer(uint32_t a_bufferInde
 vk::CommandBuffer VulkanGraphicsEngine::ShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index)
 {
     const RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
-    ObjectManager* objectManager = renderEngine->GetObjectManager();
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
 
@@ -648,7 +647,6 @@ vk::CommandBuffer VulkanGraphicsEngine::ShadowPass(uint32_t a_camIndex, uint32_t
 vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index) 
 {
     const RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
-    ObjectManager* objectManager = renderEngine->GetObjectManager();
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
     
@@ -669,7 +667,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
     {
         screenSize = glm::vec2(renderTexture->GetWidth(), renderTexture->GetHeight());
     }
-    const Frustum frustum = camBuffer.ToFrustum(screenSize, objectManager);
+    const Frustum frustum = camBuffer.ToFrustum(screenSize);
 
     const TReadLockArray<MaterialRenderStack*> stacks = m_renderStacks.ToReadLockArray();
 
@@ -710,7 +708,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                             const uint32_t transformAddr = modelBuffer.TransformAddr[j];
                             if (transformAddr != -1)
                             {
-                                const glm::mat4 transform = objectManager->GetGlobalMatrix(modelBuffers[i].TransformAddr[j]);
+                                const glm::mat4 transform = ObjectManager::GetGlobalMatrix(modelBuffers[i].TransformAddr[j]);
                                 const glm::vec3 position = transform[3].xyz();
 
                                 if (frustum.CompareSphere(position, radius))
@@ -783,7 +781,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                             const uint32_t transformAddr = modelBuffer.TransformAddr[j];
                             if (transformAddr != -1)
                             {
-                                const glm::mat4 transform = objectManager->GetGlobalMatrix(transformAddr);
+                                const glm::mat4 transform = ObjectManager::GetGlobalMatrix(transformAddr);
                                 const glm::vec3 position = transform[3].xyz();
 
                                 if (frustum.CompareSphere(position, radius))
@@ -814,7 +812,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                         {
                                             const BoneTransformData& bone = skeleton.BoneData[k];
 
-                                            const TransformBuffer& buffer = objectManager->GetTransformBuffer(bone.TransformIndex);
+                                            const TransformBuffer& buffer = ObjectManager::GetTransformBuffer(bone.TransformIndex);
 
                                             glm::mat4 transform = buffer.ToMat4();
 
@@ -824,7 +822,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                                 const uint32_t index = iter->second;
 
                                                 const BoneTransformData& parentBone = skeleton.BoneData[index];
-                                                const TransformBuffer& parentBuffer = objectManager->GetTransformBuffer(parentBone.TransformIndex);
+                                                const TransformBuffer& parentBuffer = ObjectManager::GetTransformBuffer(parentBone.TransformIndex);
                                                 
                                                 transform = parentBuffer.ToMat4() * transform;
 
@@ -1163,8 +1161,6 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
 
     const vk::Device device = m_vulkanEngine->GetLogicalDevice();
 
-    ObjectManager* objectManager = m_vulkanEngine->GetRenderEngine()->GetObjectManager();
-
     const uint32_t camBufferSize = m_cameraBuffers.Size();
 
     std::vector<uint32_t> camIndices;
@@ -1249,7 +1245,7 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
 
         if (dirLight.TransformAddr != -1)
         {
-            const glm::mat4 tMat = objectManager->GetGlobalMatrix(dirLight.TransformAddr);
+            const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(dirLight.TransformAddr);
 
             const glm::vec3 forward = glm::normalize(tMat[2].xyz());
 
@@ -1280,7 +1276,7 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
 
         if (pointLight.TransformAddr != -1)
         {
-            const glm::mat4 tMat = objectManager->GetGlobalMatrix(pointLight.TransformAddr);
+            const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(pointLight.TransformAddr);
 
             const glm::vec3 pos = tMat[3].xyz();
 
@@ -1312,7 +1308,7 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
 
         if (spotLight.TransformAddr != -1)
         {
-            const glm::mat4 tMat = objectManager->GetGlobalMatrix(spotLight.TransformAddr);
+            const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(spotLight.TransformAddr);
 
             const glm::vec3 pos = tMat[3].xyz();
             const glm::vec3 forward = glm::normalize(tMat[2].xyz());

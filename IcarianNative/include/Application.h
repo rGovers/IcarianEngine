@@ -21,7 +21,6 @@ private:
          
     Config*                  m_config;
     InputManager*            m_inputManager;
-    ObjectManager*           m_objectManager;
 
     PhysicsEngine*           m_physicsEngine;
     RenderEngine*            m_renderEngine;

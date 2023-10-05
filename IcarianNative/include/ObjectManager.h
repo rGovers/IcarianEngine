@@ -18,18 +18,21 @@ private:
     std::queue<uint32_t>    m_freeTransforms;
     TArray<TransformBuffer> m_transformBuffer;
 
+    ObjectManager();
 protected:
 
 public:
-    ObjectManager();
     ~ObjectManager();
 
-    uint32_t CreateTransformBuffer();
-    TransformBuffer GetTransformBuffer(uint32_t a_addr);
-    void SetTransformBuffer(uint32_t a_addr, const TransformBuffer& a_buffer);
-    void DestroyTransformBuffer(uint32_t a_addr);
+    static void Init();
+    static void Destroy();
 
-    glm::mat4 GetGlobalMatrix(uint32_t a_addr);
+    static uint32_t CreateTransformBuffer();
+    static TransformBuffer GetTransformBuffer(uint32_t a_addr);
+    static void SetTransformBuffer(uint32_t a_addr, const TransformBuffer& a_buffer);
+    static void DestroyTransformBuffer(uint32_t a_addr);
+
+    static glm::mat4 GetGlobalMatrix(uint32_t a_addr);
 };
 
 struct TransformBuffer
@@ -51,26 +54,6 @@ struct TransformBuffer
 
     }
 
-    glm::mat4 ToMat4() const
-    {
-        constexpr glm::mat4 Iden = glm::identity<glm::mat4>();
-
-        const glm::mat4 translation = glm::translate(Iden, Translation);
-        const glm::mat4 rotation = glm::toMat4(Rotation);
-        const glm::mat4 scale = glm::scale(Iden, Scale);
-
-        return translation * rotation * scale;
-    }
-
-    glm::mat4 ToGlobalMat4(ObjectManager* a_objectManager) const
-    {
-        if (Parent != -1)
-        {
-            const TransformBuffer buffer = a_objectManager->GetTransformBuffer(Parent);
-
-            return buffer.ToGlobalMat4(a_objectManager) * ToMat4();
-        }
-
-        return ToMat4();
-    }
+    glm::mat4 ToMat4() const;
+    glm::mat4 ToGlobalMat4() const;
 };

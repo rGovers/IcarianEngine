@@ -34,8 +34,6 @@ private:
 
     Config*              m_config;
 
-    ObjectManager*       m_objectManager;
-
     RenderEngineBackend* m_backend;
 
     AppWindow*           m_window;
@@ -47,7 +45,7 @@ private:
 protected:
 
 public:
-    RenderEngine(ObjectManager* a_objectManager, AppWindow* a_window, Config* a_config);
+    RenderEngine(AppWindow* a_window, Config* a_config);
     ~RenderEngine();
 
     void Start();
@@ -60,9 +58,4 @@ public:
     void DestroyTextureSampler(uint32_t a_addr) const;
 
     Font* GetFont(uint32_t a_addr) const;
-
-    inline ObjectManager* GetObjectManager() const
-    {
-        return m_objectManager;
-    }
 };

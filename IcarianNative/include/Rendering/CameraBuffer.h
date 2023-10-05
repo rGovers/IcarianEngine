@@ -39,10 +39,10 @@ struct CameraBuffer
         return glm::perspective(FOV, a_screenSize.x / a_screenSize.y, a_near, a_far);
     }
 
-    Frustum ToFrustum(const glm::vec2& a_screenSize, ObjectManager* a_objectManager) const
+    Frustum ToFrustum(const glm::vec2& a_screenSize) const
     {
         const glm::mat4 proj = ToProjection(a_screenSize);
-        const glm::mat4 trans = glm::inverse(a_objectManager->GetGlobalMatrix(TransformAddr));
+        const glm::mat4 trans = glm::inverse(ObjectManager::GetGlobalMatrix(TransformAddr));
 
         return Frustum::FromMat4(proj * trans);
     }
