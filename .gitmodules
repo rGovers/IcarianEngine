@@ -22,3 +22,6 @@
 [submodule "deps/CUBE"]
 	path = deps/CUBE
 	url = https://github.com/rGovers/CUBE.git
+[submodule "IcarianNative/lib/openal-soft"]
+	path = IcarianNative/lib/openal-soft
+	url = https://github.com/kcat/openal-soft.git

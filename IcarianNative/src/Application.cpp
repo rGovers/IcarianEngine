@@ -2,6 +2,7 @@
 
 #include "AppWindow/GLFWAppWindow.h"
 #include "AppWindow/HeadlessAppWindow.h"
+#include "Audio/AudioEngine.h"
 #include "Config.h"
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
@@ -132,6 +133,7 @@ Application::Application(Config* a_config)
 
     ObjectManager::Init();
 
+    m_audioEngine = new AudioEngine();
     m_physicsEngine = new PhysicsEngine(a_config);
     m_renderEngine = new RenderEngine(m_appWindow, m_config);
 
@@ -142,11 +144,11 @@ Application::Application(Config* a_config)
 }
 Application::~Application()
 {
+    TRACE("Disposing App");
+
     // TODO: Proper fix for this problem
     // Seems that semaphores in mono cause a crash with stl conditional variables so we need to stop the thread pool first
     ThreadPool::Stop();
-
-    TRACE("Disposing App");
 
     RuntimeManager::Destroy();
 
@@ -154,6 +156,7 @@ Application::~Application()
 
     UIControl::Destroy();
 
+    delete m_audioEngine;
     delete m_physicsEngine;
     delete m_renderEngine;
     delete m_inputManager;
@@ -216,6 +219,12 @@ void Application::Run(int32_t a_argc, char* a_argv[])
 
                     AnimationController::UpdateAnimators(AnimationUpdateMode_Update, (float)delta);
                 }
+            }
+
+            {
+                PROFILESTACK("Audio");
+                
+                m_audioEngine->Update();
             }
 
             RuntimeManager::Update(delta, m_appWindow->GetTime());

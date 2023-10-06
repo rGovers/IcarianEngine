@@ -394,12 +394,206 @@ CUBE_CProject BuildJoltPhysicsProject(e_TargetPlatform a_targetPlatform, e_Build
     return project;   
 }
 
+CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    CUBE_CProject project = { 0 };
+
+    project.Name = CUBE_StackString_CreateC("OpenALSoft");
+    project.Target = CUBE_CProjectTarget_StaticLibrary;
+    project.Language = CUBE_CProjectLanguage_CPP;
+    project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    if (a_configuration == BuildConfiguration_Debug)
+    {
+        CUBE_CProject_AppendDefine(&project, "DEBUG");
+    }
+    else 
+    {
+        CUBE_CProject_AppendDefine(&project, "NDEBUG");
+    }
+
+    CUBE_CProject_AppendIncludePath(&project, ".");
+    CUBE_CProject_AppendIncludePath(&project, "common");
+    CUBE_CProject_AppendIncludePath(&project, "include");
+
+    CUBE_CProject_AppendDefine(&project, "RESTRICT=");
+    CUBE_CProject_AppendDefine(&project, "AL_LIBTYPE_STATIC");
+    CUBE_CProject_AppendDefine(&project, "AL_ALEXT_PROTOTYPES");
+
+    {
+        // Common
+        CUBE_CProject_AppendSource(&project, "common/alcomplex.cpp");
+        CUBE_CProject_AppendSource(&project, "common/alfstream.cpp");
+        CUBE_CProject_AppendSource(&project, "common/almalloc.cpp");
+        CUBE_CProject_AppendSource(&project, "common/alsem.cpp");
+        CUBE_CProject_AppendSource(&project, "common/alstring.cpp");
+        CUBE_CProject_AppendSource(&project, "common/althrd_setname.cpp");
+        CUBE_CProject_AppendSource(&project, "common/dynload.cpp");
+        CUBE_CProject_AppendSource(&project, "common/polyphase_resampler.cpp");
+        CUBE_CProject_AppendSource(&project, "common/ringbuffer.cpp");
+        CUBE_CProject_AppendSource(&project, "common/strutils.cpp");
+    }
+
+    {
+        // Core
+        CUBE_CProject_AppendSource(&project, "core/ambdec.cpp");
+        CUBE_CProject_AppendSource(&project, "core/ambidefs.cpp");
+        CUBE_CProject_AppendSource(&project, "core/bformatdec.cpp");
+        CUBE_CProject_AppendSource(&project, "core/bs2b.cpp");
+        CUBE_CProject_AppendSource(&project, "core/bsinc_tables.cpp");
+        CUBE_CProject_AppendSource(&project, "core/buffer_storage.cpp");
+        CUBE_CProject_AppendSource(&project, "core/context.cpp");
+        CUBE_CProject_AppendSource(&project, "core/converter.cpp");
+        CUBE_CProject_AppendSource(&project, "core/cpu_caps.cpp");
+        CUBE_CProject_AppendSource(&project, "core/cubic_tables.cpp");
+        CUBE_CProject_AppendSource(&project, "core/devformat.cpp");
+        CUBE_CProject_AppendSource(&project, "core/device.cpp");
+        CUBE_CProject_AppendSource(&project, "core/effectslot.cpp");
+        CUBE_CProject_AppendSource(&project, "core/except.cpp");
+        CUBE_CProject_AppendSource(&project, "core/filters/biquad.cpp");
+        CUBE_CProject_AppendSource(&project, "core/filters/nfc.cpp");
+        CUBE_CProject_AppendSource(&project, "core/filters/splitter.cpp");
+        CUBE_CProject_AppendSource(&project, "core/fmt_traits.cpp");
+        CUBE_CProject_AppendSource(&project, "core/fpu_ctrl.cpp");
+        CUBE_CProject_AppendSource(&project, "core/helpers.cpp");
+        CUBE_CProject_AppendSource(&project, "core/hrtf.cpp");
+        CUBE_CProject_AppendSource(&project, "core/logging.cpp");
+        CUBE_CProject_AppendSource(&project, "core/mastering.cpp");
+        CUBE_CProject_AppendSource(&project, "core/mixer.cpp");
+        CUBE_CProject_AppendSource(&project, "core/uhjfilter.cpp");
+        CUBE_CProject_AppendSource(&project, "core/uiddefs.cpp");
+        CUBE_CProject_AppendSource(&project, "core/voice.cpp");
+
+        CUBE_CProject_AppendSource(&project, "core/mixer/mixer_c.cpp");
+    }
+
+    {
+        // OpenAL
+        CUBE_CProject_AppendSource(&project, "al/auxeffectslot.cpp");
+        CUBE_CProject_AppendSource(&project, "al/buffer.cpp");
+        CUBE_CProject_AppendSource(&project, "al/debug.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effect.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/autowah.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/chorus.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/compressor.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/convolution.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/dedicated.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/distortion.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/echo.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/effects.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/equalizer.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/fshifter.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/modulator.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/null.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/pshifter.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/reverb.cpp");
+        CUBE_CProject_AppendSource(&project, "al/effects/vmorpher.cpp");
+        CUBE_CProject_AppendSource(&project, "al/error.cpp");
+        CUBE_CProject_AppendSource(&project, "al/event.cpp");
+        CUBE_CProject_AppendSource(&project, "al/extension.cpp");
+        CUBE_CProject_AppendSource(&project, "al/filter.cpp");
+        CUBE_CProject_AppendSource(&project, "al/listener.cpp");
+        CUBE_CProject_AppendSource(&project, "al/source.cpp");
+        CUBE_CProject_AppendSource(&project, "al/state.cpp");
+    }
+
+    {
+        // ALC
+        CUBE_CProject_AppendSource(&project, "alc/alc.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/alu.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/alconfig.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/context.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/device.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/autowah.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/chorus.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/compressor.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/convolution.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/dedicated.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/distortion.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/echo.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/equalizer.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/fshifter.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/modulator.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/null.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/pshifter.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/reverb.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/effects/vmorpher.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/events.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/panning.cpp");
+
+        CUBE_CProject_AppendSource(&project, "alc/backends/base.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/backends/null.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/backends/loopback.cpp");
+    }
+
+    {
+        // EAX
+        // CUBE_CProject_AppendSource(&project, "al/eax/api.cpp");
+        // CUBE_CProject_AppendSource(&project, "al/eax/call.cpp");
+        // CUBE_CProject_AppendSource(&project, "al/eax/exception.cpp");
+        // CUBE_CProject_AppendSource(&project, "al/eax/fx_slot_index.cpp");
+        // CUBE_CProject_AppendSource(&project, "al/eax/fx_slots.cpp");
+        // CUBE_CProject_AppendSource(&project, "al/eax/utils.cpp");
+    }
+
+    {
+        // SIMD
+        CUBE_CProject_AppendSource(&project, "core/mixer/mixer_sse.cpp");
+        CUBE_CProject_AppendSource(&project, "core/mixer/mixer_sse2.cpp");
+    }
+
+    switch (a_targetPlatform)
+    {
+    case TargetPlatform_Windows:
+    {
+        CUBE_CProject_AppendDefine(&project, "WIN32");
+        CUBE_CProject_AppendDefine(&project, "_WIN32");
+
+        CUBE_CProject_AppendIncludePath(&project, "../gen/openal/platform/windows/include");
+
+        // WASAPI cannot seem to get to work
+        // CUBE_CProject_AppendSource(&project, "alc/backends/wasapi.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/backends/winmm.cpp");
+        // CUBE_CProject_AppendSource(&project, "alc/backends/dsound.cpp");
+        // DirectSound needs a bit more work to get to work with this build system
+
+        CUBE_CProject_AppendCFlag(&project, "-municode");
+
+        break;
+    }
+    case TargetPlatform_Linux:
+    {
+        CUBE_CProject_AppendIncludePath(&project, "../gen/openal/platform/linux/include");
+
+        CUBE_CProject_AppendSource(&project, "alc/backends/alsa.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/backends/jack.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/backends/oss.cpp");
+        // CUBE_CProject_AppendSource(&project, "alc/backends/pipewire.cpp");
+        // This one is being a prick ^
+        CUBE_CProject_AppendSource(&project, "alc/backends/portaudio.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/backends/pulseaudio.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/backends/wave.cpp");
+
+        break;
+    }
+    }
+
+    CUBE_CProject_AppendCFlag(&project, "-std=c++17");
+
+    return project;
+}
+
 DependencyProject* BuildIcarianNativeIDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
-    *a_count = 4;
+    *a_count = 5;
+
+    // *a_count = 1;
 
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * (*a_count));
-    
+
+    // projects[0].Project = BuildOpenALSoft(a_targetPlatform, a_configuration);
+    // projects[0].WorkingDirectory = "IcarianNative/lib/openal-soft";
+
     projects[0].Project = BuildGLSLangProject(a_targetPlatform, a_configuration);
     projects[0].WorkingDirectory = "IcarianNative/lib/glslang";
 
@@ -411,6 +605,9 @@ DependencyProject* BuildIcarianNativeIDependencies(CBUINT32* a_count, e_TargetPl
 
     projects[3].Project = BuildJoltPhysicsProject(a_targetPlatform, a_configuration);
     projects[3].WorkingDirectory = "IcarianNative/lib/JoltPhysics";
+
+    projects[4].Project = BuildOpenALSoft(a_targetPlatform, a_configuration);
+    projects[4].WorkingDirectory = "IcarianNative/lib/openal-soft";
 
     return projects;
 }

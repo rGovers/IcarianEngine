@@ -87,6 +87,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendDefine(&project, "GLM_FORCE_QUAT_DATA_XYZW");
     CUBE_CProject_AppendDefine(&project, "GLM_FORCE_DEPTH_ZERO_TO_ONE");
     CUBE_CProject_AppendDefine(&project, "GLM_FORCE_RADIANS");
+    CUBE_CProject_AppendDefine(&project, "AL_LIBTYPE_STATIC");
 
     CUBE_CProject_AppendIncludePath(&project, "include");
     CUBE_CProject_AppendIncludePath(&project, "../FlareBase/include");
@@ -96,6 +97,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendIncludePath(&project, "../deps/flare-tinyxml2");
     CUBE_CProject_AppendIncludePath(&project, "lib/glslang");
     CUBE_CProject_AppendIncludePath(&project, "lib/JoltPhysics");
+    CUBE_CProject_AppendIncludePath(&project, "lib/openal-soft/include");
     CUBE_CProject_AppendIncludePath(&project, "lib/VulkanMemoryAllocator/include");
 
     CUBE_CProject_AppendSource(&project, "../deps/flare-tinyxml2/tinyxml2.cpp");
@@ -103,6 +105,8 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/AnimationController.cpp");
     CUBE_CProject_AppendSource(&project, "src/AnimationControllerBindings.cpp");
     CUBE_CProject_AppendSource(&project, "src/Application.cpp");
+    CUBE_CProject_AppendSource(&project, "src/AudioEngine.cpp");
+    CUBE_CProject_AppendSource(&project, "src/AudioEngineBindings.cpp");
     CUBE_CProject_AppendSource(&project, "src/Config.cpp");
     CUBE_CProject_AppendSource(&project, "src/Font.cpp");
     CUBE_CProject_AppendSource(&project, "src/GLFWAppWindow.cpp");
@@ -120,6 +124,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/MaterialRenderStack.cpp");
     CUBE_CProject_AppendSource(&project, "src/NullRenderEngineBackend.cpp");
     CUBE_CProject_AppendSource(&project, "src/ObjectManager.cpp");
+    CUBE_CProject_AppendSource(&project, "src/OGGAudioClip.cpp");
     CUBE_CProject_AppendSource(&project, "src/PhysicsEngine.cpp");
     CUBE_CProject_AppendSource(&project, "src/PhysicsEngineBindings.cpp");
     CUBE_CProject_AppendSource(&project, "src/Profiler.cpp");
@@ -194,11 +199,14 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/OGLCompiler.lib");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/SPIRV.lib");
         CUBE_CProject_AppendLibrary(&project, "lib/JoltPhysics/build/Jolt.lib");
+        CUBE_CProject_AppendLibrary(&project, "lib/openal-soft/build/OpenALSoft.lib");
 
         CUBE_CProject_AppendReference(&project, "gdi32");
         CUBE_CProject_AppendReference(&project, "vulkan-1");
         CUBE_CProject_AppendReference(&project, "wsock32");
         CUBE_CProject_AppendReference(&project, "ws2_32");
+        CUBE_CProject_AppendReference(&project, "winmm");
+        CUBE_CProject_AppendReference(&project, "ole32");
 
         // Magic string to get std library to link with MinGW
         CUBE_CProject_AppendCFlag(&project, "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic");
@@ -218,6 +226,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libOGLCompiler.a");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libSPIRV.a");
         CUBE_CProject_AppendLibrary(&project, "lib/JoltPhysics/build/libJolt.a");
+        CUBE_CProject_AppendLibrary(&project, "lib/openal-soft/build/libOpenALSoft.a");
 
         CUBE_CProject_AppendReference(&project, "vulkan");
         CUBE_CProject_AppendReference(&project, "z");

@@ -36,8 +36,12 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject_AppendSource(&project, "src/Time.cs");
     CUBE_CSProject_AppendSource(&project, "src/Transform.cs");
 
+    CUBE_CSProject_AppendSource(&project, "src/Audio/AudioClip.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Audio/AudioSource.cs");
+
     CUBE_CSProject_AppendSource(&project, "src/Definitions/AnimationControllerDef.cs");
     CUBE_CSProject_AppendSource(&project, "src/Definitions/AnimatorDef.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Definitions/AudioSourceDef.cs");
     CUBE_CSProject_AppendSource(&project, "src/Definitions/BoxCollisionShapeDef.cs");
     CUBE_CSProject_AppendSource(&project, "src/Definitions/CameraDef.cs");
     CUBE_CSProject_AppendSource(&project, "src/Definitions/CapsuleCollisionShapeDef.cs");

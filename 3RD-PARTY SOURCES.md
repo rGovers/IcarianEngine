@@ -12,6 +12,11 @@ Original Project:
 
 https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator
 
+### OpenAL Soft
+Origninal Project:
+
+https://github.com/kcat/openal-soft.git
+
 ## Shared
 
 ### Mono

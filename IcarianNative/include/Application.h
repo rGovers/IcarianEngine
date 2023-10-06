@@ -4,6 +4,7 @@
 
 #include "AppWindow/AppWindow.h"
 
+class AudioEngine;
 class Config;
 class InputManager;
 class ObjectManager;
@@ -22,6 +23,7 @@ private:
     Config*                  m_config;
     InputManager*            m_inputManager;
 
+    AudioEngine*             m_audioEngine;
     PhysicsEngine*           m_physicsEngine;
     RenderEngine*            m_renderEngine;
 

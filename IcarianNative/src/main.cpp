@@ -11,6 +11,7 @@
 #include <stb_image.h>
 #define STB_TRUETYPE_IMPLEMENTATION
 #include <stb_truetype.h>
+#include <stb_vorbis.c>
 
 int main(int a_argc, char* a_argv[])
 {
