@@ -1,6 +1,7 @@
 #include "Audio/AudioEngineBindings.h"
 
 #include "Audio/AudioClips/OGGAudioClip.h"
+#include "Audio/AudioClips/WAVAudioClip.h"
 #include "Audio/AudioEngine.h"
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
@@ -59,6 +60,10 @@ uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const std::filesystem::p
     if (ext == ".ogg")
     {
         return m_engine->m_audioClips.PushVal(new OGGAudioClip(a_path));
+    }
+    else if (ext == ".wav")
+    {
+        return m_engine->m_audioClips.PushVal(new WAVAudioClip(a_path));
     }
 
     return -1;

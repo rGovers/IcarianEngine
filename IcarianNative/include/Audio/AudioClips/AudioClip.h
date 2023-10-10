@@ -4,6 +4,7 @@
 
 enum e_AudioFormat : uint16_t
 {
+    AudioFormat_U8,
     AudioFormat_S16
 };
 

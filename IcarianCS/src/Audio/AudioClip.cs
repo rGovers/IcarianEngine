@@ -94,7 +94,9 @@ namespace IcarianEngine.Audio
         /// <summary>
         /// Loads an AudioClip from the given path.
         /// </summary>
-        /// Supported formats: OGG
+        /// Supported formats: 
+        ///     OGG
+        ///     WAV
         /// <param name="a_path">The path to the AudioClip.</param>
         /// <returns>The AudioClip if it was loaded successfully, null otherwise.</returns>
         /// @see AssetLibrary.LoadAudioClip

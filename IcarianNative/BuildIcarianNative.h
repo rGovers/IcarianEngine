@@ -155,6 +155,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/VulkanTextureSampler.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanUniformBuffer.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanVertexShader.cpp");
+    CUBE_CProject_AppendSource(&project, "src/WAVAudioClip.cpp");
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
 

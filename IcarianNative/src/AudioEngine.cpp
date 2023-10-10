@@ -86,6 +86,59 @@ AudioEngine::~AudioEngine()
     alcCloseDevice(m_device);
 }
 
+static constexpr ALenum GetALFormat(e_AudioFormat a_format, uint32_t a_channelCount)
+{
+    switch (a_format)
+    {
+    case AudioFormat_U8:
+    {
+        switch (a_channelCount)
+        {
+        case 1:
+        {
+            return AL_FORMAT_MONO8;
+        }
+        case 2:
+        {
+            return AL_FORMAT_STEREO8;
+        }
+        }
+    }
+    case AudioFormat_S16:
+    {
+        switch (a_channelCount)
+        {
+        case 1:
+        {
+            return AL_FORMAT_MONO16;
+        }
+        case 2:
+        {
+            return AL_FORMAT_STEREO16;
+        }
+        }
+    }
+    }
+
+    return AL_FORMAT_MONO16;
+}
+static constexpr uint64_t GetAudioSize(e_AudioFormat a_format, uint32_t a_channelCount, uint32_t a_samples)
+{
+    switch (a_format)
+    {
+    case AudioFormat_U8:
+    {
+        return a_samples * a_channelCount * sizeof(uint8_t);
+    }
+    case AudioFormat_S16:
+    {
+        return a_samples * a_channelCount * sizeof(int16_t);
+    }
+    }
+
+    return 0;
+}
+
 static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip* a_clip, uint64_t a_sampleOffset, uint32_t a_sampleSize, bool a_canLoop)
 {
     uint32_t outSampleSize;
@@ -98,6 +151,11 @@ static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip*
     for (uint32_t i = 0; i < a_bufferCount; ++i)
     {
         unsigned char* data = a_clip->GetAudioData(a_sampleOffset, a_sampleSize, &outSampleSize);
+        if (data == nullptr)
+        {
+            break;
+        }
+
         IDEFER(delete[] data);
         
         // Unlikely but if the sample size is less than the requested sample size, we need to loop.
@@ -111,25 +169,21 @@ static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip*
                 uint32_t nextOutSampleSize;
                 const unsigned char* oldData = data;
                 const unsigned char* nextData = a_clip->GetAudioData(0, a_sampleSize - outSampleSize, &nextOutSampleSize);
+                if (nextData == nullptr)
+                {
+                    break;
+                }
+
                 IDEFER(delete[] nextData);
                 IDEFER(delete[] oldData);
 
                 unsigned char* newData = new unsigned char[(outSampleSize + nextOutSampleSize) * channelCount * sizeof(int16_t)];
 
-                switch (format)
-                {
-                case AudioFormat_S16:
-                {
-                    // Should be the same but still want to run well in DEBUG mode so using memcpy.
-                    const uint32_t count = outSampleSize * channelCount * sizeof(int16_t);
-                    memcpy(newData, data, count);
+                const uint32_t count = GetAudioSize(format, channelCount, outSampleSize);
+                memcpy(newData, data, count);
 
-                    const uint32_t nextCount = nextOutSampleSize * channelCount * sizeof(int16_t);
-                    memcpy(newData + count, nextData, nextCount);
-
-                    break;
-                }
-                }
+                const uint32_t nextCount = GetAudioSize(format, channelCount, nextOutSampleSize);
+                memcpy(newData + count, nextData, nextCount);
 
                 data = newData;
                 outSampleSize += nextOutSampleSize;
@@ -140,29 +194,7 @@ static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip*
             }       
         }
 
-        switch (format)
-        {
-        case AudioFormat_S16:
-        {
-            switch (channelCount)
-            {
-            case 1:
-            {
-                alBufferData(a_buffer[i], AL_FORMAT_MONO16, data, outSampleSize * channelCount * sizeof(int16_t), sampleRate);
-
-                break;
-            }
-            case 2:
-            {
-                alBufferData(a_buffer[i], AL_FORMAT_STEREO16, data, outSampleSize * channelCount * sizeof(int16_t), sampleRate);
-
-                break;
-            }
-            }
-
-            break;
-        }
-        }
+        alBufferData(a_buffer[i], GetALFormat(format, channelCount), data, GetAudioSize(format, channelCount, outSampleSize), sampleRate);
 
         a_sampleOffset = (a_sampleOffset + outSampleSize) % maxSampleOffset;
     }
@@ -235,6 +267,11 @@ void AudioEngine::Update()
             if (buffer.Flags & 0b1 << AudioSourceBuffer::PlayBitOffset)
             {
                 AudioClip* clip = m_audioClips[buffer.AudioClipAddr];
+
+                if (clip->GetChannelCount() == 0)
+                {
+                    continue;
+                }
 
                 if (buffer.Buffers[0] == -1)
                 {
