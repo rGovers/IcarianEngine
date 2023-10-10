@@ -7,6 +7,8 @@
 #include "Audio/AudioEngineBindings.h"
 #include "Flare/IcarianDefer.h"
 #include "Logger.h"
+#include "ObjectManager.h"
+#include "Profiler.h"
 #include "Trace.h"
 
 AudioEngine::AudioEngine()
@@ -162,9 +164,7 @@ static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip*
         }
         }
 
-        // a_sampleOffset += outSampleSize;
         a_sampleOffset = (a_sampleOffset + outSampleSize) % maxSampleOffset;
-        // a_sampleOffset = (a_sampleOffset + a_sampleSize) % maxSampleOffset;
     }
 
     return a_sampleOffset;
@@ -172,74 +172,143 @@ static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip*
 
 void AudioEngine::Update()
 {
-    std::vector<bool> state = m_audioSources.ToStateVector();
-    TLockArray<AudioSourceBuffer> buffers = m_audioSources.ToLockArray();
-
-    const uint32_t bufferCount = (uint32_t)state.size();
-    // for (AudioSourceBuffer& buffer : buffers)
-    for (uint32_t i = 0; i < bufferCount; ++i)
+    const ALenum error = alGetError();
+    if (error != AL_NO_ERROR)
     {
-        if (!state[i])
+        Logger::Error(std::string("OpenAL Error: ") + alGetString(error));
+
+        return;
+    }
+
+    {
+        PROFILESTACK("Listener Update");
+
+        const std::vector<bool> listenerState = m_audioListeners.ToStateVector();
+        TLockArray<AudioListenerBuffer> listenerBuffers = m_audioListeners.ToLockArray();
+
+        const uint32_t listenerBufferCount = (uint32_t)listenerState.size();
+        for (uint32_t i = 0; i < listenerBufferCount; ++i)
         {
-            continue;
-        }
-
-        AudioSourceBuffer& buffer = buffers[i];
-
-        const bool canLoop = buffer.Flags & 0b1 << AudioSourceBuffer::LoopBitOffset;
-
-        if (buffer.Flags & 0b1 << AudioSourceBuffer::PlayBitOffset)
-        {
-            AudioClip* clip = m_audioClips[buffer.AudioClipAddr];
-
-            if (buffer.Buffers[0] == -1)
+            if (!listenerState[i])
             {
-                alGenBuffers(AudioSourceBuffer::BufferCount, buffer.Buffers);                
+                continue;
             }
+
+            const AudioListenerBuffer& buffer = listenerBuffers[i];
             
-            if (buffer.Source == -1)
-            {
-                alGenSources(1, &buffer.Source);
-            }
-            else
-            {
-                alSourceStop(buffer.Source);
-            }
+            const glm::mat4 transform = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
 
-            buffer.SampleOffset = FillBuffers(buffer.Buffers, AudioSourceBuffer::BufferCount, clip, 0, AudioBufferSampleSize, canLoop);
+            const glm::vec3 position = transform[3].xyz();
 
-            alSourceQueueBuffers(buffer.Source, AudioSourceBuffer::BufferCount, buffer.Buffers);
+            alListener3f(AL_POSITION, position.x, position.y, position.z);
 
-            alSourcePlay(buffer.Source);
+            const glm::vec3 forward = transform[2].xyz();
+            const glm::vec3 up = -transform[1].xyz();
 
-            buffer.Flags &= ~(0b1 << AudioSourceBuffer::PlayBitOffset);
-            buffer.Flags |= (0b1 << AudioSourceBuffer::PlayingBitOffset);
+            const ALfloat orientation[6] = { forward.x, forward.y, forward.z, up.x, up.y, up.z };
+
+            alListenerfv(AL_ORIENTATION, orientation);
+
+            // To my knowledge, OpenAL only supports one listener so we can break here.
+            break;
         }
-        else if (buffer.Flags & 0b1 << AudioSourceBuffer::PlayingBitOffset)
+    }
+
+    {
+        PROFILESTACK("Source Update");
+
+        const std::vector<bool> sourceState = m_audioSources.ToStateVector();
+        TLockArray<AudioSourceBuffer> sourceBuffers = m_audioSources.ToLockArray();
+
+        const uint32_t sourceBufferCount = (uint32_t)sourceState.size();
+        for (uint32_t i = 0; i < sourceBufferCount; ++i)
         {
-            ALint processed;
-            alGetSourcei(buffer.Source, AL_BUFFERS_PROCESSED, &processed);
-
-            if (processed > 0)
+            if (!sourceState[i])
             {
-                ALuint queueBuffer;
-                alSourceUnqueueBuffers(buffer.Source, 1, &queueBuffer);
+                continue;
+            }
 
+            AudioSourceBuffer& buffer = sourceBuffers[i];
+
+            const bool canLoop = buffer.Flags & 0b1 << AudioSourceBuffer::LoopBitOffset;
+
+            if (buffer.Flags & 0b1 << AudioSourceBuffer::PlayBitOffset)
+            {
                 AudioClip* clip = m_audioClips[buffer.AudioClipAddr];
 
-                buffer.SampleOffset = FillBuffers(&queueBuffer, 1, clip, buffer.SampleOffset, AudioBufferSampleSize, canLoop);
-
-                alSourceQueueBuffers(buffer.Source, 1, &queueBuffer);
-            }
-
-            if (!canLoop)
-            {
-                ALint state;
-                alGetSourcei(buffer.Source, AL_SOURCE_STATE, &state);
-
-                if (state == AL_STOPPED)
+                if (buffer.Buffers[0] == -1)
                 {
-                    buffer.Flags &= ~(0b1 << AudioSourceBuffer::PlayingBitOffset);
+                    alGenBuffers(AudioSourceBuffer::BufferCount, buffer.Buffers);                
+                }
+
+                if (buffer.Source == -1)
+                {
+                    alGenSources(1, &buffer.Source);
+                }
+                else
+                {
+                    alSourceStop(buffer.Source);
+                }
+
+                buffer.SampleOffset = FillBuffers(buffer.Buffers, AudioSourceBuffer::BufferCount, clip, 0, AudioBufferSampleSize, canLoop);
+
+                alSourceQueueBuffers(buffer.Source, AudioSourceBuffer::BufferCount, buffer.Buffers);
+
+                const glm::mat4 transform = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
+
+                const glm::vec3 position = transform[3].xyz();
+                alSource3f(buffer.Source, AL_POSITION, position.x, position.y, position.z);
+
+                const glm::vec3 forward = transform[2].xyz();
+                const glm::vec3 up = -transform[1].xyz();
+
+                const ALfloat orientation[6] = { forward.x, forward.y, forward.z, up.x, up.y, up.z };
+
+                alSourcefv(buffer.Source, AL_ORIENTATION, orientation);
+
+                alSourcePlay(buffer.Source);
+
+                buffer.Flags &= ~(0b1 << AudioSourceBuffer::PlayBitOffset);
+                buffer.Flags |= (0b1 << AudioSourceBuffer::PlayingBitOffset);
+            }
+            else if (buffer.Flags & 0b1 << AudioSourceBuffer::PlayingBitOffset)
+            {
+                ALint processed;
+                alGetSourcei(buffer.Source, AL_BUFFERS_PROCESSED, &processed);
+
+                if (processed > 0)
+                {
+                    ALuint queueBuffer;
+                    alSourceUnqueueBuffers(buffer.Source, 1, &queueBuffer);
+
+                    AudioClip* clip = m_audioClips[buffer.AudioClipAddr];
+
+                    buffer.SampleOffset = FillBuffers(&queueBuffer, 1, clip, buffer.SampleOffset, AudioBufferSampleSize, canLoop);
+
+                    alSourceQueueBuffers(buffer.Source, 1, &queueBuffer);
+                }
+
+                const glm::mat4 transform = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
+
+                const glm::vec3 position = transform[3].xyz();
+                alSource3f(buffer.Source, AL_POSITION, position.x, position.y, position.z);
+
+                const glm::vec3 forward = transform[2].xyz();
+                const glm::vec3 up = transform[1].xyz();
+
+                const ALfloat orientation[6] = { forward.x, forward.y, forward.z, up.x, up.y, up.z };
+
+                alSourcefv(buffer.Source, AL_ORIENTATION, orientation);
+
+                if (!canLoop)
+                {
+                    ALint state;
+                    alGetSourcei(buffer.Source, AL_SOURCE_STATE, &state);
+
+                    if (state == AL_STOPPED)
+                    {
+                        buffer.Flags &= ~(0b1 << AudioSourceBuffer::PlayingBitOffset);
+                    }
                 }
             }
         }

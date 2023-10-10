@@ -28,6 +28,10 @@ public:
     void DestroyAudioSource(uint32_t a_addr) const;
     void PlayAudioSource(uint32_t a_addr) const;
     void SetLoopAudioSource(uint32_t a_addr, bool a_loop) const;
+    bool GetAudioSourcePlayingState(uint32_t a_addr) const;
     AudioSourceBuffer GetAudioSourceBuffer(uint32_t a_addr) const;
     void SetAudioSourceBuffer(uint32_t a_addr, const AudioSourceBuffer& a_buffer) const;
+
+    uint32_t GenerateAudioListener(uint32_t a_transformAddr) const;
+    void DestroyAudioListener(uint32_t a_addr) const;
 };

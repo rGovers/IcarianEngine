@@ -19,8 +19,12 @@ static AudioEngineBindings* Instance = nullptr;
     F(void, IcarianEngine.Audio, AudioSource, DestroyAudioSource, { Instance->DestroyAudioSource(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Audio, AudioSource, PlayAudioSource, { Instance->PlayAudioSource(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Audio, AudioSource, SetLoopAudioSource, { Instance->SetLoopAudioSource(a_addr, (bool)a_loop); }, uint32_t a_addr, uint32_t a_loop) \
+    F(uint32_t, IcarianEngine.Audio, AudioSource, GetAudioSourcePlayingState, { return Instance->GetAudioSourcePlayingState(a_addr); }, uint32_t a_addr) \
     F(AudioSourceBuffer, IcarianEngine.Audio, AudioSource, GetAudioSourceBuffer, { return Instance->GetAudioSourceBuffer(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Audio, AudioSource, SetAudioSourceBuffer, { Instance->SetAudioSourceBuffer(a_addr, a_buffer); }, uint32_t a_addr, AudioSourceBuffer a_buffer)
+    F(void, IcarianEngine.Audio, AudioSource, SetAudioSourceBuffer, { Instance->SetAudioSourceBuffer(a_addr, a_buffer); }, uint32_t a_addr, AudioSourceBuffer a_buffer) \
+    \
+    F(uint32_t, IcarianEngine.Audio, AudioListener, GenerateAudioListener, { return Instance->GenerateAudioListener(a_transformAddr); }, uint32_t a_transformAddr) \
+    F(void, IcarianEngine.Audio, AudioListener, DestroyAudioListener, { Instance->DestroyAudioListener(a_addr); }, uint32_t a_addr)
 
 AUDIOENGINE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
 
@@ -116,6 +120,7 @@ void AudioEngineBindings::DestroyAudioSource(uint32_t a_addr) const
 {
     TRACE("Destroying AudioSource");
     ICARIAN_ASSERT_MSG(a_addr < m_engine->m_audioSources.Size(), "DestroyAudioSource out of bounds.");
+    ICARIAN_ASSERT_MSG(m_engine->m_audioSources.Exists(a_addr), "DestroyAudioSource value does not exist.");
 
     const AudioSourceBuffer buffer = m_engine->m_audioSources[a_addr];
     IDEFER(
@@ -143,6 +148,7 @@ void AudioEngineBindings::PlayAudioSource(uint32_t a_addr) const
 {
     TRACE("Playing AudioSource");
     ICARIAN_ASSERT_MSG(a_addr < m_engine->m_audioSources.Size(), "PlayAudioSource out of bounds.");
+    ICARIAN_ASSERT_MSG(m_engine->m_audioSources.Exists(a_addr), "PlayAudioSource value does not exist.");
 
     AudioSourceBuffer buffer = m_engine->m_audioSources[a_addr];
     buffer.Flags |= (0b1 << AudioSourceBuffer::PlayBitOffset);
@@ -151,6 +157,7 @@ void AudioEngineBindings::PlayAudioSource(uint32_t a_addr) const
 void AudioEngineBindings::SetLoopAudioSource(uint32_t a_addr, bool a_loop) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_engine->m_audioSources.Size(), "SetLoopAudioSource out of bounds.");
+    ICARIAN_ASSERT_MSG(m_engine->m_audioSources.Exists(a_addr), "SetLoopAudioSource value does not exist.");
 
     AudioSourceBuffer buffer = m_engine->m_audioSources[a_addr];
     if (a_loop)
@@ -163,16 +170,43 @@ void AudioEngineBindings::SetLoopAudioSource(uint32_t a_addr, bool a_loop) const
     }
     m_engine->m_audioSources.LockSet(a_addr, buffer);
 }
+bool AudioEngineBindings::GetAudioSourcePlayingState(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_audioSources.Size(), "GetAudioSourcePlayingState out of bounds.");
+    ICARIAN_ASSERT_MSG(m_engine->m_audioSources.Exists(a_addr), "GetAudioSourcePlayingState value does not exist.");
+
+    const AudioSourceBuffer buffer = m_engine->m_audioSources[a_addr];
+    return buffer.Flags & (0b1 << AudioSourceBuffer::PlayingBitOffset);
+}
 
 AudioSourceBuffer AudioEngineBindings::GetAudioSourceBuffer(uint32_t a_addr) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_engine->m_audioSources.Size(), "GetAudioSourceBuffer out of bounds.");
+    ICARIAN_ASSERT_MSG(m_engine->m_audioSources.Exists(a_addr), "SetLoopAudioSource value does not exist.");
 
     return m_engine->m_audioSources[a_addr];
 }
 void AudioEngineBindings::SetAudioSourceBuffer(uint32_t a_addr, const AudioSourceBuffer& a_buffer) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_engine->m_audioSources.Size(), "SetAudioSourceBuffer out of bounds.");
+    ICARIAN_ASSERT_MSG(m_engine->m_audioSources.Exists(a_addr), "SetAudioSourceBuffer value does not exist.");
 
     m_engine->m_audioSources[a_addr] = a_buffer;
+}
+
+uint32_t AudioEngineBindings::GenerateAudioListener(uint32_t a_transformAddr) const
+{
+    TRACE("Creating AudioListener");
+    AudioListenerBuffer buffer;
+    buffer.TransformAddr = a_transformAddr;
+
+    return m_engine->m_audioListeners.PushVal(buffer);
+}
+void AudioEngineBindings::DestroyAudioListener(uint32_t a_addr) const
+{
+    TRACE("Destroying AudioListener");
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_audioListeners.Size(), "DestroyAudioListener out of bounds.");
+    ICARIAN_ASSERT_MSG(m_engine->m_audioListeners.Exists(a_addr), "DestroyAudioListener value does not exist.");
+
+    m_engine->m_audioListeners.Erase(a_addr);
 }

@@ -4,6 +4,7 @@
 #include <AL/alc.h>
 #include <cstdint>
 
+#include "Audio/AudioListenerBuffer.h"
 #include "Audio/AudioSourceBuffer.h"
 #include "DataTypes/TNCArray.h"
 
@@ -17,13 +18,14 @@ private:
 
     constexpr static uint32_t AudioBufferSampleSize = 4096;
 
-    AudioEngineBindings*        m_bindings;
+    AudioEngineBindings*          m_bindings;
 
-    ALCdevice*                  m_device;
-    ALCcontext*                 m_context;
+    ALCdevice*                    m_device;
+    ALCcontext*                   m_context;
 
-    TNCArray<AudioClip*>        m_audioClips;
-    TNCArray<AudioSourceBuffer> m_audioSources;
+    TNCArray<AudioClip*>          m_audioClips;
+    TNCArray<AudioSourceBuffer>   m_audioSources;
+    TNCArray<AudioListenerBuffer> m_audioListeners;
 
 protected:
 

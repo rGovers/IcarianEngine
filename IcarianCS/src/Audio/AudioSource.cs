@@ -31,6 +31,8 @@ namespace IcarianEngine.Audio
         extern static void PlayAudioSource(uint a_addr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetLoopAudioSource(uint a_addr, uint a_loop);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GetAudioSourcePlayingState(uint a_addr);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static AudioSourceBuffer GetAudioSourceBuffer(uint a_addr);
@@ -61,6 +63,14 @@ namespace IcarianEngine.Audio
             get
             {
                 return Def as AudioSourceDef;
+            }
+        }
+
+        public bool IsPlaying
+        {
+            get
+            {
+                return GetAudioSourcePlayingState(m_bufferAddr) != 0;
             }
         }
 
