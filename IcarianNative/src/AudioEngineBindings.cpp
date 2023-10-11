@@ -24,8 +24,13 @@ static AudioEngineBindings* Instance = nullptr;
     F(AudioSourceBuffer, IcarianEngine.Audio, AudioSource, GetAudioSourceBuffer, { return Instance->GetAudioSourceBuffer(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Audio, AudioSource, SetAudioSourceBuffer, { Instance->SetAudioSourceBuffer(a_addr, a_buffer); }, uint32_t a_addr, AudioSourceBuffer a_buffer) \
     \
+    F(uint32_t, IcarianEngine.Audio, AudioMixer, GenerateAudioMixer, { return Instance->GenerateAudioMixer(); }) \
+    F(void, IcarianEngine.Audio, AudioMixer, DestroyAudioMixer, { Instance->DestroyAudioMixer(a_addr); }, uint32_t a_addr) \
+    F(AudioMixerBuffer, IcarianEngine.Audio, AudioMixer, GetAudioMixerBuffer, { return Instance->GetAudioMixerBuffer(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Audio, AudioMixer, SetAudioMixerBuffer, { Instance->SetAudioMixerBuffer(a_addr, a_buffer); }, uint32_t a_addr, AudioMixerBuffer a_buffer) \
+    \
     F(uint32_t, IcarianEngine.Audio, AudioListener, GenerateAudioListener, { return Instance->GenerateAudioListener(a_transformAddr); }, uint32_t a_transformAddr) \
-    F(void, IcarianEngine.Audio, AudioListener, DestroyAudioListener, { Instance->DestroyAudioListener(a_addr); }, uint32_t a_addr)
+    F(void, IcarianEngine.Audio, AudioListener, DestroyAudioListener, { Instance->DestroyAudioListener(a_addr); }, uint32_t a_addr) \
 
 AUDIOENGINE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
 
@@ -111,6 +116,7 @@ uint32_t AudioEngineBindings::GenerateAudioSource(uint32_t a_transformAddr, uint
     AudioSourceBuffer buffer;
     buffer.TransformAddr = a_transformAddr;
     buffer.AudioClipAddr = a_clipAddr;
+    buffer.AudioMixerAddr = -1;
     buffer.SampleOffset = 0;
     buffer.Flags = 0;
     for (uint32_t i = 0; i < AudioSourceBuffer::BufferCount; ++i)
@@ -183,7 +189,6 @@ bool AudioEngineBindings::GetAudioSourcePlayingState(uint32_t a_addr) const
     const AudioSourceBuffer buffer = m_engine->m_audioSources[a_addr];
     return buffer.Flags & (0b1 << AudioSourceBuffer::PlayingBitOffset);
 }
-
 AudioSourceBuffer AudioEngineBindings::GetAudioSourceBuffer(uint32_t a_addr) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_engine->m_audioSources.Size(), "GetAudioSourceBuffer out of bounds.");
@@ -196,7 +201,38 @@ void AudioEngineBindings::SetAudioSourceBuffer(uint32_t a_addr, const AudioSourc
     ICARIAN_ASSERT_MSG(a_addr < m_engine->m_audioSources.Size(), "SetAudioSourceBuffer out of bounds.");
     ICARIAN_ASSERT_MSG(m_engine->m_audioSources.Exists(a_addr), "SetAudioSourceBuffer value does not exist.");
 
-    m_engine->m_audioSources[a_addr] = a_buffer;
+    m_engine->m_audioSources.LockSet(a_addr, a_buffer);
+}
+
+uint32_t AudioEngineBindings::GenerateAudioMixer() const
+{
+    TRACE("Creating AudioMixer");
+    AudioMixerBuffer buffer;
+    buffer.Gain = 1.0f;
+
+    return m_engine->m_audioMixers.PushVal(buffer);
+}
+void AudioEngineBindings::DestroyAudioMixer(uint32_t a_addr) const
+{
+    TRACE("Destroying AudioMixer");
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_audioMixers.Size(), "DestroyAudioMixer out of bounds.");
+    ICARIAN_ASSERT_MSG(m_engine->m_audioMixers.Exists(a_addr), "DestroyAudioMixer value does not exist.");
+
+    m_engine->m_audioMixers.Erase(a_addr);
+}
+AudioMixerBuffer AudioEngineBindings::GetAudioMixerBuffer(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_audioMixers.Size(), "GetAudioMixerBuffer out of bounds.");
+    ICARIAN_ASSERT_MSG(m_engine->m_audioMixers.Exists(a_addr), "GetAudioMixerBuffer value does not exist.");
+
+    return m_engine->m_audioMixers[a_addr];
+}
+void AudioEngineBindings::SetAudioMixerBuffer(uint32_t a_addr, const AudioMixerBuffer& a_buffer) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_audioMixers.Size(), "SetAudioMixerBuffer out of bounds.");
+    ICARIAN_ASSERT_MSG(m_engine->m_audioMixers.Exists(a_addr), "SetAudioMixerBuffer value does not exist.");
+
+    m_engine->m_audioMixers.LockSet(a_addr, a_buffer);
 }
 
 uint32_t AudioEngineBindings::GenerateAudioListener(uint32_t a_transformAddr) const

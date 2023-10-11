@@ -13,11 +13,13 @@ namespace IcarianEngine.Audio
 
         public uint TransformAddr;
         public uint AudioClipAddr;
+        public uint AudioMixerAddr;
         public ulong SampleOffset;
         public uint Flags;
+        uint Source;
         uint BufferA;
         uint BufferB;
-        uint Source;
+        uint BufferC;
     }
 
     public class AudioSource : Component, IDestroy
@@ -39,10 +41,11 @@ namespace IcarianEngine.Audio
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetAudioSourceBuffer(uint a_addr, AudioSourceBuffer a_buffer);
 
-        bool m_disposed = false;
-        bool m_loop = false;
+        bool       m_disposed = false;
+        bool       m_loop = false;
+        AudioMixer m_audioMixer = null;
 
-        uint m_bufferAddr = uint.MaxValue;
+        uint       m_bufferAddr = uint.MaxValue;
 
         /// <summary>
         /// Whether or not the AudioSource has been disposed.
@@ -66,11 +69,45 @@ namespace IcarianEngine.Audio
             }
         }
 
+        /// <summary>
+        /// Whether or not the AudioSource is playing.
+        /// </summary>
         public bool IsPlaying
         {
             get
             {
                 return GetAudioSourcePlayingState(m_bufferAddr) != 0;
+            }
+        }
+
+        /// <summary>
+        /// The AudioMixer the AudioSource is attached to.
+        /// </summary>
+        public AudioMixer AudioMixer
+        {
+            get
+            {
+                return m_audioMixer;
+            }
+            set
+            {
+                m_audioMixer = value;
+
+                if (m_bufferAddr != uint.MaxValue)
+                {
+                    AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+
+                    if (m_audioMixer != null)
+                    {
+                        buffer.AudioMixerAddr = m_audioMixer.InternalAddr;
+                    }
+                    else
+                    {
+                        buffer.AudioMixerAddr = uint.MaxValue;
+                    }
+
+                    SetAudioSourceBuffer(m_bufferAddr, buffer);
+                }
             }
         }
 
@@ -104,6 +141,7 @@ namespace IcarianEngine.Audio
                         m_bufferAddr = GenerateAudioSource(Transform.InternalAddr, value.InternalAddr);
 
                         Loop = m_loop;
+                        AudioMixer = m_audioMixer;
 
                         return;
                     }

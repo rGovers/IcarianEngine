@@ -11,15 +11,28 @@
 #include "Profiler.h"
 #include "Trace.h"
 
+static constexpr char ALCString[] = "ALC";
+static constexpr uint32_t ALCStringLength = sizeof(ALCString) - 1;
+
+static bool IsExtensionSupported(const std::string_view& a_extension)
+{
+    if (strncmp(a_extension.data(), ALCString, ALCStringLength) == 0)
+    {
+        return (bool)alcIsExtensionPresent(NULL, a_extension.data());
+    }
+
+    return (bool)alIsExtensionPresent(a_extension.data());
+}
+
 AudioEngine::AudioEngine()
 {
     m_bindings = new AudioEngineBindings(this);   
-    
+
     TRACE("Creating AudioEngine...");
     m_device = alcOpenDevice(NULL);
     if (m_device == NULL)
     {
-        Logger::Warning("Failed to create AudioEngine: No default audio device.");
+        Logger::Warning("Failed to create AudioEngine: No audio device.");
 
         return;
     }
@@ -47,6 +60,9 @@ AudioEngine::AudioEngine()
 
         return;
     }
+
+    // Flush Errors
+    alGetError();
 }
 AudioEngine::~AudioEngine()
 {
@@ -80,10 +96,32 @@ AudioEngine::~AudioEngine()
         }
     }
 
+    for (uint32_t i = 0; i < m_audioListeners.Size(); ++i)
+    {
+        if (m_audioListeners.Exists(i))
+        {
+            Logger::Warning("AudioListener was not destroyed.");
+        }
+    }
+
+    for (uint32_t i = 0; i < m_audioMixers.Size(); ++i)
+    {
+        if (m_audioMixers.Exists(i))
+        {
+            Logger::Warning("AudioMixer was not destroyed.");
+        }
+    }
+
     TRACE("Destroying AudioEngine...");
     alcMakeContextCurrent(NULL);
-    alcDestroyContext(m_context);
-    alcCloseDevice(m_device);
+    if (m_context != NULL)
+    {
+        alcDestroyContext(m_context);
+    }
+    if (m_device != NULL)
+    {
+        alcCloseDevice(m_device);
+    }
 }
 
 static constexpr ALenum GetALFormat(e_AudioFormat a_format, uint32_t a_channelCount)
@@ -202,8 +240,32 @@ static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip*
     return a_sampleOffset;
 }
 
+static void SetSourceTransform(const AudioSourceBuffer& a_source)
+{
+    const glm::mat4 transform = ObjectManager::GetGlobalMatrix(a_source.TransformAddr);
+
+    const glm::vec3 position = transform[3].xyz();
+    alSource3f(a_source.Source, AL_POSITION, position.x, position.y, position.z);
+
+    const glm::vec3 forward = transform[2].xyz();
+    const glm::vec3 up = -transform[1].xyz();
+
+    const ALfloat orientation[6] = 
+    {
+        forward.x, forward.y, forward.z,
+        up.x,      up.y,      up.z
+    };
+
+    alSourcefv(a_source.Source, AL_ORIENTATION, orientation);
+}
+
 void AudioEngine::Update()
 {
+    if (m_device == NULL || m_context == NULL)
+    {
+        return;
+    }
+
     const ALenum error = alGetError();
     if (error != AL_NO_ERROR)
     {
@@ -291,17 +353,18 @@ void AudioEngine::Update()
 
                 alSourceQueueBuffers(buffer.Source, AudioSourceBuffer::BufferCount, buffer.Buffers);
 
-                const glm::mat4 transform = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
+                SetSourceTransform(buffer);
 
-                const glm::vec3 position = transform[3].xyz();
-                alSource3f(buffer.Source, AL_POSITION, position.x, position.y, position.z);
+                if (buffer.AudioMixerAddr != -1)
+                {
+                    const AudioMixerBuffer& mixer = m_audioMixers[buffer.AudioMixerAddr];
 
-                const glm::vec3 forward = transform[2].xyz();
-                const glm::vec3 up = -transform[1].xyz();
-
-                const ALfloat orientation[6] = { forward.x, forward.y, forward.z, up.x, up.y, up.z };
-
-                alSourcefv(buffer.Source, AL_ORIENTATION, orientation);
+                    alSourcef(buffer.Source, AL_GAIN, mixer.Gain);
+                }
+                else
+                {
+                    alSourcef(buffer.Source, AL_GAIN, 1.0f);
+                }
 
                 alSourcePlay(buffer.Source);
 
@@ -325,17 +388,18 @@ void AudioEngine::Update()
                     alSourceQueueBuffers(buffer.Source, 1, &queueBuffer);
                 }
 
-                const glm::mat4 transform = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
+                SetSourceTransform(buffer);
 
-                const glm::vec3 position = transform[3].xyz();
-                alSource3f(buffer.Source, AL_POSITION, position.x, position.y, position.z);
+                if (buffer.AudioMixerAddr != -1)
+                {
+                    const AudioMixerBuffer& mixer = m_audioMixers[buffer.AudioMixerAddr];
 
-                const glm::vec3 forward = transform[2].xyz();
-                const glm::vec3 up = transform[1].xyz();
-
-                const ALfloat orientation[6] = { forward.x, forward.y, forward.z, up.x, up.y, up.z };
-
-                alSourcefv(buffer.Source, AL_ORIENTATION, orientation);
+                    alSourcef(buffer.Source, AL_GAIN, mixer.Gain);
+                }
+                else
+                {
+                    alSourcef(buffer.Source, AL_GAIN, 1.0f);
+                }
 
                 if (!canLoop)
                 {

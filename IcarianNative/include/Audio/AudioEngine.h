@@ -5,6 +5,7 @@
 #include <cstdint>
 
 #include "Audio/AudioListenerBuffer.h"
+#include "Audio/AudioMixerBuffer.h"
 #include "Audio/AudioSourceBuffer.h"
 #include "DataTypes/TNCArray.h"
 
@@ -26,6 +27,7 @@ private:
     TNCArray<AudioClip*>          m_audioClips;
     TNCArray<AudioSourceBuffer>   m_audioSources;
     TNCArray<AudioListenerBuffer> m_audioListeners;
+    TNCArray<AudioMixerBuffer>    m_audioMixers;
 
 protected:
 

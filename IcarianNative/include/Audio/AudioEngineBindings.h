@@ -6,6 +6,7 @@
 class AudioEngine;
 
 #include "Audio/AudioSourceBuffer.h"
+#include "Audio/AudioMixerBuffer.h"
 
 class AudioEngineBindings
 {
@@ -31,6 +32,11 @@ public:
     bool GetAudioSourcePlayingState(uint32_t a_addr) const;
     AudioSourceBuffer GetAudioSourceBuffer(uint32_t a_addr) const;
     void SetAudioSourceBuffer(uint32_t a_addr, const AudioSourceBuffer& a_buffer) const;
+
+    uint32_t GenerateAudioMixer() const;
+    void DestroyAudioMixer(uint32_t a_addr) const;
+    AudioMixerBuffer GetAudioMixerBuffer(uint32_t a_addr) const;
+    void SetAudioMixerBuffer(uint32_t a_addr, const AudioMixerBuffer& a_buffer) const;
 
     uint32_t GenerateAudioListener(uint32_t a_transformAddr) const;
     void DestroyAudioListener(uint32_t a_addr) const;

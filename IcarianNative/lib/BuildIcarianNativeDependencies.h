@@ -425,13 +425,14 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
         CUBE_CProject_AppendSource(&project, "common/alcomplex.cpp");
         CUBE_CProject_AppendSource(&project, "common/alfstream.cpp");
         CUBE_CProject_AppendSource(&project, "common/almalloc.cpp");
-        CUBE_CProject_AppendSource(&project, "common/alsem.cpp");
+        // CUBE_CProject_AppendSource(&project, "common/alsem.cpp");
         CUBE_CProject_AppendSource(&project, "common/alstring.cpp");
-        CUBE_CProject_AppendSource(&project, "common/althrd_setname.cpp");
+        // CUBE_CProject_AppendSource(&project, "common/althrd_setname.cpp");
         CUBE_CProject_AppendSource(&project, "common/dynload.cpp");
         CUBE_CProject_AppendSource(&project, "common/polyphase_resampler.cpp");
         CUBE_CProject_AppendSource(&project, "common/ringbuffer.cpp");
         CUBE_CProject_AppendSource(&project, "common/strutils.cpp");
+        CUBE_CProject_AppendSource(&project, "common/threads.cpp");
     }
 
     {
@@ -446,13 +447,11 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
         CUBE_CProject_AppendSource(&project, "core/converter.cpp");
         CUBE_CProject_AppendSource(&project, "core/cpu_caps.cpp");
         CUBE_CProject_AppendSource(&project, "core/cubic_tables.cpp");
+        // CUBE_CProject_AppendSource(&project, "core/dbus_wrap.cpp");
         CUBE_CProject_AppendSource(&project, "core/devformat.cpp");
         CUBE_CProject_AppendSource(&project, "core/device.cpp");
         CUBE_CProject_AppendSource(&project, "core/effectslot.cpp");
-        CUBE_CProject_AppendSource(&project, "core/except.cpp");
-        CUBE_CProject_AppendSource(&project, "core/filters/biquad.cpp");
-        CUBE_CProject_AppendSource(&project, "core/filters/nfc.cpp");
-        CUBE_CProject_AppendSource(&project, "core/filters/splitter.cpp");
+        CUBE_CProject_AppendSource(&project, "core/except.cpp");     
         CUBE_CProject_AppendSource(&project, "core/fmt_traits.cpp");
         CUBE_CProject_AppendSource(&project, "core/fpu_ctrl.cpp");
         CUBE_CProject_AppendSource(&project, "core/helpers.cpp");
@@ -460,9 +459,14 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
         CUBE_CProject_AppendSource(&project, "core/logging.cpp");
         CUBE_CProject_AppendSource(&project, "core/mastering.cpp");
         CUBE_CProject_AppendSource(&project, "core/mixer.cpp");
+        // CUBE_CProject_AppendSource(&project, "core/rkit.cpp");
         CUBE_CProject_AppendSource(&project, "core/uhjfilter.cpp");
         CUBE_CProject_AppendSource(&project, "core/uiddefs.cpp");
         CUBE_CProject_AppendSource(&project, "core/voice.cpp");
+
+        CUBE_CProject_AppendSource(&project, "core/filters/biquad.cpp");
+        CUBE_CProject_AppendSource(&project, "core/filters/nfc.cpp");
+        CUBE_CProject_AppendSource(&project, "core/filters/splitter.cpp");
 
         CUBE_CProject_AppendSource(&project, "core/mixer/mixer_c.cpp");
     }
@@ -471,8 +475,16 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
         // OpenAL
         CUBE_CProject_AppendSource(&project, "al/auxeffectslot.cpp");
         CUBE_CProject_AppendSource(&project, "al/buffer.cpp");
-        CUBE_CProject_AppendSource(&project, "al/debug.cpp");
+        // CUBE_CProject_AppendSource(&project, "al/debug.cpp");
         CUBE_CProject_AppendSource(&project, "al/effect.cpp");
+        CUBE_CProject_AppendSource(&project, "al/error.cpp");
+        CUBE_CProject_AppendSource(&project, "al/event.cpp");
+        CUBE_CProject_AppendSource(&project, "al/extension.cpp");
+        CUBE_CProject_AppendSource(&project, "al/filter.cpp");
+        CUBE_CProject_AppendSource(&project, "al/listener.cpp");
+        CUBE_CProject_AppendSource(&project, "al/source.cpp");
+        CUBE_CProject_AppendSource(&project, "al/state.cpp");
+
         CUBE_CProject_AppendSource(&project, "al/effects/autowah.cpp");
         CUBE_CProject_AppendSource(&project, "al/effects/chorus.cpp");
         CUBE_CProject_AppendSource(&project, "al/effects/compressor.cpp");
@@ -488,22 +500,18 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
         CUBE_CProject_AppendSource(&project, "al/effects/pshifter.cpp");
         CUBE_CProject_AppendSource(&project, "al/effects/reverb.cpp");
         CUBE_CProject_AppendSource(&project, "al/effects/vmorpher.cpp");
-        CUBE_CProject_AppendSource(&project, "al/error.cpp");
-        CUBE_CProject_AppendSource(&project, "al/event.cpp");
-        CUBE_CProject_AppendSource(&project, "al/extension.cpp");
-        CUBE_CProject_AppendSource(&project, "al/filter.cpp");
-        CUBE_CProject_AppendSource(&project, "al/listener.cpp");
-        CUBE_CProject_AppendSource(&project, "al/source.cpp");
-        CUBE_CProject_AppendSource(&project, "al/state.cpp");
     }
 
     {
         // ALC
         CUBE_CProject_AppendSource(&project, "alc/alc.cpp");
-        CUBE_CProject_AppendSource(&project, "alc/alu.cpp");
         CUBE_CProject_AppendSource(&project, "alc/alconfig.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/alu.cpp");
         CUBE_CProject_AppendSource(&project, "alc/context.cpp");
         CUBE_CProject_AppendSource(&project, "alc/device.cpp");
+        // CUBE_CProject_AppendSource(&project, "alc/events.cpp");
+        CUBE_CProject_AppendSource(&project, "alc/panning.cpp");
+
         CUBE_CProject_AppendSource(&project, "alc/effects/autowah.cpp");
         CUBE_CProject_AppendSource(&project, "alc/effects/chorus.cpp");
         CUBE_CProject_AppendSource(&project, "alc/effects/compressor.cpp");
@@ -518,8 +526,6 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
         CUBE_CProject_AppendSource(&project, "alc/effects/pshifter.cpp");
         CUBE_CProject_AppendSource(&project, "alc/effects/reverb.cpp");
         CUBE_CProject_AppendSource(&project, "alc/effects/vmorpher.cpp");
-        CUBE_CProject_AppendSource(&project, "alc/events.cpp");
-        CUBE_CProject_AppendSource(&project, "alc/panning.cpp");
 
         CUBE_CProject_AppendSource(&project, "alc/backends/base.cpp");
         CUBE_CProject_AppendSource(&project, "alc/backends/null.cpp");
@@ -573,6 +579,29 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
         CUBE_CProject_AppendSource(&project, "alc/backends/portaudio.cpp");
         CUBE_CProject_AppendSource(&project, "alc/backends/pulseaudio.cpp");
         CUBE_CProject_AppendSource(&project, "alc/backends/wave.cpp");
+
+        break;
+    }
+    }
+
+    switch (a_configuration)
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
 
         break;
     }

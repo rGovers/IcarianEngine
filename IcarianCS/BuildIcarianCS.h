@@ -38,6 +38,7 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
 
     CUBE_CSProject_AppendSource(&project, "src/Audio/AudioClip.cs");
     CUBE_CSProject_AppendSource(&project, "src/Audio/AudioListener.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Audio/AudioMixer.cs");
     CUBE_CSProject_AppendSource(&project, "src/Audio/AudioSource.cs");
 
     CUBE_CSProject_AppendSource(&project, "src/Definitions/AnimationControllerDef.cs");
