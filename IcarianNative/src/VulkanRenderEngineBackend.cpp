@@ -2,9 +2,6 @@
 
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 
-#define VMA_IMPLEMENTATION
-#include <vk_mem_alloc.h>
-
 #include <set>
 
 #include "AppWindow/AppWindow.h"
@@ -18,6 +15,14 @@
 #include "Rendering/Vulkan/VulkanSwapchain.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
+
+#ifndef NDEBUG
+#define VMA_DEBUG_LOG(str) Logger::Message(str)
+#define VMA_DEBUG_LOG_FORMAT(format, ...) do { char buffer[4096]; sprintf(buffer, format, __VA_ARGS__); Logger::Message(buffer); } while (0)
+#endif
+
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
 
 constexpr const char* ValidationLayers[] = 
 {
@@ -416,7 +421,8 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
 
     delete m_graphicsEngine;
 
-    for (uint32_t i = 0; i < VulkanMaxFlightFrames; ++i)
+    TRACE("Destroy Vulkan Deletion Objects");
+    for (uint32_t i = 0; i < VulkanDeletionQueueSize; ++i)
     {
         const TLockArray a = m_deletionObjects[i].ToLockArray();
 
