@@ -2,6 +2,8 @@ using System;
 using System.Runtime.InteropServices;
 using System.Xml;
 
+#include "Swizzle.h"
+
 namespace IcarianEngine.Maths
 {
     public static class Vector3Extensions
@@ -49,127 +51,163 @@ namespace IcarianEngine.Maths
     [StructLayout(LayoutKind.Explicit, Pack = 0)]
     public struct Vector3
     {
+        /// <summary>
+        /// The X component of the vector
+        /// </summary>
         [FieldOffset(0)]
         public float X;
+        /// <summary>
+        /// The Y component of the vector
+        /// </summary>
         [FieldOffset(4)]
         public float Y;
+        /// <summary>
+        /// The Z component of the vector
+        /// </summary>
         [FieldOffset(8)]
         public float Z;
 
-#region CONSTANTS
+        /// <summary>
+        /// Zero vector
+        /// </summary>
         public static readonly Vector3 Zero = new Vector3(0.0f);
+        /// <summary>
+        /// One vector
+        /// </summary>
         public static readonly Vector3 One = new Vector3(1.0f);
 
+        /// <summary>
+        /// Infinity vector
+        /// </summary>
         public static readonly Vector3 Infinity = new Vector3(float.PositiveInfinity);
-
+        
+        /// <summary>
+        /// Right vector
+        /// </summary>
         public static readonly Vector3 Right = new Vector3(1.0f, 0.0f, 0.0f);
+        /// <summary>
+        /// Left vector
+        /// </summary>
         public static readonly Vector3 Left = new Vector3(-1.0f, 0.0f, 0.0f);
+        /// <summary>
+        /// Up vector
+        /// </summary>
         public static readonly Vector3 Up = new Vector3(0.0f, -1.0f, 0.0f);
+        /// <summary>
+        /// Down vector
+        /// </summary>
         public static readonly Vector3 Down = new Vector3(0.0f, 1.0f, 0.0f);
+        /// <summary>
+        /// Forward vector
+        /// </summary>
         public static readonly Vector3 Forward = new Vector3(0.0f, 0.0f, -1.0f);
+        /// <summary>
+        /// Backward vector
+        /// </summary>
         public static readonly Vector3 Backward = new Vector3(0.0f, 0.0f, 1.0f);
 
+        /// <summary>
+        /// Unit X vector
+        /// </summary>
         public static readonly Vector3 UnitX = new Vector3(1.0f, 0.0f, 0.0f);
+        /// <summary>
+        /// Unit Y vector
+        /// </summary>
         public static readonly Vector3 UnitY = new Vector3(0.0f, 1.0f, 0.0f);
+        /// <summary>
+        /// Unit Z vector
+        /// </summary>
         public static readonly Vector3 UnitZ = new Vector3(0.0f, 0.0f, 1.0f);
-#endregion
 
-#region SWIZZLE
-        public Vector2 XX
+        /// <summary>
+        /// U Component. Maps to the X component of the vector
+        /// </summary>
+        public float U
         {
             get
             {
-                return new Vector2(X);
-            }
-        }
-        public Vector2 XY
-        {
-            get
-            {
-                return new Vector2(X, Y);
+                return X;
             }
             set
             {
-                X = value.X;
-                Y = value.Y;
+                X = value;
             }
         }
-        public Vector2 XZ
+        /// <summary>
+        /// V Component. Maps to the Y component of the vector
+        /// </summary>
+        public float V
         {
             get
             {
-                return new Vector2(X, Z);
+                return Y;
             }
             set
             {
-                X = value.X;
-                Z = value.Y;
+                Y = value;
             }
         }
-        public Vector2 YX
+        /// <summary>
+        /// W Component. Maps to the Z component of the vector
+        /// </summary>
+        public float W
         {
             get
             {
-                return new Vector2(Y, X);
+                return Z;
             }
             set
             {
-                Y = value.X;
-                X = value.Y;
+                Z = value;
             }
         }
-        public Vector2 YY
-        {
-            get
-            {
-                return new Vector2(Y);
-            }
-        }
-        public Vector2 YZ
-        {
-            get
-            {
-                return new Vector2(Y, Z);
-            }
-            set
-            {
-                Y = value.X;
-                Z = value.Y;
-            }
-        }
-        public Vector2 ZX
-        {
-            get
-            {
-                return new Vector2(Z, X);
-            }
-            set
-            {
-                Z = value.X;
-                X = value.Y;
-            }
-        }
-        public Vector2 ZY 
-        {
-            get
-            {
-                return new Vector2(Z, Y);
-            }
-            set
-            {
-                Z = value.X;
-                Y = value.Y;
-            }
-        }
-        public Vector2 ZZ
-        {
-            get
-            {
-                return new Vector2(Z);
-            }
-        }
-#endregion
 
+        /// <summary>
+        /// R Component. Maps to the X component of the vector
+        /// </summary>
+        public float R
+        {
+            get
+            {
+                return X;
+            }
+            set
+            {
+                X = value;
+            }
+        }
+        /// <summary>
+        /// G Component. Maps to the Y component of the vector
+        /// </summary>
+        public float G
+        {
+            get
+            {
+                return Y;
+            }
+            set
+            {
+                Y = value;
+            }
+        }
+        /// <summary>
+        /// B Component. Maps to the Z component of the vector
+        /// </summary>
+        public float B
+        {
+            get
+            {
+                return Z;
+            }
+            set
+            {
+                Z = value;
+            }
+        }
+
+        /// <summary>
+        /// Indexer for the vector, NaN if invalid index
+        /// </summary>
         public float this[int a_key]
         {
             get
@@ -230,30 +268,76 @@ namespace IcarianEngine.Maths
             }
         }
 
+        /// <summary>
+        /// The squared magnitude of the vector
+        /// </summary>
+        public float MagnitudeSqr
+        {
+            get
+            {
+                return X * X + Y * Y + Z * Z;
+            }
+        }
+
+        /// <summary>
+        /// The magnitude of the vector
+        /// </summary>
+        public float Magnitude
+        {
+            get
+            {
+                return (float)Math.Sqrt(MagnitudeSqr);
+            }
+        }
+
+        /// <summary>
+        /// Constructor for the vector
+        /// </summary>
+        /// <param name="a_val">The value for all components</param>
         public Vector3(float a_val)
         {
             X = a_val;
             Y = a_val;   
             Z = a_val;
         }
+        /// <summary>
+        /// Constructor for the vector
+        /// </summary>
+        /// <param name="a_x">The X component of the vector</param>
+        /// <param name="a_y">The Y component of the vector</param>
+        /// <param name="a_z">The Z component of the vector</param>
         public Vector3(float a_x, float a_y, float a_z)
         {
             X = a_x;
             Y = a_y;
             Z = a_z;
         }
+        /// <summary>
+        /// Constructor for the vector
+        /// </summary>
+        /// <param name="a_xy">The XY components of the vector</param>
+        /// <param name="a_z">The Z component of the vector</param>
         public Vector3(Vector2 a_xy, float a_z)
         {
             X = a_xy.X;
             Y = a_xy.Y;
             Z = a_z;
         }
+        /// <summary>
+        /// Constructor for the vector
+        /// </summary>
+        /// <param name="a_x">The X component of the vector</param>
+        /// <param name="a_yz">The YZ components of the vector</param>
         public Vector3(float a_x, Vector2 a_yz)
         {
             X = a_x;
             Y = a_yz.X;
             Z = a_yz.Y;
         }
+        /// <summary>
+        /// Constructor for the vector
+        /// </summary>
+        /// <param name="a_xyz">Vector to copy</param>
         public Vector3(Vector3 a_other)
         {
             X = a_other.X;
@@ -329,22 +413,9 @@ namespace IcarianEngine.Maths
             return $"({X}, {Y}, {Z})";
         }
 
-        public float MagnitudeSqr
-        {
-            get
-            {
-                return X * X + Y * Y + Z * Z;
-            }
-        }
-
-        public float Magnitude
-        {
-            get
-            {
-                return (float)Math.Sqrt(MagnitudeSqr);
-            }
-        }
-
+        /// <summary>
+        /// Normalizes the vector
+        /// </summary>
         public void Normalize()
         {
             float mag = Magnitude;
@@ -353,6 +424,11 @@ namespace IcarianEngine.Maths
             Y /= mag;
             Z /= mag;
         }
+        /// <summary>
+        /// Gets a normalized copy of the vector
+        /// </summary>
+        /// <param name="a_other">Vector to normalize</param>
+        /// <returns>Normalized copy of the vector</returns>
         public static Vector3 Normalized(Vector3 a_other)
         {
             float mag = a_other.Magnitude;
@@ -360,10 +436,22 @@ namespace IcarianEngine.Maths
             return new Vector3(a_other.X / mag, a_other.Y / mag, a_other.Z / mag);
         }
 
+        /// <summary>
+        /// Gets the dot product of the two vectors
+        /// </summary>
+        /// <param name="a_lhs">Left hand side of the dot product</param>
+        /// <param name="a_rhs">Right hand side of the dot product</param>
+        /// <returns>Dot product of the two vectors</returns>
         public static float Dot(Vector3 a_lhs, Vector3 a_rhs)
         {
             return a_lhs.X * a_rhs.X + a_lhs.Y * a_rhs.Y + a_lhs.Z * a_rhs.Z;
         }
+        /// <summary>
+        /// Gets the cross product of the two vectors
+        /// </summary>
+        /// <param name="a_lhs">Left hand side of the cross product</param>
+        /// <param name="a_rhs">Right hand side of the cross product</param>
+        /// <returns>Cross product of the two vectors</returns>
         public static Vector3 Cross(Vector3 a_lhs, Vector3 a_rhs)
         {
             return new Vector3
@@ -374,9 +462,20 @@ namespace IcarianEngine.Maths
             );
         }
 
+        /// <summary>
+        /// Linearly interpolates between two vectors
+        /// </summary>
+        /// <param name="a_start">Start vector</param>
+        /// <param name="a_end">End vector</param>
+        /// <param name="a_t">Interpolation value</param>
+        /// <returns>Interpolated vector</returns>
         public static Vector3 Lerp(Vector3 a_start, Vector3 a_end, float a_t)
         {
             return a_start + (a_end - a_start) * a_t;
         }
+
+        VEC_SWIZZLE_VEC3_FULL_VEC2
+        VEC_SWIZZLE_VEC3_FULL_VEC3
+        VEC_SWIZZLE_VEC3_FULL_VEC4
     }
 }

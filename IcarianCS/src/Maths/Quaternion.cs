@@ -2,6 +2,8 @@ using System;
 using System.Runtime.InteropServices;
 using System.Xml;
 
+#include "Swizzle.h"
+
 namespace IcarianEngine.Maths
 {
     public static class QuaternionExtensions
@@ -52,24 +54,60 @@ namespace IcarianEngine.Maths
     [StructLayout(LayoutKind.Explicit, Pack = 0)]
     public struct Quaternion
     {
+        /// <summary>
+        /// The X component of the quaternion
+        /// </summary>
         [FieldOffset(0)]
         public float X;
+        /// <summary>
+        /// The Y component of the quaternion
+        /// </summary>
         [FieldOffset(4)]
         public float Y;
+        /// <summary>
+        /// The Z component of the quaternion
+        /// </summary>
         [FieldOffset(8)]
         public float Z;
+        /// <summary>
+        /// The W component of the quaternion
+        /// </summary>
         [FieldOffset(12)]
         public float W;
 
+        /// <summary>
+        /// Identity quaternion
+        /// </summary>
         public static readonly Quaternion Identity = new Quaternion(0.0f, 0.0f, 0.0f, 1.0f); 
 
-        public Quaternion(Quaternion a_other)
+        /// <summary>
+        /// The squared magnitude of the quaternion
+        /// </summary>
+        public float MagnitudeSqr
         {
-            X = a_other.X;
-            Y = a_other.Y;
-            Z = a_other.Z;
-            W = a_other.W;
+            get
+            {
+                return X * X + Y * Y + Z * Z + W * W;
+            }
         }
+        /// <summary>
+        /// The magnitude of the quaternion
+        /// </summary>
+        public float Magnitude
+        {
+            get
+            {
+                return (float)Math.Sqrt(MagnitudeSqr);
+            }
+        }
+
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="a_x">X component</param>
+        /// <param name="a_y">Y component</param>
+        /// <param name="a_z">Z component</param>
+        /// <param name="a_w">W component</param>
         public Quaternion(float a_x, float a_y, float a_z, float a_w)
         {
             X = a_x;
@@ -77,7 +115,25 @@ namespace IcarianEngine.Maths
             Z = a_z;
             W = a_w;
         }
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="a_vec">Vector to copy</param>
+        public Quaternion(Quaternion a_other)
+        {
+            X = a_other.X;
+            Y = a_other.Y;
+            Z = a_other.Z;
+            W = a_other.W;
+        }
 
+        /// <summary>
+        /// Creates a quaternion from direction vectors
+        /// </summary>
+        /// <param name="a_right">Right vector</param>
+        /// <param name="a_up">Up vector</param>
+        /// <param name="a_forward">Forward vector</param>
+        /// <returns>The Quaternion</returns>
         public static Quaternion FromDirectionVectors(Vector3 a_right, Vector3 a_up, Vector3 a_forward)
         {
             float tr = a_right.X + a_up.Y + a_forward.Z;
@@ -129,10 +185,18 @@ namespace IcarianEngine.Maths
                 (a_up.X - a_right.Y) / sV
             );
         }
+        /// <summary>
+        /// Creates a quaternion from a rotation matrix
+        /// </summary>
+        /// <param name="a_mat">The rotation matrix</param>
+        /// <returns>The Quaternion</returns>
         public static Quaternion FromMatrix(Matrix4 a_mat)
         {
             return FromDirectionVectors(a_mat[0].XYZ, a_mat[1].XYZ, a_mat[2].XYZ);
         }
+        /// <summary>
+        /// Creates a quaternion from an axis and angle
+        /// </summary>
         public static Quaternion FromAxisAngle(Vector3 a_axis, float a_angle)
         {
             float halfAngle = a_angle * 0.5f;
@@ -145,21 +209,6 @@ namespace IcarianEngine.Maths
         {
             // Not the most efficent but it works and less hair pulling
             return FromAxisAngle(Vector3.UnitX, a_euler.X) * FromAxisAngle(Vector3.UnitY, a_euler.Y) * FromAxisAngle(Vector3.UnitZ, a_euler.Z);
-        }
-
-        public float MagnitudeSqr
-        {
-            get
-            {
-                return X * X + Y * Y + Z * Z + W * W;
-            }
-        }
-        public float Magnitude
-        {
-            get
-            {
-                return (float)Math.Sqrt(MagnitudeSqr);
-            }
         }
 
         public static Quaternion operator +(Quaternion a_lhs, Quaternion a_rhs)
@@ -242,6 +291,9 @@ namespace IcarianEngine.Maths
             return $"({X}, {Y}, {Z}, {W})";
         }
 
+        /// <summary>
+        /// Normalizes the quaternion
+        /// </summary>
         public void Normalize()
         {
             float mag = Magnitude;
@@ -251,6 +303,11 @@ namespace IcarianEngine.Maths
             Z /= mag;
             W /= mag;
         }
+        /// <summary>
+        /// Returns a normalized quaternion
+        /// </summary>
+        /// <param name="a_quat">The quaternion to normalize</param>
+        /// <returns>The normalized quaternion</returns>
         public static Quaternion Normalized(Quaternion a_quat)
         {
             float mag = a_quat.Magnitude;
@@ -258,11 +315,19 @@ namespace IcarianEngine.Maths
             return new Quaternion(a_quat.X / mag, a_quat.Y / mag, a_quat.Z / mag, a_quat.W / mag);
         }
 
+        /// <summary>
+        /// Converts the quaternion to a Vector4
+        /// </summary>
+        /// <returns>The Vector4</returns>
         public Vector4 ToVector4()
         {
             return new Vector4(X, Y, Z, W);
         }
 
+        /// <summary>
+        /// Converts the quaternion to a rotation matrix
+        /// </summary>
+        /// <returns>The rotation matrix</returns>
         public Matrix4 ToMatrix()
         {
             float sqX = X * X;
@@ -290,6 +355,10 @@ namespace IcarianEngine.Maths
             return mat;
         }
 
+        /// <summary>
+        /// Converts the quaternion to euler angles
+        /// </summary>
+        /// <returns>The euler angles</returns>
         public Vector3 ToEuler()
         {
             float np = X * Y + Z * W;
@@ -327,7 +396,13 @@ namespace IcarianEngine.Maths
                 Mathf.Asin(2 * np)
             );         
         }
-
+        
+        /// <summary>
+        /// Converts the quaternion to an axis angle
+        /// </summary>
+        /// XYZ = Axis
+        /// W = Angle
+        /// <returns>The axis angle</returns>
         public Vector4 ToAxisAngle()
         {
             if (W >= 1)
@@ -347,6 +422,11 @@ namespace IcarianEngine.Maths
             );
         }
 
+        /// <summary>
+        /// Inverts the quaternion
+        /// </summary>
+        /// <param name="a_quat">The quaternion to invert</param>
+        /// <returns>The inverted quaternion</returns>
         public static Quaternion Inverse(Quaternion a_quat)
         {
             float mag = a_quat.MagnitudeSqr;
@@ -354,6 +434,13 @@ namespace IcarianEngine.Maths
             return new Quaternion(-a_quat.X / mag, -a_quat.Y / mag, -a_quat.Z / mag, a_quat.W / mag);
         }
 
+        /// <summary>
+        /// Spherical linear interpolation between two quaternions
+        /// </summary>
+        /// <param name="a_lhs">From quaternion</param>
+        /// <param name="a_rhs">To quaternion</param>
+        /// <param name="a_t">The interpolation value</param>
+        /// <returns>The interpolated quaternion</returns>
         public static Quaternion Slerp(Quaternion a_lhs, Quaternion a_rhs, float a_t)
         {
             // TODO: Need to fix this
@@ -369,9 +456,19 @@ namespace IcarianEngine.Maths
 
             return powQ * a_rhs;
         }
+        /// <summary>
+        /// Linear interpolation between two quaternions
+        /// </summary>
+        /// <param name="a_lhs">From quaternion</param>
+        /// <param name="a_rhs">To quaternion</param>
+        /// <param name="a_t">The interpolation value</param>
         public static Quaternion Lerp(Quaternion a_lhs, Quaternion a_rhs, float a_t)
         {
             return a_lhs * (1.0f - a_t) + a_rhs * a_t;
         }
+
+        VEC_SWIZZLE_QUAT_FULL_VEC2
+        VEC_SWIZZLE_QUAT_FULL_VEC3
+        VEC_SWIZZLE_QUAT_FULL_VEC4
     }
 }

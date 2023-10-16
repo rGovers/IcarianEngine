@@ -2,6 +2,8 @@ using System;
 using System.Runtime.InteropServices;
 using System.Xml;
 
+#include "Swizzle.h"
+
 namespace IcarianEngine.Maths
 {
     public static class Vector2Extensions
@@ -41,27 +43,90 @@ namespace IcarianEngine.Maths
 
     [StructLayout(LayoutKind.Explicit, Pack = 0)]
     public struct Vector2
-    {
+    {   
+        /// <summary>
+        /// The X component of the vector
+        /// </summary>
         [FieldOffset(0)]
         public float X;
+        /// <summary>
+        /// The Y component of the vector
+        /// </summary>
         [FieldOffset(4)]
         public float Y;
 
-#region CONSTANTS
+        /// <summary>
+        /// Zero vector
+        /// </summary>
         public static readonly Vector2 Zero = new Vector2(0.0f);
+        /// <summary>
+        /// One vector
+        /// </summary>
         public static readonly Vector2 One = new Vector2(1.0f);
 
+        /// <summary>
+        /// Infinity vector
+        /// </summary>
         public static readonly Vector2 Infinity = new Vector2(float.PositiveInfinity);
 
+        /// <summary>
+        /// Right vector
+        /// </summary>
         public static readonly Vector2 Right = new Vector2(1.0f, 0.0f);
+        /// <summary>
+        /// Left vector
+        /// </summary>
         public static readonly Vector2 Left = new Vector2(-1.0f, 0.0f);
+        /// <summary>
+        /// Up vector
+        /// </summary>
         public static readonly Vector2 Up = new Vector2(0.0f, 1.0f);
+        /// <summary>
+        /// Down vector
+        /// </summary>
         public static readonly Vector2 Down = new Vector2(0.0f, -1.0f);
 
+        /// <summary>
+        /// Unit X vector
+        /// </summary>
         public static readonly Vector2 UnitX = new Vector2(1.0f, 0.0f);
+        /// <summary>
+        /// Unit Y vector
+        /// </summary>
         public static readonly Vector2 UnitY = new Vector2(0.0f, 1.0f);
-#endregion
 
+        /// <summary>
+        /// U Component. Maps to the X component of the vector
+        /// </summary>
+        public float U
+        {
+            get
+            {
+                return X;
+            }
+            set
+            {
+                X = value;
+            }
+        }
+        /// <summary>
+        /// V Component. Maps to the Y component of the vector
+        /// </summary>
+        public float V
+        {
+            get
+            {
+                return Y;
+            }
+            set
+            {
+                Y = value;
+            }
+        }
+
+        /// <summary>
+        /// Indexer for the vector, NaN if invalid index
+        /// </summary>
         public float this[int a_key]
         {
             get
@@ -112,16 +177,50 @@ namespace IcarianEngine.Maths
             }
         }
 
+        /// <summary>
+        /// Magnitude squared of the vector
+        /// </summary>
+        public float MagnitudeSqr
+        {
+            get
+            {
+                return X * X + Y * Y;
+            }
+        }
+        /// <summary>
+        /// Magnitude of the vector
+        /// </summary>
+        public float Magnitude
+        {
+            get
+            {
+                return (float)Math.Sqrt(X * X + Y * Y);
+            }
+        }
+
+        /// <summary>
+        /// Constructor for the vector
+        /// </summary>
+        /// <param name="a_val">Value to set all components to</param>
         public Vector2(float a_val)
         {
             X = a_val;
             Y = a_val;   
         }
+        /// <summary>
+        /// Constructor for the vector
+        /// </summary>
+        /// <param name="a_x">X component of the vector</param>
+        /// <param name="a_y">Y component of the vector</param>
         public Vector2(float a_x, float a_y)
         {
             X = a_x;
             Y = a_y;
         }
+        /// <summary>
+        /// Constructor for the vector
+        /// </summary>
+        /// <param name="a_other">Vector to copy</param>
         public Vector2(Vector2 a_other)
         {
             X = a_other.X;
@@ -194,22 +293,10 @@ namespace IcarianEngine.Maths
         {
             return $"({X}, {Y})";
         }
-
-        public float MagnitudeSqr
-        {
-            get
-            {
-                return X * X + Y * Y;
-            }
-        }
-        public float Magnitude
-        {
-            get
-            {
-                return (float)Math.Sqrt(X * X + Y * Y);
-            }
-        }
-
+        
+        /// <summary>
+        /// Normalizes the vector
+        /// </summary>
         public void Normalize()
         {
             float mag = Magnitude;
@@ -217,7 +304,12 @@ namespace IcarianEngine.Maths
             X /= mag;
             Y /= mag;
         }
-
+        
+        /// <summary>
+        /// Gets a normalized copy of the vector
+        /// </summary>
+        /// <param name="a_vector">Vector to normalize</param>
+        /// <returns>Normalized vector</returns>
         public static Vector2 Normalized(Vector2 a_vector)
         {
             float mag = a_vector.Magnitude;
@@ -225,13 +317,31 @@ namespace IcarianEngine.Maths
             return new Vector2(a_vector.X / mag, a_vector.Y / mag);
         }
 
+        /// <summary>
+        /// Gets the dot product of two vectors
+        /// </summary>
+        /// <param name="a_lhs">Left hand side of the dot product</param>
+        /// <param name="a_rhs">Right hand side of the dot product</param>
+        /// <returns>Dot product of the two vectors</returns>
         public static float Dot(Vector2 a_lhs, Vector2 a_rhs)
         {
             return a_lhs.X * a_rhs.X + a_lhs.Y * a_rhs.Y;
         }
 
+        /// <summary>
+        /// Linearly interpolates between two vectors
+        /// </summary>
+        /// <param name="a_start">Start vector</param>
+        /// <param name="a_end">End vector</param>
+        /// <param name="a_t">Interpolation value</param>
+        /// <returns>Interpolated vector</returns>
         public static Vector2 Lerp(Vector2 a_start, Vector2 a_end, float a_t)
         {
             return a_start + (a_end - a_start) * a_t;
         }
-    }}
+
+        VEC_SWIZZLE_VEC2_FULL_VEC2
+        VEC_SWIZZLE_VEC2_FULL_VEC3
+        VEC_SWIZZLE_VEC2_FULL_VEC4
+    }
+}
