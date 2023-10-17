@@ -1,7 +1,8 @@
 #include "GamePad.h"
 
 #ifdef WIN32
-
+#include <windows.h>
+#include <xinput.h>
 #else
 #include <fcntl.h>
 #include <linux/joystick.h>
@@ -145,7 +146,18 @@ static constexpr uint32_t GetAxisIndex(uint32_t a_input)
 GamePad* GamePad::GetGamePad(uint32_t a_index)
 {
 #ifdef WIN32
+    XINPUT_STATE state;
+    ZeroMemory(&state, sizeof(XINPUT_STATE));
 
+    if (XInputGetState((DWORD)a_index, &state) == ERROR_SUCCESS)
+    {
+        GamePad* gamePad = new GamePad();
+
+        gamePad->m_index = a_index;
+        gamePad->m_name = "XInput";
+
+        return gamePad;
+    }
 #else
     const std::string path = "/dev/input/js" + std::to_string(a_index);
 
@@ -177,7 +189,88 @@ void GamePad::Update()
     m_lastButtonState = m_buttonState;
 
 #ifdef WIN32
+    XINPUT_STATE state;
+    ZeroMemory(&state, sizeof(XINPUT_STATE));
 
+    if (XInputGetState((DWORD)m_index, &state) == ERROR_SUCCESS)
+    {
+        m_connected = true;
+
+        m_axes[GamePadAxis_LeftStick] = glm::vec2(state.Gamepad.sThumbLX, state.Gamepad.sThumbLY) / (float)INT16_MAX;
+        m_axes[GamePadAxis_RightStick] = glm::vec2(state.Gamepad.sThumbRX, state.Gamepad.sThumbRY) / (float)INT16_MAX;
+
+        m_axes[GamePadAxis_LeftTrigger] = glm::vec2(state.Gamepad.bLeftTrigger / (float)UINT8_MAX);
+        m_axes[GamePadAxis_RightTrigger] = glm::vec2(state.Gamepad.bRightTrigger / (float)UINT8_MAX);
+
+        m_buttonState = 0;
+        m_axes[GamePadAxis_DPad] = glm::vec2(0.0f);
+
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_A)
+        {
+            m_buttonState |= 0b1 << GamePadButton_A;
+        }
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_B)
+        {
+            m_buttonState |= 0b1 << GamePadButton_B;
+        }
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_X)
+        {
+            m_buttonState |= 0b1 << GamePadButton_X;
+        }
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_Y)
+        {
+            m_buttonState |= 0b1 << GamePadButton_Y;
+        }
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER)
+        {
+            m_buttonState |= 0b1 << GamePadButton_LeftBumper;
+        }
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER)
+        {
+            m_buttonState |= 0b1 << GamePadButton_RightBumper;
+        }
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_BACK)
+        {
+            m_buttonState |= 0b1 << GamePadButton_Back;
+        }
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_START)
+        {
+            m_buttonState |= 0b1 << GamePadButton_Start;
+        }
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB)
+        {
+            m_buttonState |= 0b1 << GamePadButton_LeftStick;
+        }
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB)
+        {
+            m_buttonState |= 0b1 << GamePadButton_RightStick;
+        }
+
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT)
+        {
+            m_buttonState |= 0b1 << GamePadButton_DPadLeft;
+            m_axes[GamePadAxis_DPad].x -= 1.0f;
+        }
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT)
+        {
+            m_buttonState |= 0b1 << GamePadButton_DPadRight;
+            m_axes[GamePadAxis_DPad].x += 1.0f;
+        }
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP)
+        {
+            m_buttonState |= 0b1 << GamePadButton_DPadUp;
+            m_axes[GamePadAxis_DPad].y += 1.0f;
+        }
+        if (state.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN)
+        {
+            m_buttonState |= 0b1 << GamePadButton_DPadDown;
+            m_axes[GamePadAxis_DPad].y -= 1.0f;
+        }
+    }
+    else
+    {
+        m_connected = false;
+    }
 #else
     struct js_event event;
 
@@ -210,7 +303,7 @@ void GamePad::Update()
 
             if (axis < GamePadAxis_Last)
             {
-                m_axes[axis][index] = event.value / (UINT16_MAX * 0.5f);
+                m_axes[axis][index] = event.value / (float)INT16_MAX;
 
                 if (axis == GamePadAxis_DPad)
                 {
@@ -232,7 +325,7 @@ void GamePad::Update()
                         m_buttonState &= ~(0b1 << GamePadButton_DPadRight);
                     }
 
-                    if (m_axes[axis][1] < -DPadThreshold)
+                    if (m_axes[axis][1] > DPadThreshold)
                     {
                         m_buttonState |= 0b1 << GamePadButton_DPadUp;
                     }
@@ -241,7 +334,7 @@ void GamePad::Update()
                         m_buttonState &= ~(0b1 << GamePadButton_DPadUp);
                     }
 
-                    if (m_axes[axis][1] > DPadThreshold)
+                    if (m_axes[axis][1] < -DPadThreshold)
                     {
                         m_buttonState |= 0b1 << GamePadButton_DPadDown;
                     }

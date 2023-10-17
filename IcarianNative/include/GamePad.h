@@ -6,12 +6,6 @@
 #include <cstdint>
 #include <string>
 
-#ifdef WIN32
-
-#else
-
-#endif
-
 #include "EngineInputInteropStructures.h"
 
 class GamePad
@@ -19,9 +13,7 @@ class GamePad
 private:
     static constexpr float DPadThreshold = 0.5f;
 
-#ifdef WIN32
-
-#else
+#ifndef WIN32
     int         m_fd;
 #endif
 

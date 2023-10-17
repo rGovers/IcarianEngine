@@ -210,6 +210,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendReference(&project, "ws2_32");
         CUBE_CProject_AppendReference(&project, "winmm");
         CUBE_CProject_AppendReference(&project, "ole32");
+        CUBE_CProject_AppendReference(&project, "xinput");
 
         // Magic string to get std library to link with MinGW
         CUBE_CProject_AppendCFlag(&project, "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic");
