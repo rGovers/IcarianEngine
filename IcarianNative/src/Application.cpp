@@ -19,6 +19,8 @@
 #include "Trace.h"
 #include "ThreadPool.h"
 
+#include "EngineInputInterop.h"
+
 static Application* Instance = nullptr;
 
 // Windows fixes
@@ -42,11 +44,10 @@ struct Monitor
     F(uint32_t, IcarianEngine, Application, GetEditorState, { return 0; }) \
     \
     F(void, IcarianEngine, Application, Close, { Instance->Close(); }) \
-    \
-    F(uint32_t, IcarianEngine, Input, GetCursorState, { return (uint32_t)Instance->GetCursorState(); }) \
-    F(void, IcarianEngine, Input, SetCursorState, { Instance->SetCursorState((FlareBase::e_CursorState)a_state); }, uint32_t a_state) \
 
 APPLICATION_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
+
+ENGINEAPPINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 RUNTIME_FUNCTION(MonoArray*, Application, GetMonitors,
 {
@@ -138,6 +139,8 @@ Application::Application(Config* a_config)
     m_renderEngine = new RenderEngine(m_appWindow, m_config);
 
     APPLICATION_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
+
+    ENGINEAPPINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 
     BIND_FUNCTION(IcarianEngine, Application, GetMonitors);
     BIND_FUNCTION(IcarianEngine, Application, SetFullscreenState);

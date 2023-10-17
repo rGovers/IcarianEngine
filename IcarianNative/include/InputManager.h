@@ -5,22 +5,31 @@
 
 #include "Flare/InputBindings.h"
 
+#include "EngineInputInteropStructures.h"
+
+class GamePad;
 class RuntimeFunction;
 
 class InputManager
 {
+public:
+    static constexpr uint32_t MaxGamePads = 8;
 private:
-    RuntimeFunction* m_mousePressedFunc;
-    RuntimeFunction* m_mouseReleasedFunc;
-    RuntimeFunction* m_keyPressedFunc;
-    RuntimeFunction* m_keyReleasedFunc;
+    RuntimeFunction*            m_mousePressedFunc;
+    RuntimeFunction*            m_mouseReleasedFunc;
+    RuntimeFunction*            m_keyPressedFunc;
+    RuntimeFunction*            m_keyReleasedFunc;
 
-    glm::vec2        m_curPos;
- 
-    unsigned char    m_mouseButton;
+    float                       m_gamePadDeadZone;  
+
+    glm::vec2                   m_curPos;
+
+    unsigned char               m_mouseButton;
 
     FlareBase::KeyboardState    m_curKeyState;
     FlareBase::KeyboardState    m_prevKeyState;
+
+    GamePad*                    m_gamePads[MaxGamePads];
 
 protected:
 
@@ -64,6 +73,14 @@ public:
     {
         return !m_curKeyState.IsKeyDown(a_keyCode) && m_prevKeyState.IsKeyDown(a_keyCode);
     }
+
+    bool IsGamePadConnected(e_GamePadSlot a_slot) const;
+
+    glm::vec2 GetGamePadAxis(e_GamePadSlot a_slot, e_GamePadAxis a_axis) const;
+
+    bool IsGamePadButtonDown(e_GamePadSlot a_slot, e_GamePadButton a_button) const;
+    bool IsGamePadButtonPressed(e_GamePadSlot a_slot, e_GamePadButton a_button) const;
+    bool IsGamePadButtonReleased(e_GamePadSlot a_slot, e_GamePadButton a_button) const;
 
     void Update();
 };

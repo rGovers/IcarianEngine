@@ -16,6 +16,8 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     project.OutputPath = CUBE_Path_CreateC("./build/");
     project.Optimise = a_optimise;
 
+    CUBE_CSProject_AppendIncludePath(&project, "../EngineInterop");
+
     CUBE_CSProject_AppendSource(&project, "src/Application.cs");
     CUBE_CSProject_AppendSource(&project, "src/AssetLibrary.cs");
     CUBE_CSProject_AppendSource(&project, "src/Component.cs");

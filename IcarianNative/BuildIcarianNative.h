@@ -90,6 +90,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendDefine(&project, "AL_LIBTYPE_STATIC");
 
     CUBE_CProject_AppendIncludePath(&project, "include");
+    CUBE_CProject_AppendIncludePath(&project, "../EngineInterop");
     CUBE_CProject_AppendIncludePath(&project, "../FlareBase/include");
     CUBE_CProject_AppendIncludePath(&project, "../deps/flare-glfw/include");
     CUBE_CProject_AppendIncludePath(&project, "../deps/flare-glm");
@@ -109,6 +110,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/AudioEngineBindings.cpp");
     CUBE_CProject_AppendSource(&project, "src/Config.cpp");
     CUBE_CProject_AppendSource(&project, "src/Font.cpp");
+    CUBE_CProject_AppendSource(&project, "src/GamePad.cpp");
     CUBE_CProject_AppendSource(&project, "src/GLFWAppWindow.cpp");
     CUBE_CProject_AppendSource(&project, "src/HeadlessAppWindow.cpp");
     CUBE_CProject_AppendSource(&project, "src/IcBodyActivationListener.cpp");
