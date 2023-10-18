@@ -46,6 +46,47 @@ namespace IcarianEngine.Maths
 
             return color;
         }
+
+        public static XmlElement ToXml(this Color a_color, XmlDocument a_doc, string a_name)
+        {
+            return ToXml(a_color, a_doc, a_name, Color.White);
+        }
+        public static XmlElement ToXml(this Color a_color, XmlDocument a_doc, string a_name, Color a_default)
+        {
+            if (a_color == a_default)
+            {
+                return null;
+            }
+
+            XmlElement element = a_doc.CreateElement(a_name);
+
+            if (a_color.R != a_default.R)
+            {
+                XmlElement r = a_doc.CreateElement("R");
+                r.InnerText = a_color.R.ToString();
+                element.AppendChild(r);
+            }
+            if (a_color.G != a_default.G)
+            {
+                XmlElement g = a_doc.CreateElement("G");
+                g.InnerText = a_color.G.ToString();
+                element.AppendChild(g);
+            }
+            if (a_color.B != a_default.B)
+            {
+                XmlElement b = a_doc.CreateElement("B");
+                b.InnerText = a_color.B.ToString();
+                element.AppendChild(b);
+            }
+            if (a_color.A != a_default.A)
+            {
+                XmlElement a = a_doc.CreateElement("A");
+                a.InnerText = a_color.A.ToString();
+                element.AppendChild(a);
+            }
+
+            return element;
+        }
     }
 
     [StructLayout(LayoutKind.Explicit, Pack = 0)]

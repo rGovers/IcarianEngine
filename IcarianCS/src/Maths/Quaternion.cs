@@ -49,6 +49,43 @@ namespace IcarianEngine.Maths
 
             return quat;
         }
+
+        public static XmlElement ToXml(this Quaternion a_quat, XmlDocument a_doc, string a_name)
+        {
+            if (a_quat == Quaternion.Identity)
+            {
+                return null;
+            }
+
+            XmlElement element = a_doc.CreateElement(a_name);
+
+            if (a_quat.X != Quaternion.Identity.X)
+            {
+                XmlElement x = a_doc.CreateElement("X");
+                x.InnerText = a_quat.X.ToString();
+                element.AppendChild(x);
+            }
+            if (a_quat.Y != Quaternion.Identity.Y)
+            {
+                XmlElement y = a_doc.CreateElement("Y");
+                y.InnerText = a_quat.Y.ToString();
+                element.AppendChild(y);
+            }
+            if (a_quat.Z != Quaternion.Identity.Z)
+            {
+                XmlElement z = a_doc.CreateElement("Z");
+                z.InnerText = a_quat.Z.ToString();
+                element.AppendChild(z);
+            }
+            if (a_quat.W != Quaternion.Identity.W)
+            {
+                XmlElement w = a_doc.CreateElement("W");
+                w.InnerText = a_quat.W.ToString();
+                element.AppendChild(w);
+            }
+
+            return element;
+        }
     }
 
     [StructLayout(LayoutKind.Explicit, Pack = 0)]

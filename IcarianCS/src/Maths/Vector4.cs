@@ -53,6 +53,36 @@ namespace IcarianEngine.Maths
 
             return vec;
         }
+
+        public static XmlElement ToXml(this Vector4 a_vec, XmlDocument a_doc, string a_name)
+        {
+            return ToXml(a_vec, a_doc, a_name, Vector4.Zero);
+        }
+        public static XmlElement ToXml(this Vector4 a_vec, XmlDocument a_doc, string a_name, Vector4 a_default)
+        {
+            XmlElement element = a_doc.CreateElement(a_name);
+
+            if (a_vec != a_default)
+            {
+                XmlElement x = a_doc.CreateElement("X");
+                x.InnerText = a_vec.X.ToString();
+                element.AppendChild(x);
+
+                XmlElement y = a_doc.CreateElement("Y");
+                y.InnerText = a_vec.Y.ToString();
+                element.AppendChild(y);
+
+                XmlElement z = a_doc.CreateElement("Z");
+                z.InnerText = a_vec.Z.ToString();
+                element.AppendChild(z);
+
+                XmlElement w = a_doc.CreateElement("W");
+                w.InnerText = a_vec.W.ToString();
+                element.AppendChild(w);
+            }
+
+            return element;
+        }
     }
 
     [StructLayout(LayoutKind.Explicit, Pack = 0)]
