@@ -8,6 +8,7 @@
 
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
+#include "Flare/Vertices.h"
 #include "Logger.h"
 #include "ObjectManager.h"
 #include "Profiler.h"
@@ -25,6 +26,7 @@
 #include "Rendering/Vulkan/VulkanModel.h"
 #include "Rendering/Vulkan/VulkanPipeline.h"
 #include "Rendering/Vulkan/VulkanPixelShader.h"
+#include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanRenderCommand.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
@@ -45,6 +47,8 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
 {
     m_vulkanEngine = a_vulkanEngine;
 
+    m_pushPool = new VulkanPushPool(m_vulkanEngine);
+
     m_runtimeBindings = new VulkanGraphicsEngineBindings(this);
 
     TRACE("Getting RenderPipeline Functions");
@@ -58,7 +62,7 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     m_postLightFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostLightS(uint,uint)");
     m_postProcessFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostProcessS(uint)"); 
 
-    FlareBase::RenderProgram textProgram;
+    RenderProgram textProgram;
     textProgram.VertexShader = GenerateFVertexShader(UIVertexShader);
     textProgram.PixelShader = GenerateFPixelShader(UITextPixelShader);
     textProgram.RenderLayer = 0;
@@ -66,17 +70,25 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     textProgram.VertexInputCount = 0;
     textProgram.VertexAttribs = nullptr;
     textProgram.ShaderBufferInputCount = 2;
-    textProgram.ShaderBufferInputs = new FlareBase::ShaderBufferInput[2];
-    textProgram.ShaderBufferInputs[0] = FlareBase::ShaderBufferInput(-1, FlareBase::ShaderBufferType_UIBuffer, FlareBase::ShaderSlot_Pixel);
-    textProgram.ShaderBufferInputs[1] = FlareBase::ShaderBufferInput(0, FlareBase::ShaderBufferType_PushTexture, FlareBase::ShaderSlot_Pixel, 0);
-    textProgram.EnableColorBlending = true;
-    textProgram.CullingMode = FlareBase::CullMode_None;
-    textProgram.PrimitiveMode = FlareBase::PrimitiveMode_TriangleStrip;
-    textProgram.Flags |= 0b1 << FlareBase::RenderProgram::DestroyFlag;
+    textProgram.ShaderBufferInputs = new ShaderBufferInput[2];
+    textProgram.ShaderBufferInputs[0].Slot = -1;
+    textProgram.ShaderBufferInputs[0].BufferType = ShaderBufferType_UIBuffer;
+    textProgram.ShaderBufferInputs[0].ShaderSlot = ShaderSlot_Pixel;
+    textProgram.ShaderBufferInputs[0].Set = -1;
+    textProgram.ShaderBufferInputs[1].Slot = 0;
+    textProgram.ShaderBufferInputs[1].BufferType = ShaderBufferType_PushTexture;
+    textProgram.ShaderBufferInputs[1].ShaderSlot = ShaderSlot_Pixel;
+    textProgram.ShaderBufferInputs[1].Set = 0;
+    textProgram.EnableColorBlending = 1;
+    textProgram.CullingMode = CullMode_None;
+    textProgram.PrimitiveMode = PrimitiveMode_TriangleStrip;
+    textProgram.UBOData = nullptr;
+    textProgram.UBODataSize = 0;
+    textProgram.Flags |= 0b1 << RenderProgram::DestroyFlag;
 
     m_textUIPipelineAddr = GenerateRenderProgram(textProgram);
 
-    FlareBase::RenderProgram imageProgram;
+    RenderProgram imageProgram;
     imageProgram.VertexShader = GenerateFVertexShader(UIVertexShader);
     imageProgram.PixelShader = GenerateFPixelShader(UIImagePixelShader);
     imageProgram.RenderLayer = 0;
@@ -84,19 +96,27 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     imageProgram.VertexInputCount = 0;
     imageProgram.VertexAttribs = nullptr;
     imageProgram.ShaderBufferInputCount = 2;
-    imageProgram.ShaderBufferInputs = new FlareBase::ShaderBufferInput[2];
-    imageProgram.ShaderBufferInputs[0] = FlareBase::ShaderBufferInput(-1, FlareBase::ShaderBufferType_UIBuffer, FlareBase::ShaderSlot_Pixel);
-    imageProgram.ShaderBufferInputs[1] = FlareBase::ShaderBufferInput(0, FlareBase::ShaderBufferType_PushTexture, FlareBase::ShaderSlot_Pixel, 0);
-    imageProgram.EnableColorBlending = true;
-    imageProgram.CullingMode = FlareBase::CullMode_None;
-    imageProgram.PrimitiveMode = FlareBase::PrimitiveMode_TriangleStrip;
-    imageProgram.Flags |= 0b1 << FlareBase::RenderProgram::DestroyFlag;
+    imageProgram.ShaderBufferInputs = new ShaderBufferInput[2];
+    imageProgram.ShaderBufferInputs[0].Slot = -1;
+    imageProgram.ShaderBufferInputs[0].BufferType = ShaderBufferType_UIBuffer;
+    imageProgram.ShaderBufferInputs[0].ShaderSlot = ShaderSlot_Pixel;
+    imageProgram.ShaderBufferInputs[0].Set = -1;
+    imageProgram.ShaderBufferInputs[1].Slot = 0;
+    imageProgram.ShaderBufferInputs[1].BufferType = ShaderBufferType_PushTexture;
+    imageProgram.ShaderBufferInputs[1].ShaderSlot = ShaderSlot_Pixel;
+    imageProgram.ShaderBufferInputs[1].Set = 0;
+    imageProgram.EnableColorBlending = 1;
+    imageProgram.CullingMode = CullMode_None;
+    imageProgram.PrimitiveMode = PrimitiveMode_TriangleStrip;
+    imageProgram.UBOData = NULL;
+    imageProgram.UBODataSize = 0;
+    imageProgram.Flags |= 0b1 << RenderProgram::DestroyFlag;
 
     m_imageUIPipelineAddr = GenerateRenderProgram(imageProgram);
 }
 VulkanGraphicsEngine::~VulkanGraphicsEngine()
 {
-    const FlareBase::RenderProgram textProgram = m_shaderPrograms[m_textUIPipelineAddr];
+    const RenderProgram textProgram = m_shaderPrograms[m_textUIPipelineAddr];
     IDEFER(
     {
         if (textProgram.VertexAttribs != nullptr)
@@ -110,7 +130,7 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         }
     });
 
-    const FlareBase::RenderProgram imageProgram = m_shaderPrograms[m_imageUIPipelineAddr];
+    const RenderProgram imageProgram = m_shaderPrograms[m_imageUIPipelineAddr];
     IDEFER(
     {
         if (imageProgram.VertexAttribs != nullptr)
@@ -236,7 +256,7 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
     TRACE("Checking shader program buffer health");
     for (uint32_t i = 0; i < m_shaderPrograms.Size(); ++i)
     {
-        if (!(m_shaderPrograms[i].Flags & 0b1 << FlareBase::RenderProgram::FreeFlag))
+        if (!(m_shaderPrograms[i].Flags & 0b1 << RenderProgram::FreeFlag))
         {
             Logger::Warning("Shader buffer was not destroyed");
         }
@@ -299,6 +319,8 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
             m_textureSampler[i].Data = nullptr;
         }
     }
+
+    delete m_pushPool;
 }
 
 uint32_t VulkanGraphicsEngine::GenerateGLSLVertexShader(const std::string_view& a_source)
@@ -415,19 +437,19 @@ void VulkanGraphicsEngine::DestroyPixelShader(uint32_t a_addr)
     m_pixelShaders.LockSet(a_addr, nullptr);
 }
 
-uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const FlareBase::RenderProgram& a_program)
+uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_program)
 {
     ICARIAN_ASSERT_MSG(a_program.VertexShader < m_vertexShaders.Size(), "GenerateRenderProgram vertex shader out of bounds");
     ICARIAN_ASSERT_MSG(a_program.PixelShader < m_pixelShaders.Size(), "GenerateRenderProgram pixel shader out of bounds");
 
     TRACE("Creating Shader Program");
     {
-        TLockArray<FlareBase::RenderProgram> a = m_shaderPrograms.ToLockArray();
+        TLockArray<RenderProgram> a = m_shaderPrograms.ToLockArray();
 
         const uint32_t size = a.Size();
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (a[i].Flags & 0b1 << FlareBase::RenderProgram::FreeFlag)
+            if (a[i].Flags & 0b1 << RenderProgram::FreeFlag)
             {
                 ICARIAN_ASSERT_MSG(a[i].Data == nullptr, "GenerateRenderProgram shader data not null");
 
@@ -447,20 +469,28 @@ uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const FlareBase::RenderProg
 void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < m_shaderPrograms.Size(), "DestroyRenderProgram out of bounds");
-    ICARIAN_ASSERT_MSG(!(m_shaderPrograms[a_addr].Flags & 0b1 << FlareBase::RenderProgram::FreeFlag), "DestroyRenderProgram already destroyed");
+    ICARIAN_ASSERT_MSG(!(m_shaderPrograms[a_addr].Flags & 0b1 << RenderProgram::FreeFlag), "DestroyRenderProgram already destroyed");
 
     TRACE("Destroying Shader Program");
     
-    FlareBase::RenderProgram nullProgram;
+    RenderProgram nullProgram;
     nullProgram.Data = nullptr;
-    nullProgram.Flags |= 0b1 << FlareBase::RenderProgram::FreeFlag;
+    nullProgram.Flags |= 0b1 << RenderProgram::FreeFlag;
 
-    const FlareBase::RenderProgram program = m_shaderPrograms[a_addr];
+    const RenderProgram program = m_shaderPrograms[a_addr];
     IDEFER(
-    if (program.Data != nullptr)
     {
-        delete (VulkanShaderData*)program.Data;
-    });
+        if (program.Data != nullptr)
+        {
+            delete (VulkanShaderData*)program.Data;
+        }
+
+        if (program.UBOData != NULL)
+        {
+            free(program.UBOData);
+        }
+    }
+    );
     
     m_shaderPrograms.LockSet(a_addr, nullProgram);
 
@@ -501,14 +531,14 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
         }
     }
 
-    if (program.Flags & 0b1 << FlareBase::RenderProgram::DestroyFlag)
+    if (program.Flags & 0b1 << RenderProgram::DestroyFlag)
     {
         DestroyVertexShader(program.VertexShader);
         DestroyPixelShader(program.PixelShader);
     }
 }
 
-FlareBase::RenderProgram VulkanGraphicsEngine::GetRenderProgram(uint32_t a_addr)
+RenderProgram VulkanGraphicsEngine::GetRenderProgram(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < m_shaderPrograms.Size(), "GetRenderProgram out of bounds");
 
@@ -674,9 +704,9 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
     for (const MaterialRenderStack* renderStack : stacks)
     {
         const uint32_t matAddr = renderStack->GetMaterialAddr();
-        const TReadLockArray<FlareBase::RenderProgram> programs = m_shaderPrograms.ToReadLockArray();
+        const TReadLockArray<RenderProgram> programs = m_shaderPrograms.ToReadLockArray();
 
-        const FlareBase::RenderProgram& program = programs.Get(matAddr);
+        const RenderProgram& program = programs.Get(matAddr);
 
         if (camBuffer.RenderLayer & program.RenderLayer)
         {
@@ -722,7 +752,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                         {
                             model->Bind(commandBuffer);
 
-                            FlareBase::ShaderBufferInput modelSlot;
+                            ShaderBufferInput modelSlot;
                             if (shaderData->GetBatchModelBufferInput(&modelSlot))
                             {
                                 const uint32_t count = (uint32_t)transforms.size();
@@ -793,7 +823,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                         modelBound = true;
                                     }
 
-                                    FlareBase::ShaderBufferInput boneSlot;
+                                    ShaderBufferInput boneSlot;
                                     if (shaderData->GetBoneBufferInput(&boneSlot))
                                     {
                                         const SkeletonData skeleton = AnimationController::GetSkeleton(modelBuffer.SkeletonAddr[j]);
@@ -900,7 +930,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             const std::vector<DirectionalLightBuffer> lights = m_directionalLights.ToVector();
 
-            FlareBase::ShaderBufferInput dirLightInput;
+            ShaderBufferInput dirLightInput;
             if (data->GetDirectionalLightInput(&dirLightInput))
             {
                 const uint32_t dirLightCount = (uint32_t)lights.size();
@@ -933,7 +963,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             const std::vector<PointLightBuffer> lights = m_pointLights.ToVector();
 
-            FlareBase::ShaderBufferInput pointLightInput;
+            ShaderBufferInput pointLightInput;
             if (data->GetPointLightInput(&pointLightInput))
             {
                 const uint32_t pointLightCount = (uint32_t)lights.size();
@@ -966,7 +996,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             const std::vector<SpotLightBuffer> lights = m_spotLights.ToVector();
 
-            FlareBase::ShaderBufferInput spotLightInput;
+            ShaderBufferInput spotLightInput;
             if (data->GetSpotLightInput(&spotLightInput))
             {
                 const uint32_t spotLightCount = (uint32_t)lights.size();
@@ -1107,7 +1137,7 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
 
         if (pipeline != nullptr && shaderData != nullptr)
         {
-            pipeline->Bind(a_index, a_commandBuffer);
+            pipeline->Bind(a_commandBuffer);
 
             shaderData->UpdateUIBuffer(a_commandBuffer, element);
 
@@ -1159,10 +1189,11 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
     Profiler::StartFrame("Drawing Setup");
     m_renderCommands.Clear();
 
+    m_pushPool->Reset(a_index);
+
     const vk::Device device = m_vulkanEngine->GetLogicalDevice();
 
     const uint32_t camBufferSize = m_cameraBuffers.Size();
-
     std::vector<uint32_t> camIndices;
     for (uint32_t i = 0; i < camBufferSize; ++i)
     {

@@ -2,6 +2,10 @@
 
 #include "InteropTypes.h"
 
+#ifdef CUBE_LANGUAGE_CSHARP
+namespace IcarianEngine {
+#endif
+
 IOP_CSPUBLIC enum IOP_ENUM_NAME(GamePadAxis) : IOP_UINT16
 {
     IOP_ENUM_VALUE(GamePadAxis, LeftStick) = 0,
@@ -10,7 +14,7 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(GamePadAxis) : IOP_UINT16
     IOP_ENUM_VALUE(GamePadAxis, RightTrigger) = 3,
     IOP_ENUM_VALUE(GamePadAxis, DPad) = 4,
     IOP_ENUM_VALUE(GamePadAxis, Last)
-} IOP_STRUCTURE_END
+};
 
 IOP_CSPUBLIC enum IOP_ENUM_NAME(GamePadButton) : IOP_UINT16
 {
@@ -30,7 +34,7 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(GamePadButton) : IOP_UINT16
     IOP_ENUM_VALUE(GamePadButton, DPadDown) = 13,
     IOP_ENUM_VALUE(GamePadButton, DPadLeft) = 14,
     IOP_ENUM_VALUE(GamePadButton, Last)
-} IOP_STRUCTURE_END
+};
 
 IOP_CSPUBLIC enum IOP_ENUM_NAME(GamePadSlot) : IOP_UINT16
 {
@@ -43,4 +47,8 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(GamePadSlot) : IOP_UINT16
     IOP_ENUM_VALUE(GamePadSlot, Seven) = 64,
     IOP_ENUM_VALUE(GamePadSlot, Eight) = 128,
     IOP_ENUM_VALUE(GamePadSlot, All) = IOP_ENUM_VALUE(GamePadSlot, One) | IOP_ENUM_VALUE(GamePadSlot, Two) | IOP_ENUM_VALUE(GamePadSlot, Three) | IOP_ENUM_VALUE(GamePadSlot, Four) | IOP_ENUM_VALUE(GamePadSlot, Five) | IOP_ENUM_VALUE(GamePadSlot, Six) | IOP_ENUM_VALUE(GamePadSlot, Seven) | IOP_ENUM_VALUE(GamePadSlot, Eight)
-} IOP_STRUCTURE_END
+};
+
+#ifdef CUBE_LANGUAGE_CSHARP
+}
+#endif

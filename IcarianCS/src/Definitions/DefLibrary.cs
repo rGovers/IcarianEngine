@@ -15,6 +15,27 @@ namespace IcarianEngine.Definitions
         public string Name;
         public string Text;
         public List<DefDataObject> Children;
+
+        public override int GetHashCode()
+        {
+            unchecked 
+            {
+                int hash = 73;
+
+                hash = hash * 79 + Name.GetHashCode();
+                hash = hash * 79 + Text.GetHashCode();
+
+                if (Children != null)
+                {
+                    foreach (DefDataObject obj in Children)
+                    {
+                        hash = hash * 79 + obj.GetHashCode();
+                    }
+                }
+
+                return hash;
+            }
+        }
     }
 
     public struct DefData
@@ -25,6 +46,30 @@ namespace IcarianEngine.Definitions
         public string Parent;
         public bool Abstract;
         public List<DefDataObject> DefDataObjects;
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 73;
+
+                hash = hash * 79 + Type.GetHashCode();
+                hash = hash * 79 + Path.GetHashCode();
+                hash = hash * 79 + Name.GetHashCode();
+                hash = hash * 79 + Parent.GetHashCode();
+                hash = hash * 79 + Abstract.GetHashCode();
+                
+                if (DefDataObjects != null)
+                {
+                    foreach (DefDataObject obj in DefDataObjects)
+                    {
+                        hash = hash * 79 + obj.GetHashCode();
+                    }
+                }
+
+                return hash;
+            }
+        }
     }
 
     public static class DefLibrary
@@ -94,21 +139,6 @@ namespace IcarianEngine.Definitions
 
                 switch (obj)
                 {
-                case Type _:
-                {
-                    Type val = ModControl.GetTypeValue(a_datObj.Text);
-
-                    if (val != null)
-                    {
-                        field.SetValue(a_obj, val);
-                    }
-                    else
-                    {
-                        DefError(typeof(Type), a_datObj, a_data);
-                    }
-
-                    break;
-                }
                 case byte val:
                 {
                     if (byte.TryParse(a_datObj.Text, out val))
@@ -118,6 +148,19 @@ namespace IcarianEngine.Definitions
                     else
                     {
                         DefError(typeof(byte), a_datObj, a_data);
+                    }
+
+                    break;
+                }
+                case bool:
+                {
+                    if (bool.TryParse(a_datObj.Text, out bool val))
+                    {
+                        field.SetValue(a_obj, val);
+                    }
+                    else
+                    {
+                        DefError(typeof(bool), a_datObj, a_data);
                     }
 
                     break;
@@ -330,12 +373,29 @@ namespace IcarianEngine.Definitions
 
                         field.SetValue(a_obj, obj);
                     }
+                    else if (fieldType == typeof(Type))
+                    {
+                        Type val = ModControl.GetTypeValue(a_datObj.Text);
+
+                        if (val != null)
+                        {
+                            field.SetValue(a_obj, val);
+                        }
+                        else
+                        {
+                            DefError(typeof(Type), a_datObj, a_data);
+                        }
+                    }
                     else
                     {
                         // If there is already an object do not want to overwrite it.
                         if (obj == null)
                         {
-                            obj = Activator.CreateInstance(fieldType);
+                            ConstructorInfo constructor = fieldType.GetConstructor(Type.EmptyTypes);
+                            if (constructor != null)
+                            {
+                                obj = constructor.Invoke(null);
+                            }
                         }
 
                         foreach (DefDataObject objVal in a_datObj.Children)

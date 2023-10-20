@@ -3,8 +3,6 @@
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/VulkanConstants.h"
 
-#include "Flare/RenderProgram.h"
-
 class VulkanGraphicsEngine;
 class VulkanRenderEngineBackend;
 class VulkanRenderPass;
@@ -33,6 +31,6 @@ public:
 
     VulkanShaderData* GetShaderData() const;
 
-    void Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
+    void Bind(vk::CommandBuffer a_commandBuffer) const;
 };
 #endif

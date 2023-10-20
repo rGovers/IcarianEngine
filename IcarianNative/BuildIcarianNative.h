@@ -147,6 +147,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/VulkanModel.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanPipeline.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanPixelShader.cpp");
+    CUBE_CProject_AppendSource(&project, "src/VulkanPushPool.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanRenderCommand.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanRenderEngineBackend.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanRenderTexture.cpp");
@@ -166,12 +167,14 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     case BuildConfiguration_Debug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
 
         break;
     }
     case BuildConfiguration_ReleaseWithDebug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
         CUBE_CProject_AppendCFlag(&project, "-O3");
 
         break;

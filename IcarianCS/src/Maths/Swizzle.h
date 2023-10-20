@@ -592,3 +592,4 @@ public Vector4 A##B##C##D \
 
 #define VEC_SWIZZLE_QUAT_FULL_VEC4 \
     VEC_SWIZZLE_VEC4_FROM_VEC4(X, Y, Z, W) \
+

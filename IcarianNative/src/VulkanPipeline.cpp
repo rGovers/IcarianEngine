@@ -3,6 +3,7 @@
 #include "Rendering/Vulkan/VulkanPipeline.h"
 
 #include "Flare/IcarianAssert.h"
+#include "Flare/Vertices.h"
 #include "Logger.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanPixelShader.h"
@@ -11,7 +12,7 @@
 #include "Rendering/Vulkan/VulkanVertexShader.h"
 #include "Trace.h"
 
-static std::vector<vk::PipelineShaderStageCreateInfo> GetStageInfo(const FlareBase::RenderProgram& a_program, VulkanGraphicsEngine* a_gEngine)
+static std::vector<vk::PipelineShaderStageCreateInfo> GetStageInfo(const RenderProgram& a_program, VulkanGraphicsEngine* a_gEngine)
 {
     std::vector<vk::PipelineShaderStageCreateInfo> stages;
 
@@ -46,19 +47,19 @@ static std::vector<vk::PipelineShaderStageCreateInfo> GetStageInfo(const FlareBa
     return stages;
 }
 
-constexpr static vk::CullModeFlags GetCullingMode(FlareBase::e_CullMode a_mode)
+constexpr static vk::CullModeFlags GetCullingMode(e_CullMode a_mode)
 {
     switch (a_mode)
     {
-    case FlareBase::CullMode_Front:
+    case CullMode_Front:
     {
         return vk::CullModeFlagBits::eFront;
     }
-    case FlareBase::CullMode_Back:
+    case CullMode_Back:
     {
         return vk::CullModeFlagBits::eBack;
     }
-    case FlareBase::CullMode_Both:
+    case CullMode_Both:
     {
         return vk::CullModeFlagBits::eFrontAndBack;
     }
@@ -67,11 +68,11 @@ constexpr static vk::CullModeFlags GetCullingMode(FlareBase::e_CullMode a_mode)
     return vk::CullModeFlagBits::eNone;
 }
 
-constexpr static vk::PrimitiveTopology GetPrimitiveMode(FlareBase::e_PrimitiveMode a_mode)
+constexpr static vk::PrimitiveTopology GetPrimitiveMode(e_PrimitiveMode a_mode)
 {
     switch (a_mode)
     {
-    case FlareBase::PrimitiveMode_TriangleStrip:
+    case PrimitiveMode_TriangleStrip:
     {
         return vk::PrimitiveTopology::eTriangleStrip;
     }
@@ -170,7 +171,7 @@ VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphi
     m_programAddr = a_programAddr;
 
     const vk::Device device = m_engine->GetLogicalDevice();
-    const FlareBase::RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
+    const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
     const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
     ICARIAN_ASSERT(shaderData != nullptr);
 
@@ -334,19 +335,19 @@ VulkanPipeline::~VulkanPipeline()
 
 VulkanShaderData* VulkanPipeline::GetShaderData() const
 {
-    const FlareBase::RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
+    const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
     ICARIAN_ASSERT(program.Data != nullptr);
     
     return (VulkanShaderData*)program.Data;
 }
-void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
+void VulkanPipeline::Bind(vk::CommandBuffer a_commandBuffer) const
 {
-    const FlareBase::RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
+    const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
 
     const VulkanShaderData* data = (VulkanShaderData*)program.Data;
     ICARIAN_ASSERT(data != nullptr);
 
-    data->Bind(a_index, a_commandBuffer);
+    data->Bind(a_commandBuffer);
 
     a_commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
 }

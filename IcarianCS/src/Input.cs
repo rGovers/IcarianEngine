@@ -5,8 +5,10 @@ using System.Runtime.CompilerServices;
 #include "EngineInputInterop.h"
 #include "EngineInputInteropStructures.h"
 
+/// @cond INTERNAL
 ENGINEINPUT_EXPORT_TABLE(IOP_BIND_FUNCTION)
 ENGINEAPPINPUT_EXPORT_TABLE(IOP_BIND_FUNCTION)
+/// @endcond
 
 namespace IcarianEngine
 {

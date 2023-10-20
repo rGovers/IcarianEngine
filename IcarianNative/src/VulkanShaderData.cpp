@@ -7,6 +7,7 @@
 #include "Rendering/ShaderBuffers.h"
 #include "Rendering/UI/UIElement.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
+#include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
 #include "Rendering/Vulkan/VulkanShaderStorageObject.h"
@@ -16,19 +17,19 @@
 #include "Trace.h"
 
 // Just changes to make the compiler happy
-constexpr static vk::ShaderStageFlags GetShaderStage(FlareBase::e_ShaderSlot a_slot) 
+constexpr static vk::ShaderStageFlags GetShaderStage(e_ShaderSlot a_slot) 
 {
     switch (a_slot)
     {
-    case FlareBase::ShaderSlot_Vertex:
+    case ShaderSlot_Vertex:
     {
         return vk::ShaderStageFlagBits::eVertex;
     }
-    case FlareBase::ShaderSlot_Pixel:
+    case ShaderSlot_Pixel:
     {
         return vk::ShaderStageFlagBits::eFragment;
     }
-    case FlareBase::ShaderSlot_All:
+    case ShaderSlot_All:
     {
         return vk::ShaderStageFlagBits::eAllGraphics;
     }
@@ -42,31 +43,31 @@ constexpr static vk::ShaderStageFlags GetShaderStage(FlareBase::e_ShaderSlot a_s
 
     return vk::ShaderStageFlags();
 }
-constexpr static uint32_t GetBufferSize(FlareBase::e_ShaderBufferType a_type)
+constexpr static uint32_t GetBufferSize(e_ShaderBufferType a_type)
 {
     switch (a_type)
     {
-    case FlareBase::ShaderBufferType_CameraBuffer:
+    case ShaderBufferType_CameraBuffer:
     {
         return sizeof(CameraShaderBuffer);
     }
-    case FlareBase::ShaderBufferType_ModelBuffer:
+    case ShaderBufferType_ModelBuffer:
     {
         return sizeof(ModelShaderBuffer);
     }
-    case FlareBase::ShaderBufferType_UIBuffer:
+    case ShaderBufferType_UIBuffer:
     {
         return sizeof(UIShaderBuffer);
     }
-    case FlareBase::ShaderBufferType_DirectionalLightBuffer:
+    case ShaderBufferType_DirectionalLightBuffer:
     {
         return sizeof(DirectionalLightShaderBuffer);
     }
-    case FlareBase::ShaderBufferType_PointLightBuffer:
+    case ShaderBufferType_PointLightBuffer:
     {
         return sizeof(PointLightShaderBuffer);
     }
-    case FlareBase::ShaderBufferType_SpotLightBuffer:
+    case ShaderBufferType_SpotLightBuffer:
     {
         return sizeof(SpotLightShaderBuffer);
     }
@@ -80,17 +81,17 @@ constexpr static uint32_t GetBufferSize(FlareBase::e_ShaderBufferType a_type)
 
     return 0;
 }
-constexpr static vk::DescriptorType GetDescriptorType(FlareBase::e_ShaderBufferType a_bufferType)
+constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_bufferType)
 {
     switch (a_bufferType)
     {
-    case FlareBase::ShaderBufferType_Texture:
-    case FlareBase::ShaderBufferType_PushTexture:
+    case ShaderBufferType_Texture:
+    case ShaderBufferType_PushTexture:
     {
         return vk::DescriptorType::eCombinedImageSampler;
     }
-    case FlareBase::ShaderBufferType_SSBoneBuffer:
-    case FlareBase::ShaderBufferType_SSModelBuffer:
+    case ShaderBufferType_SSBoneBuffer:
+    case ShaderBufferType_SSModelBuffer:
     {
         return vk::DescriptorType::eStorageBuffer;
     }
@@ -111,16 +112,16 @@ struct Input
     vk::DescriptorSetLayoutBinding Binding;
 };
 
-static void GetLayoutInfo(const FlareBase::RenderProgram& a_program, std::vector<vk::PushConstantRange>& a_pushConstants, std::vector<Input>& a_bindings, std::vector<Input>& a_pushBindings)
+static void GetLayoutInfo(const RenderProgram& a_program, std::vector<vk::PushConstantRange>& a_pushConstants, std::vector<Input>& a_bindings, std::vector<Input>& a_pushBindings)
 {
     for (uint16_t i = 0; i < a_program.ShaderBufferInputCount; ++i)
     {
-        const FlareBase::ShaderBufferInput& input = a_program.ShaderBufferInputs[i];
+        const ShaderBufferInput& input = a_program.ShaderBufferInputs[i];
         
         switch (input.BufferType)
         {
-        case FlareBase::ShaderBufferType_ModelBuffer:
-        case FlareBase::ShaderBufferType_UIBuffer:
+        case ShaderBufferType_ModelBuffer:
+        case ShaderBufferType_UIBuffer:
         {
             a_pushConstants.push_back(vk::PushConstantRange
             (
@@ -131,13 +132,13 @@ static void GetLayoutInfo(const FlareBase::RenderProgram& a_program, std::vector
 
             break;
         }
-        case FlareBase::ShaderBufferType_CameraBuffer:
-        case FlareBase::ShaderBufferType_DirectionalLightBuffer:
-        case FlareBase::ShaderBufferType_PointLightBuffer:
-        case FlareBase::ShaderBufferType_SpotLightBuffer:
-        case FlareBase::ShaderBufferType_PushTexture:
-        case FlareBase::ShaderBufferType_SSModelBuffer:
-        case FlareBase::ShaderBufferType_SSBoneBuffer:
+        case ShaderBufferType_CameraBuffer:
+        case ShaderBufferType_DirectionalLightBuffer:
+        case ShaderBufferType_PointLightBuffer:
+        case ShaderBufferType_SpotLightBuffer:
+        case ShaderBufferType_PushTexture:
+        case ShaderBufferType_SSModelBuffer:
+        case ShaderBufferType_SSBoneBuffer:
         {
             Input in;
             in.Slot = i;
@@ -238,18 +239,18 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
 
     TRACE("Creating Shader Data");
     const vk::Device device = m_engine->GetLogicalDevice();
-    const FlareBase::RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
+    const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
 
     for (uint16_t i = 0; i < program.ShaderBufferInputCount; ++i)
     {
         switch (program.ShaderBufferInputs[i].BufferType)
         {
-        case FlareBase::ShaderBufferType_CameraBuffer:
-        case FlareBase::ShaderBufferType_DirectionalLightBuffer:
-        case FlareBase::ShaderBufferType_PointLightBuffer:
-        case FlareBase::ShaderBufferType_SpotLightBuffer:
-        case FlareBase::ShaderBufferType_SSModelBuffer:
-        case FlareBase::ShaderBufferType_SSBoneBuffer:
+        case ShaderBufferType_CameraBuffer:
+        case ShaderBufferType_DirectionalLightBuffer:
+        case ShaderBufferType_PointLightBuffer:
+        case ShaderBufferType_SpotLightBuffer:
+        case ShaderBufferType_SSModelBuffer:
+        case ShaderBufferType_SSBoneBuffer:
         {
             ShaderSlotInput input;
             input.Input = program.ShaderBufferInputs[i];
@@ -259,13 +260,13 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
 
             break;
         }
-        case FlareBase::ShaderBufferType_ModelBuffer:
+        case ShaderBufferType_ModelBuffer:
         {
             m_transformBufferInput = program.ShaderBufferInputs[i];
 
             break;
         }
-        case FlareBase::ShaderBufferType_UIBuffer:
+        case ShaderBufferType_UIBuffer:
         {
             m_uiBufferInput = program.ShaderBufferInputs[i];
 
@@ -355,30 +356,12 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
             ICARIAN_ASSERT_MSG_R(device.createDescriptorSetLayout(&descriptorLayoutInfo, nullptr, &layout) == vk::Result::eSuccess, "Failed to create Push Descriptor Layout");
             layouts.emplace_back(layout);
 
-            vk::DescriptorPoolSize poolSize = vk::DescriptorPoolSize(binding.Binding.descriptorType, 1);
-            if (binding.Binding.descriptorType == vk::DescriptorType::eStorageBuffer)
-            {
-                poolSize.descriptorCount = SSBOMaxSize;
-            }
-            
-            const vk::DescriptorPoolCreateInfo poolInfo = vk::DescriptorPoolCreateInfo
-            (
-                { },
-                PushCount,
-                1,
-                &poolSize
-            );
-
-            for (uint32_t j = 0; j < VulkanFlightPoolSize; ++j)
-            {
-                PushDescriptor d;
-                d.Set = program.ShaderBufferInputs[binding.Slot].Set;
-                d.Binding = program.ShaderBufferInputs[binding.Slot].Slot;
-                d.DescriptorLayout = layout;
-                ICARIAN_ASSERT_MSG_R(device.createDescriptorPool(&poolInfo, nullptr, &d.DescriptorPool) == vk::Result::eSuccess, "Failed to create Push Descriptor Pool");
-
-                m_pushDescriptors[j].emplace_back(d);
-            }
+            PushDescriptor d;
+            d.Set = program.ShaderBufferInputs[binding.Slot].Set;
+            d.Binding = program.ShaderBufferInputs[binding.Slot].Slot;
+            d.DescriptorLayout = layout;
+                
+            m_pushDescriptors.emplace_back(d);
         }
     }
 
@@ -403,7 +386,7 @@ VulkanShaderData::~VulkanShaderData()
     {
         switch (input.Input.BufferType)
         {
-        case FlareBase::ShaderBufferType_SSModelBuffer:
+        case ShaderBufferType_SSModelBuffer:
         {
             delete (VulkanShaderStorageObject*)input.Data;
 
@@ -422,15 +405,10 @@ VulkanShaderData::~VulkanShaderData()
         device.destroyDescriptorPool(m_staticDescriptorPool);
     }
 
-    const uint32_t pDescriptorCount = (uint32_t)m_pushDescriptors[0].size();
+    const uint32_t pDescriptorCount = (uint32_t)m_pushDescriptors.size();
     for (uint32_t i = 0; i < pDescriptorCount; ++i)
     {
-        device.destroyDescriptorSetLayout(m_pushDescriptors[0][i].DescriptorLayout);
-
-        for (uint32_t j = 0; j < VulkanFlightPoolSize; ++j)
-        {
-            device.destroyDescriptorPool(m_pushDescriptors[j][i].DescriptorPool);
-        }
+        device.destroyDescriptorSetLayout(m_pushDescriptors[i].DescriptorLayout);
     }
 
     device.destroyPipelineLayout(m_layout);
@@ -466,19 +444,13 @@ void VulkanShaderData::PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a
     const VulkanTextureSampler* vSampler = (VulkanTextureSampler*)a_sampler.Data;
     ICARIAN_ASSERT(vSampler != nullptr);
 
-    for (const PushDescriptor& d : m_pushDescriptors[a_index])
+    for (const PushDescriptor& d : m_pushDescriptors)
     {
         if (d.Set == a_set)
         {
-            const vk::DescriptorSetAllocateInfo descriptorSetInfo = vk::DescriptorSetAllocateInfo
-            (
-                d.DescriptorPool,
-                1,
-                &d.DescriptorLayout
-            );
+            VulkanPushPool* pool = m_gEngine->GetPushPool();
 
-            vk::DescriptorSet descriptorSet;
-            ICARIAN_ASSERT_R(device.allocateDescriptorSets(&descriptorSetInfo, &descriptorSet) == vk::Result::eSuccess);
+            vk::DescriptorSet descriptorSet = pool->AllocateDescriptor(a_index, vk::DescriptorType::eCombinedImageSampler, &d.DescriptorLayout);
 
             const vk::DescriptorImageInfo imageInfo = GetDescriptorImageInfo(a_sampler, vSampler, m_gEngine);
             
@@ -506,19 +478,13 @@ void VulkanShaderData::PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint
 {
     const vk::Device device = m_engine->GetLogicalDevice();
 
-    for (const PushDescriptor& d : m_pushDescriptors[a_index])
+    for (const PushDescriptor& d : m_pushDescriptors)
     {
         if (d.Set == a_set)
         {
-            const vk::DescriptorSetAllocateInfo descriptorSetInfo = vk::DescriptorSetAllocateInfo
-            (
-                d.DescriptorPool,
-                1,
-                &d.DescriptorLayout
-            );
-
-            vk::DescriptorSet descriptorSet;
-            ICARIAN_ASSERT_R(device.allocateDescriptorSets(&descriptorSetInfo, &descriptorSet) == vk::Result::eSuccess);
+            VulkanPushPool* pool = m_gEngine->GetPushPool();
+            
+            vk::DescriptorSet descriptorSet = pool->AllocateDescriptor(a_index, vk::DescriptorType::eUniformBuffer, &d.DescriptorLayout);
 
             const vk::DescriptorBufferInfo bufferInfo = vk::DescriptorBufferInfo
             (
@@ -552,19 +518,13 @@ void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer
 {
     const vk::Device device = m_engine->GetLogicalDevice();
 
-    for (const PushDescriptor& d : m_pushDescriptors[a_index])
+    for (const PushDescriptor& d : m_pushDescriptors)
     {
         if (d.Set == a_set)
         {
-            const vk::DescriptorSetAllocateInfo descriptorSetInfo = vk::DescriptorSetAllocateInfo
-            (
-                d.DescriptorPool,
-                1,
-                &d.DescriptorLayout
-            );
+            VulkanPushPool* pool = m_gEngine->GetPushPool();
 
-            vk::DescriptorSet descriptorSet;
-            ICARIAN_ASSERT_R(device.allocateDescriptorSets(&descriptorSetInfo, &descriptorSet) == vk::Result::eSuccess);
+            vk::DescriptorSet descriptorSet = pool->AllocateDescriptor(a_index, vk::DescriptorType::eStorageBuffer, &d.DescriptorLayout);
 
             const vk::DescriptorBufferInfo bufferInfo = vk::DescriptorBufferInfo
             (
@@ -597,7 +557,7 @@ void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer
 
 void VulkanShaderData::UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_transform) const
 {
-    if (m_transformBufferInput.ShaderSlot != FlareBase::ShaderSlot_Null)
+    if (m_transformBufferInput.ShaderSlot != ShaderSlot_Null)
     {
         ModelShaderBuffer buffer;
         buffer.Model = a_transform;
@@ -608,7 +568,7 @@ void VulkanShaderData::UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, 
 }
 void VulkanShaderData::UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, const UIElement* a_element) const
 {
-    if (m_uiBufferInput.ShaderSlot != FlareBase::ShaderSlot_Null)
+    if (m_uiBufferInput.ShaderSlot != ShaderSlot_Null)
     {
         UIShaderBuffer buffer;
         buffer.Color = a_element->GetColor();
@@ -617,25 +577,19 @@ void VulkanShaderData::UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, const U
     }
 }
 
-void VulkanShaderData::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
+void VulkanShaderData::Bind(vk::CommandBuffer a_commandBuffer) const
 {
-    const vk::Device device = m_engine->GetLogicalDevice();
-    for (const PushDescriptor& d : m_pushDescriptors[a_index])
-    {
-        device.resetDescriptorPool(d.DescriptorPool);
-    }
-
     if (m_staticDescriptorSet != vk::DescriptorSet(nullptr))
     {
         a_commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_layout, StaticIndex, 1, &m_staticDescriptorSet, 0, nullptr);
     }
 }
 
-bool VulkanShaderData::GetCameraInput(FlareBase::ShaderBufferInput* a_input) const
+bool VulkanShaderData::GetCameraInput(ShaderBufferInput* a_input) const
 {
     for (const ShaderSlotInput& input : m_slotInputs)
     {
-        if (input.Input.BufferType == FlareBase::ShaderBufferType_CameraBuffer)
+        if (input.Input.BufferType == ShaderBufferType_CameraBuffer)
         {
             *a_input = input.Input;
 
@@ -646,11 +600,11 @@ bool VulkanShaderData::GetCameraInput(FlareBase::ShaderBufferInput* a_input) con
     return false;
 }
 
-bool VulkanShaderData::GetDirectionalLightInput(FlareBase::ShaderBufferInput* a_input) const
+bool VulkanShaderData::GetDirectionalLightInput(ShaderBufferInput* a_input) const
 {
     for (const ShaderSlotInput& input : m_slotInputs)
     {
-        if (input.Input.BufferType == FlareBase::ShaderBufferType_DirectionalLightBuffer)
+        if (input.Input.BufferType == ShaderBufferType_DirectionalLightBuffer)
         {
             *a_input = input.Input;
 
@@ -660,11 +614,11 @@ bool VulkanShaderData::GetDirectionalLightInput(FlareBase::ShaderBufferInput* a_
 
     return false;
 }
-bool VulkanShaderData::GetPointLightInput(FlareBase::ShaderBufferInput* a_input) const
+bool VulkanShaderData::GetPointLightInput(ShaderBufferInput* a_input) const
 {
     for (const ShaderSlotInput& input : m_slotInputs)
     {
-        if (input.Input.BufferType == FlareBase::ShaderBufferType_PointLightBuffer)
+        if (input.Input.BufferType == ShaderBufferType_PointLightBuffer)
         {
             *a_input = input.Input;
 
@@ -674,26 +628,11 @@ bool VulkanShaderData::GetPointLightInput(FlareBase::ShaderBufferInput* a_input)
 
     return false;
 }
-bool VulkanShaderData::GetSpotLightInput(FlareBase::ShaderBufferInput* a_input) const
+bool VulkanShaderData::GetSpotLightInput(ShaderBufferInput* a_input) const
 {
     for (const ShaderSlotInput& input : m_slotInputs)
     {
-        if (input.Input.BufferType == FlareBase::ShaderBufferType_SpotLightBuffer)
-        {
-            *a_input = input.Input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool VulkanShaderData::GetBatchModelBufferInput(FlareBase::ShaderBufferInput* a_input) const
-{
-    for (const ShaderSlotInput& input : m_slotInputs)
-    {
-        if (input.Input.BufferType == FlareBase::ShaderBufferType_SSModelBuffer)
+        if (input.Input.BufferType == ShaderBufferType_SpotLightBuffer)
         {
             *a_input = input.Input;
 
@@ -704,11 +643,26 @@ bool VulkanShaderData::GetBatchModelBufferInput(FlareBase::ShaderBufferInput* a_
     return false;
 }
 
-bool VulkanShaderData::GetBoneBufferInput(FlareBase::ShaderBufferInput* a_input) const
+bool VulkanShaderData::GetBatchModelBufferInput(ShaderBufferInput* a_input) const
 {
     for (const ShaderSlotInput& input : m_slotInputs)
     {
-        if (input.Input.BufferType == FlareBase::ShaderBufferType_SSBoneBuffer)
+        if (input.Input.BufferType == ShaderBufferType_SSModelBuffer)
+        {
+            *a_input = input.Input;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool VulkanShaderData::GetBoneBufferInput(ShaderBufferInput* a_input) const
+{
+    for (const ShaderSlotInput& input : m_slotInputs)
+    {
+        if (input.Input.BufferType == ShaderBufferType_SSBoneBuffer)
         {
             *a_input = input.Input;
 

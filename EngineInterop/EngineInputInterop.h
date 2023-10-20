@@ -3,7 +3,7 @@
 #include "InteropTypes.h"
 
 #define ENGINEINPUT_EXPORT_TABLE(F) \
-    F(IOP_VEC2, IcarianEngine, InputInterop, GetCursorPos, \ 
+    F(IOP_VEC2, IcarianEngine, InputInterop, GetCursorPos, \
     { \
         return Instance->GetCursorPos(); \
     }) \
@@ -57,7 +57,7 @@
 
 #define ENGINEAPPINPUT_EXPORT_TABLE(F) \
     F(IOP_UINT32, IcarianEngine, InputInterop, GetCursorState, \
-    { \ 
+    { \
         return (uint32_t)Instance->GetCursorState(); \
     }) \
     F(void, IcarianEngine, InputInterop, SetCursorState, \

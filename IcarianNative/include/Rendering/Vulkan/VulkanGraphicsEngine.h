@@ -16,6 +16,7 @@ class VulkanLightData;
 class VulkanModel;
 class VulkanPipeline;
 class VulkanPixelShader;
+class VulkanPushPool;
 class VulkanRenderCommand;
 class VulkanRenderEngineBackend;
 class VulkanRenderTexture;
@@ -27,7 +28,6 @@ class VulkanVertexShader;
 #include "DataTypes/TArray.h"
 #include "DataTypes/TNCArray.h"
 #include "DataTypes/TStatic.h"
-#include "Flare/RenderProgram.h"
 #include "Flare/TextureSampler.h"
 #include "Rendering/CameraBuffer.h"
 #include "Rendering/Light.h"
@@ -35,6 +35,8 @@ class VulkanVertexShader;
 #include "Rendering/MeshRenderBuffer.h"
 #include "Rendering/SkinnedMeshRenderBuffer.h"
 #include "Rendering/UI/CanvasRendererBuffer.h"
+
+#include "EngineMaterialInteropStructures.h"
 
 class VulkanGraphicsEngine
 {
@@ -57,6 +59,7 @@ private:
     RuntimeFunction*                              m_postProcessFunc;
 
     VulkanRenderEngineBackend*                    m_vulkanEngine;
+    VulkanPushPool*                               m_pushPool;
 
     std::shared_mutex                             m_pipeLock;
     std::unordered_map<uint64_t, VulkanPipeline*> m_pipelines;
@@ -64,7 +67,7 @@ private:
     TStatic<VulkanRenderCommand>                  m_renderCommands;
     TStatic<VulkanLightData>                      m_lightData;
 
-    TArray<FlareBase::RenderProgram>              m_shaderPrograms;
+    TArray<RenderProgram>                         m_shaderPrograms;
      
     TArray<VulkanVertexShader*>                   m_vertexShaders;
     TArray<VulkanPixelShader*>                    m_pixelShaders;
@@ -124,6 +127,11 @@ public:
         m_swapchain = a_swapchaing;
     }
 
+    inline VulkanPushPool* GetPushPool() const
+    {
+        return m_pushPool;
+    }
+
     std::vector<vk::CommandBuffer> Update(uint32_t a_index);
 
     uint32_t GenerateGLSLVertexShader(const std::string_view& a_source);
@@ -136,9 +144,9 @@ public:
     void DestroyPixelShader(uint32_t a_addr);
     VulkanPixelShader* GetPixelShader(uint32_t a_addr);
 
-    uint32_t GenerateRenderProgram(const FlareBase::RenderProgram& a_program);
+    uint32_t GenerateRenderProgram(const RenderProgram& a_program);
     void DestroyRenderProgram(uint32_t a_addr);
-    FlareBase::RenderProgram GetRenderProgram(uint32_t a_addr);
+    RenderProgram GetRenderProgram(uint32_t a_addr);
     VulkanPipeline* GetPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
     
     CameraBuffer GetCameraBuffer(uint32_t a_addr);

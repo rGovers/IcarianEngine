@@ -6,6 +6,36 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
+class VulkanTextureSamplerDeletionObject : public VulkanDeletionObject
+{
+private:
+    VulkanRenderEngineBackend* m_engine;
+
+    vk::Sampler                m_sampler;
+
+protected:
+
+public:
+    VulkanTextureSamplerDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Sampler a_sampler)
+    {
+        m_engine = a_engine;
+
+        m_sampler = a_sampler;
+    }
+    virtual ~VulkanTextureSamplerDeletionObject()
+    {
+        
+    }
+
+    virtual void Destroy()
+    {
+        TRACE("Destroying Texture Sampler");
+        const vk::Device device = m_engine->GetLogicalDevice();
+
+        device.destroySampler(m_sampler);
+    }
+};
+
 constexpr static vk::Filter GetFilterMode(FlareBase::e_TextureFilter a_filter)
 {
     switch (a_filter)
@@ -61,9 +91,7 @@ VulkanTextureSampler::VulkanTextureSampler(VulkanRenderEngineBackend* a_engine, 
 }
 VulkanTextureSampler::~VulkanTextureSampler()
 {
-    TRACE("Destroying texture sampler");
-    const vk::Device device = m_engine->GetLogicalDevice();
-
-    device.destroySampler(m_sampler);
+    TRACE("Queueing Texture Sampler Deletion");
+    m_engine->PushDeletionObject(new VulkanTextureSamplerDeletionObject(m_engine, m_sampler));
 }
 #endif

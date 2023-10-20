@@ -6,8 +6,9 @@
 
 #include "Rendering/Vulkan/VulkanConstants.h"
 
-#include "Flare/ShaderBufferInput.h"
 #include "Flare/TextureSampler.h"
+
+#include "EngineMaterialInteropStructures.h"
 
 class ObjectManager;
 class UIElement;
@@ -18,8 +19,8 @@ class VulkanUniformBuffer;
 
 struct ShaderSlotInput
 {
-    FlareBase::ShaderBufferInput Input;
-    void*                        Data;
+    ShaderBufferInput Input;
+    void*             Data;
 };
 
 class VulkanShaderData
@@ -32,7 +33,6 @@ private:
         uint32_t Set;
         uint32_t Binding;
         vk::DescriptorSetLayout DescriptorLayout;
-        vk::DescriptorPool DescriptorPool;
     };
 
     static constexpr uint32_t PushCount = 128;
@@ -44,9 +44,11 @@ private:
   
     uint32_t                     m_programAddr;
   
+    VulkanUniformBuffer*         m_userUniformBuffer;
+
     vk::PipelineLayout           m_layout;
  
-    std::vector<PushDescriptor>  m_pushDescriptors[VulkanFlightPoolSize];
+    std::vector<PushDescriptor>  m_pushDescriptors;
  
     vk::DescriptorSetLayout      m_staticDesciptorLayout;
     vk::DescriptorPool           m_staticDescriptorPool;
@@ -54,8 +56,8 @@ private:
 
     std::vector<ShaderSlotInput> m_slotInputs;
     // Want quick access to these so they are stored separately
-    FlareBase::ShaderBufferInput m_transformBufferInput;
-    FlareBase::ShaderBufferInput m_uiBufferInput;
+    ShaderBufferInput            m_transformBufferInput;
+    ShaderBufferInput            m_uiBufferInput;
 
 protected:
 
@@ -68,15 +70,15 @@ public:
         return m_layout;
     }
 
-    bool GetCameraInput(FlareBase::ShaderBufferInput* a_input) const;
+    bool GetCameraInput(ShaderBufferInput* a_input) const;
 
-    bool GetDirectionalLightInput(FlareBase::ShaderBufferInput* a_input) const;
-    bool GetPointLightInput(FlareBase::ShaderBufferInput* a_input) const;
-    bool GetSpotLightInput(FlareBase::ShaderBufferInput* a_input) const;
+    bool GetDirectionalLightInput(ShaderBufferInput* a_input) const;
+    bool GetPointLightInput(ShaderBufferInput* a_input) const;
+    bool GetSpotLightInput(ShaderBufferInput* a_input) const;
 
-    bool GetBatchModelBufferInput(FlareBase::ShaderBufferInput* a_input) const;
+    bool GetBatchModelBufferInput(ShaderBufferInput* a_input) const;
     
-    bool GetBoneBufferInput(FlareBase::ShaderBufferInput* a_input) const;
+    bool GetBoneBufferInput(ShaderBufferInput* a_input) const;
 
     void SetTexture(uint32_t a_slot, const FlareBase::TextureSampler& a_sampler) const;
 
@@ -87,6 +89,6 @@ public:
     void UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_transform) const;
     void UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, const UIElement* a_element) const;
 
-    void Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
+    void Bind(vk::CommandBuffer a_commandBuffer) const;
 };
 #endif

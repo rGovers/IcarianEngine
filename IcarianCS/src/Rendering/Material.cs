@@ -3,94 +3,71 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineMaterialInteropStructures.h"
+
 namespace IcarianEngine.Rendering
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    internal struct RenderProgram
+    public struct MaterialBuilder
     {
-        public uint VertexShader;
-        public uint PixelShader;
-        public uint RenderLayer;
-        public ushort VertexStride;
-        public ushort VertexInputCount;
-        public IntPtr VertexInputAttributes;
-        public ushort ShaderBufferInputCount;
-        public IntPtr ShaderBufferInputs;
+        /// <summary>
+        /// The vertex shader to be used by the material.
+        /// </summary>
+        public VertexShader VertexShader;
+        /// <summary>
+        /// The pixel shader to be used by the material.
+        /// </summary>
+        public PixelShader PixelShader;
+        /// <summary>
+        /// The stride between each vertex.
+        /// </summary>
+        public ushort VertexStride; 
+        /// <summary>
+        /// The attributes of the vertex type.
+        /// </summary>
+        public VertexInputAttribute[] Attributes;
+        /// <summary>
+        /// The shader inputs to be used by the material.
+        /// </summary>
+        public ShaderBufferInput[] ShaderInputs;
+        /// <summary>
+        /// The culling mode to be used by the material.
+        /// </summary>
         public CullMode CullingMode;
+        /// <summary>
+        /// The primitive mode to be used by the material.
+        /// </summary>
         public PrimitiveMode PrimitiveMode;
-        public byte ColorBlendEnabled;
-        IntPtr Data;
-        byte Flags;
-    };
-
-    public enum ShaderBufferType : ushort
-    {
-        Null = ushort.MaxValue,
-        CameraBuffer = 0,
-        ModelBuffer = 1,
-        UIBuffer = 2,
-        DirectionalLightBuffer = 3,
-        PointLightBuffer = 4,
-        SpotLightBuffer = 5,
-        Texture = 6,
-        PushTexture = 7,
-        SSModelBuffer = 8,
-        SSBoneBuffer = 9,
-    };
-
-    public enum ShaderSlot : ushort
-    {
-        Null = ushort.MaxValue,
-        Vertex = 0,
-        Pixel = 1,
-        All = 2
-    };
-
-    public enum CullMode : ushort
-    {
-        None = 0,
-        Front = 1,
-        Back = 2,
-        Both = 3
-    };
-    public enum PrimitiveMode : ushort
-    {
-        Triangles = 0,
-        TriangleStrip = 1
-    };
-
-    internal enum InternalRenderProgram : ushort
-    {
-        DirectionalLight = 0,
-        PointLight = 1,
-        SpotLight = 2,
-        Post = 3
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    public struct ShaderBufferInput
-    {   
-        public ushort Slot;
-        public ShaderBufferType BufferType;
-        public ShaderSlot ShaderSlot;
-        public ushort Set;
+        /// <summary>
+        /// The render layer to be used by the material.
+        /// </summary>
+        public uint RenderLayer;
+        /// <summary>
+        /// Enables color blending.
+        /// </summary>
+        public bool EnableColorBlending;
+        /// <summary>
+        /// The shadow vertex shader to be used by the material.
+        /// </summary>
+        /// Optional
+        public VertexShader ShadowVertexShader;
+        /// <summary>
+        /// The shadow shader inputs to be used by the material.
+        /// </summary>
+        /// Needed if ShadowVertexShader is not null
+        public ShaderBufferInput[] ShadowShaderInputs;
+        /// <summary>
+        /// The object used to for user UBO variables.
+        /// </summary>
+        /// Required if the user adds UserUBO to ShaderInputs. Must be a struct.
+        public object UBOBuffer;
     };
 
     public class Material : IDestroy
     {
-        public static Material DirectionalLightMaterial = null;
-        public static Material PointLightMaterial = null;
-        public static Material SpotLightMaterial = null;
-        public static Material PostMaterial = null;
-
-        MaterialDef m_def = null;
-
-        uint        m_bufferAddr = uint.MaxValue;
-
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateInternalProgram(InternalRenderProgram a_renderProgram);
+        extern static uint GenerateInternalProgram(uint a_renderProgram);
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateProgram(uint a_vertexShader, uint a_pixelShader, ushort a_vertexStride, VertexInputAttribute[] a_attributes, ShaderBufferInput[] a_shaderInputs, uint a_cullMode, uint a_primitiveMode, uint a_enableColorBlending); 
+        extern static uint GenerateProgram(uint a_vertexShader, uint a_pixelShader, ushort a_vertexStride, VertexInputAttribute[] a_attributes, ShaderBufferInput[] a_shaderInputs, uint a_cullMode, uint a_primitiveMode, uint a_enableColorBlending, uint a_renderLayer, uint a_shadowVertexShader, ShaderBufferInput[] a_shadowShaderInputs, uint a_uboSize, IntPtr a_uboBuffer); 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static RenderProgram GetProgramBuffer(uint a_addr); 
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -100,6 +77,30 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetTexture(uint a_addr, uint a_shaderSlot, uint a_samplerAddr);
 
+        /// <summary>
+        /// The directional light material used by the default render pipeline.
+        /// </summary>
+        public static Material DirectionalLightMaterial = null;
+        /// <summary>
+        /// The point light material used by the default render pipeline.
+        /// </summary>
+        public static Material PointLightMaterial = null;
+        /// <summary>
+        /// The spot light material used by the default render pipeline.
+        /// </summary>
+        public static Material SpotLightMaterial = null;
+        /// <summary>
+        /// The post processing material used by the default render pipeline.
+        /// </summary>
+        public static Material PostMaterial = null;
+
+        MaterialDef m_def = null;
+
+        uint        m_bufferAddr = uint.MaxValue;
+
+        /// <summary>
+        /// Determines if the material has been disposed.
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -116,6 +117,10 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// The render layer the material is on.
+        /// </summary>
+        /// When a bit matches the render layer of the render source it will be rendered.
         public uint RenderLayer
         {
             get
@@ -132,6 +137,9 @@ namespace IcarianEngine.Rendering
             }
         }
         
+        /// <summary>
+        /// The material definition used to create the material.
+        /// </summary>
         public MaterialDef Def
         {
             get
@@ -155,26 +163,22 @@ namespace IcarianEngine.Rendering
             PostMaterial.Dispose();
         }
 
+        Material(uint a_bufferAddr)
+        {
+            m_bufferAddr = a_bufferAddr;
+        }
         Material(InternalRenderProgram a_program)
         {
-            m_bufferAddr = GenerateInternalProgram(a_program);
-
-            RenderLayer = 0b1;
-        }
-        public Material(VertexShader a_vertexShader, PixelShader a_pixelShader, ushort a_vertexStride, VertexInputAttribute[] a_attributes, ShaderBufferInput[] a_shaderInputs, CullMode a_cullMode = CullMode.Back, PrimitiveMode a_primitiveMode = PrimitiveMode.Triangles, bool a_enableColorBlending = false)
-        {
-            if (a_enableColorBlending)
-            {
-                m_bufferAddr = GenerateProgram(a_vertexShader.InternalAddr, a_pixelShader.InternalAddr, a_vertexStride, a_attributes, a_shaderInputs, (uint)a_cullMode, (uint)a_primitiveMode, 1);
-            }
-            else
-            {
-                m_bufferAddr = GenerateProgram(a_vertexShader.InternalAddr, a_pixelShader.InternalAddr, a_vertexStride, a_attributes, a_shaderInputs, (uint)a_cullMode, (uint)a_primitiveMode, 0);
-            }
+            m_bufferAddr = GenerateInternalProgram((uint)a_program);
 
             RenderLayer = 0b1;
         }
 
+        /// <summary>
+        /// Sets the texture sampler for the material.
+        /// </summary>
+        /// <param name="a_shaderSlot">The slot to set the texture sampler to.</param>
+        /// <param name="a_sampler">The texture sampler to use.</param>
         public void SetTexture(uint a_shaderSlot, TextureSampler a_sampler)
         {
             if (a_sampler != null)
@@ -187,6 +191,104 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// Creates a material from a material builder.
+        /// </summary>
+        /// <param name="a_builder">The material builder to use.</param>
+        /// <returns>The created material. Returns null when invalid.</returns>
+        public static Material CreateMaterial(MaterialBuilder a_builder)
+        {
+            if (a_builder.VertexShader == null)
+            {
+                Logger.IcarianError("Material invalid vertex shader");
+
+                return null;
+            }
+
+            if (a_builder.PixelShader == null)
+            {
+                Logger.IcarianError("Material invalid pixel shader");
+
+                return null;
+            }
+
+            if (a_builder.Attributes == null)
+            {
+                Logger.IcarianError("Material invalid vertex attributes");
+
+                return null;
+            }
+
+            if (a_builder.ShaderInputs == null)
+            {
+                Logger.IcarianError("Material invalid shader inputs");
+
+                return null;
+            }
+
+            if (a_builder.ShadowVertexShader != null && a_builder.ShadowShaderInputs == null)
+            {
+                Logger.IcarianError("Material invalid shadow shader inputs");
+
+                return null;
+            }
+
+            uint shadowVertexShader = uint.MaxValue;
+            ShaderBufferInput[] shadowShaderInputs = null;
+            if (a_builder.ShadowVertexShader != null)
+            {
+                shadowVertexShader = a_builder.ShadowVertexShader.InternalAddr;
+                shadowShaderInputs = a_builder.ShadowShaderInputs;
+            }
+
+            uint enableColorBlending = 0;
+            if (a_builder.EnableColorBlending)
+            {
+                enableColorBlending = 1;
+            }
+
+            uint uboSize = 0;
+            IntPtr uboBuffer = IntPtr.Zero;
+            if (a_builder.UBOBuffer != null)
+            {
+                uboSize = (uint)Marshal.SizeOf(a_builder.UBOBuffer);
+                uboBuffer = Marshal.AllocHGlobal((int)uboSize);
+                Marshal.StructureToPtr(a_builder.UBOBuffer, uboBuffer, false);
+            }
+
+            uint bufferAddr = GenerateProgram
+            (
+                a_builder.VertexShader.InternalAddr, 
+                a_builder.PixelShader.InternalAddr, 
+                a_builder.VertexStride, 
+                a_builder.Attributes, 
+                a_builder.ShaderInputs, 
+                (uint)a_builder.CullingMode, 
+                (uint)a_builder.PrimitiveMode, 
+                enableColorBlending, 
+                a_builder.RenderLayer,
+                shadowVertexShader, 
+                shadowShaderInputs,
+                uboSize,
+                uboBuffer
+            );
+
+            // Trust the GC bout as far as I can throw it
+            // Therefore memory stays in the C# domain
+            if (uboBuffer != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(uboBuffer);
+            }
+
+            return new Material(bufferAddr);
+        }
+
+        /// <summary>
+        /// Creates a material from a material definition.
+        /// </summary>
+        /// <param name="a_def">The material definition to use.</param>
+        /// <returns>The created material. Returns null when invalid.</returns>
+        /// @see IcarianEngine.AssetLibrary.GetMaterial
         public static Material FromDef(MaterialDef a_def)
         {
             if (string.IsNullOrWhiteSpace(a_def.PixelShaderPath) || string.IsNullOrWhiteSpace(a_def.VertexShaderPath))
@@ -231,11 +333,41 @@ namespace IcarianEngine.Rendering
                 return null;
             }
 
-            Material mat = new Material(vertexShader, pixelShader, (ushort)Marshal.SizeOf(a_def.VertexType), vertexInputAttributes, shaderInput, a_def.CullingMode, a_def.PrimitiveMode, a_def.EnableColorBlending)
+            VertexShader shadowVertexShader = null;
+            ShaderBufferInput[] shadowShaderInput = null;
+            if (!string.IsNullOrEmpty(a_def.ShadowVertexShaderPath))
             {
-                m_def = a_def,
-                RenderLayer = a_def.RenderLayer
+                shadowVertexShader = AssetLibrary.LoadVertexShader(a_def.ShadowVertexShaderPath);
+                if (shadowVertexShader == null)
+                {
+                    Logger.IcarianError("Material invalid shadow vertex shader");
+
+                    return null;
+                }
+
+                if (a_def.ShadowShaderBuffers != null)
+                {
+                    shadowShaderInput = a_def.ShadowShaderBuffers.ToArray();
+                }
+            }
+
+            MaterialBuilder materialBuilder = new MaterialBuilder()
+            {
+                VertexShader = vertexShader,
+                PixelShader = pixelShader,
+                VertexStride = (ushort)Marshal.SizeOf(a_def.VertexType),
+                Attributes = vertexInputAttributes,
+                ShaderInputs = shaderInput,
+                CullingMode = a_def.CullingMode,
+                PrimitiveMode = a_def.PrimitiveMode,
+                EnableColorBlending = a_def.EnableColorBlending,
+                RenderLayer = a_def.RenderLayer,
+                ShadowVertexShader = shadowVertexShader,
+                ShadowShaderInputs = shadowShaderInput
             };
+
+            Material mat = CreateMaterial(materialBuilder);
+            mat.m_def = a_def;
 
             if (a_def.TextureInputs != null)
             {
@@ -256,6 +388,9 @@ namespace IcarianEngine.Rendering
             return mat; 
         }
 
+        /// <summary>
+        /// Disposes the material.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -263,6 +398,10 @@ namespace IcarianEngine.Rendering
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// Called when the material is being disposed.
+        /// </summary>
+        /// <param name="a_disposing">Determines if the material is being disposed.</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)
@@ -288,4 +427,5 @@ namespace IcarianEngine.Rendering
         {
             Dispose(false);
         }
-    }}
+    }
+}

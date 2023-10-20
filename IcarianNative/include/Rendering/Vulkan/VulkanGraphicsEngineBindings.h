@@ -7,11 +7,12 @@ class VulkanGraphicsEngine;
 class VulkanPixelShader;
 class VulkanVertexShader;
 
-#include "Flare/RenderProgram.h"
 #include "Flare/TextureSampler.h"
 #include "Rendering/CameraBuffer.h"
 #include "Rendering/Light.h"
 #include "Rendering/MeshRenderBuffer.h"
+
+#include "EngineMaterialInteropStructures.h"
 
 // Before someone tries to get rid of this compiler seems to be pretty good at optimizing this out so until shown otherwise I'm going to leave it
 // Just glue code to get back into C++ style code from 
@@ -35,12 +36,12 @@ public:
     uint32_t GenerateGLSLPixelShaderAddr(const std::string_view& a_str) const;
     void DestroyPixelShader(uint32_t a_addr) const;
 
-    uint32_t GenerateInternalShaderProgram(FlareBase::e_InternalRenderProgram a_program) const;
-    uint32_t GenerateShaderProgram(const FlareBase::RenderProgram& a_program) const;
+    uint32_t GenerateInternalShaderProgram(e_InternalRenderProgram a_program) const;
+    uint32_t GenerateShaderProgram(const RenderProgram& a_program) const;
     void DestroyShaderProgram(uint32_t a_addr) const;
     void RenderProgramSetTexture(uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr);
-    FlareBase::RenderProgram GetRenderProgram(uint32_t a_addr) const;
-    void SetRenderProgram(uint32_t a_addr, const FlareBase::RenderProgram& a_program) const;
+    RenderProgram GetRenderProgram(uint32_t a_addr) const;
+    void SetRenderProgram(uint32_t a_addr, const RenderProgram& a_program) const;
 
     uint32_t GenerateCameraBuffer(uint32_t a_transformAddr) const;
     void DestroyCameraBuffer(uint32_t a_addr) const;

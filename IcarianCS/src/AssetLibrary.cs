@@ -1445,6 +1445,7 @@ namespace IcarianEngine
         /// Lifetime managed by AssetLibrary
         /// <param name="a_def">The MaterialDef to get the Material from.</param>
         /// <returns>The Material if it was loaded successfully, null otherwise.</returns>
+        /// @see IcarianEngine.Rendering.Material.FromDef
         public static Material GetMaterial(MaterialDef a_def)
         {
             if (a_def == null)
@@ -1488,6 +1489,7 @@ namespace IcarianEngine
         /// <param name="a_def">The MaterialDef to get the Material from.</param>
         /// <param name="a_callback">The callback to call when the Material is loaded.</param>
         /// <param name="a_priority">The priority of the job.</param>
+        /// @see IcarianEngine.Rendering.Material.FromDef
         public static void GetMaterialAsync(MaterialDef a_def, GetMaterialCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             if (a_def == null)

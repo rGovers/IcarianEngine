@@ -91,7 +91,8 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr)
     if (bind)
     {
         const VulkanShaderData* shaderData = pipeline->GetShaderData();
-        FlareBase::ShaderBufferInput camInput;
+
+        ShaderBufferInput camInput;
         if (shaderData->GetCameraInput(&camInput))
         {
             const uint32_t currentFrame = m_engine->GetCurrentFrame();
@@ -100,7 +101,7 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr)
             shaderData->PushUniformBuffer(m_commandBuffer, camInput.Set, camBuffer, currentFrame);
         }
 
-        pipeline->Bind(m_engine->GetCurrentFrame(), m_commandBuffer);
+        pipeline->Bind(m_commandBuffer);
     }
 
     return pipeline;
@@ -110,7 +111,7 @@ void VulkanRenderCommand::PushTexture(uint32_t a_slot, const FlareBase::TextureS
 {
     ICARIAN_ASSERT_MSG_R(m_materialAddr != -1, "PushTexture Material not bound");
 
-    const FlareBase::RenderProgram program = m_gEngine->GetRenderProgram(m_materialAddr);
+    const RenderProgram program = m_gEngine->GetRenderProgram(m_materialAddr);
     VulkanShaderData* data = (VulkanShaderData*)program.Data;
 
     data->PushTexture(m_commandBuffer, a_slot, a_sampler, m_engine->GetCurrentFrame());

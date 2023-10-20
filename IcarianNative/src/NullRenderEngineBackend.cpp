@@ -3,11 +3,12 @@
 #define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
-#include "Flare/RenderProgram.h"
 #include "Rendering/CameraBuffer.h"
 #include "Rendering/Light.h"
 #include "Rendering/UI/Font.h"
 #include "Runtime/RuntimeManager.h"
+
+#include "EngineMaterialInteropStructures.h"
 
 #define NULLGRAPHICS_BINDING_FUNCTION_TABLE(F) \
     F(uint32_t, IcarianEngine.Rendering, VertexShader, GenerateFromFile, { return 0; }, MonoString* a_path) \
@@ -16,10 +17,10 @@
     F(void, IcarianEngine.Rendering, PixelShader, DestroyShader, { }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, Material, GenerateMaterial, { return 0; }, uint32_t a_vertexShaderAddr, uint32_t a_pixelShaderAddr, uint16_t a_vertexStride, MonoArray* a_vertexInputAttribs, MonoArray* a_shaderInputs, uint32_t a_cullingMode, uint32_t a_primitiveMode, uint32_t a_colorBlendingEnabled) \
-    F(uint32_t, IcarianEngine.Rendering, Material, GenerateInternalProgram, { return 0; }, FlareBase::e_InternalRenderProgram a_renderProgram) \
+    F(uint32_t, IcarianEngine.Rendering, Material, GenerateInternalProgram, { return 0; }, e_InternalRenderProgram a_renderProgram) \
     F(void, IcarianEngine.Rendering, Material, DestroyMaterial, { }, uint32_t a_addr) \
-    F(FlareBase::RenderProgram, IcarianEngine.Rendering, Material, GetProgramBuffer, { return FlareBase::RenderProgram(); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering, Material, SetProgramBuffer, { }, uint32_t a_addr, FlareBase::RenderProgram a_program) \
+    F(RenderProgram, IcarianEngine.Rendering, Material, GetProgramBuffer, { return RenderProgram(); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, Material, SetProgramBuffer, { }, uint32_t a_addr, RenderProgram a_program) \
     F(void, IcarianEngine.Rendering, Material, SetTexture, { }, uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr) \
     \
     F(uint32_t, IcarianEngine.Rendering, Camera, GenerateBuffer, { return 0; }, uint32_t a_transformAddr) \
