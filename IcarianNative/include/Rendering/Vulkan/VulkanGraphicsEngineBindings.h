@@ -39,7 +39,8 @@ public:
     uint32_t GenerateInternalShaderProgram(e_InternalRenderProgram a_program) const;
     uint32_t GenerateShaderProgram(const RenderProgram& a_program) const;
     void DestroyShaderProgram(uint32_t a_addr) const;
-    void RenderProgramSetTexture(uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr);
+    void RenderProgramSetTexture(uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr) const;
+    void RenderProgramSetUserUBO(uint32_t a_addr, uint32_t a_uboSize, const void* a_uboData) const;
     RenderProgram GetRenderProgram(uint32_t a_addr) const;
     void SetRenderProgram(uint32_t a_addr, const RenderProgram& a_program) const;
 

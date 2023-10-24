@@ -60,7 +60,7 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 		std::string rStr;
 		if (defName == "structure")
 		{
-			ICARIAN_ASSERT_MSG_R(args.size() == 4, "Flare Shader structure requires 3 arguments");
+			ICARIAN_ASSERT_MSG_R(args.size() == 4, "Flare Shader structure requires 4 arguments");
 
 			if (args[0] == "CameraBuffer")
 			{
@@ -90,6 +90,12 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 			{
 				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_BONE_SSBO_STRUCTURE, BONE_SHADER_NAMESTR);
 			}
+		}
+		else if (defName == "userbuffer")
+		{
+			ICARIAN_ASSERT_MSG_R(args.size() == 3, "Flare Shader ubo requires 3 arguments");
+
+			rStr = std::string("layout(std140, binding=") + args[0] + ", set=" + args[1] + ") uniform " + args[2];
 		}
 		else if (defName == "instancedstructure")
 		{

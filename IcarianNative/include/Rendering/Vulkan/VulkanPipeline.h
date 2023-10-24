@@ -31,6 +31,6 @@ public:
 
     VulkanShaderData* GetShaderData() const;
 
-    void Bind(vk::CommandBuffer a_commandBuffer) const;
+    void Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
 };
 #endif

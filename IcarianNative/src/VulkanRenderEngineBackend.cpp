@@ -17,8 +17,8 @@
 #include "Trace.h"
 
 #ifndef NDEBUG
-#define VMA_DEBUG_LOG(str) Logger::Message(str)
-#define VMA_DEBUG_LOG_FORMAT(format, ...) do { char buffer[4096]; sprintf(buffer, format, __VA_ARGS__); Logger::Message(buffer); } while (0)
+// #define VMA_DEBUG_LOG(str) Logger::Message(str)
+// #define VMA_DEBUG_LOG_FORMAT(format, ...) do { char buffer[4096]; sprintf(buffer, format, __VA_ARGS__); Logger::Message(buffer); } while (0)
 #endif
 
 #define VMA_IMPLEMENTATION

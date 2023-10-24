@@ -17,7 +17,7 @@ struct VulkanPushPoolBuffer
 class VulkanPushPool
 {
 private:
-    static constexpr uint32_t MaxPoolSize = 64;
+    static constexpr uint32_t MaxPoolSize = 128;
 
     VulkanRenderEngineBackend*   m_engine;
 

@@ -1,5 +1,6 @@
 using IcarianEngine.Definitions;
 using System;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -76,6 +77,8 @@ namespace IcarianEngine.Rendering
         extern static void DestroyProgram(uint a_addr); 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetTexture(uint a_addr, uint a_shaderSlot, uint a_samplerAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void SetUserUniform(uint a_addr, uint a_uboSize, IntPtr a_uboBuffer);
 
         /// <summary>
         /// The directional light material used by the default render pipeline.
@@ -94,9 +97,9 @@ namespace IcarianEngine.Rendering
         /// </summary>
         public static Material PostMaterial = null;
 
-        MaterialDef m_def = null;
-
         uint        m_bufferAddr = uint.MaxValue;
+        Type        m_uboType = null;
+        MaterialDef m_def = null;
 
         /// <summary>
         /// Determines if the material has been disposed.
@@ -172,6 +175,40 @@ namespace IcarianEngine.Rendering
             m_bufferAddr = GenerateInternalProgram((uint)a_program);
 
             RenderLayer = 0b1;
+        }
+
+        /// <summary>
+        /// Sets the user defined uniform buffer object.
+        /// </summary>
+        /// <param name="a_data">The data to set the uniform buffer object to.</param>
+        /// Must be a struct. Must match the type used to create the material.
+        public void SetUserUniform(object a_data)
+        {
+            if (a_data == null)
+            {
+                Logger.IcarianError("Invalid UBO data");
+
+                return;
+            }
+
+
+            Type type = a_data.GetType();
+            if (type != m_uboType)
+            {
+                Logger.IcarianError("Invalid UBO data type");
+
+                return;
+            }
+            
+            // Trust the GC bout as far as I can throw it
+            uint uboSize = (uint)Marshal.SizeOf(a_data);
+            IntPtr uboBuffer = Marshal.AllocHGlobal((int)uboSize);
+
+            Marshal.StructureToPtr(a_data, uboBuffer, false);
+
+            SetUserUniform(m_bufferAddr, uboSize, uboBuffer);
+
+            Marshal.FreeHGlobal(uboBuffer);
         }
 
         /// <summary>
@@ -280,7 +317,14 @@ namespace IcarianEngine.Rendering
                 Marshal.FreeHGlobal(uboBuffer);
             }
 
-            return new Material(bufferAddr);
+            Material mat = new Material(bufferAddr);
+
+            if (a_builder.UBOBuffer != null)
+            {
+                mat.m_uboType = a_builder.UBOBuffer.GetType();
+            }
+
+            return mat;
         }
 
         /// <summary>
@@ -351,6 +395,26 @@ namespace IcarianEngine.Rendering
                 }
             }
 
+            object userUBO = null;
+            Type t = a_def.UniformBufferType;
+            if (t != null)
+            {
+                userUBO = Activator.CreateInstance(t);
+
+                foreach (UBOField field in a_def.UniformBufferFields)
+                {
+                    FieldInfo info = t.GetField(field.Name);
+                    if (info != null)
+                    {
+                        Type fieldType = info.FieldType;
+
+                        object value = MaterialDef.UBOValueToObject(fieldType, field.Value);
+
+                        info.SetValue(userUBO, value);
+                    }
+                }
+            }
+
             MaterialBuilder materialBuilder = new MaterialBuilder()
             {
                 VertexShader = vertexShader,
@@ -363,7 +427,8 @@ namespace IcarianEngine.Rendering
                 EnableColorBlending = a_def.EnableColorBlending,
                 RenderLayer = a_def.RenderLayer,
                 ShadowVertexShader = shadowVertexShader,
-                ShadowShaderInputs = shadowShaderInput
+                ShadowShaderInputs = shadowShaderInput,
+                UBOBuffer = userUBO
             };
 
             Material mat = CreateMaterial(materialBuilder);

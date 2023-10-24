@@ -454,7 +454,7 @@ uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_prog
                 ICARIAN_ASSERT_MSG(a[i].Data == nullptr, "GenerateRenderProgram shader data not null");
 
                 a[i] = a_program;
-                a[i].Data = new VulkanShaderData(m_vulkanEngine, this, i);
+                a[i].Data = new VulkanShaderData(m_vulkanEngine, this, a_program);
 
                 return i;
             }
@@ -462,7 +462,7 @@ uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_prog
     }
 
     const uint32_t addr = m_shaderPrograms.PushVal(a_program);
-    m_shaderPrograms[addr].Data = new VulkanShaderData(m_vulkanEngine, this, addr);
+    m_shaderPrograms[addr].Data = new VulkanShaderData(m_vulkanEngine, this, a_program);
 
     return addr;
 }
@@ -1137,7 +1137,7 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
 
         if (pipeline != nullptr && shaderData != nullptr)
         {
-            pipeline->Bind(a_commandBuffer);
+            pipeline->Bind(a_index, a_commandBuffer);
 
             shaderData->UpdateUIBuffer(a_commandBuffer, element);
 
@@ -1190,6 +1190,18 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
     m_renderCommands.Clear();
 
     m_pushPool->Reset(a_index);
+
+    {
+        TLockArray<RenderProgram> a = m_shaderPrograms.ToLockArray();
+
+        for (RenderProgram& program : a)
+        {
+            ICARIAN_ASSERT(program.Data != nullptr);
+
+            VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
+            shaderData->Update(a_index, program);
+        }
+    }
 
     const vk::Device device = m_vulkanEngine->GetLogicalDevice();
 

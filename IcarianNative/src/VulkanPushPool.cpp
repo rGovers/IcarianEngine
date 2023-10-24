@@ -57,7 +57,6 @@ vk::DescriptorSet VulkanPushPool::AllocateDescriptor(uint32_t a_index, vk::Descr
 
     // Hypothetically possible to create multiple pools when multiple threads are trying to allocate at the same time
     // Not going to worry about that as all pools should still be in the array so should not leak just means a small amount of memory is wasted
-    // Shrank the pool size to 64 to minimize this 
     const vk::Device device = m_engine->GetLogicalDevice();
 
     VulkanPushPoolBuffer buffer;

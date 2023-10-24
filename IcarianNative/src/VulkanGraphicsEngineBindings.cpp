@@ -41,6 +41,7 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     F(RenderProgram, IcarianEngine.Rendering, Material, GetProgramBuffer, { return Engine->GetRenderProgram(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, Material, SetProgramBuffer, { Engine->SetRenderProgram(a_addr, a_program); }, uint32_t a_addr, RenderProgram a_program) \
     F(void, IcarianEngine.Rendering, Material, SetTexture, { Engine->RenderProgramSetTexture(a_addr, a_shaderSlot, a_samplerAddr); }, uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr) \
+    F(void, IcarianEngine.Rendering, Material, SetUserUniform, { Engine->RenderProgramSetUserUBO(a_addr, a_uboSize, a_uboData); }, uint32_t a_addr, uint32_t a_uboSize, void* a_uboData) \
     \
     F(uint32_t, IcarianEngine.Rendering, Camera, GenerateBuffer, { return Engine->GenerateCameraBuffer(a_transformAddr); }, uint32_t a_transformAddr) \
     F(void, IcarianEngine.Rendering, Camera, DestroyBuffer, { Engine->DestroyCameraBuffer(a_addr); }, uint32_t a_addr) \
@@ -709,21 +710,52 @@ uint32_t VulkanGraphicsEngineBindings::GenerateShaderProgram(const RenderProgram
 }
 void VulkanGraphicsEngineBindings::DestroyShaderProgram(uint32_t a_addr) const
 {
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_shaderPrograms.Size(), "DestroyShaderProgram out of bounds");
+
     m_graphicsEngine->DestroyRenderProgram(a_addr);
 }
-void VulkanGraphicsEngineBindings::RenderProgramSetTexture(uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr)
+void VulkanGraphicsEngineBindings::RenderProgramSetTexture(uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr) const
 {
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_shaderPrograms.Size(), "RenderProgramSetTexture material out of bounds");
+    ICARIAN_ASSERT_MSG(a_samplerAddr < m_graphicsEngine->m_textureSampler.Size(), "RenderProgramSetTexture sampler out of bounds");
+
     TLockArray<RenderProgram> a = m_graphicsEngine->m_shaderPrograms.ToLockArray();
 
-    ICARIAN_ASSERT_MSG(a_addr < a.Size(), "RenderProgramSetTexture material out of bounds");
-
-    const RenderProgram& program = a[a_addr];
+    const RenderProgram program = a[a_addr];
 
     ICARIAN_ASSERT_MSG(program.Data != nullptr, "RenderProgramSetTexture invalid program");
 
     VulkanShaderData* data = (VulkanShaderData*)program.Data;
-    ICARIAN_ASSERT_MSG(a_samplerAddr < m_graphicsEngine->m_textureSampler.Size(), "RenderProgramSetTexture sampler out of bounds");
-    data->SetTexture(a_shaderSlot, m_graphicsEngine->m_textureSampler[a_samplerAddr]);
+
+    TReadLockArray<FlareBase::TextureSampler> b = m_graphicsEngine->m_textureSampler.ToReadLockArray();
+
+    data->SetTexture(a_shaderSlot, b[a_samplerAddr]);
+}
+void VulkanGraphicsEngineBindings::RenderProgramSetUserUBO(uint32_t a_addr, uint32_t a_uboSize, const void* a_uboData) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_shaderPrograms.Size(), "RenderProgramSetUserUBO material out of bounds");
+
+    TLockArray<RenderProgram> a = m_graphicsEngine->m_shaderPrograms.ToLockArray();
+
+    RenderProgram& program = a[a_addr];
+
+    if (program.UBOData != NULL)
+    {
+        free(program.UBOData);
+    }
+
+    program.UBODataSize = a_uboSize;
+
+    if (a_uboData != NULL && a_uboSize > 0)
+    {
+        program.UBOData = malloc((size_t)a_uboSize);
+
+        memcpy(program.UBOData, a_uboData, (size_t)a_uboSize);
+    }
+    else
+    {
+        program.UBOData = NULL;
+    }
 }
 RenderProgram VulkanGraphicsEngineBindings::GetRenderProgram(uint32_t a_addr) const
 {
@@ -735,7 +767,7 @@ void VulkanGraphicsEngineBindings::SetRenderProgram(uint32_t a_addr, const Rende
 {
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_shaderPrograms.Size(), "SetRenderProgram out of bounds")
 
-    m_graphicsEngine->m_shaderPrograms[a_addr] = a_program;
+    m_graphicsEngine->m_shaderPrograms.LockSet(a_addr, a_program);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateCameraBuffer(uint32_t a_transformAddr) const

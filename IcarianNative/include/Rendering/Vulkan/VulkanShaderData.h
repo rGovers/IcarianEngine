@@ -17,12 +17,6 @@ class VulkanRenderEngineBackend;
 class VulkanShaderStorageObject;
 class VulkanUniformBuffer;
 
-struct ShaderSlotInput
-{
-    ShaderBufferInput Input;
-    void*             Data;
-};
-
 class VulkanShaderData
 {
 private:
@@ -35,34 +29,31 @@ private:
         vk::DescriptorSetLayout DescriptorLayout;
     };
 
-    static constexpr uint32_t PushCount = 128;
-    static constexpr uint32_t SSBOMaxSize = 1024;
     static constexpr uint32_t StaticIndex = 0;
 
-    VulkanRenderEngineBackend*   m_engine;
-    VulkanGraphicsEngine*        m_gEngine;
-  
-    uint32_t                     m_programAddr;
-  
-    VulkanUniformBuffer*         m_userUniformBuffer;
+    VulkanRenderEngineBackend*     m_engine;
+    VulkanGraphicsEngine*          m_gEngine;
 
-    vk::PipelineLayout           m_layout;
- 
-    std::vector<PushDescriptor>  m_pushDescriptors;
- 
-    vk::DescriptorSetLayout      m_staticDesciptorLayout;
-    vk::DescriptorPool           m_staticDescriptorPool;
-    vk::DescriptorSet            m_staticDescriptorSet;
+    VulkanUniformBuffer*           m_userUniformBuffer;
 
-    std::vector<ShaderSlotInput> m_slotInputs;
+    vk::PipelineLayout             m_layout;
+
+    std::vector<PushDescriptor>    m_pushDescriptors;
+
+    vk::DescriptorSetLayout        m_staticDesciptorLayout;
+    vk::DescriptorPool             m_staticDescriptorPool;
+    vk::DescriptorSet              m_staticDescriptorSet;
+
+    std::vector<ShaderBufferInput> m_slotInputs;
     // Want quick access to these so they are stored separately
-    ShaderBufferInput            m_transformBufferInput;
-    ShaderBufferInput            m_uiBufferInput;
+    ShaderBufferInput              m_userBufferInput;  
+    ShaderBufferInput              m_transformBufferInput;
+    ShaderBufferInput              m_uiBufferInput;
 
 protected:
 
 public:
-    VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_programAddr);
+    VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const RenderProgram& a_program);
     ~VulkanShaderData();
 
     inline vk::PipelineLayout GetLayout() const
@@ -89,6 +80,7 @@ public:
     void UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_transform) const;
     void UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, const UIElement* a_element) const;
 
-    void Bind(vk::CommandBuffer a_commandBuffer) const;
+    void Update(uint32_t a_index, const RenderProgram& a_program);
+    void Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
 };
 #endif

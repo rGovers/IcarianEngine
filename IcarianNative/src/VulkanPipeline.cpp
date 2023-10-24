@@ -340,14 +340,14 @@ VulkanShaderData* VulkanPipeline::GetShaderData() const
     
     return (VulkanShaderData*)program.Data;
 }
-void VulkanPipeline::Bind(vk::CommandBuffer a_commandBuffer) const
+void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
 {
     const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
 
     const VulkanShaderData* data = (VulkanShaderData*)program.Data;
     ICARIAN_ASSERT(data != nullptr);
 
-    data->Bind(a_commandBuffer);
+    data->Bind(a_index, a_commandBuffer);
 
     a_commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
 }
