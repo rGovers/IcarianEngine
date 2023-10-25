@@ -3,12 +3,7 @@
 #include "InteropTypes.h"
 
 #ifdef CUBE_LANGUAGE_CPP 
-namespace FlareBase
-{
-#ifndef VertexInputAttrib
-    struct VertexInputAttrib;
-#endif
-}
+#include "EngineModelInteropStructures.h"
 #endif
 
 #ifdef CUBE_LANGUAGE_CSHARP
@@ -65,9 +60,21 @@ IOP_CSINTERNAL enum IOP_ENUM_NAME(InternalRenderProgram) : IOP_UINT16
 
 IOP_PACKED IOP_CSPUBLIC struct ShaderBufferInput
 {
+    /// <summary>
+    /// The slot/binding of the buffer in the shader
+    /// </summary>
     IOP_CSPUBLIC IOP_UINT16 Slot;
+    /// <summary>
+    /// The type of the buffer
+    /// </summary>
     IOP_CSPUBLIC IOP_ENUM_NAME(ShaderBufferType) BufferType;
+    /// <summary>
+    /// The shader slot the buffer is used in
+    /// </summary>
     IOP_CSPUBLIC IOP_ENUM_NAME(ShaderSlot) ShaderSlot;
+    /// <summary>
+    /// The set the buffer is used in (Vulkan only)
+    /// </summary>
     IOP_CSPUBLIC IOP_UINT16 Set;
 
 #ifdef CUBE_LANGUAGE_CPP
@@ -89,7 +96,7 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
     IOP_CSPUBLIC IOP_UINT32 PixelShader;
     IOP_CSPUBLIC IOP_UINT32 ShadowVertexShader;
     IOP_CSPUBLIC IOP_UINT32 RenderLayer;
-    IOP_POINTER(FlareBase::VertexInputAttrib*) VertexAttribs;
+    IOP_POINTER(VertexInputAttribute*) VertexAttributes;
     IOP_POINTER(ShaderBufferInput*) ShaderBufferInputs;
     IOP_POINTER(ShaderBufferInput*) ShadowShaderBufferInputs;
     IOP_UINT16 VertexInputCount;
@@ -135,13 +142,18 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
             return false;
         }
 
-        // for (uint32_t i = 0; i < VertexInputCount; ++i)
-        // {
-        //     if (VertexAttribs[i] != a_other.VertexAttribs[i])
-        //     {
-        //         return false;
-        //     }
-        // }
+        if (VertexInputCount != a_other.VertexInputCount || ShaderBufferInputCount != a_other.ShaderBufferInputCount || ShadowShaderBufferInputCount != a_other.ShadowShaderBufferInputCount)
+        {
+            return false;
+        }
+
+        for (uint32_t i = 0; i < VertexInputCount; ++i)
+        {
+            if (VertexAttributes[i] != a_other.VertexAttributes[i])
+            {
+                return false;
+            }
+        }
 
         for (uint32_t i = 0; i < ShaderBufferInputCount; ++i)
         {

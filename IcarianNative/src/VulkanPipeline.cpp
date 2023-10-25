@@ -3,7 +3,7 @@
 #include "Rendering/Vulkan/VulkanPipeline.h"
 
 #include "Flare/IcarianAssert.h"
-#include "Flare/Vertices.h"
+#include "Flare/IcarianDefer.h"
 #include "Logger.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanPixelShader.h"
@@ -11,6 +11,8 @@
 #include "Rendering/Vulkan/VulkanShaderData.h"
 #include "Rendering/Vulkan/VulkanVertexShader.h"
 #include "Trace.h"
+
+#include "EngineMaterialInteropStructures.h"
 
 static std::vector<vk::PipelineShaderStageCreateInfo> GetStageInfo(const RenderProgram& a_program, VulkanGraphicsEngine* a_gEngine)
 {
@@ -81,11 +83,11 @@ constexpr static vk::PrimitiveTopology GetPrimitiveMode(e_PrimitiveMode a_mode)
     return vk::PrimitiveTopology::eTriangleList;
 }
 
-constexpr static vk::Format GetFormat(const FlareBase::VertexInputAttrib& a_attrib) 
+constexpr static vk::Format GetFormat(const VertexInputAttribute& a_attrib) 
 {
     switch (a_attrib.Type)
     {
-    case FlareBase::VertexType_Float:
+    case VertexType_Float:
     {
         switch (a_attrib.Count)
         {
@@ -109,7 +111,7 @@ constexpr static vk::Format GetFormat(const FlareBase::VertexInputAttrib& a_attr
 
         break;
     }
-    case FlareBase::VertexType_Int:
+    case VertexType_Int:
     {
         switch (a_attrib.Count)
         {
@@ -133,7 +135,7 @@ constexpr static vk::Format GetFormat(const FlareBase::VertexInputAttrib& a_attr
 
         break;
     }
-    case FlareBase::VertexType_UInt:
+    case VertexType_UInt:
     {
         switch (a_attrib.Count)
         {
@@ -175,17 +177,18 @@ VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphi
     const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
     ICARIAN_ASSERT(shaderData != nullptr);
 
-    const std::vector<vk::DynamicState> dynamicStates = 
+    constexpr vk::DynamicState DynamicStates[] = 
     {
         vk::DynamicState::eViewport,
         vk::DynamicState::eScissor
     };
+    constexpr uint32_t DynamicStateCount = sizeof(DynamicStates) / sizeof(*DynamicStates);
 
     const vk::PipelineDynamicStateCreateInfo dynamicState = vk::PipelineDynamicStateCreateInfo
     (
-        vk::PipelineDynamicStateCreateFlags(),
-        (uint32_t)dynamicStates.size(),
-        dynamicStates.data()
+        { },
+        DynamicStateCount,
+        DynamicStates
     );
 
     const vk::VertexInputBindingDescription bindingDescription = vk::VertexInputBindingDescription
@@ -195,10 +198,11 @@ VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphi
         vk::VertexInputRate::eVertex
     );
 
-    std::vector<vk::VertexInputAttributeDescription> attributeDescription = std::vector<vk::VertexInputAttributeDescription>(program.VertexInputCount);
+    vk::VertexInputAttributeDescription* attributeDescription = new vk::VertexInputAttributeDescription[program.VertexInputCount];
+    IDEFER(delete[] attributeDescription);
     for (uint16_t i = 0; i < program.VertexInputCount; ++i)
     {
-        const FlareBase::VertexInputAttrib& attrib = program.VertexAttribs[i];
+        const VertexInputAttribute& attrib = program.VertexAttributes[i];
         attributeDescription[i].binding = 0;
         attributeDescription[i].location = attrib.Location;
         attributeDescription[i].offset = attrib.Offset;
@@ -210,8 +214,8 @@ VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphi
         { },
         0,
         nullptr,
-        (uint32_t)attributeDescription.size(),
-        attributeDescription.data()
+        (uint32_t)program.VertexInputCount,
+        attributeDescription
     );
 
     if (program.VertexInputCount > 0)

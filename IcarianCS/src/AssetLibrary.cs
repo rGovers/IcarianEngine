@@ -1129,7 +1129,7 @@ namespace IcarianEngine
         /// Lifetime managed by AssetLibrary
         /// <param name="a_path">The path to the Model.</param>
         /// <returns>The Model if it was loaded successfully, null otherwise.</returns>
-        /// @see Model.LoadModel
+        /// @see IcarianEngine.Rendering.Model.LoadModel
         public static Model LoadModel(string a_path)
         {
             return LoadData<Model, ModelContainer>(a_path, s_models);
@@ -1141,7 +1141,7 @@ namespace IcarianEngine
         /// <param name="a_path">The path to the Model.</param>
         /// <param name="a_callback">The callback to call when the Model is loaded.</param>
         /// <param name="a_priority">The priority of the job.</param>
-        /// @see Model.LoadModel
+        /// @see IcarianEngine.Rendering.Model.LoadModel
         public static void LoadModelAsync(string a_path, LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             s_models.TryAdd(a_path, new ModelContainer());
@@ -1210,7 +1210,7 @@ namespace IcarianEngine
         /// Lifetime managed by AssetLibrary
         /// <param name="a_path">The path to the SkinnedModel.</param>
         /// <returns>The SkinnedModel if it was loaded successfully, null otherwise.</returns>
-        /// @see Model.LoadSkinnedModel
+        /// @see IcarianEngine.Rendering.Model.LoadSkinnedModel
         public static Model LoadSkinnedModel(string a_path)
         {
             if (s_skinnedModels.ContainsKey(a_path))
@@ -1256,7 +1256,7 @@ namespace IcarianEngine
         /// <param name="a_path">The path to the SkinnedModel.</param>
         /// <param name="a_callback">The callback to call when the SkinnedModel is loaded.</param>
         /// <param name="a_priority">The priority of the job.</param>
-        /// @see Model.LoadSkinnedModel
+        /// @see IcarianEngine.Model.LoadSkinnedModel
         public static void LoadSkinnedModelAsync(string a_path, LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             s_skinnedModels.TryAdd(a_path, new ModelContainer());

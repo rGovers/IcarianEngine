@@ -3,109 +3,10 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineModelInteropStructures.h"
+
 namespace IcarianEngine.Rendering
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    public struct Vertex
-    {
-        public Vector4 Position;
-        public Vector3 Normal;
-        public Vector4 Color;
-        public Vector2 TexCoords;
-
-        public static VertexInputAttribute[] GetAttributes()
-        {
-            VertexInputAttribute[] attributes = new VertexInputAttribute[4];
-            attributes[0].Location = 0;
-            attributes[0].Type = VertexType.Float;
-            attributes[0].Count = 4;
-            attributes[0].Offset = (ushort)Marshal.OffsetOf<Vertex>("Position");
-
-            attributes[1].Location = 1;
-            attributes[1].Type = VertexType.Float;
-            attributes[1].Count = 3;
-            attributes[1].Offset = (ushort)Marshal.OffsetOf<Vertex>("Normal");
-
-            attributes[2].Location = 2;
-            attributes[2].Type = VertexType.Float;
-            attributes[2].Count = 4;
-            attributes[2].Offset = (ushort)Marshal.OffsetOf<Vertex>("Color");
-
-            attributes[3].Location = 3;
-            attributes[3].Type = VertexType.Float;
-            attributes[3].Count = 2;
-            attributes[3].Offset = (ushort)Marshal.OffsetOf<Vertex>("TexCoords");
-
-            return attributes;
-        }
-    }
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    public struct SkinnedVertex
-    {
-        public Vector4 Position;
-        public Vector3 Normal;
-        public Vector4 Color;
-        public Vector2 TexCoords;
-        public Vector4 BoneWeights;
-        public int BoneIndexA;
-        public int BoneIndexB;
-        public int BoneIndexC;
-        public int BoneIndexD;
-
-        public static VertexInputAttribute[] GetAttributes()
-        {
-            VertexInputAttribute[] attributes = new VertexInputAttribute[6];
-            attributes[0].Location = 0;
-            attributes[0].Type = VertexType.Float;
-            attributes[0].Count = 4;
-            attributes[0].Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("Position");
-
-            attributes[1].Location = 1;
-            attributes[1].Type = VertexType.Float;
-            attributes[1].Count = 3;
-            attributes[1].Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("Normal");
-
-            attributes[2].Location = 2;
-            attributes[2].Type = VertexType.Float;
-            attributes[2].Count = 4;
-            attributes[2].Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("Color");
-
-            attributes[3].Location = 3;
-            attributes[3].Type = VertexType.Float;
-            attributes[3].Count = 2;
-            attributes[3].Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("TexCoords");
-
-            attributes[4].Location = 4;
-            attributes[4].Type = VertexType.Float;
-            attributes[4].Count = 4;
-            attributes[4].Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("BoneWeights");
-
-            attributes[5].Location = 5;
-            attributes[5].Type = VertexType.Int;
-            attributes[5].Count = 4;
-            attributes[5].Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("BoneIndexA");
-
-            return attributes;
-        }
-    }
-
-    public enum VertexType : ushort
-    {
-        Null = ushort.MaxValue,
-        Float = 0,
-        Int = 1,
-        UInt = 2
-    };
-
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    public struct VertexInputAttribute
-    {
-        public ushort Location;
-        public VertexType Type;
-        public ushort Count;
-        public ushort Offset;
-    };
-
     public class Model : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -119,6 +20,9 @@ namespace IcarianEngine.Rendering
 
         uint m_bufferAddr = uint.MaxValue;
 
+        /// <summary>
+        /// Whether the model has been disposed
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -140,11 +44,39 @@ namespace IcarianEngine.Rendering
             m_bufferAddr = a_addr;
         }
 
+        /// <summary>
+        /// Creates a model from a set of vertices and indices
+        /// </summary>
+        /// <typeparam name="T">The type of vertex</typeparam>
+        /// <param name="a_vertices">The vertices</param>
+        /// <param name="a_indices">The indices</param>
+        /// <param name="a_radius">The radius of the model. Used for frustum culling. Ignored if there is no transform.</param>
+        /// <returns>The model. Null on failure.</returns>
         public static Model CreateModel<T>(T[] a_vertices, uint[] a_indices, float a_radius) where T : struct 
         {
-            return new Model(GenerateModel(a_vertices, a_indices, (ushort)Marshal.SizeOf<T>(), a_radius));
+            uint addr = GenerateModel(a_vertices, a_indices, (ushort)Marshal.SizeOf<T>(), a_radius);
+            if (addr != uint.MaxValue)
+            {
+                return new Model(addr);
+            }
+
+            Logger.IcarianError("Model Failed to create");
+
+            return null;
         }
 
+        /// <summary>
+        /// Loads a model from a file
+        /// </summary>
+        /// <param name="a_path">The path to the model</param>
+        /// <returns>The model. Null on failure.</returns>
+        /// Uses Type Vertex for the model.
+        /// Supported formats: 
+        ///     .obj,
+        ///     .fbx,
+        ///     .dae
+        /// @see IcarianEngine.AssetLibrary.LoadModel
+        /// @see IcarianEngine.Rendering::Vertex
         public static Model LoadModel(string a_path)
         {
             uint addr = GenerateFromFile(a_path);
@@ -157,6 +89,16 @@ namespace IcarianEngine.Rendering
 
             return null;
         }
+        /// <summary>
+        /// Loads a skinned model from a file
+        /// </summary>
+        /// <param name="a_path">The path to the model</param>
+        /// <returns>The model. Null on failure.</returns>
+        /// Uses Type SkinnedVertex for the model.
+        /// Supported formats:
+        ///     .dae
+        /// @see IcarianEngine.AssetLibrary.LoadSkinnedModel
+        /// @see IcarianEngine.Rendering::SkinnedVertex
         public static Model LoadSkinnedModel(string a_path)
         {
             uint addr = GenerateSkinnedFromFile(a_path);
@@ -170,6 +112,9 @@ namespace IcarianEngine.Rendering
             return null;
         }
 
+        /// <summary>
+        /// Disposes the model
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -177,6 +122,10 @@ namespace IcarianEngine.Rendering
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// Called when the model is being disposed
+        /// </summary>
+        /// <param name="a_disposing">Whether the model is being disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)

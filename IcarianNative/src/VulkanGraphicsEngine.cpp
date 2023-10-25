@@ -8,7 +8,6 @@
 
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
-#include "Flare/Vertices.h"
 #include "Logger.h"
 #include "ObjectManager.h"
 #include "Profiler.h"
@@ -68,7 +67,7 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     textProgram.RenderLayer = 0;
     textProgram.VertexStride = 0;
     textProgram.VertexInputCount = 0;
-    textProgram.VertexAttribs = nullptr;
+    textProgram.VertexAttributes = nullptr;
     textProgram.ShaderBufferInputCount = 2;
     textProgram.ShaderBufferInputs = new ShaderBufferInput[2];
     textProgram.ShaderBufferInputs[0].Slot = -1;
@@ -94,7 +93,7 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     imageProgram.RenderLayer = 0;
     imageProgram.VertexStride = 0;
     imageProgram.VertexInputCount = 0;
-    imageProgram.VertexAttribs = nullptr;
+    imageProgram.VertexAttributes = nullptr;
     imageProgram.ShaderBufferInputCount = 2;
     imageProgram.ShaderBufferInputs = new ShaderBufferInput[2];
     imageProgram.ShaderBufferInputs[0].Slot = -1;
@@ -119,9 +118,9 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
     const RenderProgram textProgram = m_shaderPrograms[m_textUIPipelineAddr];
     IDEFER(
     {
-        if (textProgram.VertexAttribs != nullptr)
+        if (textProgram.VertexAttributes != nullptr)
         {
-            delete[] textProgram.VertexAttribs;
+            delete[] textProgram.VertexAttributes;
         }
 
         if (textProgram.ShaderBufferInputs != nullptr)
@@ -133,9 +132,9 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
     const RenderProgram imageProgram = m_shaderPrograms[m_imageUIPipelineAddr];
     IDEFER(
     {
-        if (imageProgram.VertexAttribs != nullptr)
+        if (imageProgram.VertexAttributes != nullptr)
         {
-            delete[] imageProgram.VertexAttribs;
+            delete[] imageProgram.VertexAttributes;
         }
 
         if (imageProgram.ShaderBufferInputs != nullptr)

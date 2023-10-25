@@ -28,7 +28,6 @@
 
 #else
 #include <cstdint>
-#include <mono/jit/jit.h>
 
 #define IOP_STRING MonoString*
 #define IOP_VEC2 glm::vec2

@@ -186,7 +186,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         // Nothing is wrong according to ASAN either 
         // When this is removed caused about ~50GB of RAM to be allocated in the span of a second
         // Suspect race condition that the overhead of ASAN is preventing
-        CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
+        // CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
 
         break;
     }
@@ -203,8 +203,10 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendLibrary(&project, "../FlareBase/build/FlareBase.lib");
 
         CUBE_CProject_AppendLibrary(&project, "../deps/flare-glfw/build/GLFW.lib");
+        CUBE_CProject_AppendLibrary(&project, "../deps/miniz/build/miniz.lib");
         CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Windows/lib/mono-2.0-sgen.lib");
         CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Windows/lib/MonoPosixHelper.lib");
+        CUBE_CProject_AppendLibrary(&project, "../deps/OpenFBX/build/OpenFBXLibDeflate.lib");
 
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/glslang.lib");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/OGLCompiler.lib");
@@ -232,7 +234,9 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendLibrary(&project, "../FlareBase/build/libFlareBase.a");
 
         CUBE_CProject_AppendLibrary(&project, "../deps/flare-glfw/build/libGLFW.a");
+        CUBE_CProject_AppendLibrary(&project, "../deps/miniz/build/libminiz.a");
         CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Linux/lib/libmonosgen-2.0.a");
+        CUBE_CProject_AppendLibrary(&project, "../deps/OpenFBX/build/libOpenFBXLibDeflate.a");
 
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libglslang.a");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libOGLCompiler.a");

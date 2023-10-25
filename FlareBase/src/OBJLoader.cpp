@@ -1,5 +1,7 @@
 #include "Flare/OBJLoader.h"
 
+#include <glm/gtx/norm.hpp>
+
 #include <fstream>
 #include <string>
 #include <string.h>
@@ -145,8 +147,7 @@ namespace FlareBase
                     pos.w = 1.0f;
                 }
 
-                const glm::vec3 pos3 = pos.xyz();
-                const float radius = glm::dot(pos3, pos3);
+                const float radius = glm::length2(pos.xyz());
                 if (radius > radSqr)
                 {
                     radSqr = radius;
@@ -476,7 +477,8 @@ namespace FlareBase
                 indexMap.emplace(h, index);
 
                 ICARIAN_ASSERT(iMap.PositionIndex - 1 < positions.size());
-                Vertex v = Vertex(positions[iMap.PositionIndex - 1]);
+                Vertex v;
+                v.Position = positions[iMap.PositionIndex - 1];
 
                 if (iMap.NormalIndex != -1)
                 {

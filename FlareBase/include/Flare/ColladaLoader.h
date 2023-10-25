@@ -3,9 +3,9 @@
 #include <filesystem>
 #include <vector>
 
-#include "Vertices.h"
-
 #include "Flare/Bones.h"
+
+#include "EngineModelInteropStructures.h"
 
 struct ColladaAnimationFrame
 {

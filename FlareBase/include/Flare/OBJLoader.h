@@ -3,7 +3,7 @@
 #include <filesystem>
 #include <vector>
 
-#include "Vertices.h"
+#include "EngineModelInteropStructures.h"
 
 namespace FlareBase
 {

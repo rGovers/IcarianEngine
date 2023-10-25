@@ -25,3 +25,9 @@
 [submodule "IcarianNative/lib/openal-soft"]
 	path = IcarianNative/lib/openal-soft
 	url = https://github.com/kcat/openal-soft.git
+[submodule "deps/OpenFBX"]
+	path = deps/OpenFBX
+	url = https://github.com/nem0/OpenFBX.git
+[submodule "deps/miniz"]
+	path = deps/miniz
+	url = https://github.com/richgel999/miniz.git

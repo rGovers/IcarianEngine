@@ -7,6 +7,7 @@
 #include <stb_image.h>
 
 #include "Flare/ColladaLoader.h"
+#include "Flare/FBXLoader.h"
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
 #include "Flare/OBJLoader.h"
@@ -258,17 +259,17 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
     if (a_vertexInputAttribs != NULL)
     {
         program.VertexInputCount = (uint16_t)mono_array_length(a_vertexInputAttribs);
-        program.VertexAttribs = new FlareBase::VertexInputAttrib[program.VertexInputCount];
+        program.VertexAttributes = new VertexInputAttribute[program.VertexInputCount];
 
         for (uint32_t i = 0; i < program.VertexInputCount; ++i)
         {
-            program.VertexAttribs[i] = mono_array_get(a_vertexInputAttribs, FlareBase::VertexInputAttrib, i);
+            program.VertexAttributes[i] = mono_array_get(a_vertexInputAttribs, VertexInputAttribute, i);
         }
     }
     else
     {
         program.VertexInputCount = 0;
-        program.VertexAttribs = nullptr;
+        program.VertexAttributes = nullptr;
     }
 
     if (a_shaderInputs != NULL)
@@ -324,9 +325,9 @@ RUNTIME_FUNCTION(void, Material, DestroyProgram,
 
     IDEFER(
     {
-        if (program.VertexAttribs != nullptr)
+        if (program.VertexAttributes != nullptr)
         {
-            delete[] program.VertexAttribs;
+            delete[] program.VertexAttributes;
         }
         
         if (program.ShaderBufferInputs != nullptr)
@@ -405,7 +406,7 @@ RUNTIME_FUNCTION(uint32_t, Model, GenerateFromFile,
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
-    std::vector<FlareBase::Vertex> vertices;
+    std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     float radius;
     const std::filesystem::path p = std::filesystem::path(str);
@@ -415,14 +416,21 @@ RUNTIME_FUNCTION(uint32_t, Model, GenerateFromFile,
     {
         if (FlareBase::OBJLoader_LoadFile(p, &vertices, &indices, &radius))
         {
-            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(FlareBase::Vertex), radius);
+            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(Vertex), radius);
+        }
+    }
+    else if (ext == ".fbx")
+    {
+        if (FlareBase::FBXLoader_LoadFile(p, &vertices, &indices, &radius))
+        {
+            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(Vertex), radius);
         }
     }
     else if (ext == ".dae")
     {
         if (FlareBase::ColladaLoader_LoadFile(p, &vertices, &indices, &radius))
         {
-            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(FlareBase::Vertex), radius);
+            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(Vertex), radius);
         }
     }
     else
@@ -437,7 +445,7 @@ RUNTIME_FUNCTION(uint32_t, Model, GenerateSkinnedFromFile,
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
-    std::vector<FlareBase::SkinnedVertex> vertices;
+    std::vector<SkinnedVertex> vertices;
     std::vector<uint32_t> indices;
     float radius;
     const std::filesystem::path p = std::filesystem::path(str);
@@ -447,7 +455,7 @@ RUNTIME_FUNCTION(uint32_t, Model, GenerateSkinnedFromFile,
     {
         if (FlareBase::ColladaLoader_LoadSkinnedFile(p, &vertices, &indices, &radius))
         {
-            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(FlareBase::SkinnedVertex), radius);
+            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(SkinnedVertex), radius);
         }
     }
     else 
@@ -550,7 +558,7 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(e_InternalR
     RenderProgram program;
     program.VertexStride = 0;
     program.VertexInputCount = 0;
-    program.VertexAttribs = nullptr;
+    program.VertexAttributes = nullptr;
     program.Flags |= 0b1 << RenderProgram::DestroyFlag;
 
     switch (a_program)
