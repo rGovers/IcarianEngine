@@ -1256,7 +1256,7 @@ namespace IcarianEngine
         /// <param name="a_path">The path to the SkinnedModel.</param>
         /// <param name="a_callback">The callback to call when the SkinnedModel is loaded.</param>
         /// <param name="a_priority">The priority of the job.</param>
-        /// @see IcarianEngine.Model.LoadSkinnedModel
+        /// @see IcarianEngine.Rendering.Model.LoadSkinnedModel
         public static void LoadSkinnedModelAsync(string a_path, LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             s_skinnedModels.TryAdd(a_path, new ModelContainer());

@@ -458,6 +458,13 @@ RUNTIME_FUNCTION(uint32_t, Model, GenerateSkinnedFromFile,
             return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(SkinnedVertex), radius);
         }
     }
+    else if (ext == ".fbx")
+    {
+        if (FlareBase::FBXLoader_LoadSkinnedFile(p, &vertices, &indices, &radius))
+        {
+            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(SkinnedVertex), radius);
+        }
+    }
     else 
     {
         ICARIAN_ASSERT_MSG_R(0, "GenerateSkinnedFromFile invalid file extension");

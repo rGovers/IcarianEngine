@@ -502,7 +502,7 @@ namespace FlareBase
     {
         if (std::filesystem::exists(a_path))
         {
-            std::ifstream file = std::ifstream(a_path);
+            std::ifstream file = std::ifstream(a_path, std::ios_base::binary);
 
             if (file.good() && file.is_open())
             {

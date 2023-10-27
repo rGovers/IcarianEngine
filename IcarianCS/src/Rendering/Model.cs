@@ -96,7 +96,8 @@ namespace IcarianEngine.Rendering
         /// <returns>The model. Null on failure.</returns>
         /// Uses Type SkinnedVertex for the model.
         /// Supported formats:
-        ///     .dae
+        ///     .dae,
+        ///     .fbx
         /// @see IcarianEngine.AssetLibrary.LoadSkinnedModel
         /// @see IcarianEngine.Rendering::SkinnedVertex
         public static Model LoadSkinnedModel(string a_path)
