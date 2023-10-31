@@ -1,4 +1,7 @@
 # IcarianEngine
+
+![image](resources/Icarian_Logo_White.svg)
+
 Icarian Engine is a cross platform game engine to allow ease of modding.
 
 ## Prerequisites
