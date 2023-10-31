@@ -182,11 +182,6 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
-        // TODO: Investigate why removing this causes a leak and crash in SetTexture in Vulkan Bindings
-        // Nothing is wrong according to ASAN either 
-        // When this is removed caused about ~50GB of RAM to be allocated in the span of a second
-        // Suspect race condition that the overhead of ASAN is preventing
-        // CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
 
         break;
     }

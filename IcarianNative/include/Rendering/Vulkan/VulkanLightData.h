@@ -19,7 +19,7 @@ public:
     { 
         m_lvp = a_lvp; 
     }
-    inline const glm::mat4& GetLVP() const 
+    inline glm::mat4 GetLVP() const 
     { 
         return m_lvp; 
     }

@@ -64,10 +64,13 @@ private:
     std::shared_mutex                             m_pipeLock;
     std::unordered_map<uint64_t, VulkanPipeline*> m_pipelines;
 
+    std::shared_mutex                             m_shadowPipeLock;
+    std::unordered_map<uint64_t, VulkanPipeline*> m_shadowPipelines;
+
     TStatic<VulkanRenderCommand>                  m_renderCommands;
     TStatic<VulkanLightData>                      m_lightData;
 
-    TArray<RenderProgram>                         m_shaderPrograms;
+    TNCArray<RenderProgram>                       m_shaderPrograms;
      
     TArray<VulkanVertexShader*>                   m_vertexShaders;
     TArray<VulkanPixelShader*>                    m_pixelShaders;
@@ -147,6 +150,8 @@ public:
     uint32_t GenerateRenderProgram(const RenderProgram& a_program);
     void DestroyRenderProgram(uint32_t a_addr);
     RenderProgram GetRenderProgram(uint32_t a_addr);
+
+    VulkanPipeline* GetShadowPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
     VulkanPipeline* GetPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
     
     CameraBuffer GetCameraBuffer(uint32_t a_addr);

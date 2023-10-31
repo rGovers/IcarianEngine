@@ -246,6 +246,7 @@ RUNTIME_FUNCTION(MonoArray*, DirectionalLight, GetShadowMaps,
 RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram, 
 {
     RenderProgram program;
+    memset(&program, 0, sizeof(RenderProgram));
     program.VertexShader = a_vertexShader;
     program.PixelShader = a_pixelShader;
     program.ShadowVertexShader = a_shadowVertexShader;
@@ -254,7 +255,6 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
     program.PrimitiveMode = (e_PrimitiveMode)a_primitiveMode;
     program.EnableColorBlending = (uint8_t)a_enableColorBlending;
     program.RenderLayer = a_renderLayer;
-    program.Flags = 0;
 
     if (a_vertexInputAttribs != NULL)
     {
@@ -265,11 +265,6 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
         {
             program.VertexAttributes[i] = mono_array_get(a_vertexInputAttribs, VertexInputAttribute, i);
         }
-    }
-    else
-    {
-        program.VertexInputCount = 0;
-        program.VertexAttributes = nullptr;
     }
 
     if (a_shaderInputs != NULL)
@@ -282,11 +277,6 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
             program.ShaderBufferInputs[i] = mono_array_get(a_shaderInputs, ShaderBufferInput, i);
         }
     }
-    else
-    {
-        program.ShaderBufferInputCount = 0;
-        program.ShaderBufferInputs = nullptr;
-    }
 
     if (a_shadowShaderInputs != NULL)
     {
@@ -298,11 +288,6 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
             program.ShadowShaderBufferInputs[i] = mono_array_get(a_shadowShaderInputs, ShaderBufferInput, i);
         }
     }
-    else
-    {
-        program.ShadowShaderBufferInputCount = 0;
-        program.ShadowShaderBufferInputs = nullptr;
-    }
 
     if (a_uboData != NULL)
     {
@@ -310,11 +295,6 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
         program.UBOData = malloc((size_t)program.UBODataSize);
 
         memcpy(program.UBOData, a_uboData, program.UBODataSize);
-    }
-    else
-    {
-        program.UBODataSize = 0;
-        program.UBOData = NULL;
     }
 
     return Engine->GenerateShaderProgram(program);
@@ -563,9 +543,11 @@ void VulkanGraphicsEngineBindings::DestroyPixelShader(uint32_t a_addr) const
 uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(e_InternalRenderProgram a_program) const
 {
     RenderProgram program;
-    program.VertexStride = 0;
-    program.VertexInputCount = 0;
-    program.VertexAttributes = nullptr;
+    // Stops the application from allocating ~60GB of RAM when ASAN is removed in release mode
+    // For some reason has to be memset not just setting fields to 0
+    // Not going to question it and just accept it
+    memset(&program, 0, sizeof(RenderProgram));
+    program.ShadowVertexShader = -1;
     program.Flags |= 0b1 << RenderProgram::DestroyFlag;
 
     switch (a_program)
@@ -684,6 +666,7 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(e_InternalR
     case InternalRenderProgram_Post:
     {
         TRACE("Creating Post Shader");
+
         program.VertexShader = GenerateGLSLVertexShaderAddr(QuadVertexShader);
         program.PixelShader = GenerateFPixelShaderAddr(PostPixelShader);
         program.CullingMode = CullMode_None;
@@ -725,8 +708,6 @@ uint32_t VulkanGraphicsEngineBindings::GenerateShaderProgram(const RenderProgram
 }
 void VulkanGraphicsEngineBindings::DestroyShaderProgram(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_shaderPrograms.Size(), "DestroyShaderProgram out of bounds");
-
     m_graphicsEngine->DestroyRenderProgram(a_addr);
 }
 void VulkanGraphicsEngineBindings::RenderProgramSetTexture(uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr) const
@@ -774,13 +755,12 @@ void VulkanGraphicsEngineBindings::RenderProgramSetUserUBO(uint32_t a_addr, uint
 }
 RenderProgram VulkanGraphicsEngineBindings::GetRenderProgram(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_shaderPrograms.Size(), "GetRenderProgram out of bounds")
-
-    return m_graphicsEngine->m_shaderPrograms[a_addr];
+    return m_graphicsEngine->GetRenderProgram(a_addr);
 }
 void VulkanGraphicsEngineBindings::SetRenderProgram(uint32_t a_addr, const RenderProgram& a_program) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_shaderPrograms.Size(), "SetRenderProgram out of bounds")
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_shaderPrograms.Size(), "SetRenderProgram out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_shaderPrograms.Exists(a_addr), "SetRenderProgram invalid address");
 
     m_graphicsEngine->m_shaderPrograms.LockSet(a_addr, a_program);
 }

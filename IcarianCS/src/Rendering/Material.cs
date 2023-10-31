@@ -379,7 +379,7 @@ namespace IcarianEngine.Rendering
 
             VertexShader shadowVertexShader = null;
             ShaderBufferInput[] shadowShaderInput = null;
-            if (!string.IsNullOrEmpty(a_def.ShadowVertexShaderPath))
+            if (!Application.IsEditor && !string.IsNullOrEmpty(a_def.ShadowVertexShaderPath))
             {
                 shadowVertexShader = AssetLibrary.LoadVertexShader(a_def.ShadowVertexShaderPath);
                 if (shadowVertexShader == null)

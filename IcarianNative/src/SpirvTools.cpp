@@ -107,13 +107,17 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 		{
 			ICARIAN_ASSERT_MSG_R(args.size() == 2, "Flare Shader pushbuffer requires 2 arguments");
 
-			if (args[0] == "ModelBuffer")
+			if (args[0] == "PModelBuffer")
 			{
 				rStr = GLSL_PUSHBUFFER_STRING(args[1], GLSL_MODEL_SHADER_STRUCTURE);
 			}
-			else if (args[0] == "UIBuffer")
+			else if (args[0] == "PUIBuffer")
 			{
 				rStr = GLSL_PUSHBUFFER_STRING(args[1], GLSL_UI_SHADER_STRUCTURE);
+			}
+			else if (args[0] == "PShadowLightBuffer")
+			{
+				rStr = GLSL_PUSHBUFFER_STRING(args[1], GLSL_SHADOW_LIGHT_SHADER_STRUCTURE);
 			}
 		}
 

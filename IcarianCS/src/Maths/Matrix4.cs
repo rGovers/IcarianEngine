@@ -282,6 +282,7 @@ namespace IcarianEngine.Maths
 
             return mat;
         }
+
         public static Vector4 operator *(Matrix4 a_lhs, Vector4 a_rhs)
         {
             Vector4 vec = new Vector4(0.0f);
@@ -291,6 +292,20 @@ namespace IcarianEngine.Maths
                 for (int j = 0; j < 4; ++j)
                 {
                     vec[i] += a_lhs.m_data[i * 4 + j] * a_rhs[j];
+                }
+            }
+
+            return vec;
+        }
+        public static Vector4 operator *(Vector4 a_lhs, Matrix4 a_rhs)
+        {
+            Vector4 vec = new Vector4(0.0f);
+
+            for (int i = 0; i < 4; ++i)
+            {
+                for (int j = 0; j < 4; ++j)
+                {
+                    vec[i] += a_lhs[j] * a_rhs.m_data[j * 4 + i];
                 }
             }
 

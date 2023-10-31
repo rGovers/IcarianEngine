@@ -98,20 +98,21 @@ uint32_t ObjectManager::CreateTransformBuffer()
 {
     constexpr TransformBuffer Buffer;
 
+    TLockArray<TransformBuffer> a = Instance->m_transformBuffer.ToLockArray();
+
     TRACE("Creating Transform Buffer");
     if (!Instance->m_freeTransforms.empty())
     {
-        const uint32_t add = Instance->m_freeTransforms.front();
+        const uint32_t addr = Instance->m_freeTransforms.front();
         Instance->m_freeTransforms.pop();
 
-        Instance->m_transformBuffer.LockSet(add, Buffer);
+        a[addr] = Buffer;
 
-        return add;
+        return addr;
     }
 
     TRACE("Allocating Transform Buffer");
-    
-    return Instance->m_transformBuffer.PushVal(Buffer);
+    return Instance->m_transformBuffer.UPushVal(Buffer);
 }
 TransformBuffer ObjectManager::GetTransformBuffer(uint32_t a_addr)
 {
@@ -128,6 +129,8 @@ void ObjectManager::SetTransformBuffer(uint32_t a_addr, const TransformBuffer& a
 void ObjectManager::DestroyTransformBuffer(uint32_t a_addr)
 {
     TRACE("Destroying Transform Buffer");
+
+    const std::unique_lock l = std::unique_lock(Instance->m_transformBuffer.Lock());
 
     Instance->m_freeTransforms.emplace(a_addr);
 }

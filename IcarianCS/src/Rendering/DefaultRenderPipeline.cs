@@ -107,13 +107,19 @@ namespace IcarianEngine.Rendering
             float cF = (float)(a_textureSlot + 1) / cascadeCount;
 
             float cascadeNear = Lambda * near * Mathf.Pow(fON, cN) + InvLambda * (near + cN * fnDiff);
+            if (a_textureSlot == 0)
+            {
+                cascadeNear = near;
+            }
             float cascadeFar = Lambda * near * Mathf.Pow(fON, cF) + InvLambda * (near + cF * fnDiff);
+            if (a_textureSlot == cascadeCount - 1)
+            {
+                cascadeFar = far;
+            }
 
             Matrix4 cameraTrans = a_camera.Transform.ToMatrix();
             Matrix4 proj = a_camera.ToProjection(m_width, m_height, cascadeNear, cascadeFar);
             Matrix4 projInv = Matrix4.Inverse(proj);
-
-            Matrix4 viewProjInv = projInv * cameraTrans;
 
             Vector4[] corners = new Vector4[8]
             {
@@ -130,11 +136,16 @@ namespace IcarianEngine.Rendering
             Vector3 mid = Vector3.Zero;
             for (int i = 0; i < 8; ++i)
             {
-                corners[i] = viewProjInv * corners[i];
+                corners[i] = corners[i] * projInv;
                 corners[i] /= corners[i].W;
+                corners[i] = corners[i] * cameraTrans;
+
+                mid += corners[i].XYZ;
             }
 
-            Matrix4 lightTrans = a_light.Transform.ToMatrix();
+            mid /= 8.0f;
+
+            Matrix4 lightTrans = new Matrix4(Vector4.UnitX, Vector4.UnitY, Vector4.UnitZ, new Vector4(mid, 1.0f)) * a_light.Transform.Rotation.ToMatrix();
             Matrix4 lightView = Matrix4.Inverse(lightTrans);
 
             Vector3 min = Vector3.One * float.MaxValue;
@@ -158,7 +169,7 @@ namespace IcarianEngine.Rendering
             // Ensure stuff behind the light in camera frustum is rendered
             Matrix4 lightProj = Matrix4.CreateOrthographic(extents.X * 2, extents.Y * 2, -extents.Z * 2, extents.Z);
 
-            return lightProj * lightView;
+            return lightView * lightProj;
         }
         public override void PostShadow(Light a_light, Camera a_camera, uint a_textureSlot)
         {

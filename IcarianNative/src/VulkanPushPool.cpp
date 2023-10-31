@@ -42,21 +42,17 @@ vk::DescriptorSet VulkanPushPool::GenerateDescriptor(vk::DescriptorPool a_pool, 
 
 vk::DescriptorSet VulkanPushPool::AllocateDescriptor(uint32_t a_index, vk::DescriptorType a_type, const vk::DescriptorSetLayout* a_layout)
 {
+    TLockArray<VulkanPushPoolBuffer> buffers = m_buffers[a_index].ToLockArray();
+    for (VulkanPushPoolBuffer& buffer : buffers)
     {
-        TLockArray<VulkanPushPoolBuffer> buffers = m_buffers[a_index].ToLockArray();
-        for (VulkanPushPoolBuffer& buffer : buffers)
+        if (buffer.Type == a_type && buffer.Count < MaxPoolSize)
         {
-            if (buffer.Type == a_type && buffer.Count < MaxPoolSize)
-            {
-                ++buffer.Count;
+            ++buffer.Count;
 
-                return GenerateDescriptor(buffer.Pool, a_layout);
-            }
+            return GenerateDescriptor(buffer.Pool, a_layout);
         }
     }
 
-    // Hypothetically possible to create multiple pools when multiple threads are trying to allocate at the same time
-    // Not going to worry about that as all pools should still be in the array so should not leak just means a small amount of memory is wasted
     const vk::Device device = m_engine->GetLogicalDevice();
 
     VulkanPushPoolBuffer buffer;
@@ -82,7 +78,8 @@ vk::DescriptorSet VulkanPushPool::AllocateDescriptor(uint32_t a_index, vk::Descr
 
     buffer.Pool = pool;
 
-    m_buffers[a_index].Push(buffer);
+    // Have the lock here so can use UPush
+    m_buffers[a_index].UPush(buffer);
 
     return GenerateDescriptor(buffer.Pool, a_layout);
 }

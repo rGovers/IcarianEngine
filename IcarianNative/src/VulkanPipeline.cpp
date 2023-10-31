@@ -14,6 +14,63 @@
 
 #include "EngineMaterialInteropStructures.h"
 
+static constexpr vk::DynamicState DynamicStates[] =
+{
+    vk::DynamicState::eViewport,
+    vk::DynamicState::eScissor
+};
+
+static constexpr uint32_t DynamicStateCount = sizeof(DynamicStates) / sizeof(*DynamicStates);
+
+static constexpr vk::Viewport Viewport = vk::Viewport(0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f);
+static constexpr vk::Rect2D Scissor = vk::Rect2D({ 0, 0 }, { 1, 1 });
+
+static constexpr vk::PipelineMultisampleStateCreateInfo Multisampling = vk::PipelineMultisampleStateCreateInfo
+(
+    { },
+    vk::SampleCountFlagBits::e1
+);
+
+static constexpr vk::PipelineDepthStencilStateCreateInfo DepthStencil = vk::PipelineDepthStencilStateCreateInfo
+(
+    { },
+    VK_TRUE,
+    VK_TRUE,
+    vk::CompareOp::eLess,
+    VK_FALSE,
+    VK_FALSE
+);
+
+class VulkanPipelineDeletionObject : public VulkanDeletionObject
+{
+private:
+    VulkanRenderEngineBackend* m_engine;
+
+    vk::Pipeline               m_pipeline;
+
+protected:
+
+public:
+    VulkanPipelineDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Pipeline a_pipeline)
+    {
+        m_engine = a_engine;
+
+        m_pipeline = a_pipeline;
+    }
+    virtual ~VulkanPipelineDeletionObject()
+    {
+
+    }
+
+    virtual void Destroy() override
+    {
+        TRACE("Destroying Pipeline");
+        const vk::Device device = m_engine->GetLogicalDevice();
+
+        device.destroyPipeline(m_pipeline);
+    }
+};
+
 static std::vector<vk::PipelineShaderStageCreateInfo> GetStageInfo(const RenderProgram& a_program, VulkanGraphicsEngine* a_gEngine)
 {
     std::vector<vk::PipelineShaderStageCreateInfo> stages;
@@ -25,7 +82,7 @@ static std::vector<vk::PipelineShaderStageCreateInfo> GetStageInfo(const RenderP
 
         stages.emplace_back(vk::PipelineShaderStageCreateInfo
         (
-            vk::PipelineShaderStageCreateFlags(),
+            { },
             vk::ShaderStageFlagBits::eVertex,
             vertexShader->GetShaderModule(),
             "main"
@@ -39,7 +96,7 @@ static std::vector<vk::PipelineShaderStageCreateInfo> GetStageInfo(const RenderP
 
         stages.emplace_back(vk::PipelineShaderStageCreateInfo
         (
-            vk::PipelineShaderStageCreateFlags(),
+            { },
             vk::ShaderStageFlagBits::eFragment,
             pixelShader->GetShaderModule(),
             "main"
@@ -164,25 +221,63 @@ constexpr static vk::Format GetFormat(const VertexInputAttribute& a_attrib)
     return vk::Format::eUndefined;
 }
 
-VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const vk::RenderPass& a_renderPass, bool a_depth, uint32_t a_textureCount, uint32_t a_programAddr)
+VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_programAddr, e_VulkanPipelineType a_type)
 {
-    TRACE("Creating Vulkan Pipeline");
     m_engine = a_engine;
     m_gEngine = a_gEngine;
 
     m_programAddr = a_programAddr;
 
-    const vk::Device device = m_engine->GetLogicalDevice();
-    const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
-    const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
-    ICARIAN_ASSERT(shaderData != nullptr);
+    m_type = a_type;
+}
+VulkanPipeline::~VulkanPipeline()
+{
+    TRACE("Queueing Pipeline for deletion");
+    m_engine->PushDeletionObject(new VulkanPipelineDeletionObject(m_engine, m_pipeline));
+}
 
-    constexpr vk::DynamicState DynamicStates[] = 
+VulkanShaderData* VulkanPipeline::GetShaderData() const
+{
+    const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
+    ICARIAN_ASSERT(program.Data != nullptr);
+    
+    return (VulkanShaderData*)program.Data;
+}
+void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
+{
+    const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
+    ICARIAN_ASSERT(program.Data != nullptr);
+
+    const VulkanShaderData* data = (VulkanShaderData*)program.Data;
+
+    switch (m_type)
     {
-        vk::DynamicState::eViewport,
-        vk::DynamicState::eScissor
-    };
-    constexpr uint32_t DynamicStateCount = sizeof(DynamicStates) / sizeof(*DynamicStates);
+    case VulkanPipelineType_Graphics:
+    {
+        data->Bind(a_index, a_commandBuffer);
+
+        break;
+    }
+    case VulkanPipelineType_Shadow:
+    {
+        data->BindShadow(a_index, a_commandBuffer);
+
+        break;
+    }
+    }
+
+    a_commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
+}
+
+VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const vk::RenderPass& a_renderPass, bool a_depth, uint32_t a_textureCount, uint32_t a_programAddr)
+{
+    TRACE("Creating Vulkan Pipeline");
+    VulkanPipeline* pipeline = new VulkanPipeline(a_engine, a_gEngine, a_programAddr, VulkanPipelineType_Graphics);
+
+    const vk::Device device = a_engine->GetLogicalDevice();
+    const RenderProgram program = a_gEngine->GetRenderProgram(a_programAddr);
+    ICARIAN_ASSERT(program.Data != nullptr);
+    const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
 
     const vk::PipelineDynamicStateCreateInfo dynamicState = vk::PipelineDynamicStateCreateInfo
     (
@@ -200,6 +295,7 @@ VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphi
 
     vk::VertexInputAttributeDescription* attributeDescription = new vk::VertexInputAttributeDescription[program.VertexInputCount];
     IDEFER(delete[] attributeDescription);
+
     for (uint16_t i = 0; i < program.VertexInputCount; ++i)
     {
         const VertexInputAttribute& attrib = program.VertexAttributes[i];
@@ -231,12 +327,9 @@ VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphi
         VK_FALSE
     );
 
-    constexpr vk::Viewport Viewport = vk::Viewport(0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f);
-    constexpr vk::Rect2D Scissor = vk::Rect2D({ 0, 0 }, { 1, 1 });
-
     const vk::PipelineViewportStateCreateInfo viewportState = vk::PipelineViewportStateCreateInfo
     (
-        vk::PipelineViewportStateCreateFlags(),
+        { },
         1,
         &Viewport,
         1,
@@ -256,12 +349,6 @@ VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphi
         0.0f,
         0.0f,
         1.0f
-    );
-
-    constexpr vk::PipelineMultisampleStateCreateInfo Multisampling = vk::PipelineMultisampleStateCreateInfo
-    (
-        vk::PipelineMultisampleStateCreateFlags(),
-        vk::SampleCountFlagBits::e1
     );
 
     vk::PipelineColorBlendAttachmentState colorBlendAttachment = vk::PipelineColorBlendAttachmentState
@@ -293,15 +380,7 @@ VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphi
     
     const std::vector<vk::PipelineShaderStageCreateInfo> shaderStages = GetStageInfo(program, a_gEngine);
 
-    constexpr vk::PipelineDepthStencilStateCreateInfo DepthStencil = vk::PipelineDepthStencilStateCreateInfo
-    (
-        { },
-        VK_TRUE,
-        VK_TRUE,
-        vk::CompareOp::eLess,
-        VK_FALSE,
-        VK_FALSE
-    );
+    vk::PipelineLayout layout = shaderData->GetLayout();
 
     vk::GraphicsPipelineCreateInfo pipelineInfo = vk::GraphicsPipelineCreateInfo
     (
@@ -317,7 +396,7 @@ VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphi
         nullptr,
         &colorBlending,
         &dynamicState,
-        shaderData->GetLayout(),
+        layout,
         a_renderPass
     );
 
@@ -326,33 +405,147 @@ VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphi
         pipelineInfo.pDepthStencilState = &DepthStencil;
     }
 
-    TRACE("Creating Pipeline");
-    ICARIAN_ASSERT_MSG_R(device.createGraphicsPipelines(nullptr, 1, &pipelineInfo, nullptr, &m_pipeline) == vk::Result::eSuccess, "Failed to create Vulkan Pipeline");
-}
-VulkanPipeline::~VulkanPipeline()
-{
-    TRACE("Destroying Pipeline");
-    const vk::Device device = m_engine->GetLogicalDevice();
+    ICARIAN_ASSERT_MSG_R(device.createGraphicsPipelines(nullptr, 1, &pipelineInfo, nullptr, &pipeline->m_pipeline) == vk::Result::eSuccess, "Failed to create Vulkan Pipeline");
 
-    device.destroyPipeline(m_pipeline);
+    return pipeline;
 }
 
-VulkanShaderData* VulkanPipeline::GetShaderData() const
+VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const vk::RenderPass& a_renderPass, uint32_t a_programAddr)
 {
-    const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
+    const vk::Device device = a_engine->GetLogicalDevice();
+    const RenderProgram program = a_gEngine->GetRenderProgram(a_programAddr);
     ICARIAN_ASSERT(program.Data != nullptr);
-    
-    return (VulkanShaderData*)program.Data;
-}
-void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
-{
-    const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
+    ICARIAN_ASSERT(program.ShadowVertexShader != -1);
 
-    const VulkanShaderData* data = (VulkanShaderData*)program.Data;
-    ICARIAN_ASSERT(data != nullptr);
+    TRACE("Creating Vulkan Shadow Pipeline");
+    VulkanPipeline* pipeline = new VulkanPipeline(a_engine, a_gEngine, a_programAddr, VulkanPipelineType_Shadow);
+    const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
 
-    data->Bind(a_index, a_commandBuffer);
+    const vk::PipelineDynamicStateCreateInfo dynamicState = vk::PipelineDynamicStateCreateInfo
+    (
+        { },
+        DynamicStateCount,
+        DynamicStates
+    );
 
-    a_commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
+    const vk::VertexInputBindingDescription bindingDescription = vk::VertexInputBindingDescription
+    (
+        0,
+        program.VertexStride,
+        vk::VertexInputRate::eVertex
+    );
+
+    vk::VertexInputAttributeDescription* attributeDescription = new vk::VertexInputAttributeDescription[program.VertexInputCount];
+    IDEFER(delete[] attributeDescription);
+
+    for (uint16_t i = 0; i < program.VertexInputCount; ++i)
+    {
+        const VertexInputAttribute& attrib = program.VertexAttributes[i];
+        attributeDescription[i].binding = 0;
+        attributeDescription[i].location = attrib.Location;
+        attributeDescription[i].offset = attrib.Offset;
+        attributeDescription[i].format = GetFormat(attrib);
+    }
+
+    vk::PipelineVertexInputStateCreateInfo vertexInputInfo = vk::PipelineVertexInputStateCreateInfo
+    (
+        { },
+        0,
+        nullptr,
+        (uint32_t)program.VertexInputCount,
+        attributeDescription
+    );
+    if (program.VertexInputCount > 0)
+    {
+        vertexInputInfo.vertexBindingDescriptionCount = 1;
+        vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    }
+
+    const vk::PipelineInputAssemblyStateCreateInfo inputAssembly = vk::PipelineInputAssemblyStateCreateInfo
+    (
+        { },
+        GetPrimitiveMode(program.PrimitiveMode),
+        VK_FALSE
+    );
+
+    const vk::PipelineViewportStateCreateInfo viewportState = vk::PipelineViewportStateCreateInfo
+    (
+        { },
+        1,
+        &Viewport,
+        1,
+        &Scissor
+    );
+
+    const vk::PipelineRasterizationStateCreateInfo rasterizer = vk::PipelineRasterizationStateCreateInfo
+    (
+        { },
+        VK_FALSE,
+        VK_FALSE,
+        vk::PolygonMode::eFill,
+        GetCullingMode(program.CullingMode),
+        vk::FrontFace::eClockwise,
+        VK_FALSE,
+        0.0f,
+        0.0f,
+        0.0f,
+        1.0f
+    );
+
+    constexpr vk::PipelineColorBlendAttachmentState ColorBlendAttachment = vk::PipelineColorBlendAttachmentState
+    (
+        VK_FALSE,
+        vk::BlendFactor::eOne,
+        vk::BlendFactor::eOne,
+        vk::BlendOp::eAdd,
+        vk::BlendFactor::eOne,
+        vk::BlendFactor::eOne,
+        vk::BlendOp::eAdd,
+        vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
+    );
+
+    const vk::PipelineColorBlendStateCreateInfo colorBlending = vk::PipelineColorBlendStateCreateInfo
+    (
+        { },
+        VK_FALSE,
+        vk::LogicOp::eCopy,
+        1,
+        &ColorBlendAttachment
+    );
+
+    const VulkanShader* vertexShader = a_gEngine->GetVertexShader(program.ShadowVertexShader);
+    ICARIAN_ASSERT_MSG(vertexShader != nullptr, "Failed to find vertex shader")
+
+    const vk::PipelineShaderStageCreateInfo vertexStage = vk::PipelineShaderStageCreateInfo
+    (
+        { },
+        vk::ShaderStageFlagBits::eVertex,
+        vertexShader->GetShaderModule(),
+        "main"
+    );
+
+    vk::PipelineLayout layout = shaderData->GetShadowLayout();
+
+    const vk::GraphicsPipelineCreateInfo pipelineInfo = vk::GraphicsPipelineCreateInfo
+    (
+        { },
+        1,
+        &vertexStage,
+        &vertexInputInfo,
+        &inputAssembly,
+        nullptr,
+        &viewportState,
+        &rasterizer,
+        &Multisampling,
+        &DepthStencil,
+        &colorBlending,
+        &dynamicState,
+        layout,
+        a_renderPass
+    );
+
+    ICARIAN_ASSERT_MSG_R(device.createGraphicsPipelines(nullptr, 1, &pipelineInfo, nullptr, &pipeline->m_pipeline) == vk::Result::eSuccess, "Failed to create Vulkan Shadow Pipeline");
+
+    return pipeline;
 }
 #endif

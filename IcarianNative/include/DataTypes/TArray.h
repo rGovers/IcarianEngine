@@ -189,10 +189,15 @@ public:
         m_data[a_index] = a_value;
     }
 
-    void Push(const T& a_data)
+    
+    inline void Push(const T& a_data)
     {
         const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
 
+        UPush(a_data);
+    }
+    void UPush(const T& a_data)
+    {
         const uint32_t aSize = (m_size + 1) * sizeof(T);
         T* dat = (T*)malloc(aSize);
         memset(dat, 0, aSize);
@@ -207,10 +212,15 @@ public:
         
         m_data = dat;
     }
-    uint32_t PushVal(const T& a_data)
+
+    inline uint32_t PushVal(const T& a_data)
     {
         const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
 
+        return UPushVal(a_data);
+    }
+    uint32_t UPushVal(const T& a_data)
+    {
         const uint32_t aSize = (m_size + 1) * sizeof(T);
         T* dat = (T*)malloc(aSize);
         memset(dat, 0, aSize);

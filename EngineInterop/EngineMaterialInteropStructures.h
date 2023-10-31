@@ -13,17 +13,18 @@ namespace IcarianEngine.Rendering {
 IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
 {
     IOP_ENUM_VALUE(ShaderBufferType, Null) = IOP_UINT16_MAX,
-    IOP_ENUM_VALUE(ShaderBufferType, CameraBuffer) = 0,
-    IOP_ENUM_VALUE(ShaderBufferType, ModelBuffer) = 1,
-    IOP_ENUM_VALUE(ShaderBufferType, UIBuffer) = 2,
-    IOP_ENUM_VALUE(ShaderBufferType, DirectionalLightBuffer) = 3,
-    IOP_ENUM_VALUE(ShaderBufferType, PointLightBuffer) = 4,
-    IOP_ENUM_VALUE(ShaderBufferType, SpotLightBuffer) = 5,
-    IOP_ENUM_VALUE(ShaderBufferType, Texture) = 6,
-    IOP_ENUM_VALUE(ShaderBufferType, PushTexture) = 7,
-    IOP_ENUM_VALUE(ShaderBufferType, SSModelBuffer) = 8,
-    IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 9,
-    IOP_ENUM_VALUE(ShaderBufferType, UserUBO) = 10
+    IOP_ENUM_VALUE(ShaderBufferType, PModelBuffer) = 0,
+    IOP_ENUM_VALUE(ShaderBufferType, PUIBuffer) = 1,
+    IOP_ENUM_VALUE(ShaderBufferType, PShadowLightBuffer) = 2,
+    IOP_ENUM_VALUE(ShaderBufferType, CameraBuffer) = 3,
+    IOP_ENUM_VALUE(ShaderBufferType, DirectionalLightBuffer) = 4,
+    IOP_ENUM_VALUE(ShaderBufferType, PointLightBuffer) = 5,
+    IOP_ENUM_VALUE(ShaderBufferType, SpotLightBuffer) = 6,
+    IOP_ENUM_VALUE(ShaderBufferType, Texture) = 7,
+    IOP_ENUM_VALUE(ShaderBufferType, PushTexture) = 8,
+    IOP_ENUM_VALUE(ShaderBufferType, UserUBO) = 9,
+    IOP_ENUM_VALUE(ShaderBufferType, SSModelBuffer) = 10,
+    IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 11
 };
 
 IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderSlot) : IOP_UINT16
