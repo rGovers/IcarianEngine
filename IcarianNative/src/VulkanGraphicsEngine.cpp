@@ -171,31 +171,6 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         }
     }
 
-    TRACE("Deleting directional light ubos");
-    for (const VulkanUniformBuffer* uniform : m_directionalLightUniforms)
-    {
-        if (uniform != nullptr)
-        {
-            delete uniform;
-        }
-    }
-    TRACE("Deleting point light ubos");
-    for (const VulkanUniformBuffer* uniform : m_pointLightUniforms)
-    {
-        if (uniform != nullptr)
-        {
-            delete uniform;
-        }
-    }
-    TRACE("Deleting spot light ubos");
-    for (const VulkanUniformBuffer* uniform : m_spotLightUniforms)
-    {
-        if (uniform != nullptr)
-        {
-            delete uniform;
-        }
-    }
-
     TRACE("Deleting Pipelines");
     for (const auto& iter : m_pipelines)
     {
@@ -768,7 +743,7 @@ vk::CommandBuffer VulkanGraphicsEngine::ShadowPass(uint32_t a_camIndex, uint32_t
                                                             modelBuffer[m].InvModel = glm::inverse(mat);
                                                         }
 
-                                                        VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(ModelShaderBuffer) * count, modelBuffer);
+                                                        VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(ModelShaderBuffer) * count, count, modelBuffer);
                                                         IDEFER(delete storage);
 
                                                         shaderData->PushShadowShaderStorageObject(commandBuffer, modelSlot.Set, storage, a_index);
@@ -915,7 +890,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                 modelBuffer[j].InvModel = glm::inverse(mat);
                             }
 
-                            VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(ModelShaderBuffer) * count, modelBuffer);
+                            VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(ModelShaderBuffer) * count, count, modelBuffer);
                             IDEFER(delete storage);
 
                             shaderData->PushShaderStorageObject(commandBuffer, modelSlot.Set, storage, a_index);
@@ -1008,7 +983,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                             boneBuffer[k].BoneMatrix = transform * bone.InverseBindPose;
                                         }
 
-                                        const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(BoneShaderBuffer) * boneCount, boneBuffer);
+                                        const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(BoneShaderBuffer) * boneCount, boneCount, boneBuffer);
                                         IDEFER(delete storage);
 
                                         shaderData->PushShaderStorageObject(commandBuffer, boneSlot.Set, storage, a_index);
@@ -1049,8 +1024,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
     m_lightSetupFunc->Exec(lightSetupArgs);
 
+    const Frustum frustum = camBuffer.ToFrustum((glm::vec2)m_swapchain->GetSize());
+
     for (uint32_t i = 0; i < LightType_End; ++i)
-    // for (uint32_t i = 0; i < 1; ++i)
     {
         void* lightArgs[] = 
         {
@@ -1069,37 +1045,66 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         const VulkanShaderData* data = pipeline->GetShaderData();
         ICARIAN_ASSERT(data != nullptr);
 
-        // TODO: Could probably batch this down the line
         switch ((e_LightType)i)
         {
         case LightType_Directional:
         {
-            const std::vector<DirectionalLightBuffer> lights = m_directionalLights.ToVector();
+            const TReadLockArray<DirectionalLightBuffer> lights = m_directionalLights.ToReadLockArray();
 
             ShaderBufferInput dirLightInput;
             if (data->GetDirectionalLightInput(&dirLightInput))
-            {
-                const uint32_t dirLightCount = (uint32_t)lights.size();
-                for (uint32_t i = 0; i < dirLightCount; ++i)
-                {
-                    const DirectionalLightBuffer& dirLight = lights[i];
-
-                    if (dirLight.TransformAddr != -1 && camBuffer.RenderLayer & dirLight.RenderLayer)
-                    {
-                        data->PushUniformBuffer(commandBuffer, dirLightInput.Set, m_directionalLightUniforms[i], a_index);
-
-                        commandBuffer.draw(4, 1, 0, 0);
-                    }
-                }
-            }
-            else
             {
                 for (const DirectionalLightBuffer& dirLight : lights)
                 {
                     if (dirLight.TransformAddr != -1 && camBuffer.RenderLayer & dirLight.RenderLayer)
                     {
+                        VulkanUniformBuffer* uniformBuffer = m_pushPool->AllocateDirectionalLightUniformBuffer();
+
+                        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(dirLight.TransformAddr);
+                        const glm::vec3 forward = glm::normalize(tMat[2].xyz());
+
+                        DirectionalLightShaderBuffer buffer;
+                        buffer.LightDir = glm::vec4(forward, dirLight.Intensity);
+                        buffer.LightColor = dirLight.Color;
+
+                        uniformBuffer->SetData(a_index, &buffer);
+                        
+                        data->PushUniformBuffer(commandBuffer, dirLightInput.Set, uniformBuffer, a_index);
+
                         commandBuffer.draw(4, 1, 0, 0);
                     }
+                }
+            }
+            else if (data->GetBatchDirectionalLightInput(&dirLightInput))
+            {
+                std::vector<DirectionalLightShaderBuffer> buffers;
+                buffers.reserve(lights.Size());
+
+                for (const DirectionalLightBuffer& dirLight : lights)
+                {
+                    if (dirLight.TransformAddr != -1 && camBuffer.RenderLayer & dirLight.RenderLayer)
+                    {
+                        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(dirLight.TransformAddr);
+                        const glm::vec3 forward = glm::normalize(tMat[2].xyz());
+
+                        DirectionalLightShaderBuffer buffer;
+                        buffer.LightDir = glm::vec4(forward, dirLight.Intensity);
+                        buffer.LightColor = dirLight.Color;
+
+                        buffers.emplace_back(buffer);
+                    }
+                }
+
+                if (!buffers.empty())
+                {
+                    const uint32_t count = (uint32_t)buffers.size();
+
+                    VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(DirectionalLightShaderBuffer) * count, count, buffers.data());
+                    IDEFER(delete storage);
+
+                    data->PushShaderStorageObject(commandBuffer, dirLightInput.Set, storage, a_index);
+
+                    commandBuffer.draw(4, 1, 0, 0);
                 }
             }
             
@@ -1107,32 +1112,74 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         }
         case LightType_Point:
         {
-            const std::vector<PointLightBuffer> lights = m_pointLights.ToVector();
+            const TReadLockArray<PointLightBuffer> lights = m_pointLights.ToReadLockArray();
 
             ShaderBufferInput pointLightInput;
             if (data->GetPointLightInput(&pointLightInput))
-            {
-                const uint32_t pointLightCount = (uint32_t)lights.size();
-                for (uint32_t i = 0; i < pointLightCount; ++i)
-                {
-                    const PointLightBuffer& pointLight = lights[i];
-
-                    if (pointLight.TransformAddr != -1 && camBuffer.RenderLayer & pointLight.RenderLayer)
-                    {
-                        data->PushUniformBuffer(commandBuffer, pointLightInput.Set, m_pointLightUniforms[i], a_index);
-
-                        commandBuffer.draw(4, 1, 0, 0);
-                    }
-                }
-            }
-            else
             {
                 for (const PointLightBuffer& pointLight : lights)
                 {
                     if (pointLight.TransformAddr != -1 && camBuffer.RenderLayer & pointLight.RenderLayer)
                     {
+                        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(pointLight.TransformAddr);
+                        const glm::vec3 position = tMat[3].xyz();
+
+                        if (!frustum.CompareSphere(position, pointLight.Radius))
+                        {
+                            continue;
+                        }
+
+                        VulkanUniformBuffer* uniformBuffer = m_pushPool->AllocatePointLightUniformBuffer();
+
+                        PointLightShaderBuffer buffer;
+                        buffer.LightPos = glm::vec4(position, pointLight.Intensity);
+                        buffer.LightColor = pointLight.Color;
+                        buffer.Radius = pointLight.Radius;
+
+                        uniformBuffer->SetData(a_index, &buffer);
+
+                        data->PushUniformBuffer(commandBuffer, pointLightInput.Set, uniformBuffer, a_index);
+
                         commandBuffer.draw(4, 1, 0, 0);
                     }
+                }
+            }
+            else if (data->GetBatchPointLightInput(&pointLightInput))
+            {
+                std::vector<PointLightShaderBuffer> buffers;
+                buffers.reserve(lights.Size());
+
+                for (const PointLightBuffer& pointLight : lights)
+                {
+                    if (pointLight.TransformAddr != -1 && camBuffer.RenderLayer & pointLight.RenderLayer)
+                    {
+                        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(pointLight.TransformAddr);
+                        const glm::vec3 position = tMat[3].xyz();
+
+                        if (!frustum.CompareSphere(position, pointLight.Radius))
+                        {
+                            continue;
+                        }
+
+                        PointLightShaderBuffer buffer;
+                        buffer.LightPos = glm::vec4(position, pointLight.Intensity);
+                        buffer.LightColor = pointLight.Color;
+                        buffer.Radius = pointLight.Radius;
+
+                        buffers.emplace_back(buffer);
+                    }
+                }
+
+                if (!buffers.empty())
+                {
+                    const uint32_t count = (uint32_t)buffers.size();
+
+                    VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(PointLightShaderBuffer) * count, count, buffers.data());
+                    IDEFER(delete storage);
+
+                    data->PushShaderStorageObject(commandBuffer, pointLightInput.Set, storage, a_index);
+
+                    commandBuffer.draw(4, 1, 0, 0);
                 }
             }
 
@@ -1140,32 +1187,80 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         }
         case LightType_Spot:
         {
-            const std::vector<SpotLightBuffer> lights = m_spotLights.ToVector();
+            const TReadLockArray<SpotLightBuffer> lights = m_spotLights.ToReadLockArray();
 
             ShaderBufferInput spotLightInput;
             if (data->GetSpotLightInput(&spotLightInput))
-            {
-                const uint32_t spotLightCount = (uint32_t)lights.size();
-                for (uint32_t i = 0; i < spotLightCount; ++i)
-                {
-                    const SpotLightBuffer& spotLight = lights[i];
-
-                    if (spotLight.TransformAddr != -1 && camBuffer.RenderLayer & spotLight.RenderLayer)
-                    {
-                        data->PushUniformBuffer(commandBuffer, spotLightInput.Set, m_spotLightUniforms[i], a_index);
-
-                        commandBuffer.draw(4, 1, 0, 0);
-                    }
-                }
-            }
-            else
             {
                 for (const SpotLightBuffer& spotLight : lights)
                 {
                     if (spotLight.TransformAddr != -1 && camBuffer.RenderLayer & spotLight.RenderLayer)
                     {
+                        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(spotLight.TransformAddr);
+                        const glm::vec3 position = tMat[3].xyz();
+
+                        if (!frustum.CompareSphere(position, spotLight.Radius))
+                        {
+                            continue;
+                        }
+
+                        const glm::vec3 forward = glm::normalize(tMat[2].xyz());
+
+                        VulkanUniformBuffer* uniformBuffer = m_pushPool->AllocateSpotLightUniformBuffer();
+
+                        SpotLightShaderBuffer buffer;
+                        buffer.LightPos = position;
+                        buffer.LightDir = glm::vec4(forward, spotLight.Intensity);
+                        buffer.LightColor = spotLight.Color;
+                        buffer.CutoffAngle = glm::vec3(spotLight.CutoffAngle, spotLight.Radius);
+
+                        uniformBuffer->SetData(a_index, &buffer);
+
+                        data->PushUniformBuffer(commandBuffer, spotLightInput.Set, uniformBuffer, a_index);
+
                         commandBuffer.draw(4, 1, 0, 0);
                     }
+                }
+            }
+            else if (data->GetBatchSpotLightInput(&spotLightInput))
+            {
+                std::vector<SpotLightShaderBuffer> buffers;
+                buffers.reserve(lights.Size());
+
+                for (const SpotLightBuffer& spotLight : lights)
+                {
+                    if (spotLight.TransformAddr != -1 && camBuffer.RenderLayer & spotLight.RenderLayer)
+                    {
+                        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(spotLight.TransformAddr);
+                        const glm::vec3 position = tMat[3].xyz();
+
+                        if (!frustum.CompareSphere(position, spotLight.Radius))
+                        {
+                            continue;
+                        }
+
+                        const glm::vec3 forward = glm::normalize(tMat[2].xyz());
+
+                        SpotLightShaderBuffer buffer;
+                        buffer.LightPos = position;
+                        buffer.LightDir = glm::vec4(forward, spotLight.Intensity);
+                        buffer.LightColor = spotLight.Color;
+                        buffer.CutoffAngle = glm::vec3(spotLight.CutoffAngle, spotLight.Radius);
+
+                        buffers.emplace_back(buffer);
+                    }
+                }
+
+                if (!buffers.empty())
+                {
+                    const uint32_t count = (uint32_t)buffers.size();
+
+                    VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(SpotLightShaderBuffer) * count, count, buffers.data());
+                    IDEFER(delete storage);
+
+                    data->PushShaderStorageObject(commandBuffer, spotLightInput.Set, storage, a_index);
+
+                    commandBuffer.draw(4, 1, 0, 0);
                 }
             }
 
@@ -1414,103 +1509,6 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
     for (uint32_t i = 0; i < glm::min(poolSize, totalPoolSize); ++i)
     {
         device.resetCommandPool(m_commandPool[a_index][i]);
-    }
-
-    const uint32_t directionalLightSize = m_directionalLights.Size();
-    const uint32_t directionalLightUniformSize = (uint32_t)m_directionalLightUniforms.size();
-    if (directionalLightUniformSize < directionalLightSize)
-    {
-        TRACE("Allocating directional light ubos");
-        const uint32_t diff = directionalLightSize - directionalLightUniformSize;
-        for (uint32_t i = 0; i < diff; ++i)
-        {
-            m_directionalLightUniforms.emplace_back(new VulkanUniformBuffer(m_vulkanEngine, sizeof(DirectionalLightShaderBuffer)));
-        }
-    }
-
-    for (uint32_t i = 0; i < directionalLightSize; ++i)
-    {
-        const DirectionalLightBuffer& dirLight = m_directionalLights[i];
-
-        if (dirLight.TransformAddr != -1)
-        {
-            const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(dirLight.TransformAddr);
-
-            const glm::vec3 forward = glm::normalize(tMat[2].xyz());
-
-            DirectionalLightShaderBuffer buffer;
-            buffer.LightDir = glm::vec4(forward, dirLight.Intensity);
-            buffer.LightColor = dirLight.Color;
-
-            VulkanUniformBuffer* uniformBuffer = m_directionalLightUniforms[i];
-            uniformBuffer->SetData(a_index, &buffer);
-        }
-    }
-
-    const uint32_t pointLightSize = m_pointLights.Size();
-    const uint32_t pointLightUniformSize = (uint32_t)m_pointLightUniforms.size();
-    if (pointLightUniformSize < pointLightSize)
-    {
-        TRACE("Allocating point light ubos");
-        const uint32_t diff = pointLightSize - pointLightUniformSize;
-        for (uint32_t i = 0; i < diff; ++i)
-        {
-            m_pointLightUniforms.emplace_back(new VulkanUniformBuffer(m_vulkanEngine, sizeof(PointLightShaderBuffer)));
-        }
-    }
-
-    for (uint32_t i = 0; i < pointLightSize; ++i)
-    {
-        const PointLightBuffer& pointLight = m_pointLights[i];
-
-        if (pointLight.TransformAddr != -1)
-        {
-            const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(pointLight.TransformAddr);
-
-            const glm::vec3 pos = tMat[3].xyz();
-
-            PointLightShaderBuffer buffer;
-            buffer.LightPos = glm::vec4(pos, pointLight.Intensity);
-            buffer.LightColor = pointLight.Color;
-            buffer.Radius = pointLight.Radius;
-
-            VulkanUniformBuffer* uniformBuffer = m_pointLightUniforms[i];
-            uniformBuffer->SetData(a_index, &buffer);
-        }
-    }
-
-    const uint32_t spotLightSize = m_spotLights.Size();
-    const uint32_t spotLightUniformSize = (uint32_t)m_spotLightUniforms.size();
-    if (spotLightUniformSize < spotLightSize)
-    {
-        TRACE("Allocating spot light ubos");
-        const uint32_t diff = spotLightSize - spotLightUniformSize;
-        for (uint32_t i = 0; i < diff; ++i)
-        {
-            m_spotLightUniforms.emplace_back(new VulkanUniformBuffer(m_vulkanEngine, sizeof(SpotLightShaderBuffer)));
-        }
-    }
-
-    for (uint32_t i = 0; i < spotLightSize; ++i)
-    {
-        const SpotLightBuffer& spotLight = m_spotLights[i];
-
-        if (spotLight.TransformAddr != -1)
-        {
-            const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(spotLight.TransformAddr);
-
-            const glm::vec3 pos = tMat[3].xyz();
-            const glm::vec3 forward = glm::normalize(tMat[2].xyz());
-
-            SpotLightShaderBuffer buffer;
-            buffer.LightPos = pos;
-            buffer.LightDir = glm::vec4(forward, spotLight.Intensity);
-            buffer.LightColor = spotLight.Color;
-            buffer.CutoffAngle = glm::vec3(spotLight.CutoffAngle, spotLight.Radius);
-
-            VulkanUniformBuffer* uniformBuffer = m_spotLightUniforms[i];
-            uniformBuffer->SetData(a_index, &buffer);
-        }
     }
 
     Profiler::StopFrame();

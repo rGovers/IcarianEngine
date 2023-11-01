@@ -38,15 +38,23 @@ public:
     }
 };
 
-VulkanShaderStorageObject::VulkanShaderStorageObject(VulkanRenderEngineBackend* a_engine, uint32_t a_bufferSize, const void* a_data)
+VulkanShaderStorageObject::VulkanShaderStorageObject(VulkanRenderEngineBackend* a_engine, uint32_t a_bufferSize, uint32_t a_count, const void* a_data)
 {
+    constexpr uint32_t CountSize = sizeof(int32_t);
+    // Uniform memory must be aligned to 16 bytes
+    constexpr uint32_t Offset = 16;
+
+    const int32_t cVal = (int32_t)a_count;
+
+    const VmaAllocator allocator = a_engine->GetAllocator();
+
     m_engine = a_engine;
 
     m_bufferSize = a_bufferSize;
 
     VkBufferCreateInfo bufferInfo = { };
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = (VkDeviceSize)a_bufferSize;
+    bufferInfo.size = (VkDeviceSize)a_bufferSize + Offset;
     bufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -58,10 +66,17 @@ VulkanShaderStorageObject::VulkanShaderStorageObject(VulkanRenderEngineBackend* 
     VmaAllocationInfo vmaAllocInfo = {};
         
     VkBuffer tBuffer;
-    vmaCreateBuffer(m_engine->GetAllocator(), (VkBufferCreateInfo*)&bufferInfo, &allocInfo, &tBuffer, &m_allocation, &vmaAllocInfo);
+    vmaCreateBuffer(allocator, (VkBufferCreateInfo*)&bufferInfo, &allocInfo, &tBuffer, &m_allocation, &vmaAllocInfo);
     m_buffer = tBuffer;
 
-    memcpy(vmaAllocInfo.pMappedData, a_data, a_bufferSize);
+    constexpr uint32_t Align = Offset - CountSize;
+
+    // Have to honour the sequential write flag
+    // Funky stuff happens if you don't therefore memset is required despite the fact it is unused memory
+    // GPUs are weird
+    memcpy(vmaAllocInfo.pMappedData, &cVal, CountSize);
+    memset((char*)vmaAllocInfo.pMappedData + CountSize, 0, Align);
+    memcpy((char*)vmaAllocInfo.pMappedData + Offset, a_data, a_bufferSize);
 }
 VulkanShaderStorageObject::~VulkanShaderStorageObject()
 {

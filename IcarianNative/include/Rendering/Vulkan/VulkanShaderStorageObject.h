@@ -17,14 +17,14 @@ private:
 protected:
 
 public:
-    VulkanShaderStorageObject(VulkanRenderEngineBackend* a_engine, uint32_t a_bufferSize, const void* a_data);
+    VulkanShaderStorageObject(VulkanRenderEngineBackend* a_engine, uint32_t a_bufferSize, uint32_t a_count, const void* a_data);
     ~VulkanShaderStorageObject();
 
     inline vk::Buffer GetBuffer() const
     {
         return m_buffer;
     }
-    inline uint32_t GetSize() const
+    inline uint32_t GetBufferSize() const
     {
         return m_bufferSize;
     }

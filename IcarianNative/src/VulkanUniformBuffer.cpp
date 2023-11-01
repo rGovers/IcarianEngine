@@ -15,21 +15,21 @@ VulkanUniformBuffer::VulkanUniformBuffer(VulkanRenderEngineBackend* a_engine, ui
 
     m_uniformSize = a_uniformSize;
 
+    const VmaAllocator allocator = m_engine->GetAllocator();
+
+    VkBufferCreateInfo bufferInfo = { };
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = (VkDeviceSize)a_uniformSize;
+    bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VmaAllocationCreateInfo bufferAllocInfo = { 0 };
+    bufferAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    bufferAllocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    bufferAllocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    
     for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
     {
-        const VmaAllocator allocator = m_engine->GetAllocator();
-
-        VkBufferCreateInfo bufferInfo = { };
-        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = (VkDeviceSize)a_uniformSize;
-        bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        VmaAllocationCreateInfo bufferAllocInfo = { 0 };
-        bufferAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-        bufferAllocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-        bufferAllocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
         VkBuffer tBuffer;
         ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &bufferInfo, &bufferAllocInfo, &tBuffer, &m_allocations[i], nullptr) == VK_SUCCESS, "Failed to create Uniform Buffer");
         m_buffers[i] = tBuffer;

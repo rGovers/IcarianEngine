@@ -95,10 +95,6 @@ private:
 
     TArray<Font*>                                 m_fonts;
 
-    std::vector<VulkanUniformBuffer*>             m_directionalLightUniforms;
-    std::vector<VulkanUniformBuffer*>             m_pointLightUniforms;
-    std::vector<VulkanUniformBuffer*>             m_spotLightUniforms;
-
     TArray<CameraBuffer>                          m_cameraBuffers;
     std::vector<VulkanUniformBuffer*>             m_cameraUniforms;
 

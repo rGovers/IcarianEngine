@@ -563,8 +563,8 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(e_InternalR
         program.EnableColorBlending = 1;
 
         constexpr uint32_t TextureCount = 5;
-        constexpr uint32_t DirectionLightIndex = TextureCount + 0;
-        constexpr uint32_t CameraIndex = TextureCount + 1;
+        constexpr uint32_t CameraIndex = TextureCount + 0;
+        constexpr uint32_t DirectionLightIndex = TextureCount + 1;
         constexpr uint32_t BufferCount = TextureCount + 2;
 
         program.ShaderBufferInputCount = BufferCount;
@@ -577,15 +577,15 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(e_InternalR
             program.ShaderBufferInputs[i].Set = 0;
         }
 
-        program.ShaderBufferInputs[DirectionLightIndex].Slot = DirectionLightIndex;
-        program.ShaderBufferInputs[DirectionLightIndex].BufferType = ShaderBufferType_DirectionalLightBuffer;
-        program.ShaderBufferInputs[DirectionLightIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[DirectionLightIndex].Set = 1;
-
         program.ShaderBufferInputs[CameraIndex].Slot = CameraIndex;
         program.ShaderBufferInputs[CameraIndex].BufferType = ShaderBufferType_CameraBuffer;
         program.ShaderBufferInputs[CameraIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[CameraIndex].Set = 2;
+        program.ShaderBufferInputs[CameraIndex].Set = 1;
+
+        program.ShaderBufferInputs[DirectionLightIndex].Slot = DirectionLightIndex;
+        program.ShaderBufferInputs[DirectionLightIndex].BufferType = ShaderBufferType_SSDirectionalLightBuffer;
+        program.ShaderBufferInputs[DirectionLightIndex].ShaderSlot = ShaderSlot_Pixel;
+        program.ShaderBufferInputs[DirectionLightIndex].Set = 2;
 
         break;
     }
@@ -600,8 +600,8 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(e_InternalR
         program.EnableColorBlending = 1;
 
         constexpr uint32_t TextureCount = 5;
-        constexpr uint32_t PointLightIndex = TextureCount + 0;
-        constexpr uint32_t CameraIndex = TextureCount + 1;
+        constexpr uint32_t CameraIndex = TextureCount + 0;
+        constexpr uint32_t PointLightIndex = TextureCount + 1;
         constexpr uint32_t BufferCount = TextureCount + 2;
         
         program.ShaderBufferInputCount = BufferCount;
@@ -614,15 +614,15 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(e_InternalR
             program.ShaderBufferInputs[i].Set = 0;
         }
 
-        program.ShaderBufferInputs[PointLightIndex].Slot = PointLightIndex;
-        program.ShaderBufferInputs[PointLightIndex].BufferType = ShaderBufferType_PointLightBuffer;
-        program.ShaderBufferInputs[PointLightIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[PointLightIndex].Set = 1;
-
         program.ShaderBufferInputs[CameraIndex].Slot = CameraIndex;
         program.ShaderBufferInputs[CameraIndex].BufferType = ShaderBufferType_CameraBuffer;
         program.ShaderBufferInputs[CameraIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[CameraIndex].Set = 2;
+        program.ShaderBufferInputs[CameraIndex].Set = 1;
+
+        program.ShaderBufferInputs[PointLightIndex].Slot = PointLightIndex;
+        program.ShaderBufferInputs[PointLightIndex].BufferType = ShaderBufferType_SSPointLightBuffer;
+        program.ShaderBufferInputs[PointLightIndex].ShaderSlot = ShaderSlot_Pixel;
+        program.ShaderBufferInputs[PointLightIndex].Set = 2;
 
         break;
     }
@@ -637,8 +637,8 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(e_InternalR
         program.EnableColorBlending = 1;
 
         constexpr uint32_t TextureCount = 5;
-        constexpr uint32_t SpotLightIndex = TextureCount + 0;
-        constexpr uint32_t CameraIndex = TextureCount + 1;
+        constexpr uint32_t CameraIndex = TextureCount + 0;
+        constexpr uint32_t SpotLightIndex = TextureCount + 1;
         constexpr uint32_t BufferCount = TextureCount + 2;
 
         program.ShaderBufferInputCount = BufferCount;
@@ -651,15 +651,15 @@ uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(e_InternalR
             program.ShaderBufferInputs[i].Set = 0;
         }
 
-        program.ShaderBufferInputs[SpotLightIndex].Slot = SpotLightIndex;
-        program.ShaderBufferInputs[SpotLightIndex].BufferType = ShaderBufferType_SpotLightBuffer;
-        program.ShaderBufferInputs[SpotLightIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[SpotLightIndex].Set = 1;
-
         program.ShaderBufferInputs[CameraIndex].Slot = CameraIndex;
         program.ShaderBufferInputs[CameraIndex].BufferType = ShaderBufferType_CameraBuffer;
         program.ShaderBufferInputs[CameraIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[CameraIndex].Set = 2;
+        program.ShaderBufferInputs[CameraIndex].Set = 1;
+
+        program.ShaderBufferInputs[SpotLightIndex].Slot = SpotLightIndex;
+        program.ShaderBufferInputs[SpotLightIndex].BufferType = ShaderBufferType_SSSpotLightBuffer;
+        program.ShaderBufferInputs[SpotLightIndex].ShaderSlot = ShaderSlot_Pixel;
+        program.ShaderBufferInputs[SpotLightIndex].Set = 2;
 
         break;
     }

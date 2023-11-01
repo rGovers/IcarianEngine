@@ -82,6 +82,18 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 			{
 				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_TIME_SHADER_STRUCTURE);
 			}
+			else if (args[0] == "SSDirectionalLightBuffer")
+			{
+				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_DIRECTIONAL_LIGHT_SSBO_STRUCTURE, DIRECTIONAL_LIGHT_SHADER_NAMESTR);
+			}
+			else if (args[0] == "SSPointLightBuffer")
+			{
+				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_POINT_LIGHT_SSBO_STRUCTURE, POINT_LIGHT_SHADER_NAMESTR);
+			}
+			else if (args[0] == "SSSpotLightBuffer")
+			{
+				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_SPOT_LIGHT_SSBO_STRUCTURE, SPOT_LIGHT_SHADER_NAMESTR);
+			}
 			else if (args[0] == "SSModelBuffer")
 			{
 				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_MODEL_SSBO_STRUCTURE, MODEL_SHADER_NAMESTR);
@@ -241,6 +253,7 @@ TBuiltInResource spirv_create_resources()
 	resource.maxTaskWorkGroupSizeZ_NV = 1;
 	resource.maxMeshViewCountNV = 4;
 
+	resource.limits.nonInductiveForLoops = true;
     resource.limits.generalUniformIndexing = true;
     resource.limits.generalVariableIndexing = true;
     resource.limits.generalVaryingIndexing = true;

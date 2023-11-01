@@ -174,6 +174,9 @@ constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_buffe
     }
     case ShaderBufferType_SSBoneBuffer:
     case ShaderBufferType_SSModelBuffer:
+    case ShaderBufferType_SSDirectionalLightBuffer:
+    case ShaderBufferType_SSPointLightBuffer:
+    case ShaderBufferType_SSSpotLightBuffer:
     {
         return vk::DescriptorType::eStorageBuffer;
     }
@@ -222,6 +225,9 @@ static void GetLayoutInfo(const ShaderBufferInput* a_inputs, uint32_t a_inputCou
         case ShaderBufferType_PushTexture:
         case ShaderBufferType_SSModelBuffer:
         case ShaderBufferType_SSBoneBuffer:
+        case ShaderBufferType_SSDirectionalLightBuffer:
+        case ShaderBufferType_SSPointLightBuffer:
+        case ShaderBufferType_SSSpotLightBuffer:
         case ShaderBufferType_UserUBO:
         {
             Input in;
@@ -910,6 +916,49 @@ bool VulkanShaderData::GetSpotLightInput(ShaderBufferInput* a_input) const
     for (const ShaderBufferInput& input : m_slotInputs)
     {
         if (input.BufferType == ShaderBufferType_SpotLightBuffer)
+        {
+            *a_input = input;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool VulkanShaderData::GetBatchDirectionalLightInput(ShaderBufferInput* a_input) const
+{
+    for (const ShaderBufferInput& input : m_slotInputs)
+    {
+        if (input.BufferType == ShaderBufferType_SSDirectionalLightBuffer)
+        {
+            *a_input = input;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+bool VulkanShaderData::GetBatchPointLightInput(ShaderBufferInput* a_input) const
+{
+    for (const ShaderBufferInput& input : m_slotInputs)
+    {
+        if (input.BufferType == ShaderBufferType_SSPointLightBuffer)
+        {
+            *a_input = input;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+bool VulkanShaderData::GetBatchSpotLightInput(ShaderBufferInput* a_input) const
+{
+    for (const ShaderBufferInput& input : m_slotInputs)
+    {
+        if (input.BufferType == ShaderBufferType_SSSpotLightBuffer)
         {
             *a_input = input;
 

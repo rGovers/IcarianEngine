@@ -3,7 +3,10 @@
 #include "Rendering/Vulkan/VulkanPushPool.h"
 
 #include "Flare/IcarianAssert.h"
+#include "Flare/IcarianDefer.h"
+#include "Rendering/ShaderBuffers.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
+#include "Rendering/Vulkan/VulkanUniformBuffer.h"
 
 VulkanPushPool::VulkanPushPool(VulkanRenderEngineBackend* a_engine)
 {
@@ -19,6 +22,28 @@ VulkanPushPool::~VulkanPushPool()
         for (uint32_t j = 0; j < count; ++j)
         {
             device.destroyDescriptorPool(m_buffers[i][j].Pool);
+        }
+    }
+
+    for (uint32_t i = 0; i < m_directionalLightBuffers.Size(); ++i)
+    {
+        if (m_directionalLightBuffers[i] != nullptr)
+        {
+            delete m_directionalLightBuffers[i];
+        }
+    }
+    for (uint32_t i = 0; i < m_pointLightBuffers.Size(); ++i)
+    {
+        if (m_pointLightBuffers[i] != nullptr)
+        {
+            delete m_pointLightBuffers[i];
+        }
+    }
+    for (uint32_t i = 0; i < m_spotLightBuffers.Size(); ++i)
+    {
+        if (m_spotLightBuffers[i] != nullptr)
+        {
+            delete m_spotLightBuffers[i];
         }
     }
 }
@@ -94,6 +119,56 @@ void VulkanPushPool::Reset(uint32_t a_index)
 
         device.resetDescriptorPool(buffer.Pool);
     }
+
+    m_directionalLightBufferIndex = 0;
+    m_pointLightBufferIndex = 0;
+    m_spotLightBufferIndex = 0;
+}
+
+VulkanUniformBuffer* VulkanPushPool::AllocateDirectionalLightUniformBuffer()
+{
+    TLockArray<VulkanUniformBuffer*> a = m_directionalLightBuffers.ToLockArray();
+    if (m_directionalLightBufferIndex >= a.Size())
+    {
+        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(DirectionalLightShaderBuffer));
+        m_directionalLightBuffers.UPush(buffer);
+
+        ++m_directionalLightBufferIndex;
+
+        return buffer;
+    }
+
+    return a[m_directionalLightBufferIndex++];
+}
+VulkanUniformBuffer* VulkanPushPool::AllocatePointLightUniformBuffer()
+{
+    TLockArray<VulkanUniformBuffer*> a = m_pointLightBuffers.ToLockArray();
+    if (m_pointLightBufferIndex >= a.Size())
+    {
+        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(PointLightShaderBuffer));
+        m_pointLightBuffers.UPush(buffer);
+
+        ++m_pointLightBufferIndex;
+
+        return buffer;
+    }
+
+    return a[m_pointLightBufferIndex++];
+}
+VulkanUniformBuffer* VulkanPushPool::AllocateSpotLightUniformBuffer()
+{
+    TLockArray<VulkanUniformBuffer*> a = m_spotLightBuffers.ToLockArray();
+    if (m_spotLightBufferIndex >= a.Size())
+    {
+        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(SpotLightShaderBuffer));
+        m_spotLightBuffers.UPush(buffer);
+
+        ++m_spotLightBufferIndex;
+
+        return buffer;
+    }
+
+    return a[m_spotLightBufferIndex++];
 }
 
 #endif

@@ -8,8 +8,8 @@ layout(binding = 2) uniform sampler2D specSampler;
 layout(binding = 3) uniform sampler2D emissionSampler;
 layout(binding = 4) uniform sampler2D depthSampler;
 
-#!structure(SpotLightBuffer, 5, 1, spotLightBuffer)
-#!structure(CameraBuffer, 6, 2, camBuffer)
+#!structure(CameraBuffer, 5, 1, camBuffer)
+#!structure(SSSpotLightBuffer, 6, 2, spotLightBuffer)
 
 layout(location = 0) out vec4 fragColor;
 
@@ -21,37 +21,48 @@ void main()
         discard;
     }
     
+    vec4 color = texture(colorSampler, vUV);
+    vec4 spec = texture(specSampler, vUV);
     float d = texture(depthSampler, vUV).x;
-    vec4 cP = vec4(vUV * 2.0f + -1.0f, d, 1.0f);
+
+    vec4 cP = vec4(vUV * 2.0 + -1.0, d, 1.0);
     vec4 vP = camBuffer.InvProj * cP;
     vP /= vP.w;
     vec4 mP = camBuffer.InvView * vP;
 
-    vec3 lDir = normalize(spotLightBuffer.LightPos.xyz - mP.xyz);
-    float dL = length(lDir);
-    lDir /= dL;
+    vec3 cF = camBuffer.View[2].xyz;
 
-    float t = dot(spotLightBuffer.LightDir.xyz, lDir);
-    if (t < spotLightBuffer.CutoffAngle.y)
+    vec4 finalColor = vec4(0.0, 0.0, 0.0, 0.0);
+
+    for (int i = 0; i < spotLightBuffer.Count; i++)
     {
-        discard;
+        vec3 lP = spotLightBuffer.objects[i].LightPos.xyz;
+        vec4 lD = spotLightBuffer.objects[i].LightDir.xyzw;
+        vec4 lCr = spotLightBuffer.objects[i].LightColor.xyzw;
+        vec3 lCa = spotLightBuffer.objects[i].CutoffAngle.xyz;
+
+        vec3 lDir = normalize(lP - mP.xyz);
+        float dL = length(lDir);
+        lDir /= dL;
+
+        float t = dot(lD.xyz, lDir);
+
+        float e = lCa.x - lCa.y;
+        float iV = clamp((t - lCa.y) / e, 0.0, 1.0);
+
+        float l = max(dot(lDir, normal.xyz), 0.0);
+
+        vec3 hD = normalize(lDir + cF);
+        float sA = max(dot(hD, normal.xyz), 0.0);
+        float s = max(pow(sA, spec.w), 0.0);
+
+        float dI = max((lCa.z - dL) / lCa.z, 0.0);
+
+        vec3 lC = color.xyz * l * lCr.xyz * lD.w * iV * dI;
+        vec3 sC = spec.xyz * s * lCr.xyz * lD.w * iV * dI;
+
+        finalColor += vec4(lC + sC, 1.0);
     }
 
-    float e = spotLightBuffer.CutoffAngle.x - spotLightBuffer.CutoffAngle.y;
-    float i = clamp((t - spotLightBuffer.CutoffAngle.y) / e, 0.0f, 1.0f);
-
-    vec4 color = texture(colorSampler, vUV);
-    vec4 spec = texture(specSampler, vUV);
-
-    float l = max(dot(lDir, normal.xyz), 0.0f);
-
-    vec3 hD = normalize(lDir + camBuffer.View[2].xyz);
-    float sA = max(dot(hD, normal.xyz), 0.0f);
-    float s = max(pow(sA, spec.w), 0.0);
-
-    float dI = max((spotLightBuffer.CutoffAngle.z - dL) / spotLightBuffer.CutoffAngle.z, 0.0f);
-
-    vec3 lC = color.xyz * l * spotLightBuffer.LightColor.xyz * spotLightBuffer.LightDir.w * i * dI;
-    vec3 sC = spec.xyz * s * spotLightBuffer.LightColor.xyz * spotLightBuffer.LightDir.w * i * dI;
-    fragColor = vec4(lC + sC, 1.0f);
+    fragColor = vec4(finalColor.xyz, 1.0);
 }

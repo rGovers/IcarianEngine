@@ -192,31 +192,29 @@ namespace IcarianEngine.Rendering
 
         public override Material PreLight(LightType a_lightType, Camera a_camera)
         {
-            Material mat = null;
-
             switch (a_lightType)
             {
             case LightType.Directional:
             {
-                mat = Material.DirectionalLightMaterial;
+                return Material.DirectionalLightMaterial;
                 
                 break;
             }
             case LightType.Point:
             {
-                mat = Material.PointLightMaterial;
+                return Material.PointLightMaterial;
 
                 break;
             }
             case LightType.Spot:
             {
-                mat = Material.SpotLightMaterial;
+                return Material.SpotLightMaterial;
 
                 break;
             }
             }   
             
-            return mat;
+            return null;
         }
         public override void PostLight(LightType a_lightType, Camera a_camera)
         {

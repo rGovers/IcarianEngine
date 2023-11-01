@@ -24,7 +24,10 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
     IOP_ENUM_VALUE(ShaderBufferType, PushTexture) = 8,
     IOP_ENUM_VALUE(ShaderBufferType, UserUBO) = 9,
     IOP_ENUM_VALUE(ShaderBufferType, SSModelBuffer) = 10,
-    IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 11
+    IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 11,
+    IOP_ENUM_VALUE(ShaderBufferType, SSDirectionalLightBuffer) = 12,
+    IOP_ENUM_VALUE(ShaderBufferType, SSPointLightBuffer) = 13,
+    IOP_ENUM_VALUE(ShaderBufferType, SSSpotLightBuffer) = 14
 };
 
 IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderSlot) : IOP_UINT16
