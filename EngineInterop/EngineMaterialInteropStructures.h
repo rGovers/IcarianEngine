@@ -52,16 +52,6 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(PrimitiveMode) : IOP_UINT16
     IOP_ENUM_VALUE(PrimitiveMode, TriangleStrip) = 1
 };
 
-/// @cond INTERNAL
-IOP_CSINTERNAL enum IOP_ENUM_NAME(InternalRenderProgram) : IOP_UINT16
-{
-    IOP_ENUM_VALUE(InternalRenderProgram, DirectionalLight) = 0,
-    IOP_ENUM_VALUE(InternalRenderProgram, PointLight) = 1,
-    IOP_ENUM_VALUE(InternalRenderProgram, SpotLight) = 2,
-    IOP_ENUM_VALUE(InternalRenderProgram, Post) = 3
-};
-/// @endcond
-
 IOP_PACKED IOP_CSPUBLIC struct ShaderBufferInput
 {
     /// <summary>

@@ -12,11 +12,12 @@
 #include "Flare/IcarianDefer.h"
 #include "Flare/OBJLoader.h"
 #include "ObjectManager.h"
-#include "Rendering/Vulkan/VulkanLightBuffer.h"
-#include "Rendering/Vulkan/VulkanLightData.h"
 #include "Rendering/RenderEngine.h"
+#include "Rendering/ShaderTable.h"
 #include "Rendering/UI/Font.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
+#include "Rendering/Vulkan/VulkanLightBuffer.h"
+#include "Rendering/Vulkan/VulkanLightData.h"
 #include "Rendering/Vulkan/VulkanModel.h"
 #include "Rendering/Vulkan/VulkanPixelShader.h"
 #include "Rendering/Vulkan/VulkanRenderCommand.h"
@@ -38,7 +39,6 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     F(void, IcarianEngine.Rendering, VertexShader, DestroyShader, { Engine->DestroyVertexShader(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, PixelShader, DestroyShader, { Engine->DestroyPixelShader(a_addr); }, uint32_t a_addr) \
     \
-    F(uint32_t, IcarianEngine.Rendering, Material, GenerateInternalProgram, { return Engine->GenerateInternalShaderProgram((e_InternalRenderProgram)a_renderProgram); }, uint32_t a_renderProgram) \
     F(RenderProgram, IcarianEngine.Rendering, Material, GetProgramBuffer, { return Engine->GetRenderProgram(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, Material, SetProgramBuffer, { Engine->SetRenderProgram(a_addr, a_program); }, uint32_t a_addr, RenderProgram a_program) \
     F(void, IcarianEngine.Rendering, Material, SetTexture, { Engine->RenderProgramSetTexture(a_addr, a_shaderSlot, a_samplerAddr); }, uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr) \
@@ -119,84 +119,101 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
 
 VULKANGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
 
-FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(VertexShader, GenerateFromFile), MonoString* a_path)
+RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile, 
 {
     char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
 
-    const std::filesystem::path p = std::filesystem::path(str);
-
-    mono_free(str);  
-
-    if (p.extension() == ".fvert")
+    const std::string s = str;
+    if (s.find_first_of("[INTERNAL]") == 0)
     {
-        std::ifstream file = std::ifstream(p);
-        if (file.good() && file.is_open())
+        const char* shader = GetVertexShaderString(s);
+
+        if (shader != nullptr)
         {
-            std::stringstream ss;
-
-            ss << file.rdbuf();
-
-            file.close();
-
-            return Engine->GenerateFVertexShaderAddr(ss.str());
+            return Engine->GenerateFVertexShaderAddr(shader);
         }
     }
-    else if (p.extension() == ".vert")
+    else
     {
-        std::ifstream file = std::ifstream(p);
-        if (file.good() && file.is_open())
+        const std::filesystem::path p = std::filesystem::path(s);
+
+        if (p.extension() == ".fvert")
         {
-            std::stringstream ss;
+            std::ifstream file = std::ifstream(p);
+            if (file.good() && file.is_open())
+            {
+                std::stringstream ss;
 
-            ss << file.rdbuf();
+                ss << file.rdbuf();
 
-            file.close();
+                return Engine->GenerateFVertexShaderAddr(ss.str());
+            }
+        }
+        else if (p.extension() == ".vert")
+        {
+            std::ifstream file = std::ifstream(p);
+            if (file.good() && file.is_open())
+            {
+                std::stringstream ss;
 
-            return Engine->GenerateGLSLVertexShaderAddr(ss.str());
+                ss << file.rdbuf();
+
+                return Engine->GenerateGLSLVertexShaderAddr(ss.str());
+            }
         }
     }
 
     return -1;
-}
-FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(PixelShader, GenerateFromFile), MonoString* a_path)
+}, MonoString* a_path)
+RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile, 
 {
     char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
 
-    const std::filesystem::path p = std::filesystem::path(str);
+    const std::string s = str;
 
-    mono_free(str);
-
-    if (p.extension() == ".fpix" || p.extension() == ".ffrag")
+    if (s.find_first_of("[INTERNAL]") == 0)
     {
-        std::ifstream file = std::ifstream(p);
-        if (file.good() && file.is_open())
+        const char* shader = GetPixelShaderString(s);
+
+        if (shader != nullptr)
         {
-            std::stringstream ss;
-
-            ss << file.rdbuf();
-
-            file.close();
-
-            return Engine->GenerateFPixelShaderAddr(ss.str());
+            return Engine->GenerateFPixelShaderAddr(shader);
         }
     }
-    else if (p.extension() == ".pix" || p.extension() == ".frag")
+    else
     {
-        std::ifstream file = std::ifstream(p);
-        if (file.good() && file.is_open())
+        const std::filesystem::path p = std::filesystem::path(str);
+
+        if (p.extension() == ".fpix" || p.extension() == ".ffrag")
         {
-            std::stringstream ss;
+            std::ifstream file = std::ifstream(p);
+            if (file.good() && file.is_open())
+            {
+                std::stringstream ss;
 
-            ss << file.rdbuf();
+                ss << file.rdbuf();
 
-            file.close();
+                return Engine->GenerateFPixelShaderAddr(ss.str());
+            }
+        }
+        else if (p.extension() == ".pix" || p.extension() == ".frag")
+        {
+            std::ifstream file = std::ifstream(p);
+            if (file.good() && file.is_open())
+            {
+                std::stringstream ss;
 
-            return Engine->GenerateGLSLPixelShaderAddr(ss.str());
+                ss << file.rdbuf();
+
+                return Engine->GenerateGLSLPixelShaderAddr(ss.str());
+            }
         }
     }
 
     return -1;
-}
+}, MonoString* a_path)
 
 RUNTIME_FUNCTION(MonoArray*, Camera, GetProjectionMatrix, 
 {
@@ -540,168 +557,6 @@ void VulkanGraphicsEngineBindings::DestroyPixelShader(uint32_t a_addr) const
     m_graphicsEngine->DestroyPixelShader(a_addr);
 }
 
-uint32_t VulkanGraphicsEngineBindings::GenerateInternalShaderProgram(e_InternalRenderProgram a_program) const
-{
-    RenderProgram program;
-    // Stops the application from allocating ~60GB of RAM when ASAN is removed in release mode
-    // For some reason has to be memset not just setting fields to 0
-    // Not going to question it and just accept it
-    memset(&program, 0, sizeof(RenderProgram));
-    program.ShadowVertexShader = -1;
-    program.Flags |= 0b1 << RenderProgram::DestroyFlag;
-
-    switch (a_program)
-    {
-    case InternalRenderProgram_DirectionalLight:
-    {
-        TRACE("Creating Directional Light Shader");
-
-        program.VertexShader = GenerateGLSLVertexShaderAddr(QuadVertexShader);
-        program.PixelShader = GenerateFPixelShaderAddr(DirectionalLightPixelShader);
-        program.CullingMode = CullMode_None;
-        program.PrimitiveMode = PrimitiveMode_TriangleStrip;
-        program.EnableColorBlending = 1;
-
-        constexpr uint32_t TextureCount = 5;
-        constexpr uint32_t CameraIndex = TextureCount + 0;
-        constexpr uint32_t DirectionLightIndex = TextureCount + 1;
-        constexpr uint32_t BufferCount = TextureCount + 2;
-
-        program.ShaderBufferInputCount = BufferCount;
-        program.ShaderBufferInputs = new ShaderBufferInput[BufferCount];
-        for (uint32_t i = 0; i < TextureCount; ++i)
-        {
-            program.ShaderBufferInputs[i].Slot = i;
-            program.ShaderBufferInputs[i].BufferType = ShaderBufferType_Texture;
-            program.ShaderBufferInputs[i].ShaderSlot = ShaderSlot_Pixel;
-            program.ShaderBufferInputs[i].Set = 0;
-        }
-
-        program.ShaderBufferInputs[CameraIndex].Slot = CameraIndex;
-        program.ShaderBufferInputs[CameraIndex].BufferType = ShaderBufferType_CameraBuffer;
-        program.ShaderBufferInputs[CameraIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[CameraIndex].Set = 1;
-
-        program.ShaderBufferInputs[DirectionLightIndex].Slot = DirectionLightIndex;
-        program.ShaderBufferInputs[DirectionLightIndex].BufferType = ShaderBufferType_SSDirectionalLightBuffer;
-        program.ShaderBufferInputs[DirectionLightIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[DirectionLightIndex].Set = 2;
-
-        break;
-    }
-    case InternalRenderProgram_PointLight:
-    {
-        TRACE("Creating Point Light Shader");
-
-        program.VertexShader = GenerateGLSLVertexShaderAddr(QuadVertexShader);
-        program.PixelShader = GenerateFPixelShaderAddr(PointLightPixelShader);
-        program.CullingMode = CullMode_None;
-        program.PrimitiveMode = PrimitiveMode_TriangleStrip;
-        program.EnableColorBlending = 1;
-
-        constexpr uint32_t TextureCount = 5;
-        constexpr uint32_t CameraIndex = TextureCount + 0;
-        constexpr uint32_t PointLightIndex = TextureCount + 1;
-        constexpr uint32_t BufferCount = TextureCount + 2;
-        
-        program.ShaderBufferInputCount = BufferCount;
-        program.ShaderBufferInputs = new ShaderBufferInput[BufferCount];
-        for (uint32_t i = 0; i < TextureCount; ++i)
-        {
-            program.ShaderBufferInputs[i].Slot = i;
-            program.ShaderBufferInputs[i].BufferType = ShaderBufferType_Texture;
-            program.ShaderBufferInputs[i].ShaderSlot = ShaderSlot_Pixel;
-            program.ShaderBufferInputs[i].Set = 0;
-        }
-
-        program.ShaderBufferInputs[CameraIndex].Slot = CameraIndex;
-        program.ShaderBufferInputs[CameraIndex].BufferType = ShaderBufferType_CameraBuffer;
-        program.ShaderBufferInputs[CameraIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[CameraIndex].Set = 1;
-
-        program.ShaderBufferInputs[PointLightIndex].Slot = PointLightIndex;
-        program.ShaderBufferInputs[PointLightIndex].BufferType = ShaderBufferType_SSPointLightBuffer;
-        program.ShaderBufferInputs[PointLightIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[PointLightIndex].Set = 2;
-
-        break;
-    }
-    case InternalRenderProgram_SpotLight:
-    {
-        TRACE("Creating Spot Light Shader");
-
-        program.VertexShader = GenerateGLSLVertexShaderAddr(QuadVertexShader);
-        program.PixelShader = GenerateFPixelShaderAddr(SpotLightPixelShader);
-        program.CullingMode = CullMode_None;
-        program.PrimitiveMode = PrimitiveMode_TriangleStrip;
-        program.EnableColorBlending = 1;
-
-        constexpr uint32_t TextureCount = 5;
-        constexpr uint32_t CameraIndex = TextureCount + 0;
-        constexpr uint32_t SpotLightIndex = TextureCount + 1;
-        constexpr uint32_t BufferCount = TextureCount + 2;
-
-        program.ShaderBufferInputCount = BufferCount;
-        program.ShaderBufferInputs = new ShaderBufferInput[BufferCount];
-        for (uint32_t i = 0; i < TextureCount; ++i)
-        {
-            program.ShaderBufferInputs[i].Slot = i;
-            program.ShaderBufferInputs[i].BufferType = ShaderBufferType_Texture;
-            program.ShaderBufferInputs[i].ShaderSlot = ShaderSlot_Pixel;
-            program.ShaderBufferInputs[i].Set = 0;
-        }
-
-        program.ShaderBufferInputs[CameraIndex].Slot = CameraIndex;
-        program.ShaderBufferInputs[CameraIndex].BufferType = ShaderBufferType_CameraBuffer;
-        program.ShaderBufferInputs[CameraIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[CameraIndex].Set = 1;
-
-        program.ShaderBufferInputs[SpotLightIndex].Slot = SpotLightIndex;
-        program.ShaderBufferInputs[SpotLightIndex].BufferType = ShaderBufferType_SSSpotLightBuffer;
-        program.ShaderBufferInputs[SpotLightIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[SpotLightIndex].Set = 2;
-
-        break;
-    }
-    case InternalRenderProgram_Post:
-    {
-        TRACE("Creating Post Shader");
-
-        program.VertexShader = GenerateGLSLVertexShaderAddr(QuadVertexShader);
-        program.PixelShader = GenerateFPixelShaderAddr(PostPixelShader);
-        program.CullingMode = CullMode_None;
-        program.PrimitiveMode = PrimitiveMode_TriangleStrip;
-        program.EnableColorBlending = 1;
-
-        constexpr uint32_t TextureCount = 4;
-        constexpr uint32_t CameraIndex = TextureCount + 0;
-        constexpr uint32_t BufferCount = TextureCount + 1;
-
-        program.ShaderBufferInputCount = BufferCount;
-        program.ShaderBufferInputs = new ShaderBufferInput[BufferCount];
-        for (uint32_t i = 0; i < TextureCount; ++i)
-        {
-            program.ShaderBufferInputs[i].Slot = i;
-            program.ShaderBufferInputs[i].BufferType = ShaderBufferType_Texture;
-            program.ShaderBufferInputs[i].ShaderSlot = ShaderSlot_Pixel;
-            program.ShaderBufferInputs[i].Set = 0;
-        }
-
-        program.ShaderBufferInputs[CameraIndex].Slot = CameraIndex;
-        program.ShaderBufferInputs[CameraIndex].BufferType = ShaderBufferType_CameraBuffer;
-        program.ShaderBufferInputs[CameraIndex].ShaderSlot = ShaderSlot_Pixel;
-        program.ShaderBufferInputs[CameraIndex].Set = 1;
-
-        break;
-    }
-    default:
-    {
-        ICARIAN_ASSERT_MSG(0, "Invalid Internal Render Program");
-    }
-    }
-
-    return GenerateShaderProgram(program);
-}
 uint32_t VulkanGraphicsEngineBindings::GenerateShaderProgram(const RenderProgram& a_program) const
 {
     return m_graphicsEngine->GenerateRenderProgram(a_program);

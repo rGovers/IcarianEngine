@@ -4,6 +4,8 @@ using IcarianEngine.Rendering;
 
 namespace IcarianEngine
 {
+    /// @cond INTERNAL
+
     class Program
     {
         const string WorkingDirArg = "--wDir";
@@ -23,8 +25,6 @@ namespace IcarianEngine
                     Application.WorkingDirectory = arg.Substring(WorkingDirArg.Length + 1);
                 }
             }
-
-            Material.Init();
 
             RenderPipeline.Init(new DefaultRenderPipeline());
 
@@ -51,8 +51,6 @@ namespace IcarianEngine
             GameObject.DestroyObjects();
 
             RenderPipeline.Destroy();
-
-            Material.Destroy();
 
             Logger.IcarianMessage("Shutdown");
 
@@ -87,5 +85,7 @@ namespace IcarianEngine
 
             ModControl.FrameUpdate();
         }
+
+        /// @endcond
     }
 }

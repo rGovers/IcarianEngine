@@ -7,6 +7,17 @@ namespace IcarianEngine.Rendering
 {
     public class DefaultRenderPipeline : RenderPipeline, IDisposable
     {
+        VertexShader       m_quadVert;
+        PixelShader        m_directionalLightPixel;
+        PixelShader        m_pointLightPixel;
+        PixelShader        m_spotLightPixel;
+        PixelShader        m_postPixel;
+
+        Material           m_directionalLightMaterial;
+        Material           m_pointLightMaterial;
+        Material           m_spotLightMaterial;
+        Material           m_postMaterial;
+
         MultiRenderTexture m_drawRenderTexture;
         RenderTexture      m_lightRenderTexture;
 
@@ -21,6 +32,23 @@ namespace IcarianEngine.Rendering
         uint               m_width;
         uint               m_height;
 
+        float              m_lambda;
+
+        /// <summary>
+        /// The lambda value for cascaded shadow maps.
+        /// </summary>
+        public float CascadeLambda
+        {
+            get
+            {
+                return m_lambda;
+            }
+            set
+            {
+                m_lambda = value;
+            }
+        }
+
         void SetTextures(Material a_mat)
         {
             a_mat.SetTexture(0, m_colorSampler);
@@ -32,16 +60,19 @@ namespace IcarianEngine.Rendering
 
         void SetPostTextures()
         {
-            Material postMat = Material.PostMaterial;
-
-            postMat.SetTexture(0, m_lightColorSampler);
-            postMat.SetTexture(1, m_normalSampler);
-            postMat.SetTexture(2, m_emissionSampler);
-            postMat.SetTexture(3, m_depthSampler);
+            m_postMaterial.SetTexture(0, m_lightColorSampler);
+            m_postMaterial.SetTexture(1, m_normalSampler);
+            m_postMaterial.SetTexture(2, m_emissionSampler);
+            m_postMaterial.SetTexture(3, m_depthSampler);
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="IcarianEngine.Rendering.DefaultRenderPipeline"/> class.
+        /// </summary>
         public DefaultRenderPipeline()
         {
+            m_lambda = 0.5f;
+
             m_width = 1920;
             m_height = 1080;
 
@@ -56,13 +87,257 @@ namespace IcarianEngine.Rendering
 
             m_lightColorSampler = TextureSampler.GenerateRenderTextureSampler(m_lightRenderTexture);
 
-            SetTextures(Material.DirectionalLightMaterial);
-            SetTextures(Material.PointLightMaterial);
-            SetTextures(Material.SpotLightMaterial);
+            m_quadVert = VertexShader.LoadVertexShader("[INTERNAL]Quad");
+
+            m_directionalLightPixel = PixelShader.LoadPixelShader("[INTERNAL]DirectionalLight");
+            m_pointLightPixel = PixelShader.LoadPixelShader("[INTERNAL]PointLight");
+            m_spotLightPixel = PixelShader.LoadPixelShader("[INTERNAL]SpotLight");
+            m_postPixel = PixelShader.LoadPixelShader("[INTERNAL]Post");
+
+            MaterialBuilder directionalLightBuilder = new MaterialBuilder()
+            {
+                VertexShader = m_quadVert,
+                PixelShader = m_directionalLightPixel,
+                PrimitiveMode = PrimitiveMode.TriangleStrip,
+                EnableColorBlending = true,
+                ShaderInputs = new ShaderBufferInput[]
+                {
+                    new ShaderBufferInput()
+                    {
+                        Slot = 0,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 1,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 2,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 3,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 4,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 5,
+                        BufferType = ShaderBufferType.CameraBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 1
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 6,
+                        BufferType = ShaderBufferType.SSDirectionalLightBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 2
+                    }
+                }
+            };
+            
+            MaterialBuilder pointLightBuilder = new MaterialBuilder()
+            {
+                VertexShader = m_quadVert,
+                PixelShader = m_pointLightPixel,
+                PrimitiveMode = PrimitiveMode.TriangleStrip,
+                EnableColorBlending = true,
+                ShaderInputs = new ShaderBufferInput[]
+                {
+                    new ShaderBufferInput()
+                    {
+                        Slot = 0,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 1,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 2,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 3,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 4,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 5,
+                        BufferType = ShaderBufferType.CameraBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 1
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 6,
+                        BufferType = ShaderBufferType.SSPointLightBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 2
+                    }
+                }
+            };
+
+            MaterialBuilder spotLightBuilder = new MaterialBuilder()
+            {
+                VertexShader = m_quadVert,
+                PixelShader = m_spotLightPixel,
+                PrimitiveMode = PrimitiveMode.TriangleStrip,
+                EnableColorBlending = true,
+                ShaderInputs = new ShaderBufferInput[]
+                {
+                    new ShaderBufferInput()
+                    {
+                        Slot = 0,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 1,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 2,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 3,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 4,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 5,
+                        BufferType = ShaderBufferType.CameraBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 1
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 6,
+                        BufferType = ShaderBufferType.SSSpotLightBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 2
+                    }
+                }
+            };
+
+            m_directionalLightMaterial = Material.CreateMaterial(directionalLightBuilder);
+            m_pointLightMaterial = Material.CreateMaterial(pointLightBuilder);
+            m_spotLightMaterial = Material.CreateMaterial(spotLightBuilder);
+
+            SetTextures(m_directionalLightMaterial);
+            SetTextures(m_pointLightMaterial);
+            SetTextures(m_spotLightMaterial);
+
+            MaterialBuilder postMaterial = new MaterialBuilder()
+            {
+                VertexShader = m_quadVert,
+                PixelShader = m_postPixel,
+                PrimitiveMode = PrimitiveMode.TriangleStrip,
+                EnableColorBlending = true,
+                ShaderInputs = new ShaderBufferInput[]
+                {
+                    new ShaderBufferInput()
+                    {
+                        Slot = 0,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 1,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 2,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 3,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 4,
+                        BufferType = ShaderBufferType.CameraBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 1
+                    }
+                }
+            };
+
+            m_postMaterial = Material.CreateMaterial(postMaterial);
 
             SetPostTextures();
         }
 
+        /// <summary>
+        /// Called when the Swap Chain is resized.
+        /// </summary>
+        /// <param name="a_width">The new width of the Swap Chain.</param>
+        /// <param name="a_height">The new height of the Swap Chain.</param>
         public override void Resize(uint a_width, uint a_height)
         {
             m_width = a_width;
@@ -71,19 +346,28 @@ namespace IcarianEngine.Rendering
             m_drawRenderTexture.Resize(m_width, m_height);
             m_lightRenderTexture.Resize(m_width, m_height);
 
-            SetTextures(Material.DirectionalLightMaterial);
-            SetTextures(Material.PointLightMaterial);
-            SetTextures(Material.SpotLightMaterial);
+            SetTextures(m_directionalLightMaterial);
+            SetTextures(m_pointLightMaterial);
+            SetTextures(m_spotLightMaterial);
 
             SetPostTextures();
         }
 
+        /// <summary>
+        /// Called before starting the shadow pass.
+        /// </summary>
+        /// <param name="a_camera">The camera the shadow pass is for.</param>
         public override void ShadowSetup(Camera a_camera)
         {
             
         }
-        // Multidraw is a bit of a pain so I'm going to leave it for now and do a draw call per shadow map
-        // If I can think of a way to do it while still keeping programability I'll do it
+        /// <summary>
+        /// Called before rendering the shadow map for a light.
+        /// </summary>
+        /// <param name="a_light">The light the shadow map is for.</param>
+        /// <param name="a_camera">The camera the shadow map is for.</param>
+        /// <param name="a_textureSlot">The slot of the shadow map.</param>
+        /// <returns>The light view projection matrix.</returns>
         public override Matrix4 PreShadow(Light a_light, Camera a_camera, uint a_textureSlot) 
         {
             // I forget everytime so knicked it
@@ -99,19 +383,17 @@ namespace IcarianEngine.Rendering
             float fnDiff = far - near;
             float fON = far / near;
 
-            // TODO: Tweak this to get better results
-            const float Lambda = 0.5f;
-            const float InvLambda = 1.0f - Lambda;
+            float invLambda = 1.0f - m_lambda;
 
             float cN = (float)a_textureSlot / cascadeCount;
             float cF = (float)(a_textureSlot + 1) / cascadeCount;
 
-            float cascadeNear = Lambda * near * Mathf.Pow(fON, cN) + InvLambda * (near + cN * fnDiff);
+            float cascadeNear = m_lambda * near * Mathf.Pow(fON, cN) + invLambda * (near + cN * fnDiff);
             if (a_textureSlot == 0)
             {
                 cascadeNear = near;
             }
-            float cascadeFar = Lambda * near * Mathf.Pow(fON, cF) + InvLambda * (near + cF * fnDiff);
+            float cascadeFar = m_lambda * near * Mathf.Pow(fON, cF) + invLambda * (near + cF * fnDiff);
             if (a_textureSlot == cascadeCount - 1)
             {
                 cascadeFar = far;
@@ -171,64 +453,92 @@ namespace IcarianEngine.Rendering
 
             return lightView * lightProj;
         }
+        /// <summary>
+        /// Called after rendering the shadow map for a light.
+        /// </summary>
+        /// <param name="a_light">The light the shadow map is for.</param>
+        /// <param name="a_camera">The camera the shadow map is for.</param>
+        /// <param name="a_textureSlot">The slot of the shadow map.</param>
         public override void PostShadow(Light a_light, Camera a_camera, uint a_textureSlot)
         {
             
         }
 
+        /// <summary>
+        /// Called before the render pass.
+        /// </summary>
+        /// <param name="a_camera">The camera the render pass is for.</param>
         public override void PreRender(Camera a_camera)
         {
             RenderCommand.BindRenderTexture(m_drawRenderTexture);
         }
+        /// <summary>
+        /// Called after the render pass.
+        /// </summary>
+        /// <param name="a_camera">The camera the render pass is for.</param>
         public override void PostRender(Camera a_camera)
         {
             
         }
 
+        /// <summary>
+        /// Called before the light pass.
+        /// </summary>
         public override void LightSetup(Camera a_camera)
         {
             RenderCommand.BindRenderTexture(m_lightRenderTexture);
         }
 
+        /// <summary>
+        /// Called before the light pass for a light type.
+        /// </summary>
+        /// <param name="a_lightType">The type of light.</param>
+        /// <param name="a_camera">The camera the light pass is for.</param>
+        /// <returns>The material to use for the light pass.</returns>
         public override Material PreLight(LightType a_lightType, Camera a_camera)
         {
             switch (a_lightType)
             {
             case LightType.Directional:
             {
-                return Material.DirectionalLightMaterial;
-                
-                break;
+                return m_directionalLightMaterial;
             }
             case LightType.Point:
             {
-                return Material.PointLightMaterial;
-
-                break;
+                return m_pointLightMaterial;
             }
             case LightType.Spot:
             {
-                return Material.SpotLightMaterial;
-
-                break;
+                return m_spotLightMaterial;
             }
             }   
             
             return null;
         }
+        /// <summary>
+        /// Called after the light pass for a light type.
+        /// </summary>
+        /// <param name="a_lightType">The type of light.</param>
+        /// <param name="a_camera">The camera the light pass is for.</param>
         public override void PostLight(LightType a_lightType, Camera a_camera)
         {
             
         }
 
+        /// <summary>
+        /// Called for the post process pass.
+        /// </summary>
         public override void PostProcess(Camera a_camera)
         {
             RenderCommand.BindRenderTexture(a_camera.RenderTexture);
-            RenderCommand.BindMaterial(Material.PostMaterial);
+            RenderCommand.BindMaterial(m_postMaterial);
 
             RenderCommand.DrawMaterial();
         }
 
+        /// <summary>
+        /// Called when the render pipeline is destroyed.
+        /// </summary>
         public virtual void Dispose()
         {
             m_drawRenderTexture.Dispose();
@@ -241,6 +551,17 @@ namespace IcarianEngine.Rendering
             m_depthSampler.Dispose();
 
             m_lightColorSampler.Dispose();
+
+            m_directionalLightMaterial.Dispose();
+            m_pointLightMaterial.Dispose();
+            m_spotLightMaterial.Dispose();
+            m_postMaterial.Dispose();
+
+            m_quadVert.Dispose();
+            m_directionalLightPixel.Dispose();
+            m_pointLightPixel.Dispose();
+            m_spotLightPixel.Dispose();
+            m_postPixel.Dispose();
         }
     }
 }

@@ -66,8 +66,6 @@ namespace IcarianEngine.Rendering
     public class Material : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateInternalProgram(uint a_renderProgram);
-        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateProgram(uint a_vertexShader, uint a_pixelShader, ushort a_vertexStride, VertexInputAttribute[] a_attributes, ShaderBufferInput[] a_shaderInputs, uint a_cullMode, uint a_primitiveMode, uint a_enableColorBlending, uint a_renderLayer, uint a_shadowVertexShader, ShaderBufferInput[] a_shadowShaderInputs, uint a_uboSize, IntPtr a_uboBuffer); 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static RenderProgram GetProgramBuffer(uint a_addr); 
@@ -79,23 +77,6 @@ namespace IcarianEngine.Rendering
         extern static void SetTexture(uint a_addr, uint a_shaderSlot, uint a_samplerAddr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetUserUniform(uint a_addr, uint a_uboSize, IntPtr a_uboBuffer);
-
-        /// <summary>
-        /// The directional light material used by the default render pipeline.
-        /// </summary>
-        public static Material DirectionalLightMaterial = null;
-        /// <summary>
-        /// The point light material used by the default render pipeline.
-        /// </summary>
-        public static Material PointLightMaterial = null;
-        /// <summary>
-        /// The spot light material used by the default render pipeline.
-        /// </summary>
-        public static Material SpotLightMaterial = null;
-        /// <summary>
-        /// The post processing material used by the default render pipeline.
-        /// </summary>
-        public static Material PostMaterial = null;
 
         uint        m_bufferAddr = uint.MaxValue;
         Type        m_uboType = null;
@@ -151,30 +132,9 @@ namespace IcarianEngine.Rendering
             }
         }
 
-        internal static void Init()
-        {
-            DirectionalLightMaterial = new Material(InternalRenderProgram.DirectionalLight);
-            PointLightMaterial = new Material(InternalRenderProgram.PointLight);
-            SpotLightMaterial = new Material(InternalRenderProgram.SpotLight);
-            PostMaterial = new Material(InternalRenderProgram.Post);
-        }
-        internal static void Destroy()
-        {
-            DirectionalLightMaterial.Dispose();
-            PointLightMaterial.Dispose();
-            SpotLightMaterial.Dispose();
-            PostMaterial.Dispose();
-        }
-
         Material(uint a_bufferAddr)
         {
             m_bufferAddr = a_bufferAddr;
-        }
-        Material(InternalRenderProgram a_program)
-        {
-            m_bufferAddr = GenerateInternalProgram((uint)a_program);
-
-            RenderLayer = 0b1;
         }
 
         /// <summary>
@@ -245,27 +205,6 @@ namespace IcarianEngine.Rendering
             if (a_builder.PixelShader == null)
             {
                 Logger.IcarianError("Material invalid pixel shader");
-
-                return null;
-            }
-
-            if (a_builder.Attributes == null)
-            {
-                Logger.IcarianError("Material invalid vertex attributes");
-
-                return null;
-            }
-
-            if (a_builder.ShaderInputs == null)
-            {
-                Logger.IcarianError("Material invalid shader inputs");
-
-                return null;
-            }
-
-            if (a_builder.ShadowVertexShader != null && a_builder.ShadowShaderInputs == null)
-            {
-                Logger.IcarianError("Material invalid shadow shader inputs");
 
                 return null;
             }

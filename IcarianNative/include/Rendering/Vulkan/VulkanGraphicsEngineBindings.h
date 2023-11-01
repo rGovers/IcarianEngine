@@ -36,7 +36,6 @@ public:
     uint32_t GenerateGLSLPixelShaderAddr(const std::string_view& a_str) const;
     void DestroyPixelShader(uint32_t a_addr) const;
 
-    uint32_t GenerateInternalShaderProgram(e_InternalRenderProgram a_program) const;
     uint32_t GenerateShaderProgram(const RenderProgram& a_program) const;
     void DestroyShaderProgram(uint32_t a_addr) const;
     void RenderProgramSetTexture(uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr) const;

@@ -17,7 +17,6 @@
     F(void, IcarianEngine.Rendering, PixelShader, DestroyShader, { }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, Material, GenerateMaterial, { return 0; }, uint32_t a_vertexShaderAddr, uint32_t a_pixelShaderAddr, uint16_t a_vertexStride, MonoArray* a_vertexInputAttribs, MonoArray* a_shaderInputs, uint32_t a_cullingMode, uint32_t a_primitiveMode, uint32_t a_colorBlendingEnabled) \
-    F(uint32_t, IcarianEngine.Rendering, Material, GenerateInternalProgram, { return 0; }, e_InternalRenderProgram a_renderProgram) \
     F(void, IcarianEngine.Rendering, Material, DestroyMaterial, { }, uint32_t a_addr) \
     F(RenderProgram, IcarianEngine.Rendering, Material, GetProgramBuffer, { return RenderProgram(); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, Material, SetProgramBuffer, { }, uint32_t a_addr, RenderProgram a_program) \
