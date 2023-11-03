@@ -65,14 +65,14 @@ vk::DescriptorSet VulkanPushPool::GenerateDescriptor(vk::DescriptorPool a_pool, 
     return descriptorSet;
 }
 
-vk::DescriptorSet VulkanPushPool::AllocateDescriptor(uint32_t a_index, vk::DescriptorType a_type, const vk::DescriptorSetLayout* a_layout)
+vk::DescriptorSet VulkanPushPool::AllocateDescriptor(uint32_t a_index, vk::DescriptorType a_type, const vk::DescriptorSetLayout* a_layout, uint32_t a_size)
 {
     TLockArray<VulkanPushPoolBuffer> buffers = m_buffers[a_index].ToLockArray();
     for (VulkanPushPoolBuffer& buffer : buffers)
     {
-        if (buffer.Type == a_type && buffer.Count < MaxPoolSize)
+        if (buffer.Type == a_type && buffer.Count + a_size < MaxPoolSize)
         {
-            ++buffer.Count;
+            buffer.Count += a_size;
 
             return GenerateDescriptor(buffer.Pool, a_layout);
         }
@@ -81,7 +81,7 @@ vk::DescriptorSet VulkanPushPool::AllocateDescriptor(uint32_t a_index, vk::Descr
     const vk::Device device = m_engine->GetLogicalDevice();
 
     VulkanPushPoolBuffer buffer;
-    buffer.Count = 1;
+    buffer.Count = a_size;
     buffer.Type = a_type;
     
     const vk::DescriptorPoolSize poolSize = vk::DescriptorPoolSize

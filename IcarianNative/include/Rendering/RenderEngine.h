@@ -3,7 +3,7 @@
 #include <string_view>
 #include <thread>
 
-#include "Flare/TextureSampler.h"
+#include "EngineTextureSamplerInteropStructures.h"
 
 enum e_RenderingEngine
 {
@@ -54,7 +54,7 @@ public:
     uint32_t GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data) const;
     void DestroyTexture(uint32_t a_addr) const;
 
-    uint32_t GenerateTextureSampler(uint32_t a_textureAddr, FlareBase::e_TextureMode a_textureMode, FlareBase::e_TextureFilter a_filterMode, FlareBase::e_TextureAddress a_addressMode, uint32_t a_slot = 0) const;
+    uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0) const;
     void DestroyTextureSampler(uint32_t a_addr) const;
 
     Font* GetFont(uint32_t a_addr) const;

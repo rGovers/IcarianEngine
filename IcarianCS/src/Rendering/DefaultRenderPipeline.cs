@@ -7,15 +7,22 @@ namespace IcarianEngine.Rendering
 {
     public class DefaultRenderPipeline : RenderPipeline, IDisposable
     {
+        /// <summary>
+        /// The number of cascades to use for directional light shadows.
+        /// </summary>
+        public const uint CascadeCount = 4;
+
         VertexShader       m_quadVert;
         PixelShader        m_directionalLightPixel;
         PixelShader        m_pointLightPixel;
         PixelShader        m_spotLightPixel;
+        PixelShader        m_directionalLightShadowPixel;
         PixelShader        m_postPixel;
 
         Material           m_directionalLightMaterial;
         Material           m_pointLightMaterial;
         Material           m_spotLightMaterial;
+        Material           m_directionalLightShadowMaterial;
         Material           m_postMaterial;
 
         MultiRenderTexture m_drawRenderTexture;
@@ -92,6 +99,7 @@ namespace IcarianEngine.Rendering
             m_directionalLightPixel = PixelShader.LoadPixelShader("[INTERNAL]DirectionalLight");
             m_pointLightPixel = PixelShader.LoadPixelShader("[INTERNAL]PointLight");
             m_spotLightPixel = PixelShader.LoadPixelShader("[INTERNAL]SpotLight");
+            m_directionalLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]DirectionalLightShadow");
             m_postPixel = PixelShader.LoadPixelShader("[INTERNAL]Post");
 
             MaterialBuilder directionalLightBuilder = new MaterialBuilder()
@@ -282,6 +290,85 @@ namespace IcarianEngine.Rendering
             SetTextures(m_pointLightMaterial);
             SetTextures(m_spotLightMaterial);
 
+            MaterialBuilder directionalLightShadowMaterial = new MaterialBuilder()
+            {
+                VertexShader = m_quadVert,
+                PixelShader = m_directionalLightShadowPixel,
+                PrimitiveMode = PrimitiveMode.TriangleStrip,
+                EnableColorBlending = true,
+                ShaderInputs = new ShaderBufferInput[]
+                {
+                    new ShaderBufferInput()
+                    {
+                        Slot = 0,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 1,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 2,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 3,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 4,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 5,
+                        BufferType = ShaderBufferType.AShadowTexture2D,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 1,
+                        Count = (ushort)CascadeCount
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 6,
+                        BufferType = ShaderBufferType.CameraBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 2
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 7,
+                        BufferType = ShaderBufferType.DirectionalLightBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 3
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 8,
+                        BufferType = ShaderBufferType.SSShadowLightBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 4
+                    }
+                }
+            };
+
+            m_directionalLightShadowMaterial = Material.CreateMaterial(directionalLightShadowMaterial);
+
+            SetTextures(m_directionalLightShadowMaterial);
+
             MaterialBuilder postMaterial = new MaterialBuilder()
             {
                 VertexShader = m_quadVert,
@@ -350,57 +437,36 @@ namespace IcarianEngine.Rendering
             SetTextures(m_pointLightMaterial);
             SetTextures(m_spotLightMaterial);
 
+            SetTextures(m_directionalLightShadowMaterial);
+
             SetPostTextures();
         }
 
-        /// <summary>
-        /// Called before starting the shadow pass.
-        /// </summary>
-        /// <param name="a_camera">The camera the shadow pass is for.</param>
-        public override void ShadowSetup(Camera a_camera)
+        float GetCascade(uint a_index, uint a_count, float a_near, float a_far)
         {
-            
-        }
-        /// <summary>
-        /// Called before rendering the shadow map for a light.
-        /// </summary>
-        /// <param name="a_light">The light the shadow map is for.</param>
-        /// <param name="a_camera">The camera the shadow map is for.</param>
-        /// <param name="a_textureSlot">The slot of the shadow map.</param>
-        /// <returns>The light view projection matrix.</returns>
-        public override Matrix4 PreShadow(Light a_light, Camera a_camera, uint a_textureSlot) 
-        {
-            // I forget everytime so knicked it
-            // https://learnopengl.com/Guest-Articles/2021/CSM
-            // On second though something did not look right in the maths so I knicked this
-            // https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf
+            if (a_index == 0)
+            {
+                return a_near;
+            }
+            else if (a_index == a_count)
+            {
+                return a_far;
+            }
 
             // I believe I need l near (far / near) ^ (i / N) + (1 - l)(near + (i / N)(far - near))
-            List<IRenderTexture> shadowMaps = new List<IRenderTexture>(a_light.ShadowMaps);
-            uint cascadeCount = (uint)shadowMaps.Count;
-            float near = a_camera.Near;
-            float far = a_camera.Far;
-            float fnDiff = far - near;
-            float fON = far / near;
+            float fnDiff = a_far - a_near;
+            float fON = a_far / a_near;
 
             float invLambda = 1.0f - m_lambda;
 
-            float cN = (float)a_textureSlot / cascadeCount;
-            float cF = (float)(a_textureSlot + 1) / cascadeCount;
+            float cN = (float)a_index / a_count;
 
-            float cascadeNear = m_lambda * near * Mathf.Pow(fON, cN) + invLambda * (near + cN * fnDiff);
-            if (a_textureSlot == 0)
-            {
-                cascadeNear = near;
-            }
-            float cascadeFar = m_lambda * near * Mathf.Pow(fON, cF) + invLambda * (near + cF * fnDiff);
-            if (a_textureSlot == cascadeCount - 1)
-            {
-                cascadeFar = far;
-            }
-
+            return m_lambda * a_near * Mathf.Pow(fON, cN) + invLambda * (a_near + cN * fnDiff);
+        }
+        Matrix4 GetCascadeLVPMatrix(float a_near, float a_far, Light a_light, Camera a_camera)
+        {
             Matrix4 cameraTrans = a_camera.Transform.ToMatrix();
-            Matrix4 proj = a_camera.ToProjection(m_width, m_height, cascadeNear, cascadeFar);
+            Matrix4 proj = a_camera.ToProjection(m_width, m_height, a_near, a_far);
             Matrix4 projInv = Matrix4.Inverse(proj);
 
             Vector4[] corners = new Vector4[8]
@@ -427,7 +493,10 @@ namespace IcarianEngine.Rendering
 
             mid /= 8.0f;
 
-            Matrix4 lightTrans = new Matrix4(Vector4.UnitX, Vector4.UnitY, Vector4.UnitZ, new Vector4(mid, 1.0f)) * a_light.Transform.Rotation.ToMatrix();
+            Quaternion rot = a_light.Transform.Rotation;
+            Quaternion invRot = Quaternion.Inverse(rot);
+
+            Matrix4 lightTrans = invRot.ToMatrix() * new Matrix4(Vector4.UnitX, Vector4.UnitY, Vector4.UnitZ, new Vector4(mid, 1.0f));
             Matrix4 lightView = Matrix4.Inverse(lightTrans);
 
             Vector3 min = Vector3.One * float.MaxValue;
@@ -449,9 +518,49 @@ namespace IcarianEngine.Rendering
             Vector3 extents = max - min;
 
             // Ensure stuff behind the light in camera frustum is rendered
-            Matrix4 lightProj = Matrix4.CreateOrthographic(extents.X * 2, extents.Y * 2, -extents.Z * 2, extents.Z);
+            Matrix4 lightProj = Matrix4.CreateOrthographic(extents.X, extents.Y, -extents.Z * 2, extents.Z);
 
-            return lightView * lightProj;
+            return lightView * lightProj;   
+        }
+
+        /// <summary>
+        /// Called before starting the shadow pass.
+        /// </summary>
+        /// <param name="a_camera">The camera the shadow pass is for.</param>
+        public override void ShadowSetup(Camera a_camera)
+        {
+            
+        }
+        /// <summary>
+        /// Called before rendering the shadow map for a light.
+        /// </summary>
+        /// <param name="a_light">The light the shadow map is for.</param>
+        /// <param name="a_camera">The camera the shadow map is for.</param>
+        /// <param name="a_textureSlot">The slot of the shadow map.</param>
+        /// <returns>The information for the shadow map.</returns>
+        public override LightShadowSplit PreShadow(Light a_light, Camera a_camera, uint a_textureSlot) 
+        {
+            // I forget everytime so knicked it
+            // https://learnopengl.com/Guest-Articles/2021/CSM
+            // On second though something did not look right in the maths so I knicked this
+            // https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf
+
+            // I believe I need l near (far / near) ^ (i / N) + (1 - l)(near + (i / N)(far - near))
+            List<IRenderTexture> shadowMaps = new List<IRenderTexture>(a_light.ShadowMaps);
+            uint cascadeCount = (uint)shadowMaps.Count;
+            float near = a_camera.Near;
+            float far = a_camera.Far;
+
+            float cascadeNear = GetCascade(a_textureSlot, cascadeCount, near, far);
+            float cascadeFar = GetCascade(a_textureSlot + 1, cascadeCount, near, far);
+
+            Matrix4 lvp = GetCascadeLVPMatrix(cascadeNear, cascadeFar, a_light, a_camera);
+
+            return new LightShadowSplit()
+            {
+                LVP = lvp,
+                Split = cascadeFar
+            };
         }
         /// <summary>
         /// Called after rendering the shadow map for a light.
@@ -489,6 +598,50 @@ namespace IcarianEngine.Rendering
             RenderCommand.BindRenderTexture(m_lightRenderTexture);
         }
 
+        /// <summary>
+        /// Called before the shadow pass for a light.
+        /// </summary>
+        /// <param name="a_light">The light the shadow pass is for.</param>
+        /// <param name="a_camera">The camera the shadow pass is for.</param>
+        /// <returns>Information to use for the shadow pass.</returns>
+        public override LightShadowPass PreShadowLight(Light a_light, Camera a_camera)
+        {
+            LightShadowPass pass = new LightShadowPass();
+
+            List<IRenderTexture> shadowMaps = new List<IRenderTexture>(a_light.ShadowMaps);
+            uint cascadeCount = (uint)shadowMaps.Count;
+
+            float near = a_camera.Near;
+            float far = a_camera.Far;
+
+            pass.Material = m_directionalLightShadowMaterial;
+            pass.Splits = new LightShadowSplit[cascadeCount];
+
+            for (uint i = 0; i < cascadeCount; ++i)
+            {
+                float cascadeNear = GetCascade(i, cascadeCount, near, far);
+                float cascadeFar = GetCascade(i + 1, cascadeCount, near, far);
+
+                Matrix4 lvp = GetCascadeLVPMatrix(cascadeNear, cascadeFar, a_light, a_camera);
+
+                pass.Splits[i] = new LightShadowSplit()
+                {
+                    LVP = lvp,
+                    Split = cascadeFar
+                };
+            }
+
+            return pass;
+        }
+        /// <summary>
+        /// Called after the shadow pass for a light.
+        /// </summary>
+        /// <param name="a_light">The light the shadow pass is for.</param>
+        /// <param name="a_camera">The camera the shadow pass is for.</param>
+        public override void PostShadowLight(Light a_light, Camera a_camera)
+        {
+            
+        }
         /// <summary>
         /// Called before the light pass for a light type.
         /// </summary>
@@ -555,12 +708,14 @@ namespace IcarianEngine.Rendering
             m_directionalLightMaterial.Dispose();
             m_pointLightMaterial.Dispose();
             m_spotLightMaterial.Dispose();
+            m_directionalLightShadowMaterial.Dispose();
             m_postMaterial.Dispose();
 
             m_quadVert.Dispose();
             m_directionalLightPixel.Dispose();
             m_pointLightPixel.Dispose();
             m_spotLightPixel.Dispose();
+            m_directionalLightShadowPixel.Dispose();
             m_postPixel.Dispose();
         }
     }

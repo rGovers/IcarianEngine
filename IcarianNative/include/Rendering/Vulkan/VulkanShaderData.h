@@ -6,9 +6,8 @@
 
 #include "Rendering/Vulkan/VulkanConstants.h"
 
-#include "Flare/TextureSampler.h"
-
 #include "EngineMaterialInteropStructures.h"
+#include "EngineTextureSamplerInteropStructures.h"
 
 class ObjectManager;
 class UIElement;
@@ -21,6 +20,7 @@ struct VulkanPushDescriptor
 {
     uint32_t Set;
     uint32_t Binding;
+    uint32_t Count;
     vk::DescriptorSetLayout DescriptorLayout;
 };
 
@@ -81,18 +81,23 @@ public:
     bool GetBatchPointLightInput(ShaderBufferInput* a_input) const;
     bool GetBatchSpotLightInput(ShaderBufferInput* a_input) const;
 
+    bool GetShadowLightStorageBufferInput(ShaderBufferInput* a_input) const;
+    bool GetShadowTextureInput(ShaderBufferInput* a_input) const;
+
     bool GetBatchModelBufferInput(ShaderBufferInput* a_input) const;
     bool GetShadowBatchModelBufferInput(ShaderBufferInput* a_input) const;
     
     bool GetBoneBufferInput(ShaderBufferInput* a_input) const;
 
-    void SetTexture(uint32_t a_slot, const FlareBase::TextureSampler& a_sampler) const;
+    void SetTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler) const;
 
-    void PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const FlareBase::TextureSampler& a_sampler, uint32_t a_index) const;
+    void PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer& a_sampler, uint32_t a_index) const;
+    void PushTextures(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer* a_samplers, uint32_t a_count, uint32_t a_index) const;
+
     void PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
     void PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanShaderStorageObject* a_object, uint32_t a_index) const;
 
-    void PushShadowTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const FlareBase::TextureSampler& a_sampler, uint32_t a_index) const;
+    void PushShadowTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer& a_sampler, uint32_t a_index) const;
     void PushShadowUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
     void PushShadowShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanShaderStorageObject* a_object, uint32_t a_index) const;
 
@@ -101,7 +106,7 @@ public:
     
     void UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, const UIElement* a_element) const;
 
-    void UpdateShadowLightBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_lvp) const;
+    void UpdateShadowLightBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_lvp, float a_split) const;
 
     void Update(uint32_t a_index, const RenderProgram& a_program);
     void BindShadow(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;

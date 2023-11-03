@@ -62,10 +62,10 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     \
     F(void, IcarianEngine.Rendering, Texture, DestroyTexture, { Engine->DestroyTexture(a_addr); }, uint32_t a_addr) \
     \
-    F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateTextureSampler, { return Engine->GenerateTextureSampler(a_texture, (FlareBase::e_TextureFilter)a_filter, (FlareBase::e_TextureAddress)a_addressMode ); }, uint32_t a_texture, uint32_t a_filter, uint32_t a_addressMode) \
-    F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateRenderTextureSampler, { return Engine->GenerateRenderTextureSampler(a_renderTexture, a_textureIndex, (FlareBase::e_TextureFilter)a_filter, (FlareBase::e_TextureAddress)a_addressMode); }, uint32_t a_renderTexture, uint32_t a_textureIndex, uint32_t a_filter, uint32_t a_addressMode) \
-    F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateRenderTextureDepthSampler, { return Engine->GenerateRenderTextureDepthSampler(a_renderTexture, (FlareBase::e_TextureFilter)a_filter, (FlareBase::e_TextureAddress)a_addressMode); }, uint32_t a_renderTexture, uint32_t a_filter, uint32_t a_addressMode) \
-    F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateRenderTextureDepthSamplerDepth, { return Engine->GenerateRenderTextureDepthSamplerDepth(a_renderTexture, (FlareBase::e_TextureFilter)a_filter, (FlareBase::e_TextureAddress)a_addressMode); }, uint32_t a_renderTexture, uint32_t a_filter, uint32_t a_addressMode) \
+    F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateTextureSampler, { return Engine->GenerateTextureSampler(a_texture, (e_TextureFilter)a_filter, (e_TextureAddress)a_addressMode ); }, uint32_t a_texture, uint32_t a_filter, uint32_t a_addressMode) \
+    F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateRenderTextureSampler, { return Engine->GenerateRenderTextureSampler(a_renderTexture, a_textureIndex, (e_TextureFilter)a_filter, (e_TextureAddress)a_addressMode); }, uint32_t a_renderTexture, uint32_t a_textureIndex, uint32_t a_filter, uint32_t a_addressMode) \
+    F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateRenderTextureDepthSampler, { return Engine->GenerateRenderTextureDepthSampler(a_renderTexture, (e_TextureFilter)a_filter, (e_TextureAddress)a_addressMode); }, uint32_t a_renderTexture, uint32_t a_filter, uint32_t a_addressMode) \
+    F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateRenderTextureDepthSamplerDepth, { return Engine->GenerateRenderTextureDepthSamplerDepth(a_renderTexture, (e_TextureFilter)a_filter, (e_TextureAddress)a_addressMode); }, uint32_t a_renderTexture, uint32_t a_filter, uint32_t a_addressMode) \
     F(void, IcarianEngine.Rendering, TextureSampler, DestroySampler, { Engine->DestroyTextureSampler(a_addr); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GenerateRenderTexture, { return Engine->GenerateRenderTexture(a_count, a_width, a_height, (bool)a_depthTexture, (bool)a_hdr); }, uint32_t a_count, uint32_t a_width, uint32_t a_height, uint32_t a_depthTexture, uint32_t a_hdr) \
@@ -485,16 +485,38 @@ FLARE_MONO_EXPORT(void, RUNTIME_FUNCTION_NAME(RenderCommand, DrawModel), MonoArr
 
 RUNTIME_FUNCTION(void, RenderPipeline, SetLightLVP,
 {
-    glm::mat4 lightLVP = glm::mat4(1.0f);
+    const uint32_t lightLVPCount = (uint32_t)mono_array_length(a_lightLVP);
 
-    float* f = (float*)&lightLVP;
-    for (int i = 0; i < 16; ++i)
+    glm::mat4* lightLVP = new glm::mat4[lightLVPCount];
+    IDEFER(delete[] lightLVP);
+
+    for (uint32_t i = 0; i < lightLVPCount; ++i)
     {
-        f[i] = mono_array_get(a_lightLVP, float, i);
+        MonoArray* lvpArray = mono_array_get(a_lightLVP, MonoArray*, i);
+
+        float* f = (float*)&(lightLVP[i]);
+        for (int j = 0; j < 16; ++j)
+        {
+            f[j] = mono_array_get(lvpArray, float, j);
+        }
     }
 
-    Engine->SetLightLVP(lightLVP);
+    Engine->SetLightLVP(lightLVP, lightLVPCount);
 }, MonoArray* a_lightLVP)
+RUNTIME_FUNCTION(void, RenderPipeline, SetLightSplits, 
+{
+    const uint32_t lightSplitCount = (uint32_t)mono_array_length(a_lightSplits);
+
+    float* lightSplits = new float[lightSplitCount];
+    IDEFER(delete[] lightSplits);
+
+    for (uint32_t i = 0; i < lightSplitCount; ++i)
+    {
+        lightSplits[i] = mono_array_get(a_lightSplits, float, i);
+    }
+
+    Engine->SetLightSplits(lightSplits, lightSplitCount);
+}, MonoArray* a_lightSplits)
 
 VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(VulkanGraphicsEngine* a_graphicsEngine)
 {
@@ -525,6 +547,7 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(VulkanGraphicsEngine*
     BIND_FUNCTION(IcarianEngine.Rendering, RenderCommand, DrawModel);
 
     BIND_FUNCTION(IcarianEngine.Rendering, RenderPipeline, SetLightLVP);
+    BIND_FUNCTION(IcarianEngine.Rendering, RenderPipeline, SetLightSplits);
 }
 VulkanGraphicsEngineBindings::~VulkanGraphicsEngineBindings()
 {
@@ -578,7 +601,7 @@ void VulkanGraphicsEngineBindings::RenderProgramSetTexture(uint32_t a_addr, uint
 
     VulkanShaderData* data = (VulkanShaderData*)program.Data;
 
-    TReadLockArray<FlareBase::TextureSampler> b = m_graphicsEngine->m_textureSampler.ToReadLockArray();
+    TReadLockArray<TextureSamplerBuffer> b = m_graphicsEngine->m_textureSampler.ToReadLockArray();
 
     data->SetTexture(a_shaderSlot, b[a_samplerAddr]);
 }
@@ -884,21 +907,21 @@ void VulkanGraphicsEngineBindings::DestroyTexture(uint32_t a_addr) const
     m_graphicsEngine->DestroyTexture(a_addr);
 }
 
-uint32_t VulkanGraphicsEngineBindings::GenerateTextureSampler(uint32_t a_texture, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const
+uint32_t VulkanGraphicsEngineBindings::GenerateTextureSampler(uint32_t a_texture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const
 {
-    return m_graphicsEngine->GenerateTextureSampler(a_texture, FlareBase::TextureMode_Texture, a_filter, a_addressMode);
+    return m_graphicsEngine->GenerateTextureSampler(a_texture, TextureMode_Texture, a_filter, a_addressMode);
 }
-uint32_t VulkanGraphicsEngineBindings::GenerateRenderTextureSampler(uint32_t a_renderTexture, uint32_t a_textureIndex, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const
+uint32_t VulkanGraphicsEngineBindings::GenerateRenderTextureSampler(uint32_t a_renderTexture, uint32_t a_textureIndex, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const
 {
-    return m_graphicsEngine->GenerateTextureSampler(a_renderTexture, FlareBase::TextureMode_RenderTexture, a_filter, a_addressMode, a_textureIndex);
+    return m_graphicsEngine->GenerateTextureSampler(a_renderTexture, TextureMode_RenderTexture, a_filter, a_addressMode, a_textureIndex);
 }
-uint32_t VulkanGraphicsEngineBindings::GenerateRenderTextureDepthSampler(uint32_t a_renderTexture, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const
+uint32_t VulkanGraphicsEngineBindings::GenerateRenderTextureDepthSampler(uint32_t a_renderTexture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const
 {
-    return m_graphicsEngine->GenerateTextureSampler(a_renderTexture, FlareBase::TextureMode_RenderTextureDepth, a_filter, a_addressMode);
+    return m_graphicsEngine->GenerateTextureSampler(a_renderTexture, TextureMode_RenderTextureDepth, a_filter, a_addressMode);
 }
-uint32_t VulkanGraphicsEngineBindings::GenerateRenderTextureDepthSamplerDepth(uint32_t a_renderTexture, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const
+uint32_t VulkanGraphicsEngineBindings::GenerateRenderTextureDepthSamplerDepth(uint32_t a_renderTexture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const
 {
-    return m_graphicsEngine->GenerateTextureSampler(a_renderTexture, FlareBase::TextureMode_DepthRenderTexture, a_filter, a_addressMode);
+    return m_graphicsEngine->GenerateTextureSampler(a_renderTexture, TextureMode_DepthRenderTexture, a_filter, a_addressMode);
 }
 void VulkanGraphicsEngineBindings::DestroyTextureSampler(uint32_t a_addr) const
 {
@@ -1302,10 +1325,17 @@ void VulkanGraphicsEngineBindings::DrawModel(const glm::mat4& a_transform, uint3
     m_graphicsEngine->m_renderCommands->DrawModel(a_transform, a_addr);
 }
 
-void VulkanGraphicsEngineBindings::SetLightLVP(const glm::mat4 &a_lvp) const
+void VulkanGraphicsEngineBindings::SetLightLVP(const glm::mat4* a_lvp, uint32_t a_lvpCount) const
 {
     ICARIAN_ASSERT_MSG(m_graphicsEngine->m_lightData.Exists(), "SetLightLVP LightData does not exist");
 
-    m_graphicsEngine->m_lightData->SetLVP(a_lvp);
+    m_graphicsEngine->m_lightData->SetLVP(a_lvp, a_lvpCount);
 }
+void VulkanGraphicsEngineBindings::SetLightSplits(const float* a_splits, uint32_t a_splitCount) const
+{
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_lightData.Exists(), "SetLightSplits LightData does not exist");
+
+    m_graphicsEngine->m_lightData->SetSplits(a_splits, a_splitCount);
+}
+
 #endif

@@ -12,7 +12,6 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
 #include "Rendering/Vulkan/VulkanShaderStorageObject.h"
-#include "Rendering/Vulkan/VulkanTexture.h"
 #include "Rendering/Vulkan/VulkanTextureSampler.h"
 #include "Rendering/Vulkan/VulkanUniformBuffer.h"
 #include "Trace.h"
@@ -169,6 +168,7 @@ constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_buffe
     {
     case ShaderBufferType_Texture:
     case ShaderBufferType_PushTexture:
+    case ShaderBufferType_AShadowTexture2D:
     {
         return vk::DescriptorType::eCombinedImageSampler;
     }
@@ -177,6 +177,7 @@ constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_buffe
     case ShaderBufferType_SSDirectionalLightBuffer:
     case ShaderBufferType_SSPointLightBuffer:
     case ShaderBufferType_SSSpotLightBuffer:
+    case ShaderBufferType_SSShadowLightBuffer:
     {
         return vk::DescriptorType::eStorageBuffer;
     }
@@ -228,6 +229,7 @@ static void GetLayoutInfo(const ShaderBufferInput* a_inputs, uint32_t a_inputCou
         case ShaderBufferType_SSDirectionalLightBuffer:
         case ShaderBufferType_SSPointLightBuffer:
         case ShaderBufferType_SSSpotLightBuffer:
+        case ShaderBufferType_SSShadowLightBuffer:
         case ShaderBufferType_UserUBO:
         {
             Input in;
@@ -237,6 +239,22 @@ static void GetLayoutInfo(const ShaderBufferInput* a_inputs, uint32_t a_inputCou
                 input.Slot,
                 GetDescriptorType(input.BufferType),
                 1,
+                GetShaderStage(input.ShaderSlot)
+            );
+
+            a_pushBindings->push_back(in);
+
+            break;
+        }
+        case ShaderBufferType_AShadowTexture2D:
+        {
+            Input in;
+            in.Slot = i;
+            in.Binding = vk::DescriptorSetLayoutBinding
+            (
+                input.Slot,
+                GetDescriptorType(input.BufferType),
+                input.Count,
                 GetShaderStage(input.ShaderSlot)
             );
 
@@ -264,44 +282,52 @@ static void GetLayoutInfo(const ShaderBufferInput* a_inputs, uint32_t a_inputCou
     }
 }
 
-static vk::DescriptorImageInfo GetDescriptorImageInfo(const FlareBase::TextureSampler& a_baseSampler, const VulkanTextureSampler* a_sampler, VulkanGraphicsEngine* a_engine)
+static vk::DescriptorImageInfo GetDescriptorImageInfo(const TextureSamplerBuffer& a_baseSampler, const VulkanTextureSampler* a_sampler, VulkanGraphicsEngine* a_engine)
 {
-    vk::DescriptorImageInfo imageInfo = vk::DescriptorImageInfo(a_sampler->GetSampler());
+    vk::DescriptorImageInfo imageInfo;
+    imageInfo.sampler = a_sampler->GetSampler();
+    imageInfo.imageView = a_sampler->GetImageView();
 
     switch (a_baseSampler.TextureMode)
     {
-    case FlareBase::TextureMode_Texture:
+    case TextureMode_Texture:
     {
-        const VulkanTexture* texture = a_engine->GetTexture(a_baseSampler.Addr);
-
-        imageInfo.imageView = texture->GetImageView();
         imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
         break;
     }
-    case FlareBase::TextureMode_RenderTexture:
+    case TextureMode_RenderTexture:
     {
         const VulkanRenderTexture* renderTexture = a_engine->GetRenderTexture(a_baseSampler.Addr);
 
-        imageInfo.imageView = renderTexture->GetImageView(a_baseSampler.TSlot);
+        if (imageInfo.imageView == vk::ImageView(nullptr))
+        {
+            imageInfo.imageView = renderTexture->GetImageView(a_baseSampler.Slot);
+        }
         imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
         break;
     }
-    case FlareBase::TextureMode_RenderTextureDepth:
+    case TextureMode_RenderTextureDepth:
     {
         const VulkanRenderTexture* renderTexture = a_engine->GetRenderTexture(a_baseSampler.Addr);
 
-        imageInfo.imageView = renderTexture->GetDepthImageView();
+        if (imageInfo.imageView == vk::ImageView(nullptr))
+        {
+            imageInfo.imageView = renderTexture->GetDepthImageView();
+        }
         imageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 
         break;
     }
-    case FlareBase::TextureMode_DepthRenderTexture:
+    case TextureMode_DepthRenderTexture:
     {
         const VulkanDepthRenderTexture* renderTexture = a_engine->GetDepthRenderTexture(a_baseSampler.Addr);
 
-        imageInfo.imageView = renderTexture->GetImageView();
+        if (imageInfo.imageView == vk::ImageView(nullptr))
+        {
+            imageInfo.imageView = renderTexture->GetImageView();
+        }
         imageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 
         break;
@@ -382,13 +408,16 @@ static void GeneratePushBindings(const std::vector<Input>& a_bindings, const Sha
                 &binding.Binding
             );
 
+            const ShaderBufferInput& input = a_inputs[binding.Slot];
+
             vk::DescriptorSetLayout layout;
             ICARIAN_ASSERT_MSG_R(a_device.createDescriptorSetLayout(&descriptorLayoutInfo, nullptr, &layout) == vk::Result::eSuccess, "Failed to create Push Descriptor Layout");
             a_layouts->emplace_back(layout);
 
             VulkanPushDescriptor d;
-            d.Set = a_inputs[binding.Slot].Set;
-            d.Binding = a_inputs[binding.Slot].Slot;
+            d.Set = input.Set;
+            d.Binding = input.Slot;
+            d.Count = input.Count;
             d.DescriptorLayout = layout;
                 
             a_pushDescriptors->emplace_back(d);
@@ -517,7 +546,7 @@ VulkanShaderData::~VulkanShaderData()
     }
 }
 
-void VulkanShaderData::SetTexture(uint32_t a_slot, const FlareBase::TextureSampler& a_sampler) const
+void VulkanShaderData::SetTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler) const
 {
     vk::Device device = m_engine->GetLogicalDevice();
 
@@ -540,7 +569,7 @@ void VulkanShaderData::SetTexture(uint32_t a_slot, const FlareBase::TextureSampl
     device.updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
 }
 
-void VulkanShaderData::PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const FlareBase::TextureSampler& a_sampler, uint32_t a_index) const
+void VulkanShaderData::PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer& a_sampler, uint32_t a_index) const
 {   
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -577,6 +606,54 @@ void VulkanShaderData::PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a
 
     ICARIAN_ASSERT_MSG(0, "PushTexture binding not found");
 }
+void VulkanShaderData::PushTextures(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer* a_samplers, uint32_t a_count, uint32_t a_index) const
+{
+    const vk::Device device = m_engine->GetLogicalDevice();
+
+    for (const VulkanPushDescriptor& d : m_pushDescriptors)
+    {
+        if (d.Set == a_set)
+        {
+            VulkanPushPool* pool = m_gEngine->GetPushPool();
+
+            const uint32_t size = d.Count;
+
+            vk::DescriptorSet descriptorSet = pool->AllocateDescriptor(a_index, vk::DescriptorType::eCombinedImageSampler, &d.DescriptorLayout, size);
+
+            const uint32_t min = glm::min(size, a_count);
+
+            vk::DescriptorImageInfo* imageInfos = new vk::DescriptorImageInfo[min];
+            IDEFER(delete[] imageInfos);
+            
+            for (uint32_t i = 0; i < min; ++i)
+            {
+                const VulkanTextureSampler* vSampler = (VulkanTextureSampler*)a_samplers[i].Data;
+                ICARIAN_ASSERT(vSampler != nullptr);
+
+                imageInfos[i] = GetDescriptorImageInfo(a_samplers[i], vSampler, m_gEngine);
+            }
+
+            const vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet
+            (
+                descriptorSet,
+                d.Binding,
+                0,
+                min,
+                vk::DescriptorType::eCombinedImageSampler,
+                imageInfos
+            );
+
+            device.updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+
+            a_commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_layout, d.Set, 1, &descriptorSet, 0, nullptr);
+
+            return;
+        }
+    }
+
+    ICARIAN_ASSERT_MSG(0, "PushTextures binding not found");
+}
+
 void VulkanShaderData::PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const
 {
     const vk::Device device = m_engine->GetLogicalDevice();
@@ -658,7 +735,7 @@ void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer
     ICARIAN_ASSERT_MSG(0, "PushShaderStorageObject binding not found");
 }
 
-void VulkanShaderData::PushShadowTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const FlareBase::TextureSampler& a_sampler, uint32_t a_index) const
+void VulkanShaderData::PushShadowTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer& a_sampler, uint32_t a_index) const
 {
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -815,7 +892,7 @@ void VulkanShaderData::UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, const U
     }
 }
 
-void VulkanShaderData::UpdateShadowLightBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_lvp) const
+void VulkanShaderData::UpdateShadowLightBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_lvp, float a_split) const
 {
     for (const ShaderBufferInput& input : m_shadowSlotInputs)
     {
@@ -823,6 +900,7 @@ void VulkanShaderData::UpdateShadowLightBuffer(vk::CommandBuffer a_commandBuffer
         {
             ShadowLightShaderBuffer buffer;
             buffer.LVP = a_lvp;
+            buffer.Split = a_split;
 
             a_commandBuffer.pushConstants(m_shadowLayout, GetShaderStage(input.ShaderSlot), 0, sizeof(ShadowLightShaderBuffer), &buffer);
 
@@ -959,6 +1037,35 @@ bool VulkanShaderData::GetBatchSpotLightInput(ShaderBufferInput* a_input) const
     for (const ShaderBufferInput& input : m_slotInputs)
     {
         if (input.BufferType == ShaderBufferType_SSSpotLightBuffer)
+        {
+            *a_input = input;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool VulkanShaderData::GetShadowLightStorageBufferInput(ShaderBufferInput* a_input) const
+{
+    for (const ShaderBufferInput& input : m_slotInputs)
+    {
+        if (input.BufferType == ShaderBufferType_SSShadowLightBuffer)
+        {
+            *a_input = input;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+bool VulkanShaderData::GetShadowTextureInput(ShaderBufferInput* a_input) const
+{
+    for (const ShaderBufferInput& input : m_slotInputs)
+    {
+        if (input.BufferType == ShaderBufferType_AShadowTexture2D)
         {
             *a_input = input;
 

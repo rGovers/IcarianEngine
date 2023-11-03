@@ -7,12 +7,12 @@ class VulkanGraphicsEngine;
 class VulkanPixelShader;
 class VulkanVertexShader;
 
-#include "Flare/TextureSampler.h"
 #include "Rendering/CameraBuffer.h"
 #include "Rendering/Light.h"
 #include "Rendering/MeshRenderBuffer.h"
 
 #include "EngineMaterialInteropStructures.h"
+#include "EngineTextureSamplerInteropStructures.h"
 
 // Before someone tries to get rid of this compiler seems to be pretty good at optimizing this out so until shown otherwise I'm going to leave it
 // Just glue code to get back into C++ style code from 
@@ -67,10 +67,10 @@ public:
     uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, const void* a_data);
     void DestroyTexture(uint32_t a_addr) const;
 
-    uint32_t GenerateTextureSampler(uint32_t a_texture, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const;
-    uint32_t GenerateRenderTextureSampler(uint32_t a_renderTexture, uint32_t a_textureIndex, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const;
-    uint32_t GenerateRenderTextureDepthSampler(uint32_t a_renderTexture, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const;
-    uint32_t GenerateRenderTextureDepthSamplerDepth(uint32_t a_renderTexture, FlareBase::e_TextureFilter a_filter, FlareBase::e_TextureAddress a_addressMode) const;
+    uint32_t GenerateTextureSampler(uint32_t a_texture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;
+    uint32_t GenerateRenderTextureSampler(uint32_t a_renderTexture, uint32_t a_textureIndex, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;
+    uint32_t GenerateRenderTextureDepthSampler(uint32_t a_renderTexture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;
+    uint32_t GenerateRenderTextureDepthSamplerDepth(uint32_t a_renderTexture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;
     void DestroyTextureSampler(uint32_t a_addr) const;
 
     uint32_t GenerateRenderTexture(uint32_t a_count, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr) const;
@@ -118,6 +118,7 @@ public:
     void DrawMaterial();
     void DrawModel(const glm::mat4& a_transform, uint32_t a_addr);
 
-    void SetLightLVP(const glm::mat4& a_lvp) const;
+    void SetLightLVP(const glm::mat4* a_lvp, uint32_t a_lvpCount) const;
+    void SetLightSplits(const float* a_splits, uint32_t a_splitCount) const;
 };
 #endif

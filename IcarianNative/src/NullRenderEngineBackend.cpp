@@ -102,6 +102,7 @@
     F(void, IcarianEngine.Rendering, RenderCommand, DrawModel, { }, MonoArray* a_transform, uint32_t a_addr) \
     \
     F(void, IcarianEngine.Rendering, RenderPipeline, SetLightLVP, { }, MonoArray* a_lvp) \
+    F(void, IcarianEngine.Rendering, RenderPipeline, SetLightSplits, { }, MonoArray* a_splits) \
     \
     F(void, IcarianEngine.Rendering.Animation, SkeletonAnimator, PushTransform, { }, uint32_t a_addr, MonoString* a_object, MonoArray* a_transform) \
 
@@ -125,7 +126,7 @@ void NullRenderEngineBackend::DestroyTexture(uint32_t a_texture)
 
 }
 
-uint32_t NullRenderEngineBackend::GenerateTextureSampler(uint32_t a_textureAddr, FlareBase::e_TextureMode a_textureMode, FlareBase::e_TextureFilter a_filterMode, FlareBase::e_TextureAddress a_addressMode, uint32_t a_slot)
+uint32_t NullRenderEngineBackend::GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot)
 {
     return 0;
 }

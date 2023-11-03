@@ -723,7 +723,7 @@ void VulkanRenderEngineBackend::DestroyTexture(uint32_t a_addr)
     m_graphicsEngine->DestroyTexture(a_addr);
 }
 
-uint32_t VulkanRenderEngineBackend::GenerateTextureSampler(uint32_t a_textureAddr, FlareBase::e_TextureMode a_textureMode, FlareBase::e_TextureFilter a_filterMode, FlareBase::e_TextureAddress a_addressMode, uint32_t a_slot)
+uint32_t VulkanRenderEngineBackend::GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot)
 {
     return m_graphicsEngine->GenerateTextureSampler(a_textureAddr, a_textureMode, a_filterMode, a_addressMode, a_slot);
 }

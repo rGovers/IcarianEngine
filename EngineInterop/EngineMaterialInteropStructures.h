@@ -27,7 +27,9 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
     IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 11,
     IOP_ENUM_VALUE(ShaderBufferType, SSDirectionalLightBuffer) = 12,
     IOP_ENUM_VALUE(ShaderBufferType, SSPointLightBuffer) = 13,
-    IOP_ENUM_VALUE(ShaderBufferType, SSSpotLightBuffer) = 14
+    IOP_ENUM_VALUE(ShaderBufferType, SSSpotLightBuffer) = 14,
+    IOP_ENUM_VALUE(ShaderBufferType, SSShadowLightBuffer) = 15,
+    IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 16
 };
 
 IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderSlot) : IOP_UINT16
@@ -70,11 +72,16 @@ IOP_PACKED IOP_CSPUBLIC struct ShaderBufferInput
     /// The set the buffer is used in (Vulkan only)
     /// </summary>
     IOP_CSPUBLIC IOP_UINT16 Set;
+    /// <summary>
+    /// The number of buffers in the array
+    /// </summary>
+    /// Used by ShaderBufferType with A prefix
+    IOP_CSPUBLIC IOP_UINT16 Count;
 
 #ifdef CUBE_LANGUAGE_CPP
     constexpr bool operator ==(const ShaderBufferInput& a_other) const
     {
-        return Slot == a_other.Slot && BufferType == a_other.BufferType && ShaderSlot == a_other.ShaderSlot;
+        return Slot == a_other.Slot && BufferType == a_other.BufferType && ShaderSlot == a_other.ShaderSlot && Set == a_other.Set && Count == a_other.Count;
     }
     constexpr bool operator !=(const ShaderBufferInput& a_other) const
     {

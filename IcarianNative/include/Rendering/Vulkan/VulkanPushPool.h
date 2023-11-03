@@ -40,7 +40,7 @@ public:
     VulkanPushPool(VulkanRenderEngineBackend* a_engine);
     ~VulkanPushPool();
 
-    vk::DescriptorSet AllocateDescriptor(uint32_t a_index, vk::DescriptorType a_type, const vk::DescriptorSetLayout* a_layout);
+    vk::DescriptorSet AllocateDescriptor(uint32_t a_index, vk::DescriptorType a_type, const vk::DescriptorSetLayout* a_layout, uint32_t a_size = 1);
     void Reset(uint32_t a_index);
 
     VulkanUniformBuffer* AllocateDirectionalLightUniformBuffer();

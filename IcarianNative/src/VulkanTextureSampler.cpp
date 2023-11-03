@@ -3,7 +3,9 @@
 #include "Rendering/Vulkan/VulkanTextureSampler.h"
 
 #include "Flare/IcarianAssert.h"
+#include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
+#include "Rendering/Vulkan/VulkanTexture.h"
 #include "Trace.h"
 
 class VulkanTextureSamplerDeletionObject : public VulkanDeletionObject
@@ -12,15 +14,17 @@ private:
     VulkanRenderEngineBackend* m_engine;
 
     vk::Sampler                m_sampler;
+    vk::ImageView              m_view;
 
 protected:
 
 public:
-    VulkanTextureSamplerDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Sampler a_sampler)
+    VulkanTextureSamplerDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Sampler a_sampler, vk::ImageView a_view)
     {
         m_engine = a_engine;
 
         m_sampler = a_sampler;
+        m_view = a_view;
     }
     virtual ~VulkanTextureSamplerDeletionObject()
     {
@@ -29,18 +33,21 @@ public:
 
     virtual void Destroy()
     {
-        TRACE("Destroying Texture Sampler");
         const vk::Device device = m_engine->GetLogicalDevice();
 
         device.destroySampler(m_sampler);
+        if (m_view != vk::ImageView(nullptr))
+        {
+            device.destroyImageView(m_view);
+        }
     }
 };
 
-constexpr static vk::Filter GetFilterMode(FlareBase::e_TextureFilter a_filter)
+constexpr static vk::Filter GetFilterMode(e_TextureFilter a_filter)
 {
     switch (a_filter)
     {
-    case FlareBase::TextureFilter_Linear:
+    case TextureFilter_Linear:
     {
         return vk::Filter::eLinear;
     }
@@ -49,15 +56,15 @@ constexpr static vk::Filter GetFilterMode(FlareBase::e_TextureFilter a_filter)
     return vk::Filter::eNearest;
 } 
 
-constexpr static vk::SamplerAddressMode GetAddressMode(FlareBase::e_TextureAddress a_address)
+constexpr static vk::SamplerAddressMode GetAddressMode(e_TextureAddress a_address)
 {
     switch (a_address)
     {
-    case FlareBase::TextureAddress_MirroredRepeat:
+    case TextureAddress_MirroredRepeat:
     {
         return vk::SamplerAddressMode::eMirroredRepeat;
     }
-    case FlareBase::TextureAddress_ClampToEdge:
+    case TextureAddress_ClampToEdge:
     {
         return vk::SamplerAddressMode::eClampToEdge;
     }
@@ -66,12 +73,20 @@ constexpr static vk::SamplerAddressMode GetAddressMode(FlareBase::e_TextureAddre
     return vk::SamplerAddressMode::eRepeat;
 }
 
-VulkanTextureSampler::VulkanTextureSampler(VulkanRenderEngineBackend* a_engine, const FlareBase::TextureSampler& a_sampler)
+VulkanTextureSampler::VulkanTextureSampler(VulkanRenderEngineBackend* a_engine)
 {
-    TRACE("Creating texture sampler");
     m_engine = a_engine;
+}
+VulkanTextureSampler::~VulkanTextureSampler()
+{
+    m_engine->PushDeletionObject(new VulkanTextureSamplerDeletionObject(m_engine, m_sampler, m_view));
+}
 
-    const vk::Device device = m_engine->GetLogicalDevice();
+VulkanTextureSampler* VulkanTextureSampler::GenerateFromBuffer(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const TextureSamplerBuffer& a_sampler)
+{
+    VulkanTextureSampler* sampler = new VulkanTextureSampler(a_engine);
+
+    const vk::Device device = a_engine->GetLogicalDevice();
 
     const vk::Filter filter = GetFilterMode(a_sampler.FilterMode);
     const vk::SamplerAddressMode address = GetAddressMode(a_sampler.AddressMode);
@@ -87,11 +102,33 @@ VulkanTextureSampler::VulkanTextureSampler(VulkanRenderEngineBackend* a_engine, 
         address
     );
 
-    ICARIAN_ASSERT_MSG_R(device.createSampler(&samplerInfo, nullptr, &m_sampler) == vk::Result::eSuccess, "Failed to create texture sampler");
-}
-VulkanTextureSampler::~VulkanTextureSampler()
-{
-    TRACE("Queueing Texture Sampler Deletion");
-    m_engine->PushDeletionObject(new VulkanTextureSamplerDeletionObject(m_engine, m_sampler));
+    ICARIAN_ASSERT_MSG_R(device.createSampler(&samplerInfo, nullptr, &sampler->m_sampler) == vk::Result::eSuccess, "Failed to create texture sampler");
+
+    switch (a_sampler.TextureMode)
+    {
+    case TextureMode_Texture:
+    {
+        const VulkanTexture* texture = a_gEngine->GetTexture(a_sampler.Addr);
+        ICARIAN_ASSERT(texture != nullptr);
+
+        constexpr vk::ImageSubresourceRange SubresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+
+        const vk::ImageViewCreateInfo viewInfo = vk::ImageViewCreateInfo
+        (
+            { }, 
+            texture->GetImage(), 
+            vk::ImageViewType::e2D, 
+            texture->GetFormat(),
+            { vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity },
+            SubresourceRange
+        );
+
+        ICARIAN_ASSERT_MSG_R(device.createImageView(&viewInfo, nullptr, &sampler->m_view) == vk::Result::eSuccess, "Failed to create image view");
+
+        break;
+    }
+    }
+
+    return sampler;
 }
 #endif

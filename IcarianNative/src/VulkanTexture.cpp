@@ -13,18 +13,16 @@ private:
     VulkanRenderEngineBackend* m_engine;
 
     vk::Image                  m_image;
-    vk::ImageView              m_view;
     VmaAllocation              m_allocation;
 
 protected:
 
 public:
-    VulkanTextureDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Image a_image, vk::ImageView a_view, VmaAllocation a_allocation)
+    VulkanTextureDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Image a_image, VmaAllocation a_allocation)
     {
         m_engine = a_engine;
 
         m_image = a_image;
-        m_view = a_view;
         m_allocation = a_allocation;
     }
     virtual ~VulkanTextureDeletionObject()
@@ -32,13 +30,11 @@ public:
         
     }
 
-    virtual void Destroy() override
+    virtual void Destroy()
     {
         TRACE("Destroying Texture");
-        const vk::Device device = m_engine->GetLogicalDevice();
         const VmaAllocator allocator = m_engine->GetAllocator();
 
-        device.destroyImageView(m_view);
         vmaDestroyImage(allocator, m_image, m_allocation);
     }
 };
@@ -65,7 +61,7 @@ public:
         
     }
 
-    virtual void Destroy() override
+    virtual void Destroy()
     {
         TRACE("Destroying Texture Buffer");
         const VmaAllocator allocator = m_engine->GetAllocator();
@@ -80,6 +76,8 @@ void VulkanTexture::Init(VulkanRenderEngineBackend* a_engine, uint32_t a_width, 
 
     m_width = a_width;
     m_height = a_height;
+
+    m_format = a_format;
 
     const vk::DeviceSize imageSize = (vk::DeviceSize)m_width * m_height * a_channels;
 
@@ -123,7 +121,7 @@ void VulkanTexture::Init(VulkanRenderEngineBackend* a_engine, uint32_t a_width, 
     // TODO: Add mip levels
     imageInfo.mipLevels = 1;
     imageInfo.arrayLayers = 1;
-    imageInfo.format = (VkFormat)a_format;
+    imageInfo.format = (VkFormat)m_format;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -179,18 +177,6 @@ void VulkanTexture::Init(VulkanRenderEngineBackend* a_engine, uint32_t a_width, 
     cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, { }, 0, nullptr, 0, nullptr, 1, &endImageBarrier);
 
     m_engine->EndSingleCommand(buffer);
-
-    const vk::ImageViewCreateInfo viewInfo = vk::ImageViewCreateInfo
-    (
-        { }, 
-        m_image, 
-        vk::ImageViewType::e2D, 
-        a_format,
-        { vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity },
-        SubresourceRange
-    );
-
-    ICARIAN_ASSERT_MSG_R(device.createImageView(&viewInfo, nullptr, &m_view) == vk::Result::eSuccess, "Failed to create VulkanTexture View");
 }
 VulkanTexture::VulkanTexture()
 {
@@ -199,7 +185,7 @@ VulkanTexture::VulkanTexture()
 VulkanTexture::~VulkanTexture()
 {
     TRACE("Queueing Texture Deletion");
-    m_engine->PushDeletionObject(new VulkanTextureDeletionObject(m_engine, m_image, m_view, m_allocation));
+    m_engine->PushDeletionObject(new VulkanTextureDeletionObject(m_engine, m_image, m_allocation));
 }
 
 VulkanTexture* VulkanTexture::CreateRGBA(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, const void* a_data)
@@ -208,6 +194,7 @@ VulkanTexture* VulkanTexture::CreateRGBA(VulkanRenderEngineBackend* a_engine, ui
 
     VulkanTexture* texture = new VulkanTexture();
     texture->Init(a_engine, a_width, a_height, a_data, vk::Format::eR8G8B8A8Srgb, 4);
+
     return texture;
 }
 VulkanTexture* VulkanTexture::CreateAlpha(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, const void *a_data)
@@ -216,6 +203,7 @@ VulkanTexture* VulkanTexture::CreateAlpha(VulkanRenderEngineBackend* a_engine, u
 
     VulkanTexture* texture = new VulkanTexture();
     texture->Init(a_engine, a_width, a_height, a_data, vk::Format::eR8Unorm, 1);
+
     return texture;
 }
 #endif

@@ -2,20 +2,10 @@ using System;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
+#include "EngineTextureSamplerInteropStructures.h"
+
 namespace IcarianEngine.Rendering
 {
-    public enum TextureFilter : ushort
-    {
-        Nearest = 0,
-        Linear = 1
-    }
-    public enum TextureAddress : ushort
-    {
-        Repeat = 0,
-        MirroredRepeat = 1,
-        ClampToEdge = 2
-    };
-
     // Type exists for Vulkan in the engine
     // May not work properly in the editor due to editor using OpenGL
     public class TextureSampler : IDestroy
@@ -35,6 +25,9 @@ namespace IcarianEngine.Rendering
 
         uint m_bufferAddr = uint.MaxValue;
 
+        /// <summary>
+        /// Returns true if the sampler has been disposed
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -69,6 +62,13 @@ namespace IcarianEngine.Rendering
             s_samplerLookup.TryAdd(a_bufferAddr, this);
         }
 
+        /// <summary>
+        /// Generates a texture sampler from a texture
+        /// </summary>
+        /// <param name="a_texture">Texture to generate sampler from</param>
+        /// <param name="a_filter">Filter to use for the sampler</param>
+        /// <param name="a_addressMode">Address mode to use for the sampler</param>
+        /// <returns>Texture sampler. Null on failure.</returns>
         public static TextureSampler GenerateTextureSampler(Texture a_texture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
         {
             if (a_texture == null)
@@ -80,6 +80,13 @@ namespace IcarianEngine.Rendering
 
             return new TextureSampler(GenerateTextureSampler(a_texture.BufferAddr, (uint)a_filter, (uint) a_addressMode));
         }
+        /// <summary>
+        /// Generates a texture sampler from a render texture
+        /// </summary>
+        /// <param name="a_renderTexture">Render texture to generate sampler from</param>
+        /// <param name="a_filter">Filter to use for the sampler</param>
+        /// <param name="a_addressMode">Address mode to use for the sampler</param>
+        /// <returns>Texture sampler. Null on failure.</returns>
         public static TextureSampler GenerateRenderTextureSampler(RenderTexture a_renderTexture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
         {
             if (a_renderTexture == null)
@@ -91,6 +98,14 @@ namespace IcarianEngine.Rendering
 
             return new TextureSampler(GenerateRenderTextureSampler(a_renderTexture.BufferAddr, 0, (uint)a_filter, (uint)a_addressMode));
         }
+        /// <summary>
+        /// Generates a texture sampler from a render texture
+        /// </summary>
+        /// <param name="a_renderTexture">Render texture to generate sampler from</param>
+        /// <param name="a_index">Index of the texture to generate sampler from</param>
+        /// <param name="a_filter">Filter to use for the sampler</param>
+        /// <param name="a_addressMode">Address mode to use for the sampler</param>
+        /// <returns>Texture sampler. Null on failure.</returns>
         public static TextureSampler GenerateRenderTextureSampler(MultiRenderTexture a_renderTexture, uint a_index, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
         {
             if (a_renderTexture == null)
@@ -102,7 +117,13 @@ namespace IcarianEngine.Rendering
 
             return new TextureSampler(GenerateRenderTextureSampler(a_renderTexture.BufferAddr, a_index, (uint)a_filter, (uint)a_addressMode));
         }
-
+        /// <summary>
+        /// Generates a texture sampler from a render texture
+        /// </summary>
+        /// <param name="a_renderTexture">Render texture to generate sampler from</param>
+        /// <param name="a_filter">Filter to use for the sampler</param>
+        /// <param name="a_addressMode">Address mode to use for the sampler</param>
+        /// <returns>Texture sampler for depth. Null on failure.</returns>
         public static TextureSampler GenerateRenderTextureDepthSampler(IRenderTexture a_renderTexture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
         {
             if (a_renderTexture == null)
@@ -121,7 +142,13 @@ namespace IcarianEngine.Rendering
 
             return new TextureSampler(GenerateRenderTextureDepthSampler(RenderTextureCmd.GetTextureAddr(a_renderTexture), (uint)a_filter, (uint)a_addressMode));
         }
-
+        /// <summary>
+        /// Generates a texture sampler from a render texture
+        /// </summary>
+        /// <param name="a_renderTexture">Render texture to generate sampler from</param>
+        /// <param name="a_filter">Filter to use for the sampler</param>
+        /// <param name="a_addressMode">Address mode to use for the sampler</param>
+        /// <returns>Texture sampler for depth. Null on failure.</returns>
         public static TextureSampler GenerateRenderTextureDepthSampler(DepthRenderTexture a_renderTexture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
         {
             if (a_renderTexture == null)
@@ -134,20 +161,9 @@ namespace IcarianEngine.Rendering
             return new TextureSampler(GenerateRenderTextureDepthSamplerDepth(a_renderTexture.BufferAddr, (uint)a_filter, (uint)a_addressMode));
         }
 
-        public override bool Equals(object a_obj)
-        {
-            if (a_obj == null && m_bufferAddr == uint.MaxValue)
-            {
-                return true;
-            }
-
-            return base.Equals(a_obj);
-        }
-        public override int GetHashCode()
-        {
-            return base.GetHashCode();
-        }
-
+        /// <summary>
+        /// Disposes of the sampler
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -155,6 +171,10 @@ namespace IcarianEngine.Rendering
             GC.SuppressFinalize(this);
         }
 
+        /// <summary>
+        /// Called when the sampler is disposed
+        /// </summary>
+        /// <param name="a_disposing">True if the sampler is being disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)

@@ -10,8 +10,8 @@ class VulkanTexture
 private:
     VulkanRenderEngineBackend* m_engine;
     
+    vk::Format                 m_format;
     vk::Image                  m_image;
-    vk::ImageView              m_view;
     VmaAllocation              m_allocation;
 
     uint32_t                   m_width;
@@ -20,6 +20,7 @@ private:
     void Init(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, const void* a_data, vk::Format a_format, uint32_t a_channels);
 
     VulkanTexture();
+
 protected:
 
 public:
@@ -28,6 +29,15 @@ public:
     static VulkanTexture* CreateRGBA(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, const void* a_data);
     static VulkanTexture* CreateAlpha(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, const void* a_data);
 
+    inline vk::Format GetFormat() const
+    {
+        return m_format;
+    }
+    inline vk::Image GetImage() const
+    {
+        return m_image;
+    }
+
     inline uint32_t GetWidth() const
     {
         return m_width;
@@ -35,11 +45,6 @@ public:
     inline uint32_t GetHeight() const
     {
         return m_height;
-    }
-
-    inline vk::ImageView GetImageView() const
-    {
-        return m_view;
     }
 };
 #endif

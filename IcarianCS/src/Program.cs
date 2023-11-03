@@ -26,7 +26,7 @@ namespace IcarianEngine
                 }
             }
 
-            RenderPipeline.Init(new DefaultRenderPipeline());
+            RenderPipeline.SetPipeline(new DefaultRenderPipeline());
 
             AssetLibrary.Init();
             DefLibrary.Init();

@@ -6,7 +6,7 @@
 
 #include "Rendering/Vulkan/VulkanConstants.h"
 
-#include "Flare/TextureSampler.h"
+#include "EngineTextureSamplerInteropStructures.h"
 
 class VulkanGraphicsEngine;
 class VulkanPipeline;
@@ -62,7 +62,7 @@ public:
 
     VulkanPipeline* BindMaterial(uint32_t a_materialAddr);
 
-    void PushTexture(uint32_t a_slot, const FlareBase::TextureSampler& a_sampler) const;
+    void PushTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler) const;
     
     void BindRenderTexture(uint32_t a_renderTexAddr);
     

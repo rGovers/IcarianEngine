@@ -79,7 +79,7 @@ void TextUIElement::Update(RenderEngine* a_renderEngine)
         IDEFER(delete[] data);
 
         m_textureAddr = a_renderEngine->GenerateAlphaTexture((uint32_t)size.x, (uint32_t)size.y, data);
-        m_samplerAddr = a_renderEngine->GenerateTextureSampler(m_textureAddr, FlareBase::TextureMode_Texture, FlareBase::TextureFilter_Linear, FlareBase::TextureAddress_ClampToEdge);
+        m_samplerAddr = a_renderEngine->GenerateTextureSampler(m_textureAddr, TextureMode_Texture, TextureFilter_Linear, TextureAddress_ClampToEdge);
 
         m_lastRenderEngine = a_renderEngine;
 

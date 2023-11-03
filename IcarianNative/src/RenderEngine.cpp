@@ -152,7 +152,7 @@ void RenderEngine::DestroyTexture(uint32_t a_addr) const
     m_backend->DestroyTexture(a_addr);
 }
 
-uint32_t RenderEngine::GenerateTextureSampler(uint32_t a_textureAddr, FlareBase::e_TextureMode a_textureMode, FlareBase::e_TextureFilter a_filterMode, FlareBase::e_TextureAddress a_addressMode, uint32_t a_slot) const
+uint32_t RenderEngine::GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot) const
 {
     return m_backend->GenerateTextureSampler(a_textureAddr, a_textureMode, a_filterMode, a_addressMode, a_slot);
 }

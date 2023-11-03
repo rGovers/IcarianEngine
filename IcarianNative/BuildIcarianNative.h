@@ -16,6 +16,7 @@ const static char* IcarianNativeShaderBasePaths[] =
     "shaders/PointLight.fpix",
     "shaders/Post.fpix",
     "shaders/Quad.vert",
+    "shaders/ShadowDirectionalLight.fpix",
     "shaders/SpotLight.fpix",
     "shaders/UI.fvert",
     "shaders/UIImage.fpix",

@@ -28,7 +28,6 @@ class VulkanVertexShader;
 #include "DataTypes/TArray.h"
 #include "DataTypes/TNCArray.h"
 #include "DataTypes/TStatic.h"
-#include "Flare/TextureSampler.h"
 #include "Rendering/CameraBuffer.h"
 #include "Rendering/Light.h"
 #include "Rendering/MaterialRenderStack.h"
@@ -37,6 +36,7 @@ class VulkanVertexShader;
 #include "Rendering/UI/CanvasRendererBuffer.h"
 
 #include "EngineMaterialInteropStructures.h"
+#include "EngineTextureSamplerInteropStructures.h"
 
 class VulkanGraphicsEngine
 {
@@ -54,6 +54,8 @@ private:
     RuntimeFunction*                              m_preRenderFunc;
     RuntimeFunction*                              m_postRenderFunc;
     RuntimeFunction*                              m_lightSetupFunc;
+    RuntimeFunction*                              m_preShadowLightFunc;
+    RuntimeFunction*                              m_postShadowLightFunc;
     RuntimeFunction*                              m_preLightFunc;
     RuntimeFunction*                              m_postLightFunc;
     RuntimeFunction*                              m_postProcessFunc;
@@ -75,7 +77,7 @@ private:
     TArray<VulkanVertexShader*>                   m_vertexShaders;
     TArray<VulkanPixelShader*>                    m_pixelShaders;
      
-    TArray<FlareBase::TextureSampler>             m_textureSampler;
+    TNCArray<TextureSamplerBuffer>                m_textureSampler;
 
     TNCArray<VulkanModel*>                        m_models;
     TArray<VulkanTexture*>                        m_textures;
@@ -165,7 +167,7 @@ public:
     VulkanRenderTexture* GetRenderTexture(uint32_t a_addr);
     VulkanDepthRenderTexture* GetDepthRenderTexture(uint32_t a_addr);
 
-    uint32_t GenerateTextureSampler(uint32_t a_textureAddr, FlareBase::e_TextureMode a_textureMode, FlareBase::e_TextureFilter a_filterMode, FlareBase::e_TextureAddress a_addressMode, uint32_t a_slot = 0);
+    uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     void DestroyTextureSampler(uint32_t a_addr);
 
     Font* GetFont(uint32_t a_addr);

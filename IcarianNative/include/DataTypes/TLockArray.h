@@ -83,6 +83,10 @@ public:
     {
         return m_data[a_index];
     }
+    inline const T& operator [](uint32_t a_index) const
+    {
+        return m_data[a_index];
+    }
 
     inline T& Ref(uint32_t a_index) 
     {

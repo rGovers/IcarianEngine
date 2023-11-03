@@ -6,6 +6,9 @@ namespace IcarianEngine.Maths
 
         float[] m_data;
 
+        /// <summary>
+        /// Returns the row at the specified index
+        /// </summary>
         public Vector4 this[int a_key]
         {
             get
@@ -25,12 +28,19 @@ namespace IcarianEngine.Maths
             }
         }
 
+        /// <summary>
+        /// Creates a new matrix with the specified values
+        /// </summary>
         public Matrix4(float a_val) : this(a_val, 0.0f, 0.0f, 0.0f,
                                            0.0f, a_val, 0.0f, 0.0f,
                                            0.0f, 0.0f, a_val, 0.0f,
                                            0.0f, 0.0f, 0.0f, a_val)
         {
+
         }
+        /// <summary>
+        /// Creates a new matrix with the specified values
+        /// </summary>
         public Matrix4(Vector4 a_blk1, Vector4 a_blk2, Vector4 a_blk3, Vector4 a_blk4) : this(a_blk1.X, a_blk1.Y, a_blk1.Z, a_blk1.W,
                                                                                               a_blk2.X, a_blk2.Y, a_blk2.Z, a_blk2.W,
                                                                                               a_blk3.X, a_blk3.Y, a_blk3.Z, a_blk3.W,
@@ -38,6 +48,9 @@ namespace IcarianEngine.Maths
         {
 
         }
+        /// <summary>
+        /// Creates a new matrix with the specified values
+        /// </summary>
         public Matrix4(float a_0_0, float a_0_1, float a_0_2, float a_0_3,
                        float a_1_0, float a_1_1, float a_1_2, float a_1_3,
                        float a_2_0, float a_2_1, float a_2_2, float a_2_3,
@@ -65,6 +78,9 @@ namespace IcarianEngine.Maths
             m_data[14] = a_3_2;
             m_data[15] = a_3_3;
         }
+        /// <summary>
+        /// Copies the values from another matrix
+        /// </summary>
         public Matrix4(Matrix4 a_other)
         {
             m_data = new float[16];
@@ -80,11 +96,19 @@ namespace IcarianEngine.Maths
             return $"( ({m_data[0]}, {m_data[1]}, {m_data[2]}, {m_data[3]}), ({m_data[4]}, {m_data[5]}, {m_data[6]}, {m_data[7]}), ({m_data[8]}, {m_data[9]}, {m_data[10]}, {m_data[11]}), ({m_data[12]}, {m_data[13]}, {m_data[14]}, {m_data[15]}) )";
         }
 
+        /// <summary>
+        /// Converts the matrix to an array
+        /// </summary>
         public float[] ToArray()
         {
             return m_data;
         }
 
+        /// <summary>
+        /// Generates an inverse of the matrix
+        /// </summary>
+        /// <param name="a_mat">Matrix to generate inverse of</param>
+        /// <returns>Inverse of the matrix</returns>
         public static Matrix4 Inverse(Matrix4 a_mat)
         {
             // I invoke the I see 2 pages of greek therefore fuck that C+V
@@ -145,6 +169,13 @@ namespace IcarianEngine.Maths
 
             return inverse * new Matrix4(oneOverDeterminant);
         }
+        /// <summary>
+        /// Generates a transformation matrix from the specified values
+        /// </summary>
+        /// <param name="a_translation">Translation to use</param>
+        /// <param name="a_rotation">Rotation to use</param>
+        /// <param name="a_scale">Scale to use</param>
+        /// <returns>Transformation matrix</returns>
         public static Matrix4 FromTransform(Vector3 a_translation, Quaternion a_rotation, Vector3 a_scale)
         {
             Matrix4 translation = new Matrix4
@@ -165,7 +196,14 @@ namespace IcarianEngine.Maths
             return scale * a_rotation.ToMatrix() * translation;
         }
 
-        public static Matrix4 LookAt(Vector3 a_pos, Vector3 a_forward, Vector3 a_up)
+        /// <summary>
+        /// Generates a transform matrix looking to the specified direction
+        /// </summary>
+        /// <param name="a_pos">Position to look from</param>
+        /// <param name="a_forward">Direction to look at</param>
+        /// <param name="a_up">Up vector</param>
+        /// <returns>Transform matrix</returns>
+        public static Matrix4 LookTo(Vector3 a_pos, Vector3 a_forward, Vector3 a_up)
         {
             Vector3 zAxis = Vector3.Normalized(a_forward);
             Vector3 xAxis = Vector3.Normalized(Vector3.Cross(a_up, zAxis));
@@ -179,22 +217,44 @@ namespace IcarianEngine.Maths
                 new Vector4(a_pos, 1.0f)
             );
         }
-        public static Matrix4 LookTo(Vector3 a_pos, Vector3 a_target, Vector3 a_up)
+        /// <summary>
+        /// Generates a transform matrix looking at the specified target
+        /// </summary>
+        /// <param name="a_pos">Position to look from</param>
+        /// <param name="a_target">Target to look at</param>
+        /// <param name="a_up">Up vector</param>
+        /// <returns>Transform matrix</returns>
+        public static Matrix4 LookAt(Vector3 a_pos, Vector3 a_target, Vector3 a_up)
         {
-            return LookAt(a_pos, a_target - a_pos, a_up);
+            return LookTo(a_pos, a_target - a_pos, a_up);
         }
 
+        /// <summary>
+        /// Generates a orthographic perspective matrix
+        /// </summary>
+        /// <param name="a_x">Width of the view</param>
+        /// <param name="a_y">Height of the view</param>
+        /// <param name="a_near">Near plane</param>
+        /// <param name="a_far">Far plane</param>
+        /// <returns>Orthographic perspective matrix</returns>
         public static Matrix4 CreateOrthographic(float a_x, float a_y, float a_near, float a_far)
         {
             return new Matrix4
             (
-                2.0f / a_x, 0.0f,       0.0f,                      0.0f,
-                0.0f,       2.0f / a_y, 0.0f,                      0.0f,
-                0.0f,       0.0f,       1.0f / (a_far - a_near),   0.0f,
-                0.0f,       0.0f,       a_near / (a_near - a_far), 1.0f
+                2.0f / a_x, 0.0f,       0.0f,                       0.0f,
+                0.0f,       2.0f / a_y, 0.0f,                       0.0f,
+                0.0f,       0.0f,       1.0f / (a_far - a_near),    0.0f,
+                0.0f,       0.0f,       -a_near / (a_far - a_near), 1.0f
             );
         }
 
+        /// <summary>
+        /// Decomposes a transform matrix into its components
+        /// </summary>
+        /// <param name="a_mat">Matrix to decompose</param>
+        /// <param name="a_translation">Translation component</param>
+        /// <param name="a_rotation">Rotation component</param>
+        /// <param name="a_scale">Scale component</param>
         public static void Decompose(Matrix4 a_mat, out Vector3 a_translation, out Quaternion a_rotation, out Vector3 a_scale)
         {
             a_translation = a_mat[3].XYZ;
@@ -207,6 +267,15 @@ namespace IcarianEngine.Maths
 
             a_rotation = Quaternion.FromDirectionVectors(scalarX / a_scale.X, scalarY / a_scale.Y, scalarZ / a_scale.Z);
         }
+        /// <summary>
+        /// Decomposes a transform matrix into its components
+        /// </summary>
+        /// <param name="a_mat">Matrix to decompose</param>
+        /// <param name="a_translation">Translation component</param>
+        /// <param name="a_right">Right component</param>
+        /// <param name="a_up">Up component</param>
+        /// <param name="a_forward">Forward component</param>
+        /// <param name="a_scale">Scale component</param>
         public static void Decompose(Matrix4 a_mat, out Vector3 a_translation, out Vector3 a_right, out Vector3 a_up, out Vector3 a_forward, out Vector3 a_scale)
         {
             a_translation = a_mat[3].XYZ;
@@ -222,11 +291,22 @@ namespace IcarianEngine.Maths
             a_forward = scalarZ / a_scale.Z;
         }
 
+        /// <summary>
+        /// Decomposes the matrix into its components
+        /// </summary>
+        /// <param name="a_translation">Translation component</param>
+        /// <param name="a_rotation">Rotation component</param>
+        /// <param name="a_scale">Scale component</param>
         public void Decompose(out Vector3 a_translation, out Quaternion a_rotation, out Vector3 a_scale)
         {
             Decompose(this, out a_translation, out a_rotation, out a_scale);
         }
 
+        /// <summary>
+        /// Transposes the matrix
+        /// </summary>
+        /// <param name="a_matrix">Matrix to transpose</param>
+        /// <returns>Transposed matrix</returns>
         public static Matrix4 Transpose(Matrix4 a_matrix)
         {
             Matrix4 mat = new Matrix4(0.0f);

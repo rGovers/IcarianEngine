@@ -126,6 +126,26 @@ constexpr static vk::CullModeFlags GetCullingMode(e_CullMode a_mode)
 
     return vk::CullModeFlagBits::eNone;
 }
+constexpr static vk::CullModeFlags GetInvCullingMode(e_CullMode a_mode)
+{
+    switch (a_mode)
+    {
+    case CullMode_Front:
+    {
+        return vk::CullModeFlagBits::eBack;
+    }
+    case CullMode_Back:
+    {
+        return vk::CullModeFlagBits::eFront;
+    }
+    case CullMode_Both:
+    {
+        return vk::CullModeFlagBits::eFrontAndBack;
+    }
+    }
+    
+    return vk::CullModeFlagBits::eNone;
+}
 
 constexpr static vk::PrimitiveTopology GetPrimitiveMode(e_PrimitiveMode a_mode)
 {
