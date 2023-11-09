@@ -14,11 +14,11 @@
 
 struct ProfileFrame
 {
-    bool End;
-    uint32_t Stack;
     std::string Name;
+    double Duration;
     std::chrono::high_resolution_clock::time_point StartTime;
-    std::chrono::high_resolution_clock::time_point EndTime;
+    uint32_t Stack;
+    bool End;
 };
 
 class Profiler
@@ -35,8 +35,8 @@ public:
 private:
     static Profiler* Instance;
 
-    std::shared_mutex                           m_mutex;
-    std::unordered_map<std::thread::id, PData*> m_data;
+    std::shared_mutex                          m_mutex;
+    std::unordered_map<std::thread::id, PData> m_data;
 
     Profiler();
 

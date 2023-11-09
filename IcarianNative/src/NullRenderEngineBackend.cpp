@@ -58,6 +58,15 @@
     \
     F(uint32_t, IcarianEngine.Rendering, DepthRenderTexture, GenerateRenderTexture, {  return 0; }, uint32_t a_width, uint32_t a_height) \
     F(void, IcarianEngine.Rendering, DepthRenderTexture, DestroyRenderTexture, { }, uint32_t a_addr) \
+    F(uint32_t, IcarianEngine.Rendering, DepthRenderTexture, GetWidth, { return 0; }, uint32_t a_addr) \
+    F(uint32_t, IcarianEngine.Rendering, DepthRenderTexture, GetHeight, { return 0; }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, DepthRenderTexture, Resize, { }, uint32_t a_addr, uint32_t a_width, uint32_t a_height) \
+    \
+    F(uint32_t, IcarianEngine.Rendering, DepthCubeRenderTexture, GenerateRenderTexture, { return 0; }, uint32_t a_width, uint32_t a_height) \
+    F(void, IcarianEngine.Rendering, DepthCubeRenderTexture, DestroyRenderTexture, { }, uint32_t a_addr) \
+    F(uint32_t, IcarianEngine.Rendering, DepthCubeRenderTexture, GetWidth, { return 0; }, uint32_t a_addr) \
+    F(uint32_t, IcarianEngine.Rendering, DepthCubeRenderTexture, GetHeight, { return 0; }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, DepthCubeRenderTexture, Resize, { }, uint32_t a_addr, uint32_t a_width, uint32_t a_height) \
     \
     F(uint32_t, IcarianEngine.Rendering, MultiRenderTexture, GetTextureCount, { return 0; }, uint32_t a_addr) \
     \
@@ -78,6 +87,8 @@
     F(void, IcarianEngine.Rendering.Lighting, PointLight, DestroyBuffer, { }, uint32_t a_addr) \
     F(PointLightBuffer, IcarianEngine.Rendering.Lighting, PointLight, GetBuffer, { return PointLightBuffer(); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Lighting, PointLight, SetBuffer, { }, uint32_t a_addr, PointLightBuffer a_buffer) \
+    F(uint32_t, IcarianEngine.Rendering.Lighting, PointLight, GetShadowMap, { return 0; }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Lighting, PointLight, SetShadowMap, { }, uint32_t a_addr, uint32_t a_shadowMapAddr) \
     \
     F(uint32_t, IcarianEngine.Rendering.Lighting, SpotLight, GenerateBuffer, { return 0; }, uint32_t a_transformAddr) \
     F(void, IcarianEngine.Rendering.Lighting, SpotLight, DestroyBuffer, { }, uint32_t a_addr) \

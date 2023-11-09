@@ -67,7 +67,7 @@ void HeadlessAppWindow::ProfilerCallback(const Profiler::PData& a_profilerData)
         }
         frame.Name[frameNameSize] = 0;
         frame.Stack = pFrame.Stack;
-        frame.Time = std::chrono::duration<float>(pFrame.EndTime - pFrame.StartTime).count();
+        frame.Time = (float)pFrame.Duration;
     }
 
     m_queuedMessages.Push(msg);

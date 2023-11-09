@@ -27,7 +27,8 @@ enum IOP_ENUM_NAME(TextureMode) : IOP_UINT16
     IOP_ENUM_VALUE(TextureMode, Texture) = 0,
     IOP_ENUM_VALUE(TextureMode, RenderTexture) = 1,
     IOP_ENUM_VALUE(TextureMode, RenderTextureDepth) = 2,
-    IOP_ENUM_VALUE(TextureMode, DepthRenderTexture) = 3
+    IOP_ENUM_VALUE(TextureMode, DepthRenderTexture) = 3,
+    IOP_ENUM_VALUE(TextureMode, DepthCubeRenderTexture) = 4
 };
 
 struct TextureSamplerBuffer

@@ -83,6 +83,15 @@ public:
 
     uint32_t GenerateDepthRenderTexture(uint32_t a_width, uint32_t a_height) const;
     void DestroyDepthRenderTexture(uint32_t a_addr) const;
+    uint32_t GetDepthRenderTextureWidth(uint32_t a_addr) const;
+    uint32_t GetDepthRenderTextureHeight(uint32_t a_addr) const;
+    void ResizeDepthRenderTexture(uint32_t a_addr, uint32_t a_width, uint32_t a_height) const;
+
+    uint32_t GenerateDepthCubeRenderTexture(uint32_t a_width, uint32_t a_height) const;
+    void DestroyDepthCubeRenderTexture(uint32_t a_addr) const;
+    uint32_t GetDepthCubeRenderTextureWidth(uint32_t a_addr) const;
+    uint32_t GetDepthCubeRenderTextureHeight(uint32_t a_addr) const;
+    void ResizeDepthCubeRenderTexture(uint32_t a_addr, uint32_t a_width, uint32_t a_height) const;
 
     uint32_t GenerateDirectionalLightBuffer(uint32_t a_transformAddr) const;
     void SetDirectionalLightBuffer(uint32_t a_addr, const DirectionalLightBuffer& a_buffer) const;
@@ -95,6 +104,8 @@ public:
     void SetPointLightBuffer(uint32_t a_addr, const PointLightBuffer& a_buffer) const;
     PointLightBuffer GetPointLightBuffer(uint32_t a_addr) const;
     void DestroyPointLightBuffer(uint32_t a_addr) const;
+    void SetPointLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const;
+    uint32_t GetPointLightShadowMap(uint32_t a_addr) const;
 
     uint32_t GenerateSpotLightBuffer(uint32_t a_transformAddr) const;
     void SetSpotLightBuffer(uint32_t a_addr, const SpotLightBuffer& a_buffer) const;

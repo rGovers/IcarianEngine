@@ -5,12 +5,13 @@
 #include <vector>
 
 #include "Rendering/Vulkan/VulkanConstants.h"
-#include "Rendering/Vulkan/VulkanDepthRenderTexture.h"
 
 struct CanvasBuffer;
 
 class Font;
 class RuntimeFunction;
+class VulkanDepthCubeRenderTexture;
+class VulkanDepthRenderTexture;
 class VulkanGraphicsEngineBindings;
 class VulkanLightData;
 class VulkanModel;
@@ -43,7 +44,7 @@ class VulkanGraphicsEngine
 private:
     friend class VulkanGraphicsEngineBindings;
 
-    static constexpr uint32_t DrawingPassCount = 4;
+    static constexpr uint32_t DrawingPassCount = 5;
 
     VulkanGraphicsEngineBindings*                 m_runtimeBindings;
     VulkanSwapchain*                              m_swapchain;
@@ -69,6 +70,9 @@ private:
     std::shared_mutex                             m_shadowPipeLock;
     std::unordered_map<uint64_t, VulkanPipeline*> m_shadowPipelines;
 
+    std::shared_mutex                             m_cubeShadowPipeLock;
+    std::unordered_map<uint64_t, VulkanPipeline*> m_cubeShadowPipelines;
+
     TStatic<VulkanRenderCommand>                  m_renderCommands;
     TStatic<VulkanLightData>                      m_lightData;
 
@@ -82,9 +86,8 @@ private:
     TNCArray<VulkanModel*>                        m_models;
     TArray<VulkanTexture*>                        m_textures;
 
-    // This comment is to make language server stop showing an error for the next line
-    // it compiles fine but the language server is fucking dumb
     TNCArray<VulkanRenderTexture*>                m_renderTextures;
+    TNCArray<VulkanDepthCubeRenderTexture*>       m_depthCubeRenderTextures;
     TNCArray<VulkanDepthRenderTexture*>           m_depthRenderTextures;
 
     TNCArray<MeshRenderBuffer>                    m_renderBuffers;
@@ -110,7 +113,10 @@ private:
 
     vk::CommandBuffer StartCommandBuffer(uint32_t a_bufferIndex, uint32_t a_index) const;
 
-    vk::CommandBuffer ShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
+    void DrawShadow(const glm::mat4& a_lvp, float a_split, uint32_t a_renderLayer, uint32_t a_renderTexture, bool a_cube, vk::CommandBuffer a_commandBuffer, uint32_t a_index);
+
+    vk::CommandBuffer DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
+    vk::CommandBuffer PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
     vk::CommandBuffer DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
     vk::CommandBuffer LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
     vk::CommandBuffer PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
@@ -150,6 +156,7 @@ public:
     RenderProgram GetRenderProgram(uint32_t a_addr);
 
     VulkanPipeline* GetShadowPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
+    VulkanPipeline* GetCubeShadowPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
     VulkanPipeline* GetPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
     
     CameraBuffer GetCameraBuffer(uint32_t a_addr);
@@ -166,6 +173,7 @@ public:
 
     VulkanRenderTexture* GetRenderTexture(uint32_t a_addr);
     VulkanDepthRenderTexture* GetDepthRenderTexture(uint32_t a_addr);
+    VulkanDepthCubeRenderTexture* GetDepthCubeRenderTexture(uint32_t a_addr);
 
     uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     void DestroyTextureSampler(uint32_t a_addr);

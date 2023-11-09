@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Rendering
 {
-    public class DepthRenderTexture : IRenderTexture
+    public class DepthCubeRenderTexture : IRenderTexture
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateRenderTexture(uint a_width, uint a_height);
@@ -19,7 +19,7 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void Resize(uint a_addr, uint a_width, uint a_height);
 
-        static ConcurrentDictionary<uint, DepthRenderTexture> s_bufferLookup = new ConcurrentDictionary<uint, DepthRenderTexture>();
+        static ConcurrentDictionary<uint, DepthCubeRenderTexture> s_bufferLookup = new ConcurrentDictionary<uint, DepthCubeRenderTexture>();
 
         uint m_bufferAddr = uint.MaxValue;
 
@@ -79,16 +79,16 @@ namespace IcarianEngine.Rendering
         /// </summary>
         /// <param name="a_width">The width of the Depth Render Texture</param>
         /// <param name="a_height">The height of the Depth Render Texture</param>
-        public DepthRenderTexture(uint a_width, uint a_height)
+        public DepthCubeRenderTexture(uint a_width, uint a_height)
         {
             m_bufferAddr = GenerateRenderTexture(a_width, a_height);
 
             s_bufferLookup.TryAdd(m_bufferAddr, this);
         }
 
-        internal static DepthRenderTexture GetDepthRenderTexture(uint a_addr)
+        internal static DepthCubeRenderTexture GetDepthCubeRenderTexture(uint a_addr)
         {
-            DepthRenderTexture buffer = null;
+            DepthCubeRenderTexture buffer = null;
             s_bufferLookup.TryGetValue(a_addr, out buffer);
 
             return buffer;
@@ -101,11 +101,11 @@ namespace IcarianEngine.Rendering
         /// <param name="a_height">The new height of the Depth Render Texture</param>
         public void Resize(uint a_width, uint a_height)
         {
-            Resize(m_bufferAddr, a_width, a_height);      
+            Resize(m_bufferAddr, a_width, a_height);
         }
 
         /// <summary>
-        /// Disposes the Depth Render Texture
+        /// Disposes of the Depth Render Texture
         /// </summary>
         public void Dispose()
         {
@@ -123,23 +123,23 @@ namespace IcarianEngine.Rendering
             {
                 if (a_disposing)
                 {
-                    s_bufferLookup.TryRemove(m_bufferAddr, out DepthRenderTexture _);
+                    DestroyRenderTexture(m_bufferAddr);
 
-                    DestroyRenderTexture(m_bufferAddr);   
+                    s_bufferLookup.TryRemove(m_bufferAddr, out DepthCubeRenderTexture _);
                 }
                 else
                 {
-                    Logger.IcarianWarning("DepthRenderTexture not disposed");
+                    Logger.IcarianWarning("DepthCubeRenderTexture not disposed");
                 }
 
                 m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianWarning("DepthRenderTexture already disposed");
+                Logger.IcarianWarning("DepthCubeRenderTexture already disposed");
             }
         }
-        ~DepthRenderTexture()
+        ~DepthCubeRenderTexture()
         {
             Dispose(false);
         }

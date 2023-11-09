@@ -33,6 +33,9 @@ private:
     uint32_t                     m_spotLightBufferIndex;
     TArray<VulkanUniformBuffer*> m_spotLightBuffers;
 
+    uint32_t                     m_shadowBufferIndex;
+    TArray<VulkanUniformBuffer*> m_shadowBuffers;
+
     vk::DescriptorSet GenerateDescriptor(vk::DescriptorPool a_pool, const vk::DescriptorSetLayout* a_layout);
 protected:
 
@@ -46,6 +49,8 @@ public:
     VulkanUniformBuffer* AllocateDirectionalLightUniformBuffer();
     VulkanUniformBuffer* AllocatePointLightUniformBuffer();
     VulkanUniformBuffer* AllocateSpotLightUniformBuffer();
+
+    VulkanUniformBuffer* AllocateShadowUniformBuffer();
 };
 
 #endif

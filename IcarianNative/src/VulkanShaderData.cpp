@@ -7,6 +7,8 @@
 #include "ObjectManager.h"
 #include "Rendering/ShaderBuffers.h"
 #include "Rendering/UI/UIElement.h"
+#include "Rendering/Vulkan/VulkanDepthCubeRenderTexture.h"
+#include "Rendering/Vulkan/VulkanDepthRenderTexture.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
@@ -152,6 +154,10 @@ constexpr static uint32_t GetBufferSize(e_ShaderBufferType a_type)
     {
         return sizeof(SpotLightShaderBuffer);
     }
+    case ShaderBufferType_ShadowLightBuffer:
+    {
+        return sizeof(ShadowLightShaderBuffer);
+    }
     default:
     {
         ICARIAN_ASSERT_MSG(0, "Invalid shader buffer type");
@@ -168,6 +174,7 @@ constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_buffe
     {
     case ShaderBufferType_Texture:
     case ShaderBufferType_PushTexture:
+    case ShaderBufferType_ShadowTextureCube:
     case ShaderBufferType_AShadowTexture2D:
     {
         return vk::DescriptorType::eCombinedImageSampler;
@@ -223,7 +230,9 @@ static void GetLayoutInfo(const ShaderBufferInput* a_inputs, uint32_t a_inputCou
         case ShaderBufferType_DirectionalLightBuffer:
         case ShaderBufferType_PointLightBuffer:
         case ShaderBufferType_SpotLightBuffer:
+        case ShaderBufferType_ShadowLightBuffer:
         case ShaderBufferType_PushTexture:
+        case ShaderBufferType_ShadowTextureCube:
         case ShaderBufferType_SSModelBuffer:
         case ShaderBufferType_SSBoneBuffer:
         case ShaderBufferType_SSDirectionalLightBuffer:
@@ -323,6 +332,18 @@ static vk::DescriptorImageInfo GetDescriptorImageInfo(const TextureSamplerBuffer
     case TextureMode_DepthRenderTexture:
     {
         const VulkanDepthRenderTexture* renderTexture = a_engine->GetDepthRenderTexture(a_baseSampler.Addr);
+
+        if (imageInfo.imageView == vk::ImageView(nullptr))
+        {
+            imageInfo.imageView = renderTexture->GetImageView();
+        }
+        imageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+
+        break;
+    }
+    case TextureMode_DepthCubeRenderTexture:
+    {
+        const VulkanDepthCubeRenderTexture* renderTexture = a_engine->GetDepthCubeRenderTexture(a_baseSampler.Addr);
 
         if (imageInfo.imageView == vk::ImageView(nullptr))
         {
@@ -1047,6 +1068,20 @@ bool VulkanShaderData::GetBatchSpotLightInput(ShaderBufferInput* a_input) const
     return false;
 }
 
+bool VulkanShaderData::GetShadowShadowLightBufferInput(ShaderBufferInput* a_input) const
+{
+    for (const ShaderBufferInput& input : m_shadowSlotInputs)
+    {
+        if (input.BufferType == ShaderBufferType_ShadowLightBuffer)
+        {
+            *a_input = input;
+
+            return true;
+        }
+    }
+
+    return false;
+}
 bool VulkanShaderData::GetShadowLightStorageBufferInput(ShaderBufferInput* a_input) const
 {
     for (const ShaderBufferInput& input : m_slotInputs)
@@ -1061,11 +1096,26 @@ bool VulkanShaderData::GetShadowLightStorageBufferInput(ShaderBufferInput* a_inp
 
     return false;
 }
+
 bool VulkanShaderData::GetShadowTextureInput(ShaderBufferInput* a_input) const
 {
     for (const ShaderBufferInput& input : m_slotInputs)
     {
         if (input.BufferType == ShaderBufferType_AShadowTexture2D)
+        {
+            *a_input = input;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+bool VulkanShaderData::GetShadowCubeTextureInput(ShaderBufferInput* a_input) const
+{
+    for (const ShaderBufferInput& input : m_slotInputs)
+    {
+        if (input.BufferType == ShaderBufferType_ShadowTextureCube)
         {
             *a_input = input;
 

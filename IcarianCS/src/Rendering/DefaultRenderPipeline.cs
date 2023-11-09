@@ -17,12 +17,14 @@ namespace IcarianEngine.Rendering
         PixelShader        m_pointLightPixel;
         PixelShader        m_spotLightPixel;
         PixelShader        m_directionalLightShadowPixel;
+        PixelShader        m_pointLightShadowPixel;
         PixelShader        m_postPixel;
 
         Material           m_directionalLightMaterial;
         Material           m_pointLightMaterial;
         Material           m_spotLightMaterial;
         Material           m_directionalLightShadowMaterial;
+        Material           m_pointLightShadowMaterial;
         Material           m_postMaterial;
 
         MultiRenderTexture m_drawRenderTexture;
@@ -39,6 +41,7 @@ namespace IcarianEngine.Rendering
         uint               m_width;
         uint               m_height;
 
+        float              m_shadowCutoff;
         float              m_lambda;
 
         /// <summary>
@@ -53,6 +56,22 @@ namespace IcarianEngine.Rendering
             set
             {
                 m_lambda = value;
+            }
+        }
+
+        /// <summary>
+        /// The shadow cutoff for directional lights.
+        /// </summary>
+        /// 0-1 range of the far plane to use for shadows.
+        public float ShadowCutoff
+        {
+            get
+            {
+                return m_shadowCutoff;
+            }
+            set
+            {
+                m_shadowCutoff = value;
             }
         }
 
@@ -79,6 +98,7 @@ namespace IcarianEngine.Rendering
         public DefaultRenderPipeline()
         {
             m_lambda = 0.5f;
+            m_shadowCutoff = 0.5f;
 
             m_width = 1920;
             m_height = 1080;
@@ -100,6 +120,7 @@ namespace IcarianEngine.Rendering
             m_pointLightPixel = PixelShader.LoadPixelShader("[INTERNAL]PointLight");
             m_spotLightPixel = PixelShader.LoadPixelShader("[INTERNAL]SpotLight");
             m_directionalLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]DirectionalLightShadow");
+            m_pointLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]PointLightShadow");
             m_postPixel = PixelShader.LoadPixelShader("[INTERNAL]Post");
 
             MaterialBuilder directionalLightBuilder = new MaterialBuilder()
@@ -365,9 +386,78 @@ namespace IcarianEngine.Rendering
                 }
             };
 
+            MaterialBuilder pointLightShadowMaterail = new MaterialBuilder()
+            {
+                VertexShader = m_quadVert,
+                PixelShader = m_pointLightShadowPixel,
+                PrimitiveMode = PrimitiveMode.TriangleStrip,
+                EnableColorBlending = true,
+                ShaderInputs = new ShaderBufferInput[]
+                {
+                    new ShaderBufferInput()
+                    {
+                        Slot = 0,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 1,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 2,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 3,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput() 
+                    {
+                        Slot = 4,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput() 
+                    {
+                        Slot = 5,
+                        BufferType = ShaderBufferType.ShadowTextureCube,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 1
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 6,
+                        BufferType = ShaderBufferType.CameraBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 2
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 7,
+                        BufferType = ShaderBufferType.PointLightBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 3
+                    },
+                }
+            };
+
             m_directionalLightShadowMaterial = Material.CreateMaterial(directionalLightShadowMaterial);
+            m_pointLightShadowMaterial = Material.CreateMaterial(pointLightShadowMaterail);
 
             SetTextures(m_directionalLightShadowMaterial);
+            SetTextures(m_pointLightShadowMaterial);
 
             MaterialBuilder postMaterial = new MaterialBuilder()
             {
@@ -427,6 +517,11 @@ namespace IcarianEngine.Rendering
         /// <param name="a_height">The new height of the Swap Chain.</param>
         public override void Resize(uint a_width, uint a_height)
         {
+            if (a_width == m_width && a_height == m_height)
+            {
+                return;
+            }
+
             m_width = a_width;
             m_height = a_height;
 
@@ -438,24 +533,27 @@ namespace IcarianEngine.Rendering
             SetTextures(m_spotLightMaterial);
 
             SetTextures(m_directionalLightShadowMaterial);
+            SetTextures(m_pointLightShadowMaterial);
 
             SetPostTextures();
         }
 
         float GetCascade(uint a_index, uint a_count, float a_near, float a_far)
         {
+            float endFar = a_far * m_shadowCutoff;
+
             if (a_index == 0)
             {
                 return a_near;
             }
             else if (a_index == a_count)
             {
-                return a_far;
+                return endFar;
             }
 
             // I believe I need l near (far / near) ^ (i / N) + (1 - l)(near + (i / N)(far - near))
-            float fnDiff = a_far - a_near;
-            float fON = a_far / a_near;
+            float fnDiff = endFar - a_near;
+            float fON = endFar / a_near;
 
             float invLambda = 1.0f - m_lambda;
 
@@ -465,6 +563,11 @@ namespace IcarianEngine.Rendering
         }
         Matrix4 GetCascadeLVPMatrix(float a_near, float a_far, Light a_light, Camera a_camera)
         {
+            // I forget everytime so knicked it
+            // https://learnopengl.com/Guest-Articles/2021/CSM
+            // On second though something did not look right in the maths so I knicked this
+            // https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf
+
             Matrix4 cameraTrans = a_camera.Transform.ToMatrix();
             Matrix4 proj = a_camera.ToProjection(m_width, m_height, a_near, a_far);
             Matrix4 projInv = Matrix4.Inverse(proj);
@@ -496,7 +599,7 @@ namespace IcarianEngine.Rendering
             Quaternion rot = a_light.Transform.Rotation;
             Quaternion invRot = Quaternion.Inverse(rot);
 
-            Matrix4 lightTrans = invRot.ToMatrix() * new Matrix4(Vector4.UnitX, Vector4.UnitY, Vector4.UnitZ, new Vector4(mid, 1.0f));
+            Matrix4 lightTrans = rot.ToMatrix() * new Matrix4(Vector4.UnitX, Vector4.UnitY, Vector4.UnitZ, new Vector4(mid, 1.0f));
             Matrix4 lightView = Matrix4.Inverse(lightTrans);
 
             Vector3 min = Vector3.One * float.MaxValue;
@@ -526,8 +629,9 @@ namespace IcarianEngine.Rendering
         /// <summary>
         /// Called before starting the shadow pass.
         /// </summary>
+        /// <param name="a_lightType">The type of light the shadow pass is for.</param>
         /// <param name="a_camera">The camera the shadow pass is for.</param>
-        public override void ShadowSetup(Camera a_camera)
+        public override void ShadowSetup(LightType a_lightType, Camera a_camera)
         {
             
         }
@@ -540,26 +644,32 @@ namespace IcarianEngine.Rendering
         /// <returns>The information for the shadow map.</returns>
         public override LightShadowSplit PreShadow(Light a_light, Camera a_camera, uint a_textureSlot) 
         {
-            // I forget everytime so knicked it
-            // https://learnopengl.com/Guest-Articles/2021/CSM
-            // On second though something did not look right in the maths so I knicked this
-            // https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf
+            switch (a_light.LightType)
+            {
+            case LightType.Directional:
+            {
+                List<IRenderTexture> shadowMaps = new List<IRenderTexture>(a_light.ShadowMaps);
+                uint cascadeCount = (uint)shadowMaps.Count;
+                float near = a_camera.Near;
+                float far = a_camera.Far;
 
-            // I believe I need l near (far / near) ^ (i / N) + (1 - l)(near + (i / N)(far - near))
-            List<IRenderTexture> shadowMaps = new List<IRenderTexture>(a_light.ShadowMaps);
-            uint cascadeCount = (uint)shadowMaps.Count;
-            float near = a_camera.Near;
-            float far = a_camera.Far;
+                float cascadeNear = GetCascade(a_textureSlot, cascadeCount, near, far);
+                float cascadeFar = GetCascade(a_textureSlot + 1, cascadeCount, near, far);
 
-            float cascadeNear = GetCascade(a_textureSlot, cascadeCount, near, far);
-            float cascadeFar = GetCascade(a_textureSlot + 1, cascadeCount, near, far);
+                Matrix4 lvp = GetCascadeLVPMatrix(cascadeNear, cascadeFar, a_light, a_camera);
 
-            Matrix4 lvp = GetCascadeLVPMatrix(cascadeNear, cascadeFar, a_light, a_camera);
-
+                return new LightShadowSplit()
+                {
+                    LVP = lvp,
+                    Split = cascadeFar
+                };
+            }
+            }
+            
             return new LightShadowSplit()
             {
-                LVP = lvp,
-                Split = cascadeFar
+                LVP = Matrix4.Identity,
+                Split = 0.0f
             };
         }
         /// <summary>
@@ -608,27 +718,41 @@ namespace IcarianEngine.Rendering
         {
             LightShadowPass pass = new LightShadowPass();
 
-            List<IRenderTexture> shadowMaps = new List<IRenderTexture>(a_light.ShadowMaps);
-            uint cascadeCount = (uint)shadowMaps.Count;
-
-            float near = a_camera.Near;
-            float far = a_camera.Far;
-
-            pass.Material = m_directionalLightShadowMaterial;
-            pass.Splits = new LightShadowSplit[cascadeCount];
-
-            for (uint i = 0; i < cascadeCount; ++i)
+            switch (a_light.LightType)
             {
-                float cascadeNear = GetCascade(i, cascadeCount, near, far);
-                float cascadeFar = GetCascade(i + 1, cascadeCount, near, far);
+            case LightType.Directional:
+            {
+                List<IRenderTexture> shadowMaps = new List<IRenderTexture>(a_light.ShadowMaps);
+                uint cascadeCount = (uint)shadowMaps.Count;
 
-                Matrix4 lvp = GetCascadeLVPMatrix(cascadeNear, cascadeFar, a_light, a_camera);
+                float near = a_camera.Near;
+                float far = a_camera.Far;
 
-                pass.Splits[i] = new LightShadowSplit()
+                pass.Material = m_directionalLightShadowMaterial;
+                pass.Splits = new LightShadowSplit[cascadeCount];
+
+                for (uint i = 0; i < cascadeCount; ++i)
                 {
-                    LVP = lvp,
-                    Split = cascadeFar
-                };
+                    float cascadeNear = GetCascade(i, cascadeCount, near, far);
+                    float cascadeFar = GetCascade(i + 1, cascadeCount, near, far);
+
+                    Matrix4 lvp = GetCascadeLVPMatrix(cascadeNear, cascadeFar, a_light, a_camera);
+
+                    pass.Splits[i] = new LightShadowSplit()
+                    {
+                        LVP = lvp,
+                        Split = cascadeFar
+                    };
+                }
+
+                break;
+            }
+            case LightType.Point:
+            {
+                pass.Material = m_pointLightShadowMaterial;
+
+                break;
+            }
             }
 
             return pass;
@@ -709,6 +833,7 @@ namespace IcarianEngine.Rendering
             m_pointLightMaterial.Dispose();
             m_spotLightMaterial.Dispose();
             m_directionalLightShadowMaterial.Dispose();
+            m_pointLightShadowMaterial.Dispose();
             m_postMaterial.Dispose();
 
             m_quadVert.Dispose();
@@ -716,6 +841,7 @@ namespace IcarianEngine.Rendering
             m_pointLightPixel.Dispose();
             m_spotLightPixel.Dispose();
             m_directionalLightShadowPixel.Dispose();
+            m_pointLightShadowPixel.Dispose();
             m_postPixel.Dispose();
         }
     }

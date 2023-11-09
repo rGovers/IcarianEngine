@@ -46,6 +46,14 @@ VulkanPushPool::~VulkanPushPool()
             delete m_spotLightBuffers[i];
         }
     }
+    
+    for (uint32_t i = 0; i < m_shadowBuffers.Size(); ++i)
+    {
+        if (m_shadowBuffers[i] != nullptr)
+        {
+            delete m_shadowBuffers[i];
+        }
+    }
 }
 
 vk::DescriptorSet VulkanPushPool::GenerateDescriptor(vk::DescriptorPool a_pool, const vk::DescriptorSetLayout* a_layout)
@@ -123,6 +131,7 @@ void VulkanPushPool::Reset(uint32_t a_index)
     m_directionalLightBufferIndex = 0;
     m_pointLightBufferIndex = 0;
     m_spotLightBufferIndex = 0;
+    m_shadowBufferIndex = 0;
 }
 
 VulkanUniformBuffer* VulkanPushPool::AllocateDirectionalLightUniformBuffer()
@@ -169,6 +178,22 @@ VulkanUniformBuffer* VulkanPushPool::AllocateSpotLightUniformBuffer()
     }
 
     return a[m_spotLightBufferIndex++];
+}
+
+VulkanUniformBuffer* VulkanPushPool::AllocateShadowUniformBuffer()
+{
+    TLockArray<VulkanUniformBuffer*> a = m_shadowBuffers.ToLockArray();
+    if (m_shadowBufferIndex >= a.Size())
+    {
+        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(ShadowLightShaderBuffer));
+        m_shadowBuffers.UPush(buffer);
+
+        ++m_shadowBufferIndex;
+
+        return buffer;
+    }
+
+    return a[m_shadowBufferIndex++];
 }
 
 #endif

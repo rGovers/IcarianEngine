@@ -3,6 +3,7 @@
 #include <cassert>
 #include <mutex>
 
+#include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
 #include "Logger.h"
 #include "Runtime/RuntimeManager.h"
@@ -30,10 +31,7 @@ Profiler::Profiler()
 }
 Profiler::~Profiler()
 {
-    for (auto iter = m_data.begin(); iter != m_data.end(); ++iter)
-    {
-        delete iter->second;
-    }
+
 }
 
 void Profiler::Init()
@@ -57,121 +55,107 @@ void Profiler::Destroy()
 void Profiler::Start(const std::string_view& a_name)
 {
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
-    const std::unique_lock lock = std::unique_lock(Instance->m_mutex);
-
     const std::thread::id tID = std::this_thread::get_id();
 
-    auto iter = Instance->m_data.find(tID);
+    const std::unique_lock lock = std::unique_lock(Instance->m_mutex);
 
-    if (iter != Instance->m_data.end())
-    {
-        iter->second->Frames.clear();
-    }
-    else
-    {
-        PData* data = new PData();
-        data->Name = std::string(a_name);
+    PData data = PData();
+    data.Name = std::string(a_name);
 
-        Instance->m_data.emplace(tID, data);
-    }
+    Instance->m_data.emplace(tID, data);
 #endif
 }
 void Profiler::Stop()
 {
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
+    const std::thread::id tID = std::this_thread::get_id();
+
+    const std::unique_lock lock = std::unique_lock(Instance->m_mutex);
+
+    const auto iter = Instance->m_data.find(tID);
+    ICARIAN_ASSERT_MSG(iter != Instance->m_data.end(), "Profiler not started on thread");
+    
     if (CallbackFunc != nullptr)
     {
-        const std::shared_lock lock = std::shared_lock(Instance->m_mutex);
-
-        const std::thread::id tID = std::this_thread::get_id();
-
-        const auto iter = Instance->m_data.find(tID);
-        if (iter == Instance->m_data.end())
-        {
-            Logger::Error("IcarianEngine: Profiler not started on thread");
-
-            assert(0);
-        }
-
-        (*CallbackFunc)(*iter->second);
+        (*CallbackFunc)(iter->second);
     }
+
+    Instance->m_data.erase(iter);
 #endif
 }
 
 void Profiler::StartFrame(const std::string_view& a_name)
 {
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
-    const std::shared_lock lock = std::shared_lock(Instance->m_mutex);
-
+    const std::chrono::high_resolution_clock::time_point startTime = std::chrono::high_resolution_clock::now();
     const std::thread::id tID = std::this_thread::get_id();
 
+    const std::shared_lock lock = std::shared_lock(Instance->m_mutex);
+
     const auto iter = Instance->m_data.find(tID);
-    if (iter == Instance->m_data.end())
-    {
-        Logger::Error("IcarianEngine: Profiler not started on thread");
+    ICARIAN_ASSERT_MSG(iter != Instance->m_data.end(), "Profiler not started on thread");
 
-        assert(0);
-    }
-
-    ProfileFrame frame;
-    frame.StartTime = std::chrono::high_resolution_clock::now();
-    frame.EndTime = frame.StartTime;
-    frame.Name = std::string(a_name);
-    frame.Stack = 0;
-    frame.End = false;
-    if (!iter->second->Frames.empty())
+    uint32_t stack = 0;
+    if (!iter->second.Frames.empty())
     {
-        auto iIter = iter->second->Frames.end();
-        while (iIter != iter->second->Frames.begin())
+        auto iIter = iter->second.Frames.end();
+        while (iIter != iter->second.Frames.begin())
         {
             --iIter;
 
+            if (iIter->Name == a_name)
+            {
+                iIter->StartTime = startTime;
+                iIter->End = false;
+
+                return;
+            }
+
             if (!iIter->End)
             {
-                frame.Stack = iIter->Stack + 1;
+                stack = iIter->Stack + 1;
 
                 break;
             }
         }
     }
 
-    iter->second->Frames.emplace_back(frame);
+    ProfileFrame frame;
+    frame.StartTime = startTime;
+    frame.Duration = 0.0;
+    frame.Name = std::string(a_name);
+    frame.Stack = stack;
+    frame.End = false;
+
+    iter->second.Frames.emplace_back(frame);
 #endif
 }
 void Profiler::StopFrame()
 {
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
-    const std::shared_lock lock = std::shared_lock(Instance->m_mutex);
-
+    const std::chrono::high_resolution_clock::time_point endTime = std::chrono::high_resolution_clock::now();
     const std::thread::id tID = std::this_thread::get_id();
 
+    const std::shared_lock lock = std::shared_lock(Instance->m_mutex);
+
     const auto iter = Instance->m_data.find(tID);
-    if (iter == Instance->m_data.end())
-    {
-        Logger::Error("IcarianEngine: Profiler not started on thread");
+    ICARIAN_ASSERT_MSG(iter != Instance->m_data.end(), "Profiler not started on thread");
+    ICARIAN_ASSERT_MSG(!iter->second.Frames.empty(), "Profiler Frame not created on thread");
 
-        assert(0);
-    }
-
-    if (iter->second->Frames.empty())
-    {
-        Logger::Error("IcarianEngine: Profiler Frame not created on thread");
-    }
-
-    auto iIter = iter->second->Frames.end();
-    while (iIter != iter->second->Frames.begin())
+    auto iIter = iter->second.Frames.end();
+    while (iIter != iter->second.Frames.begin())
     {
         --iIter;
 
         if (!iIter->End)
         {
-            iIter->EndTime = std::chrono::high_resolution_clock::now();
+            iIter->Duration += std::chrono::duration_cast<std::chrono::duration<double>>(endTime - iIter->StartTime).count();
             iIter->End = true;
 
             return;
         }
     }
 
-    Logger::Error("IcarianEngine: Profile Start End Frame mismatch");
+    ICARIAN_ASSERT_MSG(0, "Profiler Start End Frame mismatch");
 #endif
 }

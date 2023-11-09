@@ -22,14 +22,16 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
     IOP_ENUM_VALUE(ShaderBufferType, SpotLightBuffer) = 6,
     IOP_ENUM_VALUE(ShaderBufferType, Texture) = 7,
     IOP_ENUM_VALUE(ShaderBufferType, PushTexture) = 8,
-    IOP_ENUM_VALUE(ShaderBufferType, UserUBO) = 9,
-    IOP_ENUM_VALUE(ShaderBufferType, SSModelBuffer) = 10,
-    IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 11,
-    IOP_ENUM_VALUE(ShaderBufferType, SSDirectionalLightBuffer) = 12,
-    IOP_ENUM_VALUE(ShaderBufferType, SSPointLightBuffer) = 13,
-    IOP_ENUM_VALUE(ShaderBufferType, SSSpotLightBuffer) = 14,
-    IOP_ENUM_VALUE(ShaderBufferType, SSShadowLightBuffer) = 15,
-    IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 16
+    IOP_ENUM_VALUE(ShaderBufferType, ShadowLightBuffer) = 9,
+    IOP_ENUM_VALUE(ShaderBufferType, ShadowTextureCube) = 10,
+    IOP_ENUM_VALUE(ShaderBufferType, UserUBO) = 11,
+    IOP_ENUM_VALUE(ShaderBufferType, SSModelBuffer) = 12,
+    IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 13,
+    IOP_ENUM_VALUE(ShaderBufferType, SSDirectionalLightBuffer) = 14,
+    IOP_ENUM_VALUE(ShaderBufferType, SSPointLightBuffer) = 15,
+    IOP_ENUM_VALUE(ShaderBufferType, SSSpotLightBuffer) = 16,
+    IOP_ENUM_VALUE(ShaderBufferType, SSShadowLightBuffer) = 17,
+    IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 18
 };
 
 IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderSlot) : IOP_UINT16

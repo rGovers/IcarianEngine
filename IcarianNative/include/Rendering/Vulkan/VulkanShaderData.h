@@ -81,8 +81,11 @@ public:
     bool GetBatchPointLightInput(ShaderBufferInput* a_input) const;
     bool GetBatchSpotLightInput(ShaderBufferInput* a_input) const;
 
+    bool GetShadowShadowLightBufferInput(ShaderBufferInput* a_input) const;
     bool GetShadowLightStorageBufferInput(ShaderBufferInput* a_input) const;
+
     bool GetShadowTextureInput(ShaderBufferInput* a_input) const;
+    bool GetShadowCubeTextureInput(ShaderBufferInput* a_input) const;
 
     bool GetBatchModelBufferInput(ShaderBufferInput* a_input) const;
     bool GetShadowBatchModelBufferInput(ShaderBufferInput* a_input) const;

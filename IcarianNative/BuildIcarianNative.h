@@ -17,6 +17,7 @@ const static char* IcarianNativeShaderBasePaths[] =
     "shaders/Post.fpix",
     "shaders/Quad.vert",
     "shaders/ShadowDirectionalLight.fpix",
+    "shaders/ShadowPointLight.fpix",
     "shaders/SpotLight.fpix",
     "shaders/UI.fvert",
     "shaders/UIImage.fpix",
@@ -142,6 +143,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/ThreadPool.cpp");
     CUBE_CProject_AppendSource(&project, "src/UIControl.cpp");
     CUBE_CProject_AppendSource(&project, "src/UIControlBindings.cpp");
+    CUBE_CProject_AppendSource(&project, "src/VulkanDepthCubeRenderTexture.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanDepthRenderTexture.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanGraphicsEngine.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanGraphicsEngineBindings.cpp");
@@ -175,6 +177,10 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     }
     case BuildConfiguration_ReleaseWithDebug:
     {
+        CUBE_CProject_AppendCFlag(&project, "-mavx");
+        // CUBE_CProject_AppendCFlag(&project, "-mavx2");
+        CUBE_CProject_AppendCFlag(&project, "-msse4.2");
+
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
         CUBE_CProject_AppendCFlag(&project, "-O3");
@@ -183,6 +189,10 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     }
     case BuildConfiguration_Release:
     {
+        CUBE_CProject_AppendCFlag(&project, "-mavx");
+        // CUBE_CProject_AppendCFlag(&project, "-mavx2");
+        CUBE_CProject_AppendCFlag(&project, "-msse4.2");
+
         CUBE_CProject_AppendCFlag(&project, "-O3");
 
         break;

@@ -5,7 +5,7 @@
 
 class VulkanRenderEngineBackend;
 
-class VulkanDepthRenderTexture 
+class VulkanDepthCubeRenderTexture
 {
 private:
     VulkanRenderEngineBackend* m_engine;
@@ -15,10 +15,11 @@ private:
 
     vk::RenderPass             m_renderPass;
     vk::RenderPass             m_renderPassNoClear;
-    vk::Framebuffer            m_frameBuffer;
+    vk::Framebuffer            m_frameBuffer[6];
 
     vk::Image                  m_texture;
     vk::ImageView              m_textureView;
+    vk::ImageView              m_textureViewFramebuffer[6];
     VmaAllocation              m_textureAllocation;
 
     vk::ClearValue             m_clearValue;
@@ -28,8 +29,8 @@ private:
 protected:
 
 public:
-    VulkanDepthRenderTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height);
-    ~VulkanDepthRenderTexture();
+    VulkanDepthCubeRenderTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height);
+    ~VulkanDepthCubeRenderTexture();
 
     inline uint32_t GetWidth() const
     {
@@ -48,11 +49,11 @@ public:
     {
         return m_renderPassNoClear;
     }
-    
-    inline vk::Framebuffer GetFrameBuffer() const
+    inline vk::Framebuffer GetFrameBuffer(uint32_t a_index) const
     {
-        return m_frameBuffer;
+        return m_frameBuffer[a_index];
     }
+
     inline vk::ClearValue GetClearValue() const
     {
         return m_clearValue;
@@ -65,4 +66,5 @@ public:
 
     void Resize(uint32_t a_width, uint32_t a_height);
 };
+
 #endif

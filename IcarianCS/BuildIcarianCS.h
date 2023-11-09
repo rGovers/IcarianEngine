@@ -97,6 +97,7 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
 
     CUBE_CSProject_AppendSource(&project, "src/Rendering/Camera.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/DefaultRenderPipeline.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Rendering/DepthCubeRenderTexture.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/DepthRenderTexture.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/IRenderTexture.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/Material.cs");

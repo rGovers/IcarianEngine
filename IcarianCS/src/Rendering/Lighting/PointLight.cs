@@ -2,6 +2,7 @@ using IcarianEngine.Definitions;
 using IcarianEngine.Maths;
 using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -20,6 +21,8 @@ namespace IcarianEngine.Rendering.Lighting
 
     public class PointLight : Light, IDestroy
     {
+        static ConcurrentDictionary<uint, PointLight> s_lightMap = new ConcurrentDictionary<uint, PointLight>();
+
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateBuffer(uint a_transformAddr);
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -28,6 +31,10 @@ namespace IcarianEngine.Rendering.Lighting
         extern static void SetBuffer(uint a_addr, PointLightBuffer a_buffer);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyBuffer(uint a_addr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void SetShadowMap(uint a_addr, uint a_shadowMapAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GetShadowMap(uint a_addr);
 
         uint m_bufferAddr = uint.MaxValue;
 
@@ -131,7 +138,37 @@ namespace IcarianEngine.Rendering.Lighting
         {
             get
             {
-                return null;
+                DepthCubeRenderTexture shadowMap = ShadowMap;
+                if (shadowMap != null)
+                {
+                    yield return shadowMap;
+                }
+            }
+        }
+
+        public DepthCubeRenderTexture ShadowMap
+        {
+            get
+            {
+                uint shadowMapAddr = GetShadowMap(m_bufferAddr);
+
+                if (shadowMapAddr == uint.MaxValue)
+                {
+                    return null;
+                }
+
+                return DepthCubeRenderTexture.GetDepthCubeRenderTexture(shadowMapAddr);
+            }
+            set
+            {
+                if (value == null)
+                {
+                    SetShadowMap(m_bufferAddr, uint.MaxValue);
+                }
+                else
+                {
+                    SetShadowMap(m_bufferAddr, value.BufferAddr);
+                }
             }
         }
 
@@ -167,6 +204,18 @@ namespace IcarianEngine.Rendering.Lighting
                     SetBuffer(m_bufferAddr, buffer);
                 }
             }
+
+            s_lightMap.TryAdd(m_bufferAddr, this);
+        }
+
+        internal static PointLight GetLight(uint a_addr)
+        {
+            if (s_lightMap.TryGetValue(a_addr, out PointLight light))
+            {
+                return light;
+            }
+
+            return null;
         }
 
         ~PointLight()
@@ -188,6 +237,8 @@ namespace IcarianEngine.Rendering.Lighting
                 if(a_disposing)
                 {
                     DestroyBuffer(m_bufferAddr);
+
+                    s_lightMap.TryRemove(m_bufferAddr, out PointLight _);
                 }
                 else
                 {

@@ -33,13 +33,17 @@ const char* GetPixelShaderString(const std::string_view& a_str)
     {
         return SpotLightPixelShader;
     }
-    else if (a_str == iStr + "Post")
-    {
-        return PostPixelShader;
-    }
     else if (a_str == iStr + "DirectionalLightShadow")
     {
         return ShadowDirectionalLightPixelShader;
+    }
+    else if (a_str == iStr + "PointLightShadow")
+    {
+        return ShadowPointLightPixelShader;
+    }
+    else if (a_str == iStr + "Post")
+    {
+        return PostPixelShader;
     }
     else if (a_str == iStr + "UIImage")
     {

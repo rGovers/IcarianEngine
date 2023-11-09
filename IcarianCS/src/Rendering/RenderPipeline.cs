@@ -63,8 +63,9 @@ namespace IcarianEngine.Rendering
         /// <summary>
         /// Called before the shadow pass
         /// </summary>
+        /// <param name="a_lightType">The type of light the shadow pass is for</param>
         /// <param name="a_camera">The camera the shadow pass is for</param>
-        public abstract void ShadowSetup(Camera a_camera);
+        public abstract void ShadowSetup(LightType a_lightType, Camera a_camera);
         /// <summary>
         /// Called before each split of the shadow pass for a light
         /// </summary>
@@ -155,15 +156,16 @@ namespace IcarianEngine.Rendering
             }
         }
         
-        static void ShadowSetupS(uint a_camBuffer)
+        static void ShadowSetupS(uint a_lightType, uint a_camBuffer)
         {
             if (s_instance != null)
             {
                 Camera cam = Camera.GetCamera(a_camBuffer);
+                LightType type = (LightType)a_lightType;
 
                 if (cam != null)
                 {
-                    s_instance.ShadowSetup(cam);
+                    s_instance.ShadowSetup(type, cam);
                 }
             }
             else
@@ -294,6 +296,12 @@ namespace IcarianEngine.Rendering
                 case LightType.Directional:
                 {
                     light = DirectionalLight.GetLight(a_lightIndex);
+
+                    break;
+                }
+                case LightType.Point:
+                {
+                    light = PointLight.GetLight(a_lightIndex);
 
                     break;
                 }
