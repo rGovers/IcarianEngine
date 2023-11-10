@@ -10,6 +10,11 @@
 namespace IcarianEngine.Rendering {
 #endif
 
+/// @file EngineMaterialInteropStructures.h
+
+/// <summary>
+/// Shader buffer type enumeration.
+/// </summary>
 IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
 {
     IOP_ENUM_VALUE(ShaderBufferType, Null) = IOP_UINT16_MAX,
@@ -20,20 +25,25 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
     IOP_ENUM_VALUE(ShaderBufferType, DirectionalLightBuffer) = 4,
     IOP_ENUM_VALUE(ShaderBufferType, PointLightBuffer) = 5,
     IOP_ENUM_VALUE(ShaderBufferType, SpotLightBuffer) = 6,
-    IOP_ENUM_VALUE(ShaderBufferType, Texture) = 7,
-    IOP_ENUM_VALUE(ShaderBufferType, PushTexture) = 8,
-    IOP_ENUM_VALUE(ShaderBufferType, ShadowLightBuffer) = 9,
-    IOP_ENUM_VALUE(ShaderBufferType, ShadowTextureCube) = 10,
-    IOP_ENUM_VALUE(ShaderBufferType, UserUBO) = 11,
-    IOP_ENUM_VALUE(ShaderBufferType, SSModelBuffer) = 12,
-    IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 13,
-    IOP_ENUM_VALUE(ShaderBufferType, SSDirectionalLightBuffer) = 14,
-    IOP_ENUM_VALUE(ShaderBufferType, SSPointLightBuffer) = 15,
-    IOP_ENUM_VALUE(ShaderBufferType, SSSpotLightBuffer) = 16,
-    IOP_ENUM_VALUE(ShaderBufferType, SSShadowLightBuffer) = 17,
-    IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 18
+    IOP_ENUM_VALUE(ShaderBufferType, AmbientLightBuffer) = 7,
+    IOP_ENUM_VALUE(ShaderBufferType, Texture) = 8,
+    IOP_ENUM_VALUE(ShaderBufferType, PushTexture) = 9,
+    IOP_ENUM_VALUE(ShaderBufferType, ShadowLightBuffer) = 10,
+    IOP_ENUM_VALUE(ShaderBufferType, ShadowTextureCube) = 11,
+    IOP_ENUM_VALUE(ShaderBufferType, UserUBO) = 12,
+    IOP_ENUM_VALUE(ShaderBufferType, SSModelBuffer) = 13,
+    IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 14,
+    IOP_ENUM_VALUE(ShaderBufferType, SSDirectionalLightBuffer) = 15,
+    IOP_ENUM_VALUE(ShaderBufferType, SSPointLightBuffer) = 16,
+    IOP_ENUM_VALUE(ShaderBufferType, SSSpotLightBuffer) = 17,
+    IOP_ENUM_VALUE(ShaderBufferType, SSAmbientLightBuffer) = 18,
+    IOP_ENUM_VALUE(ShaderBufferType, SSShadowLightBuffer) = 19,
+    IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 20
 };
 
+/// <summary>
+/// Shader slot enumeration.
+/// </summary>
 IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderSlot) : IOP_UINT16
 {
     IOP_ENUM_VALUE(ShaderSlot, Null) = IOP_UINT16_MAX,
@@ -42,6 +52,9 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderSlot) : IOP_UINT16
     IOP_ENUM_VALUE(ShaderSlot, All) = 2
 };
 
+/// <summary>
+/// Culling mode enumeration.
+/// </summary>
 IOP_CSPUBLIC enum IOP_ENUM_NAME(CullMode) : IOP_UINT16
 {
     IOP_ENUM_VALUE(CullMode, None) = 0,
@@ -50,6 +63,9 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(CullMode) : IOP_UINT16
     IOP_ENUM_VALUE(CullMode, Both) = 3
 };
 
+/// <summary>
+/// Primitive mode enumeration.
+/// </summary>
 IOP_CSPUBLIC enum IOP_ENUM_NAME(PrimitiveMode) : IOP_UINT16
 {
     IOP_ENUM_VALUE(PrimitiveMode, Triangles) = 0,

@@ -8,7 +8,7 @@
 #include "Profiler.h"
 #include "Rendering/AnimationController.h"
 #include "Rendering/Null/NullRenderEngineBackend.h"
-#include "Rendering/SpirvTools.h"
+#include "Rendering/SPIRVTools.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"

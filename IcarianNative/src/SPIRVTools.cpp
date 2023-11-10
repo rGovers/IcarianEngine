@@ -1,4 +1,4 @@
-#include "Rendering/SpirvTools.h"
+#include "Rendering/SPIRVTools.h"
 
 #include "Flare/IcarianAssert.h"
 #include "Logger.h"
@@ -66,6 +66,10 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 			{
 				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_CAMERA_SHADER_STRUCTURE);
 			}
+			else if (args[0] == "AmbientLightBuffer")
+			{
+				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_AMBIENT_LIGHT_SHADER_STRUCTURE);
+			}
 			else if (args[0] == "DirectionalLightBuffer")
 			{
 				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_DIRECTIONAL_LIGHT_SHADER_STRUCTURE);
@@ -85,6 +89,10 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 			else if (args[0] == "TimeBuffer")
 			{
 				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_TIME_SHADER_STRUCTURE);
+			}
+			else if (args[0] == "SSAmbientLightBuffer")
+			{
+				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_AMBIENT_LIGHT_SSBO_STRUCTURE, AMBIENT_LIGHT_SHADER_NAMESTR);
 			}
 			else if (args[0] == "SSDirectionalLightBuffer")
 			{

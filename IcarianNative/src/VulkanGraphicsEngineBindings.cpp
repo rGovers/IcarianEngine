@@ -93,6 +93,11 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     \
     F(void, IcarianEngine.Rendering, Model, DestroyModel, { Engine->DestroyModel(a_addr); }, uint32_t a_addr) \
     \
+    F(uint32_t, IcarianEngine.Rendering.Lighting, AmbientLight, GenerateBuffer, { return Engine->GenerateAmbientLightBuffer(); }) \
+    F(void, IcarianEngine.Rendering.Lighting, AmbientLight, DestroyBuffer, { Engine->DestroyAmbientLightBuffer(a_addr); }, uint32_t a_addr) \
+    F(AmbientLightBuffer, IcarianEngine.Rendering.Lighting, AmbientLight, GetBuffer, { return Engine->GetAmbientLightBuffer(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Lighting, AmbientLight, SetBuffer, { Engine->SetAmbientLightBuffer(a_addr, a_buffer); }, uint32_t a_addr, AmbientLightBuffer a_buffer) \
+    \
     F(uint32_t, IcarianEngine.Rendering.Lighting, DirectionalLight, GenerateBuffer, { return Engine->GenerateDirectionalLightBuffer(a_transformAddr); }, uint32_t a_transformAddr) \
     F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, DestroyBuffer, { Engine->DestroyDirectionalLightBuffer(a_addr); }, uint32_t a_addr) \
     F(DirectionalLightBuffer, IcarianEngine.Rendering.Lighting, DirectionalLight, GetBuffer, { return Engine->GetDirectionalLightBuffer(a_addr); }, uint32_t a_addr) \
@@ -1109,6 +1114,38 @@ void VulkanGraphicsEngineBindings::ResizeDepthCubeRenderTexture(uint32_t a_addr,
     VulkanDepthCubeRenderTexture* texture = a[a_addr];
 
     texture->Resize(a_width, a_height);
+}
+
+uint32_t VulkanGraphicsEngineBindings::GenerateAmbientLightBuffer() const
+{
+    AmbientLightBuffer buffer;
+    buffer.Color = glm::vec4(1.0f);
+    buffer.Intensity = 1.0f;
+    buffer.RenderLayer = 0b1;
+    buffer.Data = nullptr;
+
+    return m_graphicsEngine->m_ambientLights.PushVal(buffer);
+}
+void VulkanGraphicsEngineBindings::SetAmbientLightBuffer(uint32_t a_addr, const AmbientLightBuffer& a_buffer) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_ambientLights.Size(), "SetAmbientLightBuffer out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_ambientLights.Exists(a_addr), "SetAmbientLightBuffer already destroyed");
+
+    m_graphicsEngine->m_ambientLights.LockSet(a_addr, a_buffer);
+}
+AmbientLightBuffer VulkanGraphicsEngineBindings::GetAmbientLightBuffer(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_ambientLights.Size(), "GetAmbientLightBuffer out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_ambientLights.Exists(a_addr), "GetAmbientLightBuffer already destroyed");
+
+    return m_graphicsEngine->m_ambientLights[a_addr];
+}
+void VulkanGraphicsEngineBindings::DestroyAmbientLightBuffer(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_ambientLights.Size(), "DestroyAmbientLightBuffer out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_ambientLights.Exists(a_addr), "DestroyAmbientLightBuffer already destroyed");
+
+    m_graphicsEngine->m_ambientLights.Erase(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateDirectionalLightBuffer(uint32_t a_transformAddr) const

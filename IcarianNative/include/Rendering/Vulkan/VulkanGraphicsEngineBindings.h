@@ -8,10 +8,12 @@ class VulkanPixelShader;
 class VulkanVertexShader;
 
 #include "Rendering/CameraBuffer.h"
-#include "Rendering/Light.h"
-#include "Rendering/MeshRenderBuffer.h"
 
+#include "EngineAmbientLightInteropStructures.h"
+#include "EngineDirectionalLightInteropStructures.h"
 #include "EngineMaterialInteropStructures.h"
+#include "EnginePointLightInteropStructures.h"
+#include "EngineSpotLightInteropStructures.h"
 #include "EngineTextureSamplerInteropStructures.h"
 
 // Before someone tries to get rid of this compiler seems to be pretty good at optimizing this out so until shown otherwise I'm going to leave it
@@ -92,6 +94,11 @@ public:
     uint32_t GetDepthCubeRenderTextureWidth(uint32_t a_addr) const;
     uint32_t GetDepthCubeRenderTextureHeight(uint32_t a_addr) const;
     void ResizeDepthCubeRenderTexture(uint32_t a_addr, uint32_t a_width, uint32_t a_height) const;
+
+    uint32_t GenerateAmbientLightBuffer() const;
+    void SetAmbientLightBuffer(uint32_t a_addr, const AmbientLightBuffer& a_buffer) const;
+    AmbientLightBuffer GetAmbientLightBuffer(uint32_t a_addr) const;
+    void DestroyAmbientLightBuffer(uint32_t a_addr) const;
 
     uint32_t GenerateDirectionalLightBuffer(uint32_t a_transformAddr) const;
     void SetDirectionalLightBuffer(uint32_t a_addr, const DirectionalLightBuffer& a_buffer) const;

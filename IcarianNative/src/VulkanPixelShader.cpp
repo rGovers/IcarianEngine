@@ -4,7 +4,7 @@
 
 #include "Flare/IcarianAssert.h"
 #include "Logger.h"
-#include "Rendering/SpirvTools.h"
+#include "Rendering/SPIRVTools.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 

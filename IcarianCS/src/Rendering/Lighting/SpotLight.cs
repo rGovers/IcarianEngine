@@ -5,20 +5,10 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineSpotLightInteropStructures.h"
+
 namespace IcarianEngine.Rendering.Lighting
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    internal struct SpotLightBuffer
-    {
-        public uint TransformAddr;
-        public uint RenderLayer;
-        public Vector4 Color;
-        public float Intensity;
-        public Vector2 CutoffAngle;
-        public float Radius;
-        public IntPtr Data;
-    }
-
     public class SpotLight : Light, IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -32,6 +22,9 @@ namespace IcarianEngine.Rendering.Lighting
 
         uint m_bufferAddr = uint.MaxValue;
 
+        /// <summary>
+        /// Determines if the SpotLight has been disposed of.
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -40,6 +33,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the LightType of the SpotLight.
+        /// </summary>
         public override LightType LightType
         {
             get
@@ -48,6 +44,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the Definition used to create the SpotLight.
+        /// </summary>
         public SpotLightDef SpotLightDef
         {
             get
@@ -56,6 +55,10 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the RenderLayer of the SpotLight.
+        /// </summary>
+        /// Bitmask of RenderLayers to render the SpotLight on.
         public override uint RenderLayer 
         {
             get
@@ -74,6 +77,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the Color of the SpotLight.
+        /// </summary>
         public override Color Color 
         {
             get
@@ -92,6 +98,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the Intensity of the SpotLight.
+        /// </summary>
         public override float Intensity 
         {
             get
@@ -110,6 +119,11 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the Position of the SpotLight.
+        /// </summary>
+        /// X is inner cutoff angle, Y is outer cutoff angle.
+        /// Dot based on the direction of the SpotLight.
         public Vector2 Cutoff
         {
             get
@@ -128,6 +142,10 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns inner cutoff angle of the SpotLight.
+        /// </summary>
+        /// Radians.
         public float InnerCutoffAngle
         {
             get
@@ -145,6 +163,10 @@ namespace IcarianEngine.Rendering.Lighting
                 SetBuffer(m_bufferAddr, buffer);
             }
         }
+        /// <summary>
+        /// Returns outer cutoff angle of the SpotLight.
+        /// </summary>
+        /// Radians.
         public float OuterCutoffAngle
         {
             get
@@ -163,6 +185,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the Radius of the SpotLight.
+        /// </summary>
         public float Radius
         {
             get
@@ -181,6 +206,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the ShadowMap of the SpotLight.
+        /// </summary>
         public override IEnumerable<IRenderTexture> ShadowMaps
         {
             get
@@ -189,6 +217,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Called when the SpotLight is created.
+        /// </summary>
         public override void Init()
         {
             base.Init();
@@ -230,14 +261,19 @@ namespace IcarianEngine.Rendering.Lighting
         {
             Dispose(false);
         }
-
+        /// <summary>
+        /// Disposes of the SpotLight.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the SpotLight is destroyed.
+        /// </summary>
+        /// <param name="a_disposing">Determines if the SpotLight is being disposed of.</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)

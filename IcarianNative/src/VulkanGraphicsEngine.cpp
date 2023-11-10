@@ -12,7 +12,6 @@
 #include "ObjectManager.h"
 #include "Profiler.h"
 #include "Rendering/AnimationController.h"
-#include "Rendering/Light.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/ShaderBuffers.h"
 #include "Rendering/UI/ImageUIElement.h"
@@ -43,6 +42,8 @@
 #include "Shaders.h"
 #include "Trace.h"
 #include "ThreadPool.h"
+
+#include "EngineLightInteropStructures.h"
 
 VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEngine)
 {
@@ -1306,7 +1307,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
     const Frustum frustum = camBuffer.ToFrustum(screenSize);
 
-    for (uint32_t i = 0; i < LightType_End; ++i)
+    for (uint32_t i = 0; i < LightType_ShadowEnd; ++i)
     {
         switch ((e_LightType)i)
         {
@@ -1547,6 +1548,70 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
         switch ((e_LightType)i)
         {
+        case LightType_Ambient:
+        {
+            PROFILESTACK("Ambient Light");
+
+            const std::vector<AmbientLightBuffer> lights = m_ambientLights.ToActiveVector();
+            const uint32_t size = (uint32_t)lights.size();
+
+            ShaderBufferInput ambientLightInput;
+            if (data->GetAmbientLightInput(&ambientLightInput))
+            {
+                for (uint32_t j = 0; j < size; ++j)
+                {
+                    const AmbientLightBuffer& ambientLight = lights[j];
+
+                    if (camBuffer.RenderLayer & ambientLight.RenderLayer)
+                    {
+                        VulkanUniformBuffer* uniformBuffer = m_pushPool->AllocateAmbientLightUniformBuffer();
+
+                        AmbientLightShaderBuffer buffer;
+                        buffer.LightColor = ambientLight.Color;
+                        buffer.LightColor.w = ambientLight.Intensity;
+
+                        uniformBuffer->SetData(a_index, &buffer);
+
+                        data->PushUniformBuffer(commandBuffer, ambientLightInput.Set, uniformBuffer, a_index);
+
+                        commandBuffer.draw(4, 1, 0, 0);
+                    }
+                }
+            }
+            else if (data->GetBatchAmbientLightInput(&ambientLightInput))
+            {
+                std::vector<AmbientLightShaderBuffer> buffers;
+                buffers.reserve(size);
+
+                for (uint32_t j = 0; j < size; ++j)
+                {
+                    const AmbientLightBuffer& ambientLight = lights[j];
+
+                    if (camBuffer.RenderLayer & ambientLight.RenderLayer)
+                    {
+                        AmbientLightShaderBuffer buffer;
+                        buffer.LightColor = ambientLight.Color;
+                        buffer.LightColor.w = ambientLight.Intensity;
+
+                        buffers.emplace_back(buffer);
+                    }
+                }
+
+                if (!buffers.empty())
+                {
+                    const uint32_t count = (uint32_t)buffers.size();
+
+                    VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(AmbientLightShaderBuffer) * count, count, buffers.data());
+                    IDEFER(delete storage);
+
+                    data->PushShaderStorageObject(commandBuffer, ambientLightInput.Set, storage, a_index);
+
+                    commandBuffer.draw(4, 1, 0, 0);
+                }
+            }
+
+            break;
+        }
         case LightType_Directional:
         {
             PROFILESTACK("Dir Light");

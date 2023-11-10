@@ -30,13 +30,16 @@ class VulkanVertexShader;
 #include "DataTypes/TNCArray.h"
 #include "DataTypes/TStatic.h"
 #include "Rendering/CameraBuffer.h"
-#include "Rendering/Light.h"
 #include "Rendering/MaterialRenderStack.h"
 #include "Rendering/MeshRenderBuffer.h"
 #include "Rendering/SkinnedMeshRenderBuffer.h"
 #include "Rendering/UI/CanvasRendererBuffer.h"
 
+#include "EngineAmbientLightInteropStructures.h"
+#include "EngineDirectionalLightInteropStructures.h"
 #include "EngineMaterialInteropStructures.h"
+#include "EnginePointLightInteropStructures.h"
+#include "EngineSpotLightInteropStructures.h"
 #include "EngineTextureSamplerInteropStructures.h"
 
 class VulkanGraphicsEngine
@@ -94,6 +97,7 @@ private:
     TNCArray<SkinnedMeshRenderBuffer>             m_skinnedRenderBuffers;
     TArray<MaterialRenderStack*>                  m_renderStacks;
 
+    TNCArray<AmbientLightBuffer>                  m_ambientLights;
     TNCArray<DirectionalLightBuffer>              m_directionalLights;
     TNCArray<PointLightBuffer>                    m_pointLights;
     TNCArray<SpotLightBuffer>                     m_spotLights;

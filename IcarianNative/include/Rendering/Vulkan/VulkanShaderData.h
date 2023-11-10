@@ -73,10 +73,12 @@ public:
 
     bool GetCameraInput(ShaderBufferInput* a_input) const;
 
+    bool GetAmbientLightInput(ShaderBufferInput* a_input) const;
     bool GetDirectionalLightInput(ShaderBufferInput* a_input) const;
     bool GetPointLightInput(ShaderBufferInput* a_input) const;
     bool GetSpotLightInput(ShaderBufferInput* a_input) const;
 
+    bool GetBatchAmbientLightInput(ShaderBufferInput* a_input) const;
     bool GetBatchDirectionalLightInput(ShaderBufferInput* a_input) const;
     bool GetBatchPointLightInput(ShaderBufferInput* a_input) const;
     bool GetBatchSpotLightInput(ShaderBufferInput* a_input) const;

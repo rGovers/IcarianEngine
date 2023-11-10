@@ -43,6 +43,7 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject_AppendSource(&project, "src/Audio/AudioMixer.cs");
     CUBE_CSProject_AppendSource(&project, "src/Audio/AudioSource.cs");
 
+    CUBE_CSProject_AppendSource(&project, "src/Definitions/AmbientLightDef.cs");
     CUBE_CSProject_AppendSource(&project, "src/Definitions/AnimationControllerDef.cs");
     CUBE_CSProject_AppendSource(&project, "src/Definitions/AnimatorDef.cs");
     CUBE_CSProject_AppendSource(&project, "src/Definitions/AudioSourceDef.cs");
@@ -123,6 +124,7 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject_AppendSource(&project, "src/Rendering/Animation/SkeletonClipAnimationController.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/Animation/SkinnedMeshRenderer.cs");
 
+    CUBE_CSProject_AppendSource(&project, "src/Rendering/Lighting/AmbientLight.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/Lighting/DirectionalLight.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/Lighting/Light.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/Lighting/PointLight.cs");

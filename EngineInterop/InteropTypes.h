@@ -27,6 +27,9 @@
 #define IOP_STRUCTURE_END
 
 #else
+#define GLM_FORCE_SWIZZLE
+#include <glm/glm.hpp>
+
 #include <cstdint>
 
 #define IOP_STRING MonoString*

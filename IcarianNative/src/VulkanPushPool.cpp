@@ -25,6 +25,13 @@ VulkanPushPool::~VulkanPushPool()
         }
     }
 
+    for (uint32_t i = 0; i < m_ambientLightBuffers.Size(); ++i)
+    {
+        if (m_ambientLightBuffers[i] != nullptr)
+        {
+            delete m_ambientLightBuffers[i];
+        }
+    }
     for (uint32_t i = 0; i < m_directionalLightBuffers.Size(); ++i)
     {
         if (m_directionalLightBuffers[i] != nullptr)
@@ -128,12 +135,28 @@ void VulkanPushPool::Reset(uint32_t a_index)
         device.resetDescriptorPool(buffer.Pool);
     }
 
+    m_ambientLightBufferIndex = 0;
     m_directionalLightBufferIndex = 0;
     m_pointLightBufferIndex = 0;
     m_spotLightBufferIndex = 0;
     m_shadowBufferIndex = 0;
 }
 
+VulkanUniformBuffer* VulkanPushPool::AllocateAmbientLightUniformBuffer()
+{
+    TLockArray<VulkanUniformBuffer*> a = m_ambientLightBuffers.ToLockArray();
+    if (m_ambientLightBufferIndex >= a.Size())
+    {
+        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(AmbientLightShaderBuffer));
+        m_ambientLightBuffers.UPush(buffer);
+
+        ++m_ambientLightBufferIndex;
+
+        return buffer;
+    }
+
+    return a[m_ambientLightBufferIndex++];
+}
 VulkanUniformBuffer* VulkanPushPool::AllocateDirectionalLightUniformBuffer()
 {
     TLockArray<VulkanUniformBuffer*> a = m_directionalLightBuffers.ToLockArray();

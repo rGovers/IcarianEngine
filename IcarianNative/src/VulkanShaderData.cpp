@@ -142,6 +142,10 @@ constexpr static uint32_t GetBufferSize(e_ShaderBufferType a_type)
     {
         return sizeof(CameraShaderBuffer);
     }
+    case ShaderBufferType_AmbientLightBuffer:
+    {
+        return sizeof(AmbientLightShaderBuffer);
+    }
     case ShaderBufferType_DirectionalLightBuffer:
     {
         return sizeof(DirectionalLightShaderBuffer);
@@ -181,6 +185,7 @@ constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_buffe
     }
     case ShaderBufferType_SSBoneBuffer:
     case ShaderBufferType_SSModelBuffer:
+    case ShaderBufferType_SSAmbientLightBuffer:
     case ShaderBufferType_SSDirectionalLightBuffer:
     case ShaderBufferType_SSPointLightBuffer:
     case ShaderBufferType_SSSpotLightBuffer:
@@ -227,6 +232,7 @@ static void GetLayoutInfo(const ShaderBufferInput* a_inputs, uint32_t a_inputCou
             break;
         }
         case ShaderBufferType_CameraBuffer:
+        case ShaderBufferType_AmbientLightBuffer:
         case ShaderBufferType_DirectionalLightBuffer:
         case ShaderBufferType_PointLightBuffer:
         case ShaderBufferType_SpotLightBuffer:
@@ -235,6 +241,7 @@ static void GetLayoutInfo(const ShaderBufferInput* a_inputs, uint32_t a_inputCou
         case ShaderBufferType_ShadowTextureCube:
         case ShaderBufferType_SSModelBuffer:
         case ShaderBufferType_SSBoneBuffer:
+        case ShaderBufferType_SSAmbientLightBuffer:
         case ShaderBufferType_SSDirectionalLightBuffer:
         case ShaderBufferType_SSPointLightBuffer:
         case ShaderBufferType_SSSpotLightBuffer:
@@ -982,6 +989,20 @@ bool VulkanShaderData::GetCameraInput(ShaderBufferInput* a_input) const
     return false;
 }
 
+bool VulkanShaderData::GetAmbientLightInput(ShaderBufferInput* a_input) const
+{
+    for (const ShaderBufferInput& input : m_slotInputs)
+    {
+        if (input.BufferType == ShaderBufferType_AmbientLightBuffer)
+        {
+            *a_input = input;
+
+            return true;
+        }
+    }
+
+    return false;
+}
 bool VulkanShaderData::GetDirectionalLightInput(ShaderBufferInput* a_input) const
 {
     for (const ShaderBufferInput& input : m_slotInputs)
@@ -1025,6 +1046,20 @@ bool VulkanShaderData::GetSpotLightInput(ShaderBufferInput* a_input) const
     return false;
 }
 
+bool VulkanShaderData::GetBatchAmbientLightInput(ShaderBufferInput* a_input) const
+{
+    for (const ShaderBufferInput& input : m_slotInputs)
+    {
+        if (input.BufferType == ShaderBufferType_SSAmbientLightBuffer)
+        {
+            *a_input = input;
+
+            return true;
+        }
+    }
+
+    return false;
+}
 bool VulkanShaderData::GetBatchDirectionalLightInput(ShaderBufferInput* a_input) const
 {
     for (const ShaderBufferInput& input : m_slotInputs)

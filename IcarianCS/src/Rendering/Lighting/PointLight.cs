@@ -6,19 +6,10 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EnginePointLightInteropStructures.h"
+
 namespace IcarianEngine.Rendering.Lighting
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    internal struct PointLightBuffer
-    {
-        public uint TransformAddr;
-        public uint RenderLayer;
-        public Vector4 Color;
-        public float Intensity;
-        public float Radius;
-        public IntPtr Data;
-    }
-
     public class PointLight : Light, IDestroy
     {
         static ConcurrentDictionary<uint, PointLight> s_lightMap = new ConcurrentDictionary<uint, PointLight>();
@@ -38,6 +29,9 @@ namespace IcarianEngine.Rendering.Lighting
 
         uint m_bufferAddr = uint.MaxValue;
 
+        /// <summary>
+        /// Determines if the PointLight has been disposed of.
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -46,6 +40,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the LightType of the PointLight.
+        /// </summary>
         public override LightType LightType
         {
             get
@@ -54,6 +51,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the Definition used to create the PointLight.
+        /// </summary>
         public PointLightDef PointLightDef
         {
             get
@@ -62,6 +62,10 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Render layers the PointLight is a part of.
+        /// </summary>
+        /// Bitmask of RenderLayers.
         public override uint RenderLayer 
         { 
             get
@@ -80,6 +84,9 @@ namespace IcarianEngine.Rendering.Lighting
             } 
         }
 
+        /// <summary>
+        /// Color of the PointLight.
+        /// </summary>
         public override Color Color 
         {
             get
@@ -98,6 +105,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Intensity of the PointLight.
+        /// </summary>
         public override float Intensity 
         {
             get
@@ -116,6 +126,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Radius of the PointLight.
+        /// </summary>
         public float Radius
         {
             get
@@ -134,6 +147,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the Light ShadowMaps.
+        /// </summary>
         public override IEnumerable<IRenderTexture> ShadowMaps
         {
             get
@@ -146,6 +162,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the CubeMap used for the PointLight ShadowMap.
+        /// </summary>
         public DepthCubeRenderTexture ShadowMap
         {
             get
@@ -172,6 +191,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Called when the PointLight is created.
+        /// </summary>
         public override void Init()
         {
             base.Init();
@@ -222,14 +244,19 @@ namespace IcarianEngine.Rendering.Lighting
         {
             Dispose(false);
         }
-
+        /// <summary>
+        /// Disposes of the PointLight.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the PointLight is disposed of.
+        /// </summary>
+        /// <param name="a_disposing">Determines if the PointLight is being disposed of.</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)

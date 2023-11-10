@@ -4,11 +4,14 @@
 #include <glm/glm.hpp>
 
 #include "Rendering/CameraBuffer.h"
-#include "Rendering/Light.h"
 #include "Rendering/UI/Font.h"
 #include "Runtime/RuntimeManager.h"
 
+#include "EngineAmbientLightInteropStructures.h"
+#include "EngineDirectionalLightInteropStructures.h"
 #include "EngineMaterialInteropStructures.h"
+#include "EnginePointLightInteropStructures.h"
+#include "EngineSpotLightInteropStructures.h"
 
 #define NULLGRAPHICS_BINDING_FUNCTION_TABLE(F) \
     F(uint32_t, IcarianEngine.Rendering, VertexShader, GenerateFromFile, { return 0; }, MonoString* a_path) \
@@ -74,6 +77,11 @@
     F(uint32_t, IcarianEngine.Rendering, Model, GenerateFromFile, { return 0; }, MonoString* a_path) \
     F(uint32_t, IcarianEngine.Rendering, Model, GenerateSkinnedFromFile, { return 0; }, MonoString* a_path) \
     F(void, IcarianEngine.Rendering, Model, DestroyModel, { }, uint32_t a_addr) \
+    \
+    F(uint32_t, IcarianEngine.Rendering.Lighting, AmbientLight, GenerateBuffer, { return 0; }, uint32_t a_transformAddr) \
+    F(void, IcarianEngine.Rendering.Lighting, AmbientLight, DestroyBuffer, { }, uint32_t a_addr) \
+    F(AmbientLightBuffer, IcarianEngine.Rendering.Lighting, AmbientLight, GetBuffer, { return AmbientLightBuffer(); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Lighting, AmbientLight, SetBuffer, { }, uint32_t a_addr, AmbientLightBuffer a_buffer) \
     \
     F(uint32_t, IcarianEngine.Rendering.Lighting, DirectionalLight, GenerateBuffer, { return 0; }, uint32_t a_transformAddr) \
     F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, DestroyBuffer, { }, uint32_t a_addr) \

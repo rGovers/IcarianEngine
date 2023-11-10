@@ -12,6 +12,7 @@ extern "C" {
 
 const static char* IcarianNativeShaderBasePaths[] =
 {
+    "shaders/AmbientLight.fpix",
     "shaders/DirectionalLight.fpix",
     "shaders/PointLight.fpix",
     "shaders/Post.fpix",
@@ -138,7 +139,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/RuntimeThreadJob.cpp");
     CUBE_CProject_AppendSource(&project, "src/Scribe.cpp");
     CUBE_CProject_AppendSource(&project, "src/ShaderTable.cpp");
-    CUBE_CProject_AppendSource(&project, "src/SpirvTools.cpp");
+    CUBE_CProject_AppendSource(&project, "src/SPIRVTools.cpp");
     CUBE_CProject_AppendSource(&project, "src/TextUIElement.cpp");
     CUBE_CProject_AppendSource(&project, "src/ThreadPool.cpp");
     CUBE_CProject_AppendSource(&project, "src/UIControl.cpp");

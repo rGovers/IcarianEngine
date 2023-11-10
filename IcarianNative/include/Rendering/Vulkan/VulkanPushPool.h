@@ -24,6 +24,9 @@ private:
 
     TArray<VulkanPushPoolBuffer> m_buffers[VulkanFlightPoolSize];
 
+    uint32_t                     m_ambientLightBufferIndex;
+    TArray<VulkanUniformBuffer*> m_ambientLightBuffers;
+
     uint32_t                     m_directionalLightBufferIndex;
     TArray<VulkanUniformBuffer*> m_directionalLightBuffers;
 
@@ -46,6 +49,7 @@ public:
     vk::DescriptorSet AllocateDescriptor(uint32_t a_index, vk::DescriptorType a_type, const vk::DescriptorSetLayout* a_layout, uint32_t a_size = 1);
     void Reset(uint32_t a_index);
 
+    VulkanUniformBuffer* AllocateAmbientLightUniformBuffer();
     VulkanUniformBuffer* AllocateDirectionalLightUniformBuffer();
     VulkanUniformBuffer* AllocatePointLightUniformBuffer();
     VulkanUniformBuffer* AllocateSpotLightUniformBuffer();

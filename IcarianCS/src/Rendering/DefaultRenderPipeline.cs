@@ -13,6 +13,7 @@ namespace IcarianEngine.Rendering
         public const uint CascadeCount = 4;
 
         VertexShader       m_quadVert;
+        PixelShader        m_ambientLightPixel;
         PixelShader        m_directionalLightPixel;
         PixelShader        m_pointLightPixel;
         PixelShader        m_spotLightPixel;
@@ -20,6 +21,7 @@ namespace IcarianEngine.Rendering
         PixelShader        m_pointLightShadowPixel;
         PixelShader        m_postPixel;
 
+        Material           m_ambientLightMaterial;
         Material           m_directionalLightMaterial;
         Material           m_pointLightMaterial;
         Material           m_spotLightMaterial;
@@ -116,12 +118,66 @@ namespace IcarianEngine.Rendering
 
             m_quadVert = VertexShader.LoadVertexShader("[INTERNAL]Quad");
 
+            m_ambientLightPixel = PixelShader.LoadPixelShader("[INTERNAL]AmbientLight");
             m_directionalLightPixel = PixelShader.LoadPixelShader("[INTERNAL]DirectionalLight");
             m_pointLightPixel = PixelShader.LoadPixelShader("[INTERNAL]PointLight");
             m_spotLightPixel = PixelShader.LoadPixelShader("[INTERNAL]SpotLight");
             m_directionalLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]DirectionalLightShadow");
             m_pointLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]PointLightShadow");
             m_postPixel = PixelShader.LoadPixelShader("[INTERNAL]Post");
+
+            MaterialBuilder ambientLightBuilder = new MaterialBuilder()
+            {
+                VertexShader = m_quadVert,
+                PixelShader = m_ambientLightPixel,
+                PrimitiveMode = PrimitiveMode.TriangleStrip,
+                EnableColorBlending = true,
+                ShaderInputs = new ShaderBufferInput[]
+                {
+                    new ShaderBufferInput()
+                    {
+                        Slot = 0,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 1,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 2,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 3,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 4,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 5,
+                        BufferType = ShaderBufferType.AmbientLightBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 1
+                    }
+                }
+            };
 
             MaterialBuilder directionalLightBuilder = new MaterialBuilder()
             {
@@ -303,10 +359,12 @@ namespace IcarianEngine.Rendering
                 }
             };
 
+            m_ambientLightMaterial = Material.CreateMaterial(ambientLightBuilder);
             m_directionalLightMaterial = Material.CreateMaterial(directionalLightBuilder);
             m_pointLightMaterial = Material.CreateMaterial(pointLightBuilder);
             m_spotLightMaterial = Material.CreateMaterial(spotLightBuilder);
 
+            SetTextures(m_ambientLightMaterial);
             SetTextures(m_directionalLightMaterial);
             SetTextures(m_pointLightMaterial);
             SetTextures(m_spotLightMaterial);
@@ -528,6 +586,7 @@ namespace IcarianEngine.Rendering
             m_drawRenderTexture.Resize(m_width, m_height);
             m_lightRenderTexture.Resize(m_width, m_height);
 
+            SetTextures(m_ambientLightMaterial);
             SetTextures(m_directionalLightMaterial);
             SetTextures(m_pointLightMaterial);
             SetTextures(m_spotLightMaterial);
@@ -776,6 +835,10 @@ namespace IcarianEngine.Rendering
         {
             switch (a_lightType)
             {
+            case LightType.Ambient:
+            {
+                return m_ambientLightMaterial;
+            }
             case LightType.Directional:
             {
                 return m_directionalLightMaterial;

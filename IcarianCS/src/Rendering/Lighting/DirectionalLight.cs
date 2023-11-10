@@ -1,23 +1,15 @@
+using IcarianEngine.Definitions;
+using IcarianEngine.Maths;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using IcarianEngine.Definitions;
-using IcarianEngine.Maths;
+
+#include "EngineDirectionalLightInteropStructures.h"
 
 namespace IcarianEngine.Rendering.Lighting
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    internal struct DirectionalLightBuffer
-    {
-        public uint TransformAddr;
-        public uint RenderLayer;
-        public Vector4 Color;
-        public float Intensity;
-        public IntPtr Data;
-    }
-
     public class DirectionalLight : Light, IDestroy
     {
         static ConcurrentDictionary<uint, DirectionalLight> s_lightMap = new ConcurrentDictionary<uint, DirectionalLight>();
@@ -39,6 +31,9 @@ namespace IcarianEngine.Rendering.Lighting
 
         uint m_bufferAddr = uint.MaxValue;
 
+        /// <summary>
+        /// Determines if the DirectionalLight has been disposed of.
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -47,6 +42,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the LightType of the DirectionalLight.
+        /// </summary>
         public override LightType LightType
         {
             get
@@ -55,6 +53,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Returns the Definition used to create the DirectionalLight.
+        /// </summary>
         public DirectionalLightDef DirectionalLightDef
         {
             get
@@ -63,6 +64,10 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Render layers the DirectionalLight is a part of.
+        /// </summary>
+        /// Bitmask of render layers.
         public override uint RenderLayer
         {
             get
@@ -81,6 +86,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Color of the DirectionalLight.
+        /// </summary>
         public override Color Color
         {
             get
@@ -99,6 +107,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Intensity of the DirectionalLight.
+        /// </summary>
         public override float Intensity
         {
             get
@@ -117,6 +128,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// ShadowMaps used by the DirectionalLight.
+        /// </summary>
         public override IEnumerable<IRenderTexture> ShadowMaps
         {
             get
@@ -133,6 +147,9 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        /// <summary>
+        /// Called when the DirectionalLight is created.
+        /// </summary>
         public override void Init()
         {
             base.Init();
@@ -154,6 +171,12 @@ namespace IcarianEngine.Rendering.Lighting
             s_lightMap.TryAdd(m_bufferAddr, this);
         }
 
+        /// <summary>
+        /// Added a ShadowMap to the DirectionalLight.
+        /// </summary>
+        /// <param name="a_shadowMap">ShadowMap to add.</param>
+        /// Refer to the cascades of the RenderPipeline for limitations on the number of ShadowMaps.
+        /// Default is 4 cascades.
         public void AddShadowMap(DepthRenderTexture a_shadowMap)
         {
             if (a_shadowMap != null)
@@ -165,6 +188,10 @@ namespace IcarianEngine.Rendering.Lighting
                 Logger.IcarianError("DirectionalLight AddShadowMap null DepthRenderTexture");
             }
         }
+        /// <summary>
+        /// Removes a ShadowMap from the DirectionalLight.
+        /// </summary>
+        /// <param name="a_shadowMap">ShadowMap to remove.</param>
         public void RemoveShadowMap(DepthRenderTexture a_shadowMap)
         {
             if (a_shadowMap != null)
@@ -190,14 +217,19 @@ namespace IcarianEngine.Rendering.Lighting
         {
             Dispose(false);
         }
-
+        /// <summary>
+        /// Disposes of the DirectionalLight.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the DirectionalLight is disposed of.
+        /// </summary>
+        /// <param name="a_disposing">Determines if the DirectionalLight is being disposed of.</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)
