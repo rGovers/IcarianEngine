@@ -327,7 +327,7 @@ std::vector<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const std::string_view&
 		// not high priority as high level optimizations are still a bit shit
 		spvtools::Optimizer opt = spvtools::Optimizer(VulkanShaderTarget);
 
-		opt.RegisterPerformancePasses(true);
+		opt.RegisterPerformancePasses();
 
 		ICARIAN_ASSERT_MSG_R(opt.Run(spirv.data(), spirv.size(), &spirv), "Failed to optimize SPIRV");
 	}

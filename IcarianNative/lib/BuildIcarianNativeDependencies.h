@@ -362,7 +362,7 @@ CUBE_CProject BuildSPIRVToolsProject(e_TargetPlatform a_targetPlatform, e_BuildC
     CUBE_CProject_AppendSource(&project, "source/opt/instruction_list.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/instrument_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/interface_var_sroa.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/invocation_interlock_placement_pass.cpp");
+    // CUBE_CProject_AppendSource(&project, "source/opt/invocation_interlock_placement_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/interp_fixup_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/ir_context.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/ir_loader.cpp");
@@ -410,8 +410,8 @@ CUBE_CProject BuildSPIRVToolsProject(e_TargetPlatform a_targetPlatform, e_BuildC
     CUBE_CProject_AppendSource(&project, "source/opt/strip_debug_info_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/strip_nonsemantic_info_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/struct_cfg_analysis.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/switch_descriptorset_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/trim_capabilities_pass.cpp");
+    // CUBE_CProject_AppendSource(&project, "source/opt/switch_descriptorset_pass.cpp");
+    // CUBE_CProject_AppendSource(&project, "source/opt/trim_capabilities_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/type_manager.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/types.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/unify_const_pass.cpp");
@@ -863,32 +863,32 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
 
 DependencyProject* BuildIcarianNativeIDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
-    *a_count = 6;
+    // *a_count = 6;
 
-    // *a_count = 1;
+    *a_count = 1;
 
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * (*a_count));
 
-    // projects[0].Project = BuildSPIRVToolsProject(a_targetPlatform, a_configuration);
-    // projects[0].WorkingDirectory = "IcarianNative/lib/SPIRV-Tools";
+    projects[0].Project = BuildSPIRVToolsProject(a_targetPlatform, a_configuration);
+    projects[0].WorkingDirectory = "IcarianNative/lib/SPIRV-Tools";
 
-    projects[0].Project = BuildGLSLangProject(a_targetPlatform, a_configuration);
-    projects[0].WorkingDirectory = "IcarianNative/lib/glslang";
+    // projects[0].Project = BuildGLSLangProject(a_targetPlatform, a_configuration);
+    // projects[0].WorkingDirectory = "IcarianNative/lib/glslang";
 
-    projects[1].Project = BuildOGLCompilersProject(a_targetPlatform, a_configuration);
-    projects[1].WorkingDirectory = "IcarianNative/lib/glslang";
+    // projects[1].Project = BuildOGLCompilersProject(a_targetPlatform, a_configuration);
+    // projects[1].WorkingDirectory = "IcarianNative/lib/glslang";
 
-    projects[2].Project = BuildSPIRVProject(a_targetPlatform, a_configuration);
-    projects[2].WorkingDirectory = "IcarianNative/lib/glslang";
+    // projects[2].Project = BuildSPIRVProject(a_targetPlatform, a_configuration);
+    // projects[2].WorkingDirectory = "IcarianNative/lib/glslang";
 
-    projects[3].Project = BuildSPIRVToolsProject(a_targetPlatform, a_configuration);
-    projects[3].WorkingDirectory = "IcarianNative/lib/SPIRV-Tools";
+    // projects[3].Project = BuildSPIRVToolsProject(a_targetPlatform, a_configuration);
+    // projects[3].WorkingDirectory = "IcarianNative/lib/SPIRV-Tools";
 
-    projects[4].Project = BuildJoltPhysicsProject(a_targetPlatform, a_configuration);
-    projects[4].WorkingDirectory = "IcarianNative/lib/JoltPhysics";
+    // projects[4].Project = BuildJoltPhysicsProject(a_targetPlatform, a_configuration);
+    // projects[4].WorkingDirectory = "IcarianNative/lib/JoltPhysics";
 
-    projects[5].Project = BuildOpenALSoft(a_targetPlatform, a_configuration);
-    projects[5].WorkingDirectory = "IcarianNative/lib/openal-soft";
+    // projects[5].Project = BuildOpenALSoft(a_targetPlatform, a_configuration);
+    // projects[5].WorkingDirectory = "IcarianNative/lib/openal-soft";
 
     return projects;
 }
