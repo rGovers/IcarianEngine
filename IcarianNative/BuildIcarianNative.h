@@ -102,6 +102,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendIncludePath(&project, "lib/glslang");
     CUBE_CProject_AppendIncludePath(&project, "lib/JoltPhysics");
     CUBE_CProject_AppendIncludePath(&project, "lib/openal-soft/include");
+    CUBE_CProject_AppendIncludePath(&project, "lib/SPIRV-Tools/include");
     CUBE_CProject_AppendIncludePath(&project, "lib/VulkanMemoryAllocator/include");
 
     CUBE_CProject_AppendSource(&project, "../deps/flare-tinyxml2/tinyxml2.cpp");
@@ -221,6 +222,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/SPIRV.lib");
         CUBE_CProject_AppendLibrary(&project, "lib/JoltPhysics/build/Jolt.lib");
         CUBE_CProject_AppendLibrary(&project, "lib/openal-soft/build/OpenALSoft.lib");
+        CUBE_CProject_AppendLibrary(&project, "lib/SPIRV-Tools/build/SPIRV-Tools.lib");
 
         CUBE_CProject_AppendReference(&project, "gdi32");
         CUBE_CProject_AppendReference(&project, "vulkan-1");
@@ -251,6 +253,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libSPIRV.a");
         CUBE_CProject_AppendLibrary(&project, "lib/JoltPhysics/build/libJolt.a");
         CUBE_CProject_AppendLibrary(&project, "lib/openal-soft/build/libOpenALSoft.a");
+        CUBE_CProject_AppendLibrary(&project, "lib/SPIRV-Tools/build/libSPIRV-Tools.a");
 
         CUBE_CProject_AppendReference(&project, "vulkan");
         CUBE_CProject_AppendReference(&project, "z");

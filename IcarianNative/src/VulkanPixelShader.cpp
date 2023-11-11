@@ -8,14 +8,14 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
-VulkanPixelShader::VulkanPixelShader(VulkanRenderEngineBackend* a_engine, const std::vector<unsigned int>& a_data) : VulkanShader(a_engine)
+VulkanPixelShader::VulkanPixelShader(VulkanRenderEngineBackend* a_engine, const std::vector<uint32_t>& a_data) : VulkanShader(a_engine)
 {
     const vk::Device device = m_engine->GetLogicalDevice();
 
     const vk::ShaderModuleCreateInfo createInfo = vk::ShaderModuleCreateInfo
     (
         vk::ShaderModuleCreateFlags(),
-        a_data.size() * sizeof(unsigned int),
+        a_data.size() * sizeof(uint32_t),
         (uint32_t*)a_data.data()
     );
 
@@ -36,7 +36,7 @@ VulkanPixelShader* VulkanPixelShader::CreateFromFShader(VulkanRenderEngineBacken
 }
 VulkanPixelShader* VulkanPixelShader::CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const std::string_view& a_str)
 {
-    const std::vector<unsigned int> spirv = spirv_fromGLSL(EShLangFragment, a_str);
+    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangFragment, a_str, true);
     
     ICARIAN_ASSERT_MSG_R(!spirv.empty(), "Failed to generate Pixel Spirv");
 

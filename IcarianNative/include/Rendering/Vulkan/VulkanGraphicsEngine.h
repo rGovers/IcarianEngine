@@ -81,8 +81,8 @@ private:
 
     TNCArray<RenderProgram>                       m_shaderPrograms;
      
-    TArray<VulkanVertexShader*>                   m_vertexShaders;
-    TArray<VulkanPixelShader*>                    m_pixelShaders;
+    TNCArray<VulkanVertexShader*>                 m_vertexShaders;
+    TNCArray<VulkanPixelShader*>                  m_pixelShaders;
      
     TNCArray<TextureSamplerBuffer>                m_textureSampler;
 

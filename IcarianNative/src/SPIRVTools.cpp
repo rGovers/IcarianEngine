@@ -1,8 +1,11 @@
 #include "Rendering/SPIRVTools.h"
 
+#include <spirv-tools/optimizer.hpp>
+
 #include "Flare/IcarianAssert.h"
 #include "Logger.h"
 #include "Rendering/ShaderBuffers.h"
+#include "Rendering/Vulkan/VulkanConstants.h"
 #include "Trace.h"
 
 static std::vector<std::string> SplitArgs(const std::string_view& a_string)
@@ -279,18 +282,18 @@ TBuiltInResource spirv_create_resources()
 
     return resource;
 }
-std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str)
+std::vector<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str, bool a_optimize)
 {
-	std::vector<unsigned int> spirv;
-
 	constexpr EShMessages Messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
 
     TRACE("Generating SPIRV");
 
     glslang::TShader shader = glslang::TShader(a_lang);
 
-    const char* strs[1];
-    strs[0] = a_str.data();
+    const char* strs[] =
+	{
+		a_str.data()
+	};
     shader.setStrings(strs, 1);
 
     const TBuiltInResource resource = spirv_create_resources();
@@ -299,7 +302,7 @@ std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_v
     {
 		Logger::Error(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog());
 
-        return spirv;
+		ICARIAN_ASSERT(0);
     }
 
     glslang::TProgram program;
@@ -309,12 +312,26 @@ std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_v
     {
 		Logger::Error(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog());
 
-        return spirv;
+		ICARIAN_ASSERT(0);
     }
 
-    
+	std::vector<uint32_t> spirv;
+	spirv.reserve(1024);
+
     glslang::GlslangToSpv(*program.getIntermediate(a_lang), spirv);
-    
+
+	if (a_optimize)
+	{
+		// TODO: Seems to be better with not copying values back and forth however unrolling loops seems to be broken and/or shit
+		// investigate further
+		// not high priority as high level optimizations are still a bit shit
+		spvtools::Optimizer opt = spvtools::Optimizer(VulkanShaderTarget);
+
+		opt.RegisterPerformancePasses(true);
+
+		ICARIAN_ASSERT_MSG_R(opt.Run(spirv.data(), spirv.size(), &spirv), "Failed to optimize SPIRV");
+	}
+	
     TRACE("Generated SPIRV");
 
 	return spirv;

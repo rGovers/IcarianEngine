@@ -197,7 +197,7 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
     TRACE("Checking if shaders where deleted");
     for (uint32_t i = 0; i < m_vertexShaders.Size(); ++i)
     {
-        if (m_vertexShaders[i] != nullptr)
+        if (m_vertexShaders.Exists(i))
         {
             Logger::Warning("Vertex Shader was not destroyed");
 
@@ -207,7 +207,7 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
 
     for (uint32_t i = 0; i < m_pixelShaders.Size(); ++i)
     {
-        if (m_pixelShaders[i] != nullptr)
+        if (m_pixelShaders.Exists(i))
         {
             Logger::Warning("Pixel Shader was not destroyed");
 
@@ -313,21 +313,6 @@ uint32_t VulkanGraphicsEngine::GenerateGLSLVertexShader(const std::string_view& 
 
     VulkanVertexShader* shader = VulkanVertexShader::CreateFromGLSL(m_vulkanEngine, a_source);
 
-    {
-        TLockArray<VulkanVertexShader*> a = m_vertexShaders.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = shader;
-
-                return i;
-            }
-        }
-    }
-
     return m_vertexShaders.PushVal(shader);
 }
 uint32_t VulkanGraphicsEngine::GenerateFVertexShader(const std::string_view& a_source)
@@ -336,32 +321,17 @@ uint32_t VulkanGraphicsEngine::GenerateFVertexShader(const std::string_view& a_s
 
     VulkanVertexShader* shader = VulkanVertexShader::CreateFromFShader(m_vulkanEngine, a_source);
 
-    {
-        TLockArray<VulkanVertexShader*> a = m_vertexShaders.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = shader;
-
-                return i;
-            }
-        }
-    }
-
     return m_vertexShaders.PushVal(shader);
 }
 void VulkanGraphicsEngine::DestroyVertexShader(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < m_vertexShaders.Size(), "DestroyVertexShader out of bounds");
-    ICARIAN_ASSERT_MSG(m_vertexShaders[a_addr] != nullptr, "DestroyVertexShader already destroyed");
+    ICARIAN_ASSERT_MSG(m_vertexShaders.Exists(a_addr), "DestroyVertexShader already destroyed");
 
     const VulkanVertexShader* shader = m_vertexShaders[a_addr];
     IDEFER(delete shader);
 
-    m_vertexShaders.LockSet(a_addr, nullptr);
+    m_vertexShaders.Erase(a_addr);
 }
 
 uint32_t VulkanGraphicsEngine::GenerateFPixelShader(const std::string_view& a_source)
@@ -369,21 +339,6 @@ uint32_t VulkanGraphicsEngine::GenerateFPixelShader(const std::string_view& a_so
     ICARIAN_ASSERT_MSG(!a_source.empty(), "GenerateFPixelShader source is empty");
 
     VulkanPixelShader* shader = VulkanPixelShader::CreateFromFShader(m_vulkanEngine, a_source);
-
-    {
-        TLockArray<VulkanPixelShader*> a = m_pixelShaders.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = shader;
-
-                return i;
-            }
-        }
-    }
 
     return m_pixelShaders.PushVal(shader);
 }
@@ -393,32 +348,17 @@ uint32_t VulkanGraphicsEngine::GenerateGLSLPixelShader(const std::string_view& a
 
     VulkanPixelShader* shader = VulkanPixelShader::CreateFromGLSL(m_vulkanEngine, a_source);
 
-    {
-        TLockArray<VulkanPixelShader*> a = m_pixelShaders.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = shader;
-
-                return i;
-            }
-        }
-    }
-
     return m_pixelShaders.PushVal(shader);
 }
 void VulkanGraphicsEngine::DestroyPixelShader(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < m_pixelShaders.Size(), "DestroyPixelShader out of bounds");
-    ICARIAN_ASSERT_MSG(m_pixelShaders[a_addr] != nullptr, "DestroyPixelShader already destroyed");
+    ICARIAN_ASSERT_MSG(m_pixelShaders.Exists(a_addr), "DestroyPixelShader already destroyed");
 
     const VulkanPixelShader* shader = m_pixelShaders[a_addr];
     IDEFER(delete shader);
 
-    m_pixelShaders.LockSet(a_addr, nullptr);
+    m_pixelShaders.Erase(a_addr);
 }
 
 uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_program)
@@ -2317,12 +2257,14 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
 VulkanVertexShader* VulkanGraphicsEngine::GetVertexShader(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < m_vertexShaders.Size(), "GetVertexShader out of bounds");
+    ICARIAN_ASSERT_MSG(m_vertexShaders.Exists(a_addr), "GetVertexShader already destroyed");
 
     return m_vertexShaders[a_addr];
 }
 VulkanPixelShader* VulkanGraphicsEngine::GetPixelShader(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < m_pixelShaders.Size(), "GetPixelShader out of bounds");
+    ICARIAN_ASSERT_MSG(m_pixelShaders.Exists(a_addr), "GetPixelShader already destroyed");
 
     return m_pixelShaders[a_addr];
 }

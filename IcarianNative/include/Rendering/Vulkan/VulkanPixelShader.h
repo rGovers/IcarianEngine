@@ -13,7 +13,7 @@ protected:
 
 public:
     VulkanPixelShader() = delete;
-    VulkanPixelShader(VulkanRenderEngineBackend* a_engine, const std::vector<unsigned int>& a_data);
+    VulkanPixelShader(VulkanRenderEngineBackend* a_engine, const std::vector<uint32_t>& a_data);
     virtual ~VulkanPixelShader();
 
     static VulkanPixelShader* CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const std::string_view& a_str);
