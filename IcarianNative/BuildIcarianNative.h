@@ -135,6 +135,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/PhysicsEngine.cpp");
     CUBE_CProject_AppendSource(&project, "src/PhysicsEngineBindings.cpp");
     CUBE_CProject_AppendSource(&project, "src/Profiler.cpp");
+    CUBE_CProject_AppendSource(&project, "src/Random.cpp");
     CUBE_CProject_AppendSource(&project, "src/RenderEngine.cpp");
     CUBE_CProject_AppendSource(&project, "src/RuntimeFunction.cpp");
     CUBE_CProject_AppendSource(&project, "src/RuntimeManager.cpp");

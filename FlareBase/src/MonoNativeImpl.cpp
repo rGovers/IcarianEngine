@@ -1,7 +1,10 @@
 #include "Flare/MonoNativeImpl.h"
 
+#include "Flare/IcarianAssert.h"
+
 #include <cstdint>
 #include <cstring>
+#include <ctime>
 
 #ifndef WIN32
 #include <dirent.h>
@@ -581,6 +584,27 @@ static int32_t SystemNative_LChflagsCanSetHiddenFlag()
 }
 #endif
 
+void SystemNative_GetNonCryptographicallySecureRandomBytes(uint8_t* a_buffer, int32_t a_bufferLength)
+{
+    ICARIAN_ASSERT(a_buffer != nullptr);
+
+    const uint32_t iBufferLen = (uint32_t)a_bufferLength / sizeof(int32_t);
+    const uint32_t iBufferRemainder = (uint32_t)a_bufferLength % sizeof(int32_t);
+    const uint32_t offset = iBufferLen * sizeof(int32_t);
+
+    int32_t* buffer = (int32_t*)a_buffer;
+
+    for (uint32_t i = 0; i < iBufferLen; ++i)
+    {
+        buffer[i] = (int32_t)rand();
+    }
+
+    for (uint32_t i = 0; i < iBufferRemainder; ++i)
+    {
+        a_buffer[offset + i] = (uint8_t)((double)rand() / RAND_MAX * UINT8_MAX);
+    }
+}
+
 namespace FlareBase
 {
     static MonoNativeImpl* Instance = nullptr;
@@ -613,6 +637,8 @@ namespace FlareBase
             Instance->m_functions.emplace("SystemNative_GetReadDirRBufferSize", (void*)SystemNative_GetReadDirRBufferSize);
 
             Instance->m_functions.emplace("SystemNative_LChflagsCanSetHiddenFlag", (void*)SystemNative_LChflagsCanSetHiddenFlag);
+
+            Instance->m_functions.emplace("SystemNative_GetNonCryptographicallySecureRandomBytes", (void*)SystemNative_GetNonCryptographicallySecureRandomBytes);
 #endif
         }
     }

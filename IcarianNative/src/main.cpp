@@ -1,3 +1,4 @@
+#include <ctime>
 #include <stdio.h>
 #include <string.h>
 
@@ -18,6 +19,8 @@ int main(int a_argc, char* a_argv[])
     Config* config = new Config("./config.xml");
 
     printf("IcarianEngine %d.%d \n", ICARIANNATIVE_VERSION_MAJOR, ICARIANNATIVE_VERSION_MINOR);
+
+    srand(time(NULL));
 
     for (int i = 0; i < a_argc; ++i)
     {

@@ -11,6 +11,7 @@
 #include "ObjectManager.h"
 #include "Physics/PhysicsEngine.h"
 #include "Profiler.h"
+#include "Random.h"
 #include "Rendering/AnimationController.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/UI/UIControl.h"
@@ -123,6 +124,7 @@ Application::Application(Config* a_config)
 
     ThreadPool::Init();
     
+    Random::Init();
     Profiler::Init();
     Scribe::Init();
 
@@ -167,6 +169,7 @@ Application::~Application()
 
     ObjectManager::Destroy();
 
+    Random::Destroy();
     Profiler::Destroy();
     Scribe::Destroy();
 

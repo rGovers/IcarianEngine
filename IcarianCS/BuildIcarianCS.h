@@ -31,6 +31,7 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject_AppendSource(&project, "src/PrimitiveGenerator.cs");
     CUBE_CSProject_AppendSource(&project, "src/Profiler.cs");
     CUBE_CSProject_AppendSource(&project, "src/Program.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Random.cs");
     CUBE_CSProject_AppendSource(&project, "src/Scene.cs");
     CUBE_CSProject_AppendSource(&project, "src/Scribe.cs");
     CUBE_CSProject_AppendSource(&project, "src/Scriptable.cs");
