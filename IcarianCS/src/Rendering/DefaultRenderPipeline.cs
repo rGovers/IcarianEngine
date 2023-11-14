@@ -19,6 +19,7 @@ namespace IcarianEngine.Rendering
         PixelShader        m_spotLightPixel;
         PixelShader        m_directionalLightShadowPixel;
         PixelShader        m_pointLightShadowPixel;
+        PixelShader        m_spotLightShadowPixel;
         PixelShader        m_postPixel;
 
         Material           m_ambientLightMaterial;
@@ -27,6 +28,7 @@ namespace IcarianEngine.Rendering
         Material           m_spotLightMaterial;
         Material           m_directionalLightShadowMaterial;
         Material           m_pointLightShadowMaterial;
+        Material           m_spotLightShadowMaterial;
         Material           m_postMaterial;
 
         MultiRenderTexture m_drawRenderTexture;
@@ -124,6 +126,7 @@ namespace IcarianEngine.Rendering
             m_spotLightPixel = PixelShader.LoadPixelShader("[INTERNAL]SpotLight");
             m_directionalLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]DirectionalLightShadow");
             m_pointLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]PointLightShadow");
+            m_spotLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]SpotLightShadow");
             m_postPixel = PixelShader.LoadPixelShader("[INTERNAL]Post");
 
             MaterialBuilder ambientLightBuilder = new MaterialBuilder()
@@ -444,7 +447,7 @@ namespace IcarianEngine.Rendering
                 }
             };
 
-            MaterialBuilder pointLightShadowMaterail = new MaterialBuilder()
+            MaterialBuilder pointLightShadowMaterial = new MaterialBuilder()
             {
                 VertexShader = m_quadVert,
                 PixelShader = m_pointLightShadowPixel,
@@ -511,11 +514,87 @@ namespace IcarianEngine.Rendering
                 }
             };
 
+            MaterialBuilder spotLightShadowMaterial = new MaterialBuilder()
+            {
+                VertexShader = m_quadVert,
+                PixelShader = m_spotLightShadowPixel,
+                PrimitiveMode = PrimitiveMode.TriangleStrip,
+                EnableColorBlending = true,
+                ShaderInputs = new ShaderBufferInput[]
+                {
+                    new ShaderBufferInput()
+                    {
+                        Slot = 0,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput() 
+                    {
+                        Slot = 1,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput() 
+                    {
+                        Slot = 2,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput() 
+                    {
+                        Slot = 3,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput() 
+                    {
+                        Slot = 4,
+                        BufferType = ShaderBufferType.Texture,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 0
+                    },
+                    new ShaderBufferInput() 
+                    {
+                        Slot = 5,
+                        BufferType = ShaderBufferType.ShadowTexture2D,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 1
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 6,
+                        BufferType = ShaderBufferType.CameraBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 2
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 7,
+                        BufferType = ShaderBufferType.SpotLightBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 3
+                    },
+                    new ShaderBufferInput()
+                    {
+                        Slot = 8,
+                        BufferType = ShaderBufferType.ShadowLightBuffer,
+                        ShaderSlot = ShaderSlot.Pixel,
+                        Set = 4
+                    }
+                }
+            };
+
             m_directionalLightShadowMaterial = Material.CreateMaterial(directionalLightShadowMaterial);
-            m_pointLightShadowMaterial = Material.CreateMaterial(pointLightShadowMaterail);
+            m_pointLightShadowMaterial = Material.CreateMaterial(pointLightShadowMaterial);
+            m_spotLightShadowMaterial = Material.CreateMaterial(spotLightShadowMaterial);
 
             SetTextures(m_directionalLightShadowMaterial);
             SetTextures(m_pointLightShadowMaterial);
+            SetTextures(m_spotLightShadowMaterial);
 
             MaterialBuilder postMaterial = new MaterialBuilder()
             {
@@ -593,6 +672,7 @@ namespace IcarianEngine.Rendering
 
             SetTextures(m_directionalLightShadowMaterial);
             SetTextures(m_pointLightShadowMaterial);
+            SetTextures(m_spotLightShadowMaterial);
 
             SetPostTextures();
         }
@@ -627,7 +707,7 @@ namespace IcarianEngine.Rendering
             // On second though something did not look right in the maths so I knicked this
             // https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf
 
-            Matrix4 cameraTrans = a_camera.Transform.ToMatrix();
+            Matrix4 cameraTrans = a_camera.Transform.ToGlobalMatrix();
             Matrix4 proj = a_camera.ToProjection(m_width, m_height, a_near, a_far);
             Matrix4 projInv = Matrix4.Inverse(proj);
 
@@ -656,7 +736,6 @@ namespace IcarianEngine.Rendering
             mid /= 8.0f;
 
             Quaternion rot = a_light.Transform.Rotation;
-            Quaternion invRot = Quaternion.Inverse(rot);
 
             Matrix4 lightTrans = rot.ToMatrix() * new Matrix4(Vector4.UnitX, Vector4.UnitY, Vector4.UnitZ, new Vector4(mid, 1.0f));
             Matrix4 lightView = Matrix4.Inverse(lightTrans);
@@ -721,6 +800,22 @@ namespace IcarianEngine.Rendering
                 {
                     LVP = lvp,
                     Split = cascadeFar
+                };
+            }
+            case LightType.Spot:
+            {
+                SpotLight light = a_light as SpotLight;
+
+                Matrix4 trans = light.Transform.ToGlobalMatrix();
+                Matrix4 proj = Matrix4.CreatePerspective(light.OuterCutoffAngle * 2, 1.0f, 0.1f, light.Radius);
+                Matrix4 view = Matrix4.Inverse(trans);
+
+                Matrix4 lvp = view * proj;
+
+                return new LightShadowSplit()
+                {
+                    LVP = lvp,
+                    Split = 0.0f
                 };
             }
             }
@@ -812,6 +907,28 @@ namespace IcarianEngine.Rendering
 
                 break;
             }
+            case LightType.Spot:
+            {
+                SpotLight light = a_light as SpotLight;
+
+                Matrix4 trans = light.Transform.ToGlobalMatrix();
+                Matrix4 proj = Matrix4.CreatePerspective(light.OuterCutoffAngle * 2, 1.0f, 0.1f, light.Radius);
+                Matrix4 view = Matrix4.Inverse(light.Transform.ToGlobalMatrix());
+
+                Matrix4 lvp = view * proj;
+
+                pass.Material = m_spotLightShadowMaterial;
+                pass.Splits = new LightShadowSplit[]
+                {
+                    new LightShadowSplit()
+                    {
+                        LVP = lvp,
+                        Split = 0.0f
+                    }    
+                };
+
+                break;
+            }
             }
 
             return pass;
@@ -893,18 +1010,22 @@ namespace IcarianEngine.Rendering
             m_lightColorSampler.Dispose();
 
             m_directionalLightMaterial.Dispose();
+            m_ambientLightMaterial.Dispose();
             m_pointLightMaterial.Dispose();
             m_spotLightMaterial.Dispose();
             m_directionalLightShadowMaterial.Dispose();
             m_pointLightShadowMaterial.Dispose();
+            m_spotLightShadowMaterial.Dispose();
             m_postMaterial.Dispose();
 
             m_quadVert.Dispose();
+            m_ambientLightPixel.Dispose();
             m_directionalLightPixel.Dispose();
             m_pointLightPixel.Dispose();
             m_spotLightPixel.Dispose();
             m_directionalLightShadowPixel.Dispose();
             m_pointLightShadowPixel.Dispose();
+            m_spotLightShadowPixel.Dispose();
             m_postPixel.Dispose();
         }
     }

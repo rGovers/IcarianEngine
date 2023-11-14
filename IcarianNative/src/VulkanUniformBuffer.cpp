@@ -8,6 +8,44 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
+class VulkanUBOBufferDeletionObject : public VulkanDeletionObject
+{
+private:
+    VulkanRenderEngineBackend* m_engine;
+
+    vk::Buffer                 m_buffer[VulkanFlightPoolSize];
+    VmaAllocation              m_allocation[VulkanFlightPoolSize];
+
+protected:
+
+public:
+    VulkanUBOBufferDeletionObject(VulkanRenderEngineBackend* a_engine, const vk::Buffer* a_buffer, const VmaAllocation* a_allocation)
+    {
+        m_engine = a_engine;
+
+        for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
+        {
+            m_buffer[i] = a_buffer[i];
+            m_allocation[i] = a_allocation[i];
+        }
+    }
+    virtual ~VulkanUBOBufferDeletionObject()
+    {
+
+    }
+
+    virtual void Destroy()
+    {
+        TRACE("Destroying UBO");
+        const VmaAllocator allocator = m_engine->GetAllocator();
+
+        for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
+        {
+            vmaDestroyBuffer(allocator, m_buffer[i], m_allocation[i]);
+        }
+    }
+};
+
 VulkanUniformBuffer::VulkanUniformBuffer(VulkanRenderEngineBackend* a_engine, uint32_t a_uniformSize)
 {
     TRACE("Creating Vulkan UBO");
@@ -37,13 +75,8 @@ VulkanUniformBuffer::VulkanUniformBuffer(VulkanRenderEngineBackend* a_engine, ui
 }
 VulkanUniformBuffer::~VulkanUniformBuffer()
 {
-    TRACE("Destroying UBO");
-    const VmaAllocator allocator = m_engine->GetAllocator();
-    
-    for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
-    {
-        vmaDestroyBuffer(allocator, m_buffers[i], m_allocations[i]);
-    }
+    TRACE("Queueing UBO for deletion");
+    m_engine->PushDeletionObject(new VulkanUBOBufferDeletionObject(m_engine, m_buffers, m_allocations));
 }
 
 void VulkanUniformBuffer::SetData(uint32_t a_index, const void* a_data)

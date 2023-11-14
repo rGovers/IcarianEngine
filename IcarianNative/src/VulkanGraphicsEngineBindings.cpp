@@ -116,6 +116,8 @@ static VulkanGraphicsEngineBindings* Engine = nullptr;
     F(void, IcarianEngine.Rendering.Lighting, SpotLight, DestroyBuffer, { Engine->DestroySpotLightBuffer(a_addr); }, uint32_t a_addr) \
     F(SpotLightBuffer, IcarianEngine.Rendering.Lighting, SpotLight, GetBuffer, { return Engine->GetSpotLightBuffer(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Lighting, SpotLight, SetBuffer, { Engine->SetSpotLightBuffer(a_addr, a_buffer); }, uint32_t a_addr, SpotLightBuffer a_buffer) \
+    F(void, IcarianEngine.Rendering.Lighting, SpotLight, SetShadowMap, { Engine->SetSpotLightShadowMap(a_addr, a_shadowMapAddr); }, uint32_t a_addr, uint32_t a_shadowMapAddr) \
+    F(uint32_t, IcarianEngine.Rendering.Lighting, SpotLight, GetShadowMap, { return Engine->GetSpotLightShadowMap(a_addr); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering.UI, Font, GenerateFont, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return Engine->GenerateFont(str); }, MonoString* a_path) \
     F(void, IcarianEngine.Rendering.UI, Font, DestroyFont, { Engine->DestroyFont(a_addr); }, uint32_t a_addr) \
@@ -1338,27 +1340,87 @@ uint32_t VulkanGraphicsEngineBindings::GenerateSpotLightBuffer(uint32_t a_transf
     buffer.Intensity = 1.0f;
     buffer.CutoffAngle = glm::vec2(1.0f, 1.5f);
     buffer.RenderLayer = 0b1;
-    buffer.Data = nullptr;
+    
+    VulkanLightBuffer* lightBuffer = new VulkanLightBuffer();
+    lightBuffer->LightRenderTextureCount = 0;
+    lightBuffer->LightRenderTextures = nullptr;
+    buffer.Data = lightBuffer;
 
     return m_graphicsEngine->m_spotLights.PushVal(buffer);
 }
 void VulkanGraphicsEngineBindings::SetSpotLightBuffer(uint32_t a_addr, const SpotLightBuffer& a_buffer) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_spotLights.Size(), "SetSpotLightBuffer out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_spotLights.Exists(a_addr), "SetSpotLightBuffer already destroyed");
 
     m_graphicsEngine->m_spotLights.LockSet(a_addr, a_buffer);
 }
 SpotLightBuffer VulkanGraphicsEngineBindings::GetSpotLightBuffer(uint32_t a_addr) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_spotLights.Size(), "GetSpotLightBuffer out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_spotLights.Exists(a_addr), "GetSpotLightBuffer already destroyed");
 
     return m_graphicsEngine->m_spotLights[a_addr];
 }
 void VulkanGraphicsEngineBindings::DestroySpotLightBuffer(uint32_t a_addr) const
 {
     ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_spotLights.Size(), "DestroySpotLightBuffer out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_spotLights.Exists(a_addr), "DestroySpotLightBuffer already destroyed");
 
     m_graphicsEngine->m_spotLights.Erase(a_addr);
+}
+void VulkanGraphicsEngineBindings::SetSpotLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_spotLights.Size(), "SetSpotLightShadowMap SpotLight out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_spotLights.Exists(a_addr), "SetSpotLightShadowMap SpotLight already destroyed");
+
+    TLockArray<SpotLightBuffer> a = m_graphicsEngine->m_spotLights.ToLockArray();
+
+    const SpotLightBuffer& buffer = a[a_addr];
+    ICARIAN_ASSERT(buffer.Data != nullptr);
+
+    VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
+
+    uint32_t* renderTextures = lightBuffer->LightRenderTextures;
+
+    lightBuffer->LightRenderTextures = nullptr;
+    lightBuffer->LightRenderTextureCount = 0;
+
+    if (a_shadowMapAddr != -1)
+    {
+        ICARIAN_ASSERT_MSG(a_shadowMapAddr < m_graphicsEngine->m_depthRenderTextures.Size(), "SetSpotLightShadowMap DepthShadowMap out of bounds");
+        ICARIAN_ASSERT_MSG(m_graphicsEngine->m_depthRenderTextures.Exists(a_shadowMapAddr), "SetSpotLightShadowMap DepthShadowMap already destroyed");
+
+        if (renderTextures == nullptr)
+        {
+            renderTextures = new uint32_t[1];
+        }
+
+        renderTextures[0] = a_shadowMapAddr;
+
+        lightBuffer->LightRenderTextures = renderTextures;
+        lightBuffer->LightRenderTextureCount = 1;
+    }
+    else if (renderTextures != nullptr)
+    {
+        delete[] renderTextures;
+    }
+}
+uint32_t VulkanGraphicsEngineBindings::GetSpotLightShadowMap(uint32_t a_addr) const
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_spotLights.Size(), "GetSpotLightShadowMap SpotLight out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_spotLights.Exists(a_addr), "GetSpotLightShadowMap SpotLight already destroyed");
+
+    const SpotLightBuffer& buffer = m_graphicsEngine->m_spotLights[a_addr];
+    ICARIAN_ASSERT(buffer.Data != nullptr);
+
+    const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
+    if (lightBuffer->LightRenderTextureCount == 0)
+    {
+        return -1;
+    }
+
+    return lightBuffer->LightRenderTextures[0];
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateFont(const std::string_view& a_path) const

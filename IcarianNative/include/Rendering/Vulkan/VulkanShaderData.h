@@ -71,34 +71,13 @@ public:
         return m_shadowLayout;
     }
 
-    bool GetCameraInput(ShaderBufferInput* a_input) const;
-
-    bool GetAmbientLightInput(ShaderBufferInput* a_input) const;
-    bool GetDirectionalLightInput(ShaderBufferInput* a_input) const;
-    bool GetPointLightInput(ShaderBufferInput* a_input) const;
-    bool GetSpotLightInput(ShaderBufferInput* a_input) const;
-
-    bool GetBatchAmbientLightInput(ShaderBufferInput* a_input) const;
-    bool GetBatchDirectionalLightInput(ShaderBufferInput* a_input) const;
-    bool GetBatchPointLightInput(ShaderBufferInput* a_input) const;
-    bool GetBatchSpotLightInput(ShaderBufferInput* a_input) const;
-
-    bool GetShadowShadowLightBufferInput(ShaderBufferInput* a_input) const;
-    bool GetShadowLightStorageBufferInput(ShaderBufferInput* a_input) const;
-
-    bool GetShadowTextureInput(ShaderBufferInput* a_input) const;
-    bool GetShadowCubeTextureInput(ShaderBufferInput* a_input) const;
-
-    bool GetBatchModelBufferInput(ShaderBufferInput* a_input) const;
-    bool GetShadowBatchModelBufferInput(ShaderBufferInput* a_input) const;
-    
-    bool GetBoneBufferInput(ShaderBufferInput* a_input) const;
+    bool GetShaderBufferInput(e_ShaderBufferType a_type, ShaderBufferInput* a_input) const;
+    bool GetShadowShaderBufferInput(e_ShaderBufferType a_type, ShaderBufferInput* a_input) const;
 
     void SetTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler) const;
 
     void PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer& a_sampler, uint32_t a_index) const;
     void PushTextures(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer* a_samplers, uint32_t a_count, uint32_t a_index) const;
-
     void PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
     void PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanShaderStorageObject* a_object, uint32_t a_index) const;
 

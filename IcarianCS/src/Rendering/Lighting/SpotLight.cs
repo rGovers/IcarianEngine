@@ -1,6 +1,7 @@
 using IcarianEngine.Definitions;
 using IcarianEngine.Maths;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -11,6 +12,8 @@ namespace IcarianEngine.Rendering.Lighting
 {
     public class SpotLight : Light, IDestroy
     {
+        static ConcurrentDictionary<uint, SpotLight> s_lightMap = new ConcurrentDictionary<uint, SpotLight>();
+
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateBuffer(uint a_transformAddr);
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -19,6 +22,10 @@ namespace IcarianEngine.Rendering.Lighting
         extern static void SetBuffer(uint a_addr, SpotLightBuffer a_buffer);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyBuffer(uint a_addr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void SetShadowMap(uint a_addr, uint a_shadowMapAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GetShadowMap(uint a_addr);
 
         uint m_bufferAddr = uint.MaxValue;
 
@@ -218,6 +225,35 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
+        /// ShadowMap of the SpotLight.
+        /// </summary>
+        public DepthRenderTexture ShadowMap
+        {
+            get
+            {
+                uint shadowMapAddr = GetShadowMap(m_bufferAddr);
+
+                if (shadowMapAddr != uint.MaxValue)
+                {
+                    return DepthRenderTexture.GetDepthRenderTexture(shadowMapAddr);
+                }
+
+                return null;
+            }
+            set
+            {
+                if (value != null)
+                {
+                    SetShadowMap(m_bufferAddr, value.BufferAddr);
+                }
+                else
+                {
+                    SetShadowMap(m_bufferAddr, uint.MaxValue);
+                }
+            }
+        }
+
+        /// <summary>
         /// Called when the SpotLight is created.
         /// </summary>
         public override void Init()
@@ -234,7 +270,7 @@ namespace IcarianEngine.Rendering.Lighting
                 buffer.RenderLayer = spotDef.RenderLayer;
                 buffer.Color = spotDef.Color.ToVector4();
                 buffer.Intensity = spotDef.Intensity;
-                buffer.CutoffAngle = new Vector2((float)Math.Cos(spotDef.InnerCutoffAngle), (float)Math.Cos(spotDef.OuterCutoffAngle));
+                buffer.CutoffAngle = new Vector2(Mathf.Cos(spotDef.InnerCutoffAngle), Mathf.Cos(spotDef.OuterCutoffAngle));
                 buffer.Radius = spotDef.Radius;
 
                 SetBuffer(m_bufferAddr, buffer);
@@ -249,12 +285,23 @@ namespace IcarianEngine.Rendering.Lighting
                     buffer.RenderLayer = lightDef.RenderLayer;
                     buffer.Color = lightDef.Color.ToVector4();
                     buffer.Intensity = lightDef.Intensity;
-                    buffer.CutoffAngle = new Vector2((float)Math.Cos(1.0f), (float)Math.Cos(1.5f));
+                    buffer.CutoffAngle = new Vector2(Mathf.Cos(1.0f), Mathf.Cos(1.5f));
                     buffer.Radius = 10.0f;
 
                     SetBuffer(m_bufferAddr, buffer);
                 }
             }
+
+            s_lightMap.TryAdd(m_bufferAddr, this);
+        }
+
+        internal static SpotLight GetLight(uint a_addr)
+        {
+            SpotLight light = null;
+  
+            s_lightMap.TryGetValue(a_addr, out light);
+
+            return light;
         }
 
         ~SpotLight()
@@ -281,6 +328,8 @@ namespace IcarianEngine.Rendering.Lighting
                 if(a_disposing)
                 {
                     DestroyBuffer(m_bufferAddr);
+
+                    s_lightMap.TryRemove(m_bufferAddr, out SpotLight _);
                 }
                 else
                 {

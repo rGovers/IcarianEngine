@@ -94,7 +94,7 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr)
         const uint32_t currentFrame = m_engine->GetCurrentFrame();
 
         ShaderBufferInput camInput;
-        if (shaderData->GetCameraInput(&camInput))
+        if (shaderData->GetShaderBufferInput(ShaderBufferType_CameraBuffer, &camInput))
         {
             VulkanUniformBuffer* camBuffer = m_gEngine->GetCameraUniformBuffer(m_bufferIndex);
 

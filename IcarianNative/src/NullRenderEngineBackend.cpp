@@ -102,6 +102,8 @@
     F(void, IcarianEngine.Rendering.Lighting, SpotLight, DestroyBuffer, { }, uint32_t a_addr) \
     F(SpotLightBuffer, IcarianEngine.Rendering.Lighting, SpotLight, GetBuffer, { return SpotLightBuffer(); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Lighting, SpotLight, SetBuffer, { }, uint32_t a_addr, SpotLightBuffer a_buffer) \
+    F(uint32_t, IcarianEngine.Rendering.Lighting, SpotLight, GetShadowMap, { return 0; }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Lighting, SpotLight, SetShadowMap, { }, uint32_t a_addr, uint32_t a_shadowMapAddr) \
     \
     F(uint32_t, IcarianEngine.Rendering.UI, Font, GenerateFont, { return 0; }, MonoString* a_path) \
     F(void, IcarianEngine.Rendering.UI, Font, DestroyFont, { }, uint32_t a_addr) \

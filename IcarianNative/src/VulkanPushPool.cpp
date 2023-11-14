@@ -7,6 +7,7 @@
 #include "Rendering/ShaderBuffers.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanUniformBuffer.h"
+#include "Trace.h"
 
 VulkanPushPool::VulkanPushPool(VulkanRenderEngineBackend* a_engine)
 {
@@ -93,6 +94,7 @@ vk::DescriptorSet VulkanPushPool::AllocateDescriptor(uint32_t a_index, vk::Descr
         }
     }
 
+    TRACE("Creating new descriptor push pool");
     const vk::Device device = m_engine->GetLogicalDevice();
 
     VulkanPushPoolBuffer buffer;
@@ -130,9 +132,13 @@ void VulkanPushPool::Reset(uint32_t a_index)
     TLockArray<VulkanPushPoolBuffer> buffers = m_buffers[a_index].ToLockArray();
     for (VulkanPushPoolBuffer& buffer : buffers)
     {
-        buffer.Count = 0;
-
-        device.resetDescriptorPool(buffer.Pool);
+        // Unused so no need to reset
+        if (buffer.Count > 0)
+        {
+            device.resetDescriptorPool(buffer.Pool);
+            
+            buffer.Count = 0;
+        }
     }
 
     m_ambientLightBufferIndex = 0;
@@ -147,6 +153,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateAmbientLightUniformBuffer()
     TLockArray<VulkanUniformBuffer*> a = m_ambientLightBuffers.ToLockArray();
     if (m_ambientLightBufferIndex >= a.Size())
     {
+        TRACE("Creating new ambient light uniform buffer");
         VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(AmbientLightShaderBuffer));
         m_ambientLightBuffers.UPush(buffer);
 
@@ -162,6 +169,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateDirectionalLightUniformBuffer()
     TLockArray<VulkanUniformBuffer*> a = m_directionalLightBuffers.ToLockArray();
     if (m_directionalLightBufferIndex >= a.Size())
     {
+        TRACE("Creating new directional light uniform buffer");
         VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(DirectionalLightShaderBuffer));
         m_directionalLightBuffers.UPush(buffer);
 
@@ -177,6 +185,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocatePointLightUniformBuffer()
     TLockArray<VulkanUniformBuffer*> a = m_pointLightBuffers.ToLockArray();
     if (m_pointLightBufferIndex >= a.Size())
     {
+        TRACE("Creating new point light uniform buffer");
         VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(PointLightShaderBuffer));
         m_pointLightBuffers.UPush(buffer);
 
@@ -192,6 +201,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateSpotLightUniformBuffer()
     TLockArray<VulkanUniformBuffer*> a = m_spotLightBuffers.ToLockArray();
     if (m_spotLightBufferIndex >= a.Size())
     {
+        TRACE("Creating new spot light uniform buffer");
         VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(SpotLightShaderBuffer));
         m_spotLightBuffers.UPush(buffer);
 
@@ -208,6 +218,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateShadowUniformBuffer()
     TLockArray<VulkanUniformBuffer*> a = m_shadowBuffers.ToLockArray();
     if (m_shadowBufferIndex >= a.Size())
     {
+        TRACE("Creating new shadow uniform buffer");
         VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(ShadowLightShaderBuffer));
         m_shadowBuffers.UPush(buffer);
 

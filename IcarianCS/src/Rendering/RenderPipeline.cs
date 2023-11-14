@@ -188,6 +188,12 @@ namespace IcarianEngine.Rendering
 
                     break;
                 }
+                case LightType.Spot:
+                {
+                    light = SpotLight.GetLight(a_lightIndex);
+
+                    break;
+                }
                 }
 
                 if (cam != null && light != null)
@@ -218,6 +224,12 @@ namespace IcarianEngine.Rendering
                 case LightType.Directional:
                 {
                     light = DirectionalLight.GetLight(a_lightIndex);
+
+                    break;
+                }
+                case LightType.Spot:
+                {
+                    light = SpotLight.GetLight(a_lightIndex);
 
                     break;
                 }
@@ -305,6 +317,12 @@ namespace IcarianEngine.Rendering
 
                     break;
                 }
+                case LightType.Spot:
+                {
+                    light = SpotLight.GetLight(a_lightIndex);
+
+                    break;
+                }
                 }
 
                 if (cam != null && light != null)
@@ -355,6 +373,18 @@ namespace IcarianEngine.Rendering
                 case LightType.Directional:
                 {
                     light = DirectionalLight.GetLight(a_lightIndex);
+
+                    break;
+                }
+                case LightType.Point:
+                {
+                    light = PointLight.GetLight(a_lightIndex);
+
+                    break;
+                }
+                case LightType.Spot:
+                {
+                    light = SpotLight.GetLight(a_lightIndex);
 
                     break;
                 }

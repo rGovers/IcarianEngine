@@ -178,6 +178,7 @@ constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_buffe
     {
     case ShaderBufferType_Texture:
     case ShaderBufferType_PushTexture:
+    case ShaderBufferType_ShadowTexture2D:
     case ShaderBufferType_ShadowTextureCube:
     case ShaderBufferType_AShadowTexture2D:
     {
@@ -238,6 +239,7 @@ static void GetLayoutInfo(const ShaderBufferInput* a_inputs, uint32_t a_inputCou
         case ShaderBufferType_SpotLightBuffer:
         case ShaderBufferType_ShadowLightBuffer:
         case ShaderBufferType_PushTexture:
+        case ShaderBufferType_ShadowTexture2D:
         case ShaderBufferType_ShadowTextureCube:
         case ShaderBufferType_SSModelBuffer:
         case ShaderBufferType_SSBoneBuffer:
@@ -974,11 +976,11 @@ void VulkanShaderData::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer)
     }
 }
 
-bool VulkanShaderData::GetCameraInput(ShaderBufferInput* a_input) const
+bool VulkanShaderData::GetShaderBufferInput(e_ShaderBufferType a_bufferType, ShaderBufferInput* a_input) const
 {
     for (const ShaderBufferInput& input : m_slotInputs)
     {
-        if (input.BufferType == ShaderBufferType_CameraBuffer)
+        if (input.BufferType == a_bufferType)
         {
             *a_input = input;
 
@@ -988,140 +990,11 @@ bool VulkanShaderData::GetCameraInput(ShaderBufferInput* a_input) const
 
     return false;
 }
-
-bool VulkanShaderData::GetAmbientLightInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_AmbientLightBuffer)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-bool VulkanShaderData::GetDirectionalLightInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_DirectionalLightBuffer)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-bool VulkanShaderData::GetPointLightInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_PointLightBuffer)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-bool VulkanShaderData::GetSpotLightInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_SpotLightBuffer)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool VulkanShaderData::GetBatchAmbientLightInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_SSAmbientLightBuffer)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-bool VulkanShaderData::GetBatchDirectionalLightInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_SSDirectionalLightBuffer)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-bool VulkanShaderData::GetBatchPointLightInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_SSPointLightBuffer)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-bool VulkanShaderData::GetBatchSpotLightInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_SSSpotLightBuffer)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool VulkanShaderData::GetShadowShadowLightBufferInput(ShaderBufferInput* a_input) const
+bool VulkanShaderData::GetShadowShaderBufferInput(e_ShaderBufferType a_bufferType, ShaderBufferInput* a_input) const
 {
     for (const ShaderBufferInput& input : m_shadowSlotInputs)
     {
-        if (input.BufferType == ShaderBufferType_ShadowLightBuffer)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-bool VulkanShaderData::GetShadowLightStorageBufferInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_SSShadowLightBuffer)
+        if (input.BufferType == a_bufferType)
         {
             *a_input = input;
 
@@ -1132,76 +1005,4 @@ bool VulkanShaderData::GetShadowLightStorageBufferInput(ShaderBufferInput* a_inp
     return false;
 }
 
-bool VulkanShaderData::GetShadowTextureInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_AShadowTexture2D)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-bool VulkanShaderData::GetShadowCubeTextureInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_ShadowTextureCube)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool VulkanShaderData::GetBatchModelBufferInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_SSModelBuffer)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-bool VulkanShaderData::GetShadowBatchModelBufferInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_shadowSlotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_SSModelBuffer)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool VulkanShaderData::GetBoneBufferInput(ShaderBufferInput* a_input) const
-{
-    for (const ShaderBufferInput& input : m_slotInputs)
-    {
-        if (input.BufferType == ShaderBufferType_SSBoneBuffer)
-        {
-            *a_input = input;
-
-            return true;
-        }
-    }
-
-    return false;
-}
 #endif

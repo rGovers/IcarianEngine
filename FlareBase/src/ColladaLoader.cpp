@@ -1201,11 +1201,11 @@ namespace FlareBase
                                 {
                                     if (normalOffset[j] == 1)
                                     {
-                                        v.Normal[normalOffset[j]] = ((float*)normalSource.Data.Data)[(normIndex * normalSource.Accessor.Stride) + j];
+                                        v.Normal[normalOffset[j]] = -((float*)normalSource.Data.Data)[(normIndex * normalSource.Accessor.Stride) + j];
                                     }
                                     else
                                     {
-                                        v.Normal[normalOffset[j]] = -((float*)normalSource.Data.Data)[(normIndex * normalSource.Accessor.Stride) + j];
+                                        v.Normal[normalOffset[j]] = ((float*)normalSource.Data.Data)[(normIndex * normalSource.Accessor.Stride) + j];
                                     }
                                 }
 
@@ -1359,11 +1359,11 @@ namespace FlareBase
                                     {
                                         if (normalOffset[j] == 1)
                                         {
-                                            v.Normal[normalOffset[j]] = ((float*)normalSource.Data.Data)[(normalIndices[i] * normalSource.Accessor.Stride) + j];
+                                            v.Normal[normalOffset[j]] = -((float*)normalSource.Data.Data)[(normalIndices[i] * normalSource.Accessor.Stride) + j];
                                         }
                                         else
                                         {
-                                            v.Normal[normalOffset[j]] = -((float*)normalSource.Data.Data)[(normalIndices[i] * normalSource.Accessor.Stride) + j];
+                                            v.Normal[normalOffset[j]] = ((float*)normalSource.Data.Data)[(normalIndices[i] * normalSource.Accessor.Stride) + j];
                                         }
                                     }
 
@@ -1814,11 +1814,11 @@ namespace FlareBase
                                             {
                                                 if (normalOffset[j] == 1)
                                                 {
-                                                    v.Normal[normalOffset[j]] = normData[(normalIndices[i] * normalSource.Accessor.Stride) + j];
+                                                    v.Normal[normalOffset[j]] = -normData[(normalIndices[i] * normalSource.Accessor.Stride) + j];
                                                 }
                                                 else
                                                 {
-                                                    v.Normal[normalOffset[j]] = -normData[(normalIndices[i] * normalSource.Accessor.Stride) + j];
+                                                    v.Normal[normalOffset[j]] = normData[(normalIndices[i] * normalSource.Accessor.Stride) + j];
                                                 }
                                             }
 
@@ -2048,11 +2048,11 @@ namespace FlareBase
                                         {
                                             if (normalOffset[j] == 1)
                                             {
-                                                v.Normal[normalOffset[j]] = ((float*)normalSource.Data.Data)[(normIndex * normalSource.Accessor.Stride) + j];
+                                                v.Normal[normalOffset[j]] = -((float*)normalSource.Data.Data)[(normIndex * normalSource.Accessor.Stride) + j];
                                             }
                                             else
                                             {
-                                                v.Normal[normalOffset[j]] = -((float*)normalSource.Data.Data)[(normIndex * normalSource.Accessor.Stride) + j];
+                                                v.Normal[normalOffset[j]] = ((float*)normalSource.Data.Data)[(normIndex * normalSource.Accessor.Stride) + j];
                                             }
                                         }
 

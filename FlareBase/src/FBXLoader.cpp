@@ -84,7 +84,7 @@ namespace FlareBase
                                 if (normals.values != nullptr)
                                 {
                                     const ofbx::Vec3 normal = normals.get(index);
-                                    norm = glm::vec3(-normal.x, normal.y, -normal.z);
+                                    norm = glm::vec3(normal.x, -normal.y, normal.z);
                                 }
 
                                 if (uvs.values != nullptr)
@@ -236,7 +236,7 @@ namespace FlareBase
                                 if (normals.values != nullptr)
                                 {
                                     const ofbx::Vec3 normal = normals.get(index);
-                                    norm = glm::vec3(-normal.x, normal.y, -normal.z);
+                                    norm = glm::vec3(normal.x, -normal.y, normal.z);
                                 }
 
                                 if (uvs.values != nullptr)

@@ -118,6 +118,8 @@ public:
     void SetSpotLightBuffer(uint32_t a_addr, const SpotLightBuffer& a_buffer) const;
     SpotLightBuffer GetSpotLightBuffer(uint32_t a_addr) const;
     void DestroySpotLightBuffer(uint32_t a_addr) const;
+    void SetSpotLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const;
+    uint32_t GetSpotLightShadowMap(uint32_t a_addr) const;
 
     uint32_t GenerateFont(const std::string_view& a_path) const;
     void DestroyFont(uint32_t a_addr) const;

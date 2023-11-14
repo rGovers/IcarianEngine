@@ -45,6 +45,10 @@ const char* GetPixelShaderString(const std::string_view& a_str)
     {
         return ShadowPointLightPixelShader;
     }
+    else if (a_str == iStr + "SpotLightShadow")
+    {
+        return ShadowSpotLightPixelShader;
+    }
     else if (a_str == iStr + "Post")
     {
         return PostPixelShader;

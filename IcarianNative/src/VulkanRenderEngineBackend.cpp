@@ -487,6 +487,11 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
 
 void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 {
+    // TODO: Bump DMA buffers up in priority to allow GPU->GPU memory sharing between processes instead of GPU->CPU->GPU. 
+    // RAM clock now effects even the linux build also probably want to improve locality of rendering data to allow more efficient use of the cache instead of RAM.
+    // Also investigate seeing if you can squezee some extra frames from a buffer scavenging system for GPU memory. At little bit of wasted memory for a few extra frames is probably worth it.
+    // Constant allocation is killing performance on the GPU side. 
+    // TODO: Can probably better manage semaphores.
     AppWindow* window = GetRenderEngine()->m_window;
     {
         PROFILESTACK("Swap Setup");

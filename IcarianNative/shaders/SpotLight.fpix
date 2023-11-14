@@ -50,7 +50,7 @@ void main()
         float e = lCa.x - lCa.y;
         float iV = clamp((t - lCa.y) / e, 0.0, 1.0);
 
-        float l = max(dot(lDir, normal.xyz), 0.0);
+        float l = max(dot(-lDir, normal.xyz), 0.0);
 
         vec3 hD = normalize(lDir + cF);
         float sA = max(dot(hD, normal.xyz), 0.0);

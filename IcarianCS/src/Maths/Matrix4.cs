@@ -230,13 +230,13 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Generates a orthographic perspective matrix
+        /// Generates a orthographic protection matrix
         /// </summary>
         /// <param name="a_x">Width of the view</param>
         /// <param name="a_y">Height of the view</param>
         /// <param name="a_near">Near plane</param>
         /// <param name="a_far">Far plane</param>
-        /// <returns>Orthographic perspective matrix</returns>
+        /// <returns>Orthographic protection matrix</returns>
         public static Matrix4 CreateOrthographic(float a_x, float a_y, float a_near, float a_far)
         {
             return new Matrix4
@@ -245,6 +245,28 @@ namespace IcarianEngine.Maths
                 0.0f,       2.0f / a_y, 0.0f,                       0.0f,
                 0.0f,       0.0f,       1.0f / (a_far - a_near),    0.0f,
                 0.0f,       0.0f,       -a_near / (a_far - a_near), 1.0f
+            );
+        }
+        /// <summary>
+        /// Generates a perspective matrix
+        /// </summary>
+        /// <param name="a_fov">Field of view in radians.</param>
+        /// <param name="a_aspect">Aspect ratio</param>
+        /// <param name="a_near">Near plane</param>
+        /// <param name="a_far">Far plane</param>
+        /// <returns>Perspective matrix</returns>
+        public static Matrix4 CreatePerspective(float a_fov, float a_aspect, float a_near, float a_far)
+        {
+            float tanHalfFOV = Mathf.Tan(a_fov * 0.5f);
+
+            // Apparently no projection matrix is correct and had to eyeball until the view projection matrix looked right
+            // No idea if this is correct but looks right
+            return new Matrix4
+            (
+                1.0f / (a_aspect * tanHalfFOV), 0.0f,              0.0f,                                 0.0f,
+                0.0f,                           1.0f / tanHalfFOV, 0.0f,                                 0.0f,
+                0.0f,                           0.0f,              a_far / (a_near - a_far),             -1.0f,
+                0.0f,                           0.0f,              -(a_far * a_near) / (a_far - a_near), 0.0f
             );
         }
 
