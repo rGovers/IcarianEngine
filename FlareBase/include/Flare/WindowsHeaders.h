@@ -10,4 +10,7 @@
 #endif
 
 #include <afunix.h>
+
+#undef min
+#undef max
 #endif

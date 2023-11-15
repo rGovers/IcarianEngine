@@ -75,8 +75,19 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendDefine(&project, "NDEBUG");
     }
 
-    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_MAJOR=0");
-    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_MINOR=1");
+    CUBE_StackString commitHash = CUBE_Git_GetCommitHashShort();
+
+    CUBE_String commitDefine = CUBE_String_CreateC("ICARIANNATIVE_COMMIT_HASH=");
+    CUBE_String_AppendSS(&commitDefine, &commitHash);
+
+    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_MAJOR=2023");
+    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_MINOR=0");
+    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_PATCH=0");
+    CUBE_CProject_AppendDefine(&project, commitDefine.Data);
+    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_TAG=DEV");
+
+    CUBE_String_Destroy(&commitDefine);
+
     CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN");
 
     if (a_enableTrace)
@@ -175,7 +186,11 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     case BuildConfiguration_Debug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
-        CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
+
+        if (a_targetPlatform != TargetPlatform_Windows)
+        {
+            CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
+        }
 
         break;
     }
@@ -186,8 +201,12 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
 
         CUBE_CProject_AppendCFlag(&project, "-g");
-        CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        if (a_targetPlatform != TargetPlatform_Windows)
+        {
+            CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
+        }
 
         break;
     }
