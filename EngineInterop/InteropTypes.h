@@ -9,7 +9,7 @@
 #define IOP_UINT8 byte
 #define IOP_UINT16 ushort
 #define IOP_UINT32 uint
-#define IOP_ARRAY Array
+#define IOP_ARRAY(type) type
 
 #define IOP_PACKED [StructLayout(LayoutKind.Sequential, Pack = 0)]
 
@@ -39,7 +39,7 @@
 #define IOP_UINT8 uint8_t
 #define IOP_UINT16 uint16_t
 #define IOP_UINT32 uint32_t
-#define IOP_ARRAY MonoArray*
+#define IOP_ARRAY(type) MonoArray*
 
 #define IOP_PACKED
 

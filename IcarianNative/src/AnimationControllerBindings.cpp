@@ -1,6 +1,7 @@
 #include "Rendering/AnimationControllerBindings.h"
 
 #include "Flare/ColladaLoader.h"
+#include "Flare/FBXLoader.h"
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
 #include "Rendering/AnimationController.h"
@@ -46,6 +47,9 @@ RUNTIME_FUNCTION(RuntimeBoneData, Skeleton, LoadBoneData,
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
+    const std::filesystem::path path = std::filesystem::path(str);
+    const std::filesystem::path ext = path.extension();
+
     RuntimeBoneData data;
 
     data.BindPoses = NULL;
@@ -53,30 +57,66 @@ RUNTIME_FUNCTION(RuntimeBoneData, Skeleton, LoadBoneData,
     data.Parents = NULL;
 
     std::vector<BoneData> bones;
-    if (FlareBase::ColladaLoader_LoadBoneFile(str, &bones))
+
+    if (ext == ".dae")
     {
-        MonoDomain* domain = RuntimeManager::GetDomain();
-        MonoClass* fClass = mono_get_single_class();
-
-        const uint32_t count = (uint32_t)bones.size();
-        data.BindPoses = mono_array_new(domain, mono_get_array_class(), (uintptr_t)count);
-        data.Names = mono_array_new(domain, mono_get_string_class(), (uintptr_t)count);
-        data.Parents = mono_array_new(domain, mono_get_uint32_class(), (uintptr_t)count);
-
-        for (uint32_t i = 0; i < count; ++i)
+        if (FlareBase::ColladaLoader_LoadBoneFile(path, &bones))
         {
-            const BoneData& bone = bones[i];
+            MonoDomain* domain = RuntimeManager::GetDomain();
+            MonoClass* fClass = mono_get_single_class();
 
-            MonoArray* bindPose = mono_array_new(domain, fClass, 16);
-            for (uint32_t j = 0; j < 16; ++j)
+            const uint32_t count = (uint32_t)bones.size();
+            data.BindPoses = mono_array_new(domain, mono_get_array_class(), (uintptr_t)count);
+            data.Names = mono_array_new(domain, mono_get_string_class(), (uintptr_t)count);
+            data.Parents = mono_array_new(domain, mono_get_uint32_class(), (uintptr_t)count);
+
+            for (uint32_t i = 0; i < count; ++i)
             {
-                mono_array_set(bindPose, float, j, bone.Transform[j / 4][j % 4]);
-            }
+                const BoneData& bone = bones[i];
 
-            mono_array_set(data.BindPoses, MonoArray*, i, bindPose);
-            mono_array_set(data.Names, MonoString*, i, mono_string_new(domain, bone.Name.c_str()));
-            mono_array_set(data.Parents, uint32_t, i, bone.Parent);
+                MonoArray* bindPose = mono_array_new(domain, fClass, 16);
+                for (uint32_t j = 0; j < 16; ++j)
+                {
+                    mono_array_set(bindPose, float, j, bone.Transform[j / 4][j % 4]);
+                }
+
+                mono_array_set(data.BindPoses, MonoArray*, i, bindPose);
+                mono_array_set(data.Names, MonoString*, i, mono_string_new(domain, bone.Name.c_str()));
+                mono_array_set(data.Parents, uint32_t, i, bone.Parent);
+            }
         }
+    }
+    else if (ext == ".fbx")
+    {
+        if (FlareBase::FBXLoader_LoadBoneFile(path, &bones))
+        {
+            MonoDomain* domain = RuntimeManager::GetDomain();
+            MonoClass* fClass = mono_get_single_class();
+
+            const uint32_t count = (uint32_t)bones.size();
+            data.BindPoses = mono_array_new(domain, mono_get_array_class(), (uintptr_t)count);
+            data.Names = mono_array_new(domain, mono_get_string_class(), (uintptr_t)count);
+            data.Parents = mono_array_new(domain, mono_get_uint32_class(), (uintptr_t)count);
+
+            for (uint32_t i = 0; i < count; ++i)
+            {
+                const BoneData& bone = bones[i];
+
+                MonoArray* bindPose = mono_array_new(domain, fClass, 16);
+                for (uint32_t j = 0; j < 16; ++j)
+                {
+                    mono_array_set(bindPose, float, j, bone.Transform[j / 4][j % 4]);
+                }
+
+                mono_array_set(data.BindPoses, MonoArray*, i, bindPose);
+                mono_array_set(data.Names, MonoString*, i, mono_string_new(domain, bone.Name.c_str()));
+                mono_array_set(data.Parents, uint32_t, i, bone.Parent);
+            }
+        }
+    }
+    else
+    {
+        ICARIAN_ASSERT_MSG(0, "Unsupported skeleton file type");
     }
 
     return data;

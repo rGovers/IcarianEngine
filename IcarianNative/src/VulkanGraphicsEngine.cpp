@@ -639,98 +639,213 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                 shaderData->UpdateShadowLightBuffer(a_commandBuffer, a_lvp, a_split);
             }
 
-            const uint32_t modelCount = renderStack->GetModelBufferCount();
-            const ModelBuffer* modelBuffers = renderStack->GetModelBuffers();
-
-            for (uint32_t i = 0; i < modelCount; ++i) 
             {
-                const ModelBuffer& modelBuffer = modelBuffers[i];
-                
-                if (modelBuffer.ModelAddr != -1) 
+                PROFILESTACK("Models");
+
+                const uint32_t modelCount = renderStack->GetModelBufferCount();
+                const ModelBuffer* modelBuffers = renderStack->GetModelBuffers();
+
+                for (uint32_t i = 0; i < modelCount; ++i) 
                 {
-                    const VulkanModel* model = m_models[modelBuffer.ModelAddr];
-                    ICARIAN_ASSERT(model != nullptr);
-
-                    const uint32_t indexCount = model->GetIndexCount();
-                    const float radius = model->GetRadius();
-
-                    const uint32_t transformCount = modelBuffer.TransformCount;
-                    
-                    std::vector<glm::mat4> transforms;
-                    transforms.reserve(transformCount);
-
-                    for (uint32_t j = 0; j < transformCount; ++j) 
+                    const ModelBuffer& modelBuffer = modelBuffers[i];
+                
+                    if (modelBuffer.ModelAddr != -1) 
                     {
-                        PROFILESTACK("Culling");
+                        const VulkanModel* model = m_models[modelBuffer.ModelAddr];
+                        ICARIAN_ASSERT(model != nullptr);
 
-                        const uint32_t transformAddr = modelBuffer.TransformAddr[j];
-                        if (transformAddr != -1) 
+                        const uint32_t indexCount = model->GetIndexCount();
+                        const float radius = model->GetRadius();
+
+                        const uint32_t transformCount = modelBuffer.TransformCount;
+                    
+                        std::vector<glm::mat4> transforms;
+                        transforms.reserve(transformCount);
+
+                        for (uint32_t j = 0; j < transformCount; ++j) 
                         {
-                            const glm::mat4 transform = ObjectManager::GetGlobalMatrix(transformAddr);
-                            const glm::vec3 pos = transform[3].xyz();
+                            PROFILESTACK("Culling");
 
-                            if (frustum.CompareSphere(pos, radius)) 
+                            const uint32_t transformAddr = modelBuffer.TransformAddr[j];
+                            if (transformAddr != -1) 
                             {
-                                transforms.emplace_back(transform);
+                                const glm::mat4 transform = ObjectManager::GetGlobalMatrix(transformAddr);
+                                const glm::vec3 pos = transform[3].xyz();
+
+                                if (frustum.CompareSphere(pos, radius)) 
+                                {
+                                    transforms.emplace_back(transform);
+                                }
                             }
                         }
-                    }
 
-                    if (transforms.empty()) 
+                        if (transforms.empty()) 
+                        {
+                            continue;
+                        }
+
+                        PROFILESTACK("Draw");
+
+                        if (pipeline == nullptr) 
+                        {
+                            if (!a_cube) 
+                            {
+                                pipeline = GetShadowPipeline(a_renderTexture, materialAddr);
+                            } 
+                            else 
+                            {
+                                pipeline = GetCubeShadowPipeline(a_renderTexture, materialAddr);
+                            }
+
+                            pipeline->Bind(a_index, a_commandBuffer);
+                        }
+
+                        model->Bind(a_commandBuffer);
+
+                        ShaderBufferInput modelSlot;
+                        if (shaderData->GetShadowShaderBufferInput(ShaderBufferType_SSModelBuffer, &modelSlot)) 
+                        {
+                            const uint32_t count = (uint32_t)transforms.size();
+
+                            ModelShaderBuffer* modelBuffer = new ModelShaderBuffer[count];
+                            IDEFER(delete[] modelBuffer);
+
+                            for (uint32_t j = 0; j < count; ++j) 
+                            {
+                                const glm::mat4& mat = transforms[j];
+
+                                modelBuffer[j].Model = mat;
+                                modelBuffer[j].InvModel = glm::inverse(mat);
+                            }
+
+                            VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(ModelShaderBuffer) * count, count, modelBuffer);
+                            IDEFER(delete storage);
+
+                            shaderData->PushShadowShaderStorageObject(a_commandBuffer, modelSlot.Set, storage, a_index);
+
+                            a_commandBuffer.drawIndexed(indexCount, count, 0, 0, 0);
+                        } 
+                        else 
+                        {
+                            for (const glm::mat4& mat : transforms) 
+                            {
+                                shaderData->UpdateShadowTransformBuffer(a_commandBuffer, mat);
+                            }
+                        }
+
+                        a_commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
+                    }
+                }
+            }
+            
+            {
+                PROFILESTACK("Skinned");
+
+                const uint32_t skinnedModelCount = renderStack->GetSkinnedModelBufferCount();
+                const SkinnedModelBuffer* skinnedModelBuffers = renderStack->GetSkinnedModelBuffers();
+
+                for (uint32_t i = 0; i < skinnedModelCount; ++i)
+                {
+                    const SkinnedModelBuffer& modelBuffer = skinnedModelBuffers[i];
+
+                    if (modelBuffer.ModelAddr == -1)
                     {
                         continue;
                     }
 
-                    PROFILESTACK("Draw");
+                    const VulkanModel* model = nullptr;
 
-                    if (pipeline == nullptr) 
+                    const uint32_t indexCount = model->GetIndexCount();
+                    const float radius = model->GetRadius();
+
+                    const uint32_t objectCont = modelBuffer.ObjectCount;
+                    for (uint32_t j = 0; j < objectCont; ++j)
                     {
-                        if (!a_cube) 
+                        const uint32_t transformAddr = modelBuffer.TransformAddr[j];
+                        if (transformAddr == -1)
                         {
-                            pipeline = GetShadowPipeline(a_renderTexture, materialAddr);
-                        } 
-                        else 
-                        {
-                            pipeline = GetCubeShadowPipeline(a_renderTexture, materialAddr);
+                            continue;
                         }
 
-                        pipeline->Bind(a_index, a_commandBuffer);
+                        const glm::mat4 transform = ObjectManager::GetGlobalMatrix(transformAddr);
+                        const glm::vec3 pos = transform[3].xyz();
+
+                        if (!frustum.CompareSphere(pos, radius)) 
+                        {
+                            continue;
+                        }
+
+                        if (pipeline == nullptr) 
+                        {
+                            if (!a_cube) 
+                            {
+                                pipeline = GetShadowPipeline(a_renderTexture, materialAddr);
+                            } 
+                            else 
+                            {
+                                pipeline = GetCubeShadowPipeline(a_renderTexture, materialAddr);
+                            }
+
+                            pipeline->Bind(a_index, a_commandBuffer);
+                        }
+
+                        if (model == nullptr) 
+                        {
+                            model = m_models[modelBuffer.ModelAddr];
+                            ICARIAN_ASSERT(model != nullptr);
+
+                            model->Bind(a_commandBuffer);
+                        }
+
+                        ShaderBufferInput boneSlot;
+                        if (shaderData->GetShaderBufferInput(ShaderBufferType_SSBoneBuffer, &boneSlot)) 
+                        {
+                            const SkeletonData skeleton = AnimationController::GetSkeleton(modelBuffer.SkeletonAddr[j]);
+                            const uint32_t boneCount = (uint32_t)skeleton.BoneData.size();
+
+                            std::unordered_map<uint32_t, uint32_t> boneMap;
+                            boneMap.reserve(boneCount);
+                            for (uint32_t i = 0; i < boneCount; ++i)
+                            {
+                                boneMap.emplace(skeleton.BoneData[i].TransformIndex, i);
+                            }
+
+                            BoneShaderBuffer* boneBuffer = new BoneShaderBuffer[boneCount];
+                            IDEFER(delete[] boneBuffer);
+
+                            for (uint32_t k = 0; k < boneCount; ++k) 
+                            {
+                                const BoneTransformData& bone = skeleton.BoneData[k];
+                                const TransformBuffer& buffer = ObjectManager::GetTransformBuffer(bone.TransformIndex);
+
+                                glm::mat4 transform = buffer.ToMat4();
+
+                                auto iter = boneMap.find(buffer.Parent);
+                                while (iter != boneMap.end()) 
+                                {
+                                    const uint32_t index = iter->second;
+
+                                    const BoneTransformData& parentBone = skeleton.BoneData[index];
+                                    const TransformBuffer& parentBuffer = ObjectManager::GetTransformBuffer(parentBone.TransformIndex);
+
+                                    transform = parentBuffer.ToMat4() * transform;
+
+                                    iter = boneMap.find(parentBuffer.Parent);
+                                }
+
+                                boneBuffer[k].BoneMatrix = transform * bone.InverseBindPose;
+                            }
+
+                            const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(BoneShaderBuffer) * boneCount, boneCount, boneBuffer);
+                            IDEFER(delete storage);
+
+                            shaderData->PushShaderStorageObject(a_commandBuffer, boneSlot.Set, storage, a_index);
+                        }
+
+                        shaderData->UpdateTransformBuffer(a_commandBuffer, transform);
+
+                        a_commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
                     }
-
-                    model->Bind(a_commandBuffer);
-
-                    ShaderBufferInput modelSlot;
-                    if (shaderData->GetShadowShaderBufferInput(ShaderBufferType_SSModelBuffer, &modelSlot)) 
-                    {
-                        const uint32_t count = (uint32_t)transforms.size();
-
-                        ModelShaderBuffer* modelBuffer = new ModelShaderBuffer[count];
-                        IDEFER(delete[] modelBuffer);
-
-                        for (uint32_t j = 0; j < count; ++j) 
-                        {
-                            const glm::mat4& mat = transforms[j];
-
-                            modelBuffer[j].Model = mat;
-                            modelBuffer[j].InvModel = glm::inverse(mat);
-                        }
-
-                        VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(ModelShaderBuffer) * count, count, modelBuffer);
-                        IDEFER(delete storage);
-
-                        shaderData->PushShadowShaderStorageObject(a_commandBuffer, modelSlot.Set, storage, a_index);
-
-                        a_commandBuffer.drawIndexed(indexCount, count, 0, 0, 0);
-                    } 
-                    else 
-                    {
-                        for (const glm::mat4& mat : transforms) 
-                        {
-                            shaderData->UpdateShadowTransformBuffer(a_commandBuffer, mat);
-                        }
-                    }
-
-                    a_commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
                 }
             }
         }
@@ -2322,10 +2437,18 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
     m_pushPool->Reset(a_index);
 
     {
+        const std::vector<bool> state = m_shaderPrograms.ToStateVector();
         TLockArray<RenderProgram> a = m_shaderPrograms.ToLockArray();
+        const uint32_t size = (uint32_t)state.size();
 
-        for (RenderProgram& program : a)
+        for (uint32_t i = 0; i < size; ++i)
         {
+            if (!state[i])
+            {
+                continue;
+            }
+
+            RenderProgram& program = a[i];
             ICARIAN_ASSERT(program.Data != nullptr);
 
             VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;

@@ -11,6 +11,9 @@ using System.Threading;
 
 namespace IcarianEngine
 {
+    /// <summary>
+    /// The status of a load operation.
+    /// </summary>
     public enum LoadStatus
     {
         Unloaded,
@@ -1328,7 +1331,7 @@ namespace IcarianEngine
         /// Lifetime managed by AssetLibrary
         /// <param name="a_path">The path to the Skeleton.</param>
         /// <returns>The Skeleton if it was loaded successfully, null otherwise.</returns>
-        /// @see Skeleton.LoadSkeleton
+        /// @see IcarianEngine.Rendering.Animation.Skeleton.LoadSkeleton
         public static Skeleton LoadSkeleton(string a_path)
         {
             return LoadData<Skeleton, SkeletonContainer>(a_path, s_skeletons);
@@ -1340,7 +1343,7 @@ namespace IcarianEngine
         /// <param name="a_path">The path to the Skeleton.</param>
         /// <param name="a_callback">The callback to call when the Skeleton is loaded.</param>
         /// <param name="a_priority">The priority of the job.</param>
-        /// @see Skeleton.LoadSkeleton
+        /// @see IcarianEngine.Rendering.Animation.Skeleton.LoadSkeleton
         public static void LoadSkeletonAsync(string a_path, LoadSkeletonCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             s_skeletons.TryAdd(a_path, new SkeletonContainer());
