@@ -74,6 +74,9 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject_AppendSource(&project, "src/Definitions/TriggerBodyDef.cs");
 
     CUBE_CSProject_AppendSource(&project, "src/Maths/Color.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Maths/IVector2.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Maths/IVector3.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Maths/IVector4.cs");
     CUBE_CSProject_AppendSource(&project, "src/Maths/Mathf.cs");
     CUBE_CSProject_AppendSource(&project, "src/Maths/Matrix4.cs");
     CUBE_CSProject_AppendSource(&project, "src/Maths/Quaternion.cs");

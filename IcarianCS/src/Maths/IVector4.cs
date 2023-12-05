@@ -6,15 +6,15 @@ using System.Xml;
 
 namespace IcarianEngine.Maths
 {
-    public static class Vector4Extensions
+    public static class IVector4Extensions
     {
-        public static Vector4 ToVector4(this XmlElement a_element)
+        public static IVector4 ToIVector4(this XmlElement a_element)
         {
-            return ToVector4(a_element, Vector4.Zero);
+            return ToIVector4(a_element, IVector4.Zero);
         }
-        public static Vector4 ToVector4(this XmlElement a_element, Vector4 a_default)
+        public static IVector4 ToIVector4(this XmlElement a_element, IVector4 a_default)
         {
-            Vector4 vec = a_default;
+            IVector4 vec = a_default;
 
             foreach (XmlElement element in a_element)
             {
@@ -23,28 +23,28 @@ namespace IcarianEngine.Maths
                 case "X":
                 case "R":
                 {
-                    vec.X = float.Parse(element.InnerText);
+                    vec.X = int.Parse(element.InnerText);
 
                     break;
                 }
                 case "Y":
                 case "G":
                 {
-                    vec.Y = float.Parse(element.InnerText);
+                    vec.Y = int.Parse(element.InnerText);
 
                     break;
                 }
                 case "Z":
                 case "B":
                 {
-                    vec.Z = float.Parse(element.InnerText);
+                    vec.Z = int.Parse(element.InnerText);
 
                     break;
                 }
                 case "W":
                 case "A":
                 {
-                    vec.W = float.Parse(element.InnerText);
+                    vec.W = int.Parse(element.InnerText);
 
                     break;
                 }
@@ -54,11 +54,11 @@ namespace IcarianEngine.Maths
             return vec;
         }
 
-        public static XmlElement ToXml(this Vector4 a_vec, XmlDocument a_doc, string a_name)
+        public static XmlElement ToXml(this IVector4 a_vec, XmlDocument a_doc, string a_name)
         {
-            return ToXml(a_vec, a_doc, a_name, Vector4.Zero);
+            return ToXml(a_vec, a_doc, a_name, IVector4.Zero);
         }
-        public static XmlElement ToXml(this Vector4 a_vec, XmlDocument a_doc, string a_name, Vector4 a_default)
+        public static XmlElement ToXml(this IVector4 a_vec, XmlDocument a_doc, string a_name, IVector4 a_default)
         {
             XmlElement element = a_doc.CreateElement(a_name);
 
@@ -86,69 +86,64 @@ namespace IcarianEngine.Maths
     }
 
     [StructLayout(LayoutKind.Explicit, Pack = 0)]
-    public struct Vector4
+    public struct IVector4
     {
         /// <summary>
         /// The X component of the vector
         /// </summary>
         [FieldOffset(0)]
-        public float X;
+        public int X;
         /// <summary>
         /// The Y component of the vector
         /// </summary>
         [FieldOffset(4)]
-        public float Y;
+        public int Y;
         /// <summary>
         /// The Z component of the vector
         /// </summary>
         [FieldOffset(8)]
-        public float Z;
+        public int Z;
         /// <summary>
         /// The W component of the vector
         /// </summary>
         [FieldOffset(12)]
-        public float W;
+        public int W;
 
         /// <summary>
         /// Zero vector
         /// </summary>
-        public static readonly Vector4 Zero = new Vector4(0.0f);
+        public static readonly IVector4 Zero = new IVector4(0);
         /// <summary>
         /// One vector
         /// </summary>
-        public static readonly Vector4 One = new Vector4(1.0f);
+        public static readonly IVector4 One = new IVector4(1);
 
         /// <summary>
         /// Zero position vector
         /// </summary>
-        public static readonly Vector4 ZeroP = new Vector4(Vector3.Zero, 1.0f);
-
-        /// <summary>
-        /// Infinity vector
-        /// </summary>
-        public static readonly Vector4 Infinity = new Vector4(float.PositiveInfinity);
+        public static readonly IVector4 ZeroP = new IVector4(IVector3.Zero, 1);
 
         /// <summary>
         /// UnitX vector
         /// </summary>
-        public static readonly Vector4 UnitX = new Vector4(1.0f, 0.0f, 0.0f, 0.0f);
+        public static readonly IVector4 UnitX = new IVector4(1, 0, 0, 0);
         /// <summary>
         /// UnitY vector
         /// </summary>
-        public static readonly Vector4 UnitY = new Vector4(0.0f, 1.0f, 0.0f, 0.0f);
+        public static readonly IVector4 UnitY = new IVector4(0, 1, 0, 0);
         /// <summary>
         /// UnitZ vector
         /// </summary>
-        public static readonly Vector4 UnitZ = new Vector4(0.0f, 0.0f, 1.0f, 0.0f);
+        public static readonly IVector4 UnitZ = new IVector4(0, 0, 1, 0);
         /// <summary>
         /// UnitW vector
         /// </summary>
-        public static readonly Vector4 UnitW = new Vector4(0.0f, 0.0f, 0.0f, 1.0f);
+        public static readonly IVector4 UnitW = new IVector4(0, 0, 0, 1);
         
         /// <summary>
         /// R Component. Maps to the X component of the vector
         /// </summary>
-        public float R
+        public int R
         {
             get
             {
@@ -162,7 +157,7 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// G Component. Maps to the Y component of the vector
         /// </summary>
-        public float G
+        public int G
         {
             get
             {
@@ -176,7 +171,7 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// B Component. Maps to the Z component of the vector
         /// </summary>
-        public float B
+        public int B
         {
             get
             {
@@ -190,7 +185,7 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// A Component. Maps to the W component of the vector
         /// </summary>
-        public float A
+        public int A
         {
             get
             {
@@ -203,9 +198,9 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Indexer for the vector, NaN if invalid index
+        /// Indexer for the vector, int.MaxValue returned for invalid index
         /// </summary>
-        public float this[int a_key]
+        public int this[int a_key]
         {
             get
             {
@@ -235,7 +230,7 @@ namespace IcarianEngine.Maths
                 }
                 }
 
-                return float.NaN;
+                return int.MaxValue;
             }
             set
             {
@@ -300,7 +295,7 @@ namespace IcarianEngine.Maths
         /// Constructor for the vector
         /// </summary>
         /// <param name="a_val">The value for all components</param>
-        public Vector4(float a_val)
+        public IVector4(int a_val)
         {
             X = a_val;
             Y = a_val;
@@ -314,7 +309,7 @@ namespace IcarianEngine.Maths
         /// <param name="a_y">The Y component of the vector</param>
         /// <param name="a_z">The Z component of the vector</param>
         /// <param name="a_w">The W component of the vector</param>
-        public Vector4(float a_x, float a_y, float a_z, float a_w)
+        public IVector4(int a_x, int a_y, int a_z, int a_w)
         {
             X = a_x;
             Y = a_y;
@@ -327,7 +322,7 @@ namespace IcarianEngine.Maths
         /// <param name="a_xy">The XY components of the vector</param>
         /// <param name="a_z">The Z component of the vector</param>
         /// <param name="a_w">The W component of the vector</param>
-        public Vector4(Vector2 a_xy, float a_z, float a_w)
+        public IVector4(IVector2 a_xy, int a_z, int a_w)
         {
             X = a_xy.X;
             Y = a_xy.Y;
@@ -340,7 +335,7 @@ namespace IcarianEngine.Maths
         /// <param name="a_x">The X component of the vector</param>
         /// <param name="a_yz">The YZ components of the vector</param>
         /// <param name="a_w">The W component of the vector</param>
-        public Vector4(float a_x, Vector2 a_yz, float a_w)
+        public IVector4(int a_x, IVector2 a_yz, int a_w)
         {
             X = a_x;
             Y = a_yz.X;
@@ -353,7 +348,7 @@ namespace IcarianEngine.Maths
         /// <param name="a_x">The X component of the vector</param>
         /// <param name="a_y">The Y component of the vector</param>
         /// <param name="a_zw">The ZW components of the vector</param>
-        public Vector4(float a_x, float a_y, Vector2 a_zw)
+        public IVector4(int a_x, int a_y, IVector2 a_zw)
         {
             X = a_x;
             Y = a_y;
@@ -365,7 +360,7 @@ namespace IcarianEngine.Maths
         /// </summary>
         /// <param name="a_xy">The XY components of the vector</param>
         /// <param name="a_zw">The ZW components of the vector</param>
-        public Vector4(Vector2 a_xy, Vector2 a_zw)
+        public IVector4(IVector2 a_xy, IVector2 a_zw)
         {
             X = a_xy.X;
             Y = a_xy.Y;
@@ -377,7 +372,7 @@ namespace IcarianEngine.Maths
         /// </summary>
         /// <param name="a_xyz">The XYZ components of the vector</param>
         /// <param name="a_w">The W component of the vector</param>
-        public Vector4(Vector3 a_xyz, float a_w)
+        public IVector4(IVector3 a_xyz, int a_w)
         {
             X = a_xyz.X;
             Y = a_xyz.Y;
@@ -389,7 +384,7 @@ namespace IcarianEngine.Maths
         /// </summary>
         /// <param name="a_x">The X component of the vector</param>
         /// <param name="a_yzw">The YZW components of the vector</param>
-        public Vector4(float a_x, Vector3 a_yzw)
+        public IVector4(int a_x, IVector3 a_yzw)
         {
             X = a_x;
             Y = a_yzw.X;
@@ -400,7 +395,7 @@ namespace IcarianEngine.Maths
         /// Constructor for the vector
         /// </summary>
         /// <param name="a_other">Vector to copy</param>
-        public Vector4(Vector4 a_other)
+        public IVector4(IVector4 a_other)
         {
             X = a_other.X;
             Y = a_other.Y;
@@ -408,9 +403,9 @@ namespace IcarianEngine.Maths
             W = a_other.W;
         }
 
-        public static explicit operator Vector4(IVector4 a_vec)
+        public static explicit operator IVector4(Vector4 a_vec)
         {
-            return new Vector4(a_vec.X, a_vec.Y, a_vec.Z, a_vec.W);
+            return new IVector4((int)a_vec.X, (int)a_vec.Y, (int)a_vec.Z, (int)a_vec.W);
         }
 
         /// <summary>
@@ -419,44 +414,44 @@ namespace IcarianEngine.Maths
         /// <returns>The color</returns>
         public Color ToColor()
         {
-            return new Color((byte)(X * 255.0f), (byte)(Y * 255.0f), (byte)(Z * 255.0f), (byte)(W * 255.0f));
+            return new Color((byte)X, (byte)Y, (byte)Z, (byte)W);
         }
 
-        public static Vector4 operator -(Vector4 a_vec)
+        public static IVector4 operator -(IVector4 a_vec)
         {
-            return new Vector4(-a_vec.X, -a_vec.Y, -a_vec.Z, -a_vec.W);
+            return new IVector4(-a_vec.X, -a_vec.Y, -a_vec.Z, -a_vec.W);
         }
 
-        public static Vector4 operator +(Vector4 a_lhs, Vector4 a_rhs)
+        public static IVector4 operator +(IVector4 a_lhs, IVector4 a_rhs)
         {
-            return new Vector4(a_lhs.X + a_rhs.X, a_lhs.Y + a_rhs.Y, a_lhs.Z + a_rhs.Z, a_lhs.W + a_rhs.W);
+            return new IVector4(a_lhs.X + a_rhs.X, a_lhs.Y + a_rhs.Y, a_lhs.Z + a_rhs.Z, a_lhs.W + a_rhs.W);
         }
-        public static Vector4 operator -(Vector4 a_lhs, Vector4 a_rhs)
+        public static IVector4 operator -(IVector4 a_lhs, IVector4 a_rhs)
         {
-            return new Vector4(a_lhs.X - a_rhs.X, a_lhs.Y - a_rhs.Y, a_lhs.Z - a_rhs.Z, a_lhs.W - a_rhs.W);
+            return new IVector4(a_lhs.X - a_rhs.X, a_lhs.Y - a_rhs.Y, a_lhs.Z - a_rhs.Z, a_lhs.W - a_rhs.W);
         }
-        public static Vector4 operator *(Vector4 a_lhs, float a_rhs)
+        public static IVector4 operator *(IVector4 a_lhs, float a_rhs)
         {
-            return new Vector4(a_lhs.X * a_rhs, a_lhs.Y * a_rhs, a_lhs.Z * a_rhs, a_lhs.W * a_rhs);
+            return new IVector4((int)(a_lhs.X * a_rhs), (int)(a_lhs.Y * a_rhs), (int)(a_lhs.Z * a_rhs), (int)(a_lhs.W * a_rhs));
         }
-        public static Vector4 operator /(Vector4 a_lhs, float a_rhs)
+        public static IVector4 operator /(IVector4 a_lhs, float a_rhs)
         {
-            return new Vector4(a_lhs.X / a_rhs, a_lhs.Y / a_rhs, a_lhs.Z / a_rhs, a_lhs.W / a_rhs);
+            return new IVector4((int)(a_lhs.X / a_rhs), (int)(a_lhs.Y / a_rhs), (int)(a_lhs.Z / a_rhs), (int)(a_lhs.W / a_rhs));
         }
-        public static Vector4 operator *(Vector4 a_lhs, Vector4 a_rhs)
+        public static IVector4 operator *(IVector4 a_lhs, IVector4 a_rhs)
         {
-            return new Vector4(a_lhs.X * a_rhs.X, a_lhs.Y * a_rhs.Y, a_lhs.Z * a_rhs.Z, a_lhs.W * a_rhs.W);
+            return new IVector4(a_lhs.X * a_rhs.X, a_lhs.Y * a_rhs.Y, a_lhs.Z * a_rhs.Z, a_lhs.W * a_rhs.W);
         }
-        public static Vector4 operator /(Vector4 a_lhs, Vector4 a_rhs)
+        public static IVector4 operator /(IVector4 a_lhs, IVector4 a_rhs)
         {
-            return new Vector4(a_lhs.X / a_rhs.X, a_lhs.Y / a_rhs.Y, a_lhs.Z / a_rhs.Y, a_lhs.W / a_rhs.W);
+            return new IVector4(a_lhs.X / a_rhs.X, a_lhs.Y / a_rhs.Y, a_lhs.Z / a_rhs.Y, a_lhs.W / a_rhs.W);
         }
 
-        public static bool operator ==(Vector4 a_lhs, Vector4 a_rhs)
+        public static bool operator ==(IVector4 a_lhs, IVector4 a_rhs)
         {
             return a_lhs.X == a_rhs.X && a_lhs.Y == a_rhs.Y && a_lhs.Z == a_rhs.Z && a_lhs.W == a_rhs.W;
         }
-        public static bool operator !=(Vector4 a_lhs, Vector4 a_rhs)
+        public static bool operator !=(IVector4 a_lhs, IVector4 a_rhs)
         {
             return a_lhs.X != a_rhs.X || a_lhs.Y != a_rhs.Y || a_lhs.Z != a_rhs.Z || a_lhs.W != a_rhs.W;
         }
@@ -468,7 +463,7 @@ namespace IcarianEngine.Maths
                 return false;
             }
             
-            Vector4 vec = (Vector4)a_obj;
+            IVector4 vec = (IVector4)a_obj;
 
             return X == vec.X && Y == vec.Y && Z == vec.Z && W == vec.W;
         }
@@ -492,52 +487,19 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Normalizes the vector
-        /// </summary>
-        public void Normalize()
-        {
-            float mag = Magnitude;
-
-            X /= mag;
-            Y /= mag;
-            Z /= mag;
-            W /= mag;
-        }
-        /// <summary>
-        /// Gets a normalized copy of the vector
-        /// </summary>
-        /// <param name="a_vec">The vector to normalize</param>
-        /// <returns>The normalized vector</returns>
-        public static Vector4 Normalized(Vector4 a_vec)
-        {
-            float mag = a_vec.Magnitude;
-
-            return new Vector4(a_vec.X / mag, a_vec.Y / mag, a_vec.Z / mag, a_vec.W / mag);
-        }
-
-        /// <summary>
-        /// Converts the vector to a quaternion
-        /// </summary>
-        /// <returns>The quaternion</returns>
-        public Quaternion ToQuaternion()
-        {
-            return new Quaternion(X, Y, Z, W);
-        }
-
-        /// <summary>
         /// Linearly interpolates between two vectors
         /// </summary>
         /// <param name="a_start">The start vector</param>
         /// <param name="a_end">The end vector</param>
         /// <param name="a_t">The time between the two vectors</param>
         /// <returns>The interpolated vector</returns>
-        public static Vector4 Lerp(Vector4 a_start, Vector4 a_end, float a_t)
+        public static IVector4 Lerp(IVector4 a_start, IVector4 a_end, float a_t)
         {
             return a_start + (a_end - a_start) * a_t;
         }
 
-        VEC_SWIZZLE_VEC4_FULL_VEC2
-        VEC_SWIZZLE_VEC4_FULL_VEC3
-        VEC_SWIZZLE_VEC4_FULL_VEC4
+        VEC_SWIZZLE_IVEC4_FULL_VEC2
+        VEC_SWIZZLE_IVEC4_FULL_VEC3
+        VEC_SWIZZLE_IVEC4_FULL_VEC4
     }
 }

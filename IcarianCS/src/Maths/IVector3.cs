@@ -6,38 +6,41 @@ using System.Xml;
 
 namespace IcarianEngine.Maths
 {
-    public static class Vector3Extensions
+    public static class IVector3Extensions
     {
-        public static Vector3 ToVector3(this XmlElement a_element)
+        public static IVector3 ToIVector3(this XmlElement a_element)
         {
-            return ToVector3(a_element, Vector3.Zero);
+            return ToIVector3(a_element, IVector3.Zero);
         }
-        public static Vector3 ToVector3(this XmlElement a_element, Vector3 a_default)
+        public static IVector3 ToIVector3(this XmlElement a_element, IVector3 a_default)
         {
-            Vector3 vec = a_default;
+            IVector3 vec = a_default;
 
             foreach (XmlElement element in a_element)
             {
                 switch (element.Name)
                 {
                 case "X":
-                case "S":
+                case "U":
+                case "R":
                 {
-                    vec.X = float.Parse(element.InnerText);
+                    vec.X = int.Parse(element.InnerText);
 
                     break;
                 }
                 case "Y":
-                case "T":
+                case "V":
+                case "G":
                 {
-                    vec.Y = float.Parse(element.InnerText);
+                    vec.Y = int.Parse(element.InnerText);
 
                     break;
                 }
                 case "Z":
-                case "U":
+                case "W":
+                case "B":
                 {
-                    vec.Z = float.Parse(element.InnerText);
+                    vec.Z = int.Parse(element.InnerText);
 
                     break;
                 }
@@ -47,11 +50,11 @@ namespace IcarianEngine.Maths
             return vec;
         }
 
-        public static XmlElement ToXml(this Vector3 a_vec, XmlDocument a_doc, string a_name)
+        public static XmlElement ToXml(this IVector3 a_vec, XmlDocument a_doc, string a_name)
         {
-            return ToXml(a_vec, a_doc, a_name, Vector3.Zero);
+            return ToXml(a_vec, a_doc, a_name, IVector3.Zero);
         }
-        public static XmlElement ToXml(this Vector3 a_vec, XmlDocument a_doc, string a_name, Vector3 a_default)
+        public static XmlElement ToXml(this IVector3 a_vec, XmlDocument a_doc, string a_name, IVector3 a_default)
         {
             if (a_vec == a_default)
             {
@@ -84,80 +87,75 @@ namespace IcarianEngine.Maths
     }
 
     [StructLayout(LayoutKind.Explicit, Pack = 0)]
-    public struct Vector3
+    public struct IVector3
     {
         /// <summary>
         /// The X component of the vector
         /// </summary>
         [FieldOffset(0)]
-        public float X;
+        public int X;
         /// <summary>
         /// The Y component of the vector
         /// </summary>
         [FieldOffset(4)]
-        public float Y;
+        public int Y;
         /// <summary>
         /// The Z component of the vector
         /// </summary>
         [FieldOffset(8)]
-        public float Z;
+        public int Z;
 
         /// <summary>
         /// Zero vector
         /// </summary>
-        public static readonly Vector3 Zero = new Vector3(0.0f);
+        public static readonly IVector3 Zero = new IVector3(0);
         /// <summary>
         /// One vector
         /// </summary>
-        public static readonly Vector3 One = new Vector3(1.0f);
-
-        /// <summary>
-        /// Infinity vector
-        /// </summary>
-        public static readonly Vector3 Infinity = new Vector3(float.PositiveInfinity);
+        public static readonly IVector3 One = new IVector3(1);
         
         /// <summary>
         /// Right vector
         /// </summary>
-        public static readonly Vector3 Right = new Vector3(1.0f, 0.0f, 0.0f);
+        public static readonly IVector3 Right = new IVector3(1, 0, 0);
         /// <summary>
         /// Left vector
         /// </summary>
-        public static readonly Vector3 Left = new Vector3(-1.0f, 0.0f, 0.0f);
+        public static readonly IVector3 Left = new IVector3(-1, 0, 0);
         /// <summary>
         /// Up vector
         /// </summary>
-        public static readonly Vector3 Up = new Vector3(0.0f, -1.0f, 0.0f);
+        public static readonly IVector3 Up = new IVector3(0, -1, 0);
         /// <summary>
         /// Down vector
         /// </summary>
-        public static readonly Vector3 Down = new Vector3(0.0f, 1.0f, 0.0f);
+        public static readonly IVector3 Down = new IVector3(0, 1, 0);
         /// <summary>
         /// Forward vector
         /// </summary>
-        public static readonly Vector3 Forward = new Vector3(0.0f, 0.0f, -1.0f);
+        public static readonly IVector3 Forward = new IVector3(0, 0, -1);
         /// <summary>
         /// Backward vector
         /// </summary>
-        public static readonly Vector3 Backward = new Vector3(0.0f, 0.0f, 1.0f);
+        public static readonly IVector3 Backward = new IVector3(0, 0, 1);
 
         /// <summary>
         /// Unit X vector
         /// </summary>
-        public static readonly Vector3 UnitX = new Vector3(1.0f, 0.0f, 0.0f);
+        public static readonly IVector3 UnitX = new IVector3(1, 0, 0);
         /// <summary>
         /// Unit Y vector
         /// </summary>
-        public static readonly Vector3 UnitY = new Vector3(0.0f, 1.0f, 0.0f);
+        public static readonly IVector3 UnitY = new IVector3(0, 1, 0);
         /// <summary>
         /// Unit Z vector
         /// </summary>
-        public static readonly Vector3 UnitZ = new Vector3(0.0f, 0.0f, 1.0f);
+        public static readonly IVector3 UnitZ = new IVector3(0, 0, 1);
 
         /// <summary>
         /// U Component. Maps to the X component of the vector
         /// </summary>
-        public float U
+        public int U
         {
             get
             {
@@ -171,7 +169,7 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// V Component. Maps to the Y component of the vector
         /// </summary>
-        public float V
+        public int V
         {
             get
             {
@@ -185,7 +183,7 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// W Component. Maps to the Z component of the vector
         /// </summary>
-        public float W
+        public int W
         {
             get
             {
@@ -200,7 +198,7 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// R Component. Maps to the X component of the vector
         /// </summary>
-        public float R
+        public int R
         {
             get
             {
@@ -214,7 +212,7 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// G Component. Maps to the Y component of the vector
         /// </summary>
-        public float G
+        public int G
         {
             get
             {
@@ -228,7 +226,7 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// B Component. Maps to the Z component of the vector
         /// </summary>
-        public float B
+        public int B
         {
             get
             {
@@ -241,9 +239,9 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Indexer for the vector, NaN if invalid index
+        /// Indexer for the vector, int.MaxValue is returned if the key is invalid
         /// </summary>
-        public float this[int a_key]
+        public int this[int a_key]
         {
             get
             {
@@ -269,7 +267,7 @@ namespace IcarianEngine.Maths
                 }
                 }
 
-                return float.NaN;
+                return int.MaxValue;
             }
             set
             {
@@ -321,7 +319,7 @@ namespace IcarianEngine.Maths
         {
             get
             {
-                return (float)Math.Sqrt(MagnitudeSqr);
+                return Mathf.Sqrt(MagnitudeSqr);
             }
         }
 
@@ -329,7 +327,7 @@ namespace IcarianEngine.Maths
         /// Constructor for the vector
         /// </summary>
         /// <param name="a_val">The value for all components</param>
-        public Vector3(float a_val)
+        public IVector3(int a_val)
         {
             X = a_val;
             Y = a_val;   
@@ -341,7 +339,7 @@ namespace IcarianEngine.Maths
         /// <param name="a_x">The X component of the vector</param>
         /// <param name="a_y">The Y component of the vector</param>
         /// <param name="a_z">The Z component of the vector</param>
-        public Vector3(float a_x, float a_y, float a_z)
+        public IVector3(int a_x, int a_y, int a_z)
         {
             X = a_x;
             Y = a_y;
@@ -352,7 +350,7 @@ namespace IcarianEngine.Maths
         /// </summary>
         /// <param name="a_xy">The XY components of the vector</param>
         /// <param name="a_z">The Z component of the vector</param>
-        public Vector3(Vector2 a_xy, float a_z)
+        public IVector3(IVector3 a_xy, int a_z)
         {
             X = a_xy.X;
             Y = a_xy.Y;
@@ -363,7 +361,7 @@ namespace IcarianEngine.Maths
         /// </summary>
         /// <param name="a_x">The X component of the vector</param>
         /// <param name="a_yz">The YZ components of the vector</param>
-        public Vector3(float a_x, Vector2 a_yz)
+        public IVector3(int a_x, IVector2 a_yz)
         {
             X = a_x;
             Y = a_yz.X;
@@ -373,53 +371,53 @@ namespace IcarianEngine.Maths
         /// Constructor for the vector
         /// </summary>
         /// <param name="a_xyz">Vector to copy</param>
-        public Vector3(Vector3 a_other)
+        public IVector3(IVector3 a_other)
         {
             X = a_other.X;
             Y = a_other.Y;
             Z = a_other.Z;
         }
 
-        public static explicit operator Vector3(IVector3 a_vec)
+        public static explicit operator IVector3(Vector3 a_vec)
         {
-            return new Vector3(a_vec.X, a_vec.Y, a_vec.Z);
+            return new IVector3((int)a_vec.X, (int)a_vec.Y, (int)a_vec.Z);
         }
 
-        public static Vector3 operator -(Vector3 a_vec)
+        public static IVector3 operator -(IVector3 a_vec)
         {
-            return new Vector3(-a_vec.X, -a_vec.Y, -a_vec.Z);
+            return new IVector3(-a_vec.X, -a_vec.Y, -a_vec.Z);
         }
         
-        public static Vector3 operator +(Vector3 a_lhs, Vector3 a_rhs)
+        public static IVector3 operator +(IVector3 a_lhs, IVector3 a_rhs)
         {
-            return new Vector3(a_lhs.X + a_rhs.X, a_lhs.Y + a_rhs.Y, a_lhs.Z + a_rhs.Z);
+            return new IVector3(a_lhs.X + a_rhs.X, a_lhs.Y + a_rhs.Y, a_lhs.Z + a_rhs.Z);
         }
-        public static Vector3 operator -(Vector3 a_lhs, Vector3 a_rhs)
+        public static IVector3 operator -(IVector3 a_lhs, IVector3 a_rhs)
         {
-            return new Vector3(a_lhs.X - a_rhs.X, a_lhs.Y - a_rhs.Y, a_lhs.Z - a_rhs.Z);   
+            return new IVector3(a_lhs.X - a_rhs.X, a_lhs.Y - a_rhs.Y, a_lhs.Z - a_rhs.Z);   
         }
-        public static Vector3 operator *(Vector3 a_lhs, float a_rhs)
+        public static IVector3 operator *(IVector3 a_lhs, float a_rhs)
         {
-            return new Vector3(a_lhs.X * a_rhs, a_lhs.Y * a_rhs, a_lhs.Z * a_rhs);
+            return new IVector3((int)(a_lhs.X * a_rhs), (int)(a_lhs.Y * a_rhs), (int)(a_lhs.Z * a_rhs));
         }
-        public static Vector3 operator /(Vector3 a_lhs, float a_rhs)
+        public static IVector3 operator /(IVector3 a_lhs, float a_rhs)
         {
-            return new Vector3(a_lhs.X / a_rhs, a_lhs.Y / a_rhs, a_lhs.Z / a_rhs);
+            return new IVector3((int)(a_lhs.X / a_rhs), (int)(a_lhs.Y / a_rhs), (int)(a_lhs.Z / a_rhs));
         }
-        public static Vector3 operator *(Vector3 a_lhs, Vector3 a_rhs)
+        public static IVector3 operator *(IVector3 a_lhs, IVector3 a_rhs)
         {
-            return new Vector3(a_lhs.X * a_rhs.X, a_lhs.Y * a_rhs.Y, a_lhs.Z * a_rhs.Z);
+            return new IVector3(a_lhs.X * a_rhs.X, a_lhs.Y * a_rhs.Y, a_lhs.Z * a_rhs.Z);
         }
-        public static Vector3 operator /(Vector3 a_lhs, Vector3 a_rhs)
+        public static IVector3 operator /(IVector3 a_lhs, IVector3 a_rhs)
         {
-            return new Vector3(a_lhs.X / a_rhs.X, a_lhs.Y / a_rhs.Y, a_lhs.Z / a_rhs.Z);
+            return new IVector3(a_lhs.X / a_rhs.X, a_lhs.Y / a_rhs.Y, a_lhs.Z / a_rhs.Z);
         }
 
-        public static bool operator ==(Vector3 a_lhs, Vector3 a_rhs)
+        public static bool operator ==(IVector3 a_lhs, IVector3 a_rhs)
         {
             return a_lhs.X == a_rhs.X && a_lhs.Y == a_rhs.Y && a_lhs.Z == a_rhs.Z;
         }
-        public static bool operator !=(Vector3 a_lhs, Vector3 a_rhs)
+        public static bool operator !=(IVector3 a_lhs, IVector3 a_rhs)
         {
             return a_lhs.X != a_rhs.X || a_lhs.Y != a_rhs.Y || a_lhs.Z != a_rhs.Z;
         }
@@ -431,7 +429,7 @@ namespace IcarianEngine.Maths
                 return false;
             }
             
-            Vector3 vec = (Vector3)a_obj;
+            IVector3 vec = (IVector3)a_obj;
 
             return X == vec.X && Y == vec.Y && Z == vec.Z;
         }
@@ -454,35 +452,12 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Normalizes the vector
-        /// </summary>
-        public void Normalize()
-        {
-            float mag = Magnitude;
-
-            X /= mag;
-            Y /= mag;
-            Z /= mag;
-        }
-        /// <summary>
-        /// Gets a normalized copy of the vector
-        /// </summary>
-        /// <param name="a_other">Vector to normalize</param>
-        /// <returns>Normalized copy of the vector</returns>
-        public static Vector3 Normalized(Vector3 a_other)
-        {
-            float mag = a_other.Magnitude;
-
-            return new Vector3(a_other.X / mag, a_other.Y / mag, a_other.Z / mag);
-        }
-
-        /// <summary>
         /// Gets the dot product of the two vectors
         /// </summary>
         /// <param name="a_lhs">Left hand side of the dot product</param>
         /// <param name="a_rhs">Right hand side of the dot product</param>
         /// <returns>Dot product of the two vectors</returns>
-        public static float Dot(Vector3 a_lhs, Vector3 a_rhs)
+        public static float Dot(IVector3 a_lhs, IVector3 a_rhs)
         {
             return a_lhs.X * a_rhs.X + a_lhs.Y * a_rhs.Y + a_lhs.Z * a_rhs.Z;
         }
@@ -492,9 +467,9 @@ namespace IcarianEngine.Maths
         /// <param name="a_lhs">Left hand side of the cross product</param>
         /// <param name="a_rhs">Right hand side of the cross product</param>
         /// <returns>Cross product of the two vectors</returns>
-        public static Vector3 Cross(Vector3 a_lhs, Vector3 a_rhs)
+        public static IVector3 Cross(IVector3 a_lhs, IVector3 a_rhs)
         {
-            return new Vector3
+            return new IVector3
             (
                 a_lhs.Y * a_rhs.Z - a_lhs.Z * a_rhs.Y,
                 a_lhs.Z * a_rhs.X - a_lhs.X * a_rhs.Z,
@@ -509,13 +484,13 @@ namespace IcarianEngine.Maths
         /// <param name="a_end">End vector</param>
         /// <param name="a_t">Interpolation value</param>
         /// <returns>Interpolated vector</returns>
-        public static Vector3 Lerp(Vector3 a_start, Vector3 a_end, float a_t)
+        public static IVector3 Lerp(IVector3 a_start, IVector3 a_end, float a_t)
         {
             return a_start + (a_end - a_start) * a_t;
         }
 
-        VEC_SWIZZLE_VEC3_FULL_VEC2
-        VEC_SWIZZLE_VEC3_FULL_VEC3
-        VEC_SWIZZLE_VEC3_FULL_VEC4
+        VEC_SWIZZLE_IVEC3_FULL_VEC2
+        VEC_SWIZZLE_IVEC3_FULL_VEC3
+        VEC_SWIZZLE_IVEC3_FULL_VEC4
     }
 }

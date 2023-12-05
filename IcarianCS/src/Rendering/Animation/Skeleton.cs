@@ -204,5 +204,88 @@ namespace IcarianEngine.Rendering.Animation
 
             return uint.MaxValue;
         }
+
+        /// <summary>
+        /// Gets the local translation of the specified bone.
+        /// </summary>
+        /// <param name="a_name">The name of the bone.</param>
+        /// <returns>The local translation of the specified bone.</returns>
+        public Vector3 GetLocalTranslation(string a_name)
+        {
+            uint index = GetIndex(a_name);
+            if (index != uint.MaxValue)
+            {
+                return GetLocalTranslation(index);
+            }
+
+            return Vector3.Zero;
+        }
+        /// <summary>
+        /// Gets the local translation of the specified bone.
+        /// </summary>
+        /// <param name="a_index">The index of the bone.</param>
+        /// <returns>The local translation of the specified bone.</returns>       
+        public Vector3 GetLocalTranslation(uint a_index)
+        {
+            Matrix4 bindingPose = GetBoneBindingPose(a_index);
+            uint parentIndex = GetParentIndex(a_index);
+            
+            if (parentIndex != uint.MaxValue)
+            {
+                Matrix4 parentBindingPose = GetBoneBindingPose(parentIndex);
+                Matrix4 invBindPose = Matrix4.Inverse(parentBindingPose);
+
+                bindingPose = bindingPose * invBindPose;
+            }
+
+            Vector3 translation;
+            Quaternion rotation;
+            Vector3 scale;
+
+            Matrix4.Decompose(bindingPose, out translation, out rotation, out scale);
+
+            return translation;
+        }
+        /// <summary>
+        /// Gets the local rotation of the specified bone.
+        /// </summary>
+        /// <param name="a_name">The name of the bone.</param>
+        /// <returns>The local rotation of the specified bone.</returns>
+        public Quaternion GetLocalRotation(string a_name)
+        {
+            uint index = GetIndex(a_name);
+            if (index != uint.MaxValue)
+            {
+                return GetLocalRotation(index);
+            }
+
+            return Quaternion.Identity;
+        }
+        /// <summary>
+        /// Gets the local rotation of the specified bone.
+        /// </summary>
+        /// <param name="a_index">The index of the bone.</param>
+        /// <returns>The local rotation of the specified bone.</returns>
+        public Quaternion GetLocalRotation(uint a_index)
+        {
+            Matrix4 bindingPose = GetBoneBindingPose(a_index);
+            uint parentIndex = GetParentIndex(a_index);
+
+            if (parentIndex != uint.MaxValue)
+            {
+                Matrix4 parentBindingPose = GetBoneBindingPose(parentIndex);
+                Matrix4 invBindPose = Matrix4.Inverse(parentBindingPose);
+
+                bindingPose = bindingPose * invBindPose;
+            }
+
+            Vector3 translation;
+            Quaternion rotation;
+            Vector3 scale;
+
+            Matrix4.Decompose(bindingPose, out translation, out rotation, out scale);
+
+            return rotation;
+        }
     };
 }

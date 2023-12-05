@@ -526,4 +526,314 @@ namespace FlareBase
 
         return false;
     }
+
+    static void FillFBXCurve(const ofbx::AnimationCurve* a_curve, std::vector<FBXAnimationFrame>* a_frames, int a_index, float a_frameRate, float a_scale)
+    {
+        const int keyCount = a_curve->getKeyCount();
+        const ofbx::i64* keyTimes = a_curve->getKeyTime();
+        const float* keyValues = a_curve->getKeyValue();
+        for (int i = 0; i < keyCount - 1; ++i)
+        {
+            const ofbx::i64 keyTime = keyTimes[i];
+            const ofbx::i64 nextKeyTime = keyTimes[i + 1];
+
+            const double startTime = ofbx::fbxTimeToSeconds(keyTime);
+            const double endTime = ofbx::fbxTimeToSeconds(nextKeyTime);
+            const double diff = endTime - startTime;
+
+            const float keyValue = keyValues[i];
+            const float nextKeyValue = keyValues[i + 1];
+
+            uint32_t frameCount = (uint32_t)(diff * a_frameRate + 0.1f);
+            const uint32_t startFrame = (uint32_t)(startTime * a_frameRate);
+            const int64_t frameDiff = (int64_t)(frameCount + startFrame) - (int64_t)a_frames->size();
+            if (frameDiff > 0)
+            {
+                frameCount = (uint32_t)glm::max(frameCount - frameDiff, int64_t(0));
+            } 
+
+            for (uint32_t j = 0; j < frameCount; ++j)
+            {
+                const uint32_t index = startFrame + j;
+                FBXAnimationFrame& frame = a_frames->at(index);
+
+                const float lerp = (float)j / frameCount;
+                const float value = glm::mix(keyValue, nextKeyValue, lerp);
+
+                frame.Time = index / a_frameRate;
+                frame.Data[a_index] = value * a_scale;
+            }
+        }
+
+        const ofbx::i64 keyTime = keyTimes[keyCount - 1];
+        const double startTime = ofbx::fbxTimeToSeconds(keyTime);
+        const uint32_t startFrame = (uint32_t)(startTime * a_frameRate);
+        FBXAnimationFrame& frame = a_frames->at(startFrame);
+        frame.Time = startFrame / a_frameRate;
+        frame.Data[a_index] = keyValues[keyCount - 1] * a_scale;
+    }    
+
+    bool FBXLoader_LoadAnimationData(const char* a_data, uint32_t a_size, std::vector<FBXAnimationData>* a_animation)
+    {
+        ofbx::IScene* scene = ofbx::load((ofbx::u8*)a_data, a_size, 0);
+
+        if (scene == nullptr)
+        {
+            return false;
+        }
+        IDEFER(scene->destroy());
+
+        const ofbx::GlobalSettings* settings = scene->getGlobalSettings();
+        const float frameRate = scene->getSceneFrameRate();
+        const double duration = settings->TimeSpanStop - settings->TimeSpanStart;
+        const uint32_t totalFrameCount = (uint32_t)(duration * frameRate) + 10;
+
+        // If memory serves me correctly, the unit scale factor is based off of centimeters.
+        const float trueScale = settings->UnitScaleFactor * 0.01f;
+
+        const int animStackCount = scene->getAnimationStackCount();
+        for (int i = 0; i < animStackCount; ++i)
+        {
+            const ofbx::AnimationStack* animStack = scene->getAnimationStack(i);
+
+            const ofbx::AnimationLayer* animLayer = animStack->getLayer(0);
+            if (animLayer == nullptr)
+            {
+                continue;
+            }
+
+            for (int j = 0; animLayer->getCurveNode(j) != nullptr; ++j)
+            {
+                const ofbx::AnimationCurveNode* animCurveNode = animLayer->getCurveNode(j);
+                const ofbx::Object* bone = animCurveNode->getBone();
+                
+                const ofbx::DataView boneLinkProperty = animCurveNode->getBoneLinkProperty();
+
+                if (boneLinkProperty == "Lcl Translation")
+                {
+                    FBXAnimationFrame defaultFrame;
+                    defaultFrame.Time = -1.0f;
+                    defaultFrame.Data = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+
+                    FBXAnimationData animData;
+                    animData.Name = bone->name;
+                    animData.PropertyName = "Translation";
+                    animData.Frames.resize(totalFrameCount, defaultFrame);
+
+                    for (int k = 0; k < 3; ++k)
+                    {
+                        const ofbx::AnimationCurve* animCurve = animCurveNode->getCurve(k);
+                        if (animCurve == nullptr)
+                        {
+                            continue;
+                        }
+
+                        FillFBXCurve(animCurve, &animData.Frames, k, frameRate, trueScale);
+                    }
+
+                    auto iter = animData.Frames.begin();
+                    while (iter != animData.Frames.end())
+                    {   
+                        if (iter->Time < 0.0f)
+                        {
+                            iter = animData.Frames.erase(iter);
+
+                            continue;
+                        }
+                        
+                        iter->Data.y = -iter->Data.y;
+
+                        ++iter;
+                    }
+
+                    a_animation->push_back(animData);
+                }
+                else if (boneLinkProperty == "Lcl Rotation")
+                {
+                    FBXAnimationFrame defaultFrame;
+                    defaultFrame.Time = -1.0f;
+                    defaultFrame.Data = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+
+                    FBXAnimationData animData;
+                    animData.Name = bone->name;
+                    animData.PropertyName = "Rotation";
+                    animData.Frames.resize(totalFrameCount, defaultFrame);
+
+                    for (int k = 0; k < 3; ++k)
+                    {
+                        const ofbx::AnimationCurve* animCurve = animCurveNode->getCurve(k);
+                        if (animCurve == nullptr)
+                        {
+                            continue;
+                        }
+
+                        FillFBXCurve(animCurve, &animData.Frames, k, frameRate, glm::pi<float>() / 180.0f);
+                    }
+
+                    // const ofbx::DVec3 localBonePos = bone->getLocalTranslation();
+                    const ofbx::DMatrix localBoneMat = bone->getLocalTransform();
+                    glm::mat4 gLocalBoneMat;
+                    float* t = (float*)&gLocalBoneMat;
+                    for (uint32_t k = 0; k < 16; ++k) 
+                    {
+                        t[k] = (float)localBoneMat.m[k];
+                    }
+
+                    glm::vec3 translation;
+                    glm::quat rotation;
+                    glm::vec3 scale;
+                    glm::vec3 skew;
+                    glm::vec4 perspective;
+
+                    glm::decompose(gLocalBoneMat, scale, rotation, translation, skew, perspective);
+
+                    const glm::vec3 forward = rotation * glm::vec3(0.0f, 0.0f, 1.0f);
+                    const glm::vec3 right = rotation * glm::vec3(1.0f, 0.0f, 0.0f);
+
+                    const glm::vec3 tForward = glm::vec3(forward.x, -forward.y, forward.z);
+                    const glm::vec3 tRight = glm::vec3(right.x, -right.y, right.z);
+                    const glm::vec3 tUp = glm::cross(tForward, tRight);
+
+                    const glm::mat4 rotMat = glm::mat4(glm::vec4(tRight, 0.0f), glm::vec4(tUp, 0.0f), glm::vec4(tForward, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+
+                    auto iter = animData.Frames.begin();
+                    while (iter != animData.Frames.end())
+                    {                        
+                        if (iter->Time < 0.0f)
+                        {
+                            iter = animData.Frames.erase(iter);
+
+                            continue;
+                        }
+                        
+                        const glm::vec3 euler = iter->Data.xyz();
+
+                        // ofbx::DVec3 dEuler;
+                        // dEuler.x = -euler.x;
+                        // dEuler.y = -euler.y;
+                        // dEuler.z = euler.z + 180.0;
+
+                        // ofbx::DVec3 zero;
+                        // zero.x = 0.0;
+                        // zero.y = 0.0;
+                        // zero.z = 0.0;
+
+                        // const ofbx::DMatrix mtx = bone->evalLocal(zero, dEuler);
+                        // glm::mat4 gMtx;
+                        // float* t = (float*)&gMtx;
+                        // for (uint32_t i = 0; i < 16; ++i) 
+                        // {
+                        //     t[i] = (float)mtx.m[i];
+                        // }
+
+                        // glm::vec3 translation;
+                        // glm::quat rotation;
+                        // glm::vec3 scale;
+                        // glm::vec3 skew;
+                        // glm::vec4 perspective;
+
+                        // glm::decompose(gMtx, scale, rotation, translation, skew, perspective);
+
+                        // const glm::vec3 forward = rotation * glm::vec3(0.0f, 0.0f, 1.0f);
+                        // const glm::vec3 right = rotation * glm::vec3(1.0f, 0.0f, 0.0f);
+
+                        // const glm::vec3 tForward = glm::vec3(forward.x, -forward.y, forward.z);
+                        // const glm::vec3 tRight = glm::vec3(right.x, -right.y, right.z);
+                        // const glm::vec3 tUp = glm::cross(tForward, tRight);
+
+                        // const glm::mat4 mat = glm::mat4(glm::vec4(tRight, 0.0f), glm::vec4(tUp, 0.0f), glm::vec4(tForward, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+
+                        // ofbx::DVec3 dEuler;
+                        // dEuler.x = -euler.x;
+                        // dEuler.y = -euler.y;
+                        // dEuler.z = euler.z + 180.0;
+
+                        // ofbx::DVec3 zero;
+                        // zero.x = 0.0;
+                        // zero.y = 0.0;
+                        // zero.z = 0.0;
+
+                        // const ofbx::DMatrix mtx = bone->evalLocal(zero, dEuler);
+                        // glm::mat4 gMtx;
+                        // float* t = (float*)&gMtx;
+                        // for (uint32_t i = 0; i < 16; ++i) 
+                        // {
+                        //     t[i] = (float)mtx.m[i];
+                        // }
+
+                        // glm::vec3 translation;
+                        // glm::quat rotation;
+                        // glm::vec3 scale;
+                        // glm::vec3 skew;
+                        // glm::vec4 perspective;
+
+                        // glm::decompose(gMtx, scale, rotation, translation, skew, perspective);
+
+                        // const glm::vec3 forward = rotation * glm::vec3(0.0f, 0.0f, 1.0f);
+                        // const glm::vec3 right = rotation * glm::vec3(1.0f, 0.0f, 0.0f);
+
+                        // const glm::vec3 tForward = glm::vec3(forward.x, -forward.y, forward.z);
+                        // const glm::vec3 tRight = glm::vec3(right.x, -right.y, right.z);
+                        // const glm::vec3 tUp = glm::cross(tForward, tRight);
+
+                        // const glm::mat4 mat = glm::mat4(glm::vec4(tRight, 0.0f), glm::vec4(tUp, 0.0f), glm::vec4(tForward, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+
+                        // const glm::quat quat = glm::toQuat(mat);
+
+                        // iter->Data.x = quat.x;
+                        // iter->Data.y = quat.y;
+                        // iter->Data.z = quat.z;
+                        // iter->Data.w = quat.w;
+
+                        // I Give up FBX wins this round I will where my dunce cap.
+                        const glm::mat4 xRot = glm::rotate(euler.x, glm::vec3(1.0f, 0.0f, 0.0f));
+                        const glm::mat4 yRot = glm::rotate(euler.y, glm::vec3(0.0f, 1.0f, 0.0f));
+                        const glm::mat4 zRot = glm::rotate(euler.z, glm::vec3(0.0f, 0.0f, 1.0f));
+
+                        const glm::mat4 rot = (zRot * yRot * xRot) * rotMat;
+                        const glm::quat quat = glm::toQuat(rot);
+
+                        iter->Data.x = quat.x;
+                        iter->Data.y = quat.y;
+                        iter->Data.z = quat.z;
+                        iter->Data.w = quat.w;
+
+                        ++iter;
+                    }
+
+                    a_animation->push_back(animData);
+                }
+            }
+        }
+
+        return true;   
+    }
+    bool FBXLoader_LoadAnimationFile(const std::filesystem::path& a_path, std::vector<FBXAnimationData>* a_animation)
+    {
+        if (std::filesystem::exists(a_path))
+        {
+            std::ifstream file = std::ifstream(a_path, std::ios_base::binary);
+
+            if (file.good() && file.is_open())
+            {
+                file.ignore(std::numeric_limits<std::streamsize>::max());
+                const std::streamsize size = file.gcount();
+                file.clear();
+                file.seekg(0, std::ios_base::beg);
+
+                if (size > UINT32_MAX)
+                {
+                    return false;
+                }
+
+                char* data = new char[size];
+                IDEFER(delete[] data);
+                file.read(data, size);
+
+                return FBXLoader_LoadAnimationData(data, (uint32_t)size, a_animation);
+            }
+        }
+
+        return false;
+    }
 }

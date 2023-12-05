@@ -9,6 +9,9 @@ namespace IcarianEngine.Rendering.Animation
 
         float         m_time;
 
+        /// <summary>
+        /// The time of the animation.
+        /// </summary>
         public float Time
         {
             get
@@ -16,6 +19,9 @@ namespace IcarianEngine.Rendering.Animation
                 return m_time;
             }
         }
+        /// <summary>
+        /// The animation clip.
+        /// </summary>
         public AnimationClip Clip
         {
             get
@@ -24,6 +30,9 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
+        /// <summary>
+        /// The def used to create the controller.
+        /// </summary>
         public SkeletonClipAnimationControllerDef SkeletonClipAnimationControllerDef
         {
             get
@@ -32,6 +41,9 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
+        /// <summary>
+        /// Called when the controller is created.
+        /// </summary>
         public override void Init()
         {
             SkeletonClipAnimationControllerDef def = SkeletonClipAnimationControllerDef;
@@ -41,6 +53,12 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
+        /// <summary>
+        /// Called to update the animation controller.
+        /// </summary>
+        /// <param name="a_animator">The animator.</param>
+        /// <param name="a_deltaTime">The delta time.</param>
+        /// <returns>Continue to Object Update.</returns>
         public override bool Update(Animator a_animator, double a_deltaTime)
         {
             m_time += (float)a_deltaTime;
@@ -56,6 +74,12 @@ namespace IcarianEngine.Rendering.Animation
 
             return true;
         }
+        /// <summary>
+        /// Called to update the object.
+        /// </summary>
+        /// <param name="a_animator">The animator.</param>
+        /// <param name="a_object">The object.</param>
+        /// <param name="a_deltaTime">The delta time.</param>
         public override void UpdateObject(Animator a_animator, string a_object, double a_deltaTime)
         {
             SkeletonAnimator animator = a_animator as SkeletonAnimator;
@@ -66,7 +90,7 @@ namespace IcarianEngine.Rendering.Animation
 
             if (m_clip != null)
             {
-                Matrix4 mat = m_clip.GetTransform(a_object, m_time);
+                Matrix4 mat = m_clip.GetTransform(animator.Skeleton, a_object, m_time);
 
                 animator.PushTransform(a_object, mat);
             }   
