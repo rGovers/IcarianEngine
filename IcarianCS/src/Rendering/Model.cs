@@ -75,6 +75,8 @@ namespace IcarianEngine.Rendering
         ///     .obj,
         ///     .fbx,
         ///     .dae
+        ///     .gltf
+        ///     .glb
         /// @see IcarianEngine.AssetLibrary.LoadModel
         /// @see IcarianEngine.Rendering::Vertex
         public static Model LoadModel(string a_path)

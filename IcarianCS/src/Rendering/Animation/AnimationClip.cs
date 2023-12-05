@@ -230,8 +230,6 @@ namespace IcarianEngine.Rendering.Animation
                                 Keys = new List<AnimationKey>()
                             };
 
-                            Logger.Message($"B: {name} : {animObj.Frames[0].Data}");
-
                             foreach (FBXRAnimationFrame frame in animObj.Frames)
                             {
                                 float time = frame.Time;
