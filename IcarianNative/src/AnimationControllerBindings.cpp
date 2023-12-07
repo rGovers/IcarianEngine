@@ -2,6 +2,7 @@
 
 #include "Flare/ColladaLoader.h"
 #include "Flare/FBXLoader.h"
+#include "Flare/GLTFLoader.h"
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
 #include "Rendering/AnimationController.h"
@@ -21,6 +22,7 @@ static AnimationControllerBindings* Instance = nullptr;
     \
     F(MonoArray*, IcarianEngine.Rendering.Animation, AnimationClip, LoadColladaAnimation, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return Instance->LoadColladaAnimation(str); }, MonoString* a_path) \
     F(MonoArray*, IcarianEngine.Rendering.Animation, AnimationClip, LoadFBXAnimation, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return Instance->LoadFBXAnimation(str); }, MonoString* a_path) \
+    F(MonoArray*, IcarianEngine.Rendering.Animation, AnimationClip, LoadGLTFAnimation, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return Instance->LoadGLTFAnimation(str); }, MonoString* a_path) \
     \
     F(uint32_t, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, CreateSkeletonBuffer, { return Instance->CreateSkeletonBuffer(); }) \
     F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, DestroySkeletonBuffer, { Instance->DestroySkeletonBuffer(a_addr); }, uint32_t a_addr) \
@@ -99,6 +101,34 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
             }
         }
     }
+    else if (ext == ".glb" || ext == ".gltf")
+    {
+        if (FlareBase::GLTFLoader_LoadBonesFile(path, &bones))
+        {
+            MonoDomain* domain = RuntimeManager::GetDomain();
+            MonoClass* fClass = mono_get_single_class();
+
+            const uint32_t count = (uint32_t)bones.size();
+            data.BindPoses = mono_array_new(domain, mono_get_array_class(), (uintptr_t)count);
+            data.Names = mono_array_new(domain, mono_get_string_class(), (uintptr_t)count);
+            data.Parents = mono_array_new(domain, mono_get_uint32_class(), (uintptr_t)count);
+
+            for (uint32_t i = 0; i < count; ++i)
+            {
+                const BoneData& bone = bones[i];
+
+                MonoArray* bindPose = mono_array_new(domain, fClass, 16);
+                for (uint32_t j = 0; j < 16; ++j)
+                {
+                    mono_array_set(bindPose, float, j, bone.Transform[j / 4][j % 4]);
+                }
+
+                mono_array_set(data.BindPoses, MonoArray*, i, bindPose);
+                mono_array_set(data.Names, MonoString*, i, mono_string_new(domain, bone.Name.c_str()));
+                mono_array_set(data.Parents, uint32_t, i, bone.Parent);
+            }
+        }
+    }
     else
     {
         ICARIAN_ASSERT_MSG(0, "Unsupported skeleton file type");
@@ -110,7 +140,6 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
 RUNTIME_FUNCTION(void, SkinnedMeshRenderer, PushBoneData,
 {
     glm::mat4 bindPose;
-
     float* f = (float*)&bindPose;
 
     for (uint32_t i = 0; i < 16; ++i)
@@ -284,6 +313,49 @@ MonoArray* AnimationControllerBindings::LoadFBXAnimation(const std::filesystem::
             }
 
             mono_array_set(data, FBXRAnimation, i, animData);
+        }
+    }
+
+    return data;
+}
+MonoArray* AnimationControllerBindings::LoadGLTFAnimation(const std::filesystem::path& a_path) const
+{
+    MonoArray* data = NULL;
+
+    MonoDomain* domain = RuntimeManager::GetDomain();
+    MonoClass* animationDataClass = RuntimeManager::GetClass("IcarianEngine.Rendering.Animation", "GLTFRAnimation");
+    ICARIAN_ASSERT(animationDataClass != NULL);
+    MonoClass* animationFrameClass = RuntimeManager::GetClass("IcarianEngine.Rendering.Animation", "GLTFRAnimationFrame");
+    ICARIAN_ASSERT(animationFrameClass != NULL);
+    MonoClass* floatClass = mono_get_single_class();
+
+    std::vector<GLTFAnimationData> animations;
+    if (FlareBase::GLTFLoader_LoadAnimationFile(a_path, &animations))
+    {
+        const uint32_t count = (uint32_t)animations.size();
+        data = mono_array_new(domain, animationDataClass, (uintptr_t)count);
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            const GLTFAnimationData& animation = animations[i];
+
+            GLTFRAnimation animData;
+            animData.Name = mono_string_new(domain, animation.Name.c_str());
+            animData.Target = mono_string_new(domain, animation.Target.c_str());
+
+            const uint32_t frameCount = (uint32_t)animation.Frames.size();
+            animData.Frames = mono_array_new(domain, animationFrameClass, (uintptr_t)frameCount);
+            for (uint32_t j = 0; j < frameCount; ++j)
+            {
+                const GLTFAnimationFrame& frame = animation.Frames[j];
+
+                GLTFRAnimationFrame animFrame;
+                animFrame.Time = frame.Time;
+                animFrame.Data = frame.Data;
+
+                mono_array_set(animData.Frames, GLTFRAnimationFrame, j, animFrame);
+            }
+
+            mono_array_set(data, GLTFRAnimation, i, animData);
         }
     }
 

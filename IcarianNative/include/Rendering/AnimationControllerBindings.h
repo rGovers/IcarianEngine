@@ -29,4 +29,5 @@ public:
 
     MonoArray* LoadColladaAnimation(const std::filesystem::path& a_path) const;
     MonoArray* LoadFBXAnimation(const std::filesystem::path& a_path) const;
+    MonoArray* LoadGLTFAnimation(const std::filesystem::path& a_path) const;
 };

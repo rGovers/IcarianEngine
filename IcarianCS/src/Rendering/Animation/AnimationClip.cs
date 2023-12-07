@@ -12,14 +12,32 @@ namespace IcarianEngine.Rendering.Animation
     // Could do bezier curves down the line
     public struct AnimationKey
     {
+        /// <summary>
+        /// The time of the animation key.
+        /// </summary>
         public float Time;
+        /// <summary>
+        /// The value of the animation key.
+        /// </summary>
         public object Value;
     }
     public struct AnimationField
     {
+        /// <summary>
+        /// The object of the animation field.
+        /// </summary>
         public string Object;
+        /// <summary>
+        /// The component of the animation field.
+        /// </summary>
         public string Component;
+        /// <summary>
+        /// The field of the animation field.
+        /// </summary>
         public string Field;
+        /// <summary>
+        /// The keys of the animation field.
+        /// </summary>
         public List<AnimationKey> Keys;
     }
     
@@ -29,6 +47,8 @@ namespace IcarianEngine.Rendering.Animation
         extern static DAERAnimation[] LoadColladaAnimation(string a_path);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static FBXRAnimation[] LoadFBXAnimation(string a_path);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static GLTFRAnimation[] LoadGLTFAnimation(string a_path);
 
         bool                 m_icarianClip;
         string               m_name;
@@ -106,6 +126,8 @@ namespace IcarianEngine.Rendering.Animation
         /// Supported file formats:
         ///    .dae
         ///    .fbx(Broken)
+        ///    .glb
+        ///    .gltf
         /// <param name="a_path">The path to the animation clip.</param>
         /// <returns>The animation clip.</returns>
         public static AnimationClip LoadAnimationClip(string a_path)
@@ -289,6 +311,124 @@ namespace IcarianEngine.Rendering.Animation
                 }
 
                 Logger.IcarianError($"Failed to load animation clip: {a_path}");
+
+                break;
+            }
+            case ".glb":
+            case ".gltf":
+            {
+                GLTFRAnimation[] data = LoadGLTFAnimation(a_path);
+
+                if (data != null)
+                {
+                    AnimationClip clip = new AnimationClip();
+                    clip.m_icarianClip = false;
+                    clip.m_name = Path.GetFileNameWithoutExtension(a_path);
+
+                    foreach (GLTFRAnimation animObj in data)
+                    {
+                        string name = animObj.Name;
+                        string field = animObj.Target;
+
+                        // Should probably change to a enum but lazy
+                        switch (field)
+                        {
+                        case "Rotation":
+                        {
+                            AnimationField rotationField = new AnimationField()
+                            {
+                                Object = name,
+                                Component = "Transform",
+                                Field = "Rotation",
+                                Keys = new List<AnimationKey>()
+                            };
+
+                            foreach (GLTFRAnimationFrame frame in animObj.Frames)
+                            {
+                                float time = frame.Time;
+                                Quaternion rotation = frame.Data.ToQuaternion();
+
+                                rotationField.Keys.Add(new AnimationKey()
+                                {
+                                    Time = time,
+                                    Value = rotation
+                                });
+
+                                if (time > clip.m_duration)
+                                {
+                                    clip.m_duration = time;
+                                }
+                            }
+
+                            clip.m_fields.Add(rotationField);
+
+                            break;
+                        }
+                        case "Translation":
+                        {
+                            AnimationField translationField = new AnimationField()
+                            {
+                                Object = name,
+                                Component = "Transform",
+                                Field = "Translation",
+                                Keys = new List<AnimationKey>()
+                            };
+
+                            foreach (GLTFRAnimationFrame frame in animObj.Frames)
+                            {
+                                float time = frame.Time;
+                                Vector3 translation = frame.Data.XYZ;
+
+                                translationField.Keys.Add(new AnimationKey()
+                                {
+                                    Time = time,
+                                    Value = translation
+                                });
+
+                                if (time > clip.m_duration)
+                                {
+                                    clip.m_duration = time;
+                                }
+                            }
+
+                            clip.m_fields.Add(translationField);
+
+                            break;
+                        }
+                        case "Scale":
+                        {
+                            AnimationField scaleField = new AnimationField()
+                            {
+                                Object = name,
+                                Component = "Transform",
+                                Field = "Scale",
+                                Keys = new List<AnimationKey>()
+                            };
+
+                            foreach (GLTFRAnimationFrame frame in animObj.Frames)
+                            {
+                                float time = frame.Time;
+                                Vector3 scale = frame.Data.XYZ;
+
+                                scaleField.Keys.Add(new AnimationKey()
+                                {
+                                    Time = time,
+                                    Value = scale
+                                });
+
+                                if (time > clip.m_duration)
+                                {
+                                    clip.m_duration = time;
+                                }
+                            }
+
+                            break;
+                        }
+                        }
+                    }
+
+                    return clip;
+                }
 
                 break;
             }

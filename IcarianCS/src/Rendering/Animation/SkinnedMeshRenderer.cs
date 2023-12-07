@@ -27,6 +27,16 @@ namespace IcarianEngine.Rendering.Animation
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyRenderStack(uint a_bufferAddr);
 
+        /// @cond INTERNAL
+
+        struct BoneData
+        {
+            public uint TransformAddr;
+            public Matrix4 InverseBindPose;
+        }
+
+        // @endcond
+
         bool       m_visible = true;
 
         uint       m_rendererBufferAddr = uint.MaxValue;
@@ -37,6 +47,9 @@ namespace IcarianEngine.Rendering.Animation
         Material   m_material = null;
         Model      m_model = null;
 
+        /// <summary>
+        /// Whether the SkinnedMeshRenderer has been disposed
+        /// </summary>
         public bool IsDisposed 
         {
             get
@@ -44,6 +57,9 @@ namespace IcarianEngine.Rendering.Animation
                 return m_skeletonBufferAddr == uint.MaxValue;
             }
         }
+        /// <summary>
+        /// The SkinnedMeshRendererDef used to create this SkinnedMeshRenderer
+        /// </summary>
         public SkinnedMeshRendererDef SkinnedMeshRendererDef
         {
             get
@@ -52,6 +68,9 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
+        /// <summary>
+        /// Whether the SkinnedMeshRenderer is visible
+        /// </summary>
         public override bool Visible 
         {
             get
@@ -77,6 +96,9 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
+        /// <summary>
+        /// The Material used by the SkinnedMeshRenderer
+        /// </summary>
         public override Material Material 
         {
             get
@@ -94,6 +116,9 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
+        /// <summary>
+        /// The Skeleton used by the SkinnedMeshRenderer
+        /// </summary>
         public Skeleton Skeleton
         {
             get
@@ -101,6 +126,9 @@ namespace IcarianEngine.Rendering.Animation
                 return m_skeleton;
             }
         }
+        /// <summary>
+        /// The Model used by the SkinnedMeshRenderer
+        /// </summary>
         public Model Model
         {
             get
@@ -143,6 +171,9 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
+        /// <summary>
+        /// Called when the SkinnedMeshRenderer is created
+        /// </summary>
         public override void Init()
         {
             base.Init();
@@ -167,13 +198,7 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
-        struct BoneData
-        {
-            public uint TransformAddr;
-            public Matrix4 InverseBindPose;
-        }
-
-        void GenerateBone(Bone a_bone, Matrix4 a_inverse, Transform a_parent, ref Dictionary<uint, BoneData> a_data)
+        void GenerateBone(Bone a_bone, Matrix4 a_inverse, Transform a_parent, ref BoneData[] a_data)
         {
             GameObject boneObject = GameObject.Instantiate();
             boneObject.Name = a_bone.Name;
@@ -182,15 +207,13 @@ namespace IcarianEngine.Rendering.Animation
             Matrix4 bindingPose = a_bone.BindingPose;
             Matrix4 invPose = Matrix4.Inverse(bindingPose);
 
-            BoneData data = new BoneData()
+            boneObject.Transform.SetMatrix(bindingPose * a_inverse);
+
+            a_data[a_bone.Index] = new BoneData()
             {
                 TransformAddr = boneObject.Transform.InternalAddr,
                 InverseBindPose = invPose
             };
-
-            boneObject.Transform.SetMatrix(bindingPose * a_inverse);
-
-            a_data.Add(a_bone.Index, data);
 
             IEnumerable<Bone> children = m_skeleton.GetChildren(a_bone);
             foreach (Bone child in children)
@@ -199,6 +222,10 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
+        /// <summary>
+        /// Sets the Skeleton used by the SkinnedMeshRenderer
+        /// </summary>
+        /// <param name="a_skeleton">The Skeleton to use</param>
         public void SetSkeleton(Skeleton a_skeleton)
         {
             if (m_root != null && !m_root.IsDisposed)
@@ -216,7 +243,7 @@ namespace IcarianEngine.Rendering.Animation
                 m_root.Name = "Root";
                 m_root.Transform.Parent = Transform;
 
-                Dictionary<uint, BoneData> data = new Dictionary<uint, BoneData>();
+                BoneData[] data = new BoneData[m_skeleton.BoneCount];
 
                 foreach (Bone bone in m_skeleton.RootBones)
                 {
@@ -226,6 +253,7 @@ namespace IcarianEngine.Rendering.Animation
                 foreach (Bone b in m_skeleton.Bones)
                 {
                     BoneData boneData = data[b.Index];
+
                     PushBoneData(m_skeletonBufferAddr, boneData.TransformAddr, boneData.InverseBindPose.ToArray());
                 }
             }
@@ -238,12 +266,19 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
 
+        /// <summary>
+        /// Disposes the SkinnedMeshRenderer
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
+        /// <summary>
+        /// Called when the SkinnedMeshRenderer is disposed
+        /// </summary>
+        /// <param name="a_disposing">Whether the SkinnedMeshRenderer is being disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_skeletonBufferAddr != uint.MaxValue)
@@ -255,8 +290,8 @@ namespace IcarianEngine.Rendering.Animation
                         m_root.Dispose();
                     }
 
-                    m_model = null;
-                    m_material = null;
+                    Model = null;
+                    Material = null;
                     m_skeleton = null;
 
                     DestroySkeletonBuffer(m_skeletonBufferAddr);

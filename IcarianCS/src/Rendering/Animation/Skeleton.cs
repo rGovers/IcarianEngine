@@ -47,6 +47,17 @@ namespace IcarianEngine.Rendering.Animation
         }
 
         /// <summary>
+        /// The number of bones in the skeleton.
+        /// </summary>
+        public uint BoneCount
+        {
+            get
+            {
+                return (uint)m_bones.Length;
+            }
+        }
+
+        /// <summary>
         /// The root bones in the skeleton.
         /// </summary>
         public IEnumerable<Bone> RootBones
@@ -85,6 +96,8 @@ namespace IcarianEngine.Rendering.Animation
         /// Supports the following file formats:
         ///     .dae
         ///     .fbx
+        ///     .glb
+        ///     .gltf
         /// <param name="a_path">The path to the file.</param>
         /// <returns>The skeleton loaded from the file. Null on error.</returns>
         /// @see IcarianEngine.AssetLibrary.LoadSkeleton
