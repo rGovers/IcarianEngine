@@ -8,6 +8,7 @@
 #include "Flare/IcarianDefer.h"
 #include "InputManager.h"
 #include "Logger.h"
+#include "Networking/NetworkManager.h"
 #include "ObjectManager.h"
 #include "Physics/PhysicsEngine.h"
 #include "Profiler.h"
@@ -137,8 +138,9 @@ Application::Application(Config* a_config)
     ObjectManager::Init();
 
     m_audioEngine = new AudioEngine();
-    m_physicsEngine = new PhysicsEngine(a_config);
+    m_physicsEngine = new PhysicsEngine(m_config);
     m_renderEngine = new RenderEngine(m_appWindow, m_config);
+    m_networkManager = new NetworkManager();
 
     APPLICATION_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 
@@ -165,6 +167,7 @@ Application::~Application()
     delete m_physicsEngine;
     delete m_renderEngine;
     delete m_inputManager;
+    delete m_networkManager;
     delete m_config;
 
     ObjectManager::Destroy();
@@ -212,6 +215,12 @@ void Application::Run(int32_t a_argc, char* a_argv[])
             const double delta = glm::min(0.1, m_appWindow->GetDelta());
 
             {
+                PROFILESTACK("Network");
+
+                m_networkManager->Update();
+            }
+
+            {
                 PROFILESTACK("Animators");
 
                 {
@@ -238,7 +247,6 @@ void Application::Run(int32_t a_argc, char* a_argv[])
             {
                 PROFILESTACK("Physics");
                 
-                // Considering down the line using a fixed time step instead of a dynamic for physics simulation
                 m_physicsEngine->Update(delta);
             }
         }

@@ -89,6 +89,10 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject_AppendSource(&project, "src/Mod/IcarianAssemblyInfo.cs");
     CUBE_CSProject_AppendSource(&project, "src/Mod/ModControl.cs");
 
+    CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkClient.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkManager.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkSocket.cs");
+
     CUBE_CSProject_AppendSource(&project, "src/Physics/Physics.cs");
     CUBE_CSProject_AppendSource(&project, "src/Physics/PhysicsBody.cs");
     CUBE_CSProject_AppendSource(&project, "src/Physics/RigidBody.cs");
