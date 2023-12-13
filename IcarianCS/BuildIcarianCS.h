@@ -91,6 +91,7 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
 
     CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkClient.cs");
     CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkManager.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkServer.cs");
     CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkSocket.cs");
 
     CUBE_CSProject_AppendSource(&project, "src/Physics/Physics.cs");

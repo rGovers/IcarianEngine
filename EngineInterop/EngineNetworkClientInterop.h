@@ -11,7 +11,12 @@
     }, NetworkAddress a_addr) \
     F(void, IcarianEngine.Networking, NetworkClientInterop, Destroy, \
     { \
-        Instance->DestroyNetworkClient(a_addr); \
+        DeletionQueue::Push(new NetworkClientDeletionObject(a_addr), DeletionIndex_Update); \
+    }, IOP_UINT32 a_addr) \
+    \
+    F(IOP_UINT32, IcarianEngine.Networking, NetworkClientInterop, GetServerAddress, \
+    { \
+        return Instance->NetworkClientGetServerAddress(a_addr); \
     }, IOP_UINT32 a_addr) \
     \
     F(void, IcarianEngine.Networking, NetworkClientInterop, Send, \

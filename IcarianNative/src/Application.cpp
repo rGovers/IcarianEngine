@@ -4,6 +4,7 @@
 #include "AppWindow/HeadlessAppWindow.h"
 #include "Audio/AudioEngine.h"
 #include "Config.h"
+#include "DeletionQueue.h"
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
 #include "InputManager.h"
@@ -119,6 +120,7 @@ Application::Application(Config* a_config)
         m_appWindow = new GLFWAppWindow(this, a_config);
     }
 
+    DeletionQueue::Init();
     RuntimeManager::Init();
         
     Logger::Init();
@@ -177,6 +179,7 @@ Application::~Application()
     Scribe::Destroy();
 
     ThreadPool::Destroy();
+    DeletionQueue::Destroy();
 
     TRACE("Final Disposal");
     delete m_appWindow;
@@ -250,6 +253,8 @@ void Application::Run(int32_t a_argc, char* a_argv[])
                 m_physicsEngine->Update(delta);
             }
         }
+
+        DeletionQueue::Flush(DeletionIndex_Update); 
 
         Profiler::Stop();
     }

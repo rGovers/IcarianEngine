@@ -126,6 +126,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/AudioEngine.cpp");
     CUBE_CProject_AppendSource(&project, "src/AudioEngineBindings.cpp");
     CUBE_CProject_AppendSource(&project, "src/Config.cpp");
+    CUBE_CProject_AppendSource(&project, "src/DeletionQueue.cpp");
     CUBE_CProject_AppendSource(&project, "src/Font.cpp");
     CUBE_CProject_AppendSource(&project, "src/GamePad.cpp");
     CUBE_CProject_AppendSource(&project, "src/GLFWAppWindow.cpp");
@@ -143,6 +144,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/MaterialRenderStack.cpp");
     CUBE_CProject_AppendSource(&project, "src/NetworkClient.cpp");
     CUBE_CProject_AppendSource(&project, "src/NetworkManager.cpp");
+    CUBE_CProject_AppendSource(&project, "src/NetworkServer.cpp");
     CUBE_CProject_AppendSource(&project, "src/NullRenderEngineBackend.cpp");
     CUBE_CProject_AppendSource(&project, "src/ObjectManager.cpp");
     CUBE_CProject_AppendSource(&project, "src/OGGAudioClip.cpp");

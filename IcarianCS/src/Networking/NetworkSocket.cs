@@ -5,28 +5,6 @@ namespace IcarianEngine.Networking
     public abstract class NetworkSocket : IDestroy
     {
         /// <summary>
-        /// Delegate for when the NetworkSocket receives data
-        /// </summary>
-        /// <param name="a_socket">NetworkSocket that received the data</param>
-        /// <param name="a_data">Data received</param>
-        public delegate void ReceiveCallback(NetworkSocket a_socket, byte[] a_data);
-        /// <summary>
-        /// Delegate for when the NetworkSocket is disconnected
-        /// </summary>
-        /// <param name="a_socket">NetworkSocket that was disconnected</param>
-        /// <param name="a_error">True if the NetworkSocket was disconnected due to an error</param>
-        public delegate void DisconnectCallback(NetworkSocket a_socket, bool a_error);
-
-        /// <summary>
-        /// Called when the NetworkSocket receives data
-        /// </summary>
-        public ReceiveCallback OnReceive;
-        /// <summary>
-        /// Called when the NetworkSocket is disconnected
-        /// </summary>
-        public DisconnectCallback OnDisconnect;
-
-        /// <summary>
         /// Whether the NetworkSocket has been disposed
         /// </summary>
         public abstract bool IsDisposed { get; }

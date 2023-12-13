@@ -7,7 +7,16 @@
 
 NetworkClient::NetworkClient()
 {
+    m_server = -1;
+    m_addr = -1;
+}
+NetworkClient::NetworkClient(NetworkManager* a_manager, uint32_t a_server, const ENetEvent& a_event)
+{
+    m_manager = a_manager;
+    m_server = a_server;
 
+    m_host = a_event.peer->host;
+    m_peer = a_event.peer;
 }
 NetworkClient::~NetworkClient()
 {
@@ -38,7 +47,8 @@ NetworkClient::~NetworkClient()
 End:;
     }
 
-    if (m_host != NULL)
+    const bool isServerSocket = m_server != -1;
+    if (!isServerSocket && m_host != NULL)
     {
         enet_host_destroy(m_host);
     }    
@@ -111,7 +121,14 @@ void NetworkClient::Send(const uint8_t* a_data, uint32_t a_size, e_PacketFlags a
 
 void NetworkClient::Update()
 {
-    if (m_peer == NULL)
+    const bool isServerSocket = m_server != -1;
+    if (isServerSocket)
+    {
+        return;
+    }
+
+    const bool isValid = m_host != NULL && m_peer != NULL;
+    if (!isValid)
     {
         return;
     }
@@ -151,6 +168,4 @@ void NetworkClient::Update()
 
         return;
     }
-
-    enet_host_flush(m_host);
 }

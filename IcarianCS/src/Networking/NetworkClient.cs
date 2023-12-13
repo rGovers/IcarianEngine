@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -12,9 +11,31 @@ namespace IcarianEngine.Networking
 {
     public class NetworkClient : NetworkSocket
     {
+        /// <summary>
+        /// Delegate for when the NetworkSocket is disconnected
+        /// </summary>
+        /// <param name="a_client">NetworkClient that was disconnected</param>
+        /// <param name="a_error">True if the NetworkClient was disconnected due to an error</param>
+        public delegate void DisconnectCallback(NetworkClient a_client, bool a_error);
+        /// <summary>
+        /// Delegate for when the NetworkClient receives data
+        /// </summary>
+        /// <param name="a_client">NetworkClient that received the data</param>
+        /// <param name="a_data">Data received</param>
+        public delegate void ReceiveCallback(NetworkClient a_client, byte[] a_data);
+
         static ConcurrentDictionary<uint, NetworkClient> s_clients = new ConcurrentDictionary<uint, NetworkClient>();
 
         uint m_bufferAddr;
+
+        /// <summary>
+        /// Called when the NetworkClient receives data
+        /// </summary>
+        public ReceiveCallback OnReceive;
+        /// <summary>
+        /// Called when the NetworkClient is disconnected
+        /// </summary>
+        public DisconnectCallback OnDisconnect;
 
         /// <summary>
         /// Whether the NetworkClient has been disposed
@@ -27,11 +48,39 @@ namespace IcarianEngine.Networking
             }
         }
 
-        NetworkClient(uint a_bufferAddr)
+        /// <summary>
+        /// NetworkServer that the NetworkClient is assosiated with
+        /// </summary>
+        public NetworkServer Server
+        {
+            get
+            {
+                uint serverAddr = NetworkClientInterop.GetServerAddress(m_bufferAddr);
+                if (serverAddr == uint.MaxValue)
+                {
+                    return null;
+                }
+
+                return NetworkServer.GetServer(serverAddr);
+            }
+        }
+
+        internal NetworkClient(uint a_bufferAddr)
         {
             m_bufferAddr = a_bufferAddr;
 
             s_clients.TryAdd(a_bufferAddr, this);
+        }
+
+        internal static NetworkClient GetClient(uint a_bufferAddr)
+        {
+            NetworkClient client;
+            if (s_clients.TryGetValue(a_bufferAddr, out client))
+            {
+                return client;
+            }
+            
+            return null;
         }
 
         static void Receive(uint a_bufferAddr, byte[] a_data)
