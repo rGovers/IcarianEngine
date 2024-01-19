@@ -30,5 +30,5 @@ public:
     virtual uint32_t GetChannelCount() const;
     virtual uint64_t GetSampleSize() const;
 
-    virtual unsigned char* GetAudioData(uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize);
+    virtual unsigned char* GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize);
 };

@@ -3,6 +3,7 @@
 #include <assert.h>
 
 #include "Config.h"
+#include "DeletionQueue.h"
 #include "Flare/IcarianAssert.h"
 #include "Logger.h"
 #include "Profiler.h"
@@ -132,6 +133,8 @@ void RenderEngine::Run()
             prevTime = time;
         }   
         
+        DeletionQueue::Flush(DeletionIndex_Render);
+
         Profiler::Stop();
     }
     

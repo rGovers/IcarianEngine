@@ -6,6 +6,7 @@
 #include <cstring>
 #include <fstream>
 #include <limits>
+#include <set>
 #include <stb_rect_pack.h>
 
 #include "Flare/IcarianAssert.h"
@@ -32,8 +33,6 @@ Font* Font::LoadFont(const std::filesystem::path& a_path)
     std::ifstream file = std::ifstream(a_path, std::ios::binary);
     if (file.good() && file.is_open())
     {
-        IDEFER(file.close());
-
         // Fuck Windows
         // const uint32_t size = (uint32_t)std::filesystem::file_size(a_path);
         file.ignore(std::numeric_limits<std::streamsize>::max());
@@ -56,23 +55,71 @@ Font* Font::LoadFont(const std::filesystem::path& a_path)
     return nullptr;
 }
 
+struct CodePointTexture
+{
+    uint32_t Width;
+    uint32_t Height;
+    int Advance;
+    int yOffset;
+    unsigned char* Data;
+};
+
 unsigned char* Font::StringToTexture(const std::u32string_view& a_string, float a_size, uint32_t a_width, uint32_t a_height) const
 {
+    // Changes have negative effects with small strings but alot faster with large strings with alot of repeating characters
+    // Worth it as small string are fast enough anyway
+    // Anyway the performance rat in me wants to use a chunk allocator but will hold off for now
     const uint32_t len = a_string.size();
+
+    const float scale = stbtt_ScaleForPixelHeight(&m_fontInfo, a_size);
+
+    int ascent;
+    stbtt_GetFontVMetrics(&m_fontInfo, &ascent, NULL, NULL);
+    
+    std::set<int> codePoints;
+    for (uint32_t i = 0; i < len; ++i)
+    {
+        codePoints.insert((int)a_string[i]);
+    }
+
+    std::unordered_map<int, CodePointTexture> codePointTextures;
+    for (int codepoint : codePoints)
+    {
+        if (codepoint == '\n')
+        {
+            continue;
+        }
+
+        CodePointTexture cpt;
+
+        int lsb;
+        stbtt_GetCodepointHMetrics(&m_fontInfo, codepoint, &cpt.Advance, &lsb);
+
+        int x0;
+        int y0;
+        int x1;
+        int y1;
+        stbtt_GetCodepointBitmapBox(&m_fontInfo, codepoint, scale, scale, &x0, &y0, &x1, &y1);
+        cpt.yOffset = y0;
+
+        cpt.Width = x1 - x0;
+        cpt.Height = y1 - y0;
+        const uint32_t size = cpt.Width * cpt.Height;
+        cpt.Data = new unsigned char[size];
+        memset(cpt.Data, 0, size);
+        stbtt_MakeCodepointBitmap(&m_fontInfo, cpt.Data, cpt.Width, cpt.Height, cpt.Width, scale, scale, codepoint);
+
+        codePointTextures.emplace(codepoint, cpt);
+    }
 
     const uint32_t size = a_width * a_height;
 
     unsigned char* tex = new unsigned char[size];
     memset(tex, 0, size);
-    const float scale = stbtt_ScaleForPixelHeight(&m_fontInfo, a_size);
+    
+    uint32_t xPos = 0;
+    uint32_t yPos = (uint32_t)(ascent * scale);
 
-    int ascent;
-    stbtt_GetFontVMetrics(&m_fontInfo, &ascent, NULL, NULL);
-
-    unsigned int xPos = 0;
-    unsigned int yPos = (unsigned int)(ascent * scale);
-
-    // TODO: Improve down the line wasting time with allocation
     for (uint32_t i = 0; i < len; ++i)
     {
         const int codePoint = (int)a_string[i];
@@ -85,48 +132,37 @@ unsigned char* Font::StringToTexture(const std::u32string_view& a_string, float 
             continue;
         }
 
-        int advance;
-        int lsb;
-        stbtt_GetCodepointHMetrics(&m_fontInfo, codePoint, &advance, &lsb);
+        const CodePointTexture& cpt = codePointTextures[codePoint];
 
-        int x0;
-        int y0;
-        int x1;
-        int y1;
-        stbtt_GetCodepointBitmapBox(&m_fontInfo, codePoint, scale, scale, &x0, &y0, &x1, &y1);
-
-        const unsigned int gWidth = x1 - x0;
-        const unsigned int gHeight = y1 - y0;
-        const unsigned int gSize = gWidth * gHeight;
-        unsigned char* data = new unsigned char[gSize];
-        IDEFER(delete[] data);
-        memset(data, 0, gSize);
-        stbtt_MakeCodepointBitmap(&m_fontInfo, data, gWidth, gHeight, gWidth, scale, scale, codePoint);
-
-        for (unsigned int y = 0; y < gHeight; ++y)
+        for (uint32_t y = 0; y < cpt.Height; ++y)
         {
-            const unsigned int cYPos = (unsigned int)(y + yPos + y0);
+            const uint32_t cYPos = (uint32_t)(y + yPos + cpt.yOffset);
             if (cYPos >= a_height)
             {
                 break;
             }
 
-            for (unsigned int x = 0; x < gWidth; ++x)
+            for (uint32_t x = 0; x < cpt.Width; ++x)
             {
-                const unsigned int cXPos = x + xPos;
+                const uint32_t cXPos = x + xPos;
                 if (cXPos >= a_width)
                 {
                     break;
                 }
 
-                const unsigned int index = x + (y * gWidth);
-                const unsigned int cIndex = cXPos + (cYPos * a_width);
+                const uint32_t index = x + (y * cpt.Width);
+                const uint32_t cIndex = cXPos + (cYPos * a_width);
 
-                tex[cIndex] = (unsigned char)glm::min(255U, data[index] + (unsigned int)tex[cIndex]);
+                tex[cIndex] = (unsigned char)glm::min(255U, cpt.Data[index] + (unsigned int)tex[cIndex]);
             }
         }
 
-        xPos += (unsigned int)(advance * scale);
+        xPos += (uint32_t)(cpt.Advance * scale);
+    }
+
+    for (auto iter : codePointTextures)
+    {
+        delete[] iter.second.Data;
     }
 
     return tex;

@@ -408,6 +408,11 @@ namespace IcarianEngine.Maths
             W = a_other.W;
         }
 
+        public static explicit operator Vector4(IVector4 a_vec)
+        {
+            return new Vector4(a_vec.X, a_vec.Y, a_vec.Z, a_vec.W);
+        }
+
         /// <summary>
         /// Converts the vector to a color
         /// </summary>

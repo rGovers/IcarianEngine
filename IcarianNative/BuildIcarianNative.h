@@ -111,6 +111,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendIncludePath(&project, "../deps/flare-glm");
     CUBE_CProject_AppendIncludePath(&project, "../deps/flare-stb");
     CUBE_CProject_AppendIncludePath(&project, "../deps/flare-tinyxml2");
+    CUBE_CProject_AppendIncludePath(&project, "lib/enet/include");
     CUBE_CProject_AppendIncludePath(&project, "lib/glslang");
     CUBE_CProject_AppendIncludePath(&project, "lib/JoltPhysics");
     CUBE_CProject_AppendIncludePath(&project, "lib/openal-soft/include");
@@ -125,6 +126,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/AudioEngine.cpp");
     CUBE_CProject_AppendSource(&project, "src/AudioEngineBindings.cpp");
     CUBE_CProject_AppendSource(&project, "src/Config.cpp");
+    CUBE_CProject_AppendSource(&project, "src/DeletionQueue.cpp");
     CUBE_CProject_AppendSource(&project, "src/Font.cpp");
     CUBE_CProject_AppendSource(&project, "src/GamePad.cpp");
     CUBE_CProject_AppendSource(&project, "src/GLFWAppWindow.cpp");
@@ -140,6 +142,9 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/Logger.cpp");
     CUBE_CProject_AppendSource(&project, "src/main.cpp");
     CUBE_CProject_AppendSource(&project, "src/MaterialRenderStack.cpp");
+    CUBE_CProject_AppendSource(&project, "src/NetworkClient.cpp");
+    CUBE_CProject_AppendSource(&project, "src/NetworkManager.cpp");
+    CUBE_CProject_AppendSource(&project, "src/NetworkServer.cpp");
     CUBE_CProject_AppendSource(&project, "src/NullRenderEngineBackend.cpp");
     CUBE_CProject_AppendSource(&project, "src/ObjectManager.cpp");
     CUBE_CProject_AppendSource(&project, "src/OGGAudioClip.cpp");
@@ -158,6 +163,10 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/ThreadPool.cpp");
     CUBE_CProject_AppendSource(&project, "src/UIControl.cpp");
     CUBE_CProject_AppendSource(&project, "src/UIControlBindings.cpp");
+    CUBE_CProject_AppendSource(&project, "src/VulkanComputeEngine.cpp");
+    CUBE_CProject_AppendSource(&project, "src/VulkanComputeLayout.cpp");
+    CUBE_CProject_AppendSource(&project, "src/VulkanComputePipeline.cpp");
+    CUBE_CProject_AppendSource(&project, "src/VulkanComputeShader.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanDepthCubeRenderTexture.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanDepthRenderTexture.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanGraphicsEngine.cpp");
@@ -238,6 +247,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Windows/lib/MonoPosixHelper.lib");
         CUBE_CProject_AppendLibrary(&project, "../deps/OpenFBX/build/OpenFBXLibDeflate.lib");
 
+        CUBE_CProject_AppendLibrary(&project, "lib/enet/build/enet.lib");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/glslang.lib");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/OGLCompiler.lib");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/SPIRV.lib");
@@ -269,6 +279,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Linux/lib/libmonosgen-2.0.a");
         CUBE_CProject_AppendLibrary(&project, "../deps/OpenFBX/build/libOpenFBXLibDeflate.a");
 
+        CUBE_CProject_AppendLibrary(&project, "lib/enet/build/libenet.a");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libglslang.a");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libOGLCompiler.a");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libSPIRV.a");

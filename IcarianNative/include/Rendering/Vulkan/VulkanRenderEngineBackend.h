@@ -10,6 +10,7 @@
 #include <mutex>
 
 class AppWindow;
+class VulkanComputeEngine;
 class VulkanGraphicsEngine;
 class VulkanSwapchain;
 
@@ -28,6 +29,7 @@ public:
 class VulkanRenderEngineBackend : public RenderEngineBackend
 {
 private:
+    VulkanComputeEngine*                          m_computeEngine;
     VulkanGraphicsEngine*                         m_graphicsEngine;
     VulkanSwapchain*                              m_swapchain = nullptr;
                 
@@ -39,6 +41,7 @@ private:
     vk::Device                                    m_lDevice;
                         
     std::mutex                                    m_graphicsQueueMutex;
+    vk::Queue                                     m_computeQueue = nullptr;
     vk::Queue                                     m_graphicsQueue = nullptr;
     vk::Queue                                     m_presentQueue = nullptr;
     
@@ -57,6 +60,7 @@ private:
     uint32_t                                      m_currentFlightFrame = 0;
     uint32_t                                      m_dQueueIndex = 0;
 
+    uint32_t                                      m_computeQueueIndex = -1;
     uint32_t                                      m_graphicsQueueIndex = -1;
     uint32_t                                      m_presentQueueIndex = -1;
 

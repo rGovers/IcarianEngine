@@ -8,6 +8,7 @@
 
 #include "Flare/ColladaLoader.h"
 #include "Flare/FBXLoader.h"
+#include "Flare/GLTFLoader.h"
 #include "Flare/IcarianAssert.h"
 #include "Flare/IcarianDefer.h"
 #include "Flare/OBJLoader.h"
@@ -436,6 +437,13 @@ RUNTIME_FUNCTION(uint32_t, Model, GenerateFromFile,
             return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(Vertex), radius);
         }
     }
+    else if (ext == ".dae")
+    {
+        if (FlareBase::ColladaLoader_LoadFile(p, &vertices, &indices, &radius))
+        {
+            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(Vertex), radius);
+        }
+    }
     else if (ext == ".fbx")
     {
         if (FlareBase::FBXLoader_LoadFile(p, &vertices, &indices, &radius))
@@ -443,9 +451,9 @@ RUNTIME_FUNCTION(uint32_t, Model, GenerateFromFile,
             return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(Vertex), radius);
         }
     }
-    else if (ext == ".dae")
+    else if (ext == ".glb" || ext == ".gltf")
     {
-        if (FlareBase::ColladaLoader_LoadFile(p, &vertices, &indices, &radius))
+        if (FlareBase::GLTFLoader_LoadFile(p, &vertices, &indices, &radius))
         {
             return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(Vertex), radius);
         }
@@ -478,6 +486,13 @@ RUNTIME_FUNCTION(uint32_t, Model, GenerateSkinnedFromFile,
     else if (ext == ".fbx")
     {
         if (FlareBase::FBXLoader_LoadSkinnedFile(p, &vertices, &indices, &radius))
+        {
+            return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(SkinnedVertex), radius);
+        }
+    }
+    else if (ext == ".glb" || ext == ".gltf")
+    {
+        if (FlareBase::GLTFLoader_LoadSkinnedFile(p, &vertices, &indices, &radius))
         {
             return Engine->GenerateModel((const char*)vertices.data(), (uint32_t)vertices.size(), indices.data(), (uint32_t)indices.size(), sizeof(SkinnedVertex), radius);
         }

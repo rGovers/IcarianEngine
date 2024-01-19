@@ -11,6 +11,7 @@
 #include "Logger.h"
 #include "Profiler.h"
 #include "Rendering/RenderEngine.h"
+#include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanSwapchain.h"
 #include "Runtime/RuntimeManager.h"
@@ -64,7 +65,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
     {
         Logger::Error(std::string("Vulkan Validation Layer: ") + a_callbackData->pMessage);
 
-        break;
+        return VK_TRUE;
     }
     default:
     {
@@ -80,16 +81,17 @@ static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, cons
     uint32_t extensionCount;
     ICARIAN_ASSERT_R(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr) == vk::Result::eSuccess);
 
-    std::vector<vk::ExtensionProperties> availableExtensions = std::vector<vk::ExtensionProperties>(extensionCount);
-    ICARIAN_ASSERT_R(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions.data()) == vk::Result::eSuccess);
+    vk::ExtensionProperties* availableExtensions = new vk::ExtensionProperties[extensionCount];
+    IDEFER(delete[] availableExtensions);
+    ICARIAN_ASSERT_R(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions) == vk::Result::eSuccess);
 
     uint32_t requiredCount = (uint32_t)a_extensions.size();
 
     for (const char* requiredExtension : a_extensions)
     {
-        for (const vk::ExtensionProperties& extension : availableExtensions)
+        for (uint32_t i = 0; i < extensionCount; ++i)
         {
-            if (strcmp(requiredExtension, extension.extensionName) == 0)
+            if (strcmp(requiredExtension, availableExtensions[i].extensionName) == 0)
             {
                 --requiredCount;
 
@@ -129,14 +131,15 @@ static bool CheckValidationLayerSupport()
     uint32_t layerCount = 0;
     ICARIAN_ASSERT_R(vk::enumerateInstanceLayerProperties(&layerCount, nullptr) == vk::Result::eSuccess);
 
-    std::vector<vk::LayerProperties> availableLayers = std::vector<vk::LayerProperties>(layerCount);
-    ICARIAN_ASSERT_R(vk::enumerateInstanceLayerProperties(&layerCount, availableLayers.data()) == vk::Result::eSuccess);
+    vk::LayerProperties* availableLayers = new vk::LayerProperties[layerCount];
+    IDEFER(delete[] availableLayers);
+    ICARIAN_ASSERT_R(vk::enumerateInstanceLayerProperties(&layerCount, availableLayers) == vk::Result::eSuccess);
 
     for (const char* layerName : ValidationLayers)
     {
-        for (const vk::LayerProperties& properties : availableLayers)
+        for (uint32_t i = 0; i < layerCount; ++i)
         {
-            if (strcmp(layerName, properties.layerName) == 0)
+            if (strcmp(layerName, availableLayers[i].layerName) == 0)
             {
                 goto NextIter;
             }
@@ -271,8 +274,9 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     uint32_t queueFamilyCount = 0;
     m_pDevice.getQueueFamilyProperties(&queueFamilyCount, nullptr);
 
-    std::vector<vk::QueueFamilyProperties> queueFamilies = std::vector<vk::QueueFamilyProperties>(queueFamilyCount);
-    m_pDevice.getQueueFamilyProperties(&queueFamilyCount, queueFamilies.data());
+    vk::QueueFamilyProperties* queueFamilies = new vk::QueueFamilyProperties[queueFamilyCount];
+    IDEFER(delete[] queueFamilies);
+    m_pDevice.getQueueFamilyProperties(&queueFamilyCount, queueFamilies);
     
     for (uint32_t i = 0; i < queueFamilyCount; ++i)
     {
@@ -289,9 +293,13 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
             if (presentSupport)
             {
-                if (i == m_graphicsQueueIndex && m_presentQueueIndex == -1)
+                // Want graphics queue to be last resort
+                if (i == m_graphicsQueueIndex)
                 {
-                    m_presentQueueIndex = i;
+                    if (m_presentQueueIndex == -1)
+                    {
+                        m_presentQueueIndex = i;
+                    }
                 }
                 else
                 {
@@ -299,10 +307,30 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
                 }
             }
         }
-       
+
+        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
+        {
+            // Want present queue to be last resort
+            // Have it wanting to use the present queue on NVIDIA cards so this is needed
+            if (i == m_presentQueueIndex)
+            {
+                if (m_computeQueueIndex == -1)
+                {
+                    m_computeQueueIndex = i;
+                }
+            }
+            else
+            {
+                m_computeQueueIndex = i;
+            }
+        }
     }
 
     std::set<uint32_t> uniqueQueueFamilies;
+    if (m_computeQueueIndex != -1)
+    {
+        uniqueQueueFamilies.emplace(m_computeQueueIndex);
+    }
     if (m_graphicsQueueIndex != -1)
     {
         uniqueQueueFamilies.emplace(m_graphicsQueueIndex);
@@ -317,7 +345,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     constexpr float QueuePriority = 1.0f;
     for (const uint32_t queueFamily : uniqueQueueFamilies)
     {
-        queueCreateInfos.emplace_back(vk::DeviceQueueCreateInfo(vk::DeviceQueueCreateFlags(), queueFamily, 1, &QueuePriority));
+        queueCreateInfos.emplace_back(vk::DeviceQueueCreateInfo({ }, queueFamily, 1, &QueuePriority));
     }
 
     vk::PhysicalDeviceFeatures deviceFeatures;
@@ -330,13 +358,10 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         queueCreateInfos.data(), 
         0, 
         nullptr, 
-        0, 
-        nullptr,
+        (uint32_t)dRequiredExtensions.size(), 
+        dRequiredExtensions.data(),
         &deviceFeatures
     );
-
-    deviceCreateInfo.enabledExtensionCount = (uint32_t)dRequiredExtensions.size();
-    deviceCreateInfo.ppEnabledExtensionNames = dRequiredExtensions.data();
 
     if constexpr (VulkanEnableValidationLayers)
     {
@@ -365,6 +390,12 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     TRACE("Created Vulkan Allocator");
 
+    // By what I can tell most devices use the same queue for graphics and compute this is for correctness shold not affect much
+    // Not fussed if it shares with graphics as long as it is not the present queue
+    if (m_computeQueueIndex != -1)
+    {
+        m_lDevice.getQueue(m_computeQueueIndex, 0, &m_computeQueue);
+    }
     if (m_graphicsQueueIndex != -1)
     {
         m_lDevice.getQueue(m_graphicsQueueIndex, 0, &m_graphicsQueue);    
@@ -410,6 +441,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     GetPhysicalDeviceProperties2KHRFunc(m_pDevice, &deviceProps2);
     m_pushDescriptorProperties = pushProperties;
 
+    m_computeEngine = new VulkanComputeEngine(this);
     m_graphicsEngine = new VulkanGraphicsEngine(this);
 }
 VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
@@ -419,6 +451,7 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
     TRACE("Begin Vulkan clean up");
     m_lDevice.waitIdle();
 
+    delete m_computeEngine;
     delete m_graphicsEngine;
 
     TRACE("Destroy Vulkan Deletion Objects");
@@ -489,7 +522,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 {
     // TODO: Bump DMA buffers up in priority to allow GPU->GPU memory sharing between processes instead of GPU->CPU->GPU. 
     // RAM clock now effects even the linux build also probably want to improve locality of rendering data to allow more efficient use of the cache instead of RAM.
-    // Also investigate seeing if you can squezee some extra frames from a buffer scavenging system for GPU memory. At little bit of wasted memory for a few extra frames is probably worth it.
+    // Also investigate seeing if you can squezee some extra frames from a buffer scavenging system for GPU memory. A little bit of wasted memory for a few extra frames is probably worth it.
     // Constant allocation is killing performance on the GPU side. 
     // TODO: Can probably better manage semaphores.
     AppWindow* window = GetRenderEngine()->m_window;
@@ -510,27 +543,26 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     
     Profiler::StartFrame("Render Update");
 
+    vk::CommandBuffer computeBuffer = m_computeEngine->Update();
     const std::vector<vk::CommandBuffer> buffers = m_graphicsEngine->Update(m_currentFrame);
     
     Profiler::StartFrame("Render Setup");
 
     const uint32_t buffersSize = (uint32_t)buffers.size();
-    // If there is nothing to render no point doing anything
-    if (buffersSize <= 0)
+    uint32_t finalSemaphoreCount = buffersSize;
+    if (computeBuffer != vk::CommandBuffer(nullptr))
     {
-        Profiler::StopFrame();
-
-        return;
+        ++finalSemaphoreCount;
     }
 
     constexpr vk::PipelineStageFlags WaitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
 
     const uint32_t semaphoreCount = (uint32_t)m_interSemaphore[m_currentFlightFrame].size();
     const uint32_t endBuffer = buffersSize - 1;
-    if (buffersSize > semaphoreCount)
+    if (finalSemaphoreCount > semaphoreCount)
     {
         TRACE("Allocating inter semaphores");
-        const uint32_t diff = buffersSize - semaphoreCount;
+        const uint32_t diff = finalSemaphoreCount - semaphoreCount;
 
         constexpr vk::SemaphoreCreateInfo SemaphoreInfo;
 
@@ -557,6 +589,31 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
     {
         const std::unique_lock l = std::unique_lock(m_graphicsQueueMutex);
+        uint32_t semaphoreIndex = 0;
+
+        if (computeBuffer != nullptr)
+        {
+            vk::SubmitInfo submitInfo = vk::SubmitInfo
+            (
+                0,
+                nullptr,
+                WaitStages,
+                1,
+                &computeBuffer,
+                1,
+                &m_interSemaphore[m_currentFlightFrame][semaphoreIndex]
+            );
+
+            if (lastSemaphore != vk::Semaphore(nullptr))
+            {
+                submitInfo.waitSemaphoreCount = 1;
+                submitInfo.pWaitSemaphores = &lastSemaphore;
+            }
+
+            ICARIAN_ASSERT_MSG_R(m_computeQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
+
+            lastSemaphore = m_interSemaphore[m_currentFlightFrame][semaphoreIndex++];
+        }
 
         for (uint32_t i = 0; i < buffersSize; ++i)
         {
@@ -568,7 +625,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
                 1,
                 &buffers[i],
                 1,
-                &m_interSemaphore[m_currentFlightFrame][i]
+                &m_interSemaphore[m_currentFlightFrame][semaphoreIndex]
             );
 
             if (lastSemaphore != vk::Semaphore(nullptr))
@@ -586,7 +643,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
                 ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
             }
 
-            lastSemaphore = m_interSemaphore[m_currentFlightFrame][i];
+            lastSemaphore = m_interSemaphore[m_currentFlightFrame][semaphoreIndex++];
         }    
     }
 

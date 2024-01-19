@@ -22,6 +22,7 @@ namespace IcarianEngine.Maths
                 {
                 case "X":
                 case "S":
+                case "U":
                 {
                     vec.X = float.Parse(element.InnerText);
 
@@ -29,6 +30,7 @@ namespace IcarianEngine.Maths
                 }
                 case "Y":
                 case "T":
+                case "V":
                 {
                     vec.Y = float.Parse(element.InnerText);
 
@@ -155,6 +157,35 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
+        /// S Component. Maps to the X component of the vector
+        /// </summary>
+        public float S
+        {
+            get
+            {
+                return X;
+            }
+            set
+            {
+                X = value;
+            }
+        }
+        /// <summary>
+        /// T Component. Maps to the Y component of the vector
+        /// </summary>
+        public float T
+        {
+            get
+            {
+                return Y;
+            }
+            set
+            {
+                Y = value;
+            }
+        }
+
+        /// <summary>
         /// Indexer for the vector, NaN if invalid index
         /// </summary>
         public float this[int a_key]
@@ -255,6 +286,11 @@ namespace IcarianEngine.Maths
         {
             X = a_other.X;
             Y = a_other.Y;
+        }
+
+        public static explicit operator Vector2(IVector2 a_vec)
+        {
+            return new Vector2(a_vec.X, a_vec.Y);
         }
 
         public static Vector2 operator -(Vector2 a_vec)

@@ -7,6 +7,7 @@
 class AudioEngine;
 class Config;
 class InputManager;
+class NetworkManager;
 class ObjectManager;
 class PhysicsEngine;
 class RenderEngine;
@@ -26,6 +27,7 @@ private:
     AudioEngine*             m_audioEngine;
     PhysicsEngine*           m_physicsEngine;
     RenderEngine*            m_renderEngine;
+    NetworkManager*          m_networkManager;
 
 protected:
 

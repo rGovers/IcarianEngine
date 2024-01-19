@@ -74,6 +74,9 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject_AppendSource(&project, "src/Definitions/TriggerBodyDef.cs");
 
     CUBE_CSProject_AppendSource(&project, "src/Maths/Color.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Maths/IVector2.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Maths/IVector3.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Maths/IVector4.cs");
     CUBE_CSProject_AppendSource(&project, "src/Maths/Mathf.cs");
     CUBE_CSProject_AppendSource(&project, "src/Maths/Matrix4.cs");
     CUBE_CSProject_AppendSource(&project, "src/Maths/Quaternion.cs");
@@ -85,6 +88,11 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject_AppendSource(&project, "src/Mod/IcarianAssembly.cs");
     CUBE_CSProject_AppendSource(&project, "src/Mod/IcarianAssemblyInfo.cs");
     CUBE_CSProject_AppendSource(&project, "src/Mod/ModControl.cs");
+
+    CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkClient.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkManager.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkServer.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkSocket.cs");
 
     CUBE_CSProject_AppendSource(&project, "src/Physics/Physics.cs");
     CUBE_CSProject_AppendSource(&project, "src/Physics/PhysicsBody.cs");

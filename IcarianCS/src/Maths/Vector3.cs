@@ -380,6 +380,11 @@ namespace IcarianEngine.Maths
             Z = a_other.Z;
         }
 
+        public static explicit operator Vector3(IVector3 a_vec)
+        {
+            return new Vector3(a_vec.X, a_vec.Y, a_vec.Z);
+        }
+
         public static Vector3 operator -(Vector3 a_vec)
         {
             return new Vector3(-a_vec.X, -a_vec.Y, -a_vec.Z);

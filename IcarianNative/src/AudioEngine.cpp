@@ -5,6 +5,7 @@
 
 #include "Audio/AudioClips/AudioClip.h"
 #include "Audio/AudioEngineBindings.h"
+#include "DataTypes/RingAllocator.h"
 #include "Flare/IcarianDefer.h"
 #include "Logger.h"
 #include "ObjectManager.h"
@@ -177,7 +178,7 @@ static constexpr uint64_t GetAudioSize(e_AudioFormat a_format, uint32_t a_channe
     return 0;
 }
 
-static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip* a_clip, uint64_t a_sampleOffset, uint32_t a_sampleSize, bool a_canLoop)
+static uint64_t FillBuffers(RingAllocator* a_allocator, ALuint* a_buffer, uint32_t a_bufferCount, AudioClip* a_clip, uint64_t a_sampleOffset, uint32_t a_sampleSize, bool a_canLoop)
 {
     uint32_t outSampleSize;
     const uint32_t channelCount = a_clip->GetChannelCount();  
@@ -188,13 +189,12 @@ static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip*
 
     for (uint32_t i = 0; i < a_bufferCount; ++i)
     {
-        unsigned char* data = a_clip->GetAudioData(a_sampleOffset, a_sampleSize, &outSampleSize);
+        // Do not need to de-allocate this as it is managed by the ring allocator.
+        unsigned char* data = a_clip->GetAudioData(a_allocator, a_sampleOffset, a_sampleSize, &outSampleSize);
         if (data == nullptr)
         {
             break;
         }
-
-        IDEFER(delete[] data);
         
         // Unlikely but if the sample size is less than the requested sample size, we need to loop.
         // Not the most efficient way to do this but it works. KISS, right?
@@ -206,16 +206,15 @@ static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip*
 
                 uint32_t nextOutSampleSize;
                 const unsigned char* oldData = data;
-                const unsigned char* nextData = a_clip->GetAudioData(0, a_sampleSize - outSampleSize, &nextOutSampleSize);
+                // Do not need to de-allocate this as it is managed by the ring allocator.
+                const unsigned char* nextData = a_clip->GetAudioData(a_allocator, 0, a_sampleSize - outSampleSize, &nextOutSampleSize);
                 if (nextData == nullptr)
                 {
                     break;
                 }
 
-                IDEFER(delete[] nextData);
-                IDEFER(delete[] oldData);
-
-                unsigned char* newData = new unsigned char[(outSampleSize + nextOutSampleSize) * channelCount * sizeof(int16_t)];
+                // Again no need to de-allocate as it is managed by the ring allocator.
+                unsigned char* newData = (unsigned char*)a_allocator->Allocate<int16_t>((outSampleSize + nextOutSampleSize) * channelCount);
 
                 const uint32_t count = GetAudioSize(format, channelCount, outSampleSize);
                 memcpy(newData, data, count);
@@ -310,6 +309,13 @@ void AudioEngine::Update()
 
     {
         PROFILESTACK("Source Update");
+        
+        // 128KB should be enough for anyone.
+        // Size is an educated guess based on the sample rate and sample size with several channels.
+        // Has not caused any issues so far but may need to be adjusted if overruns occur.
+        // Was looking for an excuse to write a ring allocator.
+        // Just Ye' Ol' if allocation is too expensive just dont. It is that simple.
+        RingAllocator allocator = RingAllocator(1024 * 128);
 
         const std::vector<bool> sourceState = m_audioSources.ToStateVector();
         TLockArray<AudioSourceBuffer> sourceBuffers = m_audioSources.ToLockArray();
@@ -349,7 +355,7 @@ void AudioEngine::Update()
                     alSourceStop(buffer.Source);
                 }
 
-                buffer.SampleOffset = FillBuffers(buffer.Buffers, AudioSourceBuffer::BufferCount, clip, 0, AudioBufferSampleSize, canLoop);
+                buffer.SampleOffset = FillBuffers(&allocator, buffer.Buffers, AudioSourceBuffer::BufferCount, clip, 0, AudioBufferSampleSize, canLoop);
 
                 alSourceQueueBuffers(buffer.Source, AudioSourceBuffer::BufferCount, buffer.Buffers);
 
@@ -383,7 +389,7 @@ void AudioEngine::Update()
 
                     AudioClip* clip = m_audioClips[buffer.AudioClipAddr];
 
-                    buffer.SampleOffset = FillBuffers(&queueBuffer, 1, clip, buffer.SampleOffset, AudioBufferSampleSize, canLoop);
+                    buffer.SampleOffset = FillBuffers(&allocator, &queueBuffer, 1, clip, buffer.SampleOffset, AudioBufferSampleSize, canLoop);
 
                     alSourceQueueBuffers(buffer.Source, 1, &queueBuffer);
                 }

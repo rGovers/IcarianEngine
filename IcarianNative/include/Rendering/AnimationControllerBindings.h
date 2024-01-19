@@ -27,5 +27,7 @@ public:
     void ClearSkeletonBuffer(uint32_t a_addr) const;
     void PushSkeletonBoneData(uint32_t a_addr, uint32_t a_transformIndex, const glm::mat4& a_inverseBindPose) const;
 
-    MonoArray* LoadAnimationClip(const std::filesystem::path& a_path) const;
+    MonoArray* LoadColladaAnimation(const std::filesystem::path& a_path) const;
+    MonoArray* LoadFBXAnimation(const std::filesystem::path& a_path) const;
+    MonoArray* LoadGLTFAnimation(const std::filesystem::path& a_path) const;
 };

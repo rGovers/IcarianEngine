@@ -45,12 +45,14 @@ CUBE_CProject BuildFlareBaseProject(CBBOOL a_enableAssert, e_TargetPlatform a_ta
     CUBE_CProject_AppendIncludePath(&project, "../deps/flare-glm");
     CUBE_CProject_AppendIncludePath(&project, "../deps/flare-tinyxml2");
     CUBE_CProject_AppendIncludePath(&project, "../deps/OpenFBX/src");
+    CUBE_CProject_AppendIncludePath(&project, "../deps/tinygltf");
     CUBE_CProject_AppendIncludePath(&project, "../EngineInterop");
 
     CUBE_CProject_AppendSource(&project, "../deps/OpenFBX/src/ofbx.cpp");
 
     CUBE_CProject_AppendSource(&project, "src/ColladaLoader.cpp");
     CUBE_CProject_AppendSource(&project, "src/FBXLoader.cpp");
+    CUBE_CProject_AppendSource(&project, "src/GLTFLoader.cpp");
     CUBE_CProject_AppendSource(&project, "src/InputBindings.cpp");
     CUBE_CProject_AppendSource(&project, "src/IPCPipe.cpp");
     CUBE_CProject_AppendSource(&project, "src/MonoNativeImpl.cpp");

@@ -5,6 +5,7 @@
 
 #include <fstream>
 
+#include "DataTypes/RingAllocator.h"
 #include "Flare/IcarianAssert.h"
 
 WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
@@ -103,7 +104,7 @@ uint64_t WAVAudioClip::GetSampleSize() const
     return m_sampleSize;
 }
 
-unsigned char* WAVAudioClip::GetAudioData(uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
+unsigned char* WAVAudioClip::GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
 {
     const uint64_t remainingSamples = m_sampleSize - a_sampleOffset;
     const uint64_t samplesToRead = glm::min((uint64_t)a_sampleSize, remainingSamples);
@@ -116,7 +117,8 @@ unsigned char* WAVAudioClip::GetAudioData(uint64_t a_sampleOffset, uint32_t a_sa
         file.seekg(m_dataOffset + (a_sampleOffset * m_channelCount * sizeof(int16_t)));
 
         const uint64_t count = samplesToRead * m_channelCount;
-        int16_t* data = new int16_t[count];
+        // int16_t* data = new int16_t[count];
+        int16_t* data = a_allocator->Allocate<int16_t>(count);
         file.read((char*)data, count * sizeof(int16_t));
 
         return (unsigned char*)data;
