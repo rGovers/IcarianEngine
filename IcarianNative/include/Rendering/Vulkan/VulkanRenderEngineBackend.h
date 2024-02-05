@@ -12,6 +12,7 @@
 class AppWindow;
 class VulkanComputeEngine;
 class VulkanGraphicsEngine;
+class VulkanPushPool;
 class VulkanSwapchain;
 
 class VulkanDeletionObject
@@ -32,6 +33,7 @@ private:
     VulkanComputeEngine*                          m_computeEngine;
     VulkanGraphicsEngine*                         m_graphicsEngine;
     VulkanSwapchain*                              m_swapchain = nullptr;
+    VulkanPushPool*                               m_pushPool;
                 
     VmaAllocator                                  m_allocator;
                 
@@ -86,7 +88,21 @@ public:
 
     virtual Font* GetFont(uint32_t a_addr);
 
+    inline VulkanPushPool* GetPushPool() const
+    {
+        return m_pushPool;
+    }
+
     void PushDeletionObject(VulkanDeletionObject* a_object);
+
+    inline vk::Fence GetCurrentFlightFence() const
+    {
+        return m_inFlight[m_currentFlightFrame];
+    }
+    inline vk::Semaphore GetImageSemaphore(uint32_t a_index) const
+    {
+        return m_imageAvailable[a_index];
+    }
 
     inline VmaAllocator GetAllocator() const
     {
@@ -111,13 +127,22 @@ public:
     {
         return m_presentQueueIndex;
     }
+    inline uint32_t GetComputeQueueIndex() const
+    {
+        return m_computeQueueIndex;
+    }
     inline uint32_t GetGraphicsQueueIndex() const
     {
         return m_graphicsQueueIndex;
     }
+
     inline vk::Queue GetPresentQueue() const
     {
         return m_presentQueue;
+    }
+    inline vk::Queue GetCopmuteQueue() const
+    {
+        return m_computeQueue;
     }
     inline std::mutex& GetGraphicsQueueMutex()
     {

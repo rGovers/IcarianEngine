@@ -121,6 +121,10 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 			{
 				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_SHADOW_LIGHT_SSBO_STRUCTURE, SHADOW_LIGHT_SHADER_NAMESTR);
 			}
+			else if (args[0] == "SSParticleBuffer")
+			{
+				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_PARTICLE_SSBO_STRUCTURE, PARTICLE_SHADER_NAMESTR);
+			}
 		}
 		else if (defName == "userbuffer")
 		{

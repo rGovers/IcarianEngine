@@ -35,27 +35,29 @@ public:
     }
 };
 
-VulkanComputePipeline::VulkanComputePipeline(VulkanRenderEngineBackend* a_engine, VulkanComputeEngine* a_cEngine, uint32_t a_shaderAddr)
+VulkanComputePipeline::VulkanComputePipeline(VulkanComputeEngine* a_engine, vk::Pipeline a_pipeline)
 {
     m_engine = a_engine;
-    m_cEngine = a_cEngine;
 
-    m_shaderAddr = a_shaderAddr;
+    m_pipeline = a_pipeline;
 }
 VulkanComputePipeline::~VulkanComputePipeline()
 {
+    VulkanRenderEngineBackend* backend = m_engine->GetRenderEngineBackend();
+
     TRACE("Queueing Compute Pipeline for deletion");
-    m_engine->PushDeletionObject(new VulkanComputePipelineDeletionObject(m_engine, m_pipeline));
+    backend->PushDeletionObject(new VulkanComputePipelineDeletionObject(backend, m_pipeline));
 }
 
-VulkanComputePipeline* VulkanComputePipeline::CreatePipeline(VulkanRenderEngineBackend* a_engine, VulkanComputeEngine* a_cEngine, VulkanComputeLayout* a_layout, uint32_t a_shaderAddr)
+VulkanComputePipeline* VulkanComputePipeline::CreatePipeline(VulkanComputeEngine* a_engine, uint32_t a_layoutAddr, uint32_t a_shaderAddr)
 {
     TRACE("Creating Vulkan Compute Pipeline");
-    VulkanComputePipeline* pipeline = new VulkanComputePipeline(a_engine, a_cEngine, a_shaderAddr);
+    VulkanRenderEngineBackend* backend = a_engine->GetRenderEngineBackend();
 
-    const vk::Device device = a_engine->GetLogicalDevice();
+    const vk::Device device = backend->GetLogicalDevice();
 
-    VulkanComputeShader* shader = a_cEngine->GetShader(a_shaderAddr);
+    VulkanComputeShader* shader = a_engine->GetComputeShader(a_shaderAddr);
+    VulkanComputeLayout* layout = a_engine->GetComputePipelineLayout(a_layoutAddr);
 
     vk::PipelineShaderStageCreateInfo shaderStageInfo = vk::PipelineShaderStageCreateInfo
     (
@@ -69,13 +71,16 @@ VulkanComputePipeline* VulkanComputePipeline::CreatePipeline(VulkanRenderEngineB
     (
         { },
         shaderStageInfo,
-        a_layout->GetLayout()
+        layout->GetLayout()
     );
 
-    // What is love? Vulkan don't hurt me, don't hurt me, no more.
-    ICARIAN_ASSERT_MSG_R(device.createComputePipelines(nullptr, 1, &pipelineInfo, nullptr, &pipeline->m_pipeline) == vk::Result::eSuccess, "Failed to create Vulkan Compute Pipeline"); 
+    vk::Pipeline pipe;
+    if (device.createComputePipelines(nullptr, 1, &pipelineInfo, nullptr, &pipe) == vk::Result::eSuccess)
+    {
+        return new VulkanComputePipeline(a_engine, pipe);
+    }
 
-    return pipeline;
+    return nullptr;
 }
 
 #endif

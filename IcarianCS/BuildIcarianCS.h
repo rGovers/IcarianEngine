@@ -62,6 +62,8 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject_AppendSource(&project, "src/Definitions/LightDef.cs");
     CUBE_CSProject_AppendSource(&project, "src/Definitions/MaterialDef.cs");
     CUBE_CSProject_AppendSource(&project, "src/Definitions/MeshRendererDef.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Definitions/ParticleSystem2DDef.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Definitions/ParticleSystemDef.cs");
     CUBE_CSProject_AppendSource(&project, "src/Definitions/PhysicsBodyDef.cs");
     CUBE_CSProject_AppendSource(&project, "src/Definitions/PointLightDef.cs");
     CUBE_CSProject_AppendSource(&project, "src/Definitions/RendererDef.cs");
@@ -114,6 +116,8 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject_AppendSource(&project, "src/Rendering/MeshRenderer.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/Model.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/MultiRenderTexture.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Rendering/ParticleSystem.cs");
+    CUBE_CSProject_AppendSource(&project, "src/Rendering/ParticleSystem2D.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/PixelShader.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/RenderCommand.cs");
     CUBE_CSProject_AppendSource(&project, "src/Rendering/Renderer.cs");

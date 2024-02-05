@@ -39,35 +39,38 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
     IOP_ENUM_VALUE(ShaderBufferType, SSSpotLightBuffer) = 18,
     IOP_ENUM_VALUE(ShaderBufferType, SSAmbientLightBuffer) = 19,
     IOP_ENUM_VALUE(ShaderBufferType, SSShadowLightBuffer) = 20,
-    IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 21
+    IOP_ENUM_VALUE(ShaderBufferType, SSParticleBuffer) = 21,
+    IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 22
 };
 
 /// <summary>
 /// Shader slot enumeration.
 /// </summary>
-IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderSlot) : IOP_UINT16
+IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderSlot) : IOP_UINT8
 {
-    IOP_ENUM_VALUE(ShaderSlot, Null) = IOP_UINT16_MAX,
-    IOP_ENUM_VALUE(ShaderSlot, Vertex) = 0,
-    IOP_ENUM_VALUE(ShaderSlot, Pixel) = 1,
-    IOP_ENUM_VALUE(ShaderSlot, All) = 2
+    IOP_ENUM_VALUE(ShaderSlot, Null) = 0,
+    IOP_ENUM_VALUE(ShaderSlot, Compute) = 0b1 << 0,
+    IOP_ENUM_VALUE(ShaderSlot, Vertex) = 0b1 << 1,
+    IOP_ENUM_VALUE(ShaderSlot, Pixel) = 0b1 << 2,
+    IOP_ENUM_VALUE(ShaderSlot, AllGraphics) = IOP_ENUM_VALUE(ShaderSlot, Vertex) | IOP_ENUM_VALUE(ShaderSlot, Pixel),
+    IOP_ENUM_VALUE(ShaderSlot, All) = IOP_ENUM_VALUE(ShaderSlot, AllGraphics) | IOP_ENUM_VALUE(ShaderSlot, Compute)
 };
 
 /// <summary>
 /// Culling mode enumeration.
 /// </summary>
-IOP_CSPUBLIC enum IOP_ENUM_NAME(CullMode) : IOP_UINT16
+IOP_CSPUBLIC enum IOP_ENUM_NAME(CullMode) : IOP_UINT8
 {
     IOP_ENUM_VALUE(CullMode, None) = 0,
-    IOP_ENUM_VALUE(CullMode, Front) = 1,
-    IOP_ENUM_VALUE(CullMode, Back) = 2,
-    IOP_ENUM_VALUE(CullMode, Both) = 3
+    IOP_ENUM_VALUE(CullMode, Front) = 0b1 << 0,
+    IOP_ENUM_VALUE(CullMode, Back) = 0b1 << 1,
+    IOP_ENUM_VALUE(CullMode, Both) = IOP_ENUM_VALUE(CullMode, Front) | IOP_ENUM_VALUE(CullMode, Back)
 };
 
 /// <summary>
 /// Primitive mode enumeration.
 /// </summary>
-IOP_CSPUBLIC enum IOP_ENUM_NAME(PrimitiveMode) : IOP_UINT16
+IOP_CSPUBLIC enum IOP_ENUM_NAME(PrimitiveMode) : IOP_UINT8
 {
     IOP_ENUM_VALUE(PrimitiveMode, Triangles) = 0,
     IOP_ENUM_VALUE(PrimitiveMode, TriangleStrip) = 1
@@ -84,18 +87,18 @@ IOP_PACKED IOP_CSPUBLIC struct ShaderBufferInput
     /// </summary>
     IOP_CSPUBLIC IOP_ENUM_NAME(ShaderBufferType) BufferType;
     /// <summary>
-    /// The shader slot the buffer is used in
-    /// </summary>
-    IOP_CSPUBLIC IOP_ENUM_NAME(ShaderSlot) ShaderSlot;
-    /// <summary>
-    /// The set the buffer is used in (Vulkan only)
-    /// </summary>
-    IOP_CSPUBLIC IOP_UINT16 Set;
-    /// <summary>
     /// The number of buffers in the array
     /// </summary>
     /// Used by ShaderBufferType with A prefix
     IOP_CSPUBLIC IOP_UINT16 Count;
+    /// <summary>
+    /// The set the buffer is used in (Vulkan only)
+    /// </summary>
+    IOP_CSPUBLIC IOP_UINT8 Set;
+    /// <summary>
+    /// The shader slot the buffer is used in
+    /// </summary>
+    IOP_CSPUBLIC IOP_ENUM_NAME(ShaderSlot) ShaderSlot;    
 
 #ifdef CUBE_LANGUAGE_CPP
     constexpr bool operator ==(const ShaderBufferInput& a_other) const
@@ -122,13 +125,13 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
     IOP_UINT16 VertexInputCount;
     IOP_UINT16 ShaderBufferInputCount;
     IOP_UINT16 ShadowShaderBufferInputCount;
-    IOP_CSPUBLIC IOP_ENUM_NAME(CullMode) CullingMode;
-    IOP_CSPUBLIC IOP_ENUM_NAME(PrimitiveMode) PrimitiveMode;
     IOP_CSPUBLIC IOP_UINT16 VertexStride;
-    IOP_CSPUBLIC IOP_UINT8 EnableColorBlending;
     IOP_UINT32 UBODataSize;
     IOP_POINTER(void*) UBOData;
     IOP_POINTER(void*) Data;
+    IOP_CSPUBLIC IOP_UINT8 EnableColorBlending;
+    IOP_CSPUBLIC IOP_ENUM_NAME(CullMode) CullingMode;
+    IOP_CSPUBLIC IOP_ENUM_NAME(PrimitiveMode) PrimitiveMode;
     IOP_UINT8 Flags;
 
 #ifdef CUBE_LANGUAGE_CPP

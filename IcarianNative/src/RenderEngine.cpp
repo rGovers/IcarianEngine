@@ -5,6 +5,7 @@
 #include "Config.h"
 #include "DeletionQueue.h"
 #include "Flare/IcarianAssert.h"
+#include "Flare/IcarianDefer.h"
 #include "Logger.h"
 #include "Profiler.h"
 #include "Rendering/AnimationController.h"
@@ -63,6 +64,12 @@ RenderEngine::~RenderEngine()
 
     Stop();
 
+    // Ensure all queued objects are freed otherwise get a double free when freed by backend doing free checks
+    for (uint32_t i = 0; i < DeletionQueue::QueueSize; ++i)
+    {
+        DeletionQueue::Flush(DeletionIndex_Render);
+    }
+
     spirv_destroy();
 
     delete m_backend;
@@ -94,13 +101,13 @@ void RenderEngine::Run()
 {
     RuntimeManager::AttachThread();
 
-    std::chrono::time_point prevTime = std::chrono::high_resolution_clock::now();
-
     double timePassed = 0.0;
+    std::chrono::time_point prevTime = std::chrono::high_resolution_clock::now();
 
     while (!m_shutdown)
     {
         Profiler::Start("Render Thread");
+        IDEFER(Profiler::Stop());
         
         {
             PROFILESTACK("Update");
@@ -130,12 +137,14 @@ void RenderEngine::Run()
 
             m_backend->Update(delta, timePassed);
 
+            {
+                PROFILESTACK("Deletion Queue");
+
+                DeletionQueue::Flush(DeletionIndex_Render);
+            }
+
             prevTime = time;
         }   
-        
-        DeletionQueue::Flush(DeletionIndex_Render);
-
-        Profiler::Stop();
     }
     
     m_join = true;

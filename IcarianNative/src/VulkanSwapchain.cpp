@@ -5,6 +5,7 @@
 #include "AppWindow/AppWindow.h"
 #include "AppWindow/HeadlessAppWindow.h"
 #include "Flare/IcarianAssert.h"
+#include "Flare/IcarianDefer.h"
 #include "Logger.h"
 #include "Rendering/Vulkan/VulkanConstants.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
@@ -472,15 +473,20 @@ vk::ImageLayout VulkanSwapchain::GetImageLayout() const
     return vk::ImageLayout::ePresentSrcKHR;
 }
 
-bool VulkanSwapchain::StartFrame(const vk::Semaphore& a_semaphore, const vk::Fence& a_fence, uint32_t* a_imageIndex, double a_delta, double a_time)
+bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, double a_delta, double a_time)
 {
     const VmaAllocator allocator = m_engine->GetAllocator();
     const vk::Device device = m_engine->GetLogicalDevice();
     const glm::ivec2 size = m_window->GetSize();
     
+    const uint32_t flightFrame = m_engine->GetCurrentFlightFrame();
+
+    vk::Semaphore semaphore = m_engine->GetImageSemaphore(flightFrame);
+    vk::Fence fence = m_engine->GetCurrentFlightFence();
+
     {
         PROFILESTACK("Fence");
-        vk::Result r = device.waitForFences(1, &a_fence, VK_TRUE, UINT64_MAX);
+        vk::Result r = device.waitForFences(1, &fence, VK_TRUE, UINT64_MAX);
         if (r != vk::Result::eSuccess)
         {
             Logger::Warning("IcarianEngine: Could not wait for fence");
@@ -512,8 +518,10 @@ bool VulkanSwapchain::StartFrame(const vk::Semaphore& a_semaphore, const vk::Fen
 
         *a_imageIndex = (*a_imageIndex + 1) % VulkanMaxFlightFrames;
         
-        if ((m_init & (0b1 << *a_imageIndex)) == 0)
+        if (!IsInitialized(*a_imageIndex))
         {
+            ICARIAN_ASSERT_R(device.resetFences(1, &fence) == vk::Result::eSuccess);
+
             return true;
         }
 
@@ -532,7 +540,7 @@ bool VulkanSwapchain::StartFrame(const vk::Semaphore& a_semaphore, const vk::Fen
     }
     else
     {
-        switch (device.acquireNextImageKHR(m_swapchain, UINT64_MAX, a_semaphore, nullptr, a_imageIndex))
+        switch (device.acquireNextImageKHR(m_swapchain, UINT64_MAX, semaphore, nullptr, a_imageIndex))
         {
         case vk::Result::eErrorOutOfDateKHR:
         {
@@ -576,12 +584,12 @@ bool VulkanSwapchain::StartFrame(const vk::Semaphore& a_semaphore, const vk::Fen
     {
         PROFILESTACK("Reset Fence");
         
-        ICARIAN_ASSERT_R(device.resetFences(1, &a_fence) == vk::Result::eSuccess);
+        ICARIAN_ASSERT_R(device.resetFences(1, &fence) == vk::Result::eSuccess);
     }
 
     return true;
 }
-void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, const vk::Fence& a_fence, uint32_t a_imageIndex)
+void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, uint32_t a_imageIndex)
 {
     const vk::Device device = m_engine->GetLogicalDevice();
     const vk::Queue presentQueue = m_engine->GetPresentQueue();
@@ -589,7 +597,7 @@ void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, const vk::Fence
 
     if (m_window->IsHeadless())
     {        
-        if ((m_init & 0b1 << a_imageIndex) == 0)
+        if (!IsInitialized(a_imageIndex))
         {
             m_init |= 0b1 << a_imageIndex;
 
@@ -597,6 +605,7 @@ void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, const vk::Fence
         }
         
         TLockObj<vk::CommandBuffer, std::mutex>* buffer = m_engine->CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
+        IDEFER(m_engine->DestroyCommandBuffer(buffer));
         const vk::CommandBuffer cmdBuffer = buffer->Get();
 
         constexpr vk::CommandBufferBeginInfo BufferBeginInfo = vk::CommandBufferBeginInfo
@@ -629,21 +638,26 @@ void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, const vk::Fence
 
         constexpr vk::PipelineStageFlags WaitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
 
+        const uint32_t currentFlightFrame = m_engine->GetCurrentFlightFrame();
+
+        vk::Fence fence = m_engine->GetCurrentFlightFence();
+        vk::Semaphore nextImage = m_engine->GetImageSemaphore((currentFlightFrame + 1) % VulkanMaxFlightFrames);
+
         const vk::SubmitInfo submitInfo = vk::SubmitInfo
         (
             1, 
             &a_semaphore, 
             WaitStages,
             1, 
-            &cmdBuffer
+            &cmdBuffer,
+            1,
+            &nextImage
         );
-        
-        if (graphicsQueue.submit(1, &submitInfo, a_fence) != vk::Result::eSuccess)
+
+        if (graphicsQueue.submit(1, &submitInfo, fence) != vk::Result::eSuccess)
         {
             Logger::Error("Failed to submit swap copy");
         }
-
-        m_engine->DestroyCommandBuffer(buffer);
     }
     else
     {

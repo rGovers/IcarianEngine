@@ -13,6 +13,7 @@
 #include "Rendering/RenderEngine.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
+#include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanSwapchain.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
@@ -66,6 +67,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
         Logger::Error(std::string("Vulkan Validation Layer: ") + a_callbackData->pMessage);
 
         return VK_TRUE;
+        // break;
     }
     default:
     {
@@ -441,6 +443,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     GetPhysicalDeviceProperties2KHRFunc(m_pDevice, &deviceProps2);
     m_pushDescriptorProperties = pushProperties;
 
+    m_pushPool = new VulkanPushPool(this);
     m_computeEngine = new VulkanComputeEngine(this);
     m_graphicsEngine = new VulkanGraphicsEngine(this);
 }
@@ -453,6 +456,7 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
 
     delete m_computeEngine;
     delete m_graphicsEngine;
+    delete m_pushPool;
 
     TRACE("Destroy Vulkan Deletion Objects");
     for (uint32_t i = 0; i < VulkanDeletionQueueSize; ++i)
@@ -526,16 +530,20 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     // Constant allocation is killing performance on the GPU side. 
     // TODO: Can probably better manage semaphores.
     AppWindow* window = GetRenderEngine()->m_window;
+
+    const bool isHeadless = window->IsHeadless();
+    const bool init = m_swapchain != nullptr;
+
     {
         PROFILESTACK("Swap Setup");
 
-        if (m_swapchain == nullptr)
+        if (!init)
         {
             m_swapchain = new VulkanSwapchain(this, window);
             m_graphicsEngine->SetSwapchain(m_swapchain);
         }
 
-        if (!m_swapchain->StartFrame(m_imageAvailable[m_currentFlightFrame], m_inFlight[m_currentFlightFrame], &m_imageIndex, a_delta, a_time))
+        if (!m_swapchain->StartFrame(&m_imageIndex, a_delta, a_time))
         {
             return;
         }
@@ -543,7 +551,9 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     
     Profiler::StartFrame("Render Update");
 
-    vk::CommandBuffer computeBuffer = m_computeEngine->Update();
+    m_pushPool->Reset(m_currentFrame);
+
+    vk::CommandBuffer computeBuffer = m_computeEngine->Update(m_currentFrame);
     const std::vector<vk::CommandBuffer> buffers = m_graphicsEngine->Update(m_currentFrame);
     
     Profiler::StartFrame("Render Setup");
@@ -554,8 +564,6 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     {
         ++finalSemaphoreCount;
     }
-
-    constexpr vk::PipelineStageFlags WaitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
 
     const uint32_t semaphoreCount = (uint32_t)m_interSemaphore[m_currentFlightFrame].size();
     const uint32_t endBuffer = buffersSize - 1;
@@ -580,19 +588,27 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     Profiler::StartFrame("Render Submit");
 
     vk::Semaphore lastSemaphore = nullptr;
-    vk::Fence fence = nullptr;
-    if (!window->IsHeadless())
+    if (isHeadless)
+    {
+        if (init)
+        {
+            lastSemaphore = m_imageAvailable[m_currentFlightFrame];
+        }
+    }
+    else
     {
         lastSemaphore = m_imageAvailable[m_currentFlightFrame];
-        fence = m_inFlight[m_currentFlightFrame];
     }
 
     {
         const std::unique_lock l = std::unique_lock(m_graphicsQueueMutex);
         uint32_t semaphoreIndex = 0;
 
-        if (computeBuffer != nullptr)
+        if (computeBuffer != vk::CommandBuffer(nullptr))
         {
+            constexpr vk::PipelineStageFlags WaitStages[] = { vk::PipelineStageFlagBits::eAllCommands };
+
+            vk::Semaphore curSemaphore = m_interSemaphore[m_currentFlightFrame][semaphoreIndex++];
             vk::SubmitInfo submitInfo = vk::SubmitInfo
             (
                 0,
@@ -601,7 +617,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
                 1,
                 &computeBuffer,
                 1,
-                &m_interSemaphore[m_currentFlightFrame][semaphoreIndex]
+                &curSemaphore
             );
 
             if (lastSemaphore != vk::Semaphore(nullptr))
@@ -612,11 +628,14 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
             ICARIAN_ASSERT_MSG_R(m_computeQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
 
-            lastSemaphore = m_interSemaphore[m_currentFlightFrame][semaphoreIndex++];
+            lastSemaphore = curSemaphore;
         }
 
         for (uint32_t i = 0; i < buffersSize; ++i)
         {
+            constexpr vk::PipelineStageFlags WaitStages[] = { vk::PipelineStageFlagBits::eAllGraphics };
+
+            vk::Semaphore curSemaphore = m_interSemaphore[m_currentFlightFrame][semaphoreIndex++];
             vk::SubmitInfo submitInfo = vk::SubmitInfo
             (
                 0,
@@ -625,7 +644,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
                 1,
                 &buffers[i],
                 1,
-                &m_interSemaphore[m_currentFlightFrame][semaphoreIndex]
+                &curSemaphore
             );
 
             if (lastSemaphore != vk::Semaphore(nullptr))
@@ -636,14 +655,30 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
             if (i == endBuffer)
             {
-                ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, fence) == vk::Result::eSuccess, "Failed to submit command");
+                if (isHeadless)
+                {
+                    if (!m_swapchain->IsInitialized(m_imageIndex))
+                    {
+                        submitInfo.pSignalSemaphores = &m_imageAvailable[(m_currentFlightFrame + 1) % VulkanMaxFlightFrames];
+
+                        ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, m_inFlight[m_currentFlightFrame]) == vk::Result::eSuccess, "Failed to submit command");
+                    }
+                    else
+                    {
+                        ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
+                    }
+                }
+                else
+                {
+                    ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, m_inFlight[m_currentFlightFrame]) == vk::Result::eSuccess, "Failed to submit command");
+                }
             }
             else
             {
                 ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
             }
 
-            lastSemaphore = m_interSemaphore[m_currentFlightFrame][semaphoreIndex++];
+            lastSemaphore = curSemaphore;
         }    
     }
 
@@ -681,7 +716,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     {
         PROFILESTACK("Swap Present");
 
-        m_swapchain->EndFrame(m_interSemaphore[m_currentFlightFrame][endBuffer], m_inFlight[m_currentFlightFrame], m_imageIndex);
+        m_swapchain->EndFrame(lastSemaphore, m_imageIndex);
 
         m_currentFrame = (m_currentFrame + 1) % VulkanFlightPoolSize;
         m_currentFlightFrame = (m_currentFlightFrame + 1) % VulkanMaxFlightFrames;

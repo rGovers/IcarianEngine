@@ -17,7 +17,6 @@ class VulkanLightData;
 class VulkanModel;
 class VulkanPipeline;
 class VulkanPixelShader;
-class VulkanPushPool;
 class VulkanRenderCommand;
 class VulkanRenderEngineBackend;
 class VulkanRenderTexture;
@@ -65,7 +64,6 @@ private:
     RuntimeFunction*                              m_postProcessFunc;
 
     VulkanRenderEngineBackend*                    m_vulkanEngine;
-    VulkanPushPool*                               m_pushPool;
 
     std::shared_mutex                             m_pipeLock;
     std::unordered_map<uint64_t, VulkanPipeline*> m_pipelines;
@@ -137,11 +135,6 @@ public:
     inline void SetSwapchain(VulkanSwapchain* a_swapchaing)
     {
         m_swapchain = a_swapchaing;
-    }
-
-    inline VulkanPushPool* GetPushPool() const
-    {
-        return m_pushPool;
     }
 
     std::vector<vk::CommandBuffer> Update(uint32_t a_index);

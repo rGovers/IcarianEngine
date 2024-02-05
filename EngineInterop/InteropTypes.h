@@ -25,6 +25,8 @@
 #define IOP_CSPUBLIC public
 #define IOP_CSINTERNAL internal
 
+#define IOP_CONSTEXPR readonly
+
 #define IOP_ENUM_NAME(name) name
 #define IOP_ENUM_VALUE(enum, value) value
 #define IOP_STRUCTURE_END
@@ -57,6 +59,8 @@
 
 #define IOP_CSPUBLIC 
 #define IOP_CSINTERNAL
+
+#define IOP_CONSTEXPR constexpr
 
 #define IOP_ENUM_NAME(name) e_##name
 #define IOP_ENUM_VALUE(enum, value) enum##_##value

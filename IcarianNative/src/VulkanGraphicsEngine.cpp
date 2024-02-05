@@ -49,8 +49,6 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
 {
     m_vulkanEngine = a_vulkanEngine;
 
-    m_pushPool = new VulkanPushPool(m_vulkanEngine);
-
     m_runtimeBindings = new VulkanGraphicsEngineBindings(this);
 
     TRACE("Getting RenderPipeline Functions");
@@ -303,8 +301,6 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
             m_textureSampler[i].Data = nullptr;
         }
     }
-
-    delete m_pushPool;
 }
 
 uint32_t VulkanGraphicsEngine::GenerateGLSLVertexShader(const std::string_view& a_source)
@@ -603,6 +599,8 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
     PROFILESTACK("Rendering");
     VulkanUniformBuffer* shadowLightBuffer = nullptr;
 
+    VulkanPushPool* pushPool = m_vulkanEngine->GetPushPool();
+
     const Frustum frustum = Frustum::FromMat4(a_lvp);
 
     const TReadLockArray<MaterialRenderStack*> stacks = m_renderStacks.ToReadLockArray();
@@ -623,7 +621,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
             {
                 if (shadowLightBuffer == nullptr) 
                 {
-                    shadowLightBuffer = m_pushPool->AllocateShadowUniformBuffer();
+                    shadowLightBuffer = pushPool->AllocateShadowUniformBuffer();
 
                     ShadowLightShaderBuffer buffer;
                     buffer.LVP = a_lvp;
@@ -1490,6 +1488,8 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
     Profiler::StartFrame("Update");
 
+    VulkanPushPool* pushPool = m_vulkanEngine->GetPushPool();
+
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
 
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
@@ -1575,7 +1575,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                 ShaderBufferInput dirLightInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_DirectionalLightBuffer, &dirLightInput))
                 {
-                    VulkanUniformBuffer* uniformBuffer = m_pushPool->AllocateDirectionalLightUniformBuffer();
+                    VulkanUniformBuffer* uniformBuffer = pushPool->AllocateDirectionalLightUniformBuffer();
 
                     const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
                     const glm::vec3 forward = glm::normalize(tMat[2].xyz());
@@ -1702,7 +1702,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                 ShaderBufferInput pointLightInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_PointLightBuffer, &pointLightInput))
                 {
-                    VulkanUniformBuffer* uniformBuffer = m_pushPool->AllocatePointLightUniformBuffer();
+                    VulkanUniformBuffer* uniformBuffer = pushPool->AllocatePointLightUniformBuffer();
 
                     PointLightShaderBuffer shaderBuffer;
                     shaderBuffer.LightPos = glm::vec4(position, buffer.Intensity);
@@ -1794,7 +1794,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                 ShaderBufferInput spotLightInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_SpotLightBuffer, &spotLightInput))
                 {
-                    VulkanUniformBuffer* uniformBuffer = m_pushPool->AllocateSpotLightUniformBuffer();
+                    VulkanUniformBuffer* uniformBuffer = pushPool->AllocateSpotLightUniformBuffer();
 
                     const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
                     const glm::vec3 forward = glm::normalize(tMat[2].xyz());
@@ -1829,7 +1829,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                 ShaderBufferInput shadowBufferInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_ShadowLightBuffer, &shadowBufferInput))
                 {
-                    VulkanUniformBuffer* uniformBuffer = m_pushPool->AllocateShadowUniformBuffer();
+                    VulkanUniformBuffer* uniformBuffer = pushPool->AllocateShadowUniformBuffer();
 
                     ShadowLightShaderBuffer shaderBuffer;
                     shaderBuffer.LVP = lvp[0];
@@ -1885,7 +1885,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
                     if (camBuffer.RenderLayer & ambientLight.RenderLayer)
                     {
-                        VulkanUniformBuffer* uniformBuffer = m_pushPool->AllocateAmbientLightUniformBuffer();
+                        VulkanUniformBuffer* uniformBuffer = pushPool->AllocateAmbientLightUniformBuffer();
 
                         AmbientLightShaderBuffer buffer;
                         buffer.LightColor = ambientLight.Color;
@@ -1964,7 +1964,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                             continue;
                         }
 
-                        VulkanUniformBuffer* uniformBuffer = m_pushPool->AllocateDirectionalLightUniformBuffer();
+                        VulkanUniformBuffer* uniformBuffer = pushPool->AllocateDirectionalLightUniformBuffer();
 
                         const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(dirLight.TransformAddr);
                         const glm::vec3 forward = glm::normalize(tMat[2].xyz());
@@ -2071,7 +2071,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                             continue;
                         }
 
-                        VulkanUniformBuffer* uniformBuffer = m_pushPool->AllocatePointLightUniformBuffer();
+                        VulkanUniformBuffer* uniformBuffer = pushPool->AllocatePointLightUniformBuffer();
 
                         PointLightShaderBuffer buffer;
                         buffer.LightPos = glm::vec4(position, pointLight.Intensity);
@@ -2184,7 +2184,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
                         const glm::vec3 forward = glm::normalize(tMat[2].xyz());
 
-                        VulkanUniformBuffer* uniformBuffer = m_pushPool->AllocateSpotLightUniformBuffer();
+                        VulkanUniformBuffer* uniformBuffer = pushPool->AllocateSpotLightUniformBuffer();
 
                         SpotLightShaderBuffer buffer;
                         buffer.LightPos = position;
@@ -2433,8 +2433,6 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
     // TODO: Prebuild camera uniform buffers
     Profiler::StartFrame("Drawing Setup");
     m_renderCommands.Clear();
-
-    m_pushPool->Reset(a_index);
 
     {
         const std::vector<bool> state = m_shaderPrograms.ToStateVector();

@@ -10,14 +10,11 @@ class VulkanRenderEngineBackend;
 class VulkanComputePipeline
 {
 private:
-    VulkanRenderEngineBackend* m_engine;
-    VulkanComputeEngine*       m_cEngine;
-
-    uint32_t                   m_shaderAddr;
+    VulkanComputeEngine*       m_engine;
 
     vk::Pipeline               m_pipeline;
 
-    VulkanComputePipeline(VulkanRenderEngineBackend* a_engine, VulkanComputeEngine* a_cEngine, uint32_t a_shaderAddr);
+    VulkanComputePipeline(VulkanComputeEngine* a_engine, vk::Pipeline a_pipeline);
 
 protected:
 
@@ -29,7 +26,7 @@ public:
         return m_pipeline;
     }
 
-    static VulkanComputePipeline* CreatePipeline(VulkanRenderEngineBackend* a_engine, VulkanComputeEngine* a_cEngine, VulkanComputeLayout* a_layout, uint32_t a_shaderAddr);
+    static VulkanComputePipeline* CreatePipeline(VulkanComputeEngine* a_cEngine, uint32_t a_layoutAddr, uint32_t a_shaderAddr);
 };
 
 #endif

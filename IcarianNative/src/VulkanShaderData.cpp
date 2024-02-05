@@ -95,32 +95,21 @@ public:
     }
 };
 
-// Just changes to make the compiler happy
 constexpr static vk::ShaderStageFlags GetShaderStage(e_ShaderSlot a_slot) 
 {
-    switch (a_slot)
-    {
-    case ShaderSlot_Vertex:
-    {
-        return vk::ShaderStageFlagBits::eVertex;
-    }
-    case ShaderSlot_Pixel:
-    {
-        return vk::ShaderStageFlagBits::eFragment;
-    }
-    case ShaderSlot_All:
-    {
-        return vk::ShaderStageFlagBits::eAllGraphics;
-    }
-    default:
-    {
-        ICARIAN_ASSERT_MSG(0, "Invalid shader slot");
+    vk::ShaderStageFlags flags = vk::ShaderStageFlags();
 
-        break;
-    }
+    if (a_slot & ShaderSlot_Vertex)
+    {
+        flags |= vk::ShaderStageFlagBits::eVertex;
     }
 
-    return vk::ShaderStageFlags();
+    if (a_slot & ShaderSlot_Pixel)
+    {
+        flags |= vk::ShaderStageFlagBits::eFragment;
+    }
+
+    return flags;
 }
 constexpr static uint32_t GetBufferSize(e_ShaderBufferType a_type)
 {
@@ -610,7 +599,7 @@ void VulkanShaderData::PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a
     {
         if (d.Set == a_set)
         {
-            VulkanPushPool* pool = m_gEngine->GetPushPool();
+            VulkanPushPool* pool = m_engine->GetPushPool();
 
             vk::DescriptorSet descriptorSet = pool->AllocateDescriptor(a_index, vk::DescriptorType::eCombinedImageSampler, &d.DescriptorLayout);
 
@@ -644,7 +633,7 @@ void VulkanShaderData::PushTextures(vk::CommandBuffer a_commandBuffer, uint32_t 
     {
         if (d.Set == a_set)
         {
-            VulkanPushPool* pool = m_gEngine->GetPushPool();
+            VulkanPushPool* pool = m_engine->GetPushPool();
 
             const uint32_t size = d.Count;
 
@@ -692,7 +681,7 @@ void VulkanShaderData::PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint
     {
         if (d.Set == a_set)
         {
-            VulkanPushPool* pool = m_gEngine->GetPushPool();
+            VulkanPushPool* pool = m_engine->GetPushPool();
             
             vk::DescriptorSet descriptorSet = pool->AllocateDescriptor(a_index, vk::DescriptorType::eUniformBuffer, &d.DescriptorLayout);
 
@@ -732,7 +721,7 @@ void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer
     {
         if (d.Set == a_set)
         {
-            VulkanPushPool* pool = m_gEngine->GetPushPool();
+            VulkanPushPool* pool = m_engine->GetPushPool();
 
             vk::DescriptorSet descriptorSet = pool->AllocateDescriptor(a_index, vk::DescriptorType::eStorageBuffer, &d.DescriptorLayout);
 
@@ -776,7 +765,7 @@ void VulkanShaderData::PushShadowTexture(vk::CommandBuffer a_commandBuffer, uint
     {
         if (d.Set == a_set)
         {
-            VulkanPushPool* pool = m_gEngine->GetPushPool();
+            VulkanPushPool* pool = m_engine->GetPushPool();
 
             vk::DescriptorSet descriptorSet = pool->AllocateDescriptor(a_index, vk::DescriptorType::eCombinedImageSampler, &d.DescriptorLayout);
 
@@ -810,7 +799,7 @@ void VulkanShaderData::PushShadowUniformBuffer(vk::CommandBuffer a_commandBuffer
     {
         if (d.Set == a_set)
         {
-            VulkanPushPool* pool = m_gEngine->GetPushPool();
+            VulkanPushPool* pool = m_engine->GetPushPool();
 
             vk::DescriptorSet descriptorSet = pool->AllocateDescriptor(a_index, vk::DescriptorType::eUniformBuffer, &d.DescriptorLayout);
 
@@ -850,7 +839,7 @@ void VulkanShaderData::PushShadowShaderStorageObject(vk::CommandBuffer a_command
     {
         if (d.Set == a_set)
         {
-            VulkanPushPool* pool = m_gEngine->GetPushPool();
+            VulkanPushPool* pool = m_engine->GetPushPool();
 
             vk::DescriptorSet descriptorSet = pool->AllocateDescriptor(a_index, vk::DescriptorType::eStorageBuffer, &d.DescriptorLayout);
 

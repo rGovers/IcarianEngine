@@ -3,6 +3,7 @@
 #include "Rendering/Vulkan/VulkanDepthCubeRenderTexture.h"
 
 #include "Flare/IcarianAssert.h"
+#include "Flare/IcarianDefer.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
@@ -270,6 +271,8 @@ void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    // After driver update crash and validation error for this missing
+    imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
     VmaAllocationCreateInfo imageAllocInfo = { };
     imageAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
@@ -337,6 +340,32 @@ void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 
         ICARIAN_ASSERT_MSG_R(device.createFramebuffer(&frameBufferInfo, nullptr, &m_frameBuffer[i]) == vk::Result::eSuccess, "Failed to create frame buffer");
     }
+
+    // Due to optimization this is needed as all faces may not be wrote to by point lights triggering the transition
+    // Uninitialized memory can be a problem but not on screen for point light so does not matter
+    // This causes assertion to trigger after driver update if missing
+    // Was technically undefined behaviour so probably should not have ignored but was not an issue up until now
+    // My bad
+    // Should only be necessary for cube maps due to optimization normal render textures should be fine
+    // And yes that optimization is needed as in some scenes the difference between 20 and 120 fps 
+    TLockObj<vk::CommandBuffer, std::mutex>* l = m_engine->BeginSingleCommand();
+    IDEFER(m_engine->EndSingleCommand(l));
+
+    vk::CommandBuffer commandBuffer = l->Get();
+
+    const vk::ImageMemoryBarrier memoryBarrier = vk::ImageMemoryBarrier
+    (
+        vk::AccessFlags(),
+        vk::AccessFlagBits::eShaderRead,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED,
+        m_texture,
+        DepthSubresourceRange
+    );
+
+    commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eFragmentShader, vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &memoryBarrier);
 }
 
 void VulkanDepthCubeRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
