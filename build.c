@@ -184,7 +184,7 @@ int main(int a_argc, char** a_argv)
     {
         printf("Target Platform: Linux\n");
 
-        compiler = CUBE_CProjectCompiler_GCC;
+        compiler = CUBE_CProjectCompiler_Clang;
 
         break;
     }
