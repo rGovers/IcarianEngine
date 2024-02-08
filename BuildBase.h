@@ -215,10 +215,15 @@ static const char BuildConfigurationString[] = "--configuration";
 static const CBUINT32 BuildConfigurationStringLen = sizeof(BuildConfigurationString) - 1;
 static const char HelpString[] = "--help";
 static const CBUINT32 HelpStringLen = sizeof(HelpString) - 1;
+static const char CompileCommandsString[] = "--compile-commands";
+static const CBUINT32 CompileCommandsStringLen = sizeof(CompileCommandsString) - 1;
 
 void PrintHelp()
 {
     printf("Help:\n");
+
+    printf("  --compile-commands=<workingDirectory> - Generate a compile commands file. \n");
+    printf("\n");
 
     printf("  --platform=<platform> - Set the target platform. \n");
     printf("    Valid values are: \n");
