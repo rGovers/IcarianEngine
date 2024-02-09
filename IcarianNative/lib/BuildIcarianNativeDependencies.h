@@ -32,6 +32,8 @@ CUBE_CProject BuildENetProject(e_TargetPlatform a_targetPlatform, e_BuildConfigu
         break;
     }
     case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
     {
         CUBE_CProject_AppendSource(&project, "./unix.c");
 
@@ -104,6 +106,8 @@ CUBE_CProject BuildGLSLangProject(e_TargetPlatform a_targetPlatform, e_BuildConf
         break;
     }
     case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
     {
         CUBE_CProject_AppendSource(&project, "glslang/OSDependent/Unix/ossource.cpp");
 
@@ -883,6 +887,8 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
         break;
     }
     case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
     {
         CUBE_CProject_AppendIncludePath(&project, "../gen/openal/platform/linux/include");
 

@@ -205,6 +205,11 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
             CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
         }
 
+        if (a_targetPlatform == TargetPlatform_LinuxZig)
+        {
+            CUBE_CProject_AppendReference(&project, "asan");
+        }
+
         break;
     }
     case BuildConfiguration_ReleaseWithDebug:
@@ -219,6 +224,11 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         if (a_targetPlatform != TargetPlatform_Windows)
         {
             CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
+        }
+
+        if (a_targetPlatform == TargetPlatform_LinuxZig)
+        {
+            CUBE_CProject_AppendReference(&project, "asan");
         }
 
         break;
@@ -273,6 +283,8 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         break;
     }
     case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
     {
         CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Linux/include/mono-2.0");
 
