@@ -8,7 +8,7 @@ Icarian Engine is a cross platform game engine to allow ease of modding.
 * Vulkan SDK
 * Python3(SPIRV-Tools)
 ### Linux
-* GCC
+* GCC, Clang or Zig
 ### Windows
 * MinGW
 

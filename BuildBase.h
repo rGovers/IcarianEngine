@@ -20,6 +20,8 @@ typedef enum
 {
     TargetPlatform_Windows,
     TargetPlatform_Linux,
+    TargetPlatform_LinuxClang,
+    TargetPlatform_LinuxZig
 } e_TargetPlatform;
 
 typedef enum
@@ -228,7 +230,9 @@ void PrintHelp()
     printf("  --platform=<platform> - Set the target platform. \n");
     printf("    Valid values are: \n");
     printf("      windows - Windows\n");
-    printf("      linux - Linux\n");
+    printf("      linux - Linux with GCC\n");
+    printf("      linuxclang - Linux with Clang\n");
+    printf("      linuxzig - Linux with Zig\n");
     printf("\n");
 
     printf("  --configuration=<configuration> - Set the build configuration. \n");

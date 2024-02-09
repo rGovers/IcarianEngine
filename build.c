@@ -94,6 +94,14 @@ int main(int a_argc, char** a_argv)
             {
                 targetPlatform = TargetPlatform_Linux;
             }
+            else if (strcmp(platformStr, "linuxclang") == 0)
+            {
+                targetPlatform = TargetPlatform_LinuxClang;
+            }
+            else if (strcmp(platformStr, "linuxzig") == 0)
+            {
+                targetPlatform = TargetPlatform_LinuxZig;
+            }
             else
             {
                 printf("Unknown platform: %s\n", platformStr);
@@ -184,7 +192,23 @@ int main(int a_argc, char** a_argv)
     {
         printf("Target Platform: Linux\n");
 
+        compiler = CUBE_CProjectCompiler_GCC;
+
+        break;
+    }
+    case TargetPlatform_LinuxClang:
+    {
+        printf("Target Platform: Linux Clang\n");
+
         compiler = CUBE_CProjectCompiler_Clang;
+
+        break;
+    }
+    case TargetPlatform_LinuxZig:
+    {
+        printf("Target Platform: Linux Zig\n");
+
+        compiler = CUBE_CProjectCompiler_Zig;
 
         break;
     }
