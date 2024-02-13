@@ -116,19 +116,19 @@ static constexpr uint32_t GetAxisIndex(uint32_t a_input)
     {
     case 0:
     {
-        return 1;
+        return 0;
     }
     case 1:
     {
-        return 0;
+        return 1;
     }
     case 3:
     {
-        return 1;
+        return 0;
     }
     case 4:
     {
-        return 0;
+        return 1;
     }
     case 6:
     {

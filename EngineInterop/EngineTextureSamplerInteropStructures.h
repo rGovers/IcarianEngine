@@ -21,7 +21,7 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(TextureAddress) : IOP_UINT16
 
 /// @cond INTERNAL
 
-enum IOP_ENUM_NAME(TextureMode) : IOP_UINT16
+IOP_CSINTERNAL enum IOP_ENUM_NAME(TextureMode) : IOP_UINT16
 {
     IOP_ENUM_VALUE(TextureMode, Null) = IOP_UINT16_MAX,
     IOP_ENUM_VALUE(TextureMode, Texture) = 0,
@@ -31,7 +31,7 @@ enum IOP_ENUM_NAME(TextureMode) : IOP_UINT16
     IOP_ENUM_VALUE(TextureMode, DepthCubeRenderTexture) = 4
 };
 
-struct TextureSamplerBuffer
+IOP_PACKED IOP_CSINTERNAL struct TextureSamplerBuffer
 {
     IOP_UINT32 Addr;
     IOP_UINT32 Slot;

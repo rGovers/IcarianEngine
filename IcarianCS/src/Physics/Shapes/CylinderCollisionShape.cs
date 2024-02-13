@@ -1,18 +1,19 @@
+using IcarianEngine.Definitions;
 using System;
 using System.Runtime.CompilerServices;
-using IcarianEngine.Definitions;
+
+#include "EngineCylinderCollisionShapeInterop.h"
+#include "InteropBinding.h"
+
+ENGINE_CYLINDERCOLLISIONSHAPE_EXPORT_TABLE(IOP_BIND_FUNCTION);
 
 namespace IcarianEngine.Physics.Shapes
 {
     public class CylinderCollisionShape : CollisionShape, IDestroy
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint CreateCylinder(float a_height, float a_radius);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static float GetHeight(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static float GetRadius(uint a_addr);
-
+        /// <summary>
+        /// The Defintion used to create the CylinderCollisionShape
+        /// </summary>
         public CylinderCollisionShapeDef CylinderDef
         {
             get
@@ -21,21 +22,30 @@ namespace IcarianEngine.Physics.Shapes
             }
         }
 
+        /// <summary>
+        /// The height of the CylinderCollisionShape
+        /// </summary>
         public float Height
         {
             get
             {
-                return GetHeight(InternalAddr);
+                return CylinderCollisionShapeInterop.GetHeight(InternalAddr);
             }
         }
+        /// <summary>
+        /// The radius of the CylinderCollisionShape
+        /// </summary>
         public float Radius
         {
             get
             {
-                return GetRadius(InternalAddr);
+                return CylinderCollisionShapeInterop.GetRadius(InternalAddr);
             }
         }
 
+        /// <summary>
+        /// Whether the CylinderCollisionShape is Disposed
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -44,41 +54,54 @@ namespace IcarianEngine.Physics.Shapes
             }
         }
 
-        public CylinderCollisionShape()
+        CylinderCollisionShape()
         {
             InternalAddr = uint.MaxValue;
         }
+        /// <summary>
+        /// Creates an Instance of <see cref="IcarianEngine.Physics.Shapes.CylinderCollisionShape"/>
+        /// </summary>
+        /// <param name="a_height">The height of the CylinderCollisionShape</param>
+        /// <param name="a_radius">The radius of the CylinderCollisionShape</param>
+        public CylinderCollisionShape(float a_height, float a_radius)
+        {
+            InternalAddr = CylinderCollisionShapeInterop.CreateCylinder(a_height, a_radius);
+        }
 
-        public override void Init()
+        internal override void Init()
         {
             CylinderCollisionShapeDef def = CylinderDef;
 
             if (def != null)
             {
-                InternalAddr = CreateCylinder(def.Height, def.Radius);
+                InternalAddr = CylinderCollisionShapeInterop.CreateCylinder(def.Height, def.Radius);
             }
             else
             {
-                InternalAddr = CreateCylinder(1.0f, 0.5f);
+                InternalAddr = CylinderCollisionShapeInterop.CreateCylinder(1.0f, 0.5f);
             }
         }
 
+        /// <summary>
+        /// Disposes of the CylinderCollisionShape
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the CylinderCollisionShape is Disposed
+        /// </summary>
+        /// <param name="a_disposing">Whether the CylinderCollisionShape is being Disposed or Finalized</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(InternalAddr != uint.MaxValue)
             {
                 if(a_disposing)
                 {
-                    CollisionShape.DestroyShape(InternalAddr);
-
-                    InternalAddr = uint.MaxValue;
+                    CollisionShapeInterop.DestroyShape(InternalAddr);
                 }
                 else
                 {
@@ -92,7 +115,6 @@ namespace IcarianEngine.Physics.Shapes
                 Logger.IcarianError("Multiple CylinderCollisionShape Dispose");
             }
         }
-
         ~CylinderCollisionShape()
         {
             Dispose(false);

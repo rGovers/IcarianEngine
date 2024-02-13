@@ -2,17 +2,18 @@ using IcarianEngine.Definitions;
 using System;
 using System.Runtime.CompilerServices;
 
+#include "EngineCapsuleCollisionShapeInterop.h"
+#include "InteropBinding.h"
+
+ENGINE_CAPSULECOLLISIONSHAPE_EXPORT_TABLE(IOP_BIND_FUNCTION);
+
 namespace IcarianEngine.Physics.Shapes
 {
     public class CapsuleCollisionShape : CollisionShape, IDestroy
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint CreateCapsule(float a_height, float a_radius);  
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static float GetHeight(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static float GetRadius(uint a_addr);
-
+        /// <summary>
+        /// Definition used to create the CapsuleCollisionShape
+        /// </summary>
         public CapsuleCollisionShapeDef CapsuleDef
         {
             get
@@ -21,22 +22,31 @@ namespace IcarianEngine.Physics.Shapes
             }
         }
 
+        /// <summary>
+        /// The height of the CapsuleCollisionShape
+        /// <summary>
         public float Height
         {
             get
             {
-                return GetHeight(InternalAddr);
+                return CapsuleCollisionShapeInterop.GetHeight(InternalAddr);
             }
         }
 
+        /// <summary>
+        /// The radius of the CapsuleCollisionShape
+        /// </summary>
         public float Radius
         {
             get
             {
-                return GetRadius(InternalAddr);
+                return CapsuleCollisionShapeInterop.GetRadius(InternalAddr);
             }
         }
 
+        /// <summary>
+        /// Whether the CapsuleCollisionShape is Disposed
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -45,41 +55,54 @@ namespace IcarianEngine.Physics.Shapes
             }
         }
 
-        public CapsuleCollisionShape()
+        CapsuleCollisionShape()
         {
             InternalAddr = uint.MaxValue;
         }
+        /// <summary>
+        /// Creates a instance of <see cref="IcarianEngine.Physics.Shapes.CapsuleCollisionShape"/>
+        /// </summary>
+        /// <param name="a_height">The height of the CapsuleCollisionShape</param>
+        /// <param name="a_radius">The radius of the CapsuleCollisionShape</param>
+        public CapsuleCollisionShape(float a_height, float a_radius)
+        {
+            InternalAddr = CapsuleCollisionShapeInterop.CreateCapsule(a_height, a_radius);
+        }
 
-        public override void Init()
+        internal override void Init()
         {
             CapsuleCollisionShapeDef def = CapsuleDef;
 
             if (def != null)
             {
-                InternalAddr = CreateCapsule(def.Height, def.Radius);
+                InternalAddr = CapsuleCollisionShapeInterop.CreateCapsule(def.Height, def.Radius);
             }
             else
             {
-                InternalAddr = CreateCapsule(1.0f, 0.5f);
+                InternalAddr = CapsuleCollisionShapeInterop.CreateCapsule(1.0f, 0.5f);
             }
         }
 
+        /// <summary>
+        /// Disposes of the CapsuleCollisionShape
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the CapsuleCollisionShape is being Disposed
+        /// </summary>
+        /// <param name="a_disposing">Whether the CapsuleCollisionShape is Disposed of Finialized</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(InternalAddr != uint.MaxValue)
             {
                 if(a_disposing)
                 {
-                    CollisionShape.DestroyShape(InternalAddr);
-
-                    InternalAddr = uint.MaxValue;
+                    CollisionShapeInterop.DestroyShape(InternalAddr);
                 }
                 else
                 {
@@ -93,7 +116,6 @@ namespace IcarianEngine.Physics.Shapes
                 Logger.IcarianError("Multiple CapsuleCollisionShape Dispose");
             }
         }
-
         ~CapsuleCollisionShape()
         {
             Dispose(false);

@@ -41,6 +41,7 @@ IOP_PACKED IOP_CSINTERNAL struct ComputeParticleBuffer
     IOP_CSPUBLIC IOP_VEC3 EmitterBounds;
     IOP_CSPUBLIC IOP_UINT32 MaxParticles;
     IOP_CSPUBLIC IOP_UINT8 Flags;
+    IOP_POINTER(void*) Data;
 };
 
 /// @endcond

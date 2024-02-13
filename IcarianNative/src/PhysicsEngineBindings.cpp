@@ -32,51 +32,30 @@
 #include "Physics/PhysicsEngine.h"
 #include "Trace.h"
 
+#include "EngineBoxCollisionShapeInterop.h"
+#include "EngineCapsuleCollisionShapeInterop.h"
+#include "EngineCollisionShapeInterop.h"
+#include "EngineCylinderCollisionShapeInterop.h"
+#include "EnginePhysicsBodyInterop.h"
+#include "EnginePhysicsInterop.h"
+#include "EngineRigidBodyInterop.h"
+#include "EngineSphereCollisionShapeInterop.h"
+#include "EngineTriggerBodyInterop.h"
+
 static PhysicsEngineBindings* Instance = nullptr;
 
-#define PHYSICSENGINE_BINDING_FUNCTION_TABLE(F) \
-    F(uint32_t, IcarianEngine.Physics.Shapes, SphereCollisionShape, CreateSphere, { return Instance->CreateSphereShape(a_radius); }, float a_radius) \
-    F(float, IcarianEngine.Physics.Shapes, SphereCollisionShape, GetRadius, { return Instance->GetSphereShapeRadius(a_addr); }, uint32_t a_addr) \
-    \
-    F(uint32_t, IcarianEngine.Physics.Shapes, BoxCollisionShape, CreateBox, { return Instance->CreateBoxShape(a_extents); }, glm::vec3 a_extents) \
-    F(glm::vec3, IcarianEngine.Physics.Shapes, BoxCollisionShape, GetExtents, { return Instance->GetBoxShapeExtents(a_addr); }, uint32_t a_addr) \
-    \
-    F(uint32_t, IcarianEngine.Physics.Shapes, CapsuleCollisionShape, CreateCapsule, { return Instance->CreateCapsuleShape(a_height, a_radius); }, float a_height, float a_radius) \
-    F(float, IcarianEngine.Physics.Shapes, CapsuleCollisionShape, GetHeight, { return Instance->GetCapsuleShapeHeight(a_addr); }, uint32_t a_addr) \
-    F(float, IcarianEngine.Physics.Shapes, CapsuleCollisionShape, GetRadius, { return Instance->GetCasuleShapeRadius(a_addr); }, uint32_t a_addr) \
-    \
-    F(uint32_t, IcarianEngine.Physics.Shapes, CylinderCollisionShape, CreateCylinder, { return Instance->CreateCylinderShape(a_height, a_radius); }, float a_height, float a_radius) \
-    F(float, IcarianEngine.Physics.Shapes, CylinderCollisionShape, GetHeight, { return Instance->GetCylinderShapeHeight(a_addr); }, uint32_t a_addr) \
-    F(float, IcarainEngine.Physics.Shapes, CylinderCollisionShape, GetRadius, { return Instance->GetCylinderShapeRadius(a_addr); }, uint32_t a_addr) \
-    \
-    F(void, IcarianEngine.Physics.Shapes, CollisionShape, DestroyShape, { Instance->DestroyCollisionShape(a_addr); }, uint32_t a_addr) \
-    \
-    F(uint32_t, IcarianEngine.Physics, PhysicsBody, CreatePhysicsBody, { return Instance->CreatePhysicsBody(a_transformAddr, a_colliderAddr); }, uint32_t a_transformAddr, uint32_t a_colliderAddr) \
-    F(void, IcarianEngine.Physics, PhysicsBody, DestroyPhysicsBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Physics, PhysicsBody, SetPosition, { Instance->SetPhysicsBodyPosition(a_addr, a_pos); }, uint32_t a_addr, glm::vec3 a_pos) \
-    F(void, IcarianEngine.Physics, PhysicsBody, SetRotation, { Instance->SetPhysicsBodyRotation(a_addr, a_rot); }, uint32_t a_addr, glm::quat a_rot) \
-    \
-    F(uint32_t, IcarianEngine.Physics, RigidBody, CreateRigidBody, { return Instance->CreateRigidBody(a_transformAddr, a_colliderAddr, a_mass); }, uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) \
-    F(void, IcarianEngine.Physics, RigidBody, DestroyRigidBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) \
-    F(glm::vec3, IcarianEngine.Physics, RigidBody, GetVelocity, { return Instance->GetRigidBodyVelocity(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Physics, RigidBody, SetVelocity, { Instance->SetRigidBodyVelocity(a_addr, a_velocity); }, uint32_t a_addr, glm::vec3 a_velocity) \
-    F(glm::vec3, IcarianEngine.Physics, RigidBody, GetAngularVelocity, { return Instance->GetRigidBodyAngularVelocity(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Physics, RigidBody, SetAngularVelocity, { Instance->SetRigidBodyAngularVelocity(a_addr, a_velocity); }, uint32_t a_addr, glm::vec3 a_velocity) \
-    F(void, IcarianEngine.Physics, RigidBody, AddForce, { Instance->RigidBodyAddForce(a_addr, a_force, (e_ForceMode)a_mode); }, uint32_t a_addr, glm::vec3 a_force, uint32_t a_mode) \
-    F(void, IcarianEngine.Physics, RigidBody, AddTorque, { Instance->RigidBodyAddTorque(a_addr, a_torque, (e_ForceMode)a_mode); }, uint32_t a_addr, glm::vec3 a_torque, uint32_t a_mode) \
-    \
-    F(uint32_t, IcarianEngine.Physics, TriggerBody, CreateTriggerBody, { return Instance->CreateTriggerBody(a_transformAddr, a_colliderAddr); }, uint32_t a_transformAddr, uint32_t a_colliderAddr) \
-    F(void, IcarianEngine.Physics, TriggerBody, DestroyTriggerBody, { Instance->DestroyPhysicsBody(a_addr); }, uint32_t a_addr) \
-    \
-    F(void, IcarianEngine.Physics, Physics, SetGravity, { Instance->SetGravity(a_gravity); }, glm::vec3 a_gravity) \
-    F(glm::vec3, IcarianEngine.Physics, Physics, GetGravity, { return Instance->GetGravity(); }) \
-    \
-    F(MonoArray*, IcarianEngine.Physics, Physics, RaycastS, { return Instance->Raycast(a_pos, a_dir); }, glm::vec3 a_pos, glm::vec3 a_dir) \
-    F(MonoArray*, IcarianEngine.Physics, Physics, SphereCollisionS, { return Instance->SphereCollision(a_pos, a_radius); }, glm::vec3 a_pos, float a_radius) \
-    F(MonoArray*, IcarianEngine.Physics, Physics, BoxCollisionS, { return Instance->BoxCollision(a_transform, a_extents); }, MonoArray* a_transform, glm::vec3 a_extents) \
-    F(MonoArray*, IcarianEngine.Physics, Physics, AABBCollisionS, { return Instance->AABBCollision(a_min, a_max); }, glm::vec3 a_min, glm::vec3 a_max)
+ENGINE_COLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
-PHYSICSENGINE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_BOXCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_CAPSULECOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_CYLINDERCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_SPHERECOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+
+ENGINE_PHYSICSBODY_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_RIGIDBODY_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_TRIGGERBODY_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+
+ENGINE_PHYSICS_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 PhysicsEngineBindings::PhysicsEngineBindings(PhysicsEngine* a_engine)
 {
@@ -86,7 +65,18 @@ PhysicsEngineBindings::PhysicsEngineBindings(PhysicsEngine* a_engine)
 
     Instance = this;
 
-    PHYSICSENGINE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_COLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+
+    ENGINE_BOXCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_CAPSULECOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_CYLINDERCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_SPHERECOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+
+    ENGINE_PHYSICSBODY_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_RIGIDBODY_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_TRIGGERBODY_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+
+    ENGINE_PHYSICS_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 }
 PhysicsEngineBindings::~PhysicsEngineBindings()
 {
@@ -636,7 +626,7 @@ glm::vec3 PhysicsEngineBindings::GetGravity() const
     return glm::vec3(gravity.GetX(), gravity.GetY(), gravity.GetZ());
 }
 
-RaycastResult* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir, uint32_t* a_resultCount) const
+RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir, uint32_t* a_resultCount) const
 {
     *a_resultCount = 0;
 
@@ -655,7 +645,7 @@ RaycastResult* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm:
 
         const JPH::BroadPhaseCastResult* rayResults = collector.mHits.data();
 
-        RaycastResult* results = new RaycastResult[*a_resultCount];
+        RaycastResultBuffer* results = new RaycastResultBuffer[*a_resultCount];
         for (uint32_t i = 0; i < *a_resultCount; ++i)
         {
             const JPH::Vec3 pos = ray.GetPointOnRay(rayResults[i].mFraction);
@@ -669,28 +659,6 @@ RaycastResult* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm:
 
     return nullptr;
 }
-MonoArray* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir) const
-{
-    uint32_t resultCount;
-    const RaycastResult* results = Raycast(a_pos, a_dir, &resultCount);
-    if (results != nullptr)
-    {
-        IDEFER(delete[] results);
-
-        MonoClass* klass = RuntimeManager::GetClass("IcarianEngine.Physics", "RaycastResultS");
-        MonoArray* arr = mono_array_new(RuntimeManager::GetDomain(), klass, (uintptr_t)resultCount);
-
-        for (uint32_t i = 0; i < resultCount; ++i)
-        {
-            mono_array_set(arr, RaycastResult, i, results[i]);
-        }
-
-        return arr;
-    }
-
-    return nullptr;
-}
-
 uint32_t* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float a_radius, uint32_t* a_resultCount) const
 {
     *a_resultCount = 0;
@@ -717,27 +685,6 @@ uint32_t* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float a
 
     return NULL;
 }
-MonoArray* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float a_radius) const
-{
-    uint32_t resultCount;
-    const uint32_t* data = SphereCollision(a_pos, a_radius, &resultCount);
-    if (data != nullptr)
-    {
-        IDEFER(delete[] data);
-
-        MonoArray* arr = mono_array_new(RuntimeManager::GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
-
-        for (uint32_t i = 0; i < resultCount; ++i)
-        {
-            mono_array_set(arr, uint32_t, i, data[i]);
-        }
-
-        return arr;
-    }
-
-    return NULL;
-}
-
 uint32_t* PhysicsEngineBindings::BoxCollision(const glm::mat4& a_transform, const glm::vec3& a_extents, uint32_t* a_resultCount) const
 {
     *a_resultCount = 0;
@@ -777,36 +724,6 @@ uint32_t* PhysicsEngineBindings::BoxCollision(const glm::mat4& a_transform, cons
 
     return nullptr;
 }
-MonoArray* PhysicsEngineBindings::BoxCollision(MonoArray* a_transform, const glm::vec3& a_extents) const
-{
-    glm::mat4 t;
-    float* tDat = (float*)&t;
-
-    for (int i = 0; i < 16; ++i)
-    {
-        tDat[i] = mono_array_get(a_transform, float, i);
-    }
-
-    uint32_t resultCount;
-    const uint32_t* data = BoxCollision(t, a_extents, &resultCount);
-
-    if (data != nullptr)
-    {
-        IDEFER(delete[] data);
-
-        MonoArray* arr = mono_array_new(RuntimeManager::GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
-
-        for (uint32_t i = 0; i < resultCount; ++i)
-        {
-            mono_array_set(arr, uint32_t, i, data[i]);
-        }
-
-        return arr;
-    }
-    
-    return NULL;
-}
-
 uint32_t* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm::vec3& a_max, uint32_t* a_resultCount) const
 {
     *a_resultCount = 0;
@@ -837,25 +754,4 @@ uint32_t* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm
     }
 
     return nullptr;
-}
-MonoArray* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm::vec3& a_max) const
-{
-    uint32_t resultCount;
-    const uint32_t* data = AABBCollision(a_min, a_max, &resultCount);
-
-    if (data != nullptr)
-    {
-        IDEFER(delete[] data);
-
-        MonoArray* arr = mono_array_new(RuntimeManager::GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount);
-
-        for (uint32_t i = 0; i < resultCount; ++i)
-        {
-            mono_array_set(arr, uint32_t, i, data[i]);
-        }
-
-        return arr;
-    }
-
-    return NULL;
 }

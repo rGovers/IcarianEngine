@@ -3,15 +3,18 @@ using IcarianEngine.Maths;
 using System;
 using System.Runtime.CompilerServices;
 
+#include "EngineBoxCollisionShapeInterop.h"
+#include "InteropBinding.h"
+
+ENGINE_BOXCOLLISIONSHAPE_EXPORT_TABLE(IOP_BIND_FUNCTION);
+
 namespace IcarianEngine.Physics.Shapes
 {
     public class BoxCollisionShape : CollisionShape, IDestroy
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint CreateBox(Vector3 a_extents);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static Vector3 GetExtents(uint a_addr);
-
+        /// <summary>
+        /// The Definition used to create the BoxCollisionShape
+        /// </summary>
         public BoxCollisionShapeDef BoxDef
         {
             get
@@ -20,6 +23,9 @@ namespace IcarianEngine.Physics.Shapes
             }
         }
 
+        /// <summary>
+        /// Determines if the BoxCollisionShape is diposed
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -28,49 +34,65 @@ namespace IcarianEngine.Physics.Shapes
             }
         }
 
+        /// <summary>
+        /// The extents of the box
+        /// </summary>
         public Vector3 Extents
         {
             get
             {
-                return GetExtents(InternalAddr);
+                return BoxCollisionShapeInterop.GetExtents(InternalAddr);
             }
         }
 
-        public BoxCollisionShape()
+        BoxCollisionShape()
         {
             InternalAddr = uint.MaxValue;
         }
 
-        public override void Init()
+        /// <summary>
+        /// Creates a instance of <see cref="IcarianEngine.Physics.Shapes.BoxCollisionShape"/>
+        /// </summary>
+        /// <param name="a_extents">The extents of the BoxCollisionShape</param>
+        public BoxCollisionShape(Vector3 a_extents)
+        {
+            InternalAddr = BoxCollisionShapeInterop.CreateBox(a_extents);
+        }
+
+        internal override void Init()
         {
             BoxCollisionShapeDef def = BoxDef;
 
             if (def != null)
             {
-                InternalAddr = CreateBox(def.Extents);
+                InternalAddr = BoxCollisionShapeInterop.CreateBox(def.Extents);
             }
             else
             {
-                InternalAddr = CreateBox(Vector3.One);
+                InternalAddr = BoxCollisionShapeInterop.CreateBox(Vector3.One);
             }
         }
 
+        /// <summary> 
+        /// Disposes of the BoxCollisionShape
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the BoxCollisionShape is being Disposed
+        /// </summary>
+        /// <param name="a_disposing">Whether the BoxCollisionShape is Disposed or Finalized</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(InternalAddr != uint.MaxValue)
             {
                 if(a_disposing)
                 {
-                    CollisionShape.DestroyShape(InternalAddr);
-
-                    InternalAddr = uint.MaxValue;
+                    CollisionShapeInterop.DestroyShape(InternalAddr);
                 }
                 else
                 {
@@ -84,7 +106,6 @@ namespace IcarianEngine.Physics.Shapes
                 Logger.IcarianError("Multiple BoxCollisionShape Dispose");
             }
         }
-
         ~BoxCollisionShape()
         {
             Dispose(false);

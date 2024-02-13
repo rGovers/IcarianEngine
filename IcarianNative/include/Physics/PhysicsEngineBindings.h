@@ -10,23 +10,13 @@ class PhysicsEngine;
 
 #include "Runtime/RuntimeManager.h"
 
-struct RaycastResult
-{
-    glm::vec3 Position;
-    uint32_t BodyAddr;
-};
-
-enum e_ForceMode : uint16_t
-{
-    ForceMode_Force = 0,
-    ForceMode_Acceleration = 1,
-    ForceMode_Impulse = 2
-};
+#include "EnginePhysicsInteropStructures.h"
+#include "EngineRigidBodyInteropStructures.h"
 
 class PhysicsEngineBindings
 {
 private:
-    PhysicsEngine*  m_engine;
+    PhysicsEngine* m_engine;
 
     void AddBody(JPH::uint32 a_id, uint32_t a_index) const;
     
@@ -72,15 +62,8 @@ public:
     void SetGravity(const glm::vec3& a_gravity) const;
     glm::vec3 GetGravity() const;
 
-    RaycastResult* Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir, uint32_t* a_resultCount) const;
-    MonoArray* Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir) const;
-
+    RaycastResultBuffer* Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir, uint32_t* a_resultCount) const;
     uint32_t* SphereCollision(const glm::vec3& a_pos, float a_radius, uint32_t* a_resultCount) const;
-    MonoArray* SphereCollision(const glm::vec3& a_pos, float a_radius) const;
-
     uint32_t* BoxCollision(const glm::mat4& a_transform, const glm::vec3& a_extents, uint32_t* a_resultCount) const;
-    MonoArray* BoxCollision(MonoArray* a_transform, const glm::vec3& a_extents) const;
-
     uint32_t* AABBCollision(const glm::vec3& a_min, const glm::vec3& a_max, uint32_t* a_resultCount) const;
-    MonoArray* AABBCollision(const glm::vec3& a_min, const glm::vec3& a_max) const;
 };

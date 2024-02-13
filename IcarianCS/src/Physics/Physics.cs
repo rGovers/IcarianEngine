@@ -2,54 +2,56 @@ using IcarianEngine.Maths;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EnginePhysicsInterop.h"
+#include "EnginePhysicsInteropStructures.h"
+#include "InteropBinding.h"
+
+ENGINE_PHYSICS_EXPORT_TABLE(IOP_BIND_FUNCTION)
+
 namespace IcarianEngine.Physics
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    struct RaycastResultS
-    {
-        public Vector3 Position;
-        public uint BodyAddr;
-    };
-
     public struct RaycastResult
     {
+        /// <summary>
+        /// The position of the hit
+        /// </summary>
         public Vector3 Position;
+        /// <summary>
+        /// The body that was hit
+        /// </summary>
         public PhysicsBody Body;
     };
 
     public static class Physics
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        static extern void SetGravity(Vector3 a_gravity);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        static extern Vector3 GetGravity();
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        static extern RaycastResultS[] RaycastS(Vector3 a_pos, Vector3 a_dir);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        static extern uint[] SphereCollisionS(Vector3 a_pos, float a_radius);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        static extern uint[] BoxCollisionS(float[] a_transform, Vector3 a_extents);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        static extern uint[] AABBCollisionS(Vector3 a_min, Vector3 a_max);
-
+        /// <summary>
+        /// The gravity of the physics simulation
+        /// </summary>
         public static Vector3 Gravity
         {
             get
             {
-                return GetGravity();
+                return PhysicsInterop.GetGravity();
             }
             set
             {
-                SetGravity(value);
+                PhysicsInterop.SetGravity(value);
             }
         }
 
-        public static bool Raycast(Vector3 a_pos, Vector3 a_dir, out RaycastResult[] a_hits)
+        /// <summary>
+        /// Does a raycast in the physics simulation
+        /// </summary>
+        /// <param name="a_pos">The starting postion of the ray cast</param>
+        /// <param name="a_dir">The direction of the ray cast</param>
+        /// <param name="a_distance">The distance the ray goes</param>
+        /// <param name="a_hits">Information about the hit bodies</param>
+        /// <returns>If the ray hit anything</returns>
+        public static bool Raycast(Vector3 a_pos, Vector3 a_dir, float a_distance, out RaycastResult[] a_hits)
         {
             a_hits = null;
 
-            RaycastResultS[] result = RaycastS(a_pos, a_dir);
+            RaycastResultBuffer[] result = PhysicsInterop.Raycast(a_pos, a_dir * a_distance);
             if (result != null)
             {
                 int count = result.Length;
@@ -67,11 +69,18 @@ namespace IcarianEngine.Physics
 
             return false;
         }
+        /// <summary>
+        /// Does a sphere collision in the physics simulation
+        /// </summary>
+        /// <param name="a_pos">The position of the sphere</param>
+        /// <param name="a_radius">The radius of the sphere</param>
+        /// <param name="a_bodies">The bodies hit by the sphere</param>
+        /// <returns>If the sphere hit anything</returns>
         public static bool SphereCollision(Vector3 a_pos, float a_radius, out PhysicsBody[] a_bodies)
         {
             a_bodies = null;
 
-            uint[] result = SphereCollisionS(a_pos, a_radius);
+            uint[] result = PhysicsInterop.SphereCollision(a_pos, a_radius);
             if (result != null)
             {
                 int count = result.Length;
@@ -88,11 +97,33 @@ namespace IcarianEngine.Physics
 
             return false;
         }
+
+        /// <summary>
+        /// Does a box collision in the physics simulation
+        /// </summary>
+        /// <param name="a_pos">The position of the box</param>
+        /// <param name="a_rotation">The rotation of the box</param>
+        /// <param name="a_extents">The extents of the box</param>
+        /// <param name="a_bodies">The bodies hit by the box</param>
+        /// <returns>If the box hit anything</returns>
+        public static bool BoxCollision(Vector3 a_pos, Quaternion a_rotation, Vector3 a_extents, out PhysicsBody[] a_bodies)
+        {
+            Matrix4 mat = Matrix4.FromTransform(a_pos, a_rotation, Vector3.One);
+
+            return BoxCollision(mat, a_extents, out a_bodies);
+        }
+        /// <summary>
+        /// Does a box collision in the physics simulation
+        /// </summary>
+        /// <param name="a_transform">The transform matrix of the box</param>
+        /// <param name="a_extents">The extents of the box</param>
+        /// <param name="a_bodies">The bodies hit by the box</param>
+        /// <returns>If the box hit anything</returns>
         public static bool BoxCollision(Matrix4 a_transform, Vector3 a_extents, out PhysicsBody[] a_bodies)
         {
             a_bodies = null;
 
-            uint[] result = BoxCollisionS(a_transform.ToArray(), a_extents);
+            uint[] result = PhysicsInterop.BoxCollision(a_transform.ToArray(), a_extents);
             if (result != null)
             {
                 int count = result.Length;
@@ -109,11 +140,18 @@ namespace IcarianEngine.Physics
 
             return false;
         }
+        /// <summary>
+        /// Does a AABB collision in the physics simulation
+        /// </summary>
+        /// <param name="a_min">The position of the minimum point of the AABB</param>
+        /// <param name="a_max">The postion of the maximum point of the AABB</param>
+        /// <param name="a_bodies">The bodies hit by the AABB</param>
+        /// <returns>If the AABB hit anything</returns>
         public static bool AABBCollsion(Vector3 a_min, Vector3 a_max, out PhysicsBody[] a_bodies)
         {
             a_bodies = null;
 
-            uint[] result = AABBCollisionS(a_min, a_max);
+            uint[] result = PhysicsInterop.AABBCollision(a_min, a_max);
             if (result != null)
             {
                 int count = result.Length;

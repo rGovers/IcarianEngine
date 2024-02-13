@@ -165,6 +165,11 @@ Application::~Application()
 
     UIControl::Destroy();
 
+    for (uint32_t i = 0; i < DeletionQueue::QueueSize; ++i)
+    {
+        DeletionQueue::Flush(DeletionIndex_Update);
+    }
+
     delete m_audioEngine;
     delete m_physicsEngine;
     delete m_renderEngine;
