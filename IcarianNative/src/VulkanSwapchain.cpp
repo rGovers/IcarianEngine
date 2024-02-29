@@ -77,8 +77,7 @@ void VulkanSwapchain::Init(const glm::ivec2& a_size)
         info.Capabilites.currentTransform,
         vk::CompositeAlphaFlagBitsKHR::eOpaque,
         PresentMode,
-        VK_TRUE,
-        m_swapchain
+        VK_TRUE
     );
 
     const uint32_t queueFamilyIndices[] = { m_engine->GetGraphicsQueueIndex(), m_engine->GetPresentQueueIndex() };
@@ -499,8 +498,6 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, double a_delta, double 
     {
         if (size != m_size)
         {
-            device.waitIdle();
-            
             Destroy();
             InitHeadless(size);
 
@@ -528,23 +525,33 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, double a_delta, double 
         char* dat;
         if (vmaMapMemory(allocator, m_allocBuffer, (void**)&dat) != VK_SUCCESS)
         {
-            Logger::Error("Failed mapping frame buffer");
-
-            assert(0);
+            ICARIAN_ASSERT_MSG(0, "Failed mapping frame buffer");
         }
+        IDEFER(vmaUnmapMemory(allocator, m_allocBuffer));
 
         HeadlessAppWindow* window = (HeadlessAppWindow*)m_window;
         window->PushFrameData((uint32_t)m_size.x, (uint32_t)m_size.y, dat, a_delta, a_time);
-
-        vmaUnmapMemory(allocator, m_allocBuffer);
     }
     else
     {
-        switch (device.acquireNextImageKHR(m_swapchain, UINT64_MAX, semaphore, nullptr, a_imageIndex))
+        const vk::Result res = device.acquireNextImageKHR(m_swapchain, UINT64_MAX, semaphore, nullptr, a_imageIndex);
+        switch (res)
         {
         case vk::Result::eErrorOutOfDateKHR:
         {
             Destroy();
+            Init(size);
+
+            uint32_t width = (uint32_t)size.x;
+            uint32_t height = (uint32_t)size.y;
+
+            void* args[] = 
+            {
+                &width, 
+                &height
+            };
+
+            m_resizeFunc->Exec(args);
 
             return false;
         }
@@ -572,9 +579,7 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, double a_delta, double 
         }
         default:
         {
-            Logger::Error("Failed to aquire swapchain image");
-
-            assert(0);
+            ICARIAN_ASSERT_MSG(0, "Failed to aquire swapchain image");
 
             break;
         }

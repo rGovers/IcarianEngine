@@ -237,6 +237,32 @@ public:
 
         return m_size++;
     }
+    inline void PushVals(const T& a_data, uint32_t a_count)
+    {
+        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+
+        return UPushVals(a_data, a_count);
+    }
+    void UPushVals(const T& a_data, uint32_t a_count)
+    {
+        const uint32_t aSize = (m_size + a_count) * sizeof(T);
+        T* dat = (T*)malloc(aSize);
+        memset(dat, 0, aSize);
+        if (m_data != nullptr)
+        {
+            memcpy(dat, m_data, m_size * sizeof(T));
+
+            free(m_data);
+        }
+
+        for (uint32_t i = 0; i < a_count; ++i)
+        {
+            dat[m_size + i] = a_data;
+        }
+
+        m_data = dat;
+        m_size += a_count;
+    }
 
     T Pop()
     {

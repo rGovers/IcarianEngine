@@ -92,7 +92,37 @@ RUNTIME_FUNCTION(void, Application, SetFullscreenState,
     appMonitor.Height = a_monitor.Height;
     appMonitor.Handle = a_monitor.Handle;
 
-    Instance->SetFullscreen(appMonitor, (bool)a_state, a_width, a_height);
+    class ApplicationSetFullscreen : public DeletionObject
+    {
+    private:
+        bool       m_state;
+        uint32_t   m_width;
+        uint32_t   m_height;
+        AppMonitor m_monitor;
+
+    protected:
+
+    public:
+        ApplicationSetFullscreen(bool a_state, uint32_t a_width, uint32_t a_height, const AppMonitor& a_monitor)
+        {
+            m_state = a_state;
+            m_width = a_width;
+            m_height = a_height;
+            m_monitor = a_monitor;
+        }
+        virtual ~ApplicationSetFullscreen()
+        {
+            
+        }
+
+        virtual void Destroy()
+        {
+            printf("? \n");
+            Instance->SetFullscreen(m_monitor, m_state, m_width, m_height);
+        }
+    };
+
+    DeletionQueue::Push(new ApplicationSetFullscreen((bool)a_state, a_width, a_height, appMonitor), DeletionIndex_Render);
 }, Monitor a_monitor, uint32_t a_state, uint32_t a_width, uint32_t a_height)
 
 static void AppAssertCallback(const std::string& a_string)

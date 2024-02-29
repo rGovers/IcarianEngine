@@ -29,7 +29,7 @@ static void TraceImpl(const char* inFMT, ...)
 {
     va_list list;
     va_start(list, inFMT);
-    char buffer[1024];
+    char buffer[2048];
     vsnprintf(buffer, sizeof(buffer), inFMT, list);
     va_end(list);
 
@@ -189,13 +189,13 @@ void PhysicsEngine::Update(double a_delta)
                 glm::vec3 iTranslation = glm::vec3(0.0f);
                 glm::quat iRotation = glm::identity<glm::quat>();
 
-                if (buffer.Parent != -1)
+                if (buffer.ParentAddr != -1)
                 {
                     glm::vec3 iScale;
                     glm::vec3 iSkew;
                     glm::vec4 iPerspectice;
 
-                    const glm::mat4 pMat = ObjectManager::GetGlobalMatrix(buffer.Parent);
+                    const glm::mat4 pMat = ObjectManager::GetGlobalMatrix(buffer.ParentAddr);
                     const glm::mat4 pInv = glm::inverse(pMat);
 
                     glm::decompose(pInv, iTranslation, iRotation, iScale, iSkew, iPerspectice);

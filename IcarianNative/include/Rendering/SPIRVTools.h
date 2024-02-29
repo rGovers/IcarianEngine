@@ -4,6 +4,7 @@
 #include <string>
 #include <SPIRV/GlslangToSpv.h>
 #include <glslang/Include/ResourceLimits.h>
+#include <glslang/Public/ShaderLang.h>
 
 std::string GLSL_fromFShader(const std::string_view& a_str);
 

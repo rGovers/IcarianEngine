@@ -263,7 +263,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
 
         CUBE_CProject_AppendLibrary(&project, "lib/enet/build/enet.lib");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/glslang.lib");
-        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/OGLCompiler.lib");
+        // CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/OGLCompiler.lib");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/SPIRV.lib");
         CUBE_CProject_AppendLibrary(&project, "lib/JoltPhysics/build/Jolt.lib");
         CUBE_CProject_AppendLibrary(&project, "lib/openal-soft/build/OpenALSoft.lib");
@@ -297,7 +297,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
 
         CUBE_CProject_AppendLibrary(&project, "lib/enet/build/libenet.a");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libglslang.a");
-        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libOGLCompiler.a");
+        // CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libOGLCompiler.a");
         CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libSPIRV.a");
         CUBE_CProject_AppendLibrary(&project, "lib/JoltPhysics/build/libJolt.a");
         CUBE_CProject_AppendLibrary(&project, "lib/openal-soft/build/libOpenALSoft.a");

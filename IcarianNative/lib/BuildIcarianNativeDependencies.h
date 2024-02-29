@@ -935,7 +935,7 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
 
 DependencyProject* BuildIcarianNativeIDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
-    *a_count = 7;
+    *a_count = 6;
 
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * (*a_count));
 
@@ -945,20 +945,20 @@ DependencyProject* BuildIcarianNativeIDependencies(CBUINT32* a_count, e_TargetPl
     projects[1].Project = BuildGLSLangProject(a_targetPlatform, a_configuration);
     projects[1].WorkingDirectory = "IcarianNative/lib/glslang";
 
-    projects[2].Project = BuildOGLCompilersProject(a_targetPlatform, a_configuration);
+    // projects[2].Project = BuildOGLCompilersProject(a_targetPlatform, a_configuration);
+    // projects[2].WorkingDirectory = "IcarianNative/lib/glslang";
+
+    projects[2].Project = BuildSPIRVProject(a_targetPlatform, a_configuration);
     projects[2].WorkingDirectory = "IcarianNative/lib/glslang";
 
-    projects[3].Project = BuildSPIRVProject(a_targetPlatform, a_configuration);
-    projects[3].WorkingDirectory = "IcarianNative/lib/glslang";
+    projects[3].Project = BuildSPIRVToolsProject(a_targetPlatform, a_configuration);
+    projects[3].WorkingDirectory = "IcarianNative/lib/SPIRV-Tools";
 
-    projects[4].Project = BuildSPIRVToolsProject(a_targetPlatform, a_configuration);
-    projects[4].WorkingDirectory = "IcarianNative/lib/SPIRV-Tools";
+    projects[4].Project = BuildJoltPhysicsProject(a_targetPlatform, a_configuration);
+    projects[4].WorkingDirectory = "IcarianNative/lib/JoltPhysics";
 
-    projects[5].Project = BuildJoltPhysicsProject(a_targetPlatform, a_configuration);
-    projects[5].WorkingDirectory = "IcarianNative/lib/JoltPhysics";
-
-    projects[6].Project = BuildOpenALSoft(a_targetPlatform, a_configuration);
-    projects[6].WorkingDirectory = "IcarianNative/lib/openal-soft";
+    projects[5].Project = BuildOpenALSoft(a_targetPlatform, a_configuration);
+    projects[5].WorkingDirectory = "IcarianNative/lib/openal-soft";
 
     return projects;
 }

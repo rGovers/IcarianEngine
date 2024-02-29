@@ -12,7 +12,15 @@
 #include "Rendering/RenderEngine.h"
 #include "Runtime/RuntimeFunction.h"
 
+static RuntimeManager* Instance = nullptr;
+
+#include "EngineIcarianAssemblyInterop.h"
+
+ENGINE_ICARIANASSEMBLY_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+
 #ifndef WIN32
+#include <dlfcn.h>
+
 #include "Flare/MonoNativeImpl.h"
 
 static constexpr char MonoNativeLibName[] = "libmono-native.so";
@@ -22,9 +30,42 @@ static constexpr char MonoNativeBaseName[] = "System.Native";
 static constexpr uint32_t MonoNativeBaseNameLength = sizeof(MonoNativeBaseName) - 1;
 
 #define MonoThisLibHandle ((void*)-1)
+#else
+#include "Flare/WindowsHeaders.h"
+#endif
 
 static void* RuntimeDLOpen(const char* a_name, int a_flags, char** a_error, void* a_userData)
 {
+    const std::filesystem::path p = RuntimeManager::GetDLLPath(a_name);
+
+#ifdef WIN32
+    if (!p.empty())
+    {
+        const std::filesystem::path ext = p.extension();
+        
+        if (ext == ".dll")
+        {
+            const std::string str = p.string();
+
+            return LoadLibraryA(str.c_str());
+        }   
+    }
+#else
+    if (!p.empty())
+    {
+        const std::filesystem::path ext = p.extension();
+
+        if (ext == ".so")
+        {
+            const std::string str = p.string();
+
+            void* handle = dlopen(str.c_str(), a_flags);
+            ICARIAN_ASSERT_MSG(handle != NULL, std::string("Failed to open DLL: ") + dlerror());
+
+            return handle; 
+        }
+    }
+
     const uint32_t len = (uint32_t)strlen(a_name);
     const char* ptrLib = a_name + len - MonoNativeLibNameLength;
     const char* ptrBase = a_name + len - MonoNativeBaseNameLength;
@@ -33,21 +74,32 @@ static void* RuntimeDLOpen(const char* a_name, int a_flags, char** a_error, void
     {
         return MonoThisLibHandle;
     }
+#endif
 
     return NULL;
 }
+
 static void* RuntimeDLSymbol(void* a_handle, const char* a_name, char** a_error, void* a_userData)
 {
+#ifdef WIN32
+    if (a_handle != NULL)
+    {
+        return (void*)GetProcAddress((HMODULE)a_handle, a_name);
+    }
+#else
     if (a_handle == MonoThisLibHandle)
     {
         return FlareBase::MonoNativeImpl::GetFunction(a_name);
     }
 
-    return NULL;
-}
+    if (a_handle != NULL)
+    {
+        return dlsym(a_handle, a_name);
+    }
 #endif
 
-static RuntimeManager* Instance = nullptr;
+    return NULL;
+}
 
 RuntimeManager::RuntimeManager()
 {
@@ -62,9 +114,9 @@ RuntimeManager::RuntimeManager()
     
 #ifndef WIN32
     FlareBase::MonoNativeImpl::Init();
+#endif
 
     mono_dl_fallback_register(RuntimeDLOpen, RuntimeDLSymbol, NULL, NULL);
-#endif
 
     m_domain = mono_jit_init_version("Core", "v4.0");
     m_assembly = mono_domain_assembly_open(m_domain, "IcarianCS.dll");
@@ -84,6 +136,8 @@ RuntimeManager::RuntimeManager()
     m_shutdownMethod = mono_method_desc_search_in_class(shutdownDesc, m_programClass);
     IDEFER(mono_method_desc_free(shutdownDesc));
     ICARIAN_ASSERT(m_shutdownMethod != NULL);
+
+    ENGINE_ICARIANASSEMBLY_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 }
 RuntimeManager::~RuntimeManager()
 {
@@ -143,6 +197,58 @@ void RuntimeManager::BindFunction(const std::string_view& a_location, void* a_fu
 void RuntimeManager::AttachThread()
 {
     mono_jit_thread_attach(Instance->m_domain);
+}
+
+void RuntimeManager::PushDLLPath(const std::filesystem::path& a_path)
+{
+    const std::filesystem::path filename = a_path.filename();
+
+    Instance->m_dllLookup.emplace(filename.string(), a_path);
+}
+std::filesystem::path RuntimeManager::GetDLLPath(const std::string_view& a_path)
+{
+    if (Instance == nullptr)
+    {
+        return std::filesystem::path();
+    }
+
+    const std::filesystem::path assemblyPath = std::filesystem::path(a_path);
+    const std::filesystem::path filename = assemblyPath.filename();
+    const std::string s = filename.string();
+
+    auto iter = Instance->m_dllLookup.find(s);
+    if (iter != Instance->m_dllLookup.end())
+    {
+        return iter->second;
+    }
+
+#ifdef WIN32
+    iter = Instance->m_dllLookup.find(s + ".dll");
+    if (iter != Instance->m_dllLookup.end())
+    {
+        return iter->second;
+    }
+#else
+    iter = Instance->m_dllLookup.find(s + ".so");
+    if (iter != Instance->m_dllLookup.end())
+    {
+        return iter->second;
+    }
+
+    iter = Instance->m_dllLookup.find("lib" + s);
+    if (iter != Instance->m_dllLookup.end())
+    {
+        return iter->second;
+    }
+
+    iter = Instance->m_dllLookup.find("lib" + s + ".so");
+    if (iter != Instance->m_dllLookup.end())
+    {
+        return iter->second;
+    }
+#endif
+
+    return std::filesystem::path();
 }
 
 MonoDomain* RuntimeManager::GetDomain()

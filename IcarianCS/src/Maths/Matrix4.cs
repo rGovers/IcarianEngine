@@ -2,6 +2,9 @@ namespace IcarianEngine.Maths
 {
     public struct Matrix4
     {
+        /// <summary>
+        /// Identity Matrix
+        /// </summary>
         public static readonly Matrix4 Identity = new Matrix4(1.0f);
 
         float[] m_data;
@@ -79,7 +82,7 @@ namespace IcarianEngine.Maths
             m_data[15] = a_3_3;
         }
         /// <summary>
-        /// Copies the values from another matrix
+        /// Copies the values from another Matrix
         /// </summary>
         public Matrix4(Matrix4 a_other)
         {
@@ -97,15 +100,16 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Converts the matrix to an array
+        /// Converts the Matrix to an array
         /// </summary>
+        /// <returns>The Matrix as an array</returns>
         public float[] ToArray()
         {
             return m_data;
         }
 
         /// <summary>
-        /// Generates an inverse of the matrix
+        /// Generates an inverse of the Matrix
         /// </summary>
         /// <param name="a_mat">Matrix to generate inverse of</param>
         /// <returns>Inverse of the matrix</returns>
@@ -197,12 +201,12 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Generates a transform matrix looking to the specified direction
+        /// Generates a transform Matrix looking to the specified direction
         /// </summary>
         /// <param name="a_pos">Position to look from</param>
         /// <param name="a_forward">Direction to look at</param>
         /// <param name="a_up">Up vector</param>
-        /// <returns>Transform matrix</returns>
+        /// <returns>Transform Matrix</returns>
         public static Matrix4 LookTo(Vector3 a_pos, Vector3 a_forward, Vector3 a_up)
         {
             Vector3 zAxis = Vector3.Normalized(a_forward);
@@ -218,7 +222,7 @@ namespace IcarianEngine.Maths
             );
         }
         /// <summary>
-        /// Generates a transform matrix looking at the specified target
+        /// Generates a transform Matrix looking at the specified target
         /// </summary>
         /// <param name="a_pos">Position to look from</param>
         /// <param name="a_target">Target to look at</param>
@@ -230,7 +234,7 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Generates a orthographic protection matrix
+        /// Generates a orthographic protection Matrix
         /// </summary>
         /// <param name="a_x">Width of the view</param>
         /// <param name="a_y">Height of the view</param>
@@ -248,25 +252,27 @@ namespace IcarianEngine.Maths
             );
         }
         /// <summary>
-        /// Generates a perspective matrix
+        /// Generates a perspective Matrix
         /// </summary>
         /// <param name="a_fov">Field of view in radians.</param>
         /// <param name="a_aspect">Aspect ratio</param>
         /// <param name="a_near">Near plane</param>
         /// <param name="a_far">Far plane</param>
-        /// <returns>Perspective matrix</returns>
+        /// <returns>Perspective Matrix</returns>
         public static Matrix4 CreatePerspective(float a_fov, float a_aspect, float a_near, float a_far)
         {
-            float tanHalfFOV = Mathf.Tan(a_fov * 0.5f);
+            // float tanHalfFOV = Mathf.Tan(a_fov * 0.5f);
+            float halfFov = a_fov * 0.5f;
+            float f = Mathf.Cos(halfFov) / Mathf.Sin(halfFov);
 
             // Apparently no projection matrix is correct and had to eyeball until the view projection matrix looked right
             // No idea if this is correct but looks right
             return new Matrix4
             (
-                1.0f / (a_aspect * tanHalfFOV), 0.0f,              0.0f,                                 0.0f,
-                0.0f,                           1.0f / tanHalfFOV, 0.0f,                                 0.0f,
-                0.0f,                           0.0f,              a_far / (a_near - a_far),             -1.0f,
-                0.0f,                           0.0f,              -(a_far * a_near) / (a_far - a_near), 0.0f
+                a_aspect * f, 0.0f,  0.0f,                                 0.0f,
+                0.0f,         f,     0.0f,                                 0.0f,
+                0.0f,         0.0f,  a_far / (a_near - a_far),             -1.0f,
+                0.0f,         0.0f,  -(a_far * a_near) / (a_far - a_near), 0.0f
             );
         }
 
@@ -314,7 +320,7 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Decomposes the matrix into its components
+        /// Decomposes the Matrix into its base components
         /// </summary>
         /// <param name="a_translation">Translation component</param>
         /// <param name="a_rotation">Rotation component</param>
@@ -325,10 +331,10 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Transposes the matrix
+        /// Transposes the Matrix
         /// </summary>
         /// <param name="a_matrix">Matrix to transpose</param>
-        /// <returns>Transposed matrix</returns>
+        /// <returns>Transposed Matrix</returns>
         public static Matrix4 Transpose(Matrix4 a_matrix)
         {
             Matrix4 mat = new Matrix4(0.0f);

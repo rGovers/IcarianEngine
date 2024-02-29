@@ -2,7 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Xml;
+
+#include "EngineIcarianAssemblyInterop.h"
+#include "InteropBinding.h"
+
+ENGINE_ICARIANASSEMBLY_EXPORT_TABLE(IOP_BIND_FUNCTION);
 
 namespace IcarianEngine.Mod
 {
@@ -22,6 +29,9 @@ namespace IcarianEngine.Mod
             }
         }
 
+        /// <summary>
+        /// Information about the loaded assembly
+        /// </summary>
         public IcarianAssemblyInfo AssemblyInfo
         {
             get
@@ -30,6 +40,9 @@ namespace IcarianEngine.Mod
             }
         }
 
+        /// <summary>
+        /// C# assemblies loaded by the IcarianAssembly
+        /// </summary>
         public IEnumerable<Assembly> Assemblies
         {
             get
@@ -43,6 +56,11 @@ namespace IcarianEngine.Mod
 
         }
 
+        /// <summary>
+        /// Gets a type from the IcarianAssembly
+        /// </summary>
+        /// <param name="a_name">The name of the type to get</param>
+        /// <returns>The type. Null on failure</returns>
         public Type GetTypeValue(string a_name)
         {
             foreach (Assembly asm in m_assemblies)
@@ -132,9 +150,27 @@ namespace IcarianEngine.Mod
 
                 if (Directory.Exists(assemblyPath))
                 {
+                    string[] paths;
                     asm.m_assemblies = new List<Assembly>();
 
-                    string[] paths = Directory.GetFiles(assemblyPath);
+                    string nativeAssemblies = Path.Combine(assemblyPath, "Native");
+                    if (Directory.Exists(nativeAssemblies))
+                    {
+                        paths = Directory.GetFiles(nativeAssemblies);
+                        foreach (string str in paths)
+                        {
+                            string ext = Path.GetExtension(str);
+
+                            if (ext != ".dll" && ext != ".so")
+                            {
+                                continue;
+                            }
+
+                            IcarianAssemblyInterop.LoadNativeAssembly(str);
+                        }
+                    }
+
+                    paths = Directory.GetFiles(assemblyPath);
                     foreach (string str in paths)
                     {
                         if (Path.GetExtension(str) != ".dll")

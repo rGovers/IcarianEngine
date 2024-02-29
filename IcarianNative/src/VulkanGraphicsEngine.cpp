@@ -814,21 +814,21 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                             for (uint32_t k = 0; k < boneCount; ++k) 
                             {
                                 const BoneTransformData& bone = skeleton.BoneData[k];
-                                const TransformBuffer& buffer = ObjectManager::GetTransformBuffer(bone.TransformIndex);
+                                const TransformBuffer buffer = ObjectManager::GetTransformBuffer(bone.TransformIndex);
 
                                 glm::mat4 transform = buffer.ToMat4();
 
-                                auto iter = boneMap.find(buffer.Parent);
+                                auto iter = boneMap.find(buffer.ParentAddr);
                                 while (iter != boneMap.end()) 
                                 {
                                     const uint32_t index = iter->second;
 
                                     const BoneTransformData& parentBone = skeleton.BoneData[index];
-                                    const TransformBuffer& parentBuffer = ObjectManager::GetTransformBuffer(parentBone.TransformIndex);
+                                    const TransformBuffer parentBuffer = ObjectManager::GetTransformBuffer(parentBone.TransformIndex);
 
                                     transform = parentBuffer.ToMat4() * transform;
 
-                                    iter = boneMap.find(parentBuffer.Parent);
+                                    iter = boneMap.find(parentBuffer.ParentAddr);
                                 }
 
                                 boneBuffer[k].BoneMatrix = transform * bone.InverseBindPose;
@@ -1318,16 +1318,18 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                     for (uint32_t j = 0; j < transformCount; ++j)
                     {
                         PROFILESTACK("Culling");
-
-                        const uint32_t transformAddr = modelBuffer.TransformAddr[j];
-                        if (transformAddr != -1)
+                        for (uint32_t j = 0; j < transformCount; ++j)
                         {
-                            const glm::mat4 transform = ObjectManager::GetGlobalMatrix(modelBuffers[i].TransformAddr[j]);
-                            const glm::vec3 position = transform[3].xyz();
-
-                            if (frustum.CompareSphere(position, radius))
+                            const uint32_t transformAddr = modelBuffer.TransformAddr[j];
+                            if (transformAddr != -1)
                             {
-                                transforms.emplace_back(transform);
+                                const glm::mat4 transform = ObjectManager::GetGlobalMatrix(transformAddr);
+                                const glm::vec3 position = transform[3].xyz();
+
+                                if (frustum.CompareSphere(position, radius))
+                                {
+                                    transforms.emplace_back(transform);
+                                }
                             }
                         }
                     }
@@ -1429,21 +1431,21 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                         {
                                             const BoneTransformData& bone = skeleton.BoneData[k];
 
-                                            const TransformBuffer& buffer = ObjectManager::GetTransformBuffer(bone.TransformIndex);
+                                            const TransformBuffer buffer = ObjectManager::GetTransformBuffer(bone.TransformIndex);
 
                                             glm::mat4 transform = buffer.ToMat4();
 
-                                            auto iter = boneMap.find(buffer.Parent);
+                                            auto iter = boneMap.find(buffer.ParentAddr);
                                             while (iter != boneMap.end())
                                             {
                                                 const uint32_t index = iter->second;
 
                                                 const BoneTransformData& parentBone = skeleton.BoneData[index];
-                                                const TransformBuffer& parentBuffer = ObjectManager::GetTransformBuffer(parentBone.TransformIndex);
+                                                const TransformBuffer parentBuffer = ObjectManager::GetTransformBuffer(parentBone.TransformIndex);
                                                 
                                                 transform = parentBuffer.ToMat4() * transform;
 
-                                                iter = boneMap.find(parentBuffer.Parent);
+                                                iter = boneMap.find(parentBuffer.ParentAddr);
                                             }
 
                                             boneBuffer[k].BoneMatrix = transform * bone.InverseBindPose;
@@ -1662,6 +1664,10 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                 }
 
                 const PointLightBuffer& buffer = lights[j];
+                if ((buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Radius <= 0.0f || buffer.Intensity <= 0.0f)
+                {
+                    continue;
+                }
 
                 const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
                 ICARIAN_ASSERT(lightBuffer != nullptr);
@@ -1844,6 +1850,10 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
             }
 
             break;
+        }
+        default:
+        {
+            ICARIAN_ASSERT(0);
         }
         }
     }
@@ -2052,7 +2062,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
                     const PointLightBuffer& pointLight = lights[j];
 
-                    if (pointLight.TransformAddr != -1 && camBuffer.RenderLayer & pointLight.RenderLayer)
+                    if (pointLight.TransformAddr != -1 && camBuffer.RenderLayer & pointLight.RenderLayer && pointLight.Radius > 0.0f && pointLight.Intensity > 0.0f)
                     {
                         const VulkanLightBuffer* lightData = (VulkanLightBuffer*)pointLight.Data;
                         ICARIAN_ASSERT(lightData != nullptr);
@@ -2100,7 +2110,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
                     const PointLightBuffer& pointLight = lights[j];
 
-                    if (pointLight.TransformAddr != -1 && camBuffer.RenderLayer & pointLight.RenderLayer)
+                    if (pointLight.TransformAddr != -1 && camBuffer.RenderLayer & pointLight.RenderLayer && pointLight.Radius > 0.0f && pointLight.Intensity > 0.0f)
                     {
                         const VulkanLightBuffer* lightData = (VulkanLightBuffer*)pointLight.Data;
                         ICARIAN_ASSERT(lightData != nullptr);

@@ -359,9 +359,9 @@ void PhysicsEngineBindings::SetPhysicsBodyPosition(uint32_t a_addr, const glm::v
     TransformBuffer buffer = ObjectManager::GetTransformBuffer(binding.TransformAddr);
 
     glm::mat4 invMat = glm::identity<glm::mat4>();
-    if (buffer.Parent != -1)
+    if (buffer.ParentAddr != -1)
     {
-        const glm::mat4 transformMat = ObjectManager::GetGlobalMatrix(buffer.Parent);
+        const glm::mat4 transformMat = ObjectManager::GetGlobalMatrix(buffer.ParentAddr);
         invMat = glm::inverse(transformMat);
     }
 
@@ -382,9 +382,9 @@ void PhysicsEngineBindings::SetPhysicsBodyRotation(uint32_t a_addr, const glm::q
     TransformBuffer buffer = ObjectManager::GetTransformBuffer(binding.TransformAddr);
 
     glm::quat invQuat = glm::identity<glm::quat>();
-    if (buffer.Parent != -1)
+    if (buffer.ParentAddr != -1)
     {
-        const glm::mat4 transformMat = ObjectManager::GetGlobalMatrix(buffer.Parent);
+        const glm::mat4 transformMat = ObjectManager::GetGlobalMatrix(buffer.ParentAddr);
         const glm::mat4 inv = glm::inverse(transformMat);
 
         glm::vec3 trans;
