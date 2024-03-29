@@ -219,6 +219,8 @@ static const char HelpString[] = "--help";
 static const CBUINT32 HelpStringLen = sizeof(HelpString) - 1;
 static const char CompileCommandsString[] = "--compile-commands";
 static const CBUINT32 CompileCommandsStringLen = sizeof(CompileCommandsString) - 1;
+static const char JobString[] = "--j";
+static const CBUINT32 JobStringLen = sizeof(JobString) - 1;
 
 void PrintHelp()
 {
@@ -242,8 +244,10 @@ void PrintHelp()
     printf("      release - Release\n");
     printf("\n");
 
+    printf("  --j=<number> - The number of job threads to spawn. \n");
+    printf("\n");
+
     printf("  --help - Print this help message.\n");
-    
     printf("\n");
 }
 

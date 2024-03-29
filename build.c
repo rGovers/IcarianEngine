@@ -41,6 +41,8 @@ int main(int a_argc, char** a_argv)
     CBUINT32 dependencyProjectCount;
     DependencyProject* dependencyProjects;
 
+    CBUINT32 jobThreads;
+
     CBUINT32 lineCount;
     CUBE_String* lines;
 
@@ -59,6 +61,8 @@ int main(int a_argc, char** a_argv)
 
     lineCount = 0;
     lines = CBNULL;
+
+    jobThreads = 4;
 
     enableTrace = CBFALSE;
     enableProfiler = CBFALSE;
@@ -153,6 +157,25 @@ int main(int a_argc, char** a_argv)
         {
             enableProfiler = CBTRUE;
         }
+        else if (strncmp(a_argv[i], JobString, JobStringLen) == 0)
+        {
+            const char* jobCountStr = a_argv[i] + JobStringLen;
+            while (*jobCountStr != '=' && *jobCountStr != 0)
+            {
+                ++jobCountStr;
+            }
+
+            if (*jobCountStr == 0)
+            {
+                printf("Invalid job count argument: %s\n", a_argv[i]);
+
+                return 1;
+            }
+
+            ++jobCountStr;
+
+            jobThreads = (CBUINT32)atoi(jobCountStr);
+        }
         else if (strncmp(a_argv[i], HelpString, HelpStringLen) == 0)
         {
             PrintEngineHelp();
@@ -245,7 +268,7 @@ int main(int a_argc, char** a_argv)
     {
         printf("Compiling %s...\n", dependencyProjects[i].Project.Name.Data);
 
-        ret = CUBE_CProject_Compile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, &lines, &lineCount);
+        ret = CUBE_CProject_MultiCompile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, jobThreads, &lines, &lineCount);
 
         FlushLines(&lines, &lineCount);
 
@@ -269,7 +292,7 @@ int main(int a_argc, char** a_argv)
     flareBaseProject = BuildFlareBaseProject(CBTRUE, targetPlatform, buildConfiguration);
 
     printf("Compiling FlareBase...\n");
-    ret = CUBE_CProject_Compile(&flareBaseProject, compiler, "FlareBase", CBNULL, &lines, &lineCount);
+    ret = CUBE_CProject_MultiCompile(&flareBaseProject, compiler, "FlareBase", CBNULL, jobThreads, &lines, &lineCount);
 
     FlushLines(&lines, &lineCount);
 
@@ -323,7 +346,7 @@ int main(int a_argc, char** a_argv)
     {
         printf("Compiling %s...\n", dependencyProjects[i].Project.Name.Data);
 
-        ret = CUBE_CProject_Compile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, &lines, &lineCount);
+        ret = CUBE_CProject_MultiCompile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, jobThreads, &lines, &lineCount);
 
         FlushLines(&lines, &lineCount);
 
@@ -345,7 +368,7 @@ int main(int a_argc, char** a_argv)
     icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration, enableTrace, enableProfiler);
 
     printf("Compiling IcarianNative...\n");
-    ret = CUBE_CProject_Compile(&icarianNativeProject, compiler, "IcarianNative", CBNULL, &lines, &lineCount);
+    ret = CUBE_CProject_MultiCompile(&icarianNativeProject, compiler, "IcarianNative", CBNULL, jobThreads, &lines, &lineCount);
 
     FlushLines(&lines, &lineCount);
 
