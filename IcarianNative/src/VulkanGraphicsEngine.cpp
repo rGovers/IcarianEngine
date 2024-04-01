@@ -160,10 +160,9 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
     TRACE("Deleting command pool");
     for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
     {
-        const uint32_t poolSize = (uint32_t)m_commandPool[i].size();
-        for (uint32_t j = 0; j < poolSize; ++j)
+        for (const vk::CommandPool& pool : m_commandPool[i])
         {
-            device.destroyCommandPool(m_commandPool[i][j]);
+            device.destroyCommandPool(pool);
         }
     }
 
@@ -657,32 +656,37 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
 
                         const uint32_t transformCount = modelBuffer.TransformCount;
                     
-                        std::vector<glm::mat4> transforms;
-                        transforms.reserve(transformCount);
+                        glm::mat4* transforms = new glm::mat4[transformCount];
+                        IDEFER(delete[] transforms);
+                        uint32_t finalTransformCount = 0;
 
-                        for (uint32_t j = 0; j < transformCount; ++j) 
                         {
                             PROFILESTACK("Culling");
-
-                            const uint32_t transformAddr = modelBuffer.TransformAddr[j];
-                            if (transformAddr != -1) 
+                            for (uint32_t j = 0; j < transformCount; ++j) 
                             {
+                                const uint32_t transformAddr = modelBuffer.TransformAddr[j];
+                                if (transformAddr == -1) 
+                                {
+                                    continue;
+                                }
+
                                 const glm::mat4 transform = ObjectManager::GetGlobalMatrix(transformAddr);
                                 const glm::vec3 pos = transform[3].xyz();
 
                                 if (frustum.CompareSphere(pos, radius)) 
                                 {
-                                    transforms.emplace_back(transform);
+                                    // Scale slightly to improve shadows around edges of objects
+                                    transforms[finalTransformCount++] = glm::scale(transform, glm::vec3(1.025));
                                 }
                             }
                         }
 
-                        if (transforms.empty()) 
+                        PROFILESTACK("Draw");
+                        
+                        if (finalTransformCount <= 0) 
                         {
                             continue;
                         }
-
-                        PROFILESTACK("Draw");
 
                         if (pipeline == nullptr) 
                         {
@@ -703,12 +707,10 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                         ShaderBufferInput modelSlot;
                         if (shaderData->GetShadowShaderBufferInput(ShaderBufferType_SSModelBuffer, &modelSlot)) 
                         {
-                            const uint32_t count = (uint32_t)transforms.size();
-
-                            ModelShaderBuffer* modelBuffer = new ModelShaderBuffer[count];
+                            ModelShaderBuffer* modelBuffer = new ModelShaderBuffer[finalTransformCount];
                             IDEFER(delete[] modelBuffer);
 
-                            for (uint32_t j = 0; j < count; ++j) 
+                            for (uint32_t j = 0; j < finalTransformCount; ++j) 
                             {
                                 const glm::mat4& mat = transforms[j];
 
@@ -716,22 +718,22 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                                 modelBuffer[j].InvModel = glm::inverse(mat);
                             }
 
-                            VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(ModelShaderBuffer) * count, count, modelBuffer);
+                            VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(ModelShaderBuffer) * finalTransformCount, finalTransformCount, modelBuffer);
                             IDEFER(delete storage);
 
                             shaderData->PushShadowShaderStorageObject(a_commandBuffer, modelSlot.Set, storage, a_index);
 
-                            a_commandBuffer.drawIndexed(indexCount, count, 0, 0, 0);
+                            a_commandBuffer.drawIndexed(indexCount, finalTransformCount, 0, 0, 0);
                         } 
                         else 
                         {
-                            for (const glm::mat4& mat : transforms) 
+                            for (uint32_t i = 0; i < finalTransformCount; ++i)
                             {
-                                shaderData->UpdateShadowTransformBuffer(a_commandBuffer, mat);
+                                shaderData->UpdateShadowTransformBuffer(a_commandBuffer, transforms[i]);
+
+                                a_commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
                             }
                         }
-
-                        a_commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
                     }
                 }
             }
@@ -2714,24 +2716,15 @@ VulkanModel* VulkanGraphicsEngine::GetModel(uint32_t a_addr)
     return m_models[a_addr];
 }
 
-uint32_t VulkanGraphicsEngine::GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data)
+uint32_t VulkanGraphicsEngine::GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data)
 {
-    VulkanTexture* texture = VulkanTexture::CreateAlpha(m_vulkanEngine, a_width, a_height, a_data);
+    VulkanTexture* texture = VulkanTexture::CreateTexture(m_vulkanEngine, a_width, a_height, a_format, a_data);
 
-    {
-        TLockArray<VulkanTexture*> a = m_textures.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = texture;
-
-                return i;
-            }
-        }
-    }
+    return m_textures.PushVal(texture);
+}
+uint32_t VulkanGraphicsEngine::GenerateMipMappedTexture(uint32_t a_width, uint32_t a_height, uint32_t a_levels, const uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize)
+{
+    VulkanTexture* texture = VulkanTexture::CreateTextureMipMapped(m_vulkanEngine, a_width, a_height, a_levels, a_offsets, a_format, a_data, a_dataSize);
 
     return m_textures.PushVal(texture);
 }
@@ -2743,7 +2736,7 @@ void VulkanGraphicsEngine::DestroyTexture(uint32_t a_addr)
     const VulkanTexture* texture = m_textures[a_addr];
     IDEFER(delete texture);
 
-    m_textures.LockSet(a_addr, nullptr);
+    m_textures.Erase(a_addr);
 }
 VulkanTexture* VulkanGraphicsEngine::GetTexture(uint32_t a_addr)
 {

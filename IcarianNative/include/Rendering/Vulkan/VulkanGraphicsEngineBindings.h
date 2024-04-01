@@ -66,7 +66,8 @@ public:
     void GenerateSkinnedRenderStack(uint32_t a_addr) const;
     void DestroySkinnedRenderStack(uint32_t a_addr) const;
 
-    uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, const void* a_data);
+    uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);
+    uint32_t GenerateMipMappedTexture(uint32_t a_width, uint32_t a_height, uint32_t a_levels, const uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize);
     void DestroyTexture(uint32_t a_addr) const;
 
     uint32_t GenerateTextureSampler(uint32_t a_texture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;

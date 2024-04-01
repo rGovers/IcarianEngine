@@ -32,6 +32,7 @@ class VulkanVertexShader;
 #include "Rendering/MaterialRenderStack.h"
 #include "Rendering/MeshRenderBuffer.h"
 #include "Rendering/SkinnedMeshRenderBuffer.h"
+#include "Rendering/TextureData.h"
 #include "Rendering/UI/CanvasRendererBuffer.h"
 
 #include "EngineAmbientLightInteropStructures.h"
@@ -85,7 +86,7 @@ private:
     TNCArray<TextureSamplerBuffer>                m_textureSampler;
 
     TNCArray<VulkanModel*>                        m_models;
-    TArray<VulkanTexture*>                        m_textures;
+    TNCArray<VulkanTexture*>                      m_textures;
 
     TNCArray<VulkanRenderTexture*>                m_renderTextures;
     TNCArray<VulkanDepthCubeRenderTexture*>       m_depthCubeRenderTextures;
@@ -165,7 +166,8 @@ public:
 
     VulkanModel* GetModel(uint32_t a_addr);
 
-    uint32_t GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data);
+    uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);
+    uint32_t GenerateMipMappedTexture(uint32_t a_width, uint32_t a_height, uint32_t a_levels, const uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize);
     void DestroyTexture(uint32_t a_addr);
     VulkanTexture* GetTexture(uint32_t a_addr);
 

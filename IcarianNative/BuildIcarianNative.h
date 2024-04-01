@@ -80,15 +80,26 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_String commitDefine = CUBE_String_CreateC("ICARIANNATIVE_COMMIT_HASH=");
     CUBE_String_AppendSS(&commitDefine, &commitHash);
 
-    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_MAJOR=2023");
-    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_MINOR=0");
-    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_PATCH=0");
-    CUBE_CProject_AppendDefine(&project, commitDefine.Data);
-    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_TAG=DEV");
+    CUBE_CProject_AppendDefines(&project,
+        "ICARIANNATIVE_VERSION_MAJOR=2024",
+        "ICARIANNATIVE_VERSION_MINOR=0",
+        "ICARIANNATIVE_VERSION_PATCH=0",
+        commitDefine.Data,
+        "ICARIANNATIVE_VERSION_TAG=DEV",
+
+        "ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN",
+
+        "GLM_FORCE_QUAT_DATA_XYZW",
+        "GLM_FORCE_DEPTH_ZERO_TO_ONE",
+        "GLM_FORCE_RADIANS",
+        "AL_LIBTYPE_STATIC",
+        "KHRONOS_STATIC",
+        "LIBKTX",
+        "KTX_FEATURE_KTX1",
+        "KTX_FEATURE_KTX2"
+    );
 
     CUBE_String_Destroy(&commitDefine);
-
-    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN");
 
     if (a_enableTrace)
     {
@@ -99,24 +110,22 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_PROFILER");
     }
 
-    CUBE_CProject_AppendDefine(&project, "GLM_FORCE_QUAT_DATA_XYZW");
-    CUBE_CProject_AppendDefine(&project, "GLM_FORCE_DEPTH_ZERO_TO_ONE");
-    CUBE_CProject_AppendDefine(&project, "GLM_FORCE_RADIANS");
-    CUBE_CProject_AppendDefine(&project, "AL_LIBTYPE_STATIC");
-
-    CUBE_CProject_AppendIncludePath(&project, "include");
-    CUBE_CProject_AppendIncludePath(&project, "../EngineInterop");
-    CUBE_CProject_AppendIncludePath(&project, "../FlareBase/include");
-    CUBE_CProject_AppendIncludePath(&project, "../deps/flare-glfw/include");
-    CUBE_CProject_AppendIncludePath(&project, "../deps/flare-glm");
-    CUBE_CProject_AppendIncludePath(&project, "../deps/flare-stb");
-    CUBE_CProject_AppendIncludePath(&project, "../deps/flare-tinyxml2");
-    CUBE_CProject_AppendIncludePath(&project, "lib/enet/include");
-    CUBE_CProject_AppendIncludePath(&project, "lib/glslang");
-    CUBE_CProject_AppendIncludePath(&project, "lib/JoltPhysics");
-    CUBE_CProject_AppendIncludePath(&project, "lib/openal-soft/include");
-    CUBE_CProject_AppendIncludePath(&project, "lib/SPIRV-Tools/include");
-    CUBE_CProject_AppendIncludePath(&project, "lib/VulkanMemoryAllocator/include");
+    CUBE_CProject_AppendIncludePaths(&project, 
+        "include",
+        "../EngineInterop",
+        "../FlareBase/include",
+        "../deps/flare-glfw/include",
+        "../deps/flare-glm",
+        "../deps/flare-stb",
+        "../deps/KTX-Software/include",
+        "../deps/flare-tinyxml2",
+        "lib/enet/include",
+        "lib/glslang",
+        "lib/JoltPhysics",
+        "lib/openal-soft/include",
+        "lib/SPIRV-Tools/include",
+        "lib/VulkanMemoryAllocator/include"
+    );
 
     CUBE_CProject_AppendSource(&project, "../deps/flare-tinyxml2/tinyxml2.cpp");
 
@@ -249,25 +258,31 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     {
     case TargetPlatform_Windows:
     {
-        CUBE_CProject_AppendDefine(&project, "WIN32");
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32"
+        );
 
         CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Windows/include");
 
-        CUBE_CProject_AppendLibrary(&project, "../FlareBase/build/FlareBase.lib");
+        CUBE_CProject_AppendLibraries(&project,
+            "../FlareBase/build/FlareBase.lib",
 
-        CUBE_CProject_AppendLibrary(&project, "../deps/flare-glfw/build/GLFW.lib");
-        CUBE_CProject_AppendLibrary(&project, "../deps/miniz/build/miniz.lib");
-        CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Windows/lib/mono-2.0-sgen.lib");
-        CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Windows/lib/MonoPosixHelper.lib");
-        CUBE_CProject_AppendLibrary(&project, "../deps/OpenFBX/build/OpenFBXLibDeflate.lib");
+            "../deps/flare-glfw/build/GLFW.lib",
+            "../deps/miniz/build/miniz.lib",
+            "../deps/KTX-Software/build/ktxc.lib",
+            "../deps/KTX-Software/build/ktxcpp.lib",
+            "../deps/Mono/Windows/lib/mono-2.0-sgen.lib",
+            "../deps/Mono/Windows/lib/MonoPosixHelper.lib",
+            "../deps/OpenFBX/build/OpenFBXLibDeflate.lib",
 
-        CUBE_CProject_AppendLibrary(&project, "lib/enet/build/enet.lib");
-        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/glslang.lib");
-        // CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/OGLCompiler.lib");
-        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/SPIRV.lib");
-        CUBE_CProject_AppendLibrary(&project, "lib/JoltPhysics/build/Jolt.lib");
-        CUBE_CProject_AppendLibrary(&project, "lib/openal-soft/build/OpenALSoft.lib");
-        CUBE_CProject_AppendLibrary(&project, "lib/SPIRV-Tools/build/SPIRV-Tools.lib");
+            "lib/enet/build/enet.lib",
+            "lib/glslang/build/glslang.lib",
+            "lib/glslang/build/SPIRV.lib",
+            "lib/JoltPhysics/build/Jolt.lib",
+            "lib/openal-soft/build/OpenALSoft.lib",
+            "lib/SPIRV-Tools/build/SPIRV-Tools.lib"
+        );
 
         CUBE_CProject_AppendReference(&project, "gdi32");
         CUBE_CProject_AppendReference(&project, "vulkan-1");
@@ -288,20 +303,23 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     {
         CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Linux/include/mono-2.0");
 
-        CUBE_CProject_AppendLibrary(&project, "../FlareBase/build/libFlareBase.a");
+        CUBE_CProject_AppendLibraries(&project,
+            "../FlareBase/build/libFlareBase.a",
 
-        CUBE_CProject_AppendLibrary(&project, "../deps/flare-glfw/build/libGLFW.a");
-        CUBE_CProject_AppendLibrary(&project, "../deps/miniz/build/libminiz.a");
-        CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Linux/lib/libmonosgen-2.0.a");
-        CUBE_CProject_AppendLibrary(&project, "../deps/OpenFBX/build/libOpenFBXLibDeflate.a");
+            "../deps/flare-glfw/build/libGLFW.a",
+            "../deps/miniz/build/libminiz.a",
+            "../deps/KTX-Software/build/libktxc.a",
+            "../deps/KTX-Software/build/libktxcpp.a",
+            "../deps/Mono/Linux/lib/libmonosgen-2.0.a",
+            "../deps/OpenFBX/build/libOpenFBXLibDeflate.a",
 
-        CUBE_CProject_AppendLibrary(&project, "lib/enet/build/libenet.a");
-        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libglslang.a");
-        // CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libOGLCompiler.a");
-        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libSPIRV.a");
-        CUBE_CProject_AppendLibrary(&project, "lib/JoltPhysics/build/libJolt.a");
-        CUBE_CProject_AppendLibrary(&project, "lib/openal-soft/build/libOpenALSoft.a");
-        CUBE_CProject_AppendLibrary(&project, "lib/SPIRV-Tools/build/libSPIRV-Tools.a");
+            "lib/enet/build/libenet.a",
+            "lib/glslang/build/libglslang.a",
+            "lib/glslang/build/libSPIRV.a",
+            "lib/JoltPhysics/build/libJolt.a",
+            "lib/openal-soft/build/libOpenALSoft.a",
+            "lib/SPIRV-Tools/build/libSPIRV-Tools.a"
+        );
 
         CUBE_CProject_AppendReference(&project, "vulkan");
         CUBE_CProject_AppendReference(&project, "z");

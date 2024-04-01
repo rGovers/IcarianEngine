@@ -12,7 +12,7 @@ public:
     NullRenderEngineBackend(RenderEngine* a_engine);
     virtual ~NullRenderEngineBackend();
 
-    virtual uint32_t GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data);
+    virtual uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);
     virtual void DestroyTexture(uint32_t a_texture);
 
     virtual uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);

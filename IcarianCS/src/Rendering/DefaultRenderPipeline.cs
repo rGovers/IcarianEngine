@@ -913,7 +913,7 @@ namespace IcarianEngine.Rendering
                 SpotLight light = a_light as SpotLight;
 
                 Matrix4 trans = light.Transform.ToGlobalMatrix();
-                Matrix4 proj = Matrix4.CreatePerspective(light.OuterCutoffAngle * 2, 1.0f, 0.1f, light.Radius * 2);
+                Matrix4 proj = Matrix4.CreatePerspective(light.OuterCutoffAngle * 2, 1.0f, 0.1f, light.Radius);
                 Matrix4 view = Matrix4.Inverse(trans);
 
                 Matrix4 lvp = view * proj;

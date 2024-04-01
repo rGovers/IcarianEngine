@@ -811,9 +811,9 @@ void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, std
     ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to Submit Command");
 }
 
-uint32_t VulkanRenderEngineBackend::GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data)
+uint32_t VulkanRenderEngineBackend::GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data)
 {
-    return m_graphicsEngine->GenerateAlphaTexture(a_width, a_height, a_data);
+    return m_graphicsEngine->GenerateTexture(a_width, a_height, a_format, a_data);
 }
 void VulkanRenderEngineBackend::DestroyTexture(uint32_t a_addr)
 {

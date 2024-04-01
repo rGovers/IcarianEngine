@@ -3,9 +3,11 @@
 #include "Rendering/Vulkan/VulkanGraphicsEngineBindings.h"
 
 #include <fstream>
+#include <ktx.h>
 #include <sstream>
 #include <stb_image.h>
 
+#include "DeletionQueue.h"
 #include "Flare/ColladaLoader.h"
 #include "Flare/FBXLoader.h"
 #include "Flare/GLTFLoader.h"
@@ -362,13 +364,14 @@ RUNTIME_FUNCTION(void, Material, DestroyProgram,
     Engine->DestroyShaderProgram(a_addr);
 }, uint32_t a_addr)
 
-FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Texture, GenerateFromFile), MonoString* a_path)
+RUNTIME_FUNCTION(uint32_t, Texture, GenerateFromFile, 
 {
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
     const std::filesystem::path p = std::filesystem::path(str);
+    const std::filesystem::path ext = p.extension();
 
-    if (p.extension() == ".png")
+    if (ext == ".png")
     {
 		int width;
 		int height;
@@ -380,8 +383,40 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Texture, GenerateFromFile), Mo
 		{
             IDEFER(stbi_image_free(pixels));
 
-			return Engine->GenerateTexture((uint32_t)width, (uint32_t)height, pixels);
+			return Engine->GenerateTexture((uint32_t)width, (uint32_t)height, TextureFormat_RGBA, pixels);
 		}
+    }
+    else if (ext == ".ktx2")
+    {
+        const std::string str = p.string();
+
+        ktxTexture2* texture;
+        if (ktxTexture2_CreateFromNamedFile(str.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture) == KTX_SUCCESS)
+        {
+            IDEFER(ktxTexture_Destroy((ktxTexture*)texture));
+
+            if (ktxTexture2_NeedsTranscoding(texture))
+            {
+                if (ktxTexture2_TranscodeBasis(texture, KTX_TTF_BC3_RGBA, 0))
+                {
+                    return -1;
+                }
+            }
+
+            const uint32_t levels = (uint32_t)texture->numLevels;
+            uint64_t* offsets = new uint64_t[levels];
+            IDEFER(delete[] offsets);
+
+            for (uint32_t i = 0; i < levels; ++i)
+            {
+                ktx_size_t off;
+                ICARIAN_ASSERT_R(ktxTexture_GetImageOffset((ktxTexture*)texture, i, 0, 0, &off) == KTX_SUCCESS);
+
+                offsets[i] = (uint64_t)off;
+            }
+
+            return Engine->GenerateMipMappedTexture((uint32_t)texture->baseWidth, (uint32_t)texture->baseHeight, levels, offsets, TextureFormat_BC3, texture->pData, (uint64_t)texture->dataSize);
+        }
     }
     else 
     {
@@ -389,7 +424,7 @@ FLARE_MONO_EXPORT(uint32_t, RUNTIME_FUNCTION_NAME(Texture, GenerateFromFile), Mo
     }
 
     return -1;
-}
+}, MonoString* a_path)
 
 // MSVC workaround
 static uint32_t M_Model_GenerateModel(MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride, float a_radius)
@@ -776,12 +811,35 @@ uint32_t VulkanGraphicsEngineBindings::GenerateModel(const char* a_vertices, uin
 }
 void VulkanGraphicsEngineBindings::DestroyModel(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_models.Size(), "DestroyModel out of bounds")
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_models.Exists(a_addr), "DestroyModel already destroyed");
+    class VulkanModelDeletionObject : public DeletionObject
+    {
+    private:
+        uint32_t m_addr;
 
-    const VulkanModel* model = m_graphicsEngine->m_models[a_addr];
-    IDEFER(delete model);
-    m_graphicsEngine->m_models.Erase(a_addr);
+    protected:
+
+    public:
+        VulkanModelDeletionObject(uint32_t a_addr)
+        {
+            m_addr = a_addr;
+        }
+        virtual ~VulkanModelDeletionObject()
+        {
+
+        }
+
+        virtual void Destroy()
+        {
+            ICARIAN_ASSERT_MSG(m_addr < Engine->m_graphicsEngine->m_models.Size(), "DestroyModel out of bounds")
+            ICARIAN_ASSERT_MSG(Engine->m_graphicsEngine->m_models.Exists(m_addr), "DestroyModel already destroyed");
+
+            const VulkanModel* model = Engine->m_graphicsEngine->m_models[m_addr];
+            IDEFER(delete model);
+            Engine->m_graphicsEngine->m_models.Erase(m_addr);
+        }
+    };
+
+    DeletionQueue::Push(new VulkanModelDeletionObject(a_addr), DeletionIndex_Render);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr) const
@@ -799,14 +857,15 @@ void VulkanGraphicsEngineBindings::DestroyMeshRenderBuffer(uint32_t a_addr) cons
 void VulkanGraphicsEngineBindings::GenerateRenderStack(uint32_t a_meshAddr) const
 {
     ICARIAN_ASSERT_MSG(a_meshAddr < m_graphicsEngine->m_renderBuffers.Size(), "GenerateRenderStack out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderBuffers.Exists(a_meshAddr), "GenerateRenderStack renderer is destroyed");
 
-    const MeshRenderBuffer& buffer = m_graphicsEngine->m_renderBuffers[a_meshAddr];
+    TLockArray<MeshRenderBuffer> aBuffer = m_graphicsEngine->m_renderBuffers.ToLockArray();
+    const MeshRenderBuffer& buffer = aBuffer[a_meshAddr];
 
     {
         TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
 
         const uint32_t size = a.Size();
-
         for (uint32_t i = 0; i < size; ++i)
         {
             if (a[i]->Add(buffer))
@@ -822,19 +881,22 @@ void VulkanGraphicsEngineBindings::GenerateRenderStack(uint32_t a_meshAddr) cons
 void VulkanGraphicsEngineBindings::DestroyRenderStack(uint32_t a_meshAddr) const
 {
     ICARIAN_ASSERT_MSG(a_meshAddr < m_graphicsEngine->m_renderBuffers.Size(), "DestroyRenderStack out of bounds");
+    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderBuffers.Exists(a_meshAddr), "DestroyRenderStack renderer is destroyed")
 
-    const MeshRenderBuffer& buffer = m_graphicsEngine->m_renderBuffers[a_meshAddr];
+    TLockArray<MeshRenderBuffer> aBuffer = m_graphicsEngine->m_renderBuffers.ToLockArray();
+    const MeshRenderBuffer& buffer = aBuffer[a_meshAddr];
 
     TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
 
     const uint32_t size = a.Size();
     for (uint32_t i = 0; i < size; ++i)
     {
-        if (a[i]->Remove(buffer)) 
+        MaterialRenderStack* stack = a[i];
+
+        if (stack->Remove(buffer)) 
         {
-            if (a[i]->Empty()) 
+            if (stack->Empty()) 
             {
-                const MaterialRenderStack* stack = a[i];
                 IDEFER(delete stack);
 
                 TRACE("Destroying RenderStack");
@@ -912,30 +974,40 @@ void VulkanGraphicsEngineBindings::DestroySkinnedRenderStack(uint32_t a_addr) co
     }
 }
 
-uint32_t VulkanGraphicsEngineBindings::GenerateTexture(uint32_t a_width, uint32_t a_height, const void* a_data)
+uint32_t VulkanGraphicsEngineBindings::GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data)
 {
-    VulkanTexture* texture = VulkanTexture::CreateRGBA(m_graphicsEngine->m_vulkanEngine, a_width, a_height, a_data);
-
-    {
-        TLockArray<VulkanTexture*> a = m_graphicsEngine->m_textures.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = texture;
-
-                return i;
-            }
-        }
-    }
-
-    return m_graphicsEngine->m_textures.PushVal(texture);
+    return m_graphicsEngine->GenerateTexture(a_width, a_height, a_format, a_data);
+}
+uint32_t VulkanGraphicsEngineBindings::GenerateMipMappedTexture(uint32_t a_width, uint32_t a_height, uint32_t a_levels, const uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize)
+{
+    return m_graphicsEngine->GenerateMipMappedTexture(a_width, a_height, a_levels, a_offsets, a_format, a_data, a_dataSize);
 }
 void VulkanGraphicsEngineBindings::DestroyTexture(uint32_t a_addr) const
 {
-    m_graphicsEngine->DestroyTexture(a_addr);
+    class VulkanTextureDeletionObject : public DeletionObject
+    {
+    private:    
+        uint32_t m_addr;
+
+    protected:
+
+    public:
+        VulkanTextureDeletionObject(uint32_t a_addr)
+        {
+            m_addr = a_addr;
+        }
+        virtual ~VulkanTextureDeletionObject()
+        {
+
+        }
+
+        virtual void Destroy()
+        {
+            Engine->m_graphicsEngine->DestroyTexture(m_addr);
+        }
+    };
+
+    DeletionQueue::Push(new VulkanTextureDeletionObject(a_addr), DeletionIndex_Render);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateTextureSampler(uint32_t a_texture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const

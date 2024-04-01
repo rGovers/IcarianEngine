@@ -8,10 +8,16 @@ namespace IcarianEngine.Maths
 {
     public static class Vector3Extensions
     {
+        /// <summary>
+        /// Converts a XmlElement to a Vector3
+        /// </summary>
         public static Vector3 ToVector3(this XmlElement a_element)
         {
             return ToVector3(a_element, Vector3.Zero);
         }
+        /// <summary>
+        /// Converts a XmlElement to a Vector3 with a default value
+        /// </summary>
         public static Vector3 ToVector3(this XmlElement a_element, Vector3 a_default)
         {
             Vector3 vec = a_default;
@@ -47,10 +53,16 @@ namespace IcarianEngine.Maths
             return vec;
         }
 
+        /// <summary>
+        /// Creates an XmlElement from a Vector3
+        /// </summary>
         public static XmlElement ToXml(this Vector3 a_vec, XmlDocument a_doc, string a_name)
         {
             return ToXml(a_vec, a_doc, a_name, Vector3.Zero);
         }
+        /// <summary>
+        /// Creates an XmlElement from a Vector3
+        /// </summary>
         public static XmlElement ToXml(this Vector3 a_vec, XmlDocument a_doc, string a_name, Vector3 a_default)
         {
             if (a_vec == a_default)
@@ -401,10 +413,14 @@ namespace IcarianEngine.Maths
         public static Vector3 operator *(Vector3 a_lhs, float a_rhs)
         {
             return new Vector3(a_lhs.X * a_rhs, a_lhs.Y * a_rhs, a_lhs.Z * a_rhs);
-        }
+        }        
         public static Vector3 operator /(Vector3 a_lhs, float a_rhs)
         {
             return new Vector3(a_lhs.X / a_rhs, a_lhs.Y / a_rhs, a_lhs.Z / a_rhs);
+        }
+        public static Vector3 operator %(Vector3 a_lhs, float a_rhs)
+        {
+            return new Vector3(a_lhs.X % a_rhs, a_lhs.Y % a_rhs, a_lhs.Z % a_rhs);
         }
         public static Vector3 operator *(Vector3 a_lhs, Vector3 a_rhs)
         {
@@ -514,8 +530,12 @@ namespace IcarianEngine.Maths
             return a_start + (a_end - a_start) * a_t;
         }
 
+        /// @cond SWIZZLE
+
         VEC_SWIZZLE_VEC3_FULL_VEC2
         VEC_SWIZZLE_VEC3_FULL_VEC3
         VEC_SWIZZLE_VEC3_FULL_VEC4
+
+        /// @endcond
     }
 }

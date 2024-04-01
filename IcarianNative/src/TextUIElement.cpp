@@ -92,7 +92,7 @@ void TextUIElement::Update(RenderEngine* a_renderEngine)
         const unsigned char* data = font->StringToTexture(m_text, m_fontSize, (uint32_t)size.x, (uint32_t)size.y);
         IDEFER(delete[] data);
 
-        m_textureAddr = a_renderEngine->GenerateAlphaTexture((uint32_t)size.x, (uint32_t)size.y, data);
+        m_textureAddr = a_renderEngine->GenerateTexture((uint32_t)size.x, (uint32_t)size.y, TextureFormat_Alpha, data);
         m_samplerAddr = a_renderEngine->GenerateTextureSampler(m_textureAddr, TextureMode_Texture, TextureFilter_Linear, TextureAddress_ClampToEdge);
 
         m_lastRenderEngine = a_renderEngine;

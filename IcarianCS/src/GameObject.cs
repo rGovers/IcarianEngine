@@ -181,6 +181,28 @@ namespace IcarianEngine
 
                 if (obj != null)
                 {
+                    foreach (Component comp in obj.m_components)
+                    {
+                        if (comp is Scriptable script)
+                        {
+                            s_scriptableComps.Remove(script);
+                        }
+
+                        if (comp is IDestroy dest)
+                        {
+                            if (!dest.IsDisposed)
+                            {
+                                dest.Dispose();
+                            }
+                        }
+                        else if (comp is IDisposable disp)
+                        {
+                            disp.Dispose();
+                        }
+                    }
+                    
+                    obj.m_components.Clear();
+
                     s_objs.Remove(obj);
 
                     if (!string.IsNullOrWhiteSpace(obj.m_tag) && s_objDictionary.ContainsKey(obj.m_tag))
@@ -877,28 +899,6 @@ namespace IcarianEngine
                     }
 
                     s_objRemoveQueue.Enqueue(this);
-
-                    foreach (Component comp in m_components)
-                    {
-                        if (comp is Scriptable script)
-                        {
-                            s_scriptableRemoveQueue.Enqueue(script);
-                        }
-
-                        if (comp is IDestroy dest)
-                        {
-                            if (!dest.IsDisposed)
-                            {
-                                dest.Dispose();
-                            }
-                        }
-                        else if (comp is IDisposable disp)
-                        {
-                            disp.Dispose();
-                        }
-                    }
-                    
-                    m_components.Clear();
                 }
                 else
                 {

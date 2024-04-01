@@ -1275,7 +1275,7 @@ namespace IcarianEngine
         /// Lifetime managed by AssetLibrary
         /// <param name="a_path">The path to the Texture.</param>
         /// <returns>The Texture if it was loaded successfully, null otherwise.</returns>
-        /// @see Texture.LoadTexture
+        /// @see IcarianEngine.Rendering.Texture.LoadTexture
         public static Texture LoadTexture(string a_path)
         {
             return LoadData<Texture, TextureContainer>(a_path, s_textures);
@@ -1287,7 +1287,7 @@ namespace IcarianEngine
         /// <param name="a_path">The path to the Texture.</param>
         /// <param name="a_callback">The callback to call when the Texture is loaded.</param>
         /// <param name="a_priority">The priority of the job.</param>
-        /// @see Texture.LoadTexture
+        /// @see IcarianEngine.Rendering.Texture.LoadTexture
         public static void LoadTextureAsync(string a_path, LoadTextureCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             s_textures.TryAdd(a_path, new TextureContainer());

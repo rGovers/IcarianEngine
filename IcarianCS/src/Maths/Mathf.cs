@@ -160,6 +160,7 @@ namespace IcarianEngine.Maths
         /// </summary>
         /// <param name="a_a">The first value to get the maximum of</param>
         /// <param name="a_b">The second value to get the maximum of</param>
+        /// <returns>The maximum of the values</returns>
         public static float Max(float a_a, float a_b)
         {
             // Have not verified may have to hand inline and cancel out terms
@@ -167,6 +168,37 @@ namespace IcarianEngine.Maths
             int invV = 1 - v;
 
             return a_a * invV + a_b * v;
+        }
+
+        /// <summary>
+        /// Floors the input value
+        /// </summary>
+        /// <param name="a_a">The value to floor</param>
+        /// <returns>The floored value</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float Floor(float a_a)
+        {
+            return (float)Math.Floor(a_a);
+        }
+        /// <summary>
+        /// Gets the ceiling of the input value
+        /// </summary>
+        /// <param name="a_a">The value to ceil</param>
+        /// <returns>The ceiling of the value</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float Ceil(float a_a)
+        {
+            return (float)Math.Ceiling(a_a);
+        }
+        /// <summary>
+        /// Rounds the input value
+        /// </summary>
+        /// <param name="a_a">The value to round</param>
+        /// <returns>The rounded value</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float Round(float a_a)
+        {
+            return (float)Math.Round(a_a);
         }
 
         /// <summary>

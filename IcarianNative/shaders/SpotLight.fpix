@@ -41,7 +41,7 @@ void main()
         vec4 lCr = spotLightBuffer.objects[i].LightColor.xyzw;
         vec3 lCa = spotLightBuffer.objects[i].CutoffAngle.xyz;
 
-        vec3 lDir = normalize(lP - mP.xyz);
+        vec3 lDir = lP - mP.xyz;
         float dL = length(lDir);
         lDir /= dL;
 

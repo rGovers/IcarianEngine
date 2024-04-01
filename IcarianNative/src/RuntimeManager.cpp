@@ -148,9 +148,9 @@ RuntimeManager::~RuntimeManager()
 
     mono_jit_cleanup(m_domain);
 
-#ifndef WIN32
     mono_dl_fallback_unregister(NULL);
-
+    
+#ifndef WIN32
     FlareBase::MonoNativeImpl::Destroy();
 #endif
 }

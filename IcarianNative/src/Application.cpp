@@ -117,7 +117,6 @@ RUNTIME_FUNCTION(void, Application, SetFullscreenState,
 
         virtual void Destroy()
         {
-            printf("? \n");
             Instance->SetFullscreen(m_monitor, m_state, m_width, m_height);
         }
     };

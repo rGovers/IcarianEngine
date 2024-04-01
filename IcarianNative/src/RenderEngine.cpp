@@ -155,9 +155,9 @@ void RenderEngine::Update(double a_delta, double a_time)
     m_backend->Update(a_delta, a_time);
 }
 
-uint32_t RenderEngine::GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data) const
+uint32_t RenderEngine::GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data) const
 {
-    return m_backend->GenerateAlphaTexture(a_width, a_height, a_data);
+    return m_backend->GenerateTexture(a_width, a_height, a_format, a_data);
 }
 void RenderEngine::DestroyTexture(uint32_t a_addr) const
 {

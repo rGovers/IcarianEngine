@@ -196,8 +196,8 @@ void GamePad::Update()
     {
         m_connected = true;
 
-        m_axes[GamePadAxis_LeftStick] = glm::vec2(state.Gamepad.sThumbLX, state.Gamepad.sThumbLY) / (float)INT16_MAX;
-        m_axes[GamePadAxis_RightStick] = glm::vec2(state.Gamepad.sThumbRX, state.Gamepad.sThumbRY) / (float)INT16_MAX;
+        m_axes[GamePadAxis_LeftStick] = glm::vec2(state.Gamepad.sThumbLX, -state.Gamepad.sThumbLY) / (float)INT16_MAX;
+        m_axes[GamePadAxis_RightStick] = glm::vec2(state.Gamepad.sThumbRX, -state.Gamepad.sThumbRY) / (float)INT16_MAX;
 
         m_axes[GamePadAxis_LeftTrigger] = glm::vec2(state.Gamepad.bLeftTrigger / (float)UINT8_MAX);
         m_axes[GamePadAxis_RightTrigger] = glm::vec2(state.Gamepad.bRightTrigger / (float)UINT8_MAX);

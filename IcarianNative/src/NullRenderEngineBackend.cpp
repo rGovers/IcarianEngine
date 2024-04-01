@@ -138,7 +138,7 @@ NullRenderEngineBackend::~NullRenderEngineBackend()
 
 }
 
-uint32_t NullRenderEngineBackend::GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data)
+uint32_t NullRenderEngineBackend::GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data)
 {
     return 0;
 }
