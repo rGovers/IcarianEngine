@@ -12,7 +12,7 @@
 class IcPhysicsJobSystem : public JPH::JobSystemWithBarrier
 {
 private:
-    static constexpr uint32_t MaxJobs = 1024 * 16;
+    static constexpr uint32_t MaxJobs = 1024;
 
     JPH::FixedSizeFreeList<Job> m_jobs;
 

@@ -1,8 +1,5 @@
 #include "Physics/IcPhysicsJobSystem.h"
 
-#include "Flare/IcarianAssert.h"
-#include "ThreadPool.h"
-
 IcPhysicsJobSystem::IcPhysicsJobSystem(JPH::uint a_numBarriers)
 {
     Init(a_numBarriers);
@@ -19,11 +16,15 @@ int IcPhysicsJobSystem::GetMaxConcurrency() const
     return (int)ThreadPool::GetThreadCount();
 }
 
-JPH::JobHandle IcPhysicsJobSystem::CreateJob(const char *a_name, JPH::ColorArg a_color, const JobFunction &a_jobFunction, uint32_t a_numDependencies)
+JPH::JobHandle IcPhysicsJobSystem::CreateJob(const char* a_name, JPH::ColorArg a_color, const JobFunction& a_jobFunction, uint32_t a_numDependencies)
 {
-    const JPH::uint32 index = m_jobs.ConstructObject(a_name, a_color, this, a_jobFunction, a_numDependencies);
+    JPH::uint32 index = JPH::FixedSizeFreeList<Job>::cInvalidObjectIndex; 
 
-    ICARIAN_ASSERT_MSG(index != JPH::FixedSizeFreeList<Job>::cInvalidObjectIndex, "No physics jobs available");
+    do 
+    {
+        index = m_jobs.ConstructObject(a_name, a_color, this, a_jobFunction, a_numDependencies);
+    }
+    while (index == JPH::FixedSizeFreeList<Job>::cInvalidObjectIndex);
 
     Job* job = &m_jobs.Get(index);
 
