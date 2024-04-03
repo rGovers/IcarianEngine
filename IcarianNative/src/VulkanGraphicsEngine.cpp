@@ -888,10 +888,10 @@ vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camInde
         m_shadowSetupFunc->Exec(shadowSetupArgs);
     }
 
-    const TReadLockArray<DirectionalLightBuffer> a = m_directionalLights.ToReadLockArray();
+    const std::vector<DirectionalLightBuffer> lights = m_directionalLights.ToVector();
     const std::vector<bool> state = m_directionalLights.ToStateVector();
+    const uint32_t size = (uint32_t)lights.size();
 
-    const uint32_t size = a.Size();
     for (uint32_t i = 0; i < size; ++i)
     {
         if (!state[i])
@@ -899,14 +899,13 @@ vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camInde
             continue;
         }
 
-        const DirectionalLightBuffer& buffer = a[i];
-        ICARIAN_ASSERT(buffer.Data != nullptr);
-
-        if ((buffer.RenderLayer & camBuffer.RenderLayer) == 0)
+        const DirectionalLightBuffer& buffer = lights[i];
+        if (buffer.TransformAddr == -1 || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Intensity <= 0.0f)
         {
             continue;
         }
 
+        ICARIAN_ASSERT(buffer.Data != nullptr);
         const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
 
         for (uint32_t j = 0; j < lightBuffer->LightRenderTextureCount; ++j)
@@ -950,13 +949,12 @@ vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camInde
             ICARIAN_ASSERT(splits != nullptr);
 
             commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+            IDEFER(commandBuffer.endRenderPass());
 
             commandBuffer.setScissor(0, 1, &scissor);
             commandBuffer.setViewport(0, 1, &viewport);
             
             DrawShadow(lvp[0], splits[0], buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_index);
-
-            commandBuffer.endRenderPass();
 
             {
                 PROFILESTACK("Post Shadow");
@@ -1018,25 +1016,22 @@ vk::CommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uin
 
     const Frustum cameraFrustum = camBuffer.ToFrustum((glm::vec2)m_swapchain->GetSize());
 
-    const TReadLockArray<PointLightBuffer> a = m_pointLights.ToReadLockArray();
-    const std::vector<bool> state = m_pointLights.ToStateVector();
+    const std::vector<PointLightBuffer> lights = m_pointLights.ToActiveVector();
 
-    const uint32_t size = a.Size();
-    for (uint32_t i = 0; i < size; ++i)
+    for (const PointLightBuffer& buffer : lights)
     {
-        if (!state[i])
+        if (buffer.TransformAddr == -1 || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Radius <= 0.0f || buffer.Intensity <= 0.0f)
         {
             continue;
         }
 
-        const PointLightBuffer& buffer = a[i];
         ICARIAN_ASSERT(buffer.Data != nullptr);
-
-        if ((buffer.RenderLayer & camBuffer.RenderLayer) == 0)
+        const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
+        if (lightBuffer->LightRenderTextureCount < 1)
         {
             continue;
         }
-
+        
         const glm::mat4 transform = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
         const glm::vec3 position = transform[3].xyz();
 
@@ -1045,70 +1040,65 @@ vk::CommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uin
             continue;
         }
 
-        const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
-        if (lightBuffer->LightRenderTextureCount == 1)
+        const glm::mat4 proj = glm::perspective(glm::half_pi<float>(), 1.0f, 0.1f, buffer.Radius);
+
+        const uint32_t renderTextureIndex = lightBuffer->LightRenderTextures[0];
+
+        const VulkanDepthCubeRenderTexture* depthCubeRenderTexture = GetDepthCubeRenderTexture(renderTextureIndex);
+        const glm::vec2 screenSize = glm::vec2(depthCubeRenderTexture->GetWidth(), depthCubeRenderTexture->GetHeight());
+
+        const vk::RenderPass renderPass = depthCubeRenderTexture->GetRenderPass();
+
+        constexpr vk::ClearValue ClearDepth = vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0));
+
+        const vk::Rect2D scissor = vk::Rect2D({ 0, 0 }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y });
+        const vk::Viewport viewport = vk::Viewport(0.0f, 0.0f, screenSize.x, screenSize.y, 0.0f, 1.0f);
+
+        const float halfRadius = buffer.Radius * 0.5f;
+
+        for (int j = 0; j < 6; ++j) 
         {
-            const glm::mat4 proj = glm::perspective(glm::half_pi<float>(), 1.0f, 0.1f, buffer.Radius);
+            // I believe Vulkan is +X, -X, +Y, -Y, +Z, -Z
+            // Cannot be fucked to do this properly weird maths and loops it is
+            glm::vec3 dir = glm::vec3(0.0f);
+            // Huh turns out compilers are still dumb and still want to do bit magic instead of modulo
+            dir[j / 2] = (1.0f - (j & 0b1)) * 2.0f - 1.0f;
 
-            const uint32_t renderTextureIndex = lightBuffer->LightRenderTextures[0];
-
-            const VulkanDepthCubeRenderTexture* depthCubeRenderTexture = GetDepthCubeRenderTexture(renderTextureIndex);
-            const glm::vec2 screenSize = glm::vec2(depthCubeRenderTexture->GetWidth(), depthCubeRenderTexture->GetHeight());
-
-            const vk::RenderPass renderPass = depthCubeRenderTexture->GetRenderPass();
-
-            constexpr vk::ClearValue ClearDepth = vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0));
-
-            const vk::Rect2D scissor = vk::Rect2D({ 0, 0 }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y });
-            const vk::Viewport viewport = vk::Viewport(0.0f, 0.0f, screenSize.x, screenSize.y, 0.0f, 1.0f);
-
-            const float halfRadius = buffer.Radius * 0.5f;
-
-            for (int j = 0; j < 6; ++j)
+            // Ekk out some extra performance for point lights partially on screen
+            // Not much for small point lights
+            // Still want to look into multipass culling but lazy
+            // Bout ~20ms faster and ~2/3rds the vulkan calls in the sponza scene with renderdoc overhead
+            // Only bout ~3-4ms uplift in editor
+            if (!cameraFrustum.CompareSphere(position + dir * halfRadius, halfRadius)) 
             {
-                // I believe Vulkan is +X, -X, +Y, -Y, +Z, -Z
-                // Cannot be fucked to do this properly weird maths and loops it is
-                glm::vec3 dir = glm::vec3(0.0f);
-                // Huh turns out compilers are still dumb and still want to do bit magic instead of modulo
-                dir[j / 2] = (1.0f - (j & 0b1)) * 2.0f - 1.0f;
-
-                // Ekk out some extra performance for point lights partially on screen
-                // Not much for small point lights
-                // Still want to look into multipass culling but lazy
-                // Bout ~20ms faster and ~2/3rds the vulkan calls in the sponza scene with renderdoc overhead
-                // Only bout ~3-4ms uplift in editor
-                if (!cameraFrustum.CompareSphere(position + dir * halfRadius, halfRadius))
-                {
-                    continue;
-                }
-
-                glm::vec3 up = glm::vec3(0.0f, -1.0f, 0.0f);
-                if (glm::abs(glm::dot(dir, up)) > 0.95f)
-                {
-                    up = glm::vec3(0.0f, 0.0f, 1.0f);
-                }
-
-                const glm::mat4 view = glm::lookAt(position, position + dir, up);
-                const glm::mat4 lvp = proj * view;
-
-                const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
-                (
-                    renderPass,
-                    depthCubeRenderTexture->GetFrameBuffer(j),
-                    scissor,
-                    1,
-                    &ClearDepth
-                );
-
-                commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
-
-                commandBuffer.setScissor(0, 1, &scissor);
-                commandBuffer.setViewport(0, 1, &viewport);
-
-                DrawShadow(lvp, 0.0f, buffer.RenderLayer, renderTextureIndex, true, commandBuffer, a_index);
-
-                commandBuffer.endRenderPass();
+                continue;
             }
+
+            glm::vec3 up = glm::vec3(0.0f, -1.0f, 0.0f);
+            if (glm::abs(glm::dot(dir, up)) > 0.95f) 
+            {
+                up = glm::vec3(0.0f, 0.0f, 1.0f);
+            }
+
+            const glm::mat4 view = glm::lookAt(position, position + dir, up);
+            const glm::mat4 lvp = proj * view;
+
+            const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
+            (
+                renderPass, 
+                depthCubeRenderTexture->GetFrameBuffer(j), 
+                scissor, 
+                1, 
+                &ClearDepth
+            );
+
+            commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+            IDEFER(commandBuffer.endRenderPass());
+
+            commandBuffer.setScissor(0, 1, &scissor);
+            commandBuffer.setViewport(0, 1, &viewport);
+
+            DrawShadow(lvp, 0.0f, buffer.RenderLayer, renderTextureIndex, true, commandBuffer, a_index);
         }
     }
 
@@ -1157,9 +1147,9 @@ vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint
 
     const Frustum cameraFrustum = camBuffer.ToFrustum((glm::vec2)m_swapchain->GetSize());
 
-    const TReadLockArray<SpotLightBuffer> a = m_spotLights.ToReadLockArray();
+    const std::vector<SpotLightBuffer> lights = m_spotLights.ToVector();
     const std::vector<bool> state = m_spotLights.ToStateVector();
-    const uint32_t size = a.Size();
+    const uint32_t size = (uint32_t)lights.size();
 
     for (uint32_t i = 0; i < size; ++i)
     {
@@ -1168,10 +1158,16 @@ vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint
             continue;
         }
 
-        const SpotLightBuffer& buffer = a[i];
+        const SpotLightBuffer& buffer = lights[i];
         ICARIAN_ASSERT(buffer.Data != nullptr);
 
-        if ((buffer.RenderLayer & camBuffer.RenderLayer) == 0)
+        if (buffer.TransformAddr == -1 || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Intensity <= 0.0f || buffer.Radius <= 0.0f)
+        {
+            continue;
+        }
+
+        const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
+        if (lightBuffer->LightRenderTextureCount < 1)
         {
             continue;
         }
@@ -1184,60 +1180,56 @@ vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint
             continue;
         }
 
-        const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
-        if (lightBuffer->LightRenderTextureCount == 1)
+        
+        uint32_t renderTextureIndex = 0;
+        void* shadowArgs[] =
         {
-            uint32_t renderTextureIndex = 0;
-            void* shadowArgs[] =
-            {
-                &lightType,
-                &i,
-                &a_camIndex,
-                &renderTextureIndex
-            };
+            &lightType,
+            &i,
+            &a_camIndex,
+            &renderTextureIndex
+        };
 
-            {
-                PROFILESTACK("Pre Shadow");
+        {
+            PROFILESTACK("Pre Shadow");
 
-                m_preShadowFunc->Exec(shadowArgs);
-            }
+            m_preShadowFunc->Exec(shadowArgs);
+        }
 
-            const uint32_t lightRenderTexture = lightBuffer->LightRenderTextures[0];
-            const VulkanDepthRenderTexture* depthRenderTexture = GetDepthRenderTexture(lightRenderTexture);
+        const uint32_t lightRenderTexture = lightBuffer->LightRenderTextures[0];
+        const VulkanDepthRenderTexture* depthRenderTexture = GetDepthRenderTexture(lightRenderTexture);
 
-            const glm::vec2 screenSize = glm::vec2(depthRenderTexture->GetWidth(), depthRenderTexture->GetHeight());
+        const glm::vec2 screenSize = glm::vec2(depthRenderTexture->GetWidth(), depthRenderTexture->GetHeight());
 
-            constexpr vk::ClearValue ClearDepth = vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0));
+        constexpr vk::ClearValue ClearDepth = vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0));
 
-            const vk::Rect2D scissor = vk::Rect2D({ 0, 0 }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y });
-            const vk::Viewport viewport = vk::Viewport(0.0f, 0.0f, screenSize.x, screenSize.y, 0.0f, 1.0f);
+        const vk::Rect2D scissor = vk::Rect2D({ 0, 0 }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y });
+        const vk::Viewport viewport = vk::Viewport(0.0f, 0.0f, screenSize.x, screenSize.y, 0.0f, 1.0f);
 
-            const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
-            (
-                depthRenderTexture->GetRenderPass(),
-                depthRenderTexture->GetFrameBuffer(),
-                scissor,
-                1,
-                &ClearDepth
-            );
+        const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
+        (
+            depthRenderTexture->GetRenderPass(),
+            depthRenderTexture->GetFrameBuffer(),
+            scissor,
+            1,
+            &ClearDepth
+        );
 
-            const glm::mat4* lvp = lightData.GetLVP();
-            ICARIAN_ASSERT(lvp != nullptr);
+        const glm::mat4* lvp = lightData.GetLVP();
+        ICARIAN_ASSERT(lvp != nullptr);
 
-            commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+        commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+        IDEFER(commandBuffer.endRenderPass());
 
-            commandBuffer.setScissor(0, 1, &scissor);
-            commandBuffer.setViewport(0, 1, &viewport);
-            
-            DrawShadow(lvp[0], buffer.Radius, buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_index);
+        commandBuffer.setScissor(0, 1, &scissor);
+        commandBuffer.setViewport(0, 1, &viewport);
+        
+        DrawShadow(lvp[0], buffer.Radius, buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_index);
 
-            commandBuffer.endRenderPass();
+        {
+            PROFILESTACK("Post Shadow");
 
-            {
-                PROFILESTACK("Post Shadow");
-
-                m_postShadowFunc->Exec(shadowArgs);
-            }
+            m_postShadowFunc->Exec(shadowArgs);
         }
     }
 
@@ -1283,7 +1275,6 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
     const Frustum frustum = camBuffer.ToFrustum(screenSize);
 
     const TReadLockArray<MaterialRenderStack*> stacks = m_renderStacks.ToReadLockArray();
-
     for (const MaterialRenderStack* renderStack : stacks)
     {
         const uint32_t matAddr = renderStack->GetMaterialAddr();
@@ -1317,7 +1308,6 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                     transforms.reserve(modelBuffer.TransformCount);
 
                     const uint32_t transformCount = modelBuffer.TransformCount;
-                    for (uint32_t j = 0; j < transformCount; ++j)
                     {
                         PROFILESTACK("Culling");
                         for (uint32_t j = 0; j < transformCount; ++j)
@@ -1530,9 +1520,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             PROFILESTACK("S Dir Light");
 
-            const TReadLockArray<DirectionalLightBuffer> lights = m_directionalLights.ToReadLockArray();
-            const uint32_t size = lights.Size();
+            const std::vector<DirectionalLightBuffer> lights = m_directionalLights.ToVector();
             const std::vector<bool> state = m_directionalLights.ToStateVector();
+            const uint32_t size = (uint32_t)lights.size();
 
             for (uint32_t j = 0; j < size; ++j)
             {
@@ -1542,6 +1532,10 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                 }
 
                 const DirectionalLightBuffer& buffer = lights[j];
+                if (buffer.TransformAddr == -1 || buffer.Intensity <= 0.0f)
+                {
+                    continue;
+                }
 
                 const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
                 ICARIAN_ASSERT(lightBuffer != nullptr);
@@ -1654,9 +1648,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             PROFILESTACK("S Point Light");
 
-            const TReadLockArray<PointLightBuffer> lights = m_pointLights.ToReadLockArray();
-            const uint32_t size = lights.Size();
+            const std::vector<PointLightBuffer> lights = m_pointLights.ToVector();
             const std::vector<bool> state = m_pointLights.ToStateVector();
+            const uint32_t size = (uint32_t)lights.size();
 
             for (uint32_t j = 0; j < size; ++j)
             {
@@ -1666,7 +1660,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                 }
 
                 const PointLightBuffer& buffer = lights[j];
-                if ((buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Radius <= 0.0f || buffer.Intensity <= 0.0f)
+                if (buffer.TransformAddr == -1 || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Radius <= 0.0f || buffer.Intensity <= 0.0f)
                 {
                     continue;
                 }
@@ -1747,9 +1741,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             PROFILESTACK("S Spot Light");
 
-            const TReadLockArray<SpotLightBuffer> lights = m_spotLights.ToReadLockArray();
-            const uint32_t size = lights.Size();
+            const std::vector<SpotLightBuffer> lights = m_spotLights.ToVector();
             const std::vector<bool> state = m_spotLights.ToStateVector();
+            const uint32_t size = (uint32_t)lights.size();
 
             for (uint32_t j = 0; j < size; ++j)
             {
@@ -1891,11 +1885,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
             ShaderBufferInput ambientLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_AmbientLightBuffer, &ambientLightInput))
             {
-                for (uint32_t j = 0; j < size; ++j)
+                for (const AmbientLightBuffer& ambientLight : lights)
                 {
-                    const AmbientLightBuffer& ambientLight = lights[j];
-
-                    if (camBuffer.RenderLayer & ambientLight.RenderLayer)
+                    if (camBuffer.RenderLayer & ambientLight.RenderLayer && ambientLight.Intensity > 0.0f)
                     {
                         VulkanUniformBuffer* uniformBuffer = pushPool->AllocateAmbientLightUniformBuffer();
 
@@ -1916,11 +1908,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                 std::vector<AmbientLightShaderBuffer> buffers;
                 buffers.reserve(size);
 
-                for (uint32_t j = 0; j < size; ++j)
+                for (const AmbientLightBuffer& ambientLight : lights)
                 {
-                    const AmbientLightBuffer& ambientLight = lights[j];
-
-                    if (camBuffer.RenderLayer & ambientLight.RenderLayer)
+                    if (camBuffer.RenderLayer & ambientLight.RenderLayer && ambientLight.Intensity > 0.0f)
                     {
                         AmbientLightShaderBuffer buffer;
                         buffer.LightColor = ambientLight.Color;
@@ -1949,23 +1939,14 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             PROFILESTACK("Dir Light");
 
-            const TReadLockArray<DirectionalLightBuffer> lights = m_directionalLights.ToReadLockArray();
-            const uint32_t size = lights.Size();
-            const std::vector<bool> state = m_directionalLights.ToStateVector();
+            const std::vector<DirectionalLightBuffer> lights = m_directionalLights.ToActiveVector();
 
             ShaderBufferInput dirLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_DirectionalLightBuffer, &dirLightInput))
             {
-                for (uint32_t j = 0; j < size; ++j)
+                for (const DirectionalLightBuffer& dirLight : lights)
                 {
-                    if (!state[j])
-                    {
-                        continue;
-                    }
-
-                    const DirectionalLightBuffer& dirLight = lights[j];
-
-                    if (dirLight.TransformAddr != -1 && camBuffer.RenderLayer & dirLight.RenderLayer)
+                    if (dirLight.TransformAddr != -1 && camBuffer.RenderLayer & dirLight.RenderLayer && dirLight.Intensity > 0.0f)
                     {
                         const VulkanLightBuffer* lightData = (VulkanLightBuffer*)dirLight.Data;
                         ICARIAN_ASSERT(lightData != nullptr);
@@ -1995,19 +1976,13 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSDirectionalLightBuffer, &dirLightInput))
             {
+                const uint32_t size = (uint32_t)lights.size();
                 std::vector<DirectionalLightShaderBuffer> buffers;
                 buffers.reserve(size);
 
-                for (uint32_t j = 0; j < size; ++j)
+                for (const DirectionalLightBuffer& dirLight : lights)
                 {
-                    if (!state[j])
-                    {
-                        continue;
-                    }
-
-                    const DirectionalLightBuffer& dirLight = lights[j];
-
-                    if (dirLight.TransformAddr != -1 && camBuffer.RenderLayer & dirLight.RenderLayer)
+                    if (dirLight.TransformAddr != -1 && camBuffer.RenderLayer & dirLight.RenderLayer && dirLight.Intensity > 0.0f)
                     {
                         const VulkanLightBuffer* lightData = (VulkanLightBuffer*)dirLight.Data;
                         ICARIAN_ASSERT(lightData != nullptr);
@@ -2047,23 +2022,13 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         case LightType_Point:
         {
             PROFILESTACK("Point Light");
-
-            const TReadLockArray<PointLightBuffer> lights = m_pointLights.ToReadLockArray();
-            const uint32_t size = lights.Size();
-            const std::vector<bool> state = m_pointLights.ToStateVector();
+            const std::vector<PointLightBuffer> lights = m_pointLights.ToActiveVector();
 
             ShaderBufferInput pointLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_PointLightBuffer, &pointLightInput))
             {
-                for (uint32_t j = 0; j < size; ++j)
+                for (const PointLightBuffer& pointLight : lights)
                 {
-                    if (!state[j])
-                    {
-                        continue;
-                    }
-
-                    const PointLightBuffer& pointLight = lights[j];
-
                     if (pointLight.TransformAddr != -1 && camBuffer.RenderLayer & pointLight.RenderLayer && pointLight.Radius > 0.0f && pointLight.Intensity > 0.0f)
                     {
                         const VulkanLightBuffer* lightData = (VulkanLightBuffer*)pointLight.Data;
@@ -2100,18 +2065,12 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSPointLightBuffer, &pointLightInput))
             {
+                const uint32_t size = (uint32_t)lights.size();
                 std::vector<PointLightShaderBuffer> buffers;
                 buffers.reserve(size);
 
-                for (uint32_t j = 0; j < size; ++j)
+                for (const PointLightBuffer& pointLight : lights)
                 {
-                    if (!state[j])
-                    {
-                        continue;
-                    }
-
-                    const PointLightBuffer& pointLight = lights[j];
-
                     if (pointLight.TransformAddr != -1 && camBuffer.RenderLayer & pointLight.RenderLayer && pointLight.Radius > 0.0f && pointLight.Intensity > 0.0f)
                     {
                         const VulkanLightBuffer* lightData = (VulkanLightBuffer*)pointLight.Data;
@@ -2159,22 +2118,13 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             PROFILESTACK("Spot Light");
 
-            TReadLockArray<SpotLightBuffer> lights = m_spotLights.ToReadLockArray();
-            const uint32_t size = lights.Size();
-            const std::vector<bool> state = m_spotLights.ToStateVector();
+            const std::vector<SpotLightBuffer> lights = m_spotLights.ToActiveVector();
 
             ShaderBufferInput spotLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_SpotLightBuffer, &spotLightInput))
             {
-                for (uint32_t j = 0; j < size; ++j)
+                for (const SpotLightBuffer& spotLight : lights)
                 {
-                    if (!state[j])
-                    {
-                        continue;
-                    }
-
-                    const SpotLightBuffer& spotLight = lights[j];
-
                     if (spotLight.TransformAddr != -1 && camBuffer.RenderLayer & spotLight.RenderLayer)
                     {
                         const VulkanLightBuffer* lightData = (VulkanLightBuffer*)spotLight.Data;
@@ -2214,18 +2164,13 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSSpotLightBuffer, &spotLightInput))
             {
+                const uint32_t size = (uint32_t)lights.size();
+
                 std::vector<SpotLightShaderBuffer> buffers;
                 buffers.reserve(size);
 
-                for (uint32_t j = 0; j < size; ++j)
+                for (const SpotLightBuffer& spotLight : lights)
                 {
-                    if (!state[j])
-                    {
-                        continue;
-                    }
-
-                    const SpotLightBuffer& spotLight = lights[j];
-
                     if (spotLight.TransformAddr != -1 && camBuffer.RenderLayer & spotLight.RenderLayer)
                     {
                         const VulkanLightBuffer* lightData = (VulkanLightBuffer*)spotLight.Data;

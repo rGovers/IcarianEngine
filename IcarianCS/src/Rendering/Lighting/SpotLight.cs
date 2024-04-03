@@ -120,9 +120,13 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 SpotLightBuffer buffer = GetBuffer(m_bufferAddr);
 
-                buffer.Intensity = value;
+                float v = Mathf.Max(value, 0.0f);
+                if (v != buffer.Intensity)
+                {
+                    buffer.Intensity = v;
 
-                SetBuffer(m_bufferAddr, buffer);
+                    SetBuffer(m_bufferAddr, buffer);
+                }
             }
         }
 
@@ -159,15 +163,19 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 SpotLightBuffer buffer = GetBuffer(m_bufferAddr);
 
-                return (float)Math.Acos(buffer.CutoffAngle.X);
+                return Mathf.Acos(buffer.CutoffAngle.X);
             }
             set
             {
                 SpotLightBuffer buffer = GetBuffer(m_bufferAddr);
 
-                buffer.CutoffAngle.X = (float)Math.Cos(value);
+                float v = Mathf.Max(Mathf.Cos(value), 0.0f);
+                if (v != buffer.CutoffAngle.X)
+                {
+                    buffer.CutoffAngle.X = v;
 
-                SetBuffer(m_bufferAddr, buffer);
+                    SetBuffer(m_bufferAddr, buffer);
+                }
             }
         }
         /// <summary>
@@ -180,15 +188,19 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 SpotLightBuffer buffer = GetBuffer(m_bufferAddr);
 
-                return (float)Math.Acos(buffer.CutoffAngle.Y);
+                return Mathf.Acos(buffer.CutoffAngle.Y);
             }
             set
             {
                 SpotLightBuffer buffer = GetBuffer(m_bufferAddr);
 
-                buffer.CutoffAngle.Y = (float)Math.Cos(value);
+                float v = Mathf.Max(Mathf.Cos(value), 0.0f);
+                if (v != buffer.CutoffAngle.Y)
+                {   
+                    buffer.CutoffAngle.Y = v;
 
-                SetBuffer(m_bufferAddr, buffer);
+                    SetBuffer(m_bufferAddr, buffer);
+                }
             }
         }
 
@@ -207,9 +219,13 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 SpotLightBuffer buffer = GetBuffer(m_bufferAddr);
 
-                buffer.Radius = value;
+                float v = Mathf.Max(value, 0.0f);
+                if (v != buffer.Radius)
+                {
+                    buffer.Radius = value;
 
-                SetBuffer(m_bufferAddr, buffer);
+                    SetBuffer(m_bufferAddr, buffer);
+                }
             }
         }
 
@@ -220,7 +236,11 @@ namespace IcarianEngine.Rendering.Lighting
         {
             get
             {
-                return null;
+                DepthRenderTexture shadowMap = ShadowMap;
+                if (shadowMap != null)
+                {
+                    yield return shadowMap;
+                }
             }
         }
 

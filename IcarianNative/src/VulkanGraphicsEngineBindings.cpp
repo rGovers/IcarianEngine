@@ -1227,10 +1227,33 @@ AmbientLightBuffer VulkanGraphicsEngineBindings::GetAmbientLightBuffer(uint32_t 
 }
 void VulkanGraphicsEngineBindings::DestroyAmbientLightBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_ambientLights.Size(), "DestroyAmbientLightBuffer out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_ambientLights.Exists(a_addr), "DestroyAmbientLightBuffer already destroyed");
+    class VulkanAmbientLightDeletionObject : public DeletionObject
+    {
+    private:
+        uint32_t m_addr;
 
-    m_graphicsEngine->m_ambientLights.Erase(a_addr);
+    protected:
+
+    public:
+        VulkanAmbientLightDeletionObject(uint32_t a_addr)
+        {
+            m_addr = a_addr;
+        }
+        virtual ~VulkanAmbientLightDeletionObject()
+        {
+
+        }
+
+        virtual void Destroy()
+        {
+            ICARIAN_ASSERT_MSG(m_addr < Engine->m_graphicsEngine->m_ambientLights.Size(), "DestroyAmbientLightBuffer out of bounds");
+            ICARIAN_ASSERT_MSG(Engine->m_graphicsEngine->m_ambientLights.Exists(m_addr), "DestroyAmbientLightBuffer already destroyed");
+
+            Engine->m_graphicsEngine->m_ambientLights.Erase(m_addr);
+        }
+    };
+
+    DeletionQueue::Push(new VulkanAmbientLightDeletionObject(a_addr), DeletionIndex_Render);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateDirectionalLightBuffer(uint32_t a_transformAddr) const
@@ -1264,12 +1287,36 @@ DirectionalLightBuffer VulkanGraphicsEngineBindings::GetDirectionalLightBuffer(u
 }
 void VulkanGraphicsEngineBindings::DestroyDirectionalLightBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_directionalLights.Size(), "DestroyDirectionalLightBuffer out of bounds");
+    class VulkanDirectionalLightDeletionObject : public DeletionObject
+    {
+    private:
+        uint32_t m_addr;
 
-    const DirectionalLightBuffer buffer = m_graphicsEngine->m_directionalLights[a_addr];
-    const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
-    IDEFER(delete lightBuffer);
-    m_graphicsEngine->m_directionalLights.Erase(a_addr);
+    protected:
+
+    public:
+        VulkanDirectionalLightDeletionObject(uint32_t a_addr)
+        {
+            m_addr = a_addr;
+        }
+        virtual ~VulkanDirectionalLightDeletionObject()
+        {
+
+        }
+
+        virtual void Destroy()
+        {
+            ICARIAN_ASSERT_MSG(m_addr < Engine->m_graphicsEngine->m_directionalLights.Size(), "DestroyDirectionalLightBuffer out of bounds");
+            ICARIAN_ASSERT_MSG(Engine->m_graphicsEngine->m_directionalLights.Exists(m_addr), "DestroyDirectionalLightBuffer already destroyed");
+
+            const DirectionalLightBuffer buffer = Engine->m_graphicsEngine->m_directionalLights[m_addr];
+            const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
+            IDEFER(delete lightBuffer);
+            Engine->m_graphicsEngine->m_directionalLights.Erase(m_addr);
+        }
+    };
+
+    DeletionQueue::Push(new VulkanDirectionalLightDeletionObject(a_addr), DeletionIndex_Render);
 }
 void VulkanGraphicsEngineBindings::AddDirectionalLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const
 {
@@ -1355,9 +1402,37 @@ PointLightBuffer VulkanGraphicsEngineBindings::GetPointLightBuffer(uint32_t a_ad
 }
 void VulkanGraphicsEngineBindings::DestroyPointLightBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_pointLights.Size(), "DestroyPointLightBuffer out of bounds");
+    class VulkanPointLightDeletionObject : public DeletionObject
+    {
+    private:
+        uint32_t m_addr;
 
-    m_graphicsEngine->m_pointLights.Erase(a_addr);
+    protected:
+
+    public:
+        VulkanPointLightDeletionObject(uint32_t a_addr)
+        {
+            m_addr = a_addr;
+        }
+        virtual ~VulkanPointLightDeletionObject()
+        {
+
+        }
+
+        virtual void Destroy()
+        {
+            ICARIAN_ASSERT_MSG(m_addr < Engine->m_graphicsEngine->m_pointLights.Size(), "DestroyPointLightBuffer out of bounds");
+            ICARIAN_ASSERT_MSG(Engine->m_graphicsEngine->m_pointLights.Exists(m_addr), "DestroyPointLightBuffer already destroyed");
+
+            const PointLightBuffer buffer = Engine->m_graphicsEngine->m_pointLights[m_addr];
+            const VulkanLightBuffer* data = (VulkanLightBuffer*)buffer.Data;
+            IDEFER(delete data);
+
+            Engine->m_graphicsEngine->m_pointLights.Erase(m_addr);
+        }
+    };
+
+    DeletionQueue::Push(new VulkanPointLightDeletionObject(a_addr), DeletionIndex_Render);
 }
 void VulkanGraphicsEngineBindings::SetPointLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const
 {
@@ -1447,10 +1522,37 @@ SpotLightBuffer VulkanGraphicsEngineBindings::GetSpotLightBuffer(uint32_t a_addr
 }
 void VulkanGraphicsEngineBindings::DestroySpotLightBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_spotLights.Size(), "DestroySpotLightBuffer out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_spotLights.Exists(a_addr), "DestroySpotLightBuffer already destroyed");
+    class VulkanSpotLightDeletionObject : public DeletionObject
+    {
+    private:
+        uint32_t m_addr;
 
-    m_graphicsEngine->m_spotLights.Erase(a_addr);
+    protected:
+
+    public:
+        VulkanSpotLightDeletionObject(uint32_t a_addr)
+        {
+            m_addr = a_addr;
+        }
+        virtual ~VulkanSpotLightDeletionObject()
+        {
+
+        }
+
+        virtual void Destroy()
+        {
+            ICARIAN_ASSERT_MSG(m_addr < Engine->m_graphicsEngine->m_spotLights.Size(), "DestroySpotLightBuffer out of bounds");
+            ICARIAN_ASSERT_MSG(Engine->m_graphicsEngine->m_spotLights.Exists(m_addr), "DestroySpotLightBuffer already destroyed");
+
+            const SpotLightBuffer buffer = Engine->m_graphicsEngine->m_spotLights[m_addr];
+            const VulkanLightBuffer* data = (VulkanLightBuffer*)buffer.Data;
+            IDEFER(delete data);
+
+            Engine->m_graphicsEngine->m_spotLights.Erase(m_addr);
+        }
+    };
+
+    DeletionQueue::Push(new VulkanSpotLightDeletionObject(a_addr), DeletionIndex_Render);   
 }
 void VulkanGraphicsEngineBindings::SetSpotLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const
 {

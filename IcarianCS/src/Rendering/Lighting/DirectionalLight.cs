@@ -122,9 +122,13 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 DirectionalLightBuffer buffer = GetBuffer(m_bufferAddr);
 
-                buffer.Intensity = value;
+                float v = Mathf.Max(value, 0.0f);
+                if (v != buffer.Intensity)
+                {
+                    buffer.Intensity = v;
 
-                SetBuffer(m_bufferAddr, buffer);
+                    SetBuffer(m_bufferAddr, buffer);
+                }
             }
         }
 
