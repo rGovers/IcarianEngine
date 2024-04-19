@@ -6,7 +6,7 @@
 #include "Audio/AudioClips/AudioClip.h"
 #include "Audio/AudioEngineBindings.h"
 #include "DataTypes/RingAllocator.h"
-#include "Logger.h"
+#include "IcarianError.h"
 #include "ObjectManager.h"
 #include "Profiler.h"
 #include "Trace.h"
@@ -32,7 +32,7 @@ AudioEngine::AudioEngine()
     m_device = alcOpenDevice(NULL);
     if (m_device == NULL)
     {
-        Logger::Warning("Failed to create AudioEngine: No audio device.");
+        IWARN("Failed to create AudioEngine: No audio device.");
 
         return;
     }
@@ -43,7 +43,7 @@ AudioEngine::AudioEngine()
         alcCloseDevice(m_device);
         m_device = NULL;
 
-        Logger::Warning("Failed to create AudioEngine: No default audio context.");
+        IWARN("Failed to create AudioEngine: No default audio context.");
 
         return;
     }
@@ -56,7 +56,7 @@ AudioEngine::AudioEngine()
         m_device = NULL;
         m_context = NULL;
 
-        Logger::Warning("Failed to create AudioEngine: Failed to make context current.");
+        IWARN("Failed to create AudioEngine: Failed to make context current.");
 
         return;
     }
@@ -72,7 +72,7 @@ AudioEngine::~AudioEngine()
     {
         if (m_audioClips.Exists(i))
         {
-            Logger::Warning("AudioClip was not destroyed.");
+            IWARN("AudioClip was not destroyed.");
 
             delete m_audioClips[i];
         }
@@ -82,7 +82,7 @@ AudioEngine::~AudioEngine()
     {
         if (m_audioSources.Exists(i))
         {
-            Logger::Warning("AudioSource was not destroyed.");
+            IWARN("AudioSource was not destroyed.");
 
             if (m_audioSources[i].Source != -1)
             {
@@ -100,7 +100,7 @@ AudioEngine::~AudioEngine()
     {
         if (m_audioListeners.Exists(i))
         {
-            Logger::Warning("AudioListener was not destroyed.");
+            IWARN("AudioListener was not destroyed.");
         }
     }
 
@@ -108,7 +108,7 @@ AudioEngine::~AudioEngine()
     {
         if (m_audioMixers.Exists(i))
         {
-            Logger::Warning("AudioMixer was not destroyed.");
+            IWARN("AudioMixer was not destroyed.");
         }
     }
 
@@ -267,7 +267,7 @@ void AudioEngine::Update()
     const ALenum error = alGetError();
     if (error != AL_NO_ERROR)
     {
-        Logger::Error(std::string("OpenAL Error: ") + alGetString(error));
+        IWARN(std::string("OpenAL Error: ") + alGetString(error));
 
         return;
     }

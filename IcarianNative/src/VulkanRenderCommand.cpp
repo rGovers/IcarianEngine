@@ -206,7 +206,7 @@ void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, const VulkanRen
 
     if (a_src == nullptr)
     {
-        Logger::Error("IcarianEngine: Cannot Blit Swapchain as Source");
+        IERROR("Cannot blit Swapchain as source");
 
         return;
     }

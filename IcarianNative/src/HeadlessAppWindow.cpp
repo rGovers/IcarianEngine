@@ -1,4 +1,5 @@
 #include "AppWindow/HeadlessAppWindow.h"
+#include "IcarianError.h"
 
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
@@ -313,13 +314,13 @@ bool HeadlessAppWindow::PollMessage()
         }
         case IcarianCore::PipeMessageType_Null:
         {
-            Logger::Warning("Engine: Null Message");
+            IWARN("Null Message");
 
             return false;
         }
         default:
         {
-            Logger::Error("IcarianEngine: Invalid Pipe Message: " + std::to_string(msg.Type) + " " + std::to_string(msg.Length));
+            IERROR("IcarianEngine: Invalid Pipe Message: " + std::to_string(msg.Type) + " " + std::to_string(msg.Length));
 
             break;
         }

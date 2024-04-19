@@ -48,23 +48,25 @@ constexpr const char* StandaloneDeviceExtensions[] =
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT a_msgSeverity, VkDebugUtilsMessageTypeFlagsEXT a_msgType, const VkDebugUtilsMessengerCallbackDataEXT* a_callbackData, void* a_userData)
 {
+    constexpr static const char* ValidationPrefix = "Vulkan Validation Layer: ";
+
     switch (a_msgSeverity)
     {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
     {
-        Logger::Message(std::string("Vulkan Validation Layer: ") + a_callbackData->pMessage);
+        Logger::Message(std::string(ValidationPrefix) + a_callbackData->pMessage);
 
         break;
     }
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
     {
-        Logger::Warning(std::string("Vulkan Validation Layer: ") + a_callbackData->pMessage);
+        Logger::Warning(std::string(ValidationPrefix) + a_callbackData->pMessage);
 
         break;
     }
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
     {
-        Logger::Error(std::string("Vulkan Validation Layer: ") + a_callbackData->pMessage);
+        Logger::Error(std::string(ValidationPrefix) + a_callbackData->pMessage);
 
         return VK_TRUE;
         // break;

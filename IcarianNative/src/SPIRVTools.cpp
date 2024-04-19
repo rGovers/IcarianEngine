@@ -2,10 +2,9 @@
 
 #include <spirv-tools/optimizer.hpp>
 
-#include "Core/IcarianAssert.h"
-#include "Logger.h"
+#include "Rendering/Vulkan/IcarianVulkanHeader.h"
+
 #include "Rendering/ShaderBuffers.h"
-#include "Rendering/Vulkan/VulkanConstants.h"
 #include "Trace.h"
 
 static std::vector<std::string> SplitArgs(const std::string_view& a_string)
@@ -54,8 +53,14 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 		const std::size_t sAPos = shader.find("(", sPos + 1);
 		const std::size_t eAPos = shader.find(')', sPos + 1);
 
-		ICARIAN_ASSERT_MSG_R(sAPos != std::string::npos && eAPos != std::string::npos, "Invalid Flare Shader definition at " + std::to_string(sPos));
-		ICARIAN_ASSERT_MSG_R(sAPos < eAPos, "Invalid Flare Shader braces at " + std::to_string(sPos));
+		if (sAPos == std::string::npos || eAPos == std::string::npos)
+		{
+			IERROR("Invalid Flare Shader definition at " + std::to_string(sPos));
+		}
+		if (sAPos >= eAPos)
+		{
+			IERROR("Invalid Flare Shader braces at " + std::to_string(sPos));
+		}
 
 		const std::string defName = shader.substr(sPos + 2, sAPos - sPos - 2);
 		std::vector<std::string> args = SplitArgs(shader.substr(sAPos + 1, eAPos - sAPos - 1));
@@ -63,7 +68,10 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 		std::string rStr;
 		if (defName == "structure")
 		{
-			ICARIAN_ASSERT_MSG_R(args.size() == 4, "Flare Shader structure requires 4 arguments");
+			if (args.size() != 4)
+			{
+				IERROR("Flare Shader structure requires 4 arguments");
+			}
 
 			if (args[0] == "CameraBuffer")
 			{
@@ -128,19 +136,28 @@ std::string GLSL_fromFShader(const std::string_view& a_str)
 		}
 		else if (defName == "userbuffer")
 		{
-			ICARIAN_ASSERT_MSG_R(args.size() == 3, "Flare Shader ubo requires 3 arguments");
+			if (args.size() != 3)
+			{
+				IERROR("Flare Shader ubo requires 3 arguments");
+			}
 
 			rStr = std::string("layout(std140, binding=") + args[0] + ", set=" + args[1] + ") uniform " + args[2];
 		}
 		else if (defName == "instancedstructure")
 		{
-			ICARIAN_ASSERT_MSG_R(args.size() == 1, "Flare Shader instancedstructure requires 1 argument");
+			if (args.size() != 1)
+			{
+				IERROR("Flare Shader instancedstructure requires 1 argument");
+			}
 
 			rStr = args[0] + ".objects[gl_InstanceIndex]";
 		}
 		else if (defName == "pushbuffer")
 		{
-			ICARIAN_ASSERT_MSG_R(args.size() == 2, "Flare Shader pushbuffer requires 2 arguments");
+			if (args.size() != 2)
+			{
+				IERROR("Flare Shader pushbuffer requires 2 arguments");
+			}
 
 			if (args[0] == "PModelBuffer")
 			{
@@ -304,9 +321,7 @@ std::vector<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const std::string_view&
 
     if (!shader.parse(&resource, 100, false, Messages))
     {
-		Logger::Error(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog());
-
-		ICARIAN_ASSERT(0);
+		IERROR(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog());
     }
 
     glslang::TProgram program;
@@ -314,9 +329,7 @@ std::vector<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const std::string_view&
 
     if (!program.link(Messages))
     {
-		Logger::Error(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog());
-
-		ICARIAN_ASSERT(0);
+		IERROR(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog());
     }
 
 	std::vector<uint32_t> spirv;
@@ -333,7 +346,10 @@ std::vector<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const std::string_view&
 
 		opt.RegisterPerformancePasses();
 
-		ICARIAN_ASSERT_MSG_R(opt.Run(spirv.data(), spirv.size(), &spirv), "Failed to optimize SPIRV");
+		if (!opt.Run(spirv.data(), spirv.size(), &spirv))
+		{
+			IERROR("Failed to optimize SPIRV");
+		}
 	}
 	
     TRACE("Generated SPIRV");

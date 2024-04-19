@@ -4,17 +4,11 @@
 
 #include "AppWindow/AppWindow.h"
 #include "AppWindow/HeadlessAppWindow.h"
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
-#include "Logger.h"
-#include "Rendering/Vulkan/VulkanConstants.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
-
-// Fixes error on Windows
-#undef min
 
 static vk::SurfaceFormatKHR GetSurfaceFormatFromFormats(const std::vector<vk::SurfaceFormatKHR>& a_formats)
 {
@@ -89,12 +83,12 @@ void VulkanSwapchain::Init(const glm::ivec2& a_size)
         createInfo.pQueueFamilyIndices = queueFamilyIndices;
     }
 
-    ICARIAN_ASSERT_MSG_R(lDevice.createSwapchainKHR(&createInfo, nullptr, &m_swapchain) == vk::Result::eSuccess, "Failed to create Vulkan Swapchain");
+    VKRESERRMSG(lDevice.createSwapchainKHR(&createInfo, nullptr, &m_swapchain), "Failed to create swapchain");
     TRACE("Created Vulkan Swapchain");
 
-    ICARIAN_ASSERT_R(lDevice.getSwapchainImagesKHR(m_swapchain, &imageCount, nullptr) == vk::Result::eSuccess);
+    VKRESERR(lDevice.getSwapchainImagesKHR(m_swapchain, &imageCount, nullptr));
     m_colorImage.resize(imageCount);
-    ICARIAN_ASSERT_R(lDevice.getSwapchainImagesKHR(m_swapchain, &imageCount, m_colorImage.data()) == vk::Result::eSuccess);
+    VKRESERR(lDevice.getSwapchainImagesKHR(m_swapchain, &imageCount, m_colorImage.data()));
 
     m_imageViews.resize(imageCount);
     for (uint32_t i = 0; i < imageCount; ++i)
@@ -109,7 +103,7 @@ void VulkanSwapchain::Init(const glm::ivec2& a_size)
             vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
         );
 
-        ICARIAN_ASSERT_MSG_R(lDevice.createImageView(&createInfo, nullptr, &m_imageViews[i]) == vk::Result::eSuccess, "Failed to create Swapchain ImageView");
+        VKRESERRMSG(lDevice.createImageView(&createInfo, nullptr, &m_imageViews[i]), "Failed to create swapchain ImageView");
     }
     TRACE("Created Vulkan Swap Images");
 
@@ -132,7 +126,7 @@ void VulkanSwapchain::Init(const glm::ivec2& a_size)
             1
         );
 
-        ICARIAN_ASSERT_MSG_R(lDevice.createFramebuffer(&framebufferInfo, nullptr, &m_framebuffers[i]) == vk::Result::eSuccess, "Failed to create Swapchain Framebuffer");
+        VKRESERRMSG(lDevice.createFramebuffer(&framebufferInfo, nullptr, &m_framebuffers[i]), "Failed to create swapchain framebuffer");
     }
 }
 void VulkanSwapchain::InitHeadless(const glm::ivec2& a_size)
@@ -171,7 +165,7 @@ void VulkanSwapchain::InitHeadless(const glm::ivec2& a_size)
     TRACE("Creating Swapchain Headless Images");
     for (uint32_t i = 0; i < VulkanMaxFlightFrames; ++i)
     {
-        ICARIAN_ASSERT_MSG_R(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &m_colorAllocation[i], nullptr) == VK_SUCCESS, "Failed to create Swapchain Image");
+        VKRESERRMSG(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &m_colorAllocation[i], nullptr), "Failed to create swapchain image");
         m_colorImage[i] = image;
 
         constexpr vk::ImageSubresourceRange SubresourceRange = vk::ImageSubresourceRange
@@ -191,7 +185,7 @@ void VulkanSwapchain::InitHeadless(const glm::ivec2& a_size)
             vk::ComponentMapping(),
             SubresourceRange
         );
-        ICARIAN_ASSERT_MSG_R(device.createImageView(&colorImageView, nullptr, &m_imageViews[i]) == vk::Result::eSuccess, "Failed to create Swapchain ImageView");
+        VKRESERRMSG(device.createImageView(&colorImageView, nullptr, &m_imageViews[i]), "Failed to create swapchain ImageView");
 
         const vk::ImageView attachments[] = 
         {
@@ -209,7 +203,7 @@ void VulkanSwapchain::InitHeadless(const glm::ivec2& a_size)
             1
         );
 
-        ICARIAN_ASSERT_MSG_R(device.createFramebuffer(&framebufferInfo, nullptr, &m_framebuffers[i]) == vk::Result::eSuccess, "Failed to create Swapchain Framebuffer");
+        VKRESERRMSG(device.createFramebuffer(&framebufferInfo, nullptr, &m_framebuffers[i]), "Failed to create swapchain framebuffer");
     }
     TRACE("Created Swapchain Headless Images");
 
@@ -223,7 +217,7 @@ void VulkanSwapchain::InitHeadless(const glm::ivec2& a_size)
     allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
     VkBuffer buff;
-    vmaCreateBuffer(allocator, &buffCreateInfo, &allocCreateInfo, &buff, &m_allocBuffer, nullptr);
+    VKRESERR((vk::Result)vmaCreateBuffer(allocator, &buffCreateInfo, &allocCreateInfo, &buff, &m_allocBuffer, nullptr));
     m_buffer = buff;
 
     TRACE("Created Swapchain Buffer");
@@ -395,8 +389,8 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         dependencies.data()
     );
 
-    ICARIAN_ASSERT_MSG_R(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass) == vk::Result::eSuccess, "Failed to create Swapchain Renderpass");
-    ICARIAN_ASSERT_MSG_R(device.createRenderPass(&renderPassNoClearInfo, nullptr, &m_renderPassNoClear) == vk::Result::eSuccess, "Failed to create Swapchain Renderpass");
+    VKRESERRMSG(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass), "Failed to create swapchain renderpass");
+    VKRESERRMSG(device.createRenderPass(&renderPassNoClearInfo, nullptr, &m_renderPassNoClear), "Failed to create swapchain NC renderpass");
 
     TRACE("Created Vulkan Swapchain Renderpass");
 
@@ -437,22 +431,22 @@ SwapChainSupportInfo VulkanSwapchain::QuerySwapChainSupport(const vk::PhysicalDe
 {
     SwapChainSupportInfo info;
 
-    std::ignore = a_device.getSurfaceCapabilitiesKHR(a_surface, &info.Capabilites);
+    VKRESERR(a_device.getSurfaceCapabilitiesKHR(a_surface, &info.Capabilites));
 
     uint32_t formatCount;
-    std::ignore = a_device.getSurfaceFormatsKHR(a_surface, &formatCount, nullptr);
+    VKRESERR(a_device.getSurfaceFormatsKHR(a_surface, &formatCount, nullptr));
     if (formatCount != 0)
     {
         info.Formats.resize(formatCount);
-        std::ignore = a_device.getSurfaceFormatsKHR(a_surface, &formatCount, info.Formats.data());
+        VKRESERR(a_device.getSurfaceFormatsKHR(a_surface, &formatCount, info.Formats.data()));
     }
 
     uint32_t presentModeCount;
-    std::ignore = a_device.getSurfacePresentModesKHR(a_surface, &presentModeCount, nullptr);
+    VKRESERR(a_device.getSurfacePresentModesKHR(a_surface, &presentModeCount, nullptr));
     if (presentModeCount != 0)
     {
         info.PresentModes.resize(presentModeCount);
-        std::ignore = a_device.getSurfacePresentModesKHR(a_surface, &presentModeCount, info.PresentModes.data());
+        VKRESERR(a_device.getSurfacePresentModesKHR(a_surface, &presentModeCount, info.PresentModes.data()));
     }
 
     return info;
@@ -485,10 +479,10 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, double a_delta, double 
 
     {
         PROFILESTACK("Fence");
-        vk::Result r = device.waitForFences(1, &fence, VK_TRUE, UINT64_MAX);
-        if (r != vk::Result::eSuccess)
+        const vk::Result result = device.waitForFences(1, &fence, VK_TRUE, UINT64_MAX);
+        if (result != vk::Result::eSuccess)
         {
-            Logger::Warning("IcarianEngine: Could not wait for fence");
+            VKRESWARNMSG(result, "Could not wait for fence");
 
             return false;
         }
@@ -517,16 +511,13 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, double a_delta, double 
         
         if (!IsInitialized(*a_imageIndex))
         {
-            ICARIAN_ASSERT_R(device.resetFences(1, &fence) == vk::Result::eSuccess);
+            VKRESERR(device.resetFences(1, &fence));
 
             return true;
         }
 
         char* dat;
-        if (vmaMapMemory(allocator, m_allocBuffer, (void**)&dat) != VK_SUCCESS)
-        {
-            ICARIAN_ASSERT_MSG(0, "Failed mapping frame buffer");
-        }
+        VKRESERR((vk::Result)vmaMapMemory(allocator, m_allocBuffer, (void**)&dat));
         IDEFER(vmaUnmapMemory(allocator, m_allocBuffer));
 
         HeadlessAppWindow* window = (HeadlessAppWindow*)m_window;
@@ -579,7 +570,7 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, double a_delta, double 
         }
         default:
         {
-            ICARIAN_ASSERT_MSG(0, "Failed to aquire swapchain image");
+            VKRESERRMSG(res, "Failed to aquire swapchain image");
 
             break;
         }
@@ -589,7 +580,7 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, double a_delta, double 
     {
         PROFILESTACK("Reset Fence");
         
-        ICARIAN_ASSERT_R(device.resetFences(1, &fence) == vk::Result::eSuccess);
+        VKRESERR(device.resetFences(1, &fence));
     }
 
     return true;
@@ -617,7 +608,7 @@ void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, uint32_t a_imag
         (
             vk::CommandBufferUsageFlagBits::eOneTimeSubmit
         );
-        ICARIAN_ASSERT_R(cmdBuffer.begin(&BufferBeginInfo) == vk::Result::eSuccess);
+        VKRESERR(cmdBuffer.begin(&BufferBeginInfo));
         
         constexpr vk::ImageSubresourceLayers SubResource = vk::ImageSubresourceLayers
         (
@@ -659,10 +650,7 @@ void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, uint32_t a_imag
             &nextImage
         );
 
-        if (graphicsQueue.submit(1, &submitInfo, fence) != vk::Result::eSuccess)
-        {
-            Logger::Error("Failed to submit swap copy");
-        }
+        VKRESWARNMSG(graphicsQueue.submit(1, &submitInfo, fence), "Failed to submit swap copy");
     }
     else
     {
@@ -677,10 +665,7 @@ void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, uint32_t a_imag
             &a_imageIndex
         );
 
-        if (presentQueue.presentKHR(&presentInfo) != vk::Result::eSuccess)
-        {
-            Logger::Error("Failed to present swapchain");
-        }
+        VKRESWARNMSG(presentQueue.presentKHR(&presentInfo), "Failed to present swapchain");
     }
 }
 #endif

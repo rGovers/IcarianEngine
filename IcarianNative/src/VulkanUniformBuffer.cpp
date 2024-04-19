@@ -3,7 +3,6 @@
 #include "Rendering/Vulkan/VulkanUniformBuffer.h"
 
 #include "Core/IcarianAssert.h"
-#include "Rendering/Vulkan/VulkanConstants.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
@@ -68,7 +67,7 @@ VulkanUniformBuffer::VulkanUniformBuffer(VulkanRenderEngineBackend* a_engine, ui
     for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
     {
         VkBuffer tBuffer;
-        ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &bufferInfo, &bufferAllocInfo, &tBuffer, &m_allocations[i], nullptr) == VK_SUCCESS, "Failed to create Uniform Buffer");
+        VKRESERRMSG(vmaCreateBuffer(allocator, &bufferInfo, &bufferAllocInfo, &tBuffer, &m_allocations[i], nullptr), "Failed to create Uniform Buffer");
 #ifdef DEBUG
         vmaSetAllocationName(allocator, m_allocations[i], "Uniform Buffer Object");
 #endif
