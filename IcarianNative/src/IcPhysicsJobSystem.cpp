@@ -4,7 +4,7 @@ IcPhysicsJobSystem::IcPhysicsJobSystem(JPH::uint a_numBarriers)
 {
     Init(a_numBarriers);
 
-    m_jobs.Init(MaxJobs, MaxJobs);
+    m_jobs.Init(MaxJobs, MaxJobs >> 3);
 }
 IcPhysicsJobSystem::~IcPhysicsJobSystem()
 {

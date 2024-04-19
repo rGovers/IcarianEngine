@@ -1,8 +1,8 @@
 #include "Networking/NetworkManager.h"
 
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "DeletionQueue.h"
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
 #include "Logger.h"
 #include "Networking/NetworkClient.h"
 #include "Networking/NetworkServer.h"

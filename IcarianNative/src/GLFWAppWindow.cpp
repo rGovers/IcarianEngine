@@ -177,23 +177,23 @@ double GLFWAppWindow::GetTime() const
     return m_time - m_startTime;
 }
 
-void GLFWAppWindow::SetCursorState(FlareBase::e_CursorState a_state)
+void GLFWAppWindow::SetCursorState(e_CursorState a_state)
 {
     switch (a_state) 
     {
-    case FlareBase::CursorState_Normal:
+    case CursorState_Normal:
     {
         glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
         break;
     }
-    case FlareBase::CursorState_Hidden:
+    case CursorState_Hidden:
     {
         glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
         break;
     }
-    case FlareBase::CursorState_Locked:
+    case CursorState_Locked:
     {
         glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -239,7 +239,7 @@ void GLFWAppWindow::Update()
         glm::dvec2 cPos;
         glfwGetCursorPos(m_window, &cPos.x, &cPos.y);
 
-        if (app->GetCursorState() == FlareBase::CursorState_Locked)
+        if (app->GetCursorState() == CursorState_Locked)
         {
             const glm::dvec2 delta = cPos - m_lastCursorPos;
 
@@ -267,13 +267,13 @@ void GLFWAppWindow::Update()
             UIControl::SubmitRelease((glm::vec2)cPos, (glm::vec2)winSize);
         }
 
-        inputManager->SetMouseButton(FlareBase::MouseButton_Left, leftDown);
-        inputManager->SetMouseButton(FlareBase::MouseButton_Middle, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS);
-        inputManager->SetMouseButton(FlareBase::MouseButton_Right, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
+        inputManager->SetMouseButton(MouseButton_Left, leftDown);
+        inputManager->SetMouseButton(MouseButton_Middle, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS);
+        inputManager->SetMouseButton(MouseButton_Right, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
 
-        for (unsigned int i = 0; i < FlareBase::KeyCode_Last; ++i)
+        for (unsigned int i = 0; i < KeyCode_Last; ++i)
         {
-            inputManager->SetKeyboardKey((FlareBase::e_KeyCode)i, glfwGetKey(m_window, GLFWKeyTable[i]) == GLFW_PRESS);
+            inputManager->SetKeyboardKey((e_KeyCode)i, glfwGetKey(m_window, GLFWKeyTable[i]) == GLFW_PRESS);
         }
     }  
 }

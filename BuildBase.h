@@ -13,6 +13,7 @@ extern "C" {
 typedef struct 
 {
     CUBE_CProject Project;
+    CBBOOL Export;
     const char* WorkingDirectory;
 } DependencyProject;
 

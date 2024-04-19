@@ -1,11 +1,9 @@
 #include "Profiler.h"
 
-#include <cassert>
 #include <mutex>
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
-#include "Logger.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 

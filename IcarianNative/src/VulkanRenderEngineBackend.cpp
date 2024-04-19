@@ -6,8 +6,8 @@
 
 #include "AppWindow/AppWindow.h"
 #include "Config.h"
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Logger.h"
 #include "Profiler.h"
 #include "Rendering/RenderEngine.h"
@@ -455,8 +455,9 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
     m_lDevice.waitIdle();
 
     delete m_computeEngine;
-    delete m_graphicsEngine;
     delete m_pushPool;
+
+    m_graphicsEngine->Cleanup();
 
     TRACE("Destroy Vulkan Deletion Objects");
     for (uint32_t i = 0; i < VulkanDeletionQueueSize; ++i)
@@ -475,6 +476,8 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
 
         m_deletionObjects[i].UClear();
     }
+
+    delete m_graphicsEngine;
 
     TRACE("Destroy Command Pool");
     m_lDevice.destroyCommandPool(m_commandPool);
@@ -553,8 +556,8 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
     m_pushPool->Reset(m_currentFrame);
 
-    vk::CommandBuffer computeBuffer = m_computeEngine->Update(m_currentFrame);
-    const std::vector<vk::CommandBuffer> buffers = m_graphicsEngine->Update(m_currentFrame);
+    vk::CommandBuffer computeBuffer = m_computeEngine->Update(a_delta, a_time, m_currentFrame);
+    const std::vector<vk::CommandBuffer> buffers = m_graphicsEngine->Update(a_delta, a_time, m_currentFrame);
     
     Profiler::StartFrame("Render Setup");
 
@@ -811,9 +814,22 @@ void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, std
     ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to Submit Command");
 }
 
+uint32_t VulkanRenderEngineBackend::GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius)
+{
+    return m_graphicsEngine->GenerateModel(a_vertices, a_vertexCount, a_vertexStride, a_indices, a_indexCount, a_radius);
+}
+void VulkanRenderEngineBackend::DestroyModel(uint32_t a_addr)
+{
+    m_graphicsEngine->DestroyModel(a_addr);
+}
+
 uint32_t VulkanRenderEngineBackend::GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data)
 {
     return m_graphicsEngine->GenerateTexture(a_width, a_height, a_format, a_data);
+}
+uint32_t VulkanRenderEngineBackend::GenerateTextureMipMapped(uint32_t a_width, uint32_t a_height, uint32_t a_levels, uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize)
+{
+    return m_graphicsEngine->GenerateMipMappedTexture(a_width, a_height, a_levels, a_offsets, a_format, a_data, a_dataSize);
 }
 void VulkanRenderEngineBackend::DestroyTexture(uint32_t a_addr)
 {

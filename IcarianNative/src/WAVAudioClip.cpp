@@ -5,8 +5,8 @@
 
 #include <fstream>
 
+#include "Core/IcarianAssert.h"
 #include "DataTypes/RingAllocator.h"
-#include "Flare/IcarianAssert.h"
 
 WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
 {

@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianDefer.h"
 #include "Networking/NetworkManager.h"
 
 constexpr static enet_uint32 GetFlags(e_PacketFlags a_flags)

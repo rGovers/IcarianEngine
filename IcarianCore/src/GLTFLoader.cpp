@@ -1,4 +1,4 @@
-#include "Flare/GLTFLoader.h"
+#include "Core/GLTFLoader.h"
 
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 #define TINYGLTF_IMPLEMENTATION
@@ -8,9 +8,9 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianDefer.h"
 
-namespace FlareBase
+namespace IcarianCore
 {
     static bool IsBinary(const char* a_data, uint32_t a_size)
     {

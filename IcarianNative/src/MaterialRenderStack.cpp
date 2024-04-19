@@ -1,7 +1,7 @@
 #include "Rendering/MaterialRenderStack.h"
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Rendering/MeshRenderBuffer.h"
 #include "Rendering/SkinnedMeshRenderBuffer.h"
 

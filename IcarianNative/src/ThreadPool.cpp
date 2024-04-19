@@ -3,8 +3,8 @@
 #include <chrono>
 #include <glm/glm.hpp>
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Logger.h"
 #include "Runtime/RuntimeManager.h"
 #include "Runtime/RuntimeFunction.h"

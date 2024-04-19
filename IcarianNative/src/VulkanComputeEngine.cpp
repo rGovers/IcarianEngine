@@ -1,16 +1,17 @@
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Logger.h"
+#include "Rendering/ShaderBuffers.h"
 #include "Rendering/Vulkan/VulkanComputeEngineBindings.h"
 #include "Rendering/Vulkan/VulkanComputeLayout.h"
-#include "Rendering/Vulkan/VulkanComputeParticle2D.h"
+#include "Rendering/Vulkan/VulkanComputeParticle.h"
 #include "Rendering/Vulkan/VulkanComputePipeline.h"
 #include "Rendering/Vulkan/VulkanComputeShader.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
+#include "Rendering/Vulkan/VulkanUniformBuffer.h"
 #include "Trace.h"
 
 VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
@@ -39,11 +40,15 @@ VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
         ICARIAN_ASSERT_MSG_R(device.allocateCommandBuffers(&commandBufferInfo, &m_buffers[i]) == vk::Result::eSuccess, "Failed to create Compute Command Buffer");
     }
 
+    m_timeUniform = new VulkanUniformBuffer(m_engine, sizeof(TimeShaderBuffer));
+
     m_bindings = new VulkanComputeEngineBindings(this);
 }
 VulkanComputeEngine::~VulkanComputeEngine()
 {
     delete m_bindings;
+
+    delete m_timeUniform;
 
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -53,14 +58,18 @@ VulkanComputeEngine::~VulkanComputeEngine()
         device.destroyCommandPool(m_pools[i]);
     }
 
-    TRACE("Checking if compute particle system 2D was deleted");
-    for (uint32_t i = 0; i < m_particle2D.Size(); ++i)
+    TRACE("Checking if compute particle system was deleted");
+    for (uint32_t i = 0; i < m_particleBuffers.Size(); ++i)
     {
-        if (m_particle2D.Exists(i))
+        if (m_particleBuffers.Exists(i))
         {
-            Logger::Warning("Compute Particle 2D was not destroyed");
+            Logger::Warning("Compute Particle was not destroyed");
 
-            delete m_particle2D[i];
+            VulkanComputeParticle* data = (VulkanComputeParticle*)m_particleBuffers[i].Data;
+            if (data != nullptr)
+            {
+                delete data;
+            }
         }
     }
 
@@ -98,7 +107,7 @@ VulkanComputeEngine::~VulkanComputeEngine()
     }    
 }
 
-vk::CommandBuffer VulkanComputeEngine::Update(uint32_t a_index)
+vk::CommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, uint32_t a_index)
 {
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -107,16 +116,26 @@ vk::CommandBuffer VulkanComputeEngine::Update(uint32_t a_index)
         device.resetCommandPool(m_pools[a_index]);
     }
 
+    TimeShaderBuffer timeBuffer;
+    timeBuffer.Time.x = (float)a_delta;
+    timeBuffer.Time.y = (float)a_time;
+
+    m_timeUniform->SetData(a_index, &timeBuffer);
+
     vk::CommandBuffer cmdBuffer = m_buffers[a_index];
 
     constexpr vk::CommandBufferBeginInfo BeginInfo;
     cmdBuffer.begin(BeginInfo);
     IDEFER(cmdBuffer.end());
 
-    const std::vector<VulkanComputeParticle2D*> particleSystem = m_particle2D.ToActiveVector();
-    for (VulkanComputeParticle2D* system : particleSystem)
+    const std::vector<ComputeParticleBuffer> particleBuffers = m_particleBuffers.ToActiveVector();
+    for (const ComputeParticleBuffer& buffer : particleBuffers)
     {
-        system->Update(cmdBuffer, a_index);
+        VulkanComputeParticle* pSys = (VulkanComputeParticle*)buffer.Data;
+        if (pSys != nullptr)
+        {
+            pSys->Update(cmdBuffer, a_index);
+        }
     }
 
     return cmdBuffer;
@@ -135,6 +154,17 @@ void VulkanComputeEngine::SetParticleBuffer(uint32_t a_addr, const ComputePartic
     ICARIAN_ASSERT_MSG(m_particleBuffers.Exists(a_addr), "SetParticleBuffer does not exist");
 
     m_particleBuffers.LockSet(a_addr, a_buffer);
+}
+
+vk::Buffer VulkanComputeEngine::GetParticleBufferData(uint32_t a_addr)
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_particleBuffers.Size(), "GetParticleBuffer out of range");
+    ICARIAN_ASSERT_MSG(m_particleBuffers.Exists(a_addr), "GetParticleBuffer does not exist");
+
+    const ComputeParticleBuffer buffer = m_particleBuffers[a_addr];
+    VulkanComputeParticle* data = (VulkanComputeParticle*)buffer.Data; 
+
+    return data->GetComputeBuffer();
 }
 
 uint32_t VulkanComputeEngine::GenerateComputeFShader(const std::string_view& a_str)

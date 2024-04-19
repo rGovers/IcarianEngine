@@ -6,12 +6,13 @@
 #include <mutex>
 #include <vulkan/vulkan_handles.hpp>
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Logger.h"
 #include "ObjectManager.h"
 #include "Profiler.h"
 #include "Rendering/AnimationController.h"
+#include "Rendering/RenderAssetStore.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/ShaderBuffers.h"
 #include "Rendering/UI/ImageUIElement.h"
@@ -21,6 +22,7 @@
 #include "Rendering/Vulkan/VulkanDepthCubeRenderTexture.h"
 #include "Rendering/Vulkan/VulkanDepthRenderTexture.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngineBindings.h"
+#include "Rendering/Vulkan/VulkanGraphicsParticle2D.h"
 #include "Rendering/Vulkan/VulkanLightBuffer.h"
 #include "Rendering/Vulkan/VulkanLightData.h"
 #include "Rendering/Vulkan/VulkanModel.h"
@@ -107,9 +109,84 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     imageProgram.Flags |= 0b1 << RenderProgram::DestroyFlag;
 
     m_imageUIPipelineAddr = GenerateRenderProgram(imageProgram);
+
+    m_timeUniform = new VulkanUniformBuffer(m_vulkanEngine, sizeof(TimeShaderBuffer));
 }
 VulkanGraphicsEngine::~VulkanGraphicsEngine()
 {
+    TRACE("Checking if shaders where deleted");
+    for (uint32_t i = 0; i < m_vertexShaders.Size(); ++i)
+    {
+        if (m_vertexShaders.Exists(i))
+        {
+            Logger::Warning("Vertex Shader was not destroyed");
+
+            delete m_vertexShaders[i];
+        }
+    }
+
+    for (uint32_t i = 0; i < m_pixelShaders.Size(); ++i)
+    {
+        if (m_pixelShaders.Exists(i))
+        {
+            Logger::Warning("Pixel Shader was not destroyed");
+
+            delete m_pixelShaders[i];
+        }
+    }
+
+    TRACE("Deleting Pipelines");
+    for (const auto& iter : m_pipelines)
+    {
+        delete iter.second;
+    }
+    TRACE("Deleting Shadow Pipelines");
+    for (const auto& iter : m_shadowPipelines)
+    {
+        delete iter.second;
+    }
+    TRACE("Deleting Cube Shadow Pipelines");
+    for (const auto& iter : m_cubeShadowPipelines)
+    {
+        delete iter.second;
+    }
+
+    TRACE("Checking shader program buffer health");
+    for (uint32_t i = 0; i < m_shaderPrograms.Size(); ++i)
+    {
+        if (m_shaderPrograms.Exists(i))
+        {
+            Logger::Warning("Shader program was not destroyed");
+        }
+
+        if (m_shaderPrograms[i].Data != nullptr)
+        {
+            Logger::Warning("Shader data was not destroyed");
+
+            delete (VulkanShaderData*)m_shaderPrograms[i].Data;
+            m_shaderPrograms[i].Data = nullptr;
+        }
+    }
+
+    delete m_runtimeBindings;
+
+    delete m_shadowSetupFunc;
+    delete m_preShadowFunc;
+    delete m_postShadowFunc;
+    delete m_preRenderFunc;
+    delete m_postRenderFunc;
+    delete m_lightSetupFunc;
+    delete m_preShadowLightFunc;
+    delete m_postShadowLightFunc;
+    delete m_preLightFunc;
+    delete m_postLightFunc;
+    delete m_postProcessFunc;
+}
+
+void VulkanGraphicsEngine::Cleanup()
+{
+    delete m_timeUniform;
+
     const RenderProgram textProgram = m_shaderPrograms[m_textUIPipelineAddr];
     IDEFER(
     {
@@ -141,20 +218,6 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
     DestroyRenderProgram(m_textUIPipelineAddr);
     DestroyRenderProgram(m_imageUIPipelineAddr);
 
-    delete m_runtimeBindings;
-
-    delete m_shadowSetupFunc;
-    delete m_preShadowFunc;
-    delete m_postShadowFunc;
-    delete m_preRenderFunc;
-    delete m_postRenderFunc;
-    delete m_lightSetupFunc;
-    delete m_preShadowLightFunc;
-    delete m_postShadowLightFunc;
-    delete m_preLightFunc;
-    delete m_postLightFunc;
-    delete m_postProcessFunc;
-
     const vk::Device device = m_vulkanEngine->GetLogicalDevice();
 
     TRACE("Deleting command pool");
@@ -175,40 +238,14 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         }
     }
 
-    TRACE("Deleting Pipelines");
-    for (const auto& iter : m_pipelines)
+    TRACE("Checking is particle emitters where deleted");
+    for (uint32_t i = 0; i < m_particleEmitters.Size(); ++i)
     {
-        delete iter.second;
-    }
-    TRACE("Deleting Shadow Pipelines");
-    for (const auto& iter : m_shadowPipelines)
-    {
-        delete iter.second;
-    }
-    TRACE("Deleting Cube Shadow Pipelines");
-    for (const auto& iter : m_cubeShadowPipelines)
-    {
-        delete iter.second;
-    }
-
-    TRACE("Checking if shaders where deleted");
-    for (uint32_t i = 0; i < m_vertexShaders.Size(); ++i)
-    {
-        if (m_vertexShaders.Exists(i))
+        if (m_particleEmitters.Exists(i))
         {
-            Logger::Warning("Vertex Shader was not destroyed");
+            Logger::Warning("Particle emitter was not destroyed");
 
-            delete m_vertexShaders[i];
-        }
-    }
-
-    for (uint32_t i = 0; i < m_pixelShaders.Size(); ++i)
-    {
-        if (m_pixelShaders.Exists(i))
-        {
-            Logger::Warning("Pixel Shader was not destroyed");
-
-            delete m_pixelShaders[i];
+            delete m_particleEmitters[i];
         }
     }
 
@@ -230,23 +267,6 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         if (m_cameraBuffers[i].TransformAddr != -1)
         {
             Logger::Warning("Camera was not destroyed");
-        }
-    }
-
-    TRACE("Checking shader program buffer health");
-    for (uint32_t i = 0; i < m_shaderPrograms.Size(); ++i)
-    {
-        if (m_shaderPrograms.Exists(i))
-        {
-            Logger::Warning("Shader program was not destroyed");
-        }
-
-        if (m_shaderPrograms[i].Data != nullptr)
-        {
-            Logger::Warning("Shader data was not destroyed");
-
-            delete (VulkanShaderData*)m_shaderPrograms[i].Data;
-            m_shaderPrograms[i].Data = nullptr;
         }
     }
 
@@ -648,7 +668,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                 
                     if (modelBuffer.ModelAddr != -1) 
                     {
-                        const VulkanModel* model = m_models[modelBuffer.ModelAddr];
+                        const VulkanModel* model = GetModel(modelBuffer.ModelAddr);
                         ICARIAN_ASSERT(model != nullptr);
 
                         const uint32_t indexCount = model->GetIndexCount();
@@ -791,7 +811,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
 
                         if (model == nullptr) 
                         {
-                            model = m_models[modelBuffer.ModelAddr];
+                            model = GetModel(modelBuffer.ModelAddr);
                             ICARIAN_ASSERT(model != nullptr);
 
                             model->Bind(a_commandBuffer);
@@ -1281,7 +1301,6 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
         const TReadLockArray<RenderProgram> programs = m_shaderPrograms.ToReadLockArray();
 
         const RenderProgram& program = programs.Get(matAddr);
-
         if (camBuffer.RenderLayer & program.RenderLayer)
         {
             const VulkanPipeline* pipeline = renderCommand.BindMaterial(matAddr);
@@ -1298,7 +1317,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                 const ModelBuffer& modelBuffer = modelBuffers[i];
                 if (modelBuffer.ModelAddr != -1)
                 {
-                    const VulkanModel* model = m_models[modelBuffer.ModelAddr];
+                    const VulkanModel* model = GetModel(modelBuffer.ModelAddr);
                     ICARIAN_ASSERT(model != nullptr);
                     
                     const float radius = model->GetRadius();
@@ -1377,7 +1396,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                 const SkinnedModelBuffer& modelBuffer = skinnedModelBuffers[i];
                 if (modelBuffer.ModelAddr != -1)
                 {
-                    const VulkanModel* model = m_models[modelBuffer.ModelAddr];
+                    const VulkanModel* model = GetModel(modelBuffer.ModelAddr);
                     
                     if (model != nullptr)
                     {
@@ -1461,6 +1480,17 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
         }
     }
     
+    // Temporary until I get a forward render pass
+    {
+        const uint32_t renderTextureAddr = renderCommand.GetRenderTexutreAddr();
+        const std::vector<VulkanGraphicsParticle2D*> particleSystems = m_particleEmitters.ToActiveVector();
+
+        for (VulkanGraphicsParticle2D* pSys : particleSystems)
+        {
+            pSys->Update(a_index, a_bufferIndex, commandBuffer, renderTextureAddr);
+        }
+    }
+
     {
         PROFILESTACK("Post Render");
 
@@ -2385,7 +2415,7 @@ struct DrawCallBind
     }
 };
 
-std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
+std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_time, uint32_t a_index)
 {
     // TODO: Prebuild camera uniform buffers
     Profiler::StartFrame("Drawing Setup");
@@ -2409,6 +2439,12 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
             VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
             shaderData->Update(a_index, program);
         }
+
+        TimeShaderBuffer timeBuffer;
+        timeBuffer.Time.x = (float)a_delta;
+        timeBuffer.Time.y = (float)a_time;
+
+        m_timeUniform->SetData(a_index, &timeBuffer);
     }
 
     const vk::Device device = m_vulkanEngine->GetLogicalDevice();
@@ -2442,7 +2478,6 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
         for (uint32_t i = 0; i < diff; ++i)
         {
             vk::CommandPool pool;
-
             ICARIAN_ASSERT_MSG_R(device.createCommandPool(&poolInfo, nullptr, &pool) == vk::Result::eSuccess, "Failed to create graphics command pool");
             
             m_commandPool[a_index].emplace_back(pool);
@@ -2473,7 +2508,7 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(uint32_t a_index)
         }
     }
 
-    for (uint32_t i = 0; i < glm::min(poolSize, totalPoolSize); ++i)
+    for (uint32_t i = 0; i < poolSize; ++i)
     {
         device.resetCommandPool(m_commandPool[a_index][i]);
     }
@@ -2649,6 +2684,40 @@ CameraBuffer VulkanGraphicsEngine::GetCameraBuffer(uint32_t a_addr)
     return m_cameraBuffers[a_addr];
 }
 
+uint32_t VulkanGraphicsEngine::GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius)
+{
+    ICARIAN_ASSERT_MSG(a_vertices != nullptr, "GenerateModel vertices null");
+    ICARIAN_ASSERT_MSG(a_vertexCount > 0, "GenerateModel no vertices");
+    ICARIAN_ASSERT_MSG(a_indices != nullptr, "GenerateModel indices null");
+    ICARIAN_ASSERT_MSG(a_indexCount > 0, "GenerateModel no indices");
+    ICARIAN_ASSERT_MSG(a_vertexStride > 0, "GenerateModel vertex stride 0");
+
+    VulkanModel* model = new VulkanModel(m_vulkanEngine, a_vertexCount, a_vertices, a_vertexStride, a_indexCount, a_indices, a_radius);
+
+    return m_models.PushVal(model);
+}
+void VulkanGraphicsEngine::DestroyModel(uint32_t a_addr)
+{
+    if (ISRENDERASSETSTOREADDR(a_addr))
+    {
+        const uint32_t addr = FROMRENDERSTOREADDR(a_addr);
+
+        const RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
+        RenderAssetStore* store = renderEngine->GetRenderAssetStore();
+
+        store->DestroyModel(addr);
+    }
+    else
+    {
+        ICARIAN_ASSERT_MSG(a_addr < m_models.Size(), "DestroyModel out of bounds");
+        ICARIAN_ASSERT_MSG(m_models.Exists(a_addr), "DestroyModel already destroyed");
+
+        const VulkanModel* model = m_models[a_addr];
+        IDEFER(delete model);
+
+        m_models.Erase(a_addr);
+    }
+}
 VulkanModel* VulkanGraphicsEngine::GetModel(uint32_t a_addr)
 {
     if (a_addr == -1)
@@ -2656,9 +2725,21 @@ VulkanModel* VulkanGraphicsEngine::GetModel(uint32_t a_addr)
         return nullptr;
     }
 
-    ICARIAN_ASSERT_MSG(a_addr < m_models.Size(), "GetModel out of bounds");
+    uint32_t finalAddr = a_addr;
+    if (ISRENDERASSETSTOREADDR(a_addr))
+    {
+        const uint32_t addr = FROMRENDERSTOREADDR(a_addr);
 
-    return m_models[a_addr];
+        const RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
+        RenderAssetStore* store = renderEngine->GetRenderAssetStore();
+
+        finalAddr = store->GetModel(addr);
+    }
+
+    ICARIAN_ASSERT_MSG(finalAddr < m_models.Size(), "GetModel out of bounds");
+    ICARIAN_ASSERT_MSG(m_models.Exists(finalAddr), "GetModel already destroyed");
+
+    return m_models[finalAddr];
 }
 
 uint32_t VulkanGraphicsEngine::GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data)
@@ -2675,13 +2756,25 @@ uint32_t VulkanGraphicsEngine::GenerateMipMappedTexture(uint32_t a_width, uint32
 }
 void VulkanGraphicsEngine::DestroyTexture(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_textures.Size(), "DestroyTexture Texture out of bounds");
-    ICARIAN_ASSERT_MSG(m_textures[a_addr] != nullptr, "DestroyTexture already destroyed");
-    
-    const VulkanTexture* texture = m_textures[a_addr];
-    IDEFER(delete texture);
+    if (ISRENDERASSETSTOREADDR(a_addr))
+    {
+        const uint32_t addr = FROMRENDERSTOREADDR(a_addr);
 
-    m_textures.Erase(a_addr);
+        const RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
+        RenderAssetStore* store = renderEngine->GetRenderAssetStore();
+
+        store->DestroyTexture(addr);
+    }
+    else 
+    {
+        ICARIAN_ASSERT_MSG(a_addr < m_textures.Size(), "DestroyTexture Texture out of bounds");
+        ICARIAN_ASSERT_MSG(m_textures.Exists(a_addr), "DestroyTexture already destroyed");
+
+        const VulkanTexture* texture = m_textures[a_addr];
+        IDEFER(delete texture);
+
+        m_textures.Erase(a_addr);
+    }
 }
 VulkanTexture* VulkanGraphicsEngine::GetTexture(uint32_t a_addr)
 {
@@ -2690,9 +2783,21 @@ VulkanTexture* VulkanGraphicsEngine::GetTexture(uint32_t a_addr)
         return nullptr;
     }
 
-    ICARIAN_ASSERT_MSG(a_addr < m_textures.Size(), "GetTexture out of bounds");
+    uint32_t finalAddr = a_addr;
+    if (ISRENDERASSETSTOREADDR(a_addr))
+    {
+        const uint32_t addr = FROMRENDERSTOREADDR(a_addr);
 
-    return m_textures[a_addr];
+        const RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
+        RenderAssetStore* store = renderEngine->GetRenderAssetStore();
+
+        finalAddr = store->GetTexture(addr);
+    }
+
+    ICARIAN_ASSERT_MSG(finalAddr < m_textures.Size(), "GetTexture out of bounds");
+    ICARIAN_ASSERT_MSG(m_textures.Exists(finalAddr), "GetTexture already destroyed");
+
+    return m_textures[finalAddr];
 }
 
 VulkanRenderTexture* VulkanGraphicsEngine::GetRenderTexture(uint32_t a_addr)
@@ -2735,8 +2840,8 @@ uint32_t VulkanGraphicsEngine::GenerateTextureSampler(uint32_t a_textureAddr, e_
     {
     case TextureMode_Texture:
     {
-        ICARIAN_ASSERT_MSG(a_textureAddr < m_textures.Size(), "GenerateTextureSampler Texture out of bounds");
-        ICARIAN_ASSERT_MSG(m_textures[a_textureAddr] != nullptr, "GenerateTextureSampler Texture already destroyed");
+        // ICARIAN_ASSERT_MSG(a_textureAddr < m_textures.Size(), "GenerateTextureSampler Texture out of bounds");
+        // ICARIAN_ASSERT_MSG(m_textures[a_textureAddr] != nullptr, "GenerateTextureSampler Texture already destroyed");
 
         break;
     }

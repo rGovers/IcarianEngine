@@ -1,5 +1,4 @@
-#include "Flare/IPCPipe.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IPCPipe.h"
 
 #include <cstdio>
 
@@ -11,7 +10,9 @@
 #include <unistd.h>
 #endif
 
-namespace FlareBase
+#include "Core/IcarianDefer.h"
+
+namespace IcarianCore
 {
     IPCPipe::IPCPipe()
     {

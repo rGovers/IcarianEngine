@@ -13,8 +13,8 @@
 #include <vector>
 
 #include "Config.h"
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Jolt/Physics/Body/Body.h"
 #include "Jolt/Physics/Body/BodyInterface.h"
 #include "ObjectManager.h"
@@ -129,7 +129,6 @@ uint32_t PhysicsEngine::GetBodyAddr(JPH::uint a_joltIndex)
 
 void PhysicsEngine::Update(double a_delta)
 {
-    // TODO: Need to figure out why Jolt crashes with less then 3 threads
     {
         PROFILESTACK("Physics Sim");
 

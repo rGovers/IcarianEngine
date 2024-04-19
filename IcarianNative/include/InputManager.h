@@ -3,7 +3,7 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include "Flare/InputBindings.h"
+#include "Core/InputBindings.h"
 
 #include "EngineInputInteropStructures.h"
 
@@ -26,8 +26,8 @@ private:
 
     unsigned char               m_mouseButton;
 
-    FlareBase::KeyboardState    m_curKeyState;
-    FlareBase::KeyboardState    m_prevKeyState;
+    IcarianCore::KeyboardState  m_curKeyState;
+    IcarianCore::KeyboardState  m_prevKeyState;
 
     GamePad*                    m_gamePads[MaxGamePads];
 
@@ -46,30 +46,30 @@ public:
         return m_curPos;
     }
 
-    void SetMouseButton(FlareBase::e_MouseButton a_button, bool a_state);
-    inline bool IsMouseDown(FlareBase::e_MouseButton a_button) const
+    void SetMouseButton(e_MouseButton a_button, bool a_state);
+    inline bool IsMouseDown(e_MouseButton a_button) const
     {
         return m_mouseButton & 0b1 << (a_button * 2);
     }
-    inline bool IsMousePressed(FlareBase::e_MouseButton a_button) const
+    inline bool IsMousePressed(e_MouseButton a_button) const
     {
         return m_mouseButton & 0b1 << (a_button * 2 + 0) && !(m_mouseButton & 0b1 << (a_button * 2 + 1));
     }
-    inline bool IsMouseReleased(FlareBase::e_MouseButton a_button) const
+    inline bool IsMouseReleased(e_MouseButton a_button) const
     {
         return !(m_mouseButton & 0b1 << (a_button * 2 + 0)) && m_mouseButton & 0b1 << (a_button * 2 + 1);
     }
 
-    void SetKeyboardKey(FlareBase::e_KeyCode a_keyCode, bool a_state);
-    inline bool IsKeyDown(FlareBase::e_KeyCode a_keyCode) const
+    void SetKeyboardKey(e_KeyCode a_keyCode, bool a_state);
+    inline bool IsKeyDown(e_KeyCode a_keyCode) const
     {
         return m_curKeyState.IsKeyDown(a_keyCode);
     }
-    inline bool IsKeyPressed(FlareBase::e_KeyCode a_keyCode) const
+    inline bool IsKeyPressed(e_KeyCode a_keyCode) const
     {
         return m_curKeyState.IsKeyDown(a_keyCode) && !m_prevKeyState.IsKeyDown(a_keyCode);
     }
-    inline bool IsKeyReleased(FlareBase::e_KeyCode a_keyCode) const
+    inline bool IsKeyReleased(e_KeyCode a_keyCode) const
     {
         return !m_curKeyState.IsKeyDown(a_keyCode) && m_prevKeyState.IsKeyDown(a_keyCode);
     }

@@ -6,7 +6,6 @@
 #include "Audio/AudioClips/AudioClip.h"
 #include "Audio/AudioEngineBindings.h"
 #include "DataTypes/RingAllocator.h"
-#include "Flare/IcarianDefer.h"
 #include "Logger.h"
 #include "ObjectManager.h"
 #include "Profiler.h"

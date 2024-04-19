@@ -8,10 +8,10 @@
 #include <limits>
 #include <set>
 #include <stb_rect_pack.h>
+#include <unordered_map>
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
-#include "Logger.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Trace.h"
 
 Font::Font(unsigned char* a_data)

@@ -52,7 +52,7 @@ InputManager::~InputManager()
     delete m_keyReleasedFunc;
 }
 
-void InputManager::SetMouseButton(FlareBase::e_MouseButton a_button, bool a_state)
+void InputManager::SetMouseButton(e_MouseButton a_button, bool a_state)
 {
     const uint32_t buttonIndex = a_button * 2 + 0;
     const uint32_t prevButtonIndex = a_button * 2 + 1;
@@ -99,7 +99,7 @@ void InputManager::SetMouseButton(FlareBase::e_MouseButton a_button, bool a_stat
     }
 }
 
-void InputManager::SetKeyboardKey(FlareBase::e_KeyCode a_keyCode, bool a_state)
+void InputManager::SetKeyboardKey(e_KeyCode a_keyCode, bool a_state)
 {
     const bool prevState = m_curKeyState.IsKeyDown(a_keyCode);
 
@@ -213,7 +213,7 @@ bool InputManager::IsGamePadButtonReleased(e_GamePadSlot a_slot, e_GamePadButton
 void InputManager::Update()
 {
     // Required for frame events can get multiple press and release events cause majority of the time the engine runs faster then the editor 
-    for (uint32_t i = 0; i < FlareBase::MouseButton_Last; ++i)
+    for (uint32_t i = 0; i < MouseButton_Last; ++i)
     {
         if (m_mouseButton & 0b1 << (i * 2))
         {

@@ -6,10 +6,10 @@
 #include <cstdint>
 #include <mutex>
 
+#include "Core/IPCPipe.h"
+#include "Core/PipeMessage.h"
+#include "Core/WindowsHeaders.h"
 #include "DataTypes/TArray.h"
-#include "Flare/IPCPipe.h"
-#include "Flare/PipeMessage.h"
-#include "Flare/WindowsHeaders.h"
 #include "Logger.h"
 #include "Profiler.h"
 
@@ -35,14 +35,14 @@ private:
 
     static constexpr std::string_view PipeName = "IcarianEngine-IPC";
 
-    FlareBase::IPCPipe*                            m_pipe;
+    IcarianCore::IPCPipe*                          m_pipe;
 
     volatile bool                                  m_unlockWindow;    
     bool                                           m_close;
 
     std::mutex                                     m_fLock;
 
-    TArray<FlareBase::PipeMessage>                 m_queuedMessages;
+    TArray<IcarianCore::PipeMessage>               m_queuedMessages;
 
     char*                                          m_frameData;
 
@@ -72,7 +72,7 @@ public:
     virtual double GetDelta() const;
     virtual double GetTime() const;
 
-    virtual void SetCursorState(FlareBase::e_CursorState a_state);
+    virtual void SetCursorState(e_CursorState a_state);
 
     virtual void Update();
 

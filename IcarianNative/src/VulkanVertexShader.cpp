@@ -2,8 +2,7 @@
 
 #include "Rendering/Vulkan/VulkanVertexShader.h"
 
-#include "Flare/IcarianAssert.h"
-#include "Logger.h"
+#include "Core/IcarianAssert.h"
 #include "Rendering/SPIRVTools.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"

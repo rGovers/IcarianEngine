@@ -2,8 +2,8 @@
 
 #include "Rendering/Vulkan/VulkanTexture.h"
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
@@ -13,16 +13,18 @@ private:
     VulkanRenderEngineBackend* m_engine;
 
     vk::Image                  m_image;
+    vk::ImageView              m_view;
     VmaAllocation              m_allocation;
 
 protected:
 
 public:
-    VulkanTextureDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Image a_image, VmaAllocation a_allocation)
+    VulkanTextureDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Image a_image, vk::ImageView a_view, VmaAllocation a_allocation)
     {
         m_engine = a_engine;
 
         m_image = a_image;
+        m_view = a_view;
         m_allocation = a_allocation;
     }
     virtual ~VulkanTextureDeletionObject()
@@ -33,8 +35,11 @@ public:
     virtual void Destroy()
     {
         TRACE("Destroying Texture");
+        const vk::Device device = m_engine->GetLogicalDevice();
         const VmaAllocator allocator = m_engine->GetAllocator();
 
+        // Even if it is not in use have to delete the view first cause Vulkan
+        device.destroyImageView(m_view);
         vmaDestroyImage(allocator, m_image, m_allocation);
     }
 };
@@ -156,6 +161,23 @@ void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a
     VkImage image;
     ICARIAN_ASSERT_MSG_R(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &m_allocation, NULL) == VK_SUCCESS, "Failed to create VulkanTexture image");
     m_image = image;
+#ifdef DEBUG
+    vmaSetAllocationName(allocator, m_allocation, "Texture");
+#endif
+
+    constexpr vk::ImageSubresourceRange SubresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+
+    const vk::ImageViewCreateInfo viewInfo = vk::ImageViewCreateInfo
+    (
+        { }, 
+        m_image, 
+        vk::ImageViewType::e2D, 
+        m_format,
+        { vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity },
+        SubresourceRange
+    );
+
+    ICARIAN_ASSERT_MSG_R(device.createImageView(&viewInfo, nullptr, &m_imageView) == vk::Result::eSuccess, "Failed to create VulkanTexture image view");
 
     WriteData(a_data, true);
 }
@@ -190,6 +212,23 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
     VkImage image;
     ICARIAN_ASSERT_MSG_R(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &m_allocation, NULL) == VK_SUCCESS, "Failed to create VulkanTexture image");
     m_image = image;
+#ifdef DEBUG
+    vmaSetAllocationName(allocator, m_allocation, "MipTexture");
+#endif
+
+    const vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, a_levels, 0, 1);
+
+    const vk::ImageViewCreateInfo viewInfo = vk::ImageViewCreateInfo
+    (
+        { }, 
+        m_image, 
+        vk::ImageViewType::e2D, 
+        m_format,
+        { vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity },
+        subresourceRange
+    );
+
+    ICARIAN_ASSERT_MSG_R(device.createImageView(&viewInfo, nullptr, &m_imageView) == vk::Result::eSuccess, "Failed to create VulkanTexture image view");
 
     VkBufferCreateInfo stagingBufferInfo = { };
     stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -206,6 +245,9 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
     VmaAllocationInfo stagingAllocationInfo;
     ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo) == VK_SUCCESS, "Failed to create staging texture");
     IDEFER(m_engine->PushDeletionObject(new VulkanTextureBufferDeletionObject(m_engine, stagingBuffer, stagingAllocation)));
+#ifdef DEBUG
+    vmaSetAllocationName(allocator, stagingAllocation, "StagingMipTexture");
+#endif
 
     if (a_data != nullptr)
     {
@@ -235,8 +277,6 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
     IDEFER(m_engine->EndSingleCommand(buffer));
 
     const vk::CommandBuffer cmd = buffer->Get();
-
-    const vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, a_levels, 0, 1);
 
     const vk::ImageMemoryBarrier startImageBarrier = vk::ImageMemoryBarrier
     (
@@ -276,7 +316,7 @@ VulkanTexture::VulkanTexture()
 VulkanTexture::~VulkanTexture()
 {
     TRACE("Queueing Texture Deletion");
-    m_engine->PushDeletionObject(new VulkanTextureDeletionObject(m_engine, m_image, m_allocation));
+    m_engine->PushDeletionObject(new VulkanTextureDeletionObject(m_engine, m_image, m_imageView, m_allocation));
 }
 
 VulkanTexture* VulkanTexture::CreateTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize)
@@ -323,6 +363,9 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
     VmaAllocationInfo stagingAllocationInfo;
     ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo) == VK_SUCCESS, "Failed to create staging texture");
     IDEFER(m_engine->PushDeletionObject(new VulkanTextureBufferDeletionObject(m_engine, stagingBuffer, stagingAllocation)));
+#ifdef DEBUG
+    vmaSetAllocationName(allocator, stagingAllocation, "StagingTexture");
+#endif
 
     if (a_data != nullptr)
     {

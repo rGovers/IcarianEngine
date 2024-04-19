@@ -4,9 +4,9 @@
 #include "AppWindow/HeadlessAppWindow.h"
 #include "Audio/AudioEngine.h"
 #include "Config.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "DeletionQueue.h"
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
 #include "InputManager.h"
 #include "Logger.h"
 #include "Networking/NetworkManager.h"
@@ -219,7 +219,7 @@ Application::~Application()
     delete m_appWindow;
 }
 
-void Application::SetCursorState(FlareBase::e_CursorState a_state)
+void Application::SetCursorState(e_CursorState a_state)
 {
     m_cursorState = a_state;
 

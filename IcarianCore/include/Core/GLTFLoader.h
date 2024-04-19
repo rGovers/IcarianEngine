@@ -3,25 +3,25 @@
 #include <filesystem>
 #include <vector>
 
-#include "Flare/Bones.h"
+#include "Core/Bones.h"
 
 #include "EngineModelInteropStructures.h"
 
-struct GLTFAnimationFrame
+namespace IcarianCore 
 {
-    float Time;
-    glm::vec4 Data;
-};
+    struct GLTFAnimationFrame
+    {
+        float Time;
+        glm::vec4 Data;
+    };
 
-struct GLTFAnimationData
-{
-    std::string Name;
-    std::string Target;
-    std::vector<GLTFAnimationFrame> Frames;
-};
+    struct GLTFAnimationData
+    {
+        std::string Name;
+        std::string Target;
+        std::vector<GLTFAnimationFrame> Frames;
+    };
 
-namespace FlareBase 
-{
     bool GLTFLoader_LoadData(const char* a_data, uint32_t a_size, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius);
     bool GLTFLoader_LoadFile(const std::filesystem::path& a_path, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius);
 

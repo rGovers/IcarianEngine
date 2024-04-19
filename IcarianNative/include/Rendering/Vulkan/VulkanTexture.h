@@ -15,6 +15,7 @@ private:
     vk::Format                 m_format;
     uint32_t                   m_channels;
     vk::Image                  m_image;
+    vk::ImageView              m_imageView;
     VmaAllocation              m_allocation;
 
     uint32_t                   m_width;
@@ -39,9 +40,14 @@ public:
     {
         return m_format;
     }
+
     inline vk::Image GetImage() const
     {
         return m_image;
+    }
+    inline vk::ImageView GetImageView() const
+    {
+        return m_imageView;
     }
 
     inline uint32_t GetWidth() const

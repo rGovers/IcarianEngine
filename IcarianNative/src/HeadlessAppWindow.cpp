@@ -7,8 +7,8 @@
 #include <string>
 
 #include "Application.h"
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "InputManager.h"
 #include "Profiler.h"
 #include "Rendering/UI/UIControl.h"
@@ -27,8 +27,8 @@ void HeadlessAppWindow::MessageCallback(const std::string_view& a_message, e_Log
     constexpr uint32_t TypeSize = sizeof(e_LoggerMessageType);
     const uint32_t size = strSize + TypeSize;
 
-    FlareBase::PipeMessage msg;
-    msg.Type = FlareBase::PipeMessageType_Message;
+    IcarianCore::PipeMessage msg;
+    msg.Type = IcarianCore::PipeMessageType_Message;
     msg.Length = size;
     msg.Data = new char[size];
     memcpy(msg.Data, &a_type, TypeSize);
@@ -40,8 +40,8 @@ void HeadlessAppWindow::ProfilerCallback(const Profiler::PData& a_profilerData)
 {
     constexpr uint32_t ScopeSize = sizeof(ProfileScope);
 
-    FlareBase::PipeMessage msg;
-    msg.Type = FlareBase::PipeMessageType_ProfileScope;
+    IcarianCore::PipeMessage msg;
+    msg.Type = IcarianCore::PipeMessageType_ProfileScope;
     msg.Length = ScopeSize;
     msg.Data = new char[ScopeSize];
 
@@ -94,7 +94,7 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app) : AppWindow(a_app)
     ICARIAN_ASSERT_MSG_R(WSAStartup(MAKEWORD(2, 2), &wsaData) == 0, "Failed to start WSA");
 #endif
 
-    m_pipe = FlareBase::IPCPipe::Connect(addrStr);
+    m_pipe = IcarianCore::IPCPipe::Connect(addrStr);
     ICARIAN_ASSERT_MSG_R(m_pipe != nullptr, "Failed to connect to pipe");
 
     m_width = 1280;
@@ -115,7 +115,7 @@ HeadlessAppWindow::~HeadlessAppWindow()
 
     if (m_pipe != nullptr)
     {
-        m_pipe->Send({ FlareBase::PipeMessageType_Close });
+        m_pipe->Send({ IcarianCore::PipeMessageType_Close });
 
         delete m_pipe;
         m_pipe = nullptr;
@@ -137,13 +137,13 @@ void HeadlessAppWindow::PushMessageQueue()
 {
     if (!m_queuedMessages.Empty())
     {
-        TLockArray<FlareBase::PipeMessage> a = m_queuedMessages.ToLockArray();
+        TLockArray<IcarianCore::PipeMessage> a = m_queuedMessages.ToLockArray();
 
         const uint32_t size = a.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
-            const FlareBase::PipeMessage& msg = a[i];
+            const IcarianCore::PipeMessage& msg = a[i];
             IDEFER(
             if (msg.Data != nullptr)
             {
@@ -183,22 +183,22 @@ double HeadlessAppWindow::GetTime() const
     return m_time;
 }
 
-void HeadlessAppWindow::SetCursorState(FlareBase::e_CursorState a_state)
+void HeadlessAppWindow::SetCursorState(e_CursorState a_state)
 {
-    constexpr uint32_t Size = sizeof(FlareBase::e_CursorState);
+    constexpr uint32_t Size = sizeof(e_CursorState);
 
-    FlareBase::PipeMessage msg;
-    msg.Type = FlareBase::PipeMessageType_SetCursorState;
+    IcarianCore::PipeMessage msg;
+    msg.Type = IcarianCore::PipeMessageType_SetCursorState;
     msg.Length = Size;
     msg.Data = new char[Size];
-    *(FlareBase::e_CursorState*)msg.Data = a_state;
+    *(e_CursorState*)msg.Data = a_state;
 
     m_queuedMessages.Push(msg);
 }
 
 bool HeadlessAppWindow::PollMessage()
 {
-    std::queue<FlareBase::PipeMessage> messages;
+    std::queue<IcarianCore::PipeMessage> messages;
     if (!m_pipe->Receive(&messages))
     {
         printf("Failed to receive message \n");
@@ -215,7 +215,7 @@ bool HeadlessAppWindow::PollMessage()
 
     while (!messages.empty())
     {
-        const FlareBase::PipeMessage msg = messages.front();
+        const IcarianCore::PipeMessage msg = messages.front();
         messages.pop();
         IDEFER(
         if (msg.Data != nullptr)
@@ -225,19 +225,19 @@ bool HeadlessAppWindow::PollMessage()
 
         switch (msg.Type)
         {
-        case FlareBase::PipeMessageType_Close:
+        case IcarianCore::PipeMessageType_Close:
         {
             m_close = true;
 
             break;
         }
-        case FlareBase::PipeMessageType_UnlockFrame:
+        case IcarianCore::PipeMessageType_UnlockFrame:
         {
             m_unlockWindow = true;
 
             break;
         }
-        case FlareBase::PipeMessageType_Resize:
+        case IcarianCore::PipeMessageType_Resize:
         {
             const std::lock_guard g = std::lock_guard(m_fLock);
             const glm::ivec2 size = *(glm::ivec2*)msg.Data;
@@ -253,7 +253,7 @@ bool HeadlessAppWindow::PollMessage()
 
             break;
         }
-        case FlareBase::PipeMessageType_CursorPos:
+        case IcarianCore::PipeMessageType_CursorPos:
         {
             const Application* app = GetApplication();
 
@@ -267,7 +267,7 @@ bool HeadlessAppWindow::PollMessage()
 
             break;
         }
-        case FlareBase::PipeMessageType_MouseState:
+        case IcarianCore::PipeMessageType_MouseState:
         {
             const Application* app = GetApplication();
 
@@ -275,7 +275,7 @@ bool HeadlessAppWindow::PollMessage()
 
             const unsigned char mouseState = *(unsigned char*)msg.Data;
 
-            bool leftDown = mouseState & 0b1 << FlareBase::MouseButton_Left;
+            bool leftDown = mouseState & 0b1 << MouseButton_Left;
             if (leftDown)
             {
                 if (UIControl::SubmitClick(inputManager->GetCursorPos(), glm::vec2((float)m_width, (float)m_height)))
@@ -288,30 +288,30 @@ bool HeadlessAppWindow::PollMessage()
                 UIControl::SubmitRelease(inputManager->GetCursorPos(), glm::vec2((float)m_width, (float)m_height));
             }
 
-            inputManager->SetMouseButton(FlareBase::MouseButton_Left, leftDown);
-            inputManager->SetMouseButton(FlareBase::MouseButton_Middle, mouseState & 0b1 << FlareBase::MouseButton_Middle);
-            inputManager->SetMouseButton(FlareBase::MouseButton_Right, mouseState & 0b1 << FlareBase::MouseButton_Right);
+            inputManager->SetMouseButton(MouseButton_Left, leftDown);
+            inputManager->SetMouseButton(MouseButton_Middle, mouseState & 0b1 << MouseButton_Middle);
+            inputManager->SetMouseButton(MouseButton_Right, mouseState & 0b1 << MouseButton_Right);
 
             break;
         }
-        case FlareBase::PipeMessageType_KeyboardState:
+        case IcarianCore::PipeMessageType_KeyboardState:
         {
             const Application* app = GetApplication();
 
             InputManager* inputManager = app->GetInputManager();
 
-            const FlareBase::KeyboardState state = FlareBase::KeyboardState::FromData((unsigned char*)msg.Data);
+            const IcarianCore::KeyboardState state = IcarianCore::KeyboardState::FromData((unsigned char*)msg.Data);
 
-            for (unsigned int i = 0; i < FlareBase::KeyCode_Last; ++i)
+            for (unsigned int i = 0; i < KeyCode_Last; ++i)
             {
-                const FlareBase::e_KeyCode keyCode = (FlareBase::e_KeyCode)i;
+                const e_KeyCode keyCode = (e_KeyCode)i;
 
                 inputManager->SetKeyboardKey(keyCode, state.IsKeyDown(keyCode));
             }
 
             break;
         }
-        case FlareBase::PipeMessageType_Null:
+        case IcarianCore::PipeMessageType_Null:
         {
             Logger::Warning("Engine: Null Message");
 
@@ -351,7 +351,7 @@ void HeadlessAppWindow::Update()
 
         const glm::dvec2 tVec = glm::vec2(m_delta, m_time);
 
-        if (!m_pipe->Send({ FlareBase::PipeMessageType_UpdateData, sizeof(glm::dvec2), (char*)&tVec}))
+        if (!m_pipe->Send({ IcarianCore::PipeMessageType_UpdateData, sizeof(glm::dvec2), (char*)&tVec}))
         {
             m_close = true;
 
@@ -374,7 +374,7 @@ void HeadlessAppWindow::Update()
 
             const std::lock_guard g = std::lock_guard(m_fLock);
 
-            if (!m_pipe->Send({ FlareBase::PipeMessageType_PushFrame, m_width * m_height * 4, m_frameData }))
+            if (!m_pipe->Send({ IcarianCore::PipeMessageType_PushFrame, m_width * m_height * 4, m_frameData }))
             {
                 m_close = true;
 
@@ -406,8 +406,8 @@ void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const
     PROFILESTACK("Frame Data");
     constexpr int Size = sizeof(glm::dvec2);
 
-    FlareBase::PipeMessage msg;
-    msg.Type = FlareBase::PipeMessageType_FrameData;
+    IcarianCore::PipeMessage msg;
+    msg.Type = IcarianCore::PipeMessageType_FrameData;
     msg.Length = Size;
     msg.Data = new char[Size];
     (*(glm::dvec2*)msg.Data).x = a_delta;

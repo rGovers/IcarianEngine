@@ -1,6 +1,6 @@
 #include "Rendering/UI/UIControl.h"
 
-#include "Flare/IcarianAssert.h"
+#include "Core/IcarianAssert.h"
 #include "Logger.h"
 #include "Rendering/UI/TextUIElement.h"
 #include "Rendering/UI/UIControlBindings.h"

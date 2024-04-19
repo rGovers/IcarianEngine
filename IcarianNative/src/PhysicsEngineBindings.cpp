@@ -24,9 +24,9 @@
 #include <Jolt/Physics/EActivation.h>
 #include <mutex>
 
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "DataTypes/TLockArray.h"
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
 #include "ObjectManager.h"
 #include "Physics/InterfaceLock.h"
 #include "Physics/PhysicsEngine.h"

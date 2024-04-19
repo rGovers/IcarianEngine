@@ -1,4 +1,4 @@
-#include "Flare/FBXLoader.h"
+#include "Core/FBXLoader.h"
 
 #include <cstring>
 #include <fstream>
@@ -8,9 +8,9 @@
 #include <ofbx.h>
 #include <unordered_map>
 
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianDefer.h"
 
-namespace FlareBase
+namespace IcarianCore
 {
     bool FBXLoader_LoadData(const char* a_data, uint32_t a_size, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius)
     {

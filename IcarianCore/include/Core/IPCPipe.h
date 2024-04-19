@@ -1,12 +1,12 @@
 #pragma once
 
-#include "Flare/PipeMessage.h"
-#include "Flare/WindowsHeaders.h"
+#include "Core/PipeMessage.h"
+#include "Core/WindowsHeaders.h"
 
 #include <queue>
 #include <string_view>
 
-namespace FlareBase
+namespace IcarianCore
 {   
     class IPCPipe
     {

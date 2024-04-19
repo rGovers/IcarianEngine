@@ -1,6 +1,6 @@
 #include "Rendering/UI/TextUIElement.h"
 
-#include "Flare/IcarianAssert.h"
+#include "Core/IcarianAssert.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/UI/Font.h"
 

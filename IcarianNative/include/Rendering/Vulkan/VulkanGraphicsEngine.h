@@ -13,6 +13,7 @@ class RuntimeFunction;
 class VulkanDepthCubeRenderTexture;
 class VulkanDepthRenderTexture;
 class VulkanGraphicsEngineBindings;
+class VulkanGraphicsParticle2D;
 class VulkanLightData;
 class VulkanModel;
 class VulkanPipeline;
@@ -96,6 +97,8 @@ private:
     TNCArray<SkinnedMeshRenderBuffer>             m_skinnedRenderBuffers;
     TArray<MaterialRenderStack*>                  m_renderStacks;
 
+    TNCArray<VulkanGraphicsParticle2D*>           m_particleEmitters;
+
     TNCArray<AmbientLightBuffer>                  m_ambientLights;
     TNCArray<DirectionalLightBuffer>              m_directionalLights;
     TNCArray<PointLightBuffer>                    m_pointLights;
@@ -105,6 +108,8 @@ private:
 
     TArray<CameraBuffer>                          m_cameraBuffers;
     std::vector<VulkanUniformBuffer*>             m_cameraUniforms;
+
+    VulkanUniformBuffer*                          m_timeUniform;
 
     std::vector<vk::CommandPool>                  m_commandPool[VulkanFlightPoolSize];
     std::vector<vk::CommandBuffer>                m_commandBuffers[VulkanFlightPoolSize];
@@ -133,12 +138,16 @@ public:
     VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEngine);
     ~VulkanGraphicsEngine();
 
+    // Code reeks but cannot be fucked
+    // Later me problem
+    void Cleanup();
+
     inline void SetSwapchain(VulkanSwapchain* a_swapchaing)
     {
         m_swapchain = a_swapchaing;
     }
 
-    std::vector<vk::CommandBuffer> Update(uint32_t a_index);
+    std::vector<vk::CommandBuffer> Update(double a_delta, double a_time, uint32_t a_index);
 
     uint32_t GenerateGLSLVertexShader(const std::string_view& a_source);
     uint32_t GenerateFVertexShader(const std::string_view& a_source);
@@ -164,6 +173,13 @@ public:
         return m_cameraUniforms[a_addr];
     }
 
+    inline VulkanUniformBuffer* GetTimeUniformBuffer() const
+    {
+        return m_timeUniform;
+    }
+
+    uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius);
+    void DestroyModel(uint32_t a_addr);
     VulkanModel* GetModel(uint32_t a_addr);
 
     uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);

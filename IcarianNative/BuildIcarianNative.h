@@ -113,7 +113,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendIncludePaths(&project, 
         "include",
         "../EngineInterop",
-        "../FlareBase/include",
+        "../IcarianCore/include",
         "../deps/flare-glfw/include",
         "../deps/flare-glm",
         "../deps/flare-stb",
@@ -161,6 +161,8 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/PhysicsEngineBindings.cpp");
     CUBE_CProject_AppendSource(&project, "src/Profiler.cpp");
     CUBE_CProject_AppendSource(&project, "src/Random.cpp");
+    CUBE_CProject_AppendSource(&project, "src/RenderAssetStore.cpp");
+    CUBE_CProject_AppendSource(&project, "src/RenderAssetStoreBindings.cpp");
     CUBE_CProject_AppendSource(&project, "src/RenderEngine.cpp");
     CUBE_CProject_AppendSource(&project, "src/RuntimeFunction.cpp");
     CUBE_CProject_AppendSource(&project, "src/RuntimeManager.cpp");
@@ -175,7 +177,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_CProject_AppendSource(&project, "src/VulkanComputeEngine.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanComputeEngineBindings.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanComputeLayout.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanComputeParticle2D.cpp");
+    CUBE_CProject_AppendSource(&project, "src/VulkanComputeParticle.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanComputePipeline.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanComputeShader.cpp");
     CUBE_CProject_AppendSource(&project, "src/VulkanDepthCubeRenderTexture.cpp");
@@ -266,7 +268,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Windows/include");
 
         CUBE_CProject_AppendLibraries(&project,
-            "../FlareBase/build/FlareBase.lib",
+            "../IcarianCore/build/IcarianCore.lib",
 
             "../deps/flare-glfw/build/GLFW.lib",
             "../deps/miniz/build/miniz.lib",
@@ -304,7 +306,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Linux/include/mono-2.0");
 
         CUBE_CProject_AppendLibraries(&project,
-            "../FlareBase/build/libFlareBase.a",
+            "../IcarianCore/build/libIcarianCore.a",
 
             "../deps/flare-glfw/build/libGLFW.a",
             "../deps/miniz/build/libminiz.a",

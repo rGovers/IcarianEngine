@@ -2,7 +2,7 @@
 
 #include "Rendering/Vulkan/VulkanRenderCommand.h"
 
-#include "Flare/IcarianAssert.h"
+#include "Core/IcarianAssert.h"
 #include "Logger.h"
 #include "ObjectManager.h"
 #include "Rendering/RenderEngine.h"
@@ -99,6 +99,14 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr)
             VulkanUniformBuffer* camBuffer = m_gEngine->GetCameraUniformBuffer(m_bufferIndex);
 
             shaderData->PushUniformBuffer(m_commandBuffer, camInput.Set, camBuffer, currentFrame);
+        }
+
+        ShaderBufferInput timeInput;
+        if (shaderData->GetShaderBufferInput(ShaderBufferType_TimeBuffer, &timeInput))
+        {
+            VulkanUniformBuffer* timeBuffer = m_gEngine->GetTimeUniformBuffer();
+
+            shaderData->PushUniformBuffer(m_commandBuffer, timeInput.Set, timeBuffer, currentFrame);
         }
 
         pipeline->Bind(currentFrame, m_commandBuffer);

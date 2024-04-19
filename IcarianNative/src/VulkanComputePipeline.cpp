@@ -2,7 +2,7 @@
 
 #include "Rendering/Vulkan/VulkanComputePipeline.h"
 
-#include "Flare/IcarianAssert.h"
+#include "Core/IcarianAssert.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanComputeLayout.h"
 #include "Rendering/Vulkan/VulkanComputeShader.h"

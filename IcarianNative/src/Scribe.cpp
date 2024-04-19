@@ -3,7 +3,7 @@
 #include <codecvt>
 #include <locale>
 
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianDefer.h"
 #include "Runtime/RuntimeManager.h"
 
 Scribe* Scribe::Instance = nullptr;

@@ -1,6 +1,6 @@
-#include "Flare/InputBindings.h"
+#include "Core/InputBindings.h"
 
-namespace FlareBase
+namespace IcarianCore
 {
     KeyboardState KeyboardState::FromData(const unsigned char* a_data)
     {

@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace FlareBase
+namespace IcarianCore
 {   
     enum e_PipeMessageType : uint32_t
     {

@@ -1,7 +1,7 @@
 #include "Rendering/UI/UIControlBindings.h"
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Rendering/UI/CanvasBuffer.h"
 #include "Rendering/UI/ImageUIElement.h"
 #include "Rendering/UI/TextUIElement.h"

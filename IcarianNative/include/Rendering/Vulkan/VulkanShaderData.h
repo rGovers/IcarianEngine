@@ -1,10 +1,10 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+#include "Rendering/Vulkan/VulkanConstants.h"
+
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
-
-#include "Rendering/Vulkan/VulkanConstants.h"
 
 #include "EngineMaterialInteropStructures.h"
 #include "EngineTextureSamplerInteropStructures.h"
@@ -80,6 +80,7 @@ public:
     void PushTextures(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer* a_samplers, uint32_t a_count, uint32_t a_index) const;
     void PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
     void PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanShaderStorageObject* a_object, uint32_t a_index) const;
+    void PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_set, vk::Buffer a_object, uint32_t a_index) const;
 
     void PushShadowTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer& a_sampler, uint32_t a_index) const;
     void PushShadowUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;

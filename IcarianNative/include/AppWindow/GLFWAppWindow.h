@@ -33,7 +33,7 @@ public:
     virtual double GetDelta() const;
     virtual double GetTime() const;
 
-    virtual void SetCursorState(FlareBase::e_CursorState a_state);
+    virtual void SetCursorState(e_CursorState a_state);
 
     virtual void Update();
 

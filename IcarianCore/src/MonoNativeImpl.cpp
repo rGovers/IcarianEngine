@@ -1,10 +1,10 @@
-#include "Flare/MonoNativeImpl.h"
-
-#include "Flare/IcarianAssert.h"
+#include "Core/MonoNativeImpl.h"
 
 #include <cstdint>
 #include <cstring>
 #include <ctime>
+
+#include "Core/IcarianAssert.h"
 
 #ifndef WIN32
 #include <dirent.h>
@@ -550,7 +550,7 @@ static DIR* SystemNative_OpenDir(const char* a_path)
 {
     return opendir(a_path);
 }
-int32_t SystemNative_CloseDir(DIR* dir)
+static int32_t SystemNative_CloseDir(DIR* dir)
 {
     return closedir(dir);
 }
@@ -582,9 +582,8 @@ static int32_t SystemNative_LChflagsCanSetHiddenFlag()
 {
     return 0;
 }
-#endif
 
-void SystemNative_GetNonCryptographicallySecureRandomBytes(uint8_t* a_buffer, int32_t a_bufferLength)
+static void SystemNative_GetNonCryptographicallySecureRandomBytes(uint8_t* a_buffer, int32_t a_bufferLength)
 {
     ICARIAN_ASSERT(a_buffer != nullptr);
 
@@ -604,8 +603,9 @@ void SystemNative_GetNonCryptographicallySecureRandomBytes(uint8_t* a_buffer, in
         a_buffer[offset + i] = (uint8_t)((double)rand() / RAND_MAX * UINT8_MAX);
     }
 }
+#endif
 
-namespace FlareBase
+namespace IcarianCore
 {
     static MonoNativeImpl* Instance = nullptr;
 

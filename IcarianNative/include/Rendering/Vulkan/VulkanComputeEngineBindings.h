@@ -24,8 +24,8 @@ public:
     ComputeParticleBuffer GetParticleSystemBuffer(uint32_t a_addr) const;
     void SetParticleSystemBuffer(uint32_t a_addr, const ComputeParticleBuffer& a_buffer) const;
 
-    uint32_t GenerateParticleSystem2D(uint32_t a_particleBufferAddr) const;
-    void DestroyParticleSystem2D(uint32_t a_addr) const;
+    uint32_t GenerateParticleSystem(uint32_t a_particleBufferAddr) const;
+    void DestroyParticleSystem(uint32_t a_addr) const;
 };
 
 #endif

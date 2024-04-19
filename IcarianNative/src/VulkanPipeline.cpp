@@ -2,9 +2,8 @@
 
 #include "Rendering/Vulkan/VulkanPipeline.h"
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
-#include "Logger.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanPixelShader.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"

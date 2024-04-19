@@ -8,6 +8,7 @@ class VulkanPixelShader;
 class VulkanVertexShader;
 
 #include "Rendering/CameraBuffer.h"
+#include "Rendering/TextureData.h"
 
 #include "EngineAmbientLightInteropStructures.h"
 #include "EngineDirectionalLightInteropStructures.h"
@@ -53,7 +54,7 @@ public:
     glm::mat4 GetCameraProjectionMatrix(uint32_t a_addr, uint32_t a_width, uint32_t a_height) const;
     glm::mat4 GetCameraProjectionMatrix(uint32_t a_addr, uint32_t a_width, uint32_t a_height, float a_near, float a_far) const;
 
-    uint32_t GenerateModel(const char* a_vertices, uint32_t a_vertexCount, const uint32_t* a_indices, uint32_t a_indexCount, uint16_t a_vertexStride, float a_radius) const;
+    uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, const uint32_t* a_indices, uint32_t a_indexCount, uint16_t a_vertexStride, float a_radius) const;
     void DestroyModel(uint32_t a_addr) const;
 
     uint32_t GenerateMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr) const;
@@ -66,8 +67,9 @@ public:
     void GenerateSkinnedRenderStack(uint32_t a_addr) const;
     void DestroySkinnedRenderStack(uint32_t a_addr) const;
 
-    uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);
-    uint32_t GenerateMipMappedTexture(uint32_t a_width, uint32_t a_height, uint32_t a_levels, const uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize);
+    uint32_t GenerateGraphicsParticle2D(uint32_t a_computeBufferAddr) const;
+    void DestroyGraphicsParticle2D(uint32_t a_addr) const;
+
     void DestroyTexture(uint32_t a_addr) const;
 
     uint32_t GenerateTextureSampler(uint32_t a_texture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;

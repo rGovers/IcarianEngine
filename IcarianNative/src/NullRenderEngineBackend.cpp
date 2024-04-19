@@ -43,7 +43,6 @@
     F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, GenerateRenderStack, { }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, DestroyRenderStack, { }, uint32_t a_addr) \
     \
-    F(uint32_t, IcarianEngine.Rendering, Texture, GenerateFromFile, { return 0; }, MonoString* a_path) \
     F(void, IcarianEngine.Rendering, Texture, DestroyTexture, { }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateTextureSampler, { return 0; }, uint32_t a_texture, uint32_t a_filter, uint32_t a_addressMode) \
@@ -74,8 +73,6 @@
     F(uint32_t, IcarianEngine.Rendering, MultiRenderTexture, GetTextureCount, { return 0; }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, Model, GenerateModel, { return 0; }, MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride, float a_radius) \
-    F(uint32_t, IcarianEngine.Rendering, Model, GenerateFromFile, { return 0; }, MonoString* a_path) \
-    F(uint32_t, IcarianEngine.Rendering, Model, GenerateSkinnedFromFile, { return 0; }, MonoString* a_path) \
     F(void, IcarianEngine.Rendering, Model, DestroyModel, { }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering.Lighting, AmbientLight, GenerateBuffer, { return 0; }, uint32_t a_transformAddr) \
@@ -127,7 +124,7 @@
     \
     F(void, IcarianEngine.Rendering.Animation, SkeletonAnimator, PushTransform, { }, uint32_t a_addr, MonoString* a_object, MonoArray* a_transform) \
 
-NULLGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
+NULLGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 NullRenderEngineBackend::NullRenderEngineBackend(RenderEngine* a_engine) : RenderEngineBackend(a_engine)
 {
@@ -138,7 +135,20 @@ NullRenderEngineBackend::~NullRenderEngineBackend()
 
 }
 
+uint32_t NullRenderEngineBackend::GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius)
+{
+    return 0;
+}
+void NullRenderEngineBackend::DestroyModel(uint32_t a_addr)
+{
+
+}
+
 uint32_t NullRenderEngineBackend::GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data)
+{
+    return 0;
+}
+uint32_t NullRenderEngineBackend::GenerateTextureMipMapped(uint32_t a_width, uint32_t a_height, uint32_t a_levels, uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize)
 {
     return 0;
 }

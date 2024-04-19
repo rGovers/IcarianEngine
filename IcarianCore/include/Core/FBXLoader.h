@@ -3,25 +3,25 @@
 #include <filesystem>
 #include <vector>
 
-#include "Flare/Bones.h"
+#include "Core/Bones.h"
 
 #include "EngineModelInteropStructures.h"
 
-struct FBXAnimationFrame
+namespace IcarianCore
 {
-    float Time;
-    glm::vec4 Data;
-};
+    struct FBXAnimationFrame
+    {
+        float Time;
+        glm::vec4 Data;
+    };
 
-struct FBXAnimationData
-{
-    std::string Name;
-    std::string PropertyName;
-    std::vector<FBXAnimationFrame> Frames;
-};
+    struct FBXAnimationData
+    {
+        std::string Name;
+        std::string PropertyName;
+        std::vector<FBXAnimationFrame> Frames;
+    };
 
-namespace FlareBase
-{
     bool FBXLoader_LoadData(const char* a_data, uint32_t a_size, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius);
     bool FBXLoader_LoadFile(const std::filesystem::path& a_path, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius);
 

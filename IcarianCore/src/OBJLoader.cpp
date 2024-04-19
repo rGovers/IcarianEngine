@@ -1,4 +1,4 @@
-#include "Flare/OBJLoader.h"
+#include "Core/OBJLoader.h"
 
 #include <glm/gtx/norm.hpp>
 
@@ -7,10 +7,10 @@
 #include <string.h>
 #include <unordered_map>
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 
-namespace FlareBase
+namespace IcarianCore
 {
     enum e_OBJFaceMode
     {
@@ -252,6 +252,9 @@ namespace FlareBase
                     ++iA;
                 }
 
+                std::vector<const char*> iSpc;
+                iSpc.emplace_back(iA);
+
                 const char* sl[2];
                 sl[0] = nullptr;
                 sl[1] = nullptr;
@@ -297,59 +300,33 @@ namespace FlareBase
                     faceMode = OBJFaceMode_Position;
                 }
 
-                const char* iB = iA + 1;
-                while (*iB != ' ')
+                while (*s != '\n')
                 {
-                    ++iB;
-                }
-                while (*iB == ' ')
-                {
-                    ++iB;
-                }
+                    const char* next = s + 1;
 
-                const char *iC = iB + 1;
-                while (*iC != ' ')
-                {
-                    ++iC;
-                }
-                while (*iC == ' ')
-                {
-                    ++iC;
-                }
-
-                const char* next = iC + 1;
-                while (*next != ' ' && *next != '\n')
-                {
-                    ++next;
-                }
-
-                const char* iD = nullptr;
-                if (*next != '\n')
-                {
-                    iD = next + 1;
-                    while (*iD == ' ')
+                    while (*next != ' ' && *next != '\n')
                     {
-                        ++iD;
+                        ++next;
+                    }
+                    while (*next == ' ')
+                    {
+                        ++next;
                     }
 
-                    if (*iD == '\n')
+                    iSpc.emplace_back(next);
+
+                    if (*next == '\n')
                     {
-                        iD = nullptr;
+                        break;
                     }
+
+                    s = next + 1;
                 }
 
-                const char* indMap[5] = {iA, iB, iC, iD, nl};
-                const bool quad = iD != nullptr;
 
-                int indexCount = 4;
-                if (!quad)
-                {
-                    indexCount = 3;
-                    indMap[3] = nl;
-                    indMap[4] = nullptr;
-                }
-
-                OBJIndexMap tIndices[4];
+                const uint32_t indexCount = iSpc.size() - 1;
+                OBJIndexMap* tIndices = new OBJIndexMap[indexCount];
+                IDEFER(delete[] tIndices);
 
                 switch (faceMode)
                 {
@@ -357,8 +334,8 @@ namespace FlareBase
                 {
                     for (int i = 0; i < indexCount; ++i)
                     {
-                        const char* cur = indMap[i];
-                        const char* next = indMap[i + 1];
+                        const char* cur = iSpc[i];
+                        const char* next = iSpc[i + 1];
 
                         tIndices[i].PositionIndex = (uint32_t)std::stoul(std::string(cur, next - cur));
                         tIndices[i].NormalIndex = -1;
@@ -371,8 +348,8 @@ namespace FlareBase
                 {
                     for (int i = 0; i < indexCount; ++i)
                     {
-                        const char* cur = indMap[i];
-                        const char* next = indMap[i + 1];
+                        const char* cur = iSpc[i];
+                        const char* next = iSpc[i + 1];
 
                         const char* s = cur + 1;
                         while (*s != '/')
@@ -391,8 +368,8 @@ namespace FlareBase
                 {
                     for (int i = 0; i < indexCount; ++i)
                     {
-                        const char* cur = indMap[i];
-                        const char* next = indMap[i + 1];
+                        const char* cur = iSpc[i];
+                        const char* next = iSpc[i + 1];
 
                         const char* sA = cur + 1;
                         while (*sA != '/')
@@ -417,8 +394,8 @@ namespace FlareBase
                 {
                     for (int i = 0; i < indexCount; ++i)
                     {
-                        const char* cur = indMap[i];
-                        const char* next = indMap[i + 1];
+                        const char* cur = iSpc[i];
+                        const char* next = iSpc[i + 1];
 
                         const char* s = cur + 1;
                         while (*s != '/')
@@ -435,15 +412,13 @@ namespace FlareBase
                 }
                 }
 
-                indices.emplace_back(tIndices[0]);
-                indices.emplace_back(tIndices[1]);
-                indices.emplace_back(tIndices[2]);
+                ICARIAN_ASSERT(indexCount >= 3);
 
-                if (quad)
+                for (uint32_t i = 2; i < indexCount; ++i)
                 {
                     indices.emplace_back(tIndices[0]);
-                    indices.emplace_back(tIndices[2]);
-                    indices.emplace_back(tIndices[3]);
+                    indices.emplace_back(tIndices[i - 1]);
+                    indices.emplace_back(tIndices[i]);
                 }
             }
 

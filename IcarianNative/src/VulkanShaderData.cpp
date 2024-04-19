@@ -2,9 +2,8 @@
 
 #include "Rendering/Vulkan/VulkanShaderData.h"
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
-#include "ObjectManager.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Rendering/ShaderBuffers.h"
 #include "Rendering/UI/UIElement.h"
 #include "Rendering/Vulkan/VulkanDepthCubeRenderTexture.h"
@@ -14,6 +13,7 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
 #include "Rendering/Vulkan/VulkanShaderStorageObject.h"
+#include "Rendering/Vulkan/VulkanTexture.h"
 #include "Rendering/Vulkan/VulkanTextureSampler.h"
 #include "Rendering/Vulkan/VulkanUniformBuffer.h"
 #include "Trace.h"
@@ -173,6 +173,7 @@ constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_buffe
     {
         return vk::DescriptorType::eCombinedImageSampler;
     }
+    case ShaderBufferType_SSParticleBuffer:
     case ShaderBufferType_SSBoneBuffer:
     case ShaderBufferType_SSModelBuffer:
     case ShaderBufferType_SSAmbientLightBuffer:
@@ -230,6 +231,7 @@ static void GetLayoutInfo(const ShaderBufferInput* a_inputs, uint32_t a_inputCou
         case ShaderBufferType_PushTexture:
         case ShaderBufferType_ShadowTexture2D:
         case ShaderBufferType_ShadowTextureCube:
+        case ShaderBufferType_SSParticleBuffer:
         case ShaderBufferType_SSModelBuffer:
         case ShaderBufferType_SSBoneBuffer:
         case ShaderBufferType_SSAmbientLightBuffer:
@@ -293,12 +295,14 @@ static vk::DescriptorImageInfo GetDescriptorImageInfo(const TextureSamplerBuffer
 {
     vk::DescriptorImageInfo imageInfo;
     imageInfo.sampler = a_sampler->GetSampler();
-    imageInfo.imageView = a_sampler->GetImageView();
-
+    
     switch (a_baseSampler.TextureMode)
     {
     case TextureMode_Texture:
     {
+        const VulkanTexture* texture = a_engine->GetTexture(a_baseSampler.Addr);
+
+        imageInfo.imageView = texture->GetImageView();
         imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
         break;
@@ -307,10 +311,7 @@ static vk::DescriptorImageInfo GetDescriptorImageInfo(const TextureSamplerBuffer
     {
         const VulkanRenderTexture* renderTexture = a_engine->GetRenderTexture(a_baseSampler.Addr);
 
-        if (imageInfo.imageView == vk::ImageView(nullptr))
-        {
-            imageInfo.imageView = renderTexture->GetImageView(a_baseSampler.Slot);
-        }
+        imageInfo.imageView = renderTexture->GetImageView(a_baseSampler.Slot);
         imageInfo.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
         break;
@@ -319,10 +320,7 @@ static vk::DescriptorImageInfo GetDescriptorImageInfo(const TextureSamplerBuffer
     {
         const VulkanRenderTexture* renderTexture = a_engine->GetRenderTexture(a_baseSampler.Addr);
 
-        if (imageInfo.imageView == vk::ImageView(nullptr))
-        {
-            imageInfo.imageView = renderTexture->GetDepthImageView();
-        }
+        imageInfo.imageView = renderTexture->GetDepthImageView();
         imageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 
         break;
@@ -331,10 +329,7 @@ static vk::DescriptorImageInfo GetDescriptorImageInfo(const TextureSamplerBuffer
     {
         const VulkanDepthRenderTexture* renderTexture = a_engine->GetDepthRenderTexture(a_baseSampler.Addr);
 
-        if (imageInfo.imageView == vk::ImageView(nullptr))
-        {
-            imageInfo.imageView = renderTexture->GetImageView();
-        }
+        imageInfo.imageView = renderTexture->GetImageView();
         imageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 
         break;
@@ -343,10 +338,7 @@ static vk::DescriptorImageInfo GetDescriptorImageInfo(const TextureSamplerBuffer
     {
         const VulkanDepthCubeRenderTexture* renderTexture = a_engine->GetDepthCubeRenderTexture(a_baseSampler.Addr);
 
-        if (imageInfo.imageView == vk::ImageView(nullptr))
-        {
-            imageInfo.imageView = renderTexture->GetImageView();
-        }
+        imageInfo.imageView = renderTexture->GetImageView();
         imageInfo.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 
         break;
@@ -715,6 +707,10 @@ void VulkanShaderData::PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint
 }
 void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanShaderStorageObject* a_object, uint32_t a_index) const
 {
+    return PushShaderStorageObject(a_commandBuffer, a_set, a_object->GetBuffer(), a_index);   
+}
+void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_set, vk::Buffer a_object, uint32_t a_index) const
+{
     const vk::Device device = m_engine->GetLogicalDevice();
 
     for (const VulkanPushDescriptor& d : m_pushDescriptors)
@@ -727,7 +723,7 @@ void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer
 
             const vk::DescriptorBufferInfo bufferInfo = vk::DescriptorBufferInfo
             (
-                a_object->GetBuffer(),
+                a_object,
                 0,
                 VK_WHOLE_SIZE
             );

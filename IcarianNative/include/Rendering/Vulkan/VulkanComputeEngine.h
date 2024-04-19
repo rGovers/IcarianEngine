@@ -13,6 +13,7 @@ class VulkanComputeParticle2D;
 class VulkanComputePipeline;
 class VulkanComputeShader;
 class VulkanRenderEngineBackend;
+class VulkanUniformBuffer;
 
 #include "EngineMaterialInteropStructures.h"
 #include "EngineParticleSystemInteropStructures.h"
@@ -24,7 +25,9 @@ private:
 
     VulkanRenderEngineBackend*         m_engine;
     VulkanComputeEngineBindings*       m_bindings;
-    
+
+    VulkanUniformBuffer*               m_timeUniform;
+
     vk::CommandPool                    m_pools[VulkanFlightPoolSize];
     vk::CommandBuffer                  m_buffers[VulkanFlightPoolSize];
 
@@ -33,8 +36,6 @@ private:
     TNCArray<VulkanComputeLayout*>     m_layouts;
     
     TNCArray<ComputeParticleBuffer>    m_particleBuffers;
-
-    TNCArray<VulkanComputeParticle2D*> m_particle2D;
 
 protected:
 
@@ -47,10 +48,17 @@ public:
         return m_engine;
     }
 
-    vk::CommandBuffer Update(uint32_t a_index);
+    inline VulkanUniformBuffer* GetTimeUniformBuffer() const
+    {
+        return m_timeUniform;
+    }
+
+    vk::CommandBuffer Update(double a_delta, double a_time, uint32_t a_index);
 
     ComputeParticleBuffer GetParticleBuffer(uint32_t a_addr);
     void SetParticleBuffer(uint32_t a_addr, const ComputeParticleBuffer& a_buffer);
+
+    vk::Buffer GetParticleBufferData(uint32_t a_addr);
 
     uint32_t GenerateComputeFShader(const std::string_view& a_str);
     uint32_t GenerateComputeGLSLShader(const std::string_view& a_str);

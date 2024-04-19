@@ -2,7 +2,7 @@
 
 #include <string>
 
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianDefer.h"
 #include "Networking/NetworkManager.h"
 
 NetworkClient::NetworkClient()

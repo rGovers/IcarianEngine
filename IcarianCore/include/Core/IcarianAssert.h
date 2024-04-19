@@ -1,7 +1,9 @@
 #pragma once
 
-#ifndef NDEBUG
+#ifndef NDEBUG 
+#ifndef ICARIAN_ENABLE_ASSERT
 #define ICARIAN_ENABLE_ASSERT
+#endif
 #endif
 
 #include <cassert>

@@ -2,7 +2,7 @@
 
 #include <spirv-tools/optimizer.hpp>
 
-#include "Flare/IcarianAssert.h"
+#include "Core/IcarianAssert.h"
 #include "Logger.h"
 #include "Rendering/ShaderBuffers.h"
 #include "Rendering/Vulkan/VulkanConstants.h"

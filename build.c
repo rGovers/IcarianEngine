@@ -8,7 +8,7 @@
 #include "BuildBase.h"
 
 #include "deps/BuildDependencies.h"
-#include "FlareBase/BuildFlareBase.h"
+#include "IcarianCore/BuildIcarianCore.h"
 #include "IcarianCS/BuildIcarianCS.h"
 #include "IcarianNative/BuildIcarianNative.h"
 
@@ -286,13 +286,13 @@ int main(int a_argc, char** a_argv)
 
     free(dependencyProjects);
 
-    PrintHeader("Building FlareBase");
+    PrintHeader("Building IcarianCore");
 
-    printf("Creating FlareBase project...\n");
-    flareBaseProject = BuildFlareBaseProject(CBTRUE, targetPlatform, buildConfiguration);
+    printf("Creating IcarianCore project...\n");
+    flareBaseProject = BuildIcarianCoreProject(CBTRUE, targetPlatform, buildConfiguration);
 
-    printf("Compiling FlareBase...\n");
-    ret = CUBE_CProject_MultiCompile(&flareBaseProject, compiler, "FlareBase", CBNULL, jobThreads, &lines, &lineCount);
+    printf("Compiling IcarianCore...\n");
+    ret = CUBE_CProject_MultiCompile(&flareBaseProject, compiler, "IcarianCore", CBNULL, jobThreads, &lines, &lineCount);
 
     FlushLines(&lines, &lineCount);
 
@@ -300,12 +300,12 @@ int main(int a_argc, char** a_argv)
 
     if (!ret)
     {
-        printf("Failed to compile FlareBase\n");
+        printf("Failed to compile IcarianCore\n");
 
         return 1;
     }
 
-    printf("FlareBase Compiled!\n");
+    printf("IcarianCore Compiled!\n");
 
     PrintHeader("Building IcarianCS");
 

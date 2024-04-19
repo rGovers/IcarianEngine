@@ -1,10 +1,10 @@
 #include "Rendering/AnimationControllerBindings.h"
 
-#include "Flare/ColladaLoader.h"
-#include "Flare/FBXLoader.h"
-#include "Flare/GLTFLoader.h"
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/ColladaLoader.h"
+#include "Core/FBXLoader.h"
+#include "Core/GLTFLoader.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Rendering/AnimationController.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
@@ -28,7 +28,7 @@ static AnimationControllerBindings* Instance = nullptr;
     F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, DestroySkeletonBuffer, { Instance->DestroySkeletonBuffer(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, ClearSkeletonBuffer, { Instance->ClearSkeletonBuffer(a_addr); }, uint32_t a_addr) \
 
-ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
+ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
 {
@@ -43,11 +43,11 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
     data.Names = NULL;
     data.Parents = NULL;
 
-    std::vector<BoneData> bones;
+    std::vector<IcarianCore::BoneData> bones;
 
     if (ext == ".dae")
     {
-        if (FlareBase::ColladaLoader_LoadBoneFile(path, &bones))
+        if (IcarianCore::ColladaLoader_LoadBoneFile(path, &bones))
         {
             MonoDomain* domain = RuntimeManager::GetDomain();
             MonoClass* fClass = mono_get_single_class();
@@ -59,7 +59,7 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
 
             for (uint32_t i = 0; i < count; ++i)
             {
-                const BoneData& bone = bones[i];
+                const IcarianCore::BoneData& bone = bones[i];
 
                 MonoArray* bindPose = mono_array_new(domain, fClass, 16);
                 for (uint32_t j = 0; j < 16; ++j)
@@ -75,7 +75,7 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
     }
     else if (ext == ".fbx")
     {
-        if (FlareBase::FBXLoader_LoadBoneFile(path, &bones))
+        if (IcarianCore::FBXLoader_LoadBoneFile(path, &bones))
         {
             MonoDomain* domain = RuntimeManager::GetDomain();
             MonoClass* fClass = mono_get_single_class();
@@ -87,7 +87,7 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
 
             for (uint32_t i = 0; i < count; ++i)
             {
-                const BoneData& bone = bones[i];
+                const IcarianCore::BoneData& bone = bones[i];
 
                 MonoArray* bindPose = mono_array_new(domain, fClass, 16);
                 for (uint32_t j = 0; j < 16; ++j)
@@ -103,7 +103,7 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
     }
     else if (ext == ".glb" || ext == ".gltf")
     {
-        if (FlareBase::GLTFLoader_LoadBonesFile(path, &bones))
+        if (IcarianCore::GLTFLoader_LoadBonesFile(path, &bones))
         {
             MonoDomain* domain = RuntimeManager::GetDomain();
             MonoClass* fClass = mono_get_single_class();
@@ -115,7 +115,7 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
 
             for (uint32_t i = 0; i < count; ++i)
             {
-                const BoneData& bone = bones[i];
+                const IcarianCore::BoneData& bone = bones[i];
 
                 MonoArray* bindPose = mono_array_new(domain, fClass, 16);
                 for (uint32_t j = 0; j < 16; ++j)
@@ -235,14 +235,14 @@ MonoArray* AnimationControllerBindings::LoadColladaAnimation(const std::filesyst
     ICARIAN_ASSERT(animationFrameClass != NULL);
     MonoClass* floatClass = mono_get_single_class();
 
-    std::vector<ColladaAnimationData> animations;
-    if (FlareBase::ColladaLoader_LoadAnimationFile(a_path, &animations))
+    std::vector<IcarianCore::ColladaAnimationData> animations;
+    if (IcarianCore::ColladaLoader_LoadAnimationFile(a_path, &animations))
     {
         const uint32_t count = (uint32_t)animations.size();
         data = mono_array_new(domain, animationDataClass, (uintptr_t)count);
         for (uint32_t i = 0; i < count; ++i)
         {
-            const ColladaAnimationData& animation = animations[i];
+            const IcarianCore::ColladaAnimationData& animation = animations[i];
 
             DAERAnimation animData;
             animData.Name = mono_string_new(domain, animation.Name.c_str());
@@ -251,7 +251,7 @@ MonoArray* AnimationControllerBindings::LoadColladaAnimation(const std::filesyst
             animData.Frames = mono_array_new(domain, animationFrameClass, (uintptr_t)frameCount);
             for (uint32_t j = 0; j < frameCount; ++j)
             {
-                const ColladaAnimationFrame& frame = animation.Frames[j];
+                const IcarianCore::ColladaAnimationFrame& frame = animation.Frames[j];
 
                 DAERAnimationFrame animFrame;
                 animFrame.Time = frame.Time;
@@ -286,14 +286,14 @@ MonoArray* AnimationControllerBindings::LoadFBXAnimation(const std::filesystem::
     ICARIAN_ASSERT(animationFrameClass != NULL);
     MonoClass* floatClass = mono_get_single_class();
 
-    std::vector<FBXAnimationData> animations;
-    if (FlareBase::FBXLoader_LoadAnimationFile(a_path, &animations))
+    std::vector<IcarianCore::FBXAnimationData> animations;
+    if (IcarianCore::FBXLoader_LoadAnimationFile(a_path, &animations))
     {
         const uint32_t count = (uint32_t)animations.size();
         data = mono_array_new(domain, animationDataClass, (uintptr_t)count);
         for (uint32_t i = 0; i < count; ++i)
         {
-            const FBXAnimationData& animation = animations[i];
+            const IcarianCore::FBXAnimationData& animation = animations[i];
 
             FBXRAnimation animData;
             animData.Name = mono_string_new(domain, animation.Name.c_str());
@@ -303,7 +303,7 @@ MonoArray* AnimationControllerBindings::LoadFBXAnimation(const std::filesystem::
             animData.Frames = mono_array_new(domain, animationFrameClass, (uintptr_t)frameCount);
             for (uint32_t j = 0; j < frameCount; ++j)
             {
-                const FBXAnimationFrame& frame = animation.Frames[j];
+                const IcarianCore::FBXAnimationFrame& frame = animation.Frames[j];
 
                 FBXRAnimationFrame animFrame;
                 animFrame.Time = frame.Time;
@@ -329,14 +329,14 @@ MonoArray* AnimationControllerBindings::LoadGLTFAnimation(const std::filesystem:
     ICARIAN_ASSERT(animationFrameClass != NULL);
     MonoClass* floatClass = mono_get_single_class();
 
-    std::vector<GLTFAnimationData> animations;
-    if (FlareBase::GLTFLoader_LoadAnimationFile(a_path, &animations))
+    std::vector<IcarianCore::GLTFAnimationData> animations;
+    if (IcarianCore::GLTFLoader_LoadAnimationFile(a_path, &animations))
     {
         const uint32_t count = (uint32_t)animations.size();
         data = mono_array_new(domain, animationDataClass, (uintptr_t)count);
         for (uint32_t i = 0; i < count; ++i)
         {
-            const GLTFAnimationData& animation = animations[i];
+            const IcarianCore::GLTFAnimationData& animation = animations[i];
 
             GLTFRAnimation animData;
             animData.Name = mono_string_new(domain, animation.Name.c_str());
@@ -346,7 +346,7 @@ MonoArray* AnimationControllerBindings::LoadGLTFAnimation(const std::filesystem:
             animData.Frames = mono_array_new(domain, animationFrameClass, (uintptr_t)frameCount);
             for (uint32_t j = 0; j < frameCount; ++j)
             {
-                const GLTFAnimationFrame& frame = animation.Frames[j];
+                const IcarianCore::GLTFAnimationFrame& frame = animation.Frames[j];
 
                 GLTFRAnimationFrame animFrame;
                 animFrame.Time = frame.Time;

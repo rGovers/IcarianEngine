@@ -1,11 +1,11 @@
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include "Rendering/Vulkan/VulkanComputeParticle2D.h"
+#include "Rendering/Vulkan/VulkanComputeParticle.h"
 
 #include <cstring>
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Rendering/ShaderBuffers.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanComputeLayout.h"
@@ -13,6 +13,7 @@
 #include "Rendering/Vulkan/VulkanParticleShaderGenerator.h"
 #include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
+#include "Rendering/Vulkan/VulkanUniformBuffer.h"
 #include "Trace.h"
 
 class VulkanParticleBufferDeletionObject : public VulkanDeletionObject
@@ -20,8 +21,8 @@ class VulkanParticleBufferDeletionObject : public VulkanDeletionObject
 private:
     VulkanRenderEngineBackend* m_engine;
 
-    VmaAllocation              m_allocations[VulkanComputeParticle2D::MaxParticleBuffers];
-    vk::Buffer                 m_buffers[VulkanComputeParticle2D::MaxParticleBuffers];
+    VmaAllocation              m_allocations[VulkanComputeParticle::MaxParticleBuffers];
+    vk::Buffer                 m_buffers[VulkanComputeParticle::MaxParticleBuffers];
 
 protected:
 
@@ -30,7 +31,7 @@ public:
     {
         m_engine = a_engine;
         
-        for (uint32_t i = 0; i < VulkanComputeParticle2D::MaxParticleBuffers; ++i)
+        for (uint32_t i = 0; i < VulkanComputeParticle::MaxParticleBuffers; ++i)
         {
             m_buffers[i] = a_buffers[i];
             m_allocations[i] = a_allocations[i];
@@ -46,14 +47,14 @@ public:
         TRACE("Destroying Particle Buffers");
         const VmaAllocator allocator = m_engine->GetAllocator();
 
-        for (uint32_t i = 0; i < VulkanComputeParticle2D::MaxParticleBuffers; ++i)
+        for (uint32_t i = 0; i < VulkanComputeParticle::MaxParticleBuffers; ++i)
         {
             vmaDestroyBuffer(allocator, m_buffers[i], m_allocations[i]);
         }
     }
 };
 
-VulkanComputeParticle2D::VulkanComputeParticle2D(VulkanComputeEngine* a_engine, uint32_t a_particleBufferAddr)
+VulkanComputeParticle::VulkanComputeParticle(VulkanComputeEngine* a_engine, uint32_t a_particleBufferAddr)
 {
     m_engine = a_engine;
 
@@ -70,12 +71,12 @@ VulkanComputeParticle2D::VulkanComputeParticle2D(VulkanComputeEngine* a_engine, 
         m_allocations[i] = NULL;
     }
 }
-VulkanComputeParticle2D::~VulkanComputeParticle2D()
+VulkanComputeParticle::~VulkanComputeParticle()
 {
     Clear();
 }
 
-void VulkanComputeParticle2D::Clear()
+void VulkanComputeParticle::Clear()
 {
     if (m_particleBuffers[0] != nullptr)
     {
@@ -111,7 +112,7 @@ void VulkanComputeParticle2D::Clear()
 
     m_bufferIndex = 0;
 }
-void VulkanComputeParticle2D::Rebuild(ComputeParticleBuffer* a_buffer)
+void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
 {
     Clear();
 
@@ -160,7 +161,7 @@ void VulkanComputeParticle2D::Rebuild(ComputeParticleBuffer* a_buffer)
     a_buffer->Flags &= ~(0b1 << ComputeParticleBuffer::RefreshBit);
 }
 
-void VulkanComputeParticle2D::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_index)
+void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_index)
 {
     ComputeParticleBuffer buffer = m_engine->GetParticleBuffer(m_particleBufferAddr);
 
@@ -231,6 +232,38 @@ void VulkanComputeParticle2D::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_i
                     0,
                     1,
                     vk::DescriptorType::eStorageBuffer,
+                    nullptr,
+                    &bufferInfo
+                );
+
+                device.updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
+
+                a_cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeLayout, inputs[i].Set, 1, &set, 0, nullptr);
+
+                break;
+            }
+            case ShaderBufferType_TimeBuffer:
+            {
+                const VulkanUniformBuffer* timeUniform = m_engine->GetTimeUniformBuffer();
+
+                const vk::Buffer buffer = timeUniform->GetBuffer(a_index);
+
+                vk::DescriptorSet set = pushPool->AllocateDescriptor(a_index, vk::DescriptorType::eUniformBuffer, &descLayouts[i]);
+
+                const vk::DescriptorBufferInfo bufferInfo = vk::DescriptorBufferInfo
+                (
+                    buffer,
+                    0,
+                    VK_WHOLE_SIZE
+                );
+
+                const vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet
+                (
+                    set,
+                    inputs[i].Slot,
+                    0,
+                    1,
+                    vk::DescriptorType::eUniformBuffer,
                     nullptr,
                     &bufferInfo
                 );

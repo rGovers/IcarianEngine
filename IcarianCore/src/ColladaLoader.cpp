@@ -1,4 +1,4 @@
-#include "Flare/ColladaLoader.h"
+#include "Core/ColladaLoader.h"
 
 #include <fstream>
 #include <glm/ext/matrix_transform.hpp>
@@ -8,10 +8,10 @@
 #include <tinyxml2.h>
 #include <unordered_map>
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 
-namespace FlareBase
+namespace IcarianCore
 {
     enum e_ColladaUpAxis
     {

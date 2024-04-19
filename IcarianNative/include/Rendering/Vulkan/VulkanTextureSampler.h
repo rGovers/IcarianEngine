@@ -13,7 +13,6 @@ class VulkanTextureSampler
 private:
     VulkanRenderEngineBackend* m_engine;
 
-    vk::ImageView              m_view;
     vk::Sampler                m_sampler;
 
     VulkanTextureSampler(VulkanRenderEngineBackend* a_engine);
@@ -28,10 +27,6 @@ public:
     inline vk::Sampler GetSampler() const
     {
         return m_sampler;
-    }
-    inline vk::ImageView GetImageView() const
-    {
-        return m_view;
     }
 };
 #endif

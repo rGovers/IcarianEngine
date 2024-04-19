@@ -2,10 +2,10 @@
 
 #include <cstdint>
 
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianDefer.h"
 
 #ifdef WIN32
-#include "Flare/WindowsHeaders.h"
+#include "Core/WindowsHeaders.h"
 #elif defined(__linux__)
 #include <sys/mman.h>
 #else

@@ -3,8 +3,8 @@
 #include "Audio/AudioClips/OGGAudioClip.h"
 #include "Audio/AudioClips/WAVAudioClip.h"
 #include "Audio/AudioEngine.h"
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 

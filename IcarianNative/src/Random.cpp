@@ -1,6 +1,6 @@
 #include "Random.h"
 
-#include "Flare/IcarianAssert.h"
+#include "Core/IcarianAssert.h"
 #include "Runtime/RuntimeManager.h"
 
 static Random* Instance = nullptr;

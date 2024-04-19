@@ -70,7 +70,7 @@ namespace IcarianEngine.Rendering
             base.Init();
 
             m_particleSystemAddr = GenerateComputeParticleSystem(ParticleBufferAddr);
-            // m_graphicsSystemAddr = GenerateGraphicsParticleSystem(ParticleBufferAddr);
+            m_graphicsSystemAddr = GenerateGraphicsParticleSystem(ParticleBufferAddr);
         }
 
         /// <summary>
@@ -79,14 +79,12 @@ namespace IcarianEngine.Rendering
         /// <param name="a_disposing">Wheter the ParticleSystem2D is being disposed</param>
         protected override void Dispose(bool a_disposing)
         {
-            base.Dispose(a_disposing);
-
             if (!IsDisposed)
             {
                 if (a_disposing)
                 {
                     DestroyComputeParticleSystem(m_particleSystemAddr);
-                    // DestroyGraphicsParticleSystem(m_graphicsSystemAddr);
+                    DestroyGraphicsParticleSystem(m_graphicsSystemAddr);
                 }
                 else
                 {
@@ -99,6 +97,8 @@ namespace IcarianEngine.Rendering
             {
                 Logger.IcarianError("Multiple ParticleSystem2D Dispose");
             }
+
+            base.Dispose(a_disposing);
         }
     }
 }

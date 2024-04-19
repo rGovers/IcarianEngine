@@ -2,7 +2,7 @@
 
 #include "Rendering/Vulkan/VulkanDepthRenderTexture.h"
 
-#include "Flare/IcarianAssert.h"
+#include "Core/IcarianAssert.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 

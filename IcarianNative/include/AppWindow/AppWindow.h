@@ -5,7 +5,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "Flare/InputBindings.h"
+#include "EngineInputInteropStructures.h"
 
 class Application;
 
@@ -36,7 +36,7 @@ public:
     virtual double GetDelta() const = 0;
     virtual double GetTime() const = 0;
     
-    virtual void SetCursorState(FlareBase::e_CursorState a_state) = 0;
+    virtual void SetCursorState(e_CursorState a_state) = 0;
 
     virtual void Update() = 0;
 

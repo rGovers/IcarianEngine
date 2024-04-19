@@ -1,7 +1,7 @@
 // Windows headers need to be included first and in a specific order otherwise everything breaks
 // Cause Windows is a good OS with no flaws at all
 // I really fucking hate the WIN32 api
-#include "Flare/WindowsHeaders.h"
+#include "Core/WindowsHeaders.h"
 
 #include <ctime>
 #include <stdio.h>
@@ -9,8 +9,8 @@
 
 #include "Application.h"
 #include "Config.h"
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 
 #define STBI_ASSERT(x) ICARIAN_ASSERT_MSG(x, "STBI Assert")
 

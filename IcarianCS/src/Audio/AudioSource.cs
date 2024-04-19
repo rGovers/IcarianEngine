@@ -76,6 +76,11 @@ namespace IcarianEngine.Audio
         {
             get
             {
+                if (m_bufferAddr == uint.MaxValue)
+                {
+                    return false;
+                }
+                
                 return GetAudioSourcePlayingState(m_bufferAddr) != 0;
             }
         }

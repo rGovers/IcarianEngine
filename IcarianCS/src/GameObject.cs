@@ -245,16 +245,6 @@ namespace IcarianEngine
                     Logger.IcarianWarning("GameObject failed to Instantiate");
                 }
             }
-
-            foreach (GameObject obj in s_objs)
-            {
-                if (obj == null || obj.IsDisposed)
-                {
-                    continue;
-                }
-
-                obj.Update();
-            }
             
             Profiler.StopFrame();
         }
@@ -348,10 +338,6 @@ namespace IcarianEngine
         /// Called when the GameObject is created
         /// </summary>
         public virtual void Init() { }
-        /// <summary>
-        /// Called on when the GameObject is updated
-        /// </summary>
-        public virtual void Update() { }
 
         Component AddComponentN(ComponentDef a_def)
         {
@@ -401,6 +387,11 @@ namespace IcarianEngine
         {
             Component comp = AddComponentN(a_def);
             
+            if (comp is Scriptable script)
+            {
+                s_scriptableAddQueue.Enqueue(script);
+            }
+
             comp.Init();
 
             return comp;
@@ -877,7 +868,6 @@ namespace IcarianEngine
 
             GC.SuppressFinalize(this);
         }
-
         /// <summary>
         /// Called when the GameObject is destroyed
         /// </summary>
@@ -912,7 +902,6 @@ namespace IcarianEngine
                 Logger.IcarianError("GameObject Multiple Dispose");
             }
         }
-
         ~GameObject()
         {
             Dispose(false);

@@ -6,8 +6,8 @@
 #include <mono/metadata/mono-config.h>
 #include <mono/utils/mono-dl-fallback.h>
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Profiler.h"
 #include "Rendering/RenderEngine.h"
 #include "Runtime/RuntimeFunction.h"
@@ -21,7 +21,7 @@ ENGINE_ICARIANASSEMBLY_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 #ifndef WIN32
 #include <dlfcn.h>
 
-#include "Flare/MonoNativeImpl.h"
+#include "Core/MonoNativeImpl.h"
 
 static constexpr char MonoNativeLibName[] = "libmono-native.so";
 static constexpr uint32_t MonoNativeLibNameLength = sizeof(MonoNativeLibName) - 1;
@@ -31,7 +31,7 @@ static constexpr uint32_t MonoNativeBaseNameLength = sizeof(MonoNativeBaseName) 
 
 #define MonoThisLibHandle ((void*)-1)
 #else
-#include "Flare/WindowsHeaders.h"
+#include "Core/WindowsHeaders.h"
 #endif
 
 static void* RuntimeDLOpen(const char* a_name, int a_flags, char** a_error, void* a_userData)
@@ -89,7 +89,7 @@ static void* RuntimeDLSymbol(void* a_handle, const char* a_name, char** a_error,
 #else
     if (a_handle == MonoThisLibHandle)
     {
-        return FlareBase::MonoNativeImpl::GetFunction(a_name);
+        return IcarianCore::MonoNativeImpl::GetFunction(a_name);
     }
 
     if (a_handle != NULL)
@@ -113,7 +113,7 @@ RuntimeManager::RuntimeManager()
     mono_set_dirs(libDir.string().c_str(), etcDir.string().c_str());
     
 #ifndef WIN32
-    FlareBase::MonoNativeImpl::Init();
+    IcarianCore::MonoNativeImpl::Init();
 #endif
 
     mono_dl_fallback_register(RuntimeDLOpen, RuntimeDLSymbol, NULL, NULL);
@@ -151,7 +151,7 @@ RuntimeManager::~RuntimeManager()
     mono_dl_fallback_unregister(NULL);
     
 #ifndef WIN32
-    FlareBase::MonoNativeImpl::Destroy();
+    IcarianCore::MonoNativeImpl::Destroy();
 #endif
 }
 

@@ -2,8 +2,7 @@
 
 #include "Rendering/Vulkan/VulkanComputeLayout.h"
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
@@ -12,29 +11,40 @@ class VulkanComputeLayoutDeletionObject : public VulkanDeletionObject
 private:
     VulkanRenderEngineBackend* m_engine;
 
-    vk::DescriptorSetLayout    m_descLayout;
+    uint32_t                   m_layoutCount;
+    vk::DescriptorSetLayout*   m_descLayouts;
     vk::PipelineLayout         m_layout;
 
 protected:
 
 public:
-    VulkanComputeLayoutDeletionObject(VulkanRenderEngineBackend* a_engine, vk::DescriptorSetLayout a_descLayout, vk::PipelineLayout a_layout)
+    VulkanComputeLayoutDeletionObject(VulkanRenderEngineBackend* a_engine, const vk::DescriptorSetLayout* a_descLayouts, uint32_t a_layoutCount, vk::PipelineLayout a_layout)
     {
         m_engine = a_engine;
 
-        m_descLayout = a_descLayout;
+        m_layoutCount = a_layoutCount;
         m_layout = a_layout;
+
+        m_descLayouts = new vk::DescriptorSetLayout[m_layoutCount];
+        for (uint32_t i = 0; i < m_layoutCount; ++i)
+        {
+            m_descLayouts[i] = a_descLayouts[i];
+        }
     }
     virtual ~VulkanComputeLayoutDeletionObject()
     {
-
+        delete[] m_descLayouts;
     }
 
     virtual void Destroy()
     {
         const vk::Device device = m_engine->GetLogicalDevice();
 
-        device.destroyDescriptorSetLayout(m_descLayout);
+        for (uint32_t i = 0; i < m_layoutCount; ++i)
+        {
+            device.destroyDescriptorSetLayout(m_descLayouts[i]);
+        }
+        
         device.destroyPipelineLayout(m_layout);
     }
 };
@@ -43,6 +53,10 @@ constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_buffe
 {
     switch (a_bufferType) 
     {
+    case ShaderBufferType_TimeBuffer:
+    {
+        return vk::DescriptorType::eUniformBuffer;
+    }
     default:
     {
         return vk::DescriptorType::eStorageBuffer;
@@ -102,7 +116,7 @@ VulkanComputeLayout::VulkanComputeLayout(VulkanRenderEngineBackend* a_engine, co
 VulkanComputeLayout::~VulkanComputeLayout()
 {
     TRACE("Queueing Compute Pipeline Layout for deletion");
-    // m_engine->PushDeletionObject(new VulkanComputeLayoutDeletionObject(m_engine, m_descLayout, m_layout));
+    m_engine->PushDeletionObject(new VulkanComputeLayoutDeletionObject(m_engine, m_descLayouts, m_inputCount, m_layout));
 
     delete[] m_descLayouts;
     delete[] m_slotInputs;

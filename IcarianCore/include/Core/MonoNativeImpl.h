@@ -3,7 +3,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace FlareBase
+namespace IcarianCore
 {   
     class MonoNativeImpl
     {

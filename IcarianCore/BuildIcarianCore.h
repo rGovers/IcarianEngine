@@ -9,18 +9,18 @@
 extern "C" {
 #endif
 
-CUBE_CProject BuildFlareBaseProject(CBBOOL a_enableAssert, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
 
-    project.Name = CUBE_StackString_CreateC("FlareBase");
+    project.Name = CUBE_StackString_CreateC("IcarianCore");
     project.Target = CUBE_CProjectTarget_StaticLibrary;
     project.Language = CUBE_CProjectLanguage_CPP;
     project.OutputPath = CUBE_Path_CreateC("./build/");
 
     if (a_enableAssert)
     {
-        CUBE_CProject_AppendDefine(&project, "FLARE_ENABLE_ASSERT");
+        CUBE_CProject_AppendDefine(&project, "ICARIAN_ENABLE_ASSERT");
     }
 
     if (a_configuration == BuildConfiguration_Debug)
@@ -32,32 +32,41 @@ CUBE_CProject BuildFlareBaseProject(CBBOOL a_enableAssert, e_TargetPlatform a_ta
         CUBE_CProject_AppendDefine(&project, "NDEBUG");
     }
 
-    CUBE_CProject_AppendDefine(&project, "GLM_FORCE_QUAT_DATA_XYZW");
-    CUBE_CProject_AppendDefine(&project, "GLM_FORCE_DEPTH_ZERO_TO_ONE");
-    CUBE_CProject_AppendDefine(&project, "GLM_FORCE_RADIANS");
+    CUBE_CProject_AppendDefines(&project, 
+        "GLM_FORCE_QUAT_DATA_XYZW",
+        "GLM_FORCE_DEPTH_ZERO_TO_ONE",
+        "GLM_FORCE_RADIANS"
+    );
 
     if (a_targetPlatform == TargetPlatform_Windows)
     {
-        CUBE_CProject_AppendDefine(&project, "WIN32");
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32"
+        );
     }
 
-    CUBE_CProject_AppendIncludePath(&project, "include");
-    CUBE_CProject_AppendIncludePath(&project, "../deps/flare-glm");
-    CUBE_CProject_AppendIncludePath(&project, "../deps/flare-tinyxml2");
-    CUBE_CProject_AppendIncludePath(&project, "../deps/OpenFBX/src");
-    CUBE_CProject_AppendIncludePath(&project, "../deps/tinygltf");
-    CUBE_CProject_AppendIncludePath(&project, "../EngineInterop");
+    CUBE_CProject_AppendIncludePaths(&project, 
+        "include",
+        "../deps/flare-glm",
+        "../deps/flare-tinyxml2",
+        "../deps/OpenFBX/src",
+        "../deps/tinygltf",
+        "../EngineInterop"
+    );
 
-    CUBE_CProject_AppendSource(&project, "../deps/OpenFBX/src/ofbx.cpp");
+    CUBE_CProject_AppendSources(&project,
+        "../deps/OpenFBX/src/ofbx.cpp",
+        "../deps/flare-tinyxml2/tinyxml2.cpp",
 
-    CUBE_CProject_AppendSource(&project, "src/ColladaLoader.cpp");
-    CUBE_CProject_AppendSource(&project, "src/FBXLoader.cpp");
-    CUBE_CProject_AppendSource(&project, "src/GLTFLoader.cpp");
-    CUBE_CProject_AppendSource(&project, "src/InputBindings.cpp");
-    CUBE_CProject_AppendSource(&project, "src/IPCPipe.cpp");
-    CUBE_CProject_AppendSource(&project, "src/MonoNativeImpl.cpp");
-    CUBE_CProject_AppendSource(&project, "src/OBJLoader.cpp");
-    CUBE_CProject_AppendSource(&project, "../deps/flare-tinyxml2/tinyxml2.cpp");
+        "src/ColladaLoader.cpp",
+        "src/FBXLoader.cpp",
+        "src/GLTFLoader.cpp",
+        "src/InputBindings.cpp",
+        "src/IPCPipe.cpp",
+        "src/MonoNativeImpl.cpp",
+        "src/OBJLoader.cpp"
+    );
     
     CUBE_CProject_AppendReference(&project, "stdc++");
 
