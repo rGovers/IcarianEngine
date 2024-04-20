@@ -8,7 +8,6 @@
 
 #include "Core/IPCPipe.h"
 #include "Core/PipeMessage.h"
-#include "Core/WindowsHeaders.h"
 #include "DataTypes/TArray.h"
 #include "Logger.h"
 #include "Profiler.h"
@@ -33,7 +32,7 @@ private:
         ProfileTFrame Frames[FrameMax];
     };
 
-    static constexpr std::string_view PipeName = "IcarianEngine-IPC";
+    static constexpr char PipeName[] = "IcarianEngine-IPC";
 
     IcarianCore::IPCPipe*                          m_pipe;
 
@@ -82,6 +81,8 @@ public:
     {
         return true;
     }
+
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
     virtual std::vector<const char*> GetRequiredVulkanExtenions() const
     {
         return std::vector<const char*>();
@@ -90,6 +91,7 @@ public:
     {
         return vk::SurfaceKHR();
     }
+#endif
 
     void PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer, double a_delta, double a_time);
 };

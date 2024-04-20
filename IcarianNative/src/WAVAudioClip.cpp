@@ -3,9 +3,8 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include <fstream>
-
 #include "DataTypes/RingAllocator.h"
+#include "FileCache.h"
 #include "IcarianError.h"
 
 // Not accounting for endian not an issue currently but may become an issue down the line
@@ -18,11 +17,13 @@ WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
     m_channelCount = 0;
     m_sampleSize = 0;
 
-    std::ifstream file = std::ifstream(m_path, std::ios::binary);
-    if (file.is_open() && file.good())
+    FileHandle* handle = FileCache::LoadFile(m_path);
+    if (handle != nullptr)
     {
-        char buffer[1024];
-        file.read(buffer, 12);
+        IDEFER(delete handle);
+
+        char buffer[128];
+        handle->Read(buffer, 12);
 
         constexpr char RIFFStr[] = "RIFF";
         constexpr char WAVEStr[] = "WAVE";
@@ -40,10 +41,10 @@ WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
 
         while (true)
         {
-            file.read(buffer, 4);
+            handle->Read(buffer, 4);
             const uint32_t bufferInt = *(uint32_t*)buffer;
 
-            file.read(buffer, 4);
+            handle->Read(buffer, 4);
             const uint32_t chunkSize = *(uint32_t*)buffer;
 
             if (chunkSize == 0)
@@ -54,28 +55,28 @@ WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
             if (bufferInt == fmtInt)
             {
                 // WAVE format
-                file.read(buffer, 2);
+                handle->Read(buffer, 2);
 
-                file.read(buffer, 2);
+                handle->Read(buffer, 2);
                 m_channelCount = *(uint16_t*)buffer;
 
-                file.read(buffer, 4);
+                handle->Read(buffer, 4);
                 m_sampleRate = *(uint32_t*)buffer;
 
                 // Byte rate
-                file.read(buffer, 4);
+                handle->Read(buffer, 4);
 
                 // Block align
-                file.read(buffer, 2);
+                handle->Read(buffer, 2);
 
                 // Bits per sample
-                file.read(buffer, 2);
+                handle->Read(buffer, 2);
 
                 // There is several forms of the fmt chunk and we do not care about the extended format
                 const int32_t offset = chunkSize - 16;
                 if (offset > 0)
                 {
-                    file.ignore(offset);
+                    handle->Ignore(offset);
                 }
             }
             // Seems some applications take the spec as a guideline and not rules so just have to hope stumble across the fmt chunk before reaching the data chunk
@@ -83,7 +84,7 @@ WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
             // Will deal with that later if it becomes an issue
             else if (bufferInt == dataInt)
             {
-                m_dataOffset = file.tellg();
+                m_dataOffset = handle->GetOffset();
                 m_dataSize = chunkSize;
 
                 if (m_dataSize == 0 || m_channelCount == 0 || m_sampleRate == 0)
@@ -98,7 +99,7 @@ WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
             }
             else
             {
-                file.ignore(chunkSize);
+                handle->Ignore(chunkSize);
             }
         }        
     }
@@ -133,15 +134,17 @@ unsigned char* WAVAudioClip::GetAudioData(RingAllocator* a_allocator, uint64_t a
 
     *a_outSampleSize = (uint32_t)samplesToRead;
 
-    std::ifstream file = std::ifstream(m_path, std::ios::binary);
-    if (file.is_open() && file.good())
+    FileHandle* handle = FileCache::LoadFile(m_path);
+    if (handle != nullptr)
     {
-        file.seekg(m_dataOffset + (a_sampleOffset * m_channelCount * sizeof(int16_t)));
+        IDEFER(delete handle);
+        
+        handle->Seek(m_dataOffset + (a_sampleOffset * m_channelCount * sizeof(int16_t)));
 
         const uint64_t count = samplesToRead * m_channelCount;
         // int16_t* data = new int16_t[count];
         int16_t* data = a_allocator->Allocate<int16_t>(count);
-        file.read((char*)data, count * sizeof(int16_t));
+        handle->Read(data, count * sizeof(int16_t));
 
         return (unsigned char*)data;
     }

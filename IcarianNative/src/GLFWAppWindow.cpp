@@ -335,6 +335,8 @@ AppMonitor* GLFWAppWindow::GetMonitors(int* a_count) const
     return monitors;
 }
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 vk::SurfaceKHR GLFWAppWindow::GetSurface(const vk::Instance& a_instance) 
 {
     if (m_surface == vk::SurfaceKHR(nullptr))
@@ -353,3 +355,5 @@ std::vector<const char*> GLFWAppWindow::GetRequiredVulkanExtenions() const
 
     return std::vector<const char*>(glfwExtensions, glfwExtensions + glfwExtensionCount);
 }
+
+#endif

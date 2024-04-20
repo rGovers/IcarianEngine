@@ -1,5 +1,4 @@
 #include "AppWindow/HeadlessAppWindow.h"
-#include "IcarianError.h"
 
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
@@ -10,12 +9,11 @@
 #include "Application.h"
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "IcarianError.h"
 #include "InputManager.h"
 #include "Profiler.h"
 #include "Rendering/UI/UIControl.h"
 #include "Trace.h"
-
-#undef min
 
 static std::string GetAddr(const std::string_view& a_addr)
 {

@@ -7,6 +7,7 @@
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "DeletionQueue.h"
+#include "FileCache.h"
 #include "InputManager.h"
 #include "Logger.h"
 #include "Networking/NetworkManager.h"
@@ -25,9 +26,6 @@
 #include "EngineInputInterop.h"
 
 static Application* Instance = nullptr;
-
-// Windows fixes
-#undef min
 
 struct Monitor
 {
@@ -148,7 +146,8 @@ Application::Application(Config* a_config)
     {
         m_appWindow = new GLFWAppWindow(this, a_config);
     }
-
+    
+    FileCache::Init(a_config->GetFileCacheSize());
     DeletionQueue::Init();
     RuntimeManager::Init();
         
@@ -214,6 +213,7 @@ Application::~Application()
 
     ThreadPool::Destroy();
     DeletionQueue::Destroy();
+    FileCache::Destroy();
 
     TRACE("Final Disposal");
     delete m_appWindow;
@@ -255,6 +255,12 @@ void Application::Run(int32_t a_argc, char* a_argv[])
                 PROFILESTACK("Network");
 
                 m_networkManager->Update();
+            }
+
+            {
+                PROFILESTACK("File Cache");
+
+                FileCache::Update();
             }
 
             {

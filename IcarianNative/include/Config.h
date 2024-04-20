@@ -8,11 +8,12 @@
 class Config
 {
 private:
-    static constexpr std::string_view DefaultAppName = "IcarianEngine";
+    static constexpr char DefaultAppName[] = "IcarianEngine";
 
     bool              m_headless = false;
 
     double            m_fixedTimeStep = 1.0 / 50.0;
+    uint32_t          m_fileCacheSize = 128;
 
     std::string       m_appName = std::string(DefaultAppName);
 
@@ -27,6 +28,11 @@ public:
     inline double GetFixedTimeStep() const
     {
         return m_fixedTimeStep;
+    }
+
+    inline uint32_t GetFileCacheSize() const
+    {
+        return m_fileCacheSize;
     }
 
     inline const std::string_view GetApplicationName() const

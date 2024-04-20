@@ -2,13 +2,10 @@
 
 #include "Rendering/Vulkan/VulkanGraphicsEngineBindings.h"
 
-#include <fstream>
-#include <sstream>
-
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "DeletionQueue.h"
-#include "Logger.h"
+#include "FileCache.h"
 #include "ObjectManager.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/ShaderTable.h"
@@ -146,43 +143,74 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
-    const std::string s = str;
-    if (s.find_first_of("[INTERNAL]") == 0)
+    constexpr char InternalStr[] = "[INTERNAL]";
+    constexpr uint32_t InternalStrSize = sizeof(InternalStr) / sizeof(*InternalStr) - 1;
+
+    if (strncmp(str, InternalStr, InternalStrSize) == 0)
     {
-        const char* shader = GetVertexShaderString(s);
+        const char* shader = GetVertexShaderString(str);
 
         if (shader != nullptr)
         {
             return Instance->GenerateFVertexShaderAddr(shader);
         }
+        else
+        {
+            IWARN(std::string("Failed to find internal VertexShader: ") + str);
+        }
     }
     else
     {
-        const std::filesystem::path p = std::filesystem::path(s);
+        const std::filesystem::path p = std::filesystem::path(str);
+        const std::filesystem::path ext = p.extension();
 
-        if (p.extension() == ".fvert")
+        if (ext == ".fvert")
         {
-            std::ifstream file = std::ifstream(p);
-            if (file.good() && file.is_open())
+            FileHandle* handle = FileCache::LoadFile(p);
+            if (handle != nullptr)
             {
-                std::stringstream ss;
+                IDEFER(delete handle);
 
-                ss << file.rdbuf();
+                const uint64_t size = handle->GetSize();
 
-                return Instance->GenerateFVertexShaderAddr(ss.str());
+                char* str = new char[size + 1];
+                IDEFER(delete[] str);
+
+                handle->Read(str, size);
+                str[size] = 0;
+
+                return Instance->GenerateFVertexShaderAddr(str);
+            }
+            else
+            {
+                IERROR(std::string("VertexShader failed to open: ") + str);
             }
         }
-        else if (p.extension() == ".vert")
+        else if (ext == ".vert")
         {
-            std::ifstream file = std::ifstream(p);
-            if (file.good() && file.is_open())
+            FileHandle* handle = FileCache::LoadFile(p);
+            if (handle != nullptr)
             {
-                std::stringstream ss;
+                IDEFER(delete handle);
 
-                ss << file.rdbuf();
+                const uint64_t size = handle->GetSize();
 
-                return Instance->GenerateGLSLVertexShaderAddr(ss.str());
+                char* str = new char[size + 1];
+                IDEFER(delete[] str);
+
+                handle->Read(str, size);
+                str[size] = 0;
+
+                return Instance->GenerateGLSLVertexShaderAddr(str);
             }
+            else
+            {
+                IERROR(std::string("VertexShader failed to open: ") + str);
+            }
+        }
+        else
+        {
+            IWARN(std::string("VertexShader invalid file format: ") + str);
         }
     }
 
@@ -193,15 +221,20 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
-    const std::string s = str;
+    constexpr char InternalStr[] = "[INTERNAL]";
+    constexpr uint32_t InternalStrSize = sizeof(InternalStr) / sizeof(*InternalStr) - 1;
 
-    if (s.find_first_of("[INTERNAL]") == 0)
+    if (strncmp(str, InternalStr, InternalStrSize) == 0)
     {
-        const char* shader = GetPixelShaderString(s);
+        const char* shader = GetPixelShaderString(str);
 
         if (shader != nullptr)
         {
             return Instance->GenerateFPixelShaderAddr(shader);
+        }
+        else
+        {
+            IWARN(std::string("Failed to find internal PixelShader: ") + str);
         }
     }
     else
@@ -211,27 +244,51 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
 
         if (ext == ".fpix" || ext == ".ffrag")
         {
-            std::ifstream file = std::ifstream(p);
-            if (file.good() && file.is_open())
+            FileHandle* handle = FileCache::LoadFile(p);
+            if (handle != nullptr)
             {
-                std::stringstream ss;
+                IDEFER(delete handle);
 
-                ss << file.rdbuf();
+                const uint64_t size = handle->GetSize();
 
-                return Instance->GenerateFPixelShaderAddr(ss.str());
+                char* str = new char[size + 1];
+                IDEFER(delete[] str);
+
+                handle->Read(str, size);
+                str[size] = 0;
+
+                return Instance->GenerateFPixelShaderAddr(str);
+            }
+            else 
+            {
+                IERROR(std::string("PixelShader failed to open: ") + str);
             }
         }
         else if (ext == ".pix" || ext == ".frag")
         {
-            std::ifstream file = std::ifstream(p);
-            if (file.good() && file.is_open())
+            FileHandle* handle = FileCache::LoadFile(p);
+            if (handle != nullptr)
             {
-                std::stringstream ss;
+                IDEFER(delete handle);
 
-                ss << file.rdbuf();
+                const uint64_t size = handle->GetSize();
 
-                return Instance->GenerateGLSLPixelShaderAddr(ss.str());
+                char* str = new char[size + 1];
+                IDEFER(delete[] str);
+
+                handle->Read(str, size);
+                str[size] = 0;
+
+                return Instance->GenerateGLSLPixelShaderAddr(str);
             }
+            else
+            {
+                IERROR(std::string("PixelShader failed to open: ") + str);
+            }
+        }
+        else
+        {
+            IWARN(std::string("PixelShader invalid file format: ") + str);
         }
     }
 

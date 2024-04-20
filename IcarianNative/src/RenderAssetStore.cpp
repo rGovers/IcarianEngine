@@ -9,6 +9,8 @@
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "Core/OBJLoader.h"
+#include "FileCache.h"
+#include "IcarianError.h"
 #include "Profiler.h"
 #include "Rendering/RenderAssetStoreBindings.h"
 #include "Rendering/RenderEngine.h"
@@ -218,40 +220,82 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
 
             if (ext == ".dae")
             {
-                if (IcarianCore::ColladaLoader_LoadSkinnedFile(path, &vertices, &indices, &radius))
+                FileHandle* handle = FileCache::LoadFile(path);
+                if (handle == nullptr)
+                {
+                    IERROR("GetModel failed to load skinned file: " + path.string());
+                }
+
+                IDEFER(delete handle);
+
+                const uint64_t size = handle->GetSize();
+                char* data = new char[size];
+                IDEFER(delete[] data);
+
+                handle->Read(data, size);
+
+                if (IcarianCore::ColladaLoader_LoadSkinnedData(data, (uint32_t)size, &vertices, &indices, &radius))
                 {
                     asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
                 }
                 else
                 {
-                    ICARIAN_ASSERT_MSG(0, "GetModel failed to load skinned file");
+                    IERROR("GetModel failed to parse skinned file: " + path.string());
                 }
             }
             else if (ext == ".fbx")
             {
-                if (IcarianCore::FBXLoader_LoadSkinnedFile(path, &vertices, &indices, &radius))
+                FileHandle* handle = FileCache::LoadFile(path);
+                if (handle == nullptr)
+                {
+                    IERROR("GetModel failed to load skinned file: " + path.string());
+                }
+
+                IDEFER(delete handle);
+
+                const uint64_t size = handle->GetSize();
+                char* data = new char[size];
+                IDEFER(delete[] data);
+
+                handle->Read(data, size);
+
+                if (IcarianCore::FBXLoader_LoadSkinnedData(data, (uint32_t)size, &vertices, &indices, &radius))
                 {
                     asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
                 }
                 else
                 {
-                    ICARIAN_ASSERT_MSG(0, "GetModel failed to load skinned file");
+                    IERROR("GetModel failed to parse skinned file: " + path.string());
                 }
             }
             else if (ext == ".glb" || ext == ".gltf")
             {
-                if (IcarianCore::GLTFLoader_LoadSkinnedFile(path, &vertices, &indices, &radius))
+                FileHandle* handle = FileCache::LoadFile(path);
+                if (handle == nullptr)
+                {
+                    IERROR("GetModel failed to load skinned file: " + path.string());
+                }
+
+                IDEFER(delete handle);
+
+                const uint64_t size = handle->GetSize();
+                char* data = new char[size];
+                IDEFER(delete[] data);
+
+                handle->Read(data, size);
+
+                if (IcarianCore::GLTFLoader_LoadSkinnedData(data, (uint32_t)size, &vertices, &indices, &radius))
                 {
                     asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
                 }
                 else
                 {
-                    ICARIAN_ASSERT_MSG(0, "GetModel failed to load skinned file");
+                    IERROR("GetModel failed to parse skinned file: " + path.string());
                 }
             }
             else 
             {
-                ICARIAN_ASSERT_MSG(0, "GetModel invalid file extension");
+                IERROR("GetModel invalid file extension: " + path.string());
             }
         }
         else
@@ -264,51 +308,107 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
 
             if (ext == ".obj")
             {
-                if (IcarianCore::OBJLoader_LoadFile(path, &vertices, &indices, &radius))
+                FileHandle* handle = FileCache::LoadFile(path);
+                if (handle == nullptr)
+                {
+                    IERROR("GetModel failed to load file: " + path.string());
+                }
+
+                IDEFER(delete handle);
+
+                const uint64_t size = handle->GetSize();
+                char* data = new char[size];
+                IDEFER(delete[] data);
+
+                handle->Read(data, size);
+
+                if (IcarianCore::OBJLoader_LoadData(data, (uint32_t)size, &vertices, &indices, &radius))
                 {
                     asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
                 }
                 else
                 {
-                    ICARIAN_ASSERT_MSG(0, "GetModel failed to load file");
+                    IERROR("GetModel failed to load file: " + path.string());
                 }
             }
             else if (ext == ".dae")
             {
-                if (IcarianCore::ColladaLoader_LoadFile(path, &vertices, &indices, &radius))
+                FileHandle* handle = FileCache::LoadFile(path);
+                if (handle == nullptr)
+                {
+                    IERROR("GetModel failed to load file: " + path.string());
+                }
+
+                IDEFER(delete handle);
+
+                const uint64_t size = handle->GetSize();
+                char* data = new char[size];
+                IDEFER(delete[] data);
+
+                handle->Read(data, size);
+
+                if (IcarianCore::ColladaLoader_LoadData(data, (uint32_t)size, &vertices, &indices, &radius))
                 {
                     asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
                 }
                 else
                 {
-                    ICARIAN_ASSERT_MSG(0, "GetModel failed to load file");
+                    IERROR("GetModel failed to load file: " + path.string());
                 }
             }
             else if (ext == ".fbx")
             {
-                if (IcarianCore::FBXLoader_LoadFile(path, &vertices, &indices, &radius))
+                FileHandle* handle = FileCache::LoadFile(path);
+                if (handle == nullptr)
+                {
+                    IERROR("GetModel failed to load file: " + path.string());
+                }
+
+                IDEFER(delete handle);
+
+                const uint64_t size = handle->GetSize();
+                char* data = new char[size];
+                IDEFER(delete[] data);
+
+                handle->Read(data, size);
+
+                if (IcarianCore::FBXLoader_LoadData(data, (uint32_t)size, &vertices, &indices, &radius))
                 {
                     asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
                 }
                 else
                 {
-                    ICARIAN_ASSERT_MSG(0, "GetModel failed to load file");
+                    IERROR("GetModel failed to load file: " + path.string());
                 }
             }
             else if (ext == ".glb" || ext == ".gltf")
             {
-                if (IcarianCore::GLTFLoader_LoadFile(path, &vertices, &indices, &radius))
+                FileHandle* handle = FileCache::LoadFile(path);
+                if (handle == nullptr)
+                {
+                    IERROR("GetModel failed to load file: " + path.string());
+                }
+
+                IDEFER(delete handle);
+
+                const uint64_t size = handle->GetSize();
+                char* data = new char[size];
+                IDEFER(delete[] data);
+
+                handle->Read(data, size);
+
+                if (IcarianCore::GLTFLoader_LoadData(data, (uint32_t)size, &vertices, &indices, &radius))
                 {
                     asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
                 }
                 else
                 {
-                    ICARIAN_ASSERT_MSG(0, "GetModel failed to load file");
+                    IERROR("GetModel failed to load file: " + path.string());
                 }
             }
             else
             {
-                ICARIAN_ASSERT_MSG(0, "GetModel invalid file extension");
+                IERROR("GetModel invalid file extension: " + path.string());
             }
         }
     }
@@ -360,13 +460,25 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
         if (ext == ".png")
         {
+            FileHandle* handle = FileCache::LoadFile(path);
+            if (handle == nullptr)
+            {
+                IERROR("GetTexture failed to load file: " + path.string());
+            }
+
+            IDEFER(delete handle);
+
+            const uint64_t size = handle->GetSize();
+            stbi_uc* data = new stbi_uc[size];
+            IDEFER(delete[] data);
+
+            handle->Read(data, size);
+
 	    	int width;
 	    	int height;
 	    	int channels;
-
-	    	const std::string str = path.string();
-	    	stbi_uc* pixels = stbi_load(str.c_str(), &width, &height, &channels, STBI_rgb_alpha);
-	    	if (pixels != nullptr)
+	    	stbi_uc* pixels = stbi_load_from_memory(data, (int)size, &width, &height, &channels, STBI_rgb_alpha);
+	        if (pixels != nullptr)
 	    	{
                 IDEFER(stbi_image_free(pixels));
 
@@ -374,15 +486,27 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
             }
             else
             {
-                ICARIAN_ASSERT_MSG(0, "GetTexture failed to load file");
+                IERROR("GetTexture failed to parse file: " + path.string());
             }
         }
         else if (ext == ".ktx2")
         {
-            const std::string str = path.string();
+            FileHandle* handle = FileCache::LoadFile(path);
+            if (handle == nullptr)
+            {
+                IERROR("GetTexture failed to load file: " + path.string());
+            }
+
+            IDEFER(delete handle);
+
+            const uint64_t size = handle->GetSize();
+            ktx_uint8_t* data = new ktx_uint8_t[size];
+            IDEFER(delete[] data);
+
+            handle->Read(data, size);
 
             ktxTexture2* texture;
-            if (ktxTexture2_CreateFromNamedFile(str.c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture) == KTX_SUCCESS)
+            if (ktxTexture2_CreateFromMemory(data, (ktx_size_t)size, KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture) == KTX_SUCCESS)
             {
                 IDEFER(ktxTexture_Destroy((ktxTexture*)texture));
 
@@ -407,12 +531,12 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
             }
             else
             {
-                ICARIAN_ASSERT_MSG(0, "GetTexture failed to load file");
+                IERROR("GetTexture failed to parse file: " + path.string());
             }
         }
         else 
         {
-            ICARIAN_ASSERT_MSG_R(0, "GetTexture invalid file type");
+            IERROR("GetTexture invalid file extension: " + path.string());
         }
     }
 
