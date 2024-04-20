@@ -345,14 +345,16 @@ void AudioEngine::Update()
                     alGenBuffers(AudioSourceBuffer::BufferCount, buffer.Buffers);                
                 }
 
-                if (buffer.Source == -1)
-                {
-                    alGenSources(1, &buffer.Source);
-                }
-                else
+                // OpenAL does not seem to like restarting sources for some reason
+                // Probably just me but seems odd
+                if (buffer.Source != -1)
                 {
                     alSourceStop(buffer.Source);
+
+                    alDeleteSources(1, &buffer.Source);
                 }
+
+                alGenSources(1, &buffer.Source);
 
                 buffer.SampleOffset = FillBuffers(&allocator, buffer.Buffers, AudioSourceBuffer::BufferCount, clip, 0, AudioBufferSampleSize, canLoop);
 
