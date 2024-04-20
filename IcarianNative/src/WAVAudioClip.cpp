@@ -5,9 +5,10 @@
 
 #include <fstream>
 
-#include "Core/IcarianAssert.h"
 #include "DataTypes/RingAllocator.h"
+#include "IcarianError.h"
 
+// Not accounting for endian not an issue currently but may become an issue down the line
 WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
 {
     m_path = a_path;
@@ -30,55 +31,76 @@ WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
         {
             return;
         }
-        
+
         constexpr char FMTStr[] = "fmt ";
-
-        file.read(buffer, 4);
-
-        if (*(uint32_t*)FMTStr != *(uint32_t*)buffer)
-        {
-            return;
-        }
-        
-        // Chunk size
-        file.read(buffer, 4);
-        // WAVE format
-        file.read(buffer, 2);
-
-        file.read(buffer, 2);
-        m_channelCount = *(uint16_t*)buffer;
-
-        file.read(buffer, 4);
-        m_sampleRate = *(uint32_t*)buffer;
-
-        // Byte rate
-        file.read(buffer, 4);
-
-        // Block align
-        file.read(buffer, 2);
-
-        // Bits per sample
-        file.read(buffer, 2);
-        
         constexpr char DATAStr[] = "data";
 
-        file.read(buffer, 4);
+        const uint32_t fmtInt = *(uint32_t*)FMTStr;
+        const uint32_t dataInt = *(uint32_t*)DATAStr;
 
-        if (*(uint32_t*)DATAStr != *(uint32_t*)buffer)
+        while (true)
         {
-            m_channelCount = 0;
-            m_sampleRate = 0;
+            file.read(buffer, 4);
+            const uint32_t bufferInt = *(uint32_t*)buffer;
 
-            return;
-        }
+            file.read(buffer, 4);
+            const uint32_t chunkSize = *(uint32_t*)buffer;
 
-        file.read(buffer, 4);
+            if (chunkSize == 0)
+            {
+                IERROR("WAV invalid chunk size");
+            }
 
-        m_dataOffset = file.tellg();
-        m_dataSize = *(uint32_t*)buffer;
+            if (bufferInt == fmtInt)
+            {
+                // WAVE format
+                file.read(buffer, 2);
 
-        m_sampleSize = m_dataSize / m_channelCount / sizeof(int16_t);
-        m_duration = (float)m_sampleSize / (float)m_sampleRate;
+                file.read(buffer, 2);
+                m_channelCount = *(uint16_t*)buffer;
+
+                file.read(buffer, 4);
+                m_sampleRate = *(uint32_t*)buffer;
+
+                // Byte rate
+                file.read(buffer, 4);
+
+                // Block align
+                file.read(buffer, 2);
+
+                // Bits per sample
+                file.read(buffer, 2);
+
+                // There is several forms of the fmt chunk and we do not care about the extended format
+                const int32_t offset = chunkSize - 16;
+                if (offset > 0)
+                {
+                    file.ignore(offset);
+                }
+            }
+            // Seems some applications take the spec as a guideline and not rules so just have to hope stumble across the fmt chunk before reaching the data chunk
+            // Hopefully does not bite me in the ass continuing to follow the spec and expecting data last
+            // Will deal with that later if it becomes an issue
+            else if (bufferInt == dataInt)
+            {
+                m_dataOffset = file.tellg();
+                m_dataSize = chunkSize;
+
+                if (m_dataSize == 0 || m_channelCount == 0 || m_sampleRate == 0)
+                {
+                    IERROR("WAV invalid file");
+                }
+
+                m_sampleSize = m_dataSize / m_channelCount / sizeof(int16_t);
+                m_duration = (float)m_sampleSize / (float)m_sampleRate;
+
+                break;
+            }
+            else
+            {
+                file.ignore(chunkSize);
+            }
+        }        
     }
 }
 WAVAudioClip::~WAVAudioClip()
