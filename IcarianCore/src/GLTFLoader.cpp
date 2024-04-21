@@ -12,11 +12,56 @@
 
 namespace IcarianCore
 {
-    static bool IsBinary(const char* a_data, uint32_t a_size)
+    static bool IsBinary(const char* a_data)
     {
         constexpr char Magic[] = "glTF";
 
         return *(uint32_t*)a_data == *(uint32_t*)Magic;
+    }
+
+    static glm::mat4 GetTransform(uint32_t a_meshIndex, const tinygltf::Model& a_model)
+    {
+        for (const tinygltf::Node& node : a_model.nodes)
+        {
+            if (node.mesh == a_meshIndex)
+            {
+                glm::mat4 mat = glm::identity<glm::mat4>();
+
+                const bool hasMatrix = node.matrix.size() == 16;
+                if (hasMatrix)
+                {
+                    float* f = (float*)&mat;
+
+                    for (uint32_t i = 0; i < 16; ++i)
+                    {
+                        f[i] = (float)node.matrix[i];
+                    }
+                }
+                else
+                {
+                    const bool hasTranslation = node.translation.size() >= 3;
+                    const bool hasRotation = node.rotation.size() == 4;
+                    const bool hasScale = node.scale.size() == 3;
+
+                    if (hasTranslation)
+                    {
+                        mat = glm::translate(mat, glm::vec3((float)node.translation[0], (float)node.translation[1], (float)node.translation[2]));
+                    }
+                    if (hasRotation)
+                    {
+                        mat *= glm::toMat4(glm::quat((float)node.rotation[0], (float)node.rotation[1], (float)node.rotation[2], (float)node.rotation[3]));
+                    }
+                    if (hasScale)
+                    {
+                        mat = glm::scale(mat, glm::vec3((float)node.scale[0], (float)node.scale[1], (float)node.scale[2]));
+                    }
+                }
+
+                return mat;
+            }
+        }
+
+        return glm::identity<glm::mat4>();
     }
 
     bool GLTFLoader_LoadData(const char* a_data, uint32_t a_size, std::vector<Vertex>* a_vertices, std::vector<uint32_t>* a_indices, float* a_radius)
@@ -31,7 +76,7 @@ namespace IcarianCore
         std::string err;
         std::string warn;
 
-        if (IsBinary(a_data, a_size))
+        if (IsBinary(a_data))
         {
             if (!loader.LoadBinaryFromMemory(&model, &err, &warn, (unsigned char*)a_data, (unsigned int)a_size))
             {
@@ -46,13 +91,19 @@ namespace IcarianCore
             }
         }
 
-        if (model.meshes.size() == 0)
+        const uint32_t meshCount = (uint32_t)model.meshes.size();
+        if (meshCount <= 0)
         {
             return false;
         }
 
-        for (const tinygltf::Mesh& mesh : model.meshes)
+        for (uint32_t i = 0; i < meshCount; ++i)
         {
+            const tinygltf::Mesh& mesh = model.meshes[i];
+
+            const glm::mat4 transformMat = GetTransform(i, model);
+            const glm::mat3 normTransformMat = (glm::mat3)transformMat;
+
             for (const tinygltf::Primitive& primitive : mesh.primitives)
             {
                 if (primitive.indices < 0)
@@ -112,19 +163,26 @@ namespace IcarianCore
                     colorStride = accessor.ByteStride(bufferView) / sizeof(float);
                 }
 
-                a_vertices->reserve(a_vertices->size() + vertexCount);
-                for (uint32_t i = 0; i < vertexCount; ++i)
+                a_vertices->reserve(firstVertex + vertexCount);
+                for (uint32_t j = 0; j < vertexCount; ++j)
                 {
                     Vertex vertex;
 
                     if (positionBuffer)
                     {
-                        vertex.Position.x = positionBuffer[i * positionStride + 0];
-                        vertex.Position.y = -positionBuffer[i * positionStride + 1];
-                        vertex.Position.z = positionBuffer[i * positionStride + 2];
-                        vertex.Position.w = 1.0f;
+                        const glm::vec4 pos = glm::vec4
+                        (
+                            positionBuffer[j * positionStride + 0],
+                            positionBuffer[j * positionStride + 1],
+                            positionBuffer[j * positionStride + 2],
+                            1.0f
+                        );
 
-                        const float length = glm::length(vertex.Position.xyz());
+                        const glm::vec4 tPos = transformMat * pos;
+
+                        vertex.Position = glm::vec4(tPos.x, -tPos.y, tPos.z, 1.0f);
+
+                        const float length = glm::length(tPos.xyz());
                         if (length > *a_radius)
                         {
                             *a_radius = length;
@@ -133,23 +191,30 @@ namespace IcarianCore
 
                     if (normalBuffer)
                     {
-                        vertex.Normal.x = normalBuffer[i * normalStride + 0];
-                        vertex.Normal.y = -normalBuffer[i * normalStride + 1];
-                        vertex.Normal.z = normalBuffer[i * normalStride + 2];
+                        const glm::vec3 norm = glm::vec3
+                        (
+                            normalBuffer[j * normalStride + 0],
+                            normalBuffer[j * normalStride + 1],
+                            normalBuffer[j * normalStride + 2]
+                        );
+
+                        const glm::vec3 tNorm = normTransformMat * norm;
+
+                        vertex.Normal = glm::normalize(glm::vec3(tNorm.x, -tNorm.y, tNorm.z));
                     }
 
                     if (texCoordBuffer)
                     {
-                        vertex.TexCoords.x = texCoordBuffer[i * texCoordStride + 0];
-                        vertex.TexCoords.y = texCoordBuffer[i * texCoordStride + 1];
+                        vertex.TexCoords.x = texCoordBuffer[j * texCoordStride + 0];
+                        vertex.TexCoords.y = texCoordBuffer[j * texCoordStride + 1];
                     }
 
                     if (colorBuffer)
                     {
-                        vertex.Color.x = colorBuffer[i * colorStride + 0];
-                        vertex.Color.y = colorBuffer[i * colorStride + 1];
-                        vertex.Color.z = colorBuffer[i * colorStride + 2];
-                        vertex.Color.w = colorBuffer[i * colorStride + 3];
+                        vertex.Color.x = colorBuffer[j * colorStride + 0];
+                        vertex.Color.y = colorBuffer[j * colorStride + 1];
+                        vertex.Color.z = colorBuffer[j * colorStride + 2];
+                        vertex.Color.w = colorBuffer[j * colorStride + 3];
                     }
 
                     a_vertices->push_back(vertex);
@@ -169,11 +234,11 @@ namespace IcarianCore
                 case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT:
                 {
                     const uint32_t* indices = (uint32_t*)&buffer.data[accessor.byteOffset + bufferView.byteOffset];
-                    for (uint32_t i = 0; i < triangleCount; ++i)
+                    for (uint32_t j = 0; j < triangleCount; ++j)
                     {
-                        a_indices->push_back(indices[i * 3 + 0] + firstVertex);
-                        a_indices->push_back(indices[i * 3 + 2] + firstVertex);
-                        a_indices->push_back(indices[i * 3 + 1] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 0] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 2] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 1] + firstVertex);
                     }
 
                     break;
@@ -181,11 +246,11 @@ namespace IcarianCore
                 case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT:
                 {
                     const uint16_t* indices = (uint16_t*)&buffer.data[accessor.byteOffset + bufferView.byteOffset];
-                    for (uint32_t i = 0; i < triangleCount; ++i)
+                    for (uint32_t j = 0; j < triangleCount; ++j)
                     {
-                        a_indices->push_back(indices[i * 3 + 0] + firstVertex);
-                        a_indices->push_back(indices[i * 3 + 2] + firstVertex);
-                        a_indices->push_back(indices[i * 3 + 1] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 0] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 2] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 1] + firstVertex);
                     }
 
                     break;
@@ -193,11 +258,11 @@ namespace IcarianCore
                 case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE:
                 {
                     const uint8_t* indices = (uint8_t*)&buffer.data[accessor.byteOffset + bufferView.byteOffset];
-                    for (uint32_t i = 0; i < triangleCount; ++i)
+                    for (uint32_t j = 0; j < triangleCount; ++j)
                     {
-                        a_indices->push_back(indices[i * 3 + 0] + firstVertex);
-                        a_indices->push_back(indices[i * 3 + 2] + firstVertex);
-                        a_indices->push_back(indices[i * 3 + 1] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 0] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 2] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 1] + firstVertex);
                     }
 
                     break;
@@ -248,7 +313,7 @@ namespace IcarianCore
         std::string err;
         std::string warn;
 
-        if (IsBinary(a_data, a_size))
+        if (IsBinary(a_data))
         {
             if (!loader.LoadBinaryFromMemory(&model, &err, &warn, (unsigned char*)a_data, (unsigned int)a_size))
             {
@@ -263,13 +328,19 @@ namespace IcarianCore
             }
         }
 
+        const uint32_t meshCount = (uint32_t)model.meshes.size();
         if (model.meshes.size() == 0)
         {
             return false;
         }
 
-        for (const tinygltf::Mesh& mesh : model.meshes)
+        for (uint32_t i = 0; i < meshCount; ++i)
         {
+            const tinygltf::Mesh& mesh = model.meshes[i];
+
+            const glm::mat4 transformMat = GetTransform(i, model);
+            const glm::mat3 normTransformMat = (glm::mat3)transformMat;
+
             for (const tinygltf::Primitive& primitive : mesh.primitives)
             {
                 if (primitive.indices < 0)
@@ -354,20 +425,27 @@ namespace IcarianCore
                     weightStride = accessor.ByteStride(bufferView) / sizeof(float);
                 }
 
-                a_vertices->reserve(a_vertices->size() + vertexCount);
+                a_vertices->reserve(firstVertex + vertexCount);
 
-                for (uint32_t i = 0; i < vertexCount; ++i)
+                for (uint32_t j = 0; j < vertexCount; ++j)
                 {
                     SkinnedVertex vertex;
 
                     if (positionBuffer)
                     {
-                        vertex.Position.x = positionBuffer[i * positionStride + 0];
-                        vertex.Position.y = -positionBuffer[i * positionStride + 1];
-                        vertex.Position.z = positionBuffer[i * positionStride + 2];
-                        vertex.Position.w = 1.0f;
+                        const glm::vec4 pos = glm::vec4
+                        (
+                            positionBuffer[j * positionStride + 0],
+                            positionBuffer[j * positionStride + 1],
+                            positionBuffer[j * positionStride + 2],
+                            1.0f
+                        );
 
-                        const float length = glm::length(vertex.Position.xyz());
+                        const glm::vec4 tPos = transformMat * pos;
+
+                        vertex.Position = glm::vec4(tPos.x, -tPos.y, tPos.z, 1.0f);
+
+                        const float length = glm::length(tPos.xyz());
                         if (length > *a_radius)
                         {
                             *a_radius = length;
@@ -376,23 +454,30 @@ namespace IcarianCore
 
                     if (normalBuffer)
                     {
-                        vertex.Normal.x = normalBuffer[i * normalStride + 0];
-                        vertex.Normal.y = -normalBuffer[i * normalStride + 1];
-                        vertex.Normal.z = normalBuffer[i * normalStride + 2];
+                        const glm::vec3 norm = glm::vec3
+                        (
+                            normalBuffer[j * normalStride + 0],
+                            normalBuffer[j * normalStride + 1],
+                            normalBuffer[j * normalStride + 2]
+                        );
+
+                        const glm::vec3 tNorm = normTransformMat * norm;
+
+                        vertex.Normal = glm::normalize(glm::vec3(tNorm.x, -tNorm.y, tNorm.z));
                     }
 
                     if (texCoordBuffer)
                     {
-                        vertex.TexCoords.x = texCoordBuffer[i * texCoordStride + 0];
-                        vertex.TexCoords.y = texCoordBuffer[i * texCoordStride + 1];
+                        vertex.TexCoords.x = texCoordBuffer[j * texCoordStride + 0];
+                        vertex.TexCoords.y = texCoordBuffer[j * texCoordStride + 1];
                     }
 
                     if (colorBuffer)
                     {
-                        vertex.Color.x = colorBuffer[i * colorStride + 0];
-                        vertex.Color.y = colorBuffer[i * colorStride + 1];
-                        vertex.Color.z = colorBuffer[i * colorStride + 2];
-                        vertex.Color.w = colorBuffer[i * colorStride + 3];
+                        vertex.Color.x = colorBuffer[j * colorStride + 0];
+                        vertex.Color.y = colorBuffer[j * colorStride + 1];
+                        vertex.Color.z = colorBuffer[j * colorStride + 2];
+                        vertex.Color.w = colorBuffer[j * colorStride + 3];
                     }
 
                     if (jointBuffer)
@@ -402,30 +487,30 @@ namespace IcarianCore
                         case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT:
                         {
                             const uint32_t* joints = (uint32_t*)jointBuffer;
-                            vertex.BoneIndices.x = (int)joints[i * jointStride + 0];
-                            vertex.BoneIndices.y = (int)joints[i * jointStride + 1];
-                            vertex.BoneIndices.z = (int)joints[i * jointStride + 2];
-                            vertex.BoneIndices.w = (int)joints[i * jointStride + 3];
+                            vertex.BoneIndices.x = (int)joints[j * jointStride + 0];
+                            vertex.BoneIndices.y = (int)joints[j * jointStride + 1];
+                            vertex.BoneIndices.z = (int)joints[j * jointStride + 2];
+                            vertex.BoneIndices.w = (int)joints[j * jointStride + 3];
 
                             break;
                         }
                         case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT:
                         {
                             const uint16_t* joints = (uint16_t*)jointBuffer;
-                            vertex.BoneIndices.x = (int)joints[i * jointStride + 0];
-                            vertex.BoneIndices.y = (int)joints[i * jointStride + 1];
-                            vertex.BoneIndices.z = (int)joints[i * jointStride + 2];
-                            vertex.BoneIndices.w = (int)joints[i * jointStride + 3];
+                            vertex.BoneIndices.x = (int)joints[j * jointStride + 0];
+                            vertex.BoneIndices.y = (int)joints[j * jointStride + 1];
+                            vertex.BoneIndices.z = (int)joints[j * jointStride + 2];
+                            vertex.BoneIndices.w = (int)joints[j * jointStride + 3];
 
                             break;
                         }
                         case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE:
                         {
                             const uint8_t* joints = (uint8_t*)jointBuffer;
-                            vertex.BoneIndices.x = (int)joints[i * jointStride + 0];
-                            vertex.BoneIndices.y = (int)joints[i * jointStride + 1];
-                            vertex.BoneIndices.z = (int)joints[i * jointStride + 2];
-                            vertex.BoneIndices.w = (int)joints[i * jointStride + 3];
+                            vertex.BoneIndices.x = (int)joints[j * jointStride + 0];
+                            vertex.BoneIndices.y = (int)joints[j * jointStride + 1];
+                            vertex.BoneIndices.z = (int)joints[j * jointStride + 2];
+                            vertex.BoneIndices.w = (int)joints[j * jointStride + 3];
 
                             break;
                         }
@@ -434,10 +519,10 @@ namespace IcarianCore
 
                     if (weightBuffer)
                     {
-                        vertex.BoneWeights.x = weightBuffer[i * weightStride + 0];
-                        vertex.BoneWeights.y = weightBuffer[i * weightStride + 1];
-                        vertex.BoneWeights.z = weightBuffer[i * weightStride + 2];
-                        vertex.BoneWeights.w = weightBuffer[i * weightStride + 3];
+                        vertex.BoneWeights.x = weightBuffer[j * weightStride + 0];
+                        vertex.BoneWeights.y = weightBuffer[j * weightStride + 1];
+                        vertex.BoneWeights.z = weightBuffer[j * weightStride + 2];
+                        vertex.BoneWeights.w = weightBuffer[j * weightStride + 3];
                     }
 
                     a_vertices->push_back(vertex);
@@ -457,11 +542,11 @@ namespace IcarianCore
                 case TINYGLTF_PARAMETER_TYPE_UNSIGNED_INT:
                 {
                     const uint32_t* indices = (uint32_t*)&buffer.data[accessor.byteOffset + bufferView.byteOffset];
-                    for (uint32_t i = 0; i < triangleCount; ++i)
+                    for (uint32_t j = 0; j < triangleCount; ++j)
                     {
-                        a_indices->push_back(indices[i * 3 + 0] + firstVertex);
-                        a_indices->push_back(indices[i * 3 + 2] + firstVertex);
-                        a_indices->push_back(indices[i * 3 + 1] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 0] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 2] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 1] + firstVertex);
                     }
 
                     break;
@@ -469,11 +554,11 @@ namespace IcarianCore
                 case TINYGLTF_PARAMETER_TYPE_UNSIGNED_SHORT:
                 {
                     const uint16_t* indices = (uint16_t*)&buffer.data[accessor.byteOffset + bufferView.byteOffset];
-                    for (uint32_t i = 0; i < triangleCount; ++i)
+                    for (uint32_t j = 0; j < triangleCount; ++j)
                     {
-                        a_indices->push_back(indices[i * 3 + 0] + firstVertex);
-                        a_indices->push_back(indices[i * 3 + 2] + firstVertex);
-                        a_indices->push_back(indices[i * 3 + 1] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 0] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 2] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 1] + firstVertex);
                     }
 
                     break;
@@ -481,11 +566,11 @@ namespace IcarianCore
                 case TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE:
                 {
                     const uint8_t* indices = (uint8_t*)&buffer.data[accessor.byteOffset + bufferView.byteOffset];
-                    for (uint32_t i = 0; i < triangleCount; ++i)
+                    for (uint32_t j = 0; j < triangleCount; ++j)
                     {
-                        a_indices->push_back(indices[i * 3 + 0] + firstVertex);
-                        a_indices->push_back(indices[i * 3 + 2] + firstVertex);
-                        a_indices->push_back(indices[i * 3 + 1] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 0] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 2] + firstVertex);
+                        a_indices->push_back(indices[j * 3 + 1] + firstVertex);
                     }
 
                     break;
@@ -536,7 +621,7 @@ namespace IcarianCore
         std::string err;
         std::string warn;
 
-        if (IsBinary(a_data, a_size))
+        if (IsBinary(a_data))
         {
             if (!loader.LoadBinaryFromMemory(&model, &err, &warn, (unsigned char*)a_data, (unsigned int)a_size))
             {
@@ -551,7 +636,7 @@ namespace IcarianCore
             }
         }
 
-        if (model.skins.size() == 0)
+        if (model.skins.empty())
         {
             return false;
         }
@@ -704,7 +789,7 @@ End:;
         std::string err;
         std::string warn;
 
-        if (IsBinary(a_data, a_size))
+        if (IsBinary(a_data))
         {
             if (!loader.LoadBinaryFromMemory(&model, &err, &warn, (unsigned char*)a_data, (unsigned int)a_size))
             {
@@ -719,7 +804,7 @@ End:;
             }
         }
 
-        if (model.animations.size() == 0)
+        if (model.animations.empty())
         {
             return false;
         }
