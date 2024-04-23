@@ -232,6 +232,8 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
 
+        CUBE_CProject_AppendCFlag(&project, "-march=x86-64-v2");
+
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
 
@@ -252,6 +254,8 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendCFlag(&project, "-mavx");
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
+        
+        CUBE_CProject_AppendCFlag(&project, "-march=x86-64-v2");
 
         CUBE_CProject_AppendCFlag(&project, "-O3");
 

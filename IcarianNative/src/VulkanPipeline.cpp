@@ -121,7 +121,13 @@ constexpr static vk::CullModeFlags GetCullingMode(e_CullMode a_mode)
     {
         return vk::CullModeFlagBits::eFrontAndBack;
     }
+    case CullMode_None:
+    {
+        return vk::CullModeFlagBits::eNone;
     }
+    }
+
+    ICARIAN_ASSERT(0);
 
     return vk::CullModeFlagBits::eNone;
 }
@@ -141,8 +147,14 @@ constexpr static vk::CullModeFlags GetInvCullingMode(e_CullMode a_mode)
     {
         return vk::CullModeFlagBits::eFrontAndBack;
     }
+    case CullMode_None:
+    {
+        return vk::CullModeFlagBits::eNone;
+    }
     }
     
+    ICARIAN_ASSERT(0);
+
     return vk::CullModeFlagBits::eNone;
 }
 
@@ -154,7 +166,13 @@ constexpr static vk::PrimitiveTopology GetPrimitiveMode(e_PrimitiveMode a_mode)
     {
         return vk::PrimitiveTopology::eTriangleStrip;
     }
+    case PrimitiveMode_Triangles:
+    {
+        return vk::PrimitiveTopology::eTriangleList;
     }
+    }
+
+    ICARIAN_ASSERT(0);
 
     return vk::PrimitiveTopology::eTriangleList;
 }
@@ -234,6 +252,10 @@ constexpr static vk::Format GetFormat(const VertexInputAttribute& a_attrib)
         }
 
         break;
+    }
+    default:
+    {
+        ICARIAN_ASSERT(0);
     }
     }
 
@@ -370,20 +392,49 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
         1.0f
     );
 
-    vk::PipelineColorBlendAttachmentState colorBlendAttachment = vk::PipelineColorBlendAttachmentState
-    (
-        VK_FALSE,
-        vk::BlendFactor::eOne,
-        vk::BlendFactor::eOne,
-        vk::BlendOp::eAdd,
-        vk::BlendFactor::eOne,
-        vk::BlendFactor::eOne,
-        vk::BlendOp::eAdd,
-        vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA
-    );
-    if (program.EnableColorBlending)
+    vk::PipelineColorBlendAttachmentState colorBlendAttachment;
+    // Even if we are not blending we need a write mask
+    colorBlendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+    switch (program.ColorBlendMode)
+    {
+    case MaterialBlendMode_None:
+    {
+        colorBlendAttachment.blendEnable = VK_FALSE;
+
+        break;
+    }
+    case MaterialBlendMode_One:
     {
         colorBlendAttachment.blendEnable = VK_TRUE;
+
+        colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eOne;
+        colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOne;
+        colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+
+        colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+        colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eOne;
+        colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
+
+        break;
+    }
+    case MaterialBlendMode_Alpha:
+    {
+        colorBlendAttachment.blendEnable = VK_TRUE;
+
+        colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+        colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+        colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
+
+        colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
+        colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eOne;
+        colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
+
+        break;
+    }
+    default:
+    {
+        ICARIAN_ASSERT(0);
+    }
     }
 
     const std::vector<vk::PipelineColorBlendAttachmentState> colorBlendAttachments = std::vector<vk::PipelineColorBlendAttachmentState>(a_textureCount, colorBlendAttachment);

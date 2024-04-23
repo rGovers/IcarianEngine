@@ -100,10 +100,10 @@ namespace IcarianEngine.Definitions
         public PrimitiveMode PrimitiveMode = PrimitiveMode.Triangles;
 
         /// <summary>
-        /// Enables color blending.
+        /// The blending mode of the material.
         /// </summary>
-        [EditorTooltip("Enables color blending.")]
-        public bool EnableColorBlending = false;
+        [EditorTooltip("The blending mode of the material.")]
+        public MaterialBlendMode ColorBlendMode = MaterialBlendMode.None;
 
         /// <summary>
         /// Texture the material uses.

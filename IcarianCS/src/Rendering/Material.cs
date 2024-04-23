@@ -43,9 +43,9 @@ namespace IcarianEngine.Rendering
         /// </summary>
         public uint RenderLayer;
         /// <summary>
-        /// Enables color blending.
+        /// The blend mode of the material.
         /// </summary>
-        public bool EnableColorBlending;
+        public MaterialBlendMode ColorBlendMode;
         /// <summary>
         /// The shadow vertex shader to be used by the material.
         /// </summary>
@@ -66,7 +66,7 @@ namespace IcarianEngine.Rendering
     public class Material : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateProgram(uint a_vertexShader, uint a_pixelShader, ushort a_vertexStride, VertexInputAttribute[] a_attributes, ShaderBufferInput[] a_shaderInputs, uint a_cullMode, uint a_primitiveMode, uint a_enableColorBlending, uint a_renderLayer, uint a_shadowVertexShader, ShaderBufferInput[] a_shadowShaderInputs, uint a_uboSize, IntPtr a_uboBuffer); 
+        extern static uint GenerateProgram(uint a_vertexShader, uint a_pixelShader, ushort a_vertexStride, VertexInputAttribute[] a_attributes, ShaderBufferInput[] a_shaderInputs, uint a_cullMode, uint a_primitiveMode, uint a_colorBlendMode, uint a_renderLayer, uint a_shadowVertexShader, ShaderBufferInput[] a_shadowShaderInputs, uint a_uboSize, IntPtr a_uboBuffer); 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static RenderProgram GetProgramBuffer(uint a_addr); 
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -217,12 +217,6 @@ namespace IcarianEngine.Rendering
                 shadowShaderInputs = a_builder.ShadowShaderInputs;
             }
 
-            uint enableColorBlending = 0;
-            if (a_builder.EnableColorBlending)
-            {
-                enableColorBlending = 1;
-            }
-
             uint uboSize = 0;
             IntPtr uboBuffer = IntPtr.Zero;
             if (a_builder.UBOBuffer != null)
@@ -241,7 +235,7 @@ namespace IcarianEngine.Rendering
                 a_builder.ShaderInputs, 
                 (uint)a_builder.CullingMode, 
                 (uint)a_builder.PrimitiveMode, 
-                enableColorBlending, 
+                (uint)a_builder.ColorBlendMode, 
                 a_builder.RenderLayer,
                 shadowVertexShader, 
                 shadowShaderInputs,
@@ -363,7 +357,7 @@ namespace IcarianEngine.Rendering
                 ShaderInputs = shaderInput,
                 CullingMode = a_def.CullingMode,
                 PrimitiveMode = a_def.PrimitiveMode,
-                EnableColorBlending = a_def.EnableColorBlending,
+                ColorBlendMode = a_def.ColorBlendMode,
                 RenderLayer = a_def.RenderLayer,
                 ShadowVertexShader = shadowVertexShader,
                 ShadowShaderInputs = shadowShaderInput,

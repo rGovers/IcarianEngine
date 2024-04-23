@@ -163,6 +163,8 @@ void RenderAssetStore::Flush()
 
 uint32_t RenderAssetStore::LoadModel(const std::filesystem::path& a_path)
 {
+    FileCache::PreLoad(a_path);
+
     RenderAsset asset;
     asset.Path = a_path.string();
     asset.InternalAddress = -1;
@@ -173,6 +175,8 @@ uint32_t RenderAssetStore::LoadModel(const std::filesystem::path& a_path)
 }
 uint32_t RenderAssetStore::LoadSkinnedModel(const std::filesystem::path& a_path)
 {
+    FileCache::PreLoad(a_path);
+
     RenderAsset asset;
     asset.Path = a_path.string();
     asset.InternalAddress = -1;
@@ -423,6 +427,8 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
 
 uint32_t RenderAssetStore::LoadTexture(const std::filesystem::path& a_path)
 {
+    FileCache::PreLoad(a_path);
+
     RenderAsset asset;
     asset.Path = a_path.string();
     asset.InternalAddress = -1;
@@ -445,6 +451,78 @@ void RenderAssetStore::DestroyTexture(uint32_t a_addr)
 
     m_textures.Erase(a_addr);
 }
+
+static int STBI_FileHandle_Read(void* a_user, char* a_data, int a_size)
+{
+    FileHandle* handle = (FileHandle*)a_user;
+
+    return (int)handle->Read(a_data, (uint64_t)a_size);
+}
+static void STBI_FileHandle_Skip(void* a_user, int a_n)
+{
+    FileHandle* handle = (FileHandle*)a_user;
+
+    return handle->Ignore(a_n);
+}
+static int STBI_FileHandle_EOF(void* a_user)
+{
+    const FileHandle* handle = (FileHandle*)a_user;
+
+    return (int)handle->EndOfFile();
+}
+
+static KTX_error_code KTX_FileHandle_Read(ktxStream* a_stream, void* a_dst, const ktx_size_t a_count)
+{
+    FileHandle* handle = (FileHandle*)a_stream->data.custom_ptr.address;
+
+    handle->Read(a_dst, (uint64_t)a_count);
+
+    return KTX_SUCCESS;
+}
+static KTX_error_code KTX_FileHandle_Write(ktxStream* a_stream, const void* a_src, const ktx_size_t a_size, const ktx_size_t a_cout)
+{
+    // Should not occur implementing for safety
+    IERROR("KTX is attempting to write");
+
+    return KTX_INVALID_OPERATION;
+}
+static KTX_error_code KTX_FileHandle_Skip(ktxStream* a_stream, const ktx_size_t a_count)
+{
+    FileHandle* handle = (FileHandle*)a_stream->data.custom_ptr.address;
+
+    handle->Ignore((uint64_t)a_count);
+
+    return KTX_SUCCESS;
+}
+static KTX_error_code KTX_FileHandle_GetPos(ktxStream* a_stream, ktx_off_t* const a_offset)
+{
+    const FileHandle* handle = (FileHandle*)a_stream->data.custom_ptr.address;
+
+    *a_offset = (ktx_off_t)handle->GetOffset();
+
+    return KTX_SUCCESS;
+}
+static KTX_error_code KTX_FileHandle_SetPos(ktxStream* a_stream, const ktx_off_t a_offset)
+{
+    FileHandle* handle = (FileHandle*)a_stream->data.custom_ptr.address;
+
+    handle->Seek(a_offset);
+
+    return KTX_SUCCESS;
+}
+static KTX_error_code KTX_FileHandle_GetSize(ktxStream* a_stream, ktx_size_t* const a_size)
+{
+    FileHandle* handle = (FileHandle*)a_stream->data.custom_ptr.address;
+
+    *a_size = (ktx_size_t)handle->GetSize();
+
+    return KTX_SUCCESS;
+}
+static void KTX_FileHandle_Destruct(ktxStream* a_stream)
+{
+    // Not passing ownership to the stream so nothing to do
+}
+
 uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < m_textures.Size(), "GetTexture out of bounds");
@@ -468,21 +546,22 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
             IDEFER(delete handle);
 
-            const uint64_t size = handle->GetSize();
-            stbi_uc* data = new stbi_uc[size];
-            IDEFER(delete[] data);
+            const stbi_io_callbacks callbacks = 
+            {
+                .read = &STBI_FileHandle_Read,
+                .skip = &STBI_FileHandle_Skip,
+                .eof = &STBI_FileHandle_EOF
+            };
 
-            handle->Read(data, size);
-
-	    	int width;
+            int width;
 	    	int height;
 	    	int channels;
-	    	stbi_uc* pixels = stbi_load_from_memory(data, (int)size, &width, &height, &channels, STBI_rgb_alpha);
-	        if (pixels != nullptr)
-	    	{
+            stbi_uc* pixels = stbi_load_from_callbacks(&callbacks, handle, &width, &height, &channels, STBI_rgb_alpha);
+            if (pixels != nullptr)
+            {
                 IDEFER(stbi_image_free(pixels));
 
-	    		asset.InternalAddress = m_renderEngine->GenerateTexture((uint32_t)width, (uint32_t)height, TextureFormat_RGBA, pixels);
+                asset.InternalAddress = m_renderEngine->GenerateTexture((uint32_t)width, (uint32_t)height, TextureFormat_RGBA, pixels);
             }
             else
             {
@@ -499,20 +578,37 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
             IDEFER(delete handle);
 
-            const uint64_t size = handle->GetSize();
-            ktx_uint8_t* data = new ktx_uint8_t[size];
-            IDEFER(delete[] data);
-
-            handle->Read(data, size);
+            ktxStream stream = 
+            {
+                .read = &KTX_FileHandle_Read,
+                .skip = &KTX_FileHandle_Skip,
+                .write = &KTX_FileHandle_Write,
+                .getpos = &KTX_FileHandle_GetPos,
+                .setpos = &KTX_FileHandle_SetPos,
+                .getsize = &KTX_FileHandle_GetSize,
+                .destruct = &KTX_FileHandle_Destruct,
+                .type = eStreamTypeCustom,
+                .data = 
+                {
+                    .custom_ptr = 
+                    {
+                        .address = handle
+                    }
+                },
+                .closeOnDestruct = KTX_FALSE
+            };
 
             ktxTexture2* texture;
-            if (ktxTexture2_CreateFromMemory(data, (ktx_size_t)size, KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture) == KTX_SUCCESS)
+            if (ktxTexture2_CreateFromStream(&stream, KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture) == KTX_SUCCESS)
             {
                 IDEFER(ktxTexture_Destroy((ktxTexture*)texture));
 
                 if (ktxTexture2_NeedsTranscoding(texture))
                 {
-                    ICARIAN_ASSERT_R(ktxTexture2_TranscodeBasis(texture, KTX_TTF_BC3_RGBA, 0) == KTX_SUCCESS);
+                    if (ktxTexture2_TranscodeBasis(texture, KTX_TTF_BC3_RGBA, 0) != KTX_SUCCESS)
+                    {
+                        IERROR("Failed to transcode KTX texture");
+                    }
                 }
 
                 const uint32_t levels = (uint32_t)texture->numLevels;
@@ -522,7 +618,10 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
                 for (uint32_t i = 0; i < levels; ++i)
                 {
                     ktx_size_t off;
-                    ICARIAN_ASSERT_R(ktxTexture_GetImageOffset((ktxTexture*)texture, i, 0, 0, &off) == KTX_SUCCESS);
+                    if (ktxTexture_GetImageOffset((ktxTexture*)texture, i, 0, 0, &off) != KTX_SUCCESS)
+                    {
+                        IERROR("Failed getting KTX offset");
+                    }
 
                     offsets[i] = (uint64_t)off;
                 }
@@ -533,6 +632,41 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
             {
                 IERROR("GetTexture failed to parse file: " + path.string());
             }
+
+            // const uint64_t size = handle->GetSize();
+            // ktx_uint8_t* data = new ktx_uint8_t[size];
+            // IDEFER(delete[] data);
+
+            // handle->Read(data, size);
+
+            // ktxTexture2* texture;
+            // if (ktxTexture2_CreateFromMemory(data, (ktx_size_t)size, KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture) == KTX_SUCCESS)
+            // {
+            //     IDEFER(ktxTexture_Destroy((ktxTexture*)texture));
+
+            //     if (ktxTexture2_NeedsTranscoding(texture))
+            //     {
+            //         ICARIAN_ASSERT_R(ktxTexture2_TranscodeBasis(texture, KTX_TTF_BC3_RGBA, 0) == KTX_SUCCESS);
+            //     }
+
+            //     const uint32_t levels = (uint32_t)texture->numLevels;
+            //     uint64_t* offsets = new uint64_t[levels];
+            //     IDEFER(delete[] offsets);
+
+            //     for (uint32_t i = 0; i < levels; ++i)
+            //     {
+            //         ktx_size_t off;
+            //         ICARIAN_ASSERT_R(ktxTexture_GetImageOffset((ktxTexture*)texture, i, 0, 0, &off) == KTX_SUCCESS);
+
+            //         offsets[i] = (uint64_t)off;
+            //     }
+
+            //     asset.InternalAddress = m_renderEngine->GenerateTextureMipMapped((uint32_t)texture->baseWidth, (uint32_t)texture->baseHeight, levels, offsets, TextureFormat_BC3, texture->pData, (uint64_t)texture->dataSize);
+            // }
+            // else
+            // {
+            //     IERROR("GetTexture failed to parse file: " + path.string());
+            // }
         }
         else 
         {

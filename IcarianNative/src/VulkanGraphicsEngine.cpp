@@ -81,7 +81,7 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     textProgram.ShaderBufferInputs[1].BufferType = ShaderBufferType_PushTexture;
     textProgram.ShaderBufferInputs[1].ShaderSlot = ShaderSlot_Pixel;
     textProgram.ShaderBufferInputs[1].Set = 0;
-    textProgram.EnableColorBlending = 1;
+    textProgram.ColorBlendMode = MaterialBlendMode_Alpha;
     textProgram.CullingMode = CullMode_None;
     textProgram.PrimitiveMode = PrimitiveMode_TriangleStrip;
     textProgram.Flags |= 0b1 << RenderProgram::DestroyFlag;
@@ -103,7 +103,7 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     imageProgram.ShaderBufferInputs[1].BufferType = ShaderBufferType_PushTexture;
     imageProgram.ShaderBufferInputs[1].ShaderSlot = ShaderSlot_Pixel;
     imageProgram.ShaderBufferInputs[1].Set = 0;
-    imageProgram.EnableColorBlending = 1;
+    imageProgram.ColorBlendMode = MaterialBlendMode_Alpha;
     imageProgram.CullingMode = CullMode_None;
     imageProgram.PrimitiveMode = PrimitiveMode_TriangleStrip;
     imageProgram.Flags |= 0b1 << RenderProgram::DestroyFlag;

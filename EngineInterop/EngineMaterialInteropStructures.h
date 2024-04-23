@@ -13,6 +13,16 @@ namespace IcarianEngine.Rendering {
 /// @file EngineMaterialInteropStructures.h
 
 /// <summary>
+/// Material blend mode enumeration
+/// </summary>
+IOP_CSPUBLIC enum IOP_ENUM_NAME(MaterialBlendMode) : IOP_UINT8
+{
+    IOP_ENUM_VALUE(MaterialBlendMode, None) = 0,
+    IOP_ENUM_VALUE(MaterialBlendMode, One) = 1,
+    IOP_ENUM_VALUE(MaterialBlendMode, Alpha) = 2
+};
+
+/// <summary>
 /// Shader buffer type enumeration.
 /// </summary>
 IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
@@ -130,7 +140,7 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
     IOP_UINT32 UBODataSize;
     IOP_POINTER(void*) UBOData;
     IOP_POINTER(void*) Data;
-    IOP_CSPUBLIC IOP_UINT8 EnableColorBlending;
+    IOP_CSPUBLIC IOP_ENUM_NAME(MaterialBlendMode) ColorBlendMode;
     IOP_CSPUBLIC IOP_ENUM_NAME(CullMode) CullingMode;
     IOP_CSPUBLIC IOP_ENUM_NAME(PrimitiveMode) PrimitiveMode;
     IOP_UINT8 Flags;
@@ -151,7 +161,7 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
             return false;
         }
 
-        if (EnableColorBlending != a_other.EnableColorBlending)
+        if (ColorBlendMode != a_other.ColorBlendMode)
         {
             return false;
         }

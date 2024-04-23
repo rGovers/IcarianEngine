@@ -2,6 +2,7 @@
 
 #include "Core/IcarianAssert.h"
 #include "Logger.h"
+#include "Rendering/UI/ImageUIElement.h"
 #include "Rendering/UI/TextUIElement.h"
 #include "Rendering/UI/UIControlBindings.h"
 #include "Runtime/RuntimeFunction.h"
@@ -54,6 +55,12 @@ UIControl::~UIControl()
             case UIElementType_Text:
             {
                 delete (TextUIElement*)m_uiElements[i];
+
+                break;
+            }
+            case UIElementType_Image:
+            {
+                delete (ImageUIElement*)m_uiElements[i];
 
                 break;
             }

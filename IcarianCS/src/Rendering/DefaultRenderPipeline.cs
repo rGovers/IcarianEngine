@@ -134,7 +134,7 @@ namespace IcarianEngine.Rendering
                 VertexShader = m_quadVert,
                 PixelShader = m_ambientLightPixel,
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
-                EnableColorBlending = true,
+                ColorBlendMode = MaterialBlendMode.One,
                 ShaderInputs = new ShaderBufferInput[]
                 {
                     new ShaderBufferInput()
@@ -187,7 +187,7 @@ namespace IcarianEngine.Rendering
                 VertexShader = m_quadVert,
                 PixelShader = m_directionalLightPixel,
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
-                EnableColorBlending = true,
+                ColorBlendMode = MaterialBlendMode.One,
                 ShaderInputs = new ShaderBufferInput[]
                 {
                     new ShaderBufferInput()
@@ -247,7 +247,7 @@ namespace IcarianEngine.Rendering
                 VertexShader = m_quadVert,
                 PixelShader = m_pointLightPixel,
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
-                EnableColorBlending = true,
+                ColorBlendMode = MaterialBlendMode.One,
                 ShaderInputs = new ShaderBufferInput[]
                 {
                     new ShaderBufferInput()
@@ -307,7 +307,7 @@ namespace IcarianEngine.Rendering
                 VertexShader = m_quadVert,
                 PixelShader = m_spotLightPixel,
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
-                EnableColorBlending = true,
+                ColorBlendMode = MaterialBlendMode.One,
                 ShaderInputs = new ShaderBufferInput[]
                 {
                     new ShaderBufferInput()
@@ -377,7 +377,7 @@ namespace IcarianEngine.Rendering
                 VertexShader = m_quadVert,
                 PixelShader = m_directionalLightShadowPixel,
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
-                EnableColorBlending = true,
+                ColorBlendMode = MaterialBlendMode.One,
                 ShaderInputs = new ShaderBufferInput[]
                 {
                     new ShaderBufferInput()
@@ -452,7 +452,7 @@ namespace IcarianEngine.Rendering
                 VertexShader = m_quadVert,
                 PixelShader = m_pointLightShadowPixel,
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
-                EnableColorBlending = true,
+                ColorBlendMode = MaterialBlendMode.One,
                 ShaderInputs = new ShaderBufferInput[]
                 {
                     new ShaderBufferInput()
@@ -519,7 +519,7 @@ namespace IcarianEngine.Rendering
                 VertexShader = m_quadVert,
                 PixelShader = m_spotLightShadowPixel,
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
-                EnableColorBlending = true,
+                ColorBlendMode = MaterialBlendMode.One,
                 ShaderInputs = new ShaderBufferInput[]
                 {
                     new ShaderBufferInput()
@@ -601,7 +601,7 @@ namespace IcarianEngine.Rendering
                 VertexShader = m_quadVert,
                 PixelShader = m_postPixel,
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
-                EnableColorBlending = true,
+                ColorBlendMode = MaterialBlendMode.One,
                 ShaderInputs = new ShaderBufferInput[]
                 {
                     new ShaderBufferInput()

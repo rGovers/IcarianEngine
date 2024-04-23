@@ -350,7 +350,7 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
     program.VertexStride = a_vertexStride;
     program.CullingMode = (e_CullMode)a_cullMode;
     program.PrimitiveMode = (e_PrimitiveMode)a_primitiveMode;
-    program.EnableColorBlending = (uint8_t)a_enableColorBlending;
+    program.ColorBlendMode = (e_MaterialBlendMode)a_colorBlendMode;
     program.RenderLayer = a_renderLayer;
 
     if (a_vertexInputAttribs != NULL)
@@ -395,7 +395,7 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
     }
 
     return Instance->GenerateShaderProgram(program);
-}, uint32_t a_vertexShader, uint32_t a_pixelShader, uint16_t a_vertexStride, MonoArray* a_vertexInputAttribs, MonoArray* a_shaderInputs, uint32_t a_cullMode, uint32_t a_primitiveMode, uint32_t a_enableColorBlending, uint32_t a_renderLayer, uint32_t a_shadowVertexShader, MonoArray* a_shadowShaderInputs, uint32_t a_uboSize, void* a_uboData)
+}, uint32_t a_vertexShader, uint32_t a_pixelShader, uint16_t a_vertexStride, MonoArray* a_vertexInputAttribs, MonoArray* a_shaderInputs, uint32_t a_cullMode, uint32_t a_primitiveMode, uint32_t a_colorBlendMode, uint32_t a_renderLayer, uint32_t a_shadowVertexShader, MonoArray* a_shadowShaderInputs, uint32_t a_uboSize, void* a_uboData)
 RUNTIME_FUNCTION(void, Material, DestroyProgram, 
 {
     const RenderProgram program = Instance->GetRenderProgram(a_addr);

@@ -13,7 +13,7 @@ private:
     bool              m_headless = false;
 
     double            m_fixedTimeStep = 1.0 / 50.0;
-    uint32_t          m_fileCacheSize = 128;
+    uint32_t          m_fileCacheSize = 256;
 
     std::string       m_appName = std::string(DefaultAppName);
 

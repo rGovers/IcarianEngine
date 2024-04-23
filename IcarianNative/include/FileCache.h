@@ -29,19 +29,19 @@ public:
     virtual uint64_t Read(void* a_data, uint64_t a_size) = 0;
     virtual void Seek(uint64_t a_offset) = 0;
     virtual void Ignore(uint64_t a_size) = 0;
+    virtual bool EndOfFile() const = 0;
 };
 
 class CacheFileHandle : public FileHandle
 {
 private:
-    std::shared_lock<std::shared_mutex> m_lock;
-    FileBuffer*                         m_buffer;
-    uint64_t                            m_offset;
+    FileBuffer* m_buffer;
+    uint64_t    m_offset;
 
 protected:
 
 public:
-    CacheFileHandle(FileBuffer* a_buffer, std::shared_mutex* a_mutex);
+    CacheFileHandle(FileBuffer* a_buffer);
     virtual ~CacheFileHandle();
 
     virtual uint64_t GetSize() const;
@@ -49,6 +49,7 @@ public:
     virtual uint64_t Read(void* a_data, uint64_t a_size);
     virtual void Seek(uint64_t a_offset);
     virtual void Ignore(uint64_t a_size);
+    virtual bool EndOfFile() const;
 };
 
 class ReadFileHandle : public FileHandle
@@ -68,6 +69,7 @@ public:
     virtual uint64_t Read(void* a_data, uint64_t a_size);
     virtual void Seek(uint64_t a_offset);
     virtual void Ignore(uint64_t a_size);
+    virtual bool EndOfFile() const;
 };
 
 // RAM is incredibly slow but spinning rust is much slower then RAM,
@@ -96,5 +98,6 @@ public:
 
     static void Update();
 
+    static void PreLoad(const std::filesystem::path& a_path);
     static FileHandle* LoadFile(const std::filesystem::path& a_path);
 };

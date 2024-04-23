@@ -918,11 +918,21 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
 
+        CUBE_CProject_AppendCFlag(&project, "-msse");
+        CUBE_CProject_AppendCFlag(&project, "-msse2");
+        CUBE_CProject_AppendCFlag(&project, "-msse3");
+        CUBE_CProject_AppendCFlag(&project, "-msse4.1");
+
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        CUBE_CProject_AppendCFlag(&project, "-msse");
+        CUBE_CProject_AppendCFlag(&project, "-msse2");
+        CUBE_CProject_AppendCFlag(&project, "-msse3");
+        CUBE_CProject_AppendCFlag(&project, "-msse4.1");
 
         break;
     }

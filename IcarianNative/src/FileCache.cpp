@@ -8,6 +8,7 @@
 
 #include "Core/IcarianDefer.h"
 #include "IcarianError.h"
+#include "Trace.h"
 
 static FileCache* Instance = nullptr;
 
@@ -31,11 +32,9 @@ static FileCache* Instance = nullptr;
 // 0 | 1 | 2 | 3 | 4  | 5  | 6  | 7   | 8   | 9   | 10   | 11   | 12   | 13   | 14    | 15    | 16    | 17     | 18     | 19     | 20
 constexpr uint32_t MiBToByteShift = 20;
 
-CacheFileHandle::CacheFileHandle(FileBuffer* a_buffer, std::shared_mutex* a_mutex)
+CacheFileHandle::CacheFileHandle(FileBuffer* a_buffer)
 {
     m_offset = 0;
-
-    m_lock = std::shared_lock(*a_mutex);
 
     m_buffer = a_buffer;
     m_buffer->Lock.fetch_add(1);
@@ -75,6 +74,12 @@ void CacheFileHandle::Ignore(uint64_t a_size)
     const uint64_t remaining = m_buffer->Size - m_offset;
     m_offset += glm::min(remaining, a_size);
 }
+bool CacheFileHandle::EndOfFile() const
+{
+    const uint64_t remaining = m_buffer->Size - m_offset;
+
+    return remaining == 0;
+}
 
 ReadFileHandle::ReadFileHandle(FILE* a_file, uint64_t a_size)
 {
@@ -96,7 +101,7 @@ uint64_t ReadFileHandle::GetOffset() const
 }
 uint64_t ReadFileHandle::Read(void* a_data, uint64_t a_size)
 {
-    return (uint64_t)fread(a_data, (size_t)a_size, 1, m_file);
+    return (uint64_t)fread(a_data, 1, (size_t)a_size, m_file);
 }
 void ReadFileHandle::Seek(uint64_t a_offset)
 {
@@ -105,6 +110,10 @@ void ReadFileHandle::Seek(uint64_t a_offset)
 void ReadFileHandle::Ignore(uint64_t a_size)
 {
     fseek(m_file, (long)a_size, SEEK_CUR);
+}
+bool ReadFileHandle::EndOfFile() const
+{
+    return feof(m_file) != 0;
 }
 
 FileCache::FileCache(uint32_t a_sizeMiB)
@@ -143,7 +152,7 @@ static FileBuffer* GenerateFileBuffer(FILE* a_file, uint64_t a_size)
     FileBuffer* buffer = new FileBuffer();
     buffer->Size = a_size;
     buffer->Data = new uint8_t[a_size];
-    fread(buffer->Data, a_size, 1, a_file);
+    fread(buffer->Data, (size_t)a_size, 1, a_file);
     buffer->TimePoint = std::chrono::high_resolution_clock::now();
     buffer->Lock = 0;
 
@@ -163,9 +172,8 @@ FileHandle* FileCache::GenerateFileHandle(const std::filesystem::path& a_path, F
         m_allocated += a_size;
 
         m_files.emplace(a_path, buffer);
-        m_mutex.unlock();
 
-        return new CacheFileHandle(buffer, &m_mutex);
+        return new CacheFileHandle(buffer);
     }
 
     std::filesystem::path key;
@@ -179,6 +187,7 @@ FileHandle* FileCache::GenerateFileHandle(const std::filesystem::path& a_path, F
         {
             if (b == nullptr)
             {
+                key = iter.first;
                 b = buffer;
 
                 continue;
@@ -190,14 +199,12 @@ FileHandle* FileCache::GenerateFileHandle(const std::filesystem::path& a_path, F
             }
 
             key = iter.first;
-            b = iter.second;
+            b = buffer;
         }
     }
 
     if (b == nullptr)
     {
-        m_mutex.unlock();
-
         return new ReadFileHandle(a_file, a_size);
     }
 
@@ -210,12 +217,10 @@ FileHandle* FileCache::GenerateFileHandle(const std::filesystem::path& a_path, F
 
     b = GenerateFileBuffer(a_file, a_size);
 
-    m_files.emplace(key, b);
+    m_files.emplace(a_path, b);
     m_allocated += b->Size;
 
-    m_mutex.unlock();
-
-    return new CacheFileHandle(b, &m_mutex);
+    return new CacheFileHandle(b);
 }
 
 void FileCache::Update()
@@ -267,6 +272,13 @@ void FileCache::Update()
         }
     }
 
+    if (keyCount <= 0)
+    {
+        return;
+    }
+
+    TRACE("Flushing File Cache");
+
     for (uint32_t i = 0; i < keyCount; ++i)
     {
         const std::filesystem::path& key = keys[i];
@@ -282,6 +294,51 @@ void FileCache::Update()
     }
 }
 
+void FileCache::PreLoad(const std::filesystem::path& a_path)
+{
+    if (Instance == nullptr)
+    {
+        return;
+    }
+
+    {
+        const std::shared_lock g = std::shared_lock(Instance->m_mutex);
+
+        const auto iter = Instance->m_files.find(a_path);
+        if (iter != Instance->m_files.end())
+        {
+            return;
+        }
+    }
+
+    const std::unique_lock g = std::unique_lock(Instance->m_mutex);
+
+    const std::string s = a_path.string();
+    const uint64_t maxSize = Instance->m_size >> 3;
+
+    FILE* fp = fopen(s.c_str(), "rb");
+    if (fp != NULL)
+    {
+        fseek(fp, 0L, SEEK_END);
+        const uint64_t size = (uint64_t)ftell(fp);
+        rewind(fp);
+
+        if (size >= maxSize)
+        {
+            IDEFER(fclose(fp));
+
+            return;
+        }
+
+        // Not the most efficent but I am lazy
+        FileHandle* handle = Instance->GenerateFileHandle(a_path, fp, size);
+        IDEFER(delete handle);
+    }
+    else
+    {
+        IERROR("Unable to open file: " + s);
+    }
+}
 FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
 {
     if (Instance != nullptr)
@@ -292,15 +349,15 @@ FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
             const auto iter = Instance->m_files.find(a_path);
             if (iter != Instance->m_files.end())
             {
-                return new CacheFileHandle(iter->second, &Instance->m_mutex);
+                return new CacheFileHandle(iter->second);
             }
         }
         
+        const std::unique_lock g = std::unique_lock(Instance->m_mutex);
+
         const std::string s = a_path.string();
         // Do not want the whole cache taken up by a single file otherwise it eliminates the point
         const uint64_t maxSize = Instance->m_size >> 3;
-
-        Instance->m_mutex.lock();
 
         // I am aware the there is a C++ version for file handles, however been having issues on 
         // Windows so minimizing the layers of abstraction to reduce points of failure.
@@ -316,8 +373,6 @@ FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
             // If the file is massive dont bother storing it in the cache just pass it through
             if (size >= maxSize)
             {
-                Instance->m_mutex.unlock();
-
                 return new ReadFileHandle(fp, size);
             }
 
