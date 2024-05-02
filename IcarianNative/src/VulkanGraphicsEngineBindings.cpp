@@ -173,35 +173,12 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
 
                 const uint64_t size = handle->GetSize();
 
-                char* str = new char[size + 1];
+                char* str = new char[size];
                 IDEFER(delete[] str);
 
                 handle->Read(str, size);
-                str[size] = 0;
 
-                return Instance->GenerateFVertexShaderAddr(str);
-            }
-            else
-            {
-                IERROR(std::string("VertexShader failed to open: ") + str);
-            }
-        }
-        else if (ext == ".vert")
-        {
-            FileHandle* handle = FileCache::LoadFile(p);
-            if (handle != nullptr)
-            {
-                IDEFER(delete handle);
-
-                const uint64_t size = handle->GetSize();
-
-                char* str = new char[size + 1];
-                IDEFER(delete[] str);
-
-                handle->Read(str, size);
-                str[size] = 0;
-
-                return Instance->GenerateGLSLVertexShaderAddr(str);
+                return Instance->GenerateFVertexShaderAddr(std::string_view(str, size));
             }
             else
             {
@@ -251,37 +228,14 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
 
                 const uint64_t size = handle->GetSize();
 
-                char* str = new char[size + 1];
+                char* str = new char[size];
                 IDEFER(delete[] str);
 
                 handle->Read(str, size);
-                str[size] = 0;
 
-                return Instance->GenerateFPixelShaderAddr(str);
+                return Instance->GenerateFPixelShaderAddr(std::string_view(str, size));
             }
             else 
-            {
-                IERROR(std::string("PixelShader failed to open: ") + str);
-            }
-        }
-        else if (ext == ".pix" || ext == ".frag")
-        {
-            FileHandle* handle = FileCache::LoadFile(p);
-            if (handle != nullptr)
-            {
-                IDEFER(delete handle);
-
-                const uint64_t size = handle->GetSize();
-
-                char* str = new char[size + 1];
-                IDEFER(delete[] str);
-
-                handle->Read(str, size);
-                str[size] = 0;
-
-                return Instance->GenerateGLSLPixelShaderAddr(str);
-            }
-            else
             {
                 IERROR(std::string("PixelShader failed to open: ") + str);
             }
@@ -364,28 +318,6 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
         }
     }
 
-    if (a_shaderInputs != NULL)
-    {
-        program.ShaderBufferInputCount = (uint16_t)mono_array_length(a_shaderInputs);
-        program.ShaderBufferInputs = new ShaderBufferInput[program.ShaderBufferInputCount];
-
-        for (uint32_t i = 0; i < program.ShaderBufferInputCount; ++i)
-        {
-            program.ShaderBufferInputs[i] = mono_array_get(a_shaderInputs, ShaderBufferInput, i);
-        }
-    }
-
-    if (a_shadowShaderInputs != NULL)
-    {
-        program.ShadowShaderBufferInputCount = (uint16_t)mono_array_length(a_shadowShaderInputs);
-        program.ShadowShaderBufferInputs = new ShaderBufferInput[program.ShadowShaderBufferInputCount];
-
-        for (uint32_t i = 0; i < program.ShadowShaderBufferInputCount; ++i)
-        {
-            program.ShadowShaderBufferInputs[i] = mono_array_get(a_shadowShaderInputs, ShaderBufferInput, i);
-        }
-    }
-
     if (a_uboData != NULL)
     {
         program.UBODataSize = a_uboSize;
@@ -395,27 +327,15 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
     }
 
     return Instance->GenerateShaderProgram(program);
-}, uint32_t a_vertexShader, uint32_t a_pixelShader, uint16_t a_vertexStride, MonoArray* a_vertexInputAttribs, MonoArray* a_shaderInputs, uint32_t a_cullMode, uint32_t a_primitiveMode, uint32_t a_colorBlendMode, uint32_t a_renderLayer, uint32_t a_shadowVertexShader, MonoArray* a_shadowShaderInputs, uint32_t a_uboSize, void* a_uboData)
+}, uint32_t a_vertexShader, uint32_t a_pixelShader, uint16_t a_vertexStride, MonoArray* a_vertexInputAttribs, uint32_t a_cullMode, uint32_t a_primitiveMode, uint32_t a_colorBlendMode, uint32_t a_renderLayer, uint32_t a_shadowVertexShader, uint32_t a_uboSize, void* a_uboData)
 RUNTIME_FUNCTION(void, Material, DestroyProgram, 
 {
     const RenderProgram program = Instance->GetRenderProgram(a_addr);
 
     IDEFER(
+    if (program.VertexAttributes != nullptr)
     {
-        if (program.VertexAttributes != nullptr)
-        {
-            delete[] program.VertexAttributes;
-        }
-        
-        if (program.ShaderBufferInputs != nullptr)
-        {
-            delete[] program.ShaderBufferInputs;
-        }
-
-        if (program.ShadowShaderBufferInputs != nullptr)
-        {
-            delete[] program.ShadowShaderBufferInputs;
-        }
+        delete[] program.VertexAttributes;
     });
 
     Instance->DestroyShaderProgram(a_addr);
@@ -534,10 +454,6 @@ uint32_t VulkanGraphicsEngineBindings::GenerateFVertexShaderAddr(const std::stri
 {
     return m_graphicsEngine->GenerateFVertexShader(a_str);
 }
-uint32_t VulkanGraphicsEngineBindings::GenerateGLSLVertexShaderAddr(const std::string_view& a_str) const
-{
-    return m_graphicsEngine->GenerateGLSLVertexShader(a_str);
-}
 void VulkanGraphicsEngineBindings::DestroyVertexShader(uint32_t a_addr) const
 {
     m_graphicsEngine->DestroyVertexShader(a_addr);
@@ -546,10 +462,6 @@ void VulkanGraphicsEngineBindings::DestroyVertexShader(uint32_t a_addr) const
 uint32_t VulkanGraphicsEngineBindings::GenerateFPixelShaderAddr(const std::string_view& a_str) const
 {
     return m_graphicsEngine->GenerateFPixelShader(a_str);
-}
-uint32_t VulkanGraphicsEngineBindings::GenerateGLSLPixelShaderAddr(const std::string_view& a_str) const
-{
-    return m_graphicsEngine->GenerateGLSLPixelShader(a_str);
 }
 void VulkanGraphicsEngineBindings::DestroyPixelShader(uint32_t a_addr) const
 {
@@ -571,15 +483,11 @@ void VulkanGraphicsEngineBindings::RenderProgramSetTexture(uint32_t a_addr, uint
 
     TLockArray<RenderProgram> a = m_graphicsEngine->m_shaderPrograms.ToLockArray();
 
-    const RenderProgram program = a[a_addr];
-
-    ICARIAN_ASSERT_MSG(program.Data != nullptr, "RenderProgramSetTexture invalid program");
+    const RenderProgram& program = a[a_addr];
+    IVERIFY(program.Data != nullptr);
 
     VulkanShaderData* data = (VulkanShaderData*)program.Data;
-
-    TReadLockArray<TextureSamplerBuffer> b = m_graphicsEngine->m_textureSampler.ToReadLockArray();
-
-    data->SetTexture(a_shaderSlot, b[a_samplerAddr]);
+    data->SetTexture(a_shaderSlot, a_samplerAddr);
 }
 void VulkanGraphicsEngineBindings::RenderProgramSetUserUBO(uint32_t a_addr, uint32_t a_uboSize, const void* a_uboData) const
 {

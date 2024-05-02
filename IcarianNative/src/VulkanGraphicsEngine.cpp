@@ -8,13 +8,13 @@
 
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "Core/ShaderBuffers.h"
 #include "Logger.h"
 #include "ObjectManager.h"
 #include "Profiler.h"
 #include "Rendering/AnimationController.h"
 #include "Rendering/RenderAssetStore.h"
 #include "Rendering/RenderEngine.h"
-#include "Rendering/ShaderBuffers.h"
 #include "Rendering/UI/ImageUIElement.h"
 #include "Rendering/UI/TextUIElement.h"
 #include "Rendering/UI/UIControl.h"
@@ -66,51 +66,33 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     m_postLightFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostLightS(uint,uint)");
     m_postProcessFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostProcessS(uint)"); 
 
-    RenderProgram textProgram;
-    memset(&textProgram, 0, sizeof(RenderProgram));
-    textProgram.VertexShader = GenerateFVertexShader(UIVertexShader);
-    textProgram.PixelShader = GenerateFPixelShader(UITextPixelShader);
-    textProgram.ShadowVertexShader = -1;
-    textProgram.ShaderBufferInputCount = 2;
-    textProgram.ShaderBufferInputs = new ShaderBufferInput[2];
-    textProgram.ShaderBufferInputs[0].Slot = -1;
-    textProgram.ShaderBufferInputs[0].BufferType = ShaderBufferType_PUIBuffer;
-    textProgram.ShaderBufferInputs[0].ShaderSlot = ShaderSlot_Pixel;
-    textProgram.ShaderBufferInputs[0].Set = -1;
-    textProgram.ShaderBufferInputs[1].Slot = 0;
-    textProgram.ShaderBufferInputs[1].BufferType = ShaderBufferType_PushTexture;
-    textProgram.ShaderBufferInputs[1].ShaderSlot = ShaderSlot_Pixel;
-    textProgram.ShaderBufferInputs[1].Set = 0;
-    textProgram.ColorBlendMode = MaterialBlendMode_Alpha;
-    textProgram.CullingMode = CullMode_None;
-    textProgram.PrimitiveMode = PrimitiveMode_TriangleStrip;
-    textProgram.Flags |= 0b1 << RenderProgram::DestroyFlag;
+    const RenderProgram textProgram = 
+    {
+        .VertexShader = GenerateFVertexShader(UIVertexShader),
+        .PixelShader = GenerateFPixelShader(UITextPixelShader),
+        .ShadowVertexShader = uint32_t(-1),
+        .ColorBlendMode = MaterialBlendMode_Alpha,
+        .CullingMode = CullMode_None,
+        .PrimitiveMode = PrimitiveMode_TriangleStrip,
+        .Flags = 0b1 << RenderProgram::DestroyFlag
+    };
 
     m_textUIPipelineAddr = GenerateRenderProgram(textProgram);
 
-    RenderProgram imageProgram;
-    memset(&imageProgram, 0, sizeof(RenderProgram));
-    imageProgram.VertexShader = GenerateFVertexShader(UIVertexShader);
-    imageProgram.PixelShader = GenerateFPixelShader(UIImagePixelShader);
-    imageProgram.ShadowVertexShader = -1;
-    imageProgram.ShaderBufferInputCount = 2;
-    imageProgram.ShaderBufferInputs = new ShaderBufferInput[2];
-    imageProgram.ShaderBufferInputs[0].Slot = -1;
-    imageProgram.ShaderBufferInputs[0].BufferType = ShaderBufferType_PUIBuffer;
-    imageProgram.ShaderBufferInputs[0].ShaderSlot = ShaderSlot_Pixel;
-    imageProgram.ShaderBufferInputs[0].Set = -1;
-    imageProgram.ShaderBufferInputs[1].Slot = 0;
-    imageProgram.ShaderBufferInputs[1].BufferType = ShaderBufferType_PushTexture;
-    imageProgram.ShaderBufferInputs[1].ShaderSlot = ShaderSlot_Pixel;
-    imageProgram.ShaderBufferInputs[1].Set = 0;
-    imageProgram.ColorBlendMode = MaterialBlendMode_Alpha;
-    imageProgram.CullingMode = CullMode_None;
-    imageProgram.PrimitiveMode = PrimitiveMode_TriangleStrip;
-    imageProgram.Flags |= 0b1 << RenderProgram::DestroyFlag;
+    const RenderProgram imageProgram = 
+    {
+        .VertexShader = GenerateFVertexShader(UIVertexShader),
+        .PixelShader = GenerateFPixelShader(UIImagePixelShader),
+        .ShadowVertexShader = uint32_t(-1),
+        .ColorBlendMode = MaterialBlendMode_Alpha,
+        .CullingMode = CullMode_None,
+        .PrimitiveMode = PrimitiveMode_TriangleStrip,
+        .Flags = 0b1 << RenderProgram::DestroyFlag
+    };
 
     m_imageUIPipelineAddr = GenerateRenderProgram(imageProgram);
 
-    m_timeUniform = new VulkanUniformBuffer(m_vulkanEngine, sizeof(TimeShaderBuffer));
+    m_timeUniform = new VulkanUniformBuffer(m_vulkanEngine, sizeof(IcarianCore::ShaderTimeBuffer));
 }
 VulkanGraphicsEngine::~VulkanGraphicsEngine()
 {
@@ -189,30 +171,16 @@ void VulkanGraphicsEngine::Cleanup()
 
     const RenderProgram textProgram = m_shaderPrograms[m_textUIPipelineAddr];
     IDEFER(
+    if (textProgram.VertexAttributes != nullptr)
     {
-        if (textProgram.VertexAttributes != nullptr)
-        {
-            delete[] textProgram.VertexAttributes;
-        }
-
-        if (textProgram.ShaderBufferInputs != nullptr)
-        {
-            delete[] textProgram.ShaderBufferInputs;
-        }
+        delete[] textProgram.VertexAttributes;
     });
 
     const RenderProgram imageProgram = m_shaderPrograms[m_imageUIPipelineAddr];
     IDEFER(
+    if (imageProgram.VertexAttributes != nullptr)
     {
-        if (imageProgram.VertexAttributes != nullptr)
-        {
-            delete[] imageProgram.VertexAttributes;
-        }
-
-        if (imageProgram.ShaderBufferInputs != nullptr)
-        {
-            delete[] imageProgram.ShaderBufferInputs;
-        }
+        delete[] imageProgram.VertexAttributes;
     });
 
     DestroyRenderProgram(m_textUIPipelineAddr);
@@ -322,14 +290,6 @@ void VulkanGraphicsEngine::Cleanup()
     }
 }
 
-uint32_t VulkanGraphicsEngine::GenerateGLSLVertexShader(const std::string_view& a_source)
-{
-    ICARIAN_ASSERT_MSG(!a_source.empty(), "GenerateGLSLVertexShader source is empty");
-
-    VulkanVertexShader* shader = VulkanVertexShader::CreateFromGLSL(m_vulkanEngine, a_source);
-
-    return m_vertexShaders.PushVal(shader);
-}
 uint32_t VulkanGraphicsEngine::GenerateFVertexShader(const std::string_view& a_source)
 {
     ICARIAN_ASSERT_MSG(!a_source.empty(), "GenerateFVertexShader source is empty");
@@ -354,14 +314,6 @@ uint32_t VulkanGraphicsEngine::GenerateFPixelShader(const std::string_view& a_so
     ICARIAN_ASSERT_MSG(!a_source.empty(), "GenerateFPixelShader source is empty");
 
     VulkanPixelShader* shader = VulkanPixelShader::CreateFromFShader(m_vulkanEngine, a_source);
-
-    return m_pixelShaders.PushVal(shader);
-}
-uint32_t VulkanGraphicsEngine::GenerateGLSLPixelShader(const std::string_view& a_source)
-{
-    ICARIAN_ASSERT_MSG(!a_source.empty(), "GenerateGLSLPixelShader source is empty");
-
-    VulkanPixelShader* shader = VulkanPixelShader::CreateFromGLSL(m_vulkanEngine, a_source);
 
     return m_pixelShaders.PushVal(shader);
 }
@@ -439,13 +391,13 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
     {
         const std::unique_lock g = std::unique_lock(m_pipeLock);
         
-        std::vector<uint64_t> keys;
+        Array<uint64_t> keys;
         for (auto iter = m_pipelines.begin(); iter != m_pipelines.end(); ++iter)
         {
             const uint32_t val = (uint32_t)(iter->first >> 32);
             if (val == a_addr)
             {
-                keys.emplace_back(iter->first);
+                keys.Push(iter->first);
             }
         }
 
@@ -463,13 +415,13 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
         {
             const std::unique_lock g = std::unique_lock(m_shadowPipeLock);
 
-            std::vector<uint64_t> keys;
+            Array<uint64_t> keys;
             for (auto iter = m_shadowPipelines.begin(); iter != m_shadowPipelines.end(); ++iter)
             {
                 const uint32_t val = (uint32_t)(iter->first >> 32);
                 if (val == a_addr)
                 {
-                    keys.emplace_back(iter->first);
+                    keys.Push(iter->first);
                 }
             }
 
@@ -485,13 +437,13 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
         {
             const std::unique_lock g = std::unique_lock(m_cubeShadowPipeLock);
 
-            std::vector<uint64_t> keys;
+            Array<uint64_t> keys;
             for (auto iter = m_cubeShadowPipelines.begin(); iter != m_cubeShadowPipelines.end(); ++iter)
             {
                 const uint32_t val = (uint32_t)(iter->first >> 32);
                 if (val == a_addr)
                 {
-                    keys.emplace_back(iter->first);
+                    keys.Push(iter->first);
                 }
             }
 
@@ -642,14 +594,16 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                 {
                     shadowLightBuffer = pushPool->AllocateShadowUniformBuffer();
 
-                    ShadowLightShaderBuffer buffer;
-                    buffer.LVP = a_lvp;
-                    buffer.Split = a_split;
+                    const IcarianCore::ShaderShadowLightBuffer buffer =
+                    {
+                        .LVP = a_lvp,
+                        .Split = a_split
+                    };
 
                     shadowLightBuffer->SetData(a_index, &buffer);
                 }
 
-                shaderData->PushShadowUniformBuffer(a_commandBuffer, shadowLightInput.Set, shadowLightBuffer, a_index);
+                shaderData->PushShadowUniformBuffer(a_commandBuffer, shadowLightInput.Slot, shadowLightBuffer, a_index);
             } 
             else 
             {
@@ -727,7 +681,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                         ShaderBufferInput modelSlot;
                         if (shaderData->GetShadowShaderBufferInput(ShaderBufferType_SSModelBuffer, &modelSlot)) 
                         {
-                            ModelShaderBuffer* modelBuffer = new ModelShaderBuffer[finalTransformCount];
+                            IcarianCore::ShaderModelBuffer* modelBuffer = new IcarianCore::ShaderModelBuffer[finalTransformCount];
                             IDEFER(delete[] modelBuffer);
 
                             for (uint32_t j = 0; j < finalTransformCount; ++j) 
@@ -738,10 +692,10 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                                 modelBuffer[j].InvModel = glm::inverse(mat);
                             }
 
-                            VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(ModelShaderBuffer) * finalTransformCount, finalTransformCount, modelBuffer);
+                            const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderModelBuffer) * finalTransformCount, finalTransformCount, modelBuffer);
                             IDEFER(delete storage);
 
-                            shaderData->PushShadowShaderStorageObject(a_commandBuffer, modelSlot.Set, storage, a_index);
+                            shaderData->PushShadowShaderStorageObject(a_commandBuffer, modelSlot.Slot, storage, a_index);
 
                             a_commandBuffer.drawIndexed(indexCount, finalTransformCount, 0, 0, 0);
                         } 
@@ -830,7 +784,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                                 boneMap.emplace(skeleton.BoneData[i].TransformIndex, i);
                             }
 
-                            BoneShaderBuffer* boneBuffer = new BoneShaderBuffer[boneCount];
+                            IcarianCore::ShaderBoneBuffer* boneBuffer = new IcarianCore::ShaderBoneBuffer[boneCount];
                             IDEFER(delete[] boneBuffer);
 
                             for (uint32_t k = 0; k < boneCount; ++k) 
@@ -856,10 +810,10 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                                 boneBuffer[k].BoneMatrix = transform * bone.InverseBindPose;
                             }
 
-                            const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(BoneShaderBuffer) * boneCount, boneCount, boneBuffer);
+                            const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderBoneBuffer) * boneCount, boneCount, boneBuffer);
                             IDEFER(delete storage);
 
-                            shaderData->PushShaderStorageObject(a_commandBuffer, boneSlot.Set, storage, a_index);
+                            shaderData->PushShaderStorageObject(a_commandBuffer, boneSlot.Slot, storage, a_index);
                         }
 
                         shaderData->UpdateTransformBuffer(a_commandBuffer, transform);
@@ -908,9 +862,9 @@ vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camInde
         m_shadowSetupFunc->Exec(shadowSetupArgs);
     }
 
-    const std::vector<DirectionalLightBuffer> lights = m_directionalLights.ToVector();
-    const std::vector<bool> state = m_directionalLights.ToStateVector();
-    const uint32_t size = (uint32_t)lights.size();
+    const Array<DirectionalLightBuffer> lights = m_directionalLights.ToArray();
+    const Array<bool> state = m_directionalLights.ToStateArray();
+    const uint32_t size = lights.Size();
 
     for (uint32_t i = 0; i < size; ++i)
     {
@@ -1036,7 +990,7 @@ vk::CommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uin
 
     const Frustum cameraFrustum = camBuffer.ToFrustum((glm::vec2)m_swapchain->GetSize());
 
-    const std::vector<PointLightBuffer> lights = m_pointLights.ToActiveVector();
+    const Array<PointLightBuffer> lights = m_pointLights.ToActiveArray();
 
     for (const PointLightBuffer& buffer : lights)
     {
@@ -1167,9 +1121,9 @@ vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint
 
     const Frustum cameraFrustum = camBuffer.ToFrustum((glm::vec2)m_swapchain->GetSize());
 
-    const std::vector<SpotLightBuffer> lights = m_spotLights.ToVector();
-    const std::vector<bool> state = m_spotLights.ToStateVector();
-    const uint32_t size = (uint32_t)lights.size();
+    const Array<SpotLightBuffer> lights = m_spotLights.ToArray();
+    const Array<bool> state = m_spotLights.ToStateArray();
+    const uint32_t size = lights.Size();
 
     for (uint32_t i = 0; i < size; ++i)
     {
@@ -1304,9 +1258,9 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
         if (camBuffer.RenderLayer & program.RenderLayer)
         {
             const VulkanPipeline* pipeline = renderCommand.BindMaterial(matAddr);
-            ICARIAN_ASSERT(pipeline != nullptr);
+            IVERIFY(pipeline != nullptr);
             const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
-            ICARIAN_ASSERT(shaderData != nullptr);
+            IVERIFY(shaderData != nullptr);
 
             const uint32_t modelCount = renderStack->GetModelBufferCount();
             const ModelBuffer* modelBuffers = renderStack->GetModelBuffers();
@@ -1323,13 +1277,13 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                     const float radius = model->GetRadius();
                     const uint32_t indexCount = model->GetIndexCount();
 
-                    std::vector<glm::mat4> transforms;
-                    transforms.reserve(modelBuffer.TransformCount);
+                    glm::mat4* transforms = new glm::mat4[modelBuffer.TransformCount];
+                    IDEFER(delete[] transforms);
+                    uint32_t transformCount = 0;
 
-                    const uint32_t transformCount = modelBuffer.TransformCount;
                     {
                         PROFILESTACK("Culling");
-                        for (uint32_t j = 0; j < transformCount; ++j)
+                        for (uint32_t j = 0; j < modelBuffer.TransformCount; ++j)
                         {
                             const uint32_t transformAddr = modelBuffer.TransformAddr[j];
                             if (transformAddr != -1)
@@ -1339,13 +1293,13 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
 
                                 if (frustum.CompareSphere(position, radius))
                                 {
-                                    transforms.emplace_back(transform);
+                                    transforms[transformCount++] = transform;
                                 }
                             }
                         }
                     }
 
-                    if (!transforms.empty())
+                    if (transformCount != 0)
                     {
                         PROFILESTACK("Draw");
 
@@ -1354,12 +1308,10 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                         ShaderBufferInput modelSlot;
                         if (shaderData->GetShaderBufferInput(ShaderBufferType_SSModelBuffer, &modelSlot))
                         {
-                            const uint32_t count = (uint32_t)transforms.size();
-
-                            ModelShaderBuffer* modelBuffer = new ModelShaderBuffer[count];
+                            IcarianCore::ShaderModelBuffer* modelBuffer = new IcarianCore::ShaderModelBuffer[transformCount];
                             IDEFER(delete[] modelBuffer);
 
-                            for (uint32_t j = 0; j < count; ++j)
+                            for (uint32_t j = 0; j < transformCount; ++j)
                             {
                                 const glm::mat4& mat = transforms[j];
 
@@ -1367,18 +1319,18 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                 modelBuffer[j].InvModel = glm::inverse(mat);
                             }
 
-                            VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(ModelShaderBuffer) * count, count, modelBuffer);
+                            const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderModelBuffer) * transformCount, transformCount, modelBuffer);
                             IDEFER(delete storage);
 
-                            shaderData->PushShaderStorageObject(commandBuffer, modelSlot.Set, storage, a_index);
+                            shaderData->PushShaderStorageObject(commandBuffer, modelSlot.Slot, storage, a_index);
 
-                            commandBuffer.drawIndexed(indexCount, count, 0, 0, 0);
+                            commandBuffer.drawIndexed(indexCount, transformCount, 0, 0, 0);
                         }
                         else 
                         {
-                            for (const glm::mat4& mat : transforms)
+                            for (uint32_t i = 0; i < transformCount; ++i)
                             {
-                                shaderData->UpdateTransformBuffer(commandBuffer, mat);
+                                shaderData->UpdateTransformBuffer(commandBuffer, transforms[i]);
 
                                 commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
                             }
@@ -1435,7 +1387,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                             boneMap.emplace(skeleton.BoneData[i].TransformIndex, i);
                                         }
 
-                                        BoneShaderBuffer* boneBuffer = new BoneShaderBuffer[boneCount];
+                                        IcarianCore::ShaderBoneBuffer* boneBuffer = new IcarianCore::ShaderBoneBuffer[boneCount];
                                         IDEFER(delete[] boneBuffer);
 
                                         for (uint32_t k = 0; k < boneCount; ++k)
@@ -1462,10 +1414,10 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                             boneBuffer[k].BoneMatrix = transform * bone.InverseBindPose;
                                         }
 
-                                        const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(BoneShaderBuffer) * boneCount, boneCount, boneBuffer);
+                                        const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderBoneBuffer) * boneCount, boneCount, boneBuffer);
                                         IDEFER(delete storage);
 
-                                        shaderData->PushShaderStorageObject(commandBuffer, boneSlot.Set, storage, a_index);
+                                        shaderData->PushShaderStorageObject(commandBuffer, boneSlot.Slot, storage, a_index);
                                     }      
 
                                     shaderData->UpdateTransformBuffer(commandBuffer, transform);
@@ -1483,7 +1435,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
     // Temporary until I get a forward render pass
     {
         const uint32_t renderTextureAddr = renderCommand.GetRenderTexutreAddr();
-        const std::vector<VulkanGraphicsParticle2D*> particleSystems = m_particleEmitters.ToActiveVector();
+        const Array<VulkanGraphicsParticle2D*> particleSystems = m_particleEmitters.ToActiveArray();
 
         for (VulkanGraphicsParticle2D* pSys : particleSystems)
         {
@@ -1550,9 +1502,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             PROFILESTACK("S Dir Light");
 
-            const std::vector<DirectionalLightBuffer> lights = m_directionalLights.ToVector();
-            const std::vector<bool> state = m_directionalLights.ToStateVector();
-            const uint32_t size = (uint32_t)lights.size();
+            const Array<DirectionalLightBuffer> lights = m_directionalLights.ToArray();
+            const Array<bool> state = m_directionalLights.ToStateArray();
+            const uint32_t size = lights.Size();
 
             for (uint32_t j = 0; j < size; ++j)
             {
@@ -1608,13 +1560,15 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                     const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
                     const glm::vec3 forward = glm::normalize(tMat[2].xyz());
 
-                    DirectionalLightShaderBuffer shaderBuffer;
-                    shaderBuffer.LightDir = glm::vec4(forward, buffer.Intensity);
-                    shaderBuffer.LightColor = buffer.Color;
+                    const IcarianCore::ShaderDirectionalLightBuffer shaderBuffer = 
+                    {
+                        .LightDir = glm::vec4(forward, buffer.Intensity),
+                        .LightColor = buffer.Color
+                    };
 
                     uniformBuffer->SetData(a_index, &shaderBuffer);
 
-                    data->PushUniformBuffer(commandBuffer, dirLightInput.Set, uniformBuffer, a_index);
+                    data->PushUniformBuffer(commandBuffer, dirLightInput.Slot, uniformBuffer, a_index);
                 }
 
                 const uint32_t count = lightBuffer->LightRenderTextureCount;
@@ -1622,7 +1576,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                 ShaderBufferInput shadowLightInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_SSShadowLightBuffer, &shadowLightInput))
                 {
-                    ShadowLightShaderBuffer* shadowLightBuffer = new ShadowLightShaderBuffer[count];
+                    IcarianCore::ShaderShadowLightBuffer* shadowLightBuffer = new IcarianCore::ShaderShadowLightBuffer[count];
                     IDEFER(delete[] shadowLightBuffer);
 
                     for (uint32_t k = 0; k < count; ++k)
@@ -1634,10 +1588,10 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                         shadowLightBuffer[k].Split = splits[k];
                     }
 
-                    VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(ShadowLightShaderBuffer) * count, count, shadowLightBuffer);
+                    const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderShadowLightBuffer) * count, count, shadowLightBuffer);
                     IDEFER(delete storage);
 
-                    data->PushShaderStorageObject(commandBuffer, shadowLightInput.Set, storage, a_index);
+                    data->PushShaderStorageObject(commandBuffer, shadowLightInput.Slot, storage, a_index);
                 }
 
                 ShaderBufferInput shadowTextureInput;
@@ -1666,7 +1620,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                         buffer[k].Data = VulkanTextureSampler::GenerateFromBuffer(m_vulkanEngine, this, buffer[k]);
                     }
 
-                    data->PushTextures(commandBuffer, shadowTextureInput.Set, buffer, count, a_index);
+                    data->PushTextures(commandBuffer, shadowTextureInput.Slot, buffer, count, a_index);
                 }
 
                 commandBuffer.draw(4, 1, 0, 0);
@@ -1678,9 +1632,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             PROFILESTACK("S Point Light");
 
-            const std::vector<PointLightBuffer> lights = m_pointLights.ToVector();
-            const std::vector<bool> state = m_pointLights.ToStateVector();
-            const uint32_t size = (uint32_t)lights.size();
+            const Array<PointLightBuffer> lights = m_pointLights.ToArray();
+            const Array<bool> state = m_pointLights.ToStateArray();
+            const uint32_t size = lights.Size();
 
             for (uint32_t j = 0; j < size; ++j)
             {
@@ -1736,30 +1690,33 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                 {
                     VulkanUniformBuffer* uniformBuffer = pushPool->AllocatePointLightUniformBuffer();
 
-                    PointLightShaderBuffer shaderBuffer;
-                    shaderBuffer.LightPos = glm::vec4(position, buffer.Intensity);
-                    shaderBuffer.LightColor = buffer.Color;
-                    shaderBuffer.Radius = buffer.Radius;
+                    const IcarianCore::ShaderPointLightBuffer shaderBuffer =
+                    {
+                        .LightPos = glm::vec4(position, buffer.Intensity),
+                        .LightColor = buffer.Color,
+                        .Radius = buffer.Radius,
+                    };
 
                     uniformBuffer->SetData(a_index, &shaderBuffer);
 
-                    data->PushUniformBuffer(commandBuffer, pointLightInput.Set, uniformBuffer, a_index);
+                    data->PushUniformBuffer(commandBuffer, pointLightInput.Slot, uniformBuffer, a_index);
                 }
 
                 ShaderBufferInput shadowTextureInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_ShadowTextureCube, &shadowTextureInput))
                 {
-                    TextureSamplerBuffer buffer;
-                    
-                    buffer.Addr = lightBuffer->LightRenderTextures[0];
-                    buffer.Slot = 0;
-                    buffer.TextureMode = TextureMode_DepthCubeRenderTexture;
-                    buffer.FilterMode = TextureFilter_Linear;
-                    buffer.AddressMode = TextureAddress_ClampToEdge;
-                    buffer.Data = VulkanTextureSampler::GenerateFromBuffer(m_vulkanEngine, this, buffer);
+                    const TextureSamplerBuffer buffer =
+                    {
+                        .Addr = lightBuffer->LightRenderTextures[0],
+                        .Slot = 0,
+                        .TextureMode = TextureMode_DepthCubeRenderTexture,
+                        .FilterMode = TextureFilter_Linear,
+                        .AddressMode = TextureAddress_ClampToEdge,
+                        .Data = VulkanTextureSampler::GenerateFromBuffer(m_vulkanEngine, this, buffer)
+                    };
                     IDEFER(delete (VulkanTextureSampler*)buffer.Data);
 
-                    data->PushTexture(commandBuffer, shadowTextureInput.Set, buffer, a_index);
+                    data->PushTexture(commandBuffer, shadowTextureInput.Slot, buffer, a_index);
                 }
                 
                 commandBuffer.draw(4, 1, 0, 0);
@@ -1771,9 +1728,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             PROFILESTACK("S Spot Light");
 
-            const std::vector<SpotLightBuffer> lights = m_spotLights.ToVector();
-            const std::vector<bool> state = m_spotLights.ToStateVector();
-            const uint32_t size = (uint32_t)lights.size();
+            const Array<SpotLightBuffer> lights = m_spotLights.ToArray();
+            const Array<bool> state = m_spotLights.ToStateArray();
+            const uint32_t size = lights.Size();
 
             for (uint32_t j = 0; j < size; ++j)
             {
@@ -1831,31 +1788,34 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                     const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
                     const glm::vec3 forward = glm::normalize(tMat[2].xyz());
 
-                    SpotLightShaderBuffer shaderBuffer;
-                    shaderBuffer.LightPos = position;
-                    shaderBuffer.LightDir = glm::vec4(forward, buffer.Intensity);
-                    shaderBuffer.LightColor = buffer.Color;
-                    shaderBuffer.CutoffAngle = glm::vec3(buffer.CutoffAngle, buffer.Radius);
+                    const IcarianCore::ShaderSpotLightBuffer shaderBuffer =
+                    {
+                        .LightPos = position,
+                        .LightDir = glm::vec4(forward, buffer.Intensity),
+                        .LightColor = buffer.Color,
+                        .CutoffAngle = glm::vec3(buffer.CutoffAngle, buffer.Radius)
+                    };
 
                     uniformBuffer->SetData(a_index, &shaderBuffer);
 
-                    data->PushUniformBuffer(commandBuffer, spotLightInput.Set, uniformBuffer, a_index);
+                    data->PushUniformBuffer(commandBuffer, spotLightInput.Slot, uniformBuffer, a_index);
                 }
 
                 ShaderBufferInput shadowTextureInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_ShadowTexture2D, &shadowTextureInput))
                 {
-                    TextureSamplerBuffer buffer;
-
-                    buffer.Addr = lightBuffer->LightRenderTextures[0];
-                    buffer.Slot = 0;
-                    buffer.TextureMode = TextureMode_DepthRenderTexture;
-                    buffer.FilterMode = TextureFilter_Linear;
-                    buffer.AddressMode = TextureAddress_ClampToEdge;
-                    buffer.Data = VulkanTextureSampler::GenerateFromBuffer(m_vulkanEngine, this, buffer);
+                    const TextureSamplerBuffer buffer =
+                    {
+                        .Addr = lightBuffer->LightRenderTextures[0],
+                        .Slot = 0,
+                        .TextureMode = TextureMode_DepthRenderTexture,
+                        .FilterMode = TextureFilter_Linear,
+                        .AddressMode = TextureAddress_ClampToEdge,
+                        .Data = VulkanTextureSampler::GenerateFromBuffer(m_vulkanEngine, this, buffer)
+                    };
                     IDEFER(delete (VulkanTextureSampler*)buffer.Data);
 
-                    data->PushTexture(commandBuffer, shadowTextureInput.Set, buffer, a_index);
+                    data->PushTexture(commandBuffer, shadowTextureInput.Slot, buffer, a_index);
                 }
 
                 ShaderBufferInput shadowBufferInput;
@@ -1863,13 +1823,15 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                 {
                     VulkanUniformBuffer* uniformBuffer = pushPool->AllocateShadowUniformBuffer();
 
-                    ShadowLightShaderBuffer shaderBuffer;
-                    shaderBuffer.LVP = lvp[0];
-                    shaderBuffer.Split = buffer.Radius;
+                    const IcarianCore::ShaderShadowLightBuffer shaderBuffer =
+                    {
+                        .LVP = lvp[0],
+                        .Split = buffer.Radius
+                    };
 
                     uniformBuffer->SetData(a_index, &shaderBuffer);
 
-                    data->PushUniformBuffer(commandBuffer, shadowBufferInput.Set, uniformBuffer, a_index);
+                    data->PushUniformBuffer(commandBuffer, shadowBufferInput.Slot, uniformBuffer, a_index);
                 }
 
                 commandBuffer.draw(4, 1, 0, 0);
@@ -1909,8 +1871,8 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             PROFILESTACK("Ambient Light");
 
-            const std::vector<AmbientLightBuffer> lights = m_ambientLights.ToActiveVector();
-            const uint32_t size = (uint32_t)lights.size();
+            const Array<AmbientLightBuffer> lights = m_ambientLights.ToActiveArray();
+            const uint32_t size = (uint32_t)lights.Size();
 
             ShaderBufferInput ambientLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_AmbientLightBuffer, &ambientLightInput))
@@ -1921,13 +1883,14 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                     {
                         VulkanUniformBuffer* uniformBuffer = pushPool->AllocateAmbientLightUniformBuffer();
 
-                        AmbientLightShaderBuffer buffer;
-                        buffer.LightColor = ambientLight.Color;
-                        buffer.LightColor.w = ambientLight.Intensity;
+                        const IcarianCore::ShaderAmbientLightBuffer buffer =
+                        {
+                            .LightColor = glm::vec4(ambientLight.Color.xyz(), ambientLight.Intensity)
+                        };
 
                         uniformBuffer->SetData(a_index, &buffer);
 
-                        data->PushUniformBuffer(commandBuffer, ambientLightInput.Set, uniformBuffer, a_index);
+                        data->PushUniformBuffer(commandBuffer, ambientLightInput.Slot, uniformBuffer, a_index);
 
                         commandBuffer.draw(4, 1, 0, 0);
                     }
@@ -1935,29 +1898,24 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSAmbientLightBuffer, &ambientLightInput))
             {
-                std::vector<AmbientLightShaderBuffer> buffers;
-                buffers.reserve(size);
+                IcarianCore::ShaderAmbientLightBuffer* buffers = new IcarianCore::ShaderAmbientLightBuffer[size];
+                IDEFER(delete[] buffers);
+                uint32_t count = 0;
 
                 for (const AmbientLightBuffer& ambientLight : lights)
                 {
                     if (camBuffer.RenderLayer & ambientLight.RenderLayer && ambientLight.Intensity > 0.0f)
                     {
-                        AmbientLightShaderBuffer buffer;
-                        buffer.LightColor = ambientLight.Color;
-                        buffer.LightColor.w = ambientLight.Intensity;
-
-                        buffers.emplace_back(buffer);
+                        buffers[count++].LightColor = glm::vec4(ambientLight.Color.xyz(), ambientLight.Intensity);
                     }
                 }
 
-                if (!buffers.empty())
+                if (count > 0)
                 {
-                    const uint32_t count = (uint32_t)buffers.size();
-
-                    VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(AmbientLightShaderBuffer) * count, count, buffers.data());
+                    const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderAmbientLightBuffer) * count, count, buffers);
                     IDEFER(delete storage);
 
-                    data->PushShaderStorageObject(commandBuffer, ambientLightInput.Set, storage, a_index);
+                    data->PushShaderStorageObject(commandBuffer, ambientLightInput.Slot, storage, a_index);
 
                     commandBuffer.draw(4, 1, 0, 0);
                 }
@@ -1969,7 +1927,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             PROFILESTACK("Dir Light");
 
-            const std::vector<DirectionalLightBuffer> lights = m_directionalLights.ToActiveVector();
+            const Array<DirectionalLightBuffer> lights = m_directionalLights.ToActiveArray();
 
             ShaderBufferInput dirLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_DirectionalLightBuffer, &dirLightInput))
@@ -1992,13 +1950,15 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                         const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(dirLight.TransformAddr);
                         const glm::vec3 forward = glm::normalize(tMat[2].xyz());
 
-                        DirectionalLightShaderBuffer buffer;
-                        buffer.LightDir = glm::vec4(forward, dirLight.Intensity);
-                        buffer.LightColor = dirLight.Color;
+                        const IcarianCore::ShaderDirectionalLightBuffer buffer =
+                        {   
+                            .LightDir = glm::vec4(forward, dirLight.Intensity),
+                            .LightColor = dirLight.Color
+                        };
 
                         uniformBuffer->SetData(a_index, &buffer);
                         
-                        data->PushUniformBuffer(commandBuffer, dirLightInput.Set, uniformBuffer, a_index);
+                        data->PushUniformBuffer(commandBuffer, dirLightInput.Slot, uniformBuffer, a_index);
 
                         commandBuffer.draw(4, 1, 0, 0);
                     }
@@ -2006,9 +1966,10 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSDirectionalLightBuffer, &dirLightInput))
             {
-                const uint32_t size = (uint32_t)lights.size();
-                std::vector<DirectionalLightShaderBuffer> buffers;
-                buffers.reserve(size);
+                const uint32_t size = lights.Size();
+                IcarianCore::ShaderDirectionalLightBuffer* buffers = new IcarianCore::ShaderDirectionalLightBuffer[size];
+                IDEFER(delete[] buffers);
+                uint32_t count = 0;
 
                 for (const DirectionalLightBuffer& dirLight : lights)
                 {
@@ -2026,22 +1987,23 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                         const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(dirLight.TransformAddr);
                         const glm::vec3 forward = glm::normalize(tMat[2].xyz());
 
-                        DirectionalLightShaderBuffer buffer;
-                        buffer.LightDir = glm::vec4(forward, dirLight.Intensity);
-                        buffer.LightColor = dirLight.Color;
+                        const IcarianCore::ShaderDirectionalLightBuffer buffer =
+                        {
+                            .LightDir = glm::vec4(forward, dirLight.Intensity),
+                            .LightColor = dirLight.Color
+                        };
 
-                        buffers.emplace_back(buffer);
+                        buffers[count].LightDir = glm::vec4(forward, dirLight.Intensity);
+                        buffers[count++].LightColor = dirLight.Color;
                     }
                 }
 
-                if (!buffers.empty())
+                if (count > 0)
                 {
-                    const uint32_t count = (uint32_t)buffers.size();
-
-                    VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(DirectionalLightShaderBuffer) * count, count, buffers.data());
+                    const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderDirectionalLightBuffer) * count, count, buffers);
                     IDEFER(delete storage);
 
-                    data->PushShaderStorageObject(commandBuffer, dirLightInput.Set, storage, a_index);
+                    data->PushShaderStorageObject(commandBuffer, dirLightInput.Slot, storage, a_index);
 
                     commandBuffer.draw(4, 1, 0, 0);
                 }
@@ -2052,7 +2014,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         case LightType_Point:
         {
             PROFILESTACK("Point Light");
-            const std::vector<PointLightBuffer> lights = m_pointLights.ToActiveVector();
+            const Array<PointLightBuffer> lights = m_pointLights.ToActiveArray();
 
             ShaderBufferInput pointLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_PointLightBuffer, &pointLightInput))
@@ -2080,14 +2042,16 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
                         VulkanUniformBuffer* uniformBuffer = pushPool->AllocatePointLightUniformBuffer();
 
-                        PointLightShaderBuffer buffer;
-                        buffer.LightPos = glm::vec4(position, pointLight.Intensity);
-                        buffer.LightColor = pointLight.Color;
-                        buffer.Radius = pointLight.Radius;
+                        const IcarianCore::ShaderPointLightBuffer buffer =
+                        {
+                            .LightPos = glm::vec4(position, pointLight.Intensity),
+                            .LightColor = pointLight.Color,
+                            .Radius = pointLight.Radius,
+                        };
 
                         uniformBuffer->SetData(a_index, &buffer);
 
-                        data->PushUniformBuffer(commandBuffer, pointLightInput.Set, uniformBuffer, a_index);
+                        data->PushUniformBuffer(commandBuffer, pointLightInput.Slot, uniformBuffer, a_index);
 
                         commandBuffer.draw(4, 1, 0, 0);
                     }
@@ -2095,9 +2059,10 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSPointLightBuffer, &pointLightInput))
             {
-                const uint32_t size = (uint32_t)lights.size();
-                std::vector<PointLightShaderBuffer> buffers;
-                buffers.reserve(size);
+                const uint32_t size = lights.Size();
+                IcarianCore::ShaderPointLightBuffer* buffers = new IcarianCore::ShaderPointLightBuffer[size];
+                IDEFER(delete[] buffers);
+                uint32_t count = 0;
 
                 for (const PointLightBuffer& pointLight : lights)
                 {
@@ -2120,23 +2085,18 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                             continue;
                         }
 
-                        PointLightShaderBuffer buffer;
-                        buffer.LightPos = glm::vec4(position, pointLight.Intensity);
-                        buffer.LightColor = pointLight.Color;
-                        buffer.Radius = pointLight.Radius;
-
-                        buffers.emplace_back(buffer);
+                        buffers[count].LightPos = glm::vec4(position, pointLight.Intensity);
+                        buffers[count].LightColor = pointLight.Color;
+                        buffers[count++].Radius = pointLight.Radius;
                     }
                 }
 
-                if (!buffers.empty())
+                if (count > 0)
                 {
-                    const uint32_t count = (uint32_t)buffers.size();
-
-                    VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(PointLightShaderBuffer) * count, count, buffers.data());
+                    const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderPointLightBuffer) * count, count, buffers);
                     IDEFER(delete storage);
 
-                    data->PushShaderStorageObject(commandBuffer, pointLightInput.Set, storage, a_index);
+                    data->PushShaderStorageObject(commandBuffer, pointLightInput.Slot, storage, a_index);
 
                     commandBuffer.draw(4, 1, 0, 0);
                 }
@@ -2148,7 +2108,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
         {
             PROFILESTACK("Spot Light");
 
-            const std::vector<SpotLightBuffer> lights = m_spotLights.ToActiveVector();
+            const Array<SpotLightBuffer> lights = m_spotLights.ToActiveArray();
 
             ShaderBufferInput spotLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_SpotLightBuffer, &spotLightInput))
@@ -2178,15 +2138,17 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
                         VulkanUniformBuffer* uniformBuffer = pushPool->AllocateSpotLightUniformBuffer();
 
-                        SpotLightShaderBuffer buffer;
-                        buffer.LightPos = position;
-                        buffer.LightDir = glm::vec4(forward, spotLight.Intensity);
-                        buffer.LightColor = spotLight.Color;
-                        buffer.CutoffAngle = glm::vec3(spotLight.CutoffAngle, spotLight.Radius);
+                        const IcarianCore::ShaderSpotLightBuffer buffer =
+                        {   
+                            .LightPos = position,
+                            .LightDir = glm::vec4(forward, spotLight.Intensity),
+                            .LightColor = spotLight.Color,
+                            .CutoffAngle = glm::vec3(spotLight.CutoffAngle, spotLight.Radius)
+                        };
 
                         uniformBuffer->SetData(a_index, &buffer);
 
-                        data->PushUniformBuffer(commandBuffer, spotLightInput.Set, uniformBuffer, a_index);
+                        data->PushUniformBuffer(commandBuffer, spotLightInput.Slot, uniformBuffer, a_index);
 
                         commandBuffer.draw(4, 1, 0, 0);
                     }
@@ -2194,10 +2156,11 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSSpotLightBuffer, &spotLightInput))
             {
-                const uint32_t size = (uint32_t)lights.size();
+                const uint32_t size = lights.Size();
 
-                std::vector<SpotLightShaderBuffer> buffers;
-                buffers.reserve(size);
+                IcarianCore::ShaderSpotLightBuffer* buffers = new IcarianCore::ShaderSpotLightBuffer[size];
+                IDEFER(delete[] buffers);
+                uint32_t count = 0;
 
                 for (const SpotLightBuffer& spotLight : lights)
                 {
@@ -2222,24 +2185,19 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
                         const glm::vec3 forward = glm::normalize(tMat[2].xyz());
 
-                        SpotLightShaderBuffer buffer;
-                        buffer.LightPos = position;
-                        buffer.LightDir = glm::vec4(forward, spotLight.Intensity);
-                        buffer.LightColor = spotLight.Color;
-                        buffer.CutoffAngle = glm::vec3(spotLight.CutoffAngle, spotLight.Radius);
-
-                        buffers.emplace_back(buffer);
+                        buffers[count].LightPos = position;
+                        buffers[count].LightDir = glm::vec4(forward, spotLight.Intensity);
+                        buffers[count].LightColor = spotLight.Color;
+                        buffers[count++].CutoffAngle = glm::vec3(spotLight.CutoffAngle, spotLight.Radius);
                     }
                 }
 
-                if (!buffers.empty())
+                if (count > 0)
                 {
-                    const uint32_t count = (uint32_t)buffers.size();
-
-                    VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(SpotLightShaderBuffer) * count, count, buffers.data());
+                    const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderSpotLightBuffer) * count, count, buffers);
                     IDEFER(delete storage);
 
-                    data->PushShaderStorageObject(commandBuffer, spotLightInput.Set, storage, a_index);
+                    data->PushShaderStorageObject(commandBuffer, spotLightInput.Slot, storage, a_index);
 
                     commandBuffer.draw(4, 1, 0, 0);
                 }
@@ -2422,9 +2380,9 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, doub
     m_renderCommands.Clear();
 
     {
-        const std::vector<bool> state = m_shaderPrograms.ToStateVector();
+        const Array<bool> state = m_shaderPrograms.ToStateArray();
         TLockArray<RenderProgram> a = m_shaderPrograms.ToLockArray();
-        const uint32_t size = (uint32_t)state.size();
+        const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
@@ -2440,9 +2398,10 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, doub
             shaderData->Update(a_index, program);
         }
 
-        TimeShaderBuffer timeBuffer;
-        timeBuffer.Time.x = (float)a_delta;
-        timeBuffer.Time.y = (float)a_time;
+        const IcarianCore::ShaderTimeBuffer timeBuffer =
+        {
+            .Time = glm::vec2((float)a_delta, (float)a_time)
+        };
 
         m_timeUniform->SetData(a_index, &timeBuffer);
     }
@@ -2450,20 +2409,20 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, doub
     const vk::Device device = m_vulkanEngine->GetLogicalDevice();
 
     const uint32_t camBufferSize = m_cameraBuffers.Size();
-    std::vector<uint32_t> camIndices;
+    Array<uint32_t> camIndices;
     for (uint32_t i = 0; i < camBufferSize; ++i)
     {
         if (m_cameraBuffers[i].TransformAddr != -1)
         {
-            camIndices.emplace_back(i);
+            camIndices.Push(i);
         }
     }
 
     TReadLockArray<CanvasRendererBuffer> canvasBuffer = m_canvasRenderers.ToReadLockArray();
     const uint32_t canvasCount = canvasBuffer.Size();
-    const uint32_t camIndexSize = (uint32_t)camIndices.size();
+    const uint32_t camIndexSize = camIndices.Size();
     const uint32_t totalPoolSize = camIndexSize * DrawingPassCount + canvasCount;
-    const uint32_t poolSize = (uint32_t)m_commandPool[a_index].size();
+    const uint32_t poolSize = (uint32_t)m_commandPool[a_index].Size();
 
     if (poolSize < totalPoolSize)
     {
@@ -2480,7 +2439,7 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, doub
             vk::CommandPool pool;
             ICARIAN_ASSERT_MSG_R(device.createCommandPool(&poolInfo, nullptr, &pool) == vk::Result::eSuccess, "Failed to create graphics command pool");
             
-            m_commandPool[a_index].emplace_back(pool);
+            m_commandPool[a_index].Push(pool);
 
             const vk::CommandBufferAllocateInfo commandBufferInfo = vk::CommandBufferAllocateInfo
             (
@@ -2492,11 +2451,11 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, doub
             vk::CommandBuffer buffer;
             ICARIAN_ASSERT_MSG_R(device.allocateCommandBuffers(&commandBufferInfo, &buffer) == vk::Result::eSuccess, "Failed to allocate graphics command buffer");
 
-            m_commandBuffers[a_index].emplace_back(buffer);
+            m_commandBuffers[a_index].Push(buffer);
         }
     }
 
-    const uint32_t camUniformSize = (uint32_t)m_cameraUniforms.size();
+    const uint32_t camUniformSize = m_cameraUniforms.Size();
 
     if (camUniformSize < totalPoolSize)
     {
@@ -2504,7 +2463,7 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, doub
         const uint32_t diff = totalPoolSize - camUniformSize;
         for (uint32_t i = 0; i < diff; ++i)
         {
-            m_cameraUniforms.emplace_back(new VulkanUniformBuffer(m_vulkanEngine, sizeof(CameraShaderBuffer)));
+            m_cameraUniforms.Push(new VulkanUniformBuffer(m_vulkanEngine, sizeof(IcarianCore::ShaderCameraBuffer)));
         }
     }
 
@@ -2572,7 +2531,7 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, doub
         ThreadPool::PushJob(postJob);
     }
     
-    std::vector<vk::CommandBuffer> uiBuffers;
+    Array<vk::CommandBuffer> uiBuffers;
     {
         PROFILESTACK("UI Draw");
 
@@ -2635,7 +2594,7 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, doub
 
             buffer.end();
 
-            uiBuffers.emplace_back(buffer);
+            uiBuffers.Push(buffer);
         }
     }
     
@@ -2653,7 +2612,7 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, doub
             }
         }
 
-        if (!uiBuffers.empty())
+        if (!uiBuffers.Empty())
         {
             cmdBuffers.insert(cmdBuffers.end(), uiBuffers.begin(), uiBuffers.end());
         }
@@ -2840,8 +2799,11 @@ uint32_t VulkanGraphicsEngine::GenerateTextureSampler(uint32_t a_textureAddr, e_
     {
     case TextureMode_Texture:
     {
-        // ICARIAN_ASSERT_MSG(a_textureAddr < m_textures.Size(), "GenerateTextureSampler Texture out of bounds");
-        // ICARIAN_ASSERT_MSG(m_textures[a_textureAddr] != nullptr, "GenerateTextureSampler Texture already destroyed");
+        if (!ISRENDERASSETSTOREADDR(a_textureAddr))
+        {
+            ICARIAN_ASSERT_MSG(a_textureAddr < m_textures.Size(), "GenerateTextureSampler Texture out of bounds");
+            ICARIAN_ASSERT_MSG(m_textures[a_textureAddr] != nullptr, "GenerateTextureSampler Texture already destroyed");
+        }
 
         break;
     }
@@ -2869,7 +2831,7 @@ uint32_t VulkanGraphicsEngine::GenerateTextureSampler(uint32_t a_textureAddr, e_
     }
     default:
     {
-        ICARIAN_ASSERT_MSG(0, "GenerateTextureSampler Invalid Texture Mode");
+        IERROR("GenerateTextureSampler Invalid Texture Mode");
 
         break;
     }
@@ -2898,6 +2860,13 @@ void VulkanGraphicsEngine::DestroyTextureSampler(uint32_t a_addr)
     });
 
     m_textureSampler.Erase(a_addr);
+}
+TextureSamplerBuffer VulkanGraphicsEngine::GetTextureSampler(uint32_t a_addr)
+{
+    ICARIAN_ASSERT_MSG(a_addr < m_textureSampler.Size(), "GetTextureSampler out of bounds");
+    ICARIAN_ASSERT_MSG(m_textureSampler.Exists(a_addr), "GetTextureSampler sampler already destroyed");
+
+    return m_textureSampler[a_addr];
 }
 
 Font* VulkanGraphicsEngine::GetFont(uint32_t a_addr)

@@ -3,10 +3,9 @@
 #include "Rendering/Vulkan/VulkanRenderCommand.h"
 
 #include "Core/IcarianAssert.h"
-#include "Logger.h"
+#include "Core/ShaderBuffers.h"
 #include "ObjectManager.h"
 #include "Rendering/RenderEngine.h"
-#include "Rendering/ShaderBuffers.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanModel.h"
 #include "Rendering/Vulkan/VulkanPipeline.h"
@@ -98,7 +97,7 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr)
         {
             VulkanUniformBuffer* camBuffer = m_gEngine->GetCameraUniformBuffer(m_bufferIndex);
 
-            shaderData->PushUniformBuffer(m_commandBuffer, camInput.Set, camBuffer, currentFrame);
+            shaderData->PushUniformBuffer(m_commandBuffer, camInput.Slot, camBuffer, currentFrame);
         }
 
         ShaderBufferInput timeInput;
@@ -106,7 +105,7 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr)
         {
             VulkanUniformBuffer* timeBuffer = m_gEngine->GetTimeUniformBuffer();
 
-            shaderData->PushUniformBuffer(m_commandBuffer, timeInput.Set, timeBuffer, currentFrame);
+            shaderData->PushUniformBuffer(m_commandBuffer, timeInput.Slot, timeBuffer, currentFrame);
         }
 
         pipeline->Bind(currentFrame, m_commandBuffer);
@@ -187,12 +186,16 @@ void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr)
     const vk::Viewport viewport = vk::Viewport(viewPos.x, viewPos.y, viewSize.x, viewSize.y, camBuffer.View.MinDepth, camBuffer.View.MaxDepth);
     m_commandBuffer.setViewport(0, 1, &viewport);
 
-    CameraShaderBuffer cameraShaderData;
-    cameraShaderData.InvView = ObjectManager::GetGlobalMatrix(camBuffer.TransformAddr);
-    cameraShaderData.View = glm::inverse(cameraShaderData.InvView);
-    cameraShaderData.Proj = camBuffer.ToProjection(viewSize);
-    cameraShaderData.InvProj = glm::inverse(cameraShaderData.Proj);
-    cameraShaderData.ViewProj = cameraShaderData.Proj * cameraShaderData.View;
+    const glm::mat4 mat = ObjectManager::GetGlobalMatrix(camBuffer.TransformAddr);
+
+    const IcarianCore::ShaderCameraBuffer cameraShaderData =
+    {
+        .View = glm::inverse(mat),
+        .Proj = camBuffer.ToProjection(viewSize),
+        .InvView = mat,
+        .InvProj = glm::inverse(cameraShaderData.Proj),
+        .ViewProj = cameraShaderData.Proj * cameraShaderData.View
+    };
 
     VulkanUniformBuffer* cameraUniformBuffer = m_gEngine->GetCameraUniformBuffer(m_bufferIndex);
     cameraUniformBuffer->SetData(m_engine->GetCurrentFrame(), &cameraShaderData);

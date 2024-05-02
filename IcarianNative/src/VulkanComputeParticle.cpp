@@ -6,7 +6,7 @@
 
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
-#include "Rendering/ShaderBuffers.h"
+#include "Core/ShaderBuffers.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanComputeLayout.h"
 #include "Rendering/Vulkan/VulkanComputePipeline.h"
@@ -126,7 +126,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
     VulkanRenderEngineBackend* backend = m_engine->GetRenderEngineBackend();
     const VmaAllocator allocator = backend->GetAllocator();
 
-    const uint32_t particleBufferSize = sizeof(ParticleShaderBuffer) * a_buffer->MaxParticles + 16;
+    const uint32_t particleBufferSize = sizeof(IcarianCore::ShaderParticleBuffer) * a_buffer->MaxParticles + 16;
 
     VkBufferCreateInfo createInfo = { };
     createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -238,7 +238,7 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
 
                 device.updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
 
-                a_cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeLayout, inputs[i].Set, 1, &set, 0, nullptr);
+                a_cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeLayout, inputs[i].Slot, 1, &set, 0, nullptr);
 
                 break;
             }
@@ -270,8 +270,12 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
 
                 device.updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
 
-                a_cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeLayout, inputs[i].Set, 1, &set, 0, nullptr);
+                a_cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeLayout, inputs[i].Slot, 1, &set, 0, nullptr);
 
+                break;
+            }
+            default:
+            {
                 break;
             }
             }

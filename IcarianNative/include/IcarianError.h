@@ -12,6 +12,11 @@
 
 #define IWARN(msg) Logger::Warning("IWARN: " + std::string(msg))
 #define IERROR(msg) IcarianError("IERROR: " + std::string(msg) + ": " IERRSTR(__FILE__) "," IERRSTR(__LINE__))
+#ifdef NDEBUG
+#define IVERIFY(val) void(0)
+#else
+#define IVERIFY(val) do { if (!(val)) { IERROR(#val); } } while (0)
+#endif
 
 static void IcarianError(const std::string_view& a_msg)
 {

@@ -28,7 +28,7 @@ const static char* IcarianNativeShaderBasePaths[] =
 
 const static CBUINT32 IcarianNativeShaderBasePathCount = sizeof(IcarianNativeShaderBasePaths) / sizeof(*IcarianNativeShaderBasePaths);
 
-CBBOOL WriteIcarianNativeShadersToHeader(const char* a_workingPath)
+static CBBOOL WriteIcarianNativeShadersToHeader(const char* a_workingPath)
 {
     CUBE_Path workingPath = CUBE_Path_CreateC(a_workingPath);
 
@@ -57,7 +57,7 @@ CBBOOL WriteIcarianNativeShadersToHeader(const char* a_workingPath)
     return ret;
 }
 
-CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, CBBOOL a_enableTrace, CBBOOL a_enableProfiler)
+static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, CBBOOL a_enableTrace, CBBOOL a_enableProfiler)
 {
     CUBE_CProject project = { 0 };
 
@@ -196,6 +196,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         "src/VulkanRenderCommand.cpp",
         "src/VulkanRenderEngineBackend.cpp",
         "src/VulkanRenderTexture.cpp",
+        "src/VulkanShader.cpp",
         "src/VulkanShaderData.cpp",
         "src/VulkanShaderStorageObject.cpp",
         "src/VulkanSwapchain.cpp",
@@ -344,7 +345,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     return project;
 }
 
-DependencyProject* BuildIcarianNativeDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+static DependencyProject* BuildIcarianNativeDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     return BuildIcarianNativeIDependencies(a_count, a_targetPlatform, a_configuration);
 }

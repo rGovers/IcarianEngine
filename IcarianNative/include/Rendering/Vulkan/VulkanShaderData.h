@@ -1,5 +1,6 @@
 #pragma once
 
+#include "DataTypes/Array.h"
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
@@ -18,10 +19,23 @@ class VulkanUniformBuffer;
 
 struct VulkanPushDescriptor
 {
-    uint32_t Set;
-    uint32_t Binding;
+    uint32_t Slot;
     uint32_t Count;
     vk::DescriptorSetLayout DescriptorLayout;
+};
+
+struct VulkanShaderInput
+{
+    uint32_t Slot;
+    uint32_t Count;
+    e_ShaderBufferType BufferType;
+    vk::ShaderStageFlags StageFlags;
+};
+
+struct VulkanTextureBinding
+{
+    uint32_t Slot;
+    uint32_t SamplerAddr;
 };
 
 class VulkanShaderData
@@ -29,32 +43,26 @@ class VulkanShaderData
 private:
     static constexpr uint32_t StaticIndex = 0;
 
-    VulkanRenderEngineBackend*        m_engine;
-    VulkanGraphicsEngine*             m_gEngine;
+    VulkanRenderEngineBackend*  m_engine;
+    VulkanGraphicsEngine*       m_gEngine;
+ 
+    VulkanUniformBuffer*        m_userUniformBuffer;
+ 
+    vk::PipelineLayout          m_layout;
+    vk::PipelineLayout          m_shadowLayout;
 
-    VulkanUniformBuffer*              m_userUniformBuffer;
+    Array<VulkanPushDescriptor> m_pushDescriptors;
+    Array<VulkanPushDescriptor> m_shadowPushDescriptors;
 
-    vk::PipelineLayout                m_layout;
-    vk::PipelineLayout                m_shadowLayout;
-
-    std::vector<VulkanPushDescriptor> m_pushDescriptors;
-    std::vector<VulkanPushDescriptor> m_shadowPushDescriptors;
-
-    vk::DescriptorSetLayout           m_staticDesciptorLayout;
-    vk::DescriptorPool                m_staticDescriptorPool;
-    vk::DescriptorSet                 m_staticDescriptorSet;
-
-    vk::DescriptorSetLayout           m_shadowStaticDesciptorLayout;
-    vk::DescriptorPool                m_shadowStaticDescriptorPool;
-    vk::DescriptorSet                 m_shadowStaticDescriptorSet;
-
-    std::vector<ShaderBufferInput>    m_slotInputs;
+    Array<VulkanShaderInput>    m_slotInputs;
     // Want quick access to these so they are stored separately
-    ShaderBufferInput                 m_userBufferInput;  
-    ShaderBufferInput                 m_transformBufferInput;
-    ShaderBufferInput                 m_uiBufferInput;
+    VulkanShaderInput           m_userBufferInput;  
+    VulkanShaderInput           m_transformBufferInput;
+    VulkanShaderInput           m_uiBufferInput;
 
-    std::vector<ShaderBufferInput>    m_shadowSlotInputs;
+    Array<VulkanShaderInput>    m_shadowSlotInputs;
+
+    Array<VulkanTextureBinding> m_textures;
 
 protected:
 
@@ -74,17 +82,17 @@ public:
     bool GetShaderBufferInput(e_ShaderBufferType a_type, ShaderBufferInput* a_input) const;
     bool GetShadowShaderBufferInput(e_ShaderBufferType a_type, ShaderBufferInput* a_input) const;
 
-    void SetTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler) const;
+    void SetTexture(uint32_t a_slot, uint32_t a_sampleAddr);
 
-    void PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer& a_sampler, uint32_t a_index) const;
-    void PushTextures(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer* a_samplers, uint32_t a_count, uint32_t a_index) const;
-    void PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
-    void PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanShaderStorageObject* a_object, uint32_t a_index) const;
-    void PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_set, vk::Buffer a_object, uint32_t a_index) const;
+    void PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const TextureSamplerBuffer& a_sampler, uint32_t a_index) const;
+    void PushTextures(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const TextureSamplerBuffer* a_samplers, uint32_t a_count, uint32_t a_index) const;
+    void PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
+    void PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanShaderStorageObject* a_object, uint32_t a_index) const;
+    void PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, vk::Buffer a_object, uint32_t a_index) const;
 
-    void PushShadowTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const TextureSamplerBuffer& a_sampler, uint32_t a_index) const;
-    void PushShadowUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
-    void PushShadowShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_set, const VulkanShaderStorageObject* a_object, uint32_t a_index) const;
+    void PushShadowTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const TextureSamplerBuffer& a_sampler, uint32_t a_index) const;
+    void PushShadowUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
+    void PushShadowShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanShaderStorageObject* a_object, uint32_t a_index) const;
 
     void UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_transform) const;
     void UpdateShadowTransformBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_transform) const;

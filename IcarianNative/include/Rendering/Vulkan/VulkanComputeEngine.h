@@ -61,7 +61,6 @@ public:
     vk::Buffer GetParticleBufferData(uint32_t a_addr);
 
     uint32_t GenerateComputeFShader(const std::string_view& a_str);
-    uint32_t GenerateComputeGLSLShader(const std::string_view& a_str);
     void DestroyComputeShader(uint32_t a_addr);
     VulkanComputeShader* GetComputeShader(uint32_t a_addr);
 

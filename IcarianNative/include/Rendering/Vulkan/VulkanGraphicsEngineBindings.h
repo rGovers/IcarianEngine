@@ -32,11 +32,9 @@ public:
     ~VulkanGraphicsEngineBindings();
 
     uint32_t GenerateFVertexShaderAddr(const std::string_view& a_str) const;
-    uint32_t GenerateGLSLVertexShaderAddr(const std::string_view& a_str) const;
     void DestroyVertexShader(uint32_t a_addr) const;
 
     uint32_t GenerateFPixelShaderAddr(const std::string_view& a_str) const;
-    uint32_t GenerateGLSLPixelShaderAddr(const std::string_view& a_str) const;
     void DestroyPixelShader(uint32_t a_addr) const;
 
     uint32_t GenerateShaderProgram(const RenderProgram& a_program) const;

@@ -27,10 +27,6 @@ namespace IcarianEngine.Rendering
         /// </summary>
         public VertexInputAttribute[] Attributes;
         /// <summary>
-        /// The shader inputs to be used by the material.
-        /// </summary>
-        public ShaderBufferInput[] ShaderInputs;
-        /// <summary>
         /// The culling mode to be used by the material.
         /// </summary>
         public CullMode CullingMode;
@@ -52,11 +48,6 @@ namespace IcarianEngine.Rendering
         /// Optional
         public VertexShader ShadowVertexShader;
         /// <summary>
-        /// The shadow shader inputs to be used by the material.
-        /// </summary>
-        /// Needed if ShadowVertexShader is not null
-        public ShaderBufferInput[] ShadowShaderInputs;
-        /// <summary>
         /// The object used to for user UBO variables.
         /// </summary>
         /// Required if the user adds UserUBO to ShaderInputs. Must be a struct.
@@ -66,7 +57,7 @@ namespace IcarianEngine.Rendering
     public class Material : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateProgram(uint a_vertexShader, uint a_pixelShader, ushort a_vertexStride, VertexInputAttribute[] a_attributes, ShaderBufferInput[] a_shaderInputs, uint a_cullMode, uint a_primitiveMode, uint a_colorBlendMode, uint a_renderLayer, uint a_shadowVertexShader, ShaderBufferInput[] a_shadowShaderInputs, uint a_uboSize, IntPtr a_uboBuffer); 
+        extern static uint GenerateProgram(uint a_vertexShader, uint a_pixelShader, ushort a_vertexStride, VertexInputAttribute[] a_attributes, uint a_cullMode, uint a_primitiveMode, uint a_colorBlendMode, uint a_renderLayer, uint a_shadowVertexShader, uint a_uboSize, IntPtr a_uboBuffer); 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static RenderProgram GetProgramBuffer(uint a_addr); 
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -210,11 +201,9 @@ namespace IcarianEngine.Rendering
             }
 
             uint shadowVertexShader = uint.MaxValue;
-            ShaderBufferInput[] shadowShaderInputs = null;
             if (a_builder.ShadowVertexShader != null)
             {
                 shadowVertexShader = a_builder.ShadowVertexShader.InternalAddr;
-                shadowShaderInputs = a_builder.ShadowShaderInputs;
             }
 
             uint uboSize = 0;
@@ -232,13 +221,11 @@ namespace IcarianEngine.Rendering
                 a_builder.PixelShader.InternalAddr, 
                 a_builder.VertexStride, 
                 a_builder.Attributes, 
-                a_builder.ShaderInputs, 
                 (uint)a_builder.CullingMode, 
                 (uint)a_builder.PrimitiveMode, 
                 (uint)a_builder.ColorBlendMode, 
                 a_builder.RenderLayer,
                 shadowVertexShader, 
-                shadowShaderInputs,
                 uboSize,
                 uboBuffer
             );
@@ -282,12 +269,6 @@ namespace IcarianEngine.Rendering
                 return null;
             }
 
-            ShaderBufferInput[] shaderInput = null;
-            if (a_def.ShaderBuffers != null)
-            {
-                shaderInput = a_def.ShaderBuffers.ToArray();
-            }
-
             VertexInputAttribute[] vertexInputAttributes = null;
             if (a_def.VertexAttributes != null)
             {
@@ -311,7 +292,6 @@ namespace IcarianEngine.Rendering
             }
 
             VertexShader shadowVertexShader = null;
-            ShaderBufferInput[] shadowShaderInput = null;
             if (!Application.IsEditor && !string.IsNullOrEmpty(a_def.ShadowVertexShaderPath))
             {
                 shadowVertexShader = AssetLibrary.LoadVertexShader(a_def.ShadowVertexShaderPath);
@@ -320,11 +300,6 @@ namespace IcarianEngine.Rendering
                     Logger.IcarianError("Material invalid shadow vertex shader");
 
                     return null;
-                }
-
-                if (a_def.ShadowShaderBuffers != null)
-                {
-                    shadowShaderInput = a_def.ShadowShaderBuffers.ToArray();
                 }
             }
 
@@ -354,13 +329,11 @@ namespace IcarianEngine.Rendering
                 PixelShader = pixelShader,
                 VertexStride = (ushort)Marshal.SizeOf(a_def.VertexType),
                 Attributes = vertexInputAttributes,
-                ShaderInputs = shaderInput,
                 CullingMode = a_def.CullingMode,
                 PrimitiveMode = a_def.PrimitiveMode,
                 ColorBlendMode = a_def.ColorBlendMode,
                 RenderLayer = a_def.RenderLayer,
                 ShadowVertexShader = shadowVertexShader,
-                ShadowShaderInputs = shadowShaderInput,
                 UBOBuffer = userUBO
             };
 

@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "Core/IcarianAssert.h"
-#include "Rendering/ShaderBuffers.h"
+#include "Core/ShaderBuffers.h"
 
 // Shamelessly used Godot for reference
 // Credit:
@@ -16,12 +16,10 @@ static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_param
     a_inputs->clear();
 
     ShaderBufferInput input;
-    input.ShaderSlot = ShaderSlot_Compute;
     input.Count = 1;
 
     std::string code;
 
-    uint16_t set = 0;
     uint16_t slot = 0;
 
     // TODO: Dynamic values probably using the UserUBO or a ParticleComputeBuffer TBD
@@ -53,22 +51,19 @@ static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_param
     }
 
     input.Slot = slot;
-    input.Set = set;
     input.BufferType = ShaderBufferType_TimeBuffer;
     a_inputs->emplace_back(input);
-    code += "#!structure(TimeBuffer," + std::to_string(set++) + "," + std::to_string(slot++) + ",timeBuffer) \n";
+    code += "#!structure(TimeBuffer," + std::to_string(slot++) + ",timeBuffer) \n";
 
     input.Slot = slot;
-    input.Set = set;
     input.BufferType = ShaderBufferType_SSParticleBuffer;
     a_inputs->emplace_back(input);
-    code += "#!structure(SSParticleBuffer," + std::to_string(set++) + "," + std::to_string(slot++) + ",inParticleBuffer) \n";
+    code += "#!structure(SSParticleBuffer," + std::to_string(slot++) + ",inParticleBuffer) \n";
 
     input.Slot = slot;
-    input.Set = set;
     input.BufferType = ShaderBufferType_SSParticleBuffer;
     a_inputs->emplace_back(input);
-    code += "layout(std140,set=" + std::to_string(set++) + ",binding=" + std::to_string(slot++) + ") buffer ParticleShaderBufferOut \n";
+    code += "layout(std140,binding=" + std::to_string(slot++) + ") buffer ParticleShaderBufferOut \n";
     code += "{ \n";
     code += "   int Count; \n";
     code += "   ParticleShaderBufferData objects[]; \n";
@@ -165,14 +160,13 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
     return code;
 }
 
-std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_set, uint16_t* a_slot, std::vector<ShaderBufferInput>* a_inputs, std::vector<VertexInputAttribute>* a_vertexInputs)
+std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, std::vector<ShaderBufferInput>* a_inputs, std::vector<VertexInputAttribute>* a_vertexInputs)
 {
     std::string code;
 
     code += "#version 450 \n";
 
     ShaderBufferInput input;
-    input.ShaderSlot = ShaderSlot_Vertex;
     input.Count = 1;
 
     switch (a_parameters.DisplayMode)
@@ -184,21 +178,21 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
         code += "layout(location=0) in vec4 particlePos; \n";
         att.Count = 4;
         att.Location = 0;
-        att.Offset = offsetof(ParticleShaderBuffer, Position);
+        att.Offset = offsetof(IcarianCore::ShaderParticleBuffer, Position);
         att.Type = VertexType_Float;
         a_vertexInputs->emplace_back(att);
 
         code += "layout(location=1) in vec3 particleVelocity; \n";
         att.Count = 3;
         att.Location = 1;
-        att.Offset = offsetof(ParticleShaderBuffer, Velocity);
+        att.Offset = offsetof(IcarianCore::ShaderParticleBuffer, Velocity);
         att.Type = VertexType_Float;
         a_vertexInputs->emplace_back(att);
 
         code += "layout(location=2) in vec4 particleColor; \n";
         att.Count = 4;
         att.Location = 2;
-        att.Offset = offsetof(ParticleShaderBuffer, Color);
+        att.Offset = offsetof(IcarianCore::ShaderParticleBuffer, Color);
         att.Type = VertexType_Float;
         a_vertexInputs->emplace_back(att);
         // There is an extension to allow point mode sprite rendering in OpenGL not sure about Vulkan however problem is was obscure functionality it OpenGL as is
@@ -208,11 +202,10 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
     }
     case ParticleDisplayMode_Quad:
     {
-        input.Set = *a_set;
         input.Slot = *a_slot;
         input.BufferType = ShaderBufferType_SSParticleBuffer;
         a_inputs->emplace_back(input);
-        code += "#!structure(SSParticleBuffer," + std::to_string((*a_set)++) + "," + std::to_string((*a_slot)++) + ",particleBuffer) \n";
+        code += "#!structure(SSParticleBuffer," + std::to_string((*a_slot)++) + ",particleBuffer) \n";
 
         code += "vec2 positions[6] = vec2[] \n";
         code += "( \n";
@@ -244,11 +237,10 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
     }
     }
 
-    input.Set = *a_set;
     input.Slot = *a_slot;
     input.BufferType = ShaderBufferType_CameraBuffer;
     a_inputs->emplace_back(input);
-    code += "#!structure(CameraBuffer," + std::to_string((*a_set)++) + "," + std::to_string((*a_slot)++) + ",camBuffer) \n";
+    code += "#!structure(CameraBuffer," + std::to_string((*a_slot)++) + ",camBuffer) \n";
 
     code += "layout(location=0) out vec4 fragColor; \n";
 
@@ -291,7 +283,7 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
  
     return code;
 }
-std::string VulkanParticleShaderGenerator::GeneratePixelShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_set, uint16_t* a_slot, std::vector<ShaderBufferInput>* a_inputs)
+std::string VulkanParticleShaderGenerator::GeneratePixelShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, std::vector<ShaderBufferInput>* a_inputs)
 {
     std::string code;
 

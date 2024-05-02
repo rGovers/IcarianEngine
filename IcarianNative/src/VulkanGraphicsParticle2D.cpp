@@ -5,7 +5,7 @@
 
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
-#include "Rendering/ShaderBuffers.h"
+#include "Core/ShaderBuffers.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanParticleShaderGenerator.h"
@@ -23,36 +23,31 @@ VulkanGraphicsParticle2D::VulkanGraphicsParticle2D(VulkanRenderEngineBackend* a_
 
     const ComputeParticleBuffer buffer = m_cEngine->GetParticleBuffer(m_computeBufferAddr);
 
-    uint16_t set;
     uint16_t slot;
 
     std::vector<VertexInputAttribute> vertexInputs;
 
-    const std::string vShaderStr = VulkanParticleShaderGenerator::GenerateVertexShader(buffer, &set, &slot, &m_inputs, &vertexInputs);
+    const std::string vShaderStr = VulkanParticleShaderGenerator::GenerateVertexShader(buffer, &slot, &m_inputs, &vertexInputs);
     const uint32_t vertexShader = m_gEngine->GenerateFVertexShader(vShaderStr);
 
-    const std::string pShaderStr = VulkanParticleShaderGenerator::GeneratePixelShader(buffer, &set, &slot, &m_inputs);
+    const std::string pShaderStr = VulkanParticleShaderGenerator::GeneratePixelShader(buffer, &slot, &m_inputs);
     const uint32_t pixelShader = m_gEngine->GenerateFPixelShader(pShaderStr);
 
     const uint32_t inputCount = (uint32_t)m_inputs.size();
     const uint32_t vertexInputCount = (uint32_t)vertexInputs.size();
 
-    RenderProgram program;
-    memset(&program, 0, sizeof(program));
-    program.VertexShader = vertexShader;
-    program.PixelShader = pixelShader;
-    program.ShadowVertexShader = -1;
-
-    program.ShaderBufferInputCount = inputCount;
-    program.ShaderBufferInputs = new ShaderBufferInput[inputCount];
-    for (uint32_t i = 0; i < inputCount; ++i)
+    RenderProgram program = 
     {
-        program.ShaderBufferInputs[i] = m_inputs[i];
-    }
+        .VertexShader = vertexShader,
+        .PixelShader = pixelShader,
+        .ShadowVertexShader = uint32_t(-1),
+        .PrimitiveMode = PrimitiveMode_Triangles,
+        .Flags = 0b1 << RenderProgram::DestroyFlag
+    };
 
     if (vertexInputCount > 0)
     {
-        program.VertexStride = sizeof(ParticleShaderBuffer);
+        program.VertexStride = sizeof(IcarianCore::ShaderParticleBuffer);
         program.VertexInputCount = vertexInputCount;
         program.VertexAttributes = new VertexInputAttribute[vertexInputCount];
         for (uint32_t i = 0; i < vertexInputCount; ++i)
@@ -61,22 +56,15 @@ VulkanGraphicsParticle2D::VulkanGraphicsParticle2D(VulkanRenderEngineBackend* a_
         }
     }
 
-    program.PrimitiveMode = PrimitiveMode_Triangles;
-    program.Flags |= 0b1 << RenderProgram::DestroyFlag;
-
     m_renderProgramAddr = m_gEngine->GenerateRenderProgram(program);
 }
 VulkanGraphicsParticle2D::~VulkanGraphicsParticle2D()
 {
     const RenderProgram program = m_gEngine->GetRenderProgram(m_renderProgramAddr);
     IDEFER(
+    if (program.VertexAttributes != nullptr) 
     {
-        if (program.VertexAttributes != nullptr) 
-        {
-            delete[] program.VertexAttributes;
-        }
-
-        delete[] program.ShaderBufferInputs;
+        delete[] program.VertexAttributes;
     });
 
     m_gEngine->DestroyRenderProgram(m_renderProgramAddr);
@@ -98,7 +86,7 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
         {
             const VulkanUniformBuffer* camBuffer = m_gEngine->GetCameraUniformBuffer(a_bufferIndex);
 
-            data->PushUniformBuffer(a_commandBuffer, input.Set, camBuffer, a_index);
+            data->PushUniformBuffer(a_commandBuffer, input.Slot, camBuffer, a_index);
 
             break;
         }
@@ -106,13 +94,13 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
         {
             const VulkanUniformBuffer* timeBuffer = m_gEngine->GetTimeUniformBuffer();
 
-            data->PushUniformBuffer(a_commandBuffer, input.Set, timeBuffer, a_index);
+            data->PushUniformBuffer(a_commandBuffer, input.Slot, timeBuffer, a_index);
 
             break;
         }
         case ShaderBufferType_SSParticleBuffer:
         {
-            data->PushShaderStorageObject(a_commandBuffer, input.Set, computeParticleBuffer, a_index);
+            data->PushShaderStorageObject(a_commandBuffer, input.Slot, computeParticleBuffer, a_index);
 
             break;
         }

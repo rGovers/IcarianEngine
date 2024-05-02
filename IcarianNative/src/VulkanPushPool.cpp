@@ -3,8 +3,7 @@
 #include "Rendering/Vulkan/VulkanPushPool.h"
 
 #include "Core/IcarianAssert.h"
-#include "Core/IcarianDefer.h"
-#include "Rendering/ShaderBuffers.h"
+#include "Core/ShaderBuffers.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanUniformBuffer.h"
 #include "Trace.h"
@@ -154,7 +153,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateAmbientLightUniformBuffer()
     if (m_ambientLightBufferIndex >= a.Size())
     {
         TRACE("Creating new ambient light uniform buffer");
-        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(AmbientLightShaderBuffer));
+        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(IcarianCore::ShaderAmbientLightBuffer));
         m_ambientLightBuffers.UPush(buffer);
 
         ++m_ambientLightBufferIndex;
@@ -170,7 +169,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateDirectionalLightUniformBuffer()
     if (m_directionalLightBufferIndex >= a.Size())
     {
         TRACE("Creating new directional light uniform buffer");
-        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(DirectionalLightShaderBuffer));
+        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(IcarianCore::ShaderDirectionalLightBuffer));
         m_directionalLightBuffers.UPush(buffer);
 
         ++m_directionalLightBufferIndex;
@@ -186,7 +185,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocatePointLightUniformBuffer()
     if (m_pointLightBufferIndex >= a.Size())
     {
         TRACE("Creating new point light uniform buffer");
-        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(PointLightShaderBuffer));
+        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(IcarianCore::ShaderPointLightBuffer));
         m_pointLightBuffers.UPush(buffer);
 
         ++m_pointLightBufferIndex;
@@ -202,7 +201,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateSpotLightUniformBuffer()
     if (m_spotLightBufferIndex >= a.Size())
     {
         TRACE("Creating new spot light uniform buffer");
-        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(SpotLightShaderBuffer));
+        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(IcarianCore::ShaderSpotLightBuffer));
         m_spotLightBuffers.UPush(buffer);
 
         ++m_spotLightBufferIndex;
@@ -219,7 +218,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateShadowUniformBuffer()
     if (m_shadowBufferIndex >= a.Size())
     {
         TRACE("Creating new shadow uniform buffer");
-        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(ShadowLightShaderBuffer));
+        VulkanUniformBuffer* buffer = new VulkanUniformBuffer(m_engine, sizeof(IcarianCore::ShaderShadowLightBuffer));
         m_shadowBuffers.UPush(buffer);
 
         ++m_shadowBufferIndex;

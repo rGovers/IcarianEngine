@@ -1,5 +1,7 @@
 #include "Rendering/ShaderTable.h"
 
+#include <string>
+
 #include "Shaders.h"
 
 const char* GetVertexShaderString(const std::string_view& a_str)

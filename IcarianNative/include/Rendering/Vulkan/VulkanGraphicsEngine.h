@@ -1,10 +1,10 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+#include "Rendering/Vulkan/IcarianVulkanHeader.h"
+
 #include <unordered_map>
 #include <vector>
-
-#include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 struct CanvasBuffer;
 
@@ -26,6 +26,7 @@ class VulkanTexture;
 class VulkanUniformBuffer;
 class VulkanVertexShader;
 
+#include "DataTypes/Array.h"
 #include "DataTypes/TArray.h"
 #include "DataTypes/TNCArray.h"
 #include "DataTypes/TStatic.h"
@@ -107,12 +108,12 @@ private:
     TArray<Font*>                                 m_fonts;
 
     TArray<CameraBuffer>                          m_cameraBuffers;
-    std::vector<VulkanUniformBuffer*>             m_cameraUniforms;
+    Array<VulkanUniformBuffer*>                   m_cameraUniforms;
 
     VulkanUniformBuffer*                          m_timeUniform;
 
-    std::vector<vk::CommandPool>                  m_commandPool[VulkanFlightPoolSize];
-    std::vector<vk::CommandBuffer>                m_commandBuffers[VulkanFlightPoolSize];
+    Array<vk::CommandPool>                        m_commandPool[VulkanFlightPoolSize];
+    Array<vk::CommandBuffer>                      m_commandBuffers[VulkanFlightPoolSize];
     
     TArray<CanvasRendererBuffer>                  m_canvasRenderers;
 
@@ -149,12 +150,10 @@ public:
 
     std::vector<vk::CommandBuffer> Update(double a_delta, double a_time, uint32_t a_index);
 
-    uint32_t GenerateGLSLVertexShader(const std::string_view& a_source);
     uint32_t GenerateFVertexShader(const std::string_view& a_source);
     void DestroyVertexShader(uint32_t a_addr);
     VulkanVertexShader* GetVertexShader(uint32_t a_addr);
 
-    uint32_t GenerateGLSLPixelShader(const std::string_view& a_source);
     uint32_t GenerateFPixelShader(const std::string_view& a_source);
     void DestroyPixelShader(uint32_t a_addr);
     VulkanPixelShader* GetPixelShader(uint32_t a_addr);
@@ -193,6 +192,7 @@ public:
 
     uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     void DestroyTextureSampler(uint32_t a_addr);
+    TextureSamplerBuffer GetTextureSampler(uint32_t a_addr);
 
     Font* GetFont(uint32_t a_addr);
 };

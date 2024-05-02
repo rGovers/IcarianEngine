@@ -54,18 +54,6 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
     IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 23
 };
 
-/// <summary>
-/// Shader slot enumeration.
-/// </summary>
-IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderSlot) : IOP_UINT8
-{
-    IOP_ENUM_VALUE(ShaderSlot, Null) = 0,
-    IOP_ENUM_VALUE(ShaderSlot, Compute) = 0b1 << 0,
-    IOP_ENUM_VALUE(ShaderSlot, Vertex) = 0b1 << 1,
-    IOP_ENUM_VALUE(ShaderSlot, Pixel) = 0b1 << 2,
-    IOP_ENUM_VALUE(ShaderSlot, AllGraphics) = IOP_ENUM_VALUE(ShaderSlot, Vertex) | IOP_ENUM_VALUE(ShaderSlot, Pixel),
-    IOP_ENUM_VALUE(ShaderSlot, All) = IOP_ENUM_VALUE(ShaderSlot, AllGraphics) | IOP_ENUM_VALUE(ShaderSlot, Compute)
-};
 
 /// <summary>
 /// Culling mode enumeration.
@@ -87,34 +75,17 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(PrimitiveMode) : IOP_UINT8
     IOP_ENUM_VALUE(PrimitiveMode, TriangleStrip) = 1
 };
 
-IOP_PACKED IOP_CSPUBLIC struct ShaderBufferInput
+/// @cond INTERNAL
+IOP_PACKED IOP_CSINTERNAL struct ShaderBufferInput
 {
-    /// <summary>
-    /// The slot/binding of the buffer in the shader
-    /// </summary>
     IOP_CSPUBLIC IOP_UINT16 Slot;
-    /// <summary>
-    /// The type of the buffer
-    /// </summary>
     IOP_CSPUBLIC IOP_ENUM_NAME(ShaderBufferType) BufferType;
-    /// <summary>
-    /// The number of buffers in the array
-    /// </summary>
-    /// Used by ShaderBufferType with A prefix
     IOP_CSPUBLIC IOP_UINT16 Count;
-    /// <summary>
-    /// The set the buffer is used in (Vulkan only)
-    /// </summary>
-    IOP_CSPUBLIC IOP_UINT8 Set;
-    /// <summary>
-    /// The shader slot the buffer is used in
-    /// </summary>
-    IOP_CSPUBLIC IOP_ENUM_NAME(ShaderSlot) ShaderSlot;    
 
 #ifdef CUBE_LANGUAGE_CPP
     constexpr bool operator ==(const ShaderBufferInput& a_other) const
     {
-        return Slot == a_other.Slot && BufferType == a_other.BufferType && ShaderSlot == a_other.ShaderSlot && Set == a_other.Set && Count == a_other.Count;
+        return Slot == a_other.Slot && BufferType == a_other.BufferType && Count == a_other.Count;
     }
     constexpr bool operator !=(const ShaderBufferInput& a_other) const
     {
@@ -123,7 +94,6 @@ IOP_PACKED IOP_CSPUBLIC struct ShaderBufferInput
 #endif
 };
 
-/// @cond INTERNAL
 IOP_PACKED IOP_CSINTERNAL struct RenderProgram
 {
     IOP_CSPUBLIC IOP_UINT32 VertexShader;
@@ -131,11 +101,7 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
     IOP_CSPUBLIC IOP_UINT32 ShadowVertexShader;
     IOP_CSPUBLIC IOP_UINT32 RenderLayer;
     IOP_POINTER(VertexInputAttribute*) VertexAttributes;
-    IOP_POINTER(ShaderBufferInput*) ShaderBufferInputs;
-    IOP_POINTER(ShaderBufferInput*) ShadowShaderBufferInputs;
     IOP_UINT16 VertexInputCount;
-    IOP_UINT16 ShaderBufferInputCount;
-    IOP_UINT16 ShadowShaderBufferInputCount;
     IOP_CSPUBLIC IOP_UINT16 VertexStride;
     IOP_UINT32 UBODataSize;
     IOP_POINTER(void*) UBOData;
@@ -176,7 +142,7 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
             return false;
         }
 
-        if (VertexInputCount != a_other.VertexInputCount || ShaderBufferInputCount != a_other.ShaderBufferInputCount || ShadowShaderBufferInputCount != a_other.ShadowShaderBufferInputCount)
+        if (VertexInputCount != a_other.VertexInputCount)
         {
             return false;
         }
@@ -184,22 +150,6 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
         for (uint32_t i = 0; i < VertexInputCount; ++i)
         {
             if (VertexAttributes[i] != a_other.VertexAttributes[i])
-            {
-                return false;
-            }
-        }
-
-        for (uint32_t i = 0; i < ShaderBufferInputCount; ++i)
-        {
-            if (ShaderBufferInputs[i] != a_other.ShaderBufferInputs[i])
-            {
-                return false;
-            }
-        }
-
-        for (uint32_t i = 0; i < ShadowShaderBufferInputCount; ++i)
-        {
-            if (ShadowShaderBufferInputs[i] != a_other.ShadowShaderBufferInputs[i])
             {
                 return false;
             }

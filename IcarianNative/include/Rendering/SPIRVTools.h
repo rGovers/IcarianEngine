@@ -1,12 +1,10 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
+#include <string_view>
 #include <SPIRV/GlslangToSpv.h>
 #include <glslang/Include/ResourceLimits.h>
 #include <glslang/Public/ShaderLang.h>
-
-std::string GLSL_fromFShader(const std::string_view& a_str);
 
 void spirv_init();
 void spirv_destroy();

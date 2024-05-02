@@ -80,12 +80,6 @@ namespace IcarianEngine.Definitions
         /// When this is null it will use the GetAttributes method on the VertexType to determine the attributes.
         [EditorTooltip("Deterimine vertex data the shader uses for input.")]
         public List<VertexInputAttribute> VertexAttributes = null;
-        
-        /// <summary>
-        /// Used to determine input values for shaders.
-        /// </summary>
-        [EditorTooltip("Used to determine input values for shaders.")]
-        public List<ShaderBufferInput> ShaderBuffers = null;
 
         /// <summary>
         /// Which faces to show when rendering.
@@ -116,11 +110,6 @@ namespace IcarianEngine.Definitions
         /// </summary>
         [EditorTooltip("Path relative to the project for the shadow vertex shader file to be used.")]
         public string ShadowVertexShaderPath;
-        /// <summary>
-        /// Path relative to the project for the shadow pixel shader file to be used.
-        /// </summary>
-        [EditorTooltip("Used to determine input values for shadow shaders.")]
-        public List<ShaderBufferInput> ShadowShaderBuffers = null;
 
         /// <summary>
         /// Type used as the uniform buffer for the shader.

@@ -2,11 +2,11 @@
 
 layout(location = 0) in vec2 vUV;
 
-layout(location = 0) out vec4 outColor;
+#!pushtexture(0, tex)
 
 #!pushbuffer(PUIBuffer, uiBuffer)
 
-layout(set = 0, binding = 0) uniform sampler2D tex;
+layout(location = 0) out vec4 outColor;
 
 void main() 
 {

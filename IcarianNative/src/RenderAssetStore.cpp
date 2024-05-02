@@ -31,9 +31,9 @@ void RenderAssetStore::Update()
     {
         PROFILESTACK("Models");
 
-        const std::vector<bool> state = m_models.ToStateVector();
+        const Array<bool> state = m_models.ToStateArray();
         TLockArray<RenderAsset> a = m_models.ToLockArray();
-        const uint32_t size = (uint32_t)state.size();
+        const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
@@ -42,7 +42,7 @@ void RenderAssetStore::Update()
                 continue;
             }
 
-            RenderAsset asset = a[i];
+            RenderAsset& asset = a[i];
             if (asset.InternalAddress == -1)
             {
                 continue;
@@ -63,17 +63,15 @@ void RenderAssetStore::Update()
                 m_renderEngine->DestroyModel(asset.InternalAddress);
                 asset.InternalAddress = -1;
             }
-
-            a[i] = asset;
         }
     }
     
     {
         PROFILESTACK("Textures");
 
-        const std::vector<bool> state = m_textures.ToStateVector();
+        const Array<bool> state = m_textures.ToStateArray();
         TLockArray<RenderAsset> a = m_textures.ToLockArray();
-        const uint32_t size = (uint32_t)state.size();
+        const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
@@ -82,7 +80,7 @@ void RenderAssetStore::Update()
                 continue;
             }
 
-            RenderAsset asset = a[i];
+            RenderAsset& asset = a[i];
             if (asset.InternalAddress == -1)
             {
                 continue;
@@ -100,20 +98,18 @@ void RenderAssetStore::Update()
 
             if (asset.DeReq > RenderAssetStore::DeReqCount)
             {
-                // m_renderEngine->DestroyTexture(asset.InternalAddress);
-                // asset.InternalAddress = -1;
+                m_renderEngine->DestroyTexture(asset.InternalAddress);
+                asset.InternalAddress = -1;
             }
-
-            a[i] = asset;
         }
     }
 }
 void RenderAssetStore::Flush()
 {
     {   
-        const std::vector<bool> state = m_models.ToStateVector();
+        const Array<bool> state = m_models.ToStateArray();
         TLockArray<RenderAsset> a = m_models.ToLockArray();
-        const uint32_t size = (uint32_t)state.size();
+        const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
@@ -122,23 +118,21 @@ void RenderAssetStore::Flush()
                 continue;
             }
 
-            RenderAsset asset = a[i];
+            RenderAsset& asset = a[i];
             if (asset.InternalAddress == -1)
             {
                 continue;
             }
 
             m_renderEngine->DestroyModel(asset.InternalAddress);
-            asset.InternalAddress = -1;
-
-            a[i] = asset;
+            asset.InternalAddress = -1;;
         }
     }
     
     {
-        const std::vector<bool> state = m_textures.ToStateVector();
+        const Array<bool> state = m_textures.ToStateArray();
         TLockArray<RenderAsset> a = m_textures.ToLockArray();
-        const uint32_t size = (uint32_t)state.size();
+        const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
@@ -147,7 +141,7 @@ void RenderAssetStore::Flush()
                 continue;
             }
 
-            RenderAsset asset = a[i];
+            RenderAsset& asset = a[i];
             if (asset.InternalAddress == -1)
             {
                 continue;
@@ -155,8 +149,6 @@ void RenderAssetStore::Flush()
 
             m_renderEngine->DestroyTexture(asset.InternalAddress);
             asset.InternalAddress = -1;
-
-            a[i] = asset;
         }
     }
 }
@@ -165,11 +157,11 @@ uint32_t RenderAssetStore::LoadModel(const std::filesystem::path& a_path)
 {
     FileCache::PreLoad(a_path);
 
-    RenderAsset asset;
-    asset.Path = a_path.string();
-    asset.InternalAddress = -1;
-    asset.DeReq = 0;
-    asset.Flags = 0;
+    const RenderAsset asset =
+    {
+        .Path = a_path.string(),
+        .InternalAddress = uint32_t(-1),
+    };
 
     return m_models.PushVal(asset);
 }
@@ -177,11 +169,12 @@ uint32_t RenderAssetStore::LoadSkinnedModel(const std::filesystem::path& a_path)
 {
     FileCache::PreLoad(a_path);
 
-    RenderAsset asset;
-    asset.Path = a_path.string();
-    asset.InternalAddress = -1;
-    asset.DeReq = 0;
-    asset.Flags = 0b1 << RenderAsset::SkinnedBit;
+    const RenderAsset asset =
+    {
+        .Path = a_path.string(),
+        .InternalAddress = uint32_t(-1),
+        .Flags = 0b1 << RenderAsset::SkinnedBit
+    };
 
     return m_models.PushVal(asset);
 }
@@ -207,7 +200,7 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
 
     TLockArray<RenderAsset> a = m_models.ToLockArray();
 
-    RenderAsset asset = a[a_addr];
+    RenderAsset& asset = a[a_addr];
     if (asset.InternalAddress == -1)
     {
         const std::filesystem::path path = asset.Path;
@@ -420,8 +413,6 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
     asset.DeReq = 0;
     asset.Flags |= 0b1 << RenderAsset::MarkBit;
 
-    a[a_addr] = asset;
-
     return asset.InternalAddress;
 }
 
@@ -429,11 +420,11 @@ uint32_t RenderAssetStore::LoadTexture(const std::filesystem::path& a_path)
 {
     FileCache::PreLoad(a_path);
 
-    RenderAsset asset;
-    asset.Path = a_path.string();
-    asset.InternalAddress = -1;
-    asset.DeReq = 0;
-    asset.Flags = 0;
+    const RenderAsset asset =
+    {
+        .Path = a_path.string(),
+        .InternalAddress = uint32_t(-1),
+    };
 
     return m_textures.PushVal(asset);
 }
@@ -454,18 +445,21 @@ void RenderAssetStore::DestroyTexture(uint32_t a_addr)
 
 static int STBI_FileHandle_Read(void* a_user, char* a_data, int a_size)
 {
+    IVERIFY(a_user != NULL);
     FileHandle* handle = (FileHandle*)a_user;
 
     return (int)handle->Read(a_data, (uint64_t)a_size);
 }
 static void STBI_FileHandle_Skip(void* a_user, int a_n)
 {
+    IVERIFY(a_user != NULL);
     FileHandle* handle = (FileHandle*)a_user;
 
-    return handle->Ignore(a_n);
+    handle->Ignore(a_n);
 }
 static int STBI_FileHandle_EOF(void* a_user)
 {
+    IVERIFY(a_user != NULL);
     const FileHandle* handle = (FileHandle*)a_user;
 
     return (int)handle->EndOfFile();
@@ -530,7 +524,7 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
     TLockArray<RenderAsset> a = m_textures.ToLockArray();
 
-    RenderAsset asset = a[a_addr];
+    RenderAsset& asset = a[a_addr];
     if (asset.InternalAddress == -1)
     {
         const std::filesystem::path path = asset.Path;
@@ -632,41 +626,6 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
             {
                 IERROR("GetTexture failed to parse file: " + path.string());
             }
-
-            // const uint64_t size = handle->GetSize();
-            // ktx_uint8_t* data = new ktx_uint8_t[size];
-            // IDEFER(delete[] data);
-
-            // handle->Read(data, size);
-
-            // ktxTexture2* texture;
-            // if (ktxTexture2_CreateFromMemory(data, (ktx_size_t)size, KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT, &texture) == KTX_SUCCESS)
-            // {
-            //     IDEFER(ktxTexture_Destroy((ktxTexture*)texture));
-
-            //     if (ktxTexture2_NeedsTranscoding(texture))
-            //     {
-            //         ICARIAN_ASSERT_R(ktxTexture2_TranscodeBasis(texture, KTX_TTF_BC3_RGBA, 0) == KTX_SUCCESS);
-            //     }
-
-            //     const uint32_t levels = (uint32_t)texture->numLevels;
-            //     uint64_t* offsets = new uint64_t[levels];
-            //     IDEFER(delete[] offsets);
-
-            //     for (uint32_t i = 0; i < levels; ++i)
-            //     {
-            //         ktx_size_t off;
-            //         ICARIAN_ASSERT_R(ktxTexture_GetImageOffset((ktxTexture*)texture, i, 0, 0, &off) == KTX_SUCCESS);
-
-            //         offsets[i] = (uint64_t)off;
-            //     }
-
-            //     asset.InternalAddress = m_renderEngine->GenerateTextureMipMapped((uint32_t)texture->baseWidth, (uint32_t)texture->baseHeight, levels, offsets, TextureFormat_BC3, texture->pData, (uint64_t)texture->dataSize);
-            // }
-            // else
-            // {
-            //     IERROR("GetTexture failed to parse file: " + path.string());
-            // }
         }
         else 
         {
@@ -676,8 +635,6 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
     asset.DeReq = 0;
     asset.Flags |= 0b1 << RenderAsset::MarkBit;
-
-    a[a_addr] = asset;
 
     return asset.InternalAddress;
 }

@@ -3,8 +3,8 @@
 
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "Core/ShaderBuffers.h"
 #include "Logger.h"
-#include "Rendering/ShaderBuffers.h"
 #include "Rendering/Vulkan/VulkanComputeEngineBindings.h"
 #include "Rendering/Vulkan/VulkanComputeLayout.h"
 #include "Rendering/Vulkan/VulkanComputeParticle.h"
@@ -40,7 +40,7 @@ VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
         ICARIAN_ASSERT_MSG_R(device.allocateCommandBuffers(&commandBufferInfo, &m_buffers[i]) == vk::Result::eSuccess, "Failed to create Compute Command Buffer");
     }
 
-    m_timeUniform = new VulkanUniformBuffer(m_engine, sizeof(TimeShaderBuffer));
+    m_timeUniform = new VulkanUniformBuffer(m_engine, sizeof(IcarianCore::ShaderTimeBuffer));
 
     m_bindings = new VulkanComputeEngineBindings(this);
 }
@@ -116,10 +116,11 @@ vk::CommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, uin
         device.resetCommandPool(m_pools[a_index]);
     }
 
-    TimeShaderBuffer timeBuffer;
-    timeBuffer.Time.x = (float)a_delta;
-    timeBuffer.Time.y = (float)a_time;
-
+    const IcarianCore::ShaderTimeBuffer timeBuffer =
+    {
+        .Time = glm::vec2((float)a_delta, (float)a_time)
+    };
+    
     m_timeUniform->SetData(a_index, &timeBuffer);
 
     vk::CommandBuffer cmdBuffer = m_buffers[a_index];
@@ -170,12 +171,6 @@ vk::Buffer VulkanComputeEngine::GetParticleBufferData(uint32_t a_addr)
 uint32_t VulkanComputeEngine::GenerateComputeFShader(const std::string_view& a_str)
 {
     VulkanComputeShader* shader = VulkanComputeShader::CreateFromFShader(m_engine, a_str);
-
-    return m_shaders.PushVal(shader);
-}
-uint32_t VulkanComputeEngine::GenerateComputeGLSLShader(const std::string_view& a_str)
-{
-    VulkanComputeShader* shader = VulkanComputeShader::CreateFromGLSL(m_engine, a_str);
 
     return m_shaders.PushVal(shader);
 }

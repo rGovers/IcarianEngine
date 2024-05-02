@@ -6,6 +6,7 @@
 #include <shared_mutex>
 #include <vector>
 
+#include "DataTypes/Array.h"
 #include "DataTypes/TLockArray.h"
 
 // When in doubt with memory issues write it C style with C++ features
@@ -131,17 +132,19 @@ public:
         return *this;
     }
 
+    Array<T> ToArray()
+    {
+        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+
+        return Array<T>(m_data, m_size);
+    }
     std::vector<T> ToVector() 
     {
         const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
 
-        if (m_data == nullptr)
-        {
-            return std::vector<T>();
-        }
-
         return std::vector<T>(m_data, m_data + m_size);
     }
+
     TLockArray<T> ToLockArray()
     {
         TLockArray<T> a = TLockArray<T>(m_mutex);
@@ -189,7 +192,6 @@ public:
         m_data[a_index] = a_value;
     }
 
-    
     inline void Push(const T& a_data)
     {
         const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);

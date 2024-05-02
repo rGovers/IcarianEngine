@@ -61,6 +61,7 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
 
         "src/ColladaLoader.cpp",
         "src/FBXLoader.cpp",
+        "src/FlareShader.cpp",
         "src/GLTFLoader.cpp",
         "src/InputBindings.cpp",
         "src/IPCPipe.cpp",
