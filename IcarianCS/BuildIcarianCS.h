@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
+static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
 {
     CUBE_CSProject project = { 0 };
 
@@ -18,137 +18,140 @@ CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
 
     CUBE_CSProject_AppendIncludePath(&project, "../EngineInterop");
 
-    CUBE_CSProject_AppendSource(&project, "src/Application.cs");
-    CUBE_CSProject_AppendSource(&project, "src/AssetLibrary.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Component.cs");
-    CUBE_CSProject_AppendSource(&project, "src/EditorTooltipAttribute.cs");
-    CUBE_CSProject_AppendSource(&project, "src/GameObject.cs");
-    CUBE_CSProject_AppendSource(&project, "src/HideInEditorAttribute.cs");
-    CUBE_CSProject_AppendSource(&project, "src/IDestroy.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Input.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Logger.cs");
-    CUBE_CSProject_AppendSource(&project, "src/NativeLock.cs");
-    CUBE_CSProject_AppendSource(&project, "src/PrimitiveGenerator.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Profiler.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Program.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Random.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Scene.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Scribe.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Scriptable.cs");
-    CUBE_CSProject_AppendSource(&project, "src/ThreadPool.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Time.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Transform.cs");
+    CUBE_CSProject_AppendSources(&project, 
+        "src/Application.cs",
+        "src/AssetLibrary.cs",
+        "src/Component.cs",
+        "src/EditorPathStringAttribute.cs",
+        "src/EditorTooltipAttribute.cs",
+        "src/GameObject.cs",
+        "src/HideInEditorAttribute.cs",
+        "src/IDestroy.cs",
+        "src/Input.cs",
+        "src/Logger.cs",
+        "src/NativeLock.cs",
+        "src/PrimitiveGenerator.cs",
+        "src/Profiler.cs",
+        "src/Program.cs",
+        "src/Random.cs",
+        "src/Scene.cs",
+        "src/Scribe.cs",
+        "src/Scriptable.cs",
+        "src/ThreadPool.cs",
+        "src/Time.cs",
+        "src/Transform.cs",
 
-    CUBE_CSProject_AppendSource(&project, "src/Audio/AudioClip.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Audio/AudioListener.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Audio/AudioMixer.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Audio/AudioSource.cs");
+        "src/Audio/AudioClip.cs",
+        "src/Audio/AudioListener.cs",
+        "src/Audio/AudioMixer.cs",
+        "src/Audio/AudioSource.cs",
 
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/AmbientLightDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/AnimationControllerDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/AnimatorDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/AudioSourceDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/BoxCollisionShapeDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/CameraDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/CapsuleCollisionShapeDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/CollisionShapeDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/ComponentDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/CylinderCollisionShapeDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/Def.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/DefLibrary.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/DefTableAttribute.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/DirectionalLightDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/GameObjectDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/LightDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/MaterialDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/MeshRendererDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/ParticleSystem2DDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/ParticleSystemDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/PhysicsBodyDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/PointLightDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/RendererDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/RigidBodyDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/SkeletonAnimatorDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/SkeletonClipAnimationControllerDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/SkinnedMeshRendererDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/SphereCollisionShapeDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/SpotLightDef.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Definitions/TriggerBodyDef.cs");
+        "src/Definitions/AmbientLightDef.cs",
+        "src/Definitions/AnimationControllerDef.cs",
+        "src/Definitions/AnimatorDef.cs",
+        "src/Definitions/AudioSourceDef.cs",
+        "src/Definitions/BoxCollisionShapeDef.cs",
+        "src/Definitions/CameraDef.cs",
+        "src/Definitions/CapsuleCollisionShapeDef.cs",
+        "src/Definitions/CollisionShapeDef.cs",
+        "src/Definitions/ComponentDef.cs",
+        "src/Definitions/CylinderCollisionShapeDef.cs",
+        "src/Definitions/Def.cs",
+        "src/Definitions/DefLibrary.cs",
+        "src/Definitions/DefTableAttribute.cs",
+        "src/Definitions/DirectionalLightDef.cs",
+        "src/Definitions/GameObjectDef.cs",
+        "src/Definitions/LightDef.cs",
+        "src/Definitions/MaterialDef.cs",
+        "src/Definitions/MeshRendererDef.cs",
+        "src/Definitions/ParticleSystem2DDef.cs",
+        "src/Definitions/ParticleSystemDef.cs",
+        "src/Definitions/PhysicsBodyDef.cs",
+        "src/Definitions/PointLightDef.cs",
+        "src/Definitions/RendererDef.cs",
+        "src/Definitions/RigidBodyDef.cs",
+        "src/Definitions/SkeletonAnimatorDef.cs",
+        "src/Definitions/SkeletonClipAnimationControllerDef.cs",
+        "src/Definitions/SkinnedMeshRendererDef.cs",
+        "src/Definitions/SphereCollisionShapeDef.cs",
+        "src/Definitions/SpotLightDef.cs",
+        "src/Definitions/TriggerBodyDef.cs",
 
-    CUBE_CSProject_AppendSource(&project, "src/Maths/Color.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Maths/IVector2.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Maths/IVector3.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Maths/IVector4.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Maths/Mathf.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Maths/Matrix4.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Maths/Quaternion.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Maths/Vector2.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Maths/Vector3.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Maths/Vector4.cs");
+        "src/Maths/Color.cs",
+        "src/Maths/IVector2.cs",
+        "src/Maths/IVector3.cs",
+        "src/Maths/IVector4.cs",
+        "src/Maths/Mathf.cs",
+        "src/Maths/Matrix4.cs",
+        "src/Maths/Quaternion.cs",
+        "src/Maths/Vector2.cs",
+        "src/Maths/Vector3.cs",
+        "src/Maths/Vector4.cs",
 
-    CUBE_CSProject_AppendSource(&project, "src/Mod/AssemblyControl.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Mod/IcarianAssembly.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Mod/IcarianAssemblyInfo.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Mod/ModControl.cs");
+        "src/Mod/AssemblyControl.cs",
+        "src/Mod/IcarianAssembly.cs",
+        "src/Mod/IcarianAssemblyInfo.cs",
+        "src/Mod/ModControl.cs",
 
-    CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkClient.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkManager.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkServer.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Networking/NetworkSocket.cs");
+        "src/Networking/NetworkClient.cs",
+        "src/Networking/NetworkManager.cs",
+        "src/Networking/NetworkServer.cs",
+        "src/Networking/NetworkSocket.cs",
 
-    CUBE_CSProject_AppendSource(&project, "src/Physics/Physics.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Physics/PhysicsBody.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Physics/RigidBody.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Physics/TriggerBody.cs");
+        "src/Physics/Physics.cs",
+        "src/Physics/PhysicsBody.cs",
+        "src/Physics/RigidBody.cs",
+        "src/Physics/TriggerBody.cs",
+        
+        "src/Physics/Shapes/BoxCollisionShape.cs",
+        "src/Physics/Shapes/CapsuleCollisionShape.cs",
+        "src/Physics/Shapes/CollisionShape.cs",
+        "src/Physics/Shapes/CylinderCollisionShape.cs",
+        "src/Physics/Shapes/SphereCollisionShape.cs",
 
-    CUBE_CSProject_AppendSource(&project, "src/Physics/Shapes/BoxCollisionShape.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Physics/Shapes/CapsuleCollisionShape.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Physics/Shapes/CollisionShape.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Physics/Shapes/CylinderCollisionShape.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Physics/Shapes/SphereCollisionShape.cs");
+        "src/Rendering/Camera.cs",
+        "src/Rendering/DefaultRenderPipeline.cs",
+        "src/Rendering/DepthCubeRenderTexture.cs",
+        "src/Rendering/DepthRenderTexture.cs",
+        "src/Rendering/IRenderTexture.cs",
+        "src/Rendering/Material.cs",
+        "src/Rendering/MeshRenderer.cs",
+        "src/Rendering/Model.cs",
+        "src/Rendering/MultiRenderTexture.cs",
+        "src/Rendering/ParticleSystem.cs",
+        "src/Rendering/ParticleSystem2D.cs",
+        "src/Rendering/PixelShader.cs",
+        "src/Rendering/RenderCommand.cs",
+        "src/Rendering/Renderer.cs",
+        "src/Rendering/RenderPipeline.cs",
+        "src/Rendering/RenderTexture.cs",
+        "src/Rendering/RenderTextureCmd.cs",
+        "src/Rendering/Texture.cs",
+        "src/Rendering/TextureSampler.cs",
+        "src/Rendering/VertexShader.cs",
+        "src/Rendering/Viewport.cs",
 
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Camera.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/DefaultRenderPipeline.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/DepthCubeRenderTexture.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/DepthRenderTexture.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/IRenderTexture.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Material.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/MeshRenderer.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Model.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/MultiRenderTexture.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/ParticleSystem.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/ParticleSystem2D.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/PixelShader.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/RenderCommand.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Renderer.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/RenderPipeline.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/RenderTexture.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/RenderTextureCmd.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Texture.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/TextureSampler.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/VertexShader.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Viewport.cs");
+        "src/Rendering/Animation/AnimationClip.cs",
+        "src/Rendering/Animation/AnimationController.cs",
+        "src/Rendering/Animation/Animator.cs",
+        "src/Rendering/Animation/Skeleton.cs",
+        "src/Rendering/Animation/SkeletonAnimator.cs",
+        "src/Rendering/Animation/SkeletonClipAnimationController.cs",
+        "src/Rendering/Animation/SkinnedMeshRenderer.cs",
 
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Animation/AnimationClip.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Animation/AnimationController.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Animation/Animator.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Animation/Skeleton.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Animation/SkeletonAnimator.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Animation/SkeletonClipAnimationController.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Animation/SkinnedMeshRenderer.cs");
+        "src/Rendering/Lighting/AmbientLight.cs",
+        "src/Rendering/Lighting/DirectionalLight.cs",
+        "src/Rendering/Lighting/Light.cs",
+        "src/Rendering/Lighting/PointLight.cs",
+        "src/Rendering/Lighting/SpotLight.cs",
 
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Lighting/AmbientLight.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Lighting/DirectionalLight.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Lighting/Light.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Lighting/PointLight.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/Lighting/SpotLight.cs");
-
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/UI/Canvas.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/UI/CanvasRenderer.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/UI/Font.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/UI/ImageUIElement.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/UI/TextUIElement.cs");
-    CUBE_CSProject_AppendSource(&project, "src/Rendering/UI/UIElement.cs");
+        "src/Rendering/UI/Canvas.cs",
+        "src/Rendering/UI/CanvasRenderer.cs",
+        "src/Rendering/UI/Font.cs",
+        "src/Rendering/UI/ImageUIElement.cs",
+        "src/Rendering/UI/TextUIElement.cs",
+        "src/Rendering/UI/UIElement.cs"
+    );
 
     return project;
 }

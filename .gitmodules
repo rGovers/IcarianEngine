@@ -43,3 +43,6 @@
 [submodule "deps/KTX-Software"]
 	path = deps/KTX-Software
 	url = https://github.com/KhronosGroup/KTX-Software
+[submodule "deps/imgui"]
+	path = deps/imgui
+	url = https://github.com/ocornut/imgui.git

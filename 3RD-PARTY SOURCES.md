@@ -36,6 +36,16 @@ https://github.com/lsalzman/enet
 
 ## Shared
 
+### Dear ImGui
+Original Project:
+
+https://github.com/ocornut/imgui
+
+### KTX-Software
+Original Project:
+
+https://github.com/KhronosGroup/KTX-Software.git
+
 ### Mono
 Orignal Project:
 

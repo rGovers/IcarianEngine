@@ -21,7 +21,7 @@
 static void IcarianError(const std::string_view& a_msg)
 {
 #ifdef WIN32
-    MessageBoxA(NULL, msg.data(), NULL, MB_OK);
+    MessageBoxA(NULL, a_msg.data(), NULL, MB_OK);
 #endif
 
     ICARIAN_ASSERT_MSG_R(0, a_msg);

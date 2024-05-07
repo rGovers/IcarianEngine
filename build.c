@@ -10,6 +10,7 @@
 #include "deps/BuildDependencies.h"
 #include "IcarianCore/BuildIcarianCore.h"
 #include "IcarianCS/BuildIcarianCS.h"
+#include "IcarianModManager/BuildIcarianModManager.h"
 #include "IcarianNative/BuildIcarianNative.h"
 
 void PrintEngineHelp()
@@ -32,9 +33,10 @@ int main(int a_argc, char** a_argv)
     e_TargetPlatform targetPlatform;
     e_BuildConfiguration buildConfiguration;
 
-    CUBE_CProject flareBaseProject;
+    CUBE_CProject icarianCoreProject;
     CUBE_CSProject icarianCSProject;
     CUBE_CProject icarianNativeProject;
+    CUBE_CProject icarianModManagerProject;
 
     e_CUBE_CProjectCompiler compiler;
 
@@ -289,14 +291,14 @@ int main(int a_argc, char** a_argv)
     PrintHeader("Building IcarianCore");
 
     printf("Creating IcarianCore project...\n");
-    flareBaseProject = BuildIcarianCoreProject(CBTRUE, targetPlatform, buildConfiguration);
+    icarianCoreProject = BuildIcarianCoreProject(CBTRUE, targetPlatform, buildConfiguration);
 
     printf("Compiling IcarianCore...\n");
-    ret = CUBE_CProject_MultiCompile(&flareBaseProject, compiler, "IcarianCore", CBNULL, jobThreads, &lines, &lineCount);
+    ret = CUBE_CProject_MultiCompile(&icarianCoreProject, compiler, "IcarianCore", CBNULL, jobThreads, &lines, &lineCount);
 
     FlushLines(&lines, &lineCount);
 
-    CUBE_CProject_Destroy(&flareBaseProject);
+    CUBE_CProject_Destroy(&icarianCoreProject);
 
     if (!ret)
     {
@@ -379,9 +381,28 @@ int main(int a_argc, char** a_argv)
         return 1;
     }
 
+    CUBE_CProject_Destroy(&icarianNativeProject);
+
     printf("IcarianNative Compiled!\n");
 
-    CUBE_CProject_Destroy(&icarianNativeProject);
+    PrintHeader("Building IcarianModManager");
+
+    icarianModManagerProject = BuildIcarianModManagerProject(targetPlatform, buildConfiguration);
+
+    ret = CUBE_CProject_MultiCompile(&icarianModManagerProject, compiler, "IcarianModManager", CBNULL, jobThreads, &lines, &lineCount);
+
+    FlushLines(&lines, &lineCount);
+
+    if (!ret)
+    {
+        printf("Failed to compile IcarianModManager\n");
+
+        return 1;
+    }
+
+    CUBE_CProject_Destroy(&icarianModManagerProject);
+
+    printf("IcarianModManager Compiled!\n");
 
     PrintHeader("Copying Files");
 
@@ -394,6 +415,7 @@ int main(int a_argc, char** a_argv)
     case TargetPlatform_Windows:
     {
         CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative.exe", "build/IcarianNative.exe");
+        CUBE_IO_CopyFileC("IcarianModManager/build/IcarianModManager.exe", "build/IcarianModManager.exe");
 
         CUBE_IO_CopyDirectoryC("deps/Mono/Windows/lib/", "build/lib/", CBTRUE);
         CUBE_IO_CopyDirectoryC("deps/Mono/Windows/etc/", "build/etc/", CBTRUE);
@@ -406,8 +428,10 @@ int main(int a_argc, char** a_argv)
     case TargetPlatform_Linux:
     {
         CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative", "build/IcarianNative");
+        CUBE_IO_CopyFileC("IcarianModManager/build/IcarianModManager", "build/IcarianModManager");
 
         CUBE_IO_CHMODC("build/IcarianNative", 0755);
+        CUBE_IO_CHMODC("build/IcarianModManager", 0755);
 
         CUBE_IO_CopyDirectoryC("deps/Mono/Linux/lib/", "build/lib/", CBTRUE);
         CUBE_IO_CopyDirectoryC("deps/Mono/Linux/etc/", "build/etc/", CBTRUE);

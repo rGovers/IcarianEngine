@@ -444,7 +444,7 @@ CUBE_CProject BuildKTXGLCPP(e_TargetPlatform a_targetPlatform, e_BuildConfigurat
     // Weird that the KTX project uses c99 when using string literals that where not introduced until c11 
     // Throws a compile error because of it. I am 90% sure that the cmake version works cause it is using a C++ compiler and the c++11 takes priority
     // Anyway debugging other peoples build systems fun....
-    CUBE_CProject_AppendCFlag(&project, "-std=c11");
+    CUBE_CProject_AppendCFlag(&project, "-std=c++11");
 
     switch (a_configuration) 
     {
