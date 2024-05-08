@@ -32,6 +32,8 @@ typedef enum
     BuildConfiguration_Release,
 } e_BuildConfiguration;
 
+static const char GeneratedFileHeader[] = "// ----------------------------------------------------\n//\n// Auto generated file do not modify\n//\n// ----------------------------------------------------\n\n";
+
 CBBOOL TemplatesToHeader(const CUBE_Path* a_templatePath, CBUINT32 a_templateCount, const char* a_outputFile)
 {
     FILE* outputFile = fopen(a_outputFile, "w");
@@ -41,6 +43,8 @@ CBBOOL TemplatesToHeader(const CUBE_Path* a_templatePath, CBUINT32 a_templateCou
     }
 
     fprintf(outputFile, "#pragma once\n\n");
+
+    fprintf(outputFile, GeneratedFileHeader);
 
     for (CBUINT32 i = 0; i < a_templateCount; ++i)
     {
@@ -121,6 +125,8 @@ CBBOOL ShadersToHeader(const CUBE_Path* a_shaderPaths, CBUINT32 a_shaderCount, c
     }
 
     fprintf(outputFile, "#pragma once\n\n");
+
+    fprintf(outputFile, GeneratedFileHeader);
 
     for (CBUINT32 i = 0; i < a_shaderCount; ++i)
     {

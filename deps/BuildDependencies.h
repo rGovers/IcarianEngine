@@ -327,152 +327,6 @@ CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfiguratio
 
     return project;
 }
-CUBE_CProject BuildKTXGLC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
-{
-    CUBE_CProject project = { 0 };
-    project.Name = CUBE_StackString_CreateC("ktxglc");
-    project.Target = CUBE_CProjectTarget_StaticLibrary;
-    project.Language = CUBE_CProjectLanguage_C;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
-
-    if (a_configuration == BuildConfiguration_Debug)
-    {
-        CUBE_CProject_AppendDefine(&project, "DEBUG");
-    }
-    else 
-    {
-        CUBE_CProject_AppendDefine(&project, "NDEBUG");
-    }
-
-    if (a_targetPlatform == TargetPlatform_Windows)
-    {
-        CUBE_CProject_AppendDefines(&project, 
-            "WIN32",
-            "_WIN32"
-        );
-    }
-
-    CUBE_CProject_AppendDefines(&project, 
-        "KHRONOS_STATIC",
-        "LIBKTX",
-        "KTX_FEATURE_KTX1",
-        "KTX_FEATURE_KTX2"
-    );
-
-    CUBE_CProject_AppendIncludePaths(&project, 
-        ".",
-        "./include/",
-        "./utils/"
-    );
-
-    CUBE_CProject_AppendSources(&project,
-        "./lib/gl_funcs.c",
-        "./lib/glloader.c"
-    );
-
-    // Weird that the KTX project uses c99 when using string literals that where not introduced until c11 
-    // Throws a compile error because of it. I am 90% sure that the cmake version works cause it is using a C++ compiler and the c++11 takes priority
-    // Anyway debugging other peoples build systems fun....
-    CUBE_CProject_AppendCFlag(&project, "-std=c11");
-
-    switch (a_configuration) 
-    {
-    case BuildConfiguration_Debug:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-g");
-
-        break;
-    }
-    case BuildConfiguration_ReleaseWithDebug:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-g");
-        CUBE_CProject_AppendCFlag(&project, "-O3");
-
-        break;
-    }
-    case BuildConfiguration_Release:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-O3");
-
-        break;
-    }
-    }
-
-    return project;
-}
-CUBE_CProject BuildKTXGLCPP(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
-{
-    CUBE_CProject project = { 0 };
-    project.Name = CUBE_StackString_CreateC("ktxglcpp");
-    project.Target = CUBE_CProjectTarget_StaticLibrary;
-    project.Language = CUBE_CProjectLanguage_CPP;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
-
-    if (a_configuration == BuildConfiguration_Debug)
-    {
-        CUBE_CProject_AppendDefine(&project, "DEBUG");
-    }
-    else 
-    {
-        CUBE_CProject_AppendDefine(&project, "NDEBUG");
-    }
-
-    if (a_targetPlatform == TargetPlatform_Windows)
-    {
-        CUBE_CProject_AppendDefines(&project, 
-            "WIN32",
-            "_WIN32"
-        );
-    }
-
-    CUBE_CProject_AppendDefines(&project, 
-        "KHRONOS_STATIC",
-        "LIBKTX",
-        "KTX_FEATURE_KTX1",
-        "KTX_FEATURE_KTX2"
-    );
-
-    CUBE_CProject_AppendIncludePaths(&project, 
-        ".",
-        "./include/",
-        "./utils/"
-    );
-
-    CUBE_CProject_AppendSources(&project,
-        "./lib/etcdec.cxx",
-        "./lib/etcunpack.cxx"
-    );
-
-    // Weird that the KTX project uses c99 when using string literals that where not introduced until c11 
-    // Throws a compile error because of it. I am 90% sure that the cmake version works cause it is using a C++ compiler and the c++11 takes priority
-    // Anyway debugging other peoples build systems fun....
-    CUBE_CProject_AppendCFlag(&project, "-std=c++11");
-
-    switch (a_configuration) 
-    {
-    case BuildConfiguration_Debug:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-g");
-
-        break;
-    }
-    case BuildConfiguration_ReleaseWithDebug:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-g");
-        CUBE_CProject_AppendCFlag(&project, "-O3");
-
-        break;
-    }
-    case BuildConfiguration_Release:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-O3");
-
-        break;
-    }
-    }
-
-    return project;
-}
 
 CUBE_CProject BuildOpenFBXLibDeflate(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
@@ -523,7 +377,7 @@ CUBE_CProject BuildOpenFBXLibDeflate(e_TargetPlatform a_targetPlatform, e_BuildC
 
 DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
-    *a_count = 7;
+    *a_count = 5;
 
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * (*a_count));
 
@@ -552,14 +406,6 @@ DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targe
     projects[4].Project = BuildOpenFBXLibDeflate(a_targetPlatform, a_configuration);
     projects[4].WorkingDirectory = "deps/OpenFBX";
     projects[4].Export = CBTRUE;
-
-    projects[5].Project = BuildKTXGLC(a_targetPlatform, a_configuration);
-    projects[5].WorkingDirectory = "deps/KTX-Software";
-    projects[5].Export = CBFALSE;
-
-    projects[6].Project = BuildKTXGLCPP(a_targetPlatform, a_configuration);
-    projects[6].WorkingDirectory = "deps/KTX-Software";
-    projects[6].Export = CBFALSE;
 
     return projects;
 }
