@@ -64,6 +64,8 @@ CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfiguration 
         break;
     }
     case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
     {
         CUBE_CProject_AppendDefine(&project, "_GLFW_X11");
         
