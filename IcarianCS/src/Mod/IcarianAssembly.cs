@@ -15,11 +15,12 @@ namespace IcarianEngine.Mod
 {
     public class IcarianAssembly
     {
-        AssemblyControl     m_assemblyControl;
+        AssemblyControl            m_assemblyControl;
 
-        IcarianAssemblyInfo m_assemblyInfo;
+        IcarianAssemblyInfo        m_assemblyInfo;
 
-        List<Assembly>      m_assemblies;
+        List<Assembly>             m_assemblies;
+        Dictionary<string, string> m_aliases;
 
         internal AssemblyControl AssemblyControl
         {
@@ -56,7 +57,9 @@ namespace IcarianEngine.Mod
             m_assemblyInfo = a_info;
 
             m_assemblyControl = null;
+            
             m_assemblies = new List<Assembly>();
+            m_aliases = new Dictionary<string, string>();
         }
 
         /// <summary>
@@ -78,8 +81,62 @@ namespace IcarianEngine.Mod
             return null;
         }
 
+        void LoadAlias(XmlElement a_element)
+        {
+            string src = null;
+            string dst = null;
+
+            foreach (XmlNode node in a_element.ChildNodes)
+            {
+                if (node is XmlElement element)
+                {
+                    switch (element.Name)
+                    {
+                    case "Source":
+                    {
+                        src = element.InnerText;
+
+                        break;
+                    }
+                    case "Destination":
+                    {
+                        dst = element.InnerText;
+
+                        break;
+                    }
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(src) && !string.IsNullOrWhiteSpace(dst))
+            {
+                m_aliases.Add(src, dst);
+            }
+        }
+
         void LoadData(string a_path)
         {
+            string aliasPath = Path.Combine(a_path, "alias.xml");
+            if (File.Exists(aliasPath))
+            {
+                XmlDocument doc = new XmlDocument();
+                doc.Load(aliasPath);
+
+                if (doc.DocumentElement is XmlElement root)
+                {
+                    foreach (XmlNode node in root.ChildNodes)
+                    {
+                        if (node is XmlElement element)
+                        {
+                            if (element.Name == "Alias")
+                            {
+                                LoadAlias(element);
+                            }
+                        }
+                    }
+                }
+            }
+
             string assemblyPath = Path.Combine(a_path, "Assemblies");
             if (Directory.Exists(assemblyPath))
             {
@@ -137,6 +194,26 @@ namespace IcarianEngine.Mod
                     }
                 }
             }
+        }
+
+        internal string GetAssetPath(string a_path)
+        {
+            if (m_aliases.ContainsKey(a_path))
+            {
+                string ap = Path.Combine(AssemblyInfo.Path, "Assets", m_aliases[a_path]);
+                if (File.Exists(ap))
+                {
+                    return ap;
+                }
+            }
+
+            string p = Path.Combine(AssemblyInfo.Path, "Assets", a_path);
+            if (File.Exists(p))
+            {
+                return p;
+            }
+
+            return null;
         }
 
         internal static IcarianAssembly LoadIcarianAssembly(IcarianAssemblyInfo a_info)

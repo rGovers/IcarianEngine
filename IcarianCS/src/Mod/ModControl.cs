@@ -380,15 +380,15 @@ namespace IcarianEngine.Mod
 
             for (int i = Assemblies.Count - 1; i >= 0; --i)
             {
-                string mPath = Path.Combine(Assemblies[i].AssemblyInfo.Path, "Assets", a_path);
-                if (File.Exists(mPath))
+                string mPath = Assemblies[i].GetAssetPath(a_path);
+                if (!string.IsNullOrEmpty(mPath))
                 {
                     return mPath;
                 }
             }
 
-            string cPath = Path.Combine(CoreAssembly.AssemblyInfo.Path, "Assets", a_path);
-            if (File.Exists(cPath))
+            string cPath = CoreAssembly.GetAssetPath(a_path);
+            if (!string.IsNullOrEmpty(cPath))
             {
                 return cPath;
             }

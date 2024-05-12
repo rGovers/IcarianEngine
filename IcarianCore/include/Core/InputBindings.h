@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "Core/Bitfield.h"
+
 #include "EngineInputInteropStructures.h"
 
 namespace IcarianCore
@@ -11,10 +13,10 @@ namespace IcarianCore
     class KeyboardState
     {
     public:
-        static constexpr unsigned int ElementCount = (KeyCode_Last / 8) + 1;
+        static constexpr uint32_t ElementCount = (KeyCode_Last / 8) + 1;
     
     private:
-        unsigned char m_state[ElementCount];
+        uint8_t m_state[ElementCount];
     
     protected:
     
@@ -35,9 +37,9 @@ namespace IcarianCore
         }
         ~KeyboardState() { }
     
-        static KeyboardState FromData(const unsigned char* a_data);
+        static KeyboardState FromData(const uint8_t* a_data);
     
-        inline unsigned char* ToData()
+        inline uint8_t* ToData()
         {
             return m_state;
         }
@@ -47,21 +49,14 @@ namespace IcarianCore
             const unsigned int index = a_keyCode / 8;
             const unsigned int offset = a_keyCode % 8;
     
-            if (a_state)
-            {
-                m_state[index] |= 0b1 << offset;
-            }
-            else
-            {
-                m_state[index] &= ~(0b1 << offset);
-            }
+            ITOGGLEBIT(a_state, m_state[index], offset);
         }
         inline bool IsKeyDown(e_KeyCode a_keyCode) const
         {
             const unsigned int index = a_keyCode / 8;
             const unsigned int offset = a_keyCode % 8;
     
-            return m_state[index] & 0b1 << offset;
+            return IISBITSET(m_state[index], offset);
         }
     };
 }

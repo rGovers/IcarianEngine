@@ -2,11 +2,11 @@
 
 namespace IcarianCore
 {
-    KeyboardState KeyboardState::FromData(const unsigned char* a_data)
+    KeyboardState KeyboardState::FromData(const uint8_t* a_data)
     {
         KeyboardState state;
             
-        for (unsigned int i = 0; i < ElementCount; ++i)
+        for (uint32_t i = 0; i < ElementCount; ++i)
         {
             state.m_state[i] = a_data[i];
         }
