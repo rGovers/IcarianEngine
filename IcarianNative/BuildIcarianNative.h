@@ -278,7 +278,13 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             CUBE_CProject_AppendCFlag(&project, "-march=x86-64-v2");
         }
 
+        CUBE_CProject_AppendCFlag(&project, "-s");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        CUBE_CProject_AppendCFlag(&project, "-ffunction-sections");
+        CUBE_CProject_AppendCFlag(&project, "-fdata-sections"); 
+
+        CUBE_CProject_AppendCFlag(&project, "-Wl,--gc-sections");
 
         break;
     }
