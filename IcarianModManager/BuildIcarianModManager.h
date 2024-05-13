@@ -89,6 +89,9 @@ static CUBE_CProject BuildIcarianModManagerProject(e_TargetPlatform a_targetPlat
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
 
+        CUBE_CProject_AppendCFlag(&project, "-flto");
+        CUBE_CProject_AppendCFlag(&project, "-fwhole-program");
+
         if (a_targetPlatform != TargetPlatform_Windows)
         {
             CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
@@ -99,6 +102,9 @@ static CUBE_CProject BuildIcarianModManagerProject(e_TargetPlatform a_targetPlat
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        CUBE_CProject_AppendCFlag(&project, "-flto");
+        CUBE_CProject_AppendCFlag(&project, "-fwhole-program");
 
         break;
     }

@@ -233,6 +233,9 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
 
+        CUBE_CProject_AppendCFlag(&project, "-flto");
+        CUBE_CProject_AppendCFlag(&project, "-fwhole-program");
+
         if (a_targetPlatform == TargetPlatform_LinuxZig)
         {
             CUBE_CProject_AppendCFlag(&project, "-march=x86_64_v2");
@@ -263,6 +266,9 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
         
+        CUBE_CProject_AppendCFlag(&project, "-flto");
+        CUBE_CProject_AppendCFlag(&project, "-fwhole-program");
+
         if (a_targetPlatform == TargetPlatform_LinuxZig)
         {
             CUBE_CProject_AppendCFlag(&project, "-march=x86_64_v2");
