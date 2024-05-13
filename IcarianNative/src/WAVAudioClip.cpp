@@ -127,27 +127,34 @@ uint64_t WAVAudioClip::GetSampleSize() const
     return m_sampleSize;
 }
 
-unsigned char* WAVAudioClip::GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
+uint8_t* WAVAudioClip::GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
 {
+    FileHandle* handle = FileCache::LoadFile(m_path);
+    if (handle == nullptr)
+    {
+        return nullptr;
+    }
+
+    IDEFER(delete handle);
+        
+    const uint64_t seekOffset = a_sampleOffset * m_channelCount * sizeof(int16_t);
+
+    if (!handle->Seek(m_dataOffset + seekOffset))
+    {
+        return nullptr;
+    }
+
     const uint64_t remainingSamples = m_sampleSize - a_sampleOffset;
     const uint64_t samplesToRead = glm::min((uint64_t)a_sampleSize, remainingSamples);
+    const uint64_t size = samplesToRead * m_channelCount;
+    
+    uint8_t* data = (uint8_t*)a_allocator->Allocate<int16_t>(size);
+    if (handle->Read(data, size * sizeof(int16_t)) != size)
+    {
+        return nullptr;
+    }
 
     *a_outSampleSize = (uint32_t)samplesToRead;
 
-    FileHandle* handle = FileCache::LoadFile(m_path);
-    if (handle != nullptr)
-    {
-        IDEFER(delete handle);
-        
-        handle->Seek(m_dataOffset + (a_sampleOffset * m_channelCount * sizeof(int16_t)));
-
-        const uint64_t count = samplesToRead * m_channelCount;
-        // int16_t* data = new int16_t[count];
-        int16_t* data = a_allocator->Allocate<int16_t>(count);
-        handle->Read(data, count * sizeof(int16_t));
-
-        return (unsigned char*)data;
-    }
-
-    return nullptr;
+    return data;
 }

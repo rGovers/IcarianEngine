@@ -27,8 +27,8 @@ public:
     virtual uint64_t GetSize() const = 0;
     virtual uint64_t GetOffset() const = 0;
     virtual uint64_t Read(void* a_data, uint64_t a_size) = 0;
-    virtual void Seek(uint64_t a_offset) = 0;
-    virtual void Ignore(uint64_t a_size) = 0;
+    virtual bool Seek(uint64_t a_offset) = 0;
+    virtual bool Ignore(uint64_t a_size) = 0;
     virtual bool EndOfFile() const = 0;
 };
 
@@ -47,8 +47,8 @@ public:
     virtual uint64_t GetSize() const;
     virtual uint64_t GetOffset() const;
     virtual uint64_t Read(void* a_data, uint64_t a_size);
-    virtual void Seek(uint64_t a_offset);
-    virtual void Ignore(uint64_t a_size);
+    virtual bool Seek(uint64_t a_offset);
+    virtual bool Ignore(uint64_t a_size);
     virtual bool EndOfFile() const;
 };
 
@@ -67,8 +67,8 @@ public:
     virtual uint64_t GetSize() const;
     virtual uint64_t GetOffset() const;
     virtual uint64_t Read(void* a_data, uint64_t a_size);
-    virtual void Seek(uint64_t a_offset);
-    virtual void Ignore(uint64_t a_size);
+    virtual bool Seek(uint64_t a_offset);
+    virtual bool Ignore(uint64_t a_size);
     virtual bool EndOfFile() const;
 };
 

@@ -65,14 +65,18 @@ uint64_t CacheFileHandle::Read(void* a_data, uint64_t a_size)
 
     return read;
 }
-void CacheFileHandle::Seek(uint64_t a_offset)
+bool CacheFileHandle::Seek(uint64_t a_offset)
 {
     m_offset = glm::min(a_offset, m_buffer->Size);
+
+    return true;
 }
-void CacheFileHandle::Ignore(uint64_t a_size)
+bool CacheFileHandle::Ignore(uint64_t a_size)
 {
     const uint64_t remaining = m_buffer->Size - m_offset;
     m_offset += glm::min(remaining, a_size);
+
+    return true;
 }
 bool CacheFileHandle::EndOfFile() const
 {
@@ -103,13 +107,13 @@ uint64_t ReadFileHandle::Read(void* a_data, uint64_t a_size)
 {
     return (uint64_t)fread(a_data, 1, (size_t)a_size, m_file);
 }
-void ReadFileHandle::Seek(uint64_t a_offset)
+bool ReadFileHandle::Seek(uint64_t a_offset)
 {
-    fseek(m_file, (long)a_offset, SEEK_SET);
+    return fseek(m_file, (long)a_offset, SEEK_SET) == 0;
 }
-void ReadFileHandle::Ignore(uint64_t a_size)
+bool ReadFileHandle::Ignore(uint64_t a_size)
 {
-    fseek(m_file, (long)a_size, SEEK_CUR);
+    return fseek(m_file, (long)a_size, SEEK_CUR) == 0;
 }
 bool ReadFileHandle::EndOfFile() const
 {

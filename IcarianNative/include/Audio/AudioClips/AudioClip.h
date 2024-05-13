@@ -30,5 +30,5 @@ public:
         return AudioFormat_S16;
     }
 
-    virtual unsigned char* GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize) = 0;
+    virtual uint8_t* GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize) = 0;
 };

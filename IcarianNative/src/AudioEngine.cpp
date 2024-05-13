@@ -189,7 +189,7 @@ static uint64_t FillBuffers(RingAllocator* a_allocator, ALuint* a_buffer, uint32
     for (uint32_t i = 0; i < a_bufferCount; ++i)
     {
         // Do not need to de-allocate this as it is managed by the ring allocator.
-        unsigned char* data = a_clip->GetAudioData(a_allocator, a_sampleOffset, a_sampleSize, &outSampleSize);
+        uint8_t* data = a_clip->GetAudioData(a_allocator, a_sampleOffset, a_sampleSize, &outSampleSize);
         if (data == nullptr)
         {
             break;
@@ -204,16 +204,16 @@ static uint64_t FillBuffers(RingAllocator* a_allocator, ALuint* a_buffer, uint32
                 a_sampleOffset = 0;
 
                 uint32_t nextOutSampleSize;
-                const unsigned char* oldData = data;
+                const uint8_t* oldData = data;
                 // Do not need to de-allocate this as it is managed by the ring allocator.
-                const unsigned char* nextData = a_clip->GetAudioData(a_allocator, 0, a_sampleSize - outSampleSize, &nextOutSampleSize);
+                const uint8_t* nextData = a_clip->GetAudioData(a_allocator, 0, a_sampleSize - outSampleSize, &nextOutSampleSize);
                 if (nextData == nullptr)
                 {
                     break;
                 }
 
                 // Again no need to de-allocate as it is managed by the ring allocator.
-                unsigned char* newData = (unsigned char*)a_allocator->Allocate<int16_t>((outSampleSize + nextOutSampleSize) * channelCount);
+                uint8_t* newData = (uint8_t*)a_allocator->Allocate<int16_t>((outSampleSize + nextOutSampleSize) * channelCount);
 
                 const uint32_t count = GetAudioSize(format, channelCount, outSampleSize);
                 memcpy(newData, data, count);

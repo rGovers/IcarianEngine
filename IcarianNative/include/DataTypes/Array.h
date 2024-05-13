@@ -7,6 +7,8 @@
 
 #include "Core/IcarianDefer.h"
 
+// This only exists because they STL only dictates the interface and not how it is implemented
+// This should be more predictable then the std::vector on different platforms
 template<typename T>
 class Array
 {
