@@ -27,7 +27,7 @@ namespace IcarianEngine.Definitions
         /// <summary>
         /// Path relative to the project for the texture file to be used.
         /// </summary>
-        [EditorPathString]
+        [EditorPathString(new string[] { ".png", ".ktx2" })]
         public string Path;
         /// <summary>
         /// How to handle the texture when it is out of bounds.
@@ -57,12 +57,12 @@ namespace IcarianEngine.Definitions
         /// <summary>
         /// Path relative to the project for the vertex shader file to be used.
         /// </summary>
-        [EditorTooltip("Path relative to the project for the vertex shader file to be used"), EditorPathString]
+        [EditorTooltip("Path relative to the project for the vertex shader file to be used"), EditorPathString(new string[] { ".fvert" })]
         public string VertexShaderPath;
         /// <summary>
         /// Path relative to the project for the pixel shader file to be used.
         /// </summary>
-        [EditorTooltip("Path relative to the project for the pixel shader file to be used"), EditorPathString]
+        [EditorTooltip("Path relative to the project for the pixel shader file to be used"), EditorPathString(new string[] { ".fpix", ".ffrag" })]
         public string PixelShaderPath;
         /// <summary>
         /// Used to determine if it will be rendered by a camera in a matching layer. Bitfield based.
@@ -109,7 +109,7 @@ namespace IcarianEngine.Definitions
         /// <summary>
         /// Path relative to the project for the shadow pixel shader file to be used.
         /// </summary>
-        [EditorTooltip("Path relative to the project for the shadow vertex shader file to be used"), EditorPathString]
+        [EditorTooltip("Path relative to the project for the shadow vertex shader file to be used"), EditorPathString(new string[] { ".fvert" })]
         public string ShadowVertexShaderPath;
 
         /// <summary>

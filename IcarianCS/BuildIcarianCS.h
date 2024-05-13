@@ -24,6 +24,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
         "src/Component.cs",
         "src/EditorPathStringAttribute.cs",
         "src/EditorTooltipAttribute.cs",
+        "src/Extensions.cs",
         "src/GameObject.cs",
         "src/HideInEditorAttribute.cs",
         "src/IDestroy.cs",

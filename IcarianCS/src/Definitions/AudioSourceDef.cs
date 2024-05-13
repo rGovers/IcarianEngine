@@ -7,7 +7,7 @@ namespace IcarianEngine.Definitions
         /// <summary>
         /// The AudioClip to play.
         /// </summary>
-        [EditorTooltip("The AudioClip to play"), EditorPathString]
+        [EditorTooltip("The AudioClip to play"), EditorPathString(new string[] { ".wav", ".ogg" })]
         public string AudioClipPath;
         /// <summary>
         /// Whether or not the AudioClip should loop.

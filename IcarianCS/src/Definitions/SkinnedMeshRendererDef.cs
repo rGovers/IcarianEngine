@@ -7,13 +7,13 @@ namespace IcarianEngine.Definitions
         /// <summary>
         /// Path relative to the project for the skeleton file to be used
         /// </summary>
-        [EditorTooltip("Path relative to the project for the skeleton file to be used"), EditorPathString]
+        [EditorTooltip("Path relative to the project for the skeleton file to be used"), EditorPathString(new string[] { ".dae", ".fbx", ".glb", ".gltf" })]
         public string SkeletonPath;
 
         /// <summary>
         /// Path relative to the project for the model file to be used
         /// </summary>
-        [EditorTooltip("Path relative to the project for the model file to be used"), EditorPathString]
+        [EditorTooltip("Path relative to the project for the model file to be used"), EditorPathString(new string[] { ".dae", ".fbx", ".glb", ".gltf" })]
         public string ModelPath;
 
         public SkinnedMeshRendererDef()
