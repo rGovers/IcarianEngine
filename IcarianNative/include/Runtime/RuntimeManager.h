@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <mono/jit/jit.h>
 #include <mono/metadata/assembly.h>
 #include <string_view>
+#include <unordered_map>
 
 class RenderEngine;
 class RuntimeFunction;
@@ -23,15 +25,17 @@ class RuntimeFunction;
 class RuntimeManager
 {
 private:
-    MonoDomain*   m_domain;
-    MonoAssembly* m_assembly;
+    std::unordered_map<std::string, std::filesystem::path> m_dllLookup;
 
-    MonoImage*    m_image;
-
-    MonoClass*    m_programClass;
-
-    MonoMethod*   m_updateMethod;
-    MonoMethod*   m_shutdownMethod;
+    MonoDomain*                                            m_domain;
+    MonoAssembly*                                          m_assembly;
+                                        
+    MonoImage*                                             m_image;
+                                        
+    MonoClass*                                             m_programClass;
+                                        
+    MonoMethod*                                            m_updateMethod;
+    MonoMethod*                                            m_shutdownMethod;
 
     RuntimeManager();
 protected:
@@ -48,6 +52,9 @@ public:
     static void Update(double a_delta, double a_time);
 
     static void AttachThread();
+
+    static void PushDLLPath(const std::filesystem::path& a_path);
+    static std::filesystem::path GetDLLPath(const std::string_view& a_name);
 
     static MonoDomain* GetDomain();
 

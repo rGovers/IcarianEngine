@@ -27,6 +27,7 @@ namespace IcarianEngine.Definitions
         /// <summary>
         /// Path relative to the project for the texture file to be used.
         /// </summary>
+        [EditorPathString(new string[] { ".png", ".ktx2" })]
         public string Path;
         /// <summary>
         /// How to handle the texture when it is out of bounds.
@@ -56,17 +57,17 @@ namespace IcarianEngine.Definitions
         /// <summary>
         /// Path relative to the project for the vertex shader file to be used.
         /// </summary>
-        [EditorTooltip("Path relative to the project for the vertex shader file to be used.")]
+        [EditorTooltip("Path relative to the project for the vertex shader file to be used"), EditorPathString(new string[] { ".fvert" })]
         public string VertexShaderPath;
         /// <summary>
         /// Path relative to the project for the pixel shader file to be used.
         /// </summary>
-        [EditorTooltip("Path relative to the project for the pixel shader file to be used.")]
+        [EditorTooltip("Path relative to the project for the pixel shader file to be used"), EditorPathString(new string[] { ".fpix", ".ffrag" })]
         public string PixelShaderPath;
         /// <summary>
-        /// Used to determine if it will be rendered by a camera in a matching layer. Binary bit based.
+        /// Used to determine if it will be rendered by a camera in a matching layer. Bitfield based.
         /// </summary>
-        [EditorTooltip("Used to determine if it will be rendered by a camera in a matching layer. Binary bit based.")]
+        [EditorTooltip("Used to determine if it will be rendered by a camera in a matching layer. Bitfield based")]
         public uint RenderLayer = 0b1;
 
         /// <summary>
@@ -78,49 +79,38 @@ namespace IcarianEngine.Definitions
         /// Deterimine vertex data the shader uses for input.
         /// </summary>
         /// When this is null it will use the GetAttributes method on the VertexType to determine the attributes.
-        [EditorTooltip("Deterimine vertex data the shader uses for input.")]
+        [EditorTooltip("Deterimine vertex data the shader uses for input")]
         public List<VertexInputAttribute> VertexAttributes = null;
-        
-        /// <summary>
-        /// Used to determine input values for shaders.
-        /// </summary>
-        [EditorTooltip("Used to determine input values for shaders.")]
-        public List<ShaderBufferInput> ShaderBuffers = null;
 
         /// <summary>
         /// Which faces to show when rendering.
         /// </summary>
-        [EditorTooltip("Which faces to show when rendering.")]
+        [EditorTooltip("Which faces to show when rendering")]
         public CullMode CullingMode = CullMode.Back;
 
         /// <summary>
         /// Which primitive mode to use when rendering.
         /// </summary>
-        [EditorTooltip("Which primitive mode to use when rendering.")]
+        [EditorTooltip("Which primitive mode to use when rendering")]
         public PrimitiveMode PrimitiveMode = PrimitiveMode.Triangles;
 
         /// <summary>
-        /// Enables color blending.
+        /// The blending mode of the material.
         /// </summary>
-        [EditorTooltip("Enables color blending.")]
-        public bool EnableColorBlending = false;
+        [EditorTooltip("The blending mode of the material")]
+        public MaterialBlendMode ColorBlendMode = MaterialBlendMode.None;
 
         /// <summary>
         /// Texture the material uses.
         /// </summary>
-        [EditorTooltip("Textures the material uses.")]
+        [EditorTooltip("Textures the material uses")]
         public List<TextureInput> TextureInputs = null;
 
         /// <summary>
         /// Path relative to the project for the shadow pixel shader file to be used.
         /// </summary>
-        [EditorTooltip("Path relative to the project for the shadow vertex shader file to be used.")]
+        [EditorTooltip("Path relative to the project for the shadow vertex shader file to be used"), EditorPathString(new string[] { ".fvert" })]
         public string ShadowVertexShaderPath;
-        /// <summary>
-        /// Path relative to the project for the shadow pixel shader file to be used.
-        /// </summary>
-        [EditorTooltip("Used to determine input values for shadow shaders.")]
-        public List<ShaderBufferInput> ShadowShaderBuffers = null;
 
         /// <summary>
         /// Type used as the uniform buffer for the shader.
@@ -130,7 +120,7 @@ namespace IcarianEngine.Definitions
         /// <summary>
         /// Used to determine input values for uniform buffers.
         /// </summary>
-        [EditorTooltip("Used to determine input values for uniform buffers.")]
+        [EditorTooltip("Used to determine input values for uniform buffers")]
         public List<UBOField> UniformBufferFields = null;
 
         /// <summary>

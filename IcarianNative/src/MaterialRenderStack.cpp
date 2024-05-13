@@ -1,7 +1,7 @@
 #include "Rendering/MaterialRenderStack.h"
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Rendering/MeshRenderBuffer.h"
 #include "Rendering/SkinnedMeshRenderBuffer.h"
 
@@ -100,6 +100,17 @@ void MaterialRenderStack::InsertTransform(uint32_t a_addr, uint32_t a_transformA
     buffer.TransformAddr[transformCount] = a_transformAddr;
     buffer.TransformCount++;
 }
+void MaterialRenderStack::RemoveModelBuffer(uint32_t a_addr)
+{
+    delete[] m_modelBuffers[a_addr].TransformAddr;
+
+    --m_modelBufferCount;
+
+    for (uint32_t i = a_addr; i < m_modelBufferCount; ++i)
+    {
+        m_modelBuffers[i] = m_modelBuffers[i + 1];
+    }
+}
 
 bool MaterialRenderStack::Add(const MeshRenderBuffer& a_renderBuffer)
 {
@@ -108,7 +119,7 @@ bool MaterialRenderStack::Add(const MeshRenderBuffer& a_renderBuffer)
         return false;
     }
 
-    m_size++;
+    ++m_size;
 
     for (uint32_t i = 0; i < m_modelBufferCount; ++i)
     {
@@ -158,6 +169,21 @@ bool MaterialRenderStack::Remove(const MeshRenderBuffer& a_renderBuffer)
                     m_modelBuffers[i].TransformAddr[j] = -1;
 
                     m_size--;
+
+                    if (m_size == 0)
+                    {
+                        return true;
+                    }
+
+                    for (uint32_t k = 0; k < transformCount; ++k)
+                    {
+                        if (m_modelBuffers[i].TransformAddr[k] != -1)
+                        {
+                            return true;
+                        }
+                    }
+
+                    RemoveModelBuffer(i);
 
                     return true;
                 }

@@ -1,11 +1,14 @@
 #pragma once
 
 #include "DataTypes/TLockArray.h"
+
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <shared_mutex>
 #include <vector>
+
+#include "DataTypes/Array.h"
 
 // Something bout this class causes debuggers to freak out and break on phantom bits of code and language servers to show errors when it works fine?
 // Hopefully it is just a bug in the tools or my particular configuration and not the code
@@ -212,18 +215,53 @@ public:
         return *this;
     }
 
+    Array<T> ToArray()
+    {
+        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+
+        return Array<T>(m_data, m_size);
+    }
+    Array<bool> ToStateArray()
+    {
+        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+
+        Array<bool> a;
+        a.Reserve(m_size);
+        for (uint32_t i = 0; i < m_size; ++i)
+        {
+            const uint32_t stateIndex = i / StateValBitSize;
+            const uint32_t stateOffset = i % StateValBitSize;
+
+            a.Push((m_state[stateIndex] & 0b1 << stateOffset) != 0);
+        }
+
+        return a;
+    }
+    Array<T> ToActiveArray()
+    {
+        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+
+        Array<T> a;
+        a.Reserve(m_size);
+        for (uint32_t i = 0; i < m_size; ++i)
+        {
+            const uint32_t stateIndex = i / StateValBitSize;
+            const uint32_t stateOffset = i % StateValBitSize;
+
+            if (m_state[stateIndex] & 0b1 << stateOffset)
+            {
+                a.Push(m_data[i]);
+            }
+        }
+
+        return a;
+    }
+
     std::vector<T> ToVector()
     {
         const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
 
-        std::vector<T> vec;
-        vec.reserve(m_size);
-        for (uint32_t i = 0; i < m_size; ++i)
-        {
-            vec.push_back(m_data[i]);
-        }
-
-        return vec;
+        return std::vector<T>(m_data, m_data + m_size);
     }
     std::vector<bool> ToStateVector()
     {

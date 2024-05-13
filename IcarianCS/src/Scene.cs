@@ -266,14 +266,15 @@ namespace IcarianEngine
             {
                 Matrix4 t = obj.Transform.ToMatrix() * a_transform;
 
-                Vector3 translation;
-                Quaternion rotation;
-                Vector3 scale;
-                t.Decompose(out translation, out rotation, out scale);
+                // Vector3 translation;
+                // Quaternion rotation;
+                // Vector3 scale;
+                // t.Decompose(out translation, out rotation, out scale);
 
-                obj.Transform.Translation = translation;
-                obj.Transform.Rotation = rotation;
-                obj.Transform.Scale = scale;
+                // obj.Transform.Translation = translation;
+                // obj.Transform.Rotation = rotation;
+                // obj.Transform.Scale = scale;
+                obj.Transform.SetMatrix(t);
 
                 m_objects.Add(obj);
             }

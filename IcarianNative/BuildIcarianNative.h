@@ -1,14 +1,14 @@
 #ifndef INCLUDED_HEADER_BUILDICARIANNATIVE
 #define INCLUDED_HEADER_BUILDICARIANNATIVE
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "CUBE/CUBE.h"
 
 #include "../BuildBase.h"
 #include "lib/BuildIcarianNativeDependencies.h"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 const static char* IcarianNativeShaderBasePaths[] =
 {
@@ -28,7 +28,7 @@ const static char* IcarianNativeShaderBasePaths[] =
 
 const static CBUINT32 IcarianNativeShaderBasePathCount = sizeof(IcarianNativeShaderBasePaths) / sizeof(*IcarianNativeShaderBasePaths);
 
-CBBOOL WriteIcarianNativeShadersToHeader(const char* a_workingPath)
+static CBBOOL WriteIcarianNativeShadersToHeader(const char* a_workingPath)
 {
     CUBE_Path workingPath = CUBE_Path_CreateC(a_workingPath);
 
@@ -57,7 +57,7 @@ CBBOOL WriteIcarianNativeShadersToHeader(const char* a_workingPath)
     return ret;
 }
 
-CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, CBBOOL a_enableTrace, CBBOOL a_enableProfiler)
+static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, CBBOOL a_enableTrace, CBBOOL a_enableProfiler)
 {
     CUBE_CProject project = { 0 };
 
@@ -80,15 +80,26 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     CUBE_String commitDefine = CUBE_String_CreateC("ICARIANNATIVE_COMMIT_HASH=");
     CUBE_String_AppendSS(&commitDefine, &commitHash);
 
-    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_MAJOR=2023");
-    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_MINOR=0");
-    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_PATCH=0");
-    CUBE_CProject_AppendDefine(&project, commitDefine.Data);
-    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_VERSION_TAG=DEV");
+    CUBE_CProject_AppendDefines(&project,
+        "ICARIANNATIVE_VERSION_MAJOR=2024",
+        "ICARIANNATIVE_VERSION_MINOR=0",
+        "ICARIANNATIVE_VERSION_PATCH=0",
+        commitDefine.Data,
+        "ICARIANNATIVE_VERSION_TAG=DEV",
+
+        "ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN",
+
+        "GLM_FORCE_QUAT_DATA_XYZW",
+        "GLM_FORCE_DEPTH_ZERO_TO_ONE",
+        "GLM_FORCE_RADIANS",
+        "AL_LIBTYPE_STATIC",
+        "KHRONOS_STATIC",
+        "LIBKTX",
+        "KTX_FEATURE_KTX1",
+        "KTX_FEATURE_KTX2"
+    );
 
     CUBE_String_Destroy(&commitDefine);
-
-    CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN");
 
     if (a_enableTrace)
     {
@@ -99,85 +110,102 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_PROFILER");
     }
 
-    CUBE_CProject_AppendDefine(&project, "GLM_FORCE_QUAT_DATA_XYZW");
-    CUBE_CProject_AppendDefine(&project, "GLM_FORCE_DEPTH_ZERO_TO_ONE");
-    CUBE_CProject_AppendDefine(&project, "GLM_FORCE_RADIANS");
-    CUBE_CProject_AppendDefine(&project, "AL_LIBTYPE_STATIC");
+    CUBE_CProject_AppendIncludePaths(&project, 
+        "include",
+        "../EngineInterop",
+        "../IcarianCore/include",
+        "../deps/flare-glfw/include",
+        "../deps/flare-glm",
+        "../deps/flare-stb",
+        "../deps/KTX-Software/include",
+        "../deps/flare-tinyxml2",
+        "lib/enet/include",
+        "lib/glslang",
+        "lib/JoltPhysics",
+        "lib/openal-soft/include",
+        "lib/SPIRV-Tools/include",
+        "lib/VulkanMemoryAllocator/include"
+    );
 
-    CUBE_CProject_AppendIncludePath(&project, "include");
-    CUBE_CProject_AppendIncludePath(&project, "../EngineInterop");
-    CUBE_CProject_AppendIncludePath(&project, "../FlareBase/include");
-    CUBE_CProject_AppendIncludePath(&project, "../deps/flare-glfw/include");
-    CUBE_CProject_AppendIncludePath(&project, "../deps/flare-glm");
-    CUBE_CProject_AppendIncludePath(&project, "../deps/flare-stb");
-    CUBE_CProject_AppendIncludePath(&project, "../deps/flare-tinyxml2");
-    CUBE_CProject_AppendIncludePath(&project, "lib/glslang");
-    CUBE_CProject_AppendIncludePath(&project, "lib/JoltPhysics");
-    CUBE_CProject_AppendIncludePath(&project, "lib/openal-soft/include");
-    CUBE_CProject_AppendIncludePath(&project, "lib/SPIRV-Tools/include");
-    CUBE_CProject_AppendIncludePath(&project, "lib/VulkanMemoryAllocator/include");
+    CUBE_CProject_AppendSources(&project, 
+        "../deps/flare-tinyxml2/tinyxml2.cpp",
 
-    CUBE_CProject_AppendSource(&project, "../deps/flare-tinyxml2/tinyxml2.cpp");
-
-    CUBE_CProject_AppendSource(&project, "src/AnimationController.cpp");
-    CUBE_CProject_AppendSource(&project, "src/AnimationControllerBindings.cpp");
-    CUBE_CProject_AppendSource(&project, "src/Application.cpp");
-    CUBE_CProject_AppendSource(&project, "src/AudioEngine.cpp");
-    CUBE_CProject_AppendSource(&project, "src/AudioEngineBindings.cpp");
-    CUBE_CProject_AppendSource(&project, "src/Config.cpp");
-    CUBE_CProject_AppendSource(&project, "src/Font.cpp");
-    CUBE_CProject_AppendSource(&project, "src/GamePad.cpp");
-    CUBE_CProject_AppendSource(&project, "src/GLFWAppWindow.cpp");
-    CUBE_CProject_AppendSource(&project, "src/HeadlessAppWindow.cpp");
-    CUBE_CProject_AppendSource(&project, "src/IcBodyActivationListener.cpp");
-    CUBE_CProject_AppendSource(&project, "src/IcBroadPhaseLayerInterface.cpp");
-    CUBE_CProject_AppendSource(&project, "src/IcContactListener.cpp");
-    CUBE_CProject_AppendSource(&project, "src/IcObjectLayerPairFilter.cpp");
-    CUBE_CProject_AppendSource(&project, "src/IcObjectVsBroadPhaseLayerFilter.cpp");
-    CUBE_CProject_AppendSource(&project, "src/IcPhysicsJobSystem.cpp");
-    CUBE_CProject_AppendSource(&project, "src/ImageUIElement.cpp");
-    CUBE_CProject_AppendSource(&project, "src/InputManager.cpp");
-    CUBE_CProject_AppendSource(&project, "src/Logger.cpp");
-    CUBE_CProject_AppendSource(&project, "src/main.cpp");
-    CUBE_CProject_AppendSource(&project, "src/MaterialRenderStack.cpp");
-    CUBE_CProject_AppendSource(&project, "src/NullRenderEngineBackend.cpp");
-    CUBE_CProject_AppendSource(&project, "src/ObjectManager.cpp");
-    CUBE_CProject_AppendSource(&project, "src/OGGAudioClip.cpp");
-    CUBE_CProject_AppendSource(&project, "src/PhysicsEngine.cpp");
-    CUBE_CProject_AppendSource(&project, "src/PhysicsEngineBindings.cpp");
-    CUBE_CProject_AppendSource(&project, "src/Profiler.cpp");
-    CUBE_CProject_AppendSource(&project, "src/Random.cpp");
-    CUBE_CProject_AppendSource(&project, "src/RenderEngine.cpp");
-    CUBE_CProject_AppendSource(&project, "src/RuntimeFunction.cpp");
-    CUBE_CProject_AppendSource(&project, "src/RuntimeManager.cpp");
-    CUBE_CProject_AppendSource(&project, "src/RuntimeThreadJob.cpp");
-    CUBE_CProject_AppendSource(&project, "src/Scribe.cpp");
-    CUBE_CProject_AppendSource(&project, "src/ShaderTable.cpp");
-    CUBE_CProject_AppendSource(&project, "src/SPIRVTools.cpp");
-    CUBE_CProject_AppendSource(&project, "src/TextUIElement.cpp");
-    CUBE_CProject_AppendSource(&project, "src/ThreadPool.cpp");
-    CUBE_CProject_AppendSource(&project, "src/UIControl.cpp");
-    CUBE_CProject_AppendSource(&project, "src/UIControlBindings.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanDepthCubeRenderTexture.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanDepthRenderTexture.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanGraphicsEngine.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanGraphicsEngineBindings.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanLightData.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanModel.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanPipeline.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanPixelShader.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanPushPool.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanRenderCommand.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanRenderEngineBackend.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanRenderTexture.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanShaderData.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanShaderStorageObject.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanSwapchain.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanTexture.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanTextureSampler.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanUniformBuffer.cpp");
-    CUBE_CProject_AppendSource(&project, "src/VulkanVertexShader.cpp");
-    CUBE_CProject_AppendSource(&project, "src/WAVAudioClip.cpp");
+        "src/AnimationController.cpp",
+        "src/AnimationControllerBindings.cpp",
+        "src/Application.cpp",
+        "src/AudioEngine.cpp",
+        "src/AudioEngineBindings.cpp",
+        "src/Config.cpp",
+        "src/DeletionQueue.cpp",
+        "src/FileCache.cpp",
+        "src/Font.cpp",
+        "src/GamePad.cpp",
+        "src/GLFWAppWindow.cpp",
+        "src/HeadlessAppWindow.cpp",
+        "src/IcBodyActivationListener.cpp",
+        "src/IcBroadPhaseLayerInterface.cpp",
+        "src/IcContactListener.cpp",
+        "src/IcObjectLayerPairFilter.cpp",
+        "src/IcObjectVsBroadPhaseLayerFilter.cpp",
+        "src/IcPhysicsJobSystem.cpp",
+        "src/ImageUIElement.cpp",
+        "src/InputManager.cpp",
+        "src/Logger.cpp",
+        "src/main.cpp",
+        "src/MaterialRenderStack.cpp",
+        "src/NetworkClient.cpp",
+        "src/NetworkManager.cpp",
+        "src/NetworkServer.cpp",
+        "src/NullRenderEngineBackend.cpp",
+        "src/ObjectManager.cpp",
+        "src/OGGAudioClip.cpp",
+        "src/PhysicsEngine.cpp",
+        "src/PhysicsEngineBindings.cpp",
+        "src/Profiler.cpp",
+        "src/Random.cpp",
+        "src/RenderAssetStore.cpp",
+        "src/RenderAssetStoreBindings.cpp",
+        "src/RenderEngine.cpp",
+        "src/RuntimeFunction.cpp",
+        "src/RuntimeManager.cpp",
+        "src/RuntimeThreadJob.cpp",
+        "src/Scribe.cpp",
+        "src/ShaderTable.cpp",
+        "src/SPIRVTools.cpp",
+        "src/TextUIElement.cpp",
+        "src/ThreadPool.cpp",
+        "src/UIControl.cpp",
+        "src/UIControlBindings.cpp",
+        "src/VulkanComputeEngine.cpp",
+        "src/VulkanComputeEngineBindings.cpp",
+        "src/VulkanComputeLayout.cpp",
+        "src/VulkanComputeParticle.cpp",
+        "src/VulkanComputePipeline.cpp",
+        "src/VulkanComputeShader.cpp",
+        "src/VulkanDepthCubeRenderTexture.cpp",
+        "src/VulkanDepthRenderTexture.cpp",
+        "src/VulkanGraphicsEngine.cpp",
+        "src/VulkanGraphicsEngineBindings.cpp",
+        "src/VulkanGraphicsParticle2D.cpp",
+        "src/VulkanLightData.cpp",
+        "src/VulkanModel.cpp",
+        "src/VulkanParticleShaderGenerator.cpp",
+        "src/VulkanPipeline.cpp",
+        "src/VulkanPixelShader.cpp",
+        "src/VulkanPushPool.cpp",
+        "src/VulkanRenderCommand.cpp",
+        "src/VulkanRenderEngineBackend.cpp",
+        "src/VulkanRenderTexture.cpp",
+        "src/VulkanShader.cpp",
+        "src/VulkanShaderData.cpp",
+        "src/VulkanShaderStorageObject.cpp",
+        "src/VulkanSwapchain.cpp",
+        "src/VulkanTexture.cpp",
+        "src/VulkanTextureSampler.cpp",
+        "src/VulkanUniformBuffer.cpp",
+        "src/VulkanVertexShader.cpp",
+        "src/WAVAudioClip.cpp"
+    );
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
 
@@ -192,6 +220,11 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
             CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
         }
 
+        if (a_targetPlatform == TargetPlatform_LinuxZig)
+        {
+            CUBE_CProject_AppendReference(&project, "asan");
+        }
+
         break;
     }
     case BuildConfiguration_ReleaseWithDebug:
@@ -199,6 +232,18 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendCFlag(&project, "-mavx");
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
+
+        CUBE_CProject_AppendCFlag(&project, "-flto");
+        CUBE_CProject_AppendCFlag(&project, "-fwhole-program");
+
+        if (a_targetPlatform == TargetPlatform_LinuxZig)
+        {
+            CUBE_CProject_AppendCFlag(&project, "-march=x86_64_v2");
+        }
+        else
+        {
+            CUBE_CProject_AppendCFlag(&project, "-march=x86-64-v2");
+        }
 
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
@@ -208,6 +253,11 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
             CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
         }
 
+        if (a_targetPlatform == TargetPlatform_LinuxZig)
+        {
+            CUBE_CProject_AppendReference(&project, "asan");
+        }
+
         break;
     }
     case BuildConfiguration_Release:
@@ -215,6 +265,18 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         CUBE_CProject_AppendCFlag(&project, "-mavx");
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
+        
+        CUBE_CProject_AppendCFlag(&project, "-flto");
+        CUBE_CProject_AppendCFlag(&project, "-fwhole-program");
+
+        if (a_targetPlatform == TargetPlatform_LinuxZig)
+        {
+            CUBE_CProject_AppendCFlag(&project, "-march=x86_64_v2");
+        }
+        else
+        {
+            CUBE_CProject_AppendCFlag(&project, "-march=x86-64-v2");
+        }
 
         CUBE_CProject_AppendCFlag(&project, "-O3");
 
@@ -226,24 +288,31 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     {
     case TargetPlatform_Windows:
     {
-        CUBE_CProject_AppendDefine(&project, "WIN32");
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32"
+        );
 
         CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Windows/include");
 
-        CUBE_CProject_AppendLibrary(&project, "../FlareBase/build/FlareBase.lib");
+        CUBE_CProject_AppendLibraries(&project,
+            "../IcarianCore/build/IcarianCore.lib",
 
-        CUBE_CProject_AppendLibrary(&project, "../deps/flare-glfw/build/GLFW.lib");
-        CUBE_CProject_AppendLibrary(&project, "../deps/miniz/build/miniz.lib");
-        CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Windows/lib/mono-2.0-sgen.lib");
-        CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Windows/lib/MonoPosixHelper.lib");
-        CUBE_CProject_AppendLibrary(&project, "../deps/OpenFBX/build/OpenFBXLibDeflate.lib");
+            "../deps/flare-glfw/build/GLFW.lib",
+            "../deps/miniz/build/miniz.lib",
+            "../deps/KTX-Software/build/ktxc.lib",
+            "../deps/KTX-Software/build/ktxcpp.lib",
+            "../deps/Mono/Windows/lib/mono-2.0-sgen.lib",
+            "../deps/Mono/Windows/lib/MonoPosixHelper.lib",
+            "../deps/OpenFBX/build/OpenFBXLibDeflate.lib",
 
-        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/glslang.lib");
-        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/OGLCompiler.lib");
-        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/SPIRV.lib");
-        CUBE_CProject_AppendLibrary(&project, "lib/JoltPhysics/build/Jolt.lib");
-        CUBE_CProject_AppendLibrary(&project, "lib/openal-soft/build/OpenALSoft.lib");
-        CUBE_CProject_AppendLibrary(&project, "lib/SPIRV-Tools/build/SPIRV-Tools.lib");
+            "lib/enet/build/enet.lib",
+            "lib/glslang/build/glslang.lib",
+            "lib/glslang/build/SPIRV.lib",
+            "lib/JoltPhysics/build/Jolt.lib",
+            "lib/openal-soft/build/OpenALSoft.lib",
+            "lib/SPIRV-Tools/build/SPIRV-Tools.lib"
+        );
 
         CUBE_CProject_AppendReference(&project, "gdi32");
         CUBE_CProject_AppendReference(&project, "vulkan-1");
@@ -259,27 +328,34 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
         break;
     }
     case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
     {
         CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Linux/include/mono-2.0");
 
-        CUBE_CProject_AppendLibrary(&project, "../FlareBase/build/libFlareBase.a");
+        CUBE_CProject_AppendLibraries(&project,
+            "../IcarianCore/build/libIcarianCore.a",
 
-        CUBE_CProject_AppendLibrary(&project, "../deps/flare-glfw/build/libGLFW.a");
-        CUBE_CProject_AppendLibrary(&project, "../deps/miniz/build/libminiz.a");
-        CUBE_CProject_AppendLibrary(&project, "../deps/Mono/Linux/lib/libmonosgen-2.0.a");
-        CUBE_CProject_AppendLibrary(&project, "../deps/OpenFBX/build/libOpenFBXLibDeflate.a");
+            "../deps/flare-glfw/build/libGLFW.a",
+            "../deps/miniz/build/libminiz.a",
+            "../deps/KTX-Software/build/libktxc.a",
+            "../deps/KTX-Software/build/libktxcpp.a",
+            "../deps/Mono/Linux/lib/libmonosgen-2.0.a",
+            "../deps/OpenFBX/build/libOpenFBXLibDeflate.a",
 
-        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libglslang.a");
-        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libOGLCompiler.a");
-        CUBE_CProject_AppendLibrary(&project, "lib/glslang/build/libSPIRV.a");
-        CUBE_CProject_AppendLibrary(&project, "lib/JoltPhysics/build/libJolt.a");
-        CUBE_CProject_AppendLibrary(&project, "lib/openal-soft/build/libOpenALSoft.a");
-        CUBE_CProject_AppendLibrary(&project, "lib/SPIRV-Tools/build/libSPIRV-Tools.a");
+            "lib/enet/build/libenet.a",
+            "lib/glslang/build/libglslang.a",
+            "lib/glslang/build/libSPIRV.a",
+            "lib/JoltPhysics/build/libJolt.a",
+            "lib/openal-soft/build/libOpenALSoft.a",
+            "lib/SPIRV-Tools/build/libSPIRV-Tools.a"
+        );
 
         CUBE_CProject_AppendReference(&project, "vulkan");
         CUBE_CProject_AppendReference(&project, "z");
 
         CUBE_CProject_AppendReference(&project, "stdc++");
+        CUBE_CProject_AppendReference(&project, "atomic");
         CUBE_CProject_AppendReference(&project, "m");
 
         break;
@@ -289,7 +365,7 @@ CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_Bui
     return project;
 }
 
-DependencyProject* BuildIcarianNativeDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+static DependencyProject* BuildIcarianNativeDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     return BuildIcarianNativeIDependencies(a_count, a_targetPlatform, a_configuration);
 }

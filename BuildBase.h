@@ -13,6 +13,7 @@ extern "C" {
 typedef struct 
 {
     CUBE_CProject Project;
+    CBBOOL Export;
     const char* WorkingDirectory;
 } DependencyProject;
 
@@ -20,6 +21,8 @@ typedef enum
 {
     TargetPlatform_Windows,
     TargetPlatform_Linux,
+    TargetPlatform_LinuxClang,
+    TargetPlatform_LinuxZig
 } e_TargetPlatform;
 
 typedef enum
@@ -28,6 +31,8 @@ typedef enum
     BuildConfiguration_ReleaseWithDebug,
     BuildConfiguration_Release,
 } e_BuildConfiguration;
+
+static const char GeneratedFileHeader[] = "// ----------------------------------------------------\n//\n// Auto generated file do not modify\n//\n// ----------------------------------------------------\n\n";
 
 CBBOOL TemplatesToHeader(const CUBE_Path* a_templatePath, CBUINT32 a_templateCount, const char* a_outputFile)
 {
@@ -38,6 +43,8 @@ CBBOOL TemplatesToHeader(const CUBE_Path* a_templatePath, CBUINT32 a_templateCou
     }
 
     fprintf(outputFile, "#pragma once\n\n");
+
+    fprintf(outputFile, GeneratedFileHeader);
 
     for (CBUINT32 i = 0; i < a_templateCount; ++i)
     {
@@ -118,6 +125,8 @@ CBBOOL ShadersToHeader(const CUBE_Path* a_shaderPaths, CBUINT32 a_shaderCount, c
     }
 
     fprintf(outputFile, "#pragma once\n\n");
+
+    fprintf(outputFile, GeneratedFileHeader);
 
     for (CBUINT32 i = 0; i < a_shaderCount; ++i)
     {
@@ -215,15 +224,24 @@ static const char BuildConfigurationString[] = "--configuration";
 static const CBUINT32 BuildConfigurationStringLen = sizeof(BuildConfigurationString) - 1;
 static const char HelpString[] = "--help";
 static const CBUINT32 HelpStringLen = sizeof(HelpString) - 1;
+static const char CompileCommandsString[] = "--compile-commands";
+static const CBUINT32 CompileCommandsStringLen = sizeof(CompileCommandsString) - 1;
+static const char JobString[] = "--j";
+static const CBUINT32 JobStringLen = sizeof(JobString) - 1;
 
 void PrintHelp()
 {
     printf("Help:\n");
 
+    printf("  --compile-commands=<workingDirectory> - Generate a compile commands file. \n");
+    printf("\n");
+
     printf("  --platform=<platform> - Set the target platform. \n");
     printf("    Valid values are: \n");
     printf("      windows - Windows\n");
-    printf("      linux - Linux\n");
+    printf("      linux - Linux with GCC\n");
+    printf("      linuxclang - Linux with Clang\n");
+    printf("      linuxzig - Linux with Zig\n");
     printf("\n");
 
     printf("  --configuration=<configuration> - Set the build configuration. \n");
@@ -233,8 +251,10 @@ void PrintHelp()
     printf("      release - Release\n");
     printf("\n");
 
+    printf("  --j=<number> - The number of job threads to spawn. \n");
+    printf("\n");
+
     printf("  --help - Print this help message.\n");
-    
     printf("\n");
 }
 

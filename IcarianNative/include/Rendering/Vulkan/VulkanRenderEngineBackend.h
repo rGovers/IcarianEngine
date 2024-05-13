@@ -1,7 +1,7 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-#include "Rendering/Vulkan/VulkanConstants.h"
+#include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 #include "DataTypes/TArray.h"
 #include "DataTypes/TLockObj.h"
@@ -10,7 +10,9 @@
 #include <mutex>
 
 class AppWindow;
+class VulkanComputeEngine;
 class VulkanGraphicsEngine;
+class VulkanPushPool;
 class VulkanSwapchain;
 
 class VulkanDeletionObject
@@ -28,8 +30,10 @@ public:
 class VulkanRenderEngineBackend : public RenderEngineBackend
 {
 private:
+    VulkanComputeEngine*                          m_computeEngine;
     VulkanGraphicsEngine*                         m_graphicsEngine;
     VulkanSwapchain*                              m_swapchain = nullptr;
+    VulkanPushPool*                               m_pushPool;
                 
     VmaAllocator                                  m_allocator;
                 
@@ -39,6 +43,7 @@ private:
     vk::Device                                    m_lDevice;
                         
     std::mutex                                    m_graphicsQueueMutex;
+    vk::Queue                                     m_computeQueue = nullptr;
     vk::Queue                                     m_graphicsQueue = nullptr;
     vk::Queue                                     m_presentQueue = nullptr;
     
@@ -57,6 +62,7 @@ private:
     uint32_t                                      m_currentFlightFrame = 0;
     uint32_t                                      m_dQueueIndex = 0;
 
+    uint32_t                                      m_computeQueueIndex = -1;
     uint32_t                                      m_graphicsQueueIndex = -1;
     uint32_t                                      m_presentQueueIndex = -1;
 
@@ -74,7 +80,11 @@ public:
     TLockObj<vk::CommandBuffer, std::mutex>* BeginSingleCommand();
     void EndSingleCommand(TLockObj<vk::CommandBuffer, std::mutex>* a_buffer);
 
-    virtual uint32_t GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data);
+    virtual uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius);
+    virtual void DestroyModel(uint32_t a_addr);
+
+    virtual uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);
+    virtual uint32_t GenerateTextureMipMapped(uint32_t a_width, uint32_t a_height, uint32_t a_levels, uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize);
     virtual void DestroyTexture(uint32_t a_addr);
 
     virtual uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
@@ -82,7 +92,30 @@ public:
 
     virtual Font* GetFont(uint32_t a_addr);
 
+    inline VulkanComputeEngine* GetComputeEngine() const
+    {
+        return m_computeEngine;
+    }
+    inline VulkanGraphicsEngine* GetGraphicsEngine() const
+    {
+        return m_graphicsEngine;
+    }
+
+    inline VulkanPushPool* GetPushPool() const
+    {
+        return m_pushPool;
+    }
+
     void PushDeletionObject(VulkanDeletionObject* a_object);
+
+    inline vk::Fence GetCurrentFlightFence() const
+    {
+        return m_inFlight[m_currentFlightFrame];
+    }
+    inline vk::Semaphore GetImageSemaphore(uint32_t a_index) const
+    {
+        return m_imageAvailable[a_index];
+    }
 
     inline VmaAllocator GetAllocator() const
     {
@@ -107,13 +140,22 @@ public:
     {
         return m_presentQueueIndex;
     }
+    inline uint32_t GetComputeQueueIndex() const
+    {
+        return m_computeQueueIndex;
+    }
     inline uint32_t GetGraphicsQueueIndex() const
     {
         return m_graphicsQueueIndex;
     }
+
     inline vk::Queue GetPresentQueue() const
     {
         return m_presentQueue;
+    }
+    inline vk::Queue GetCopmuteQueue() const
+    {
+        return m_computeQueue;
     }
     inline std::mutex& GetGraphicsQueueMutex()
     {

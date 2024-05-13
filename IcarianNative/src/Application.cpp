@@ -4,10 +4,13 @@
 #include "AppWindow/HeadlessAppWindow.h"
 #include "Audio/AudioEngine.h"
 #include "Config.h"
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
+#include "DeletionQueue.h"
+#include "FileCache.h"
 #include "InputManager.h"
 #include "Logger.h"
+#include "Networking/NetworkManager.h"
 #include "ObjectManager.h"
 #include "Physics/PhysicsEngine.h"
 #include "Profiler.h"
@@ -23,9 +26,6 @@
 #include "EngineInputInterop.h"
 
 static Application* Instance = nullptr;
-
-// Windows fixes
-#undef min
 
 struct Monitor
 {
@@ -90,7 +90,36 @@ RUNTIME_FUNCTION(void, Application, SetFullscreenState,
     appMonitor.Height = a_monitor.Height;
     appMonitor.Handle = a_monitor.Handle;
 
-    Instance->SetFullscreen(appMonitor, (bool)a_state, a_width, a_height);
+    class ApplicationSetFullscreen : public DeletionObject
+    {
+    private:
+        bool       m_state;
+        uint32_t   m_width;
+        uint32_t   m_height;
+        AppMonitor m_monitor;
+
+    protected:
+
+    public:
+        ApplicationSetFullscreen(bool a_state, uint32_t a_width, uint32_t a_height, const AppMonitor& a_monitor)
+        {
+            m_state = a_state;
+            m_width = a_width;
+            m_height = a_height;
+            m_monitor = a_monitor;
+        }
+        virtual ~ApplicationSetFullscreen()
+        {
+            
+        }
+
+        virtual void Destroy()
+        {
+            Instance->SetFullscreen(m_monitor, m_state, m_width, m_height);
+        }
+    };
+
+    DeletionQueue::Push(new ApplicationSetFullscreen((bool)a_state, a_width, a_height, appMonitor), DeletionIndex_Render);
 }, Monitor a_monitor, uint32_t a_state, uint32_t a_width, uint32_t a_height)
 
 static void AppAssertCallback(const std::string& a_string)
@@ -117,7 +146,9 @@ Application::Application(Config* a_config)
     {
         m_appWindow = new GLFWAppWindow(this, a_config);
     }
-
+    
+    FileCache::Init(a_config->GetFileCacheSize());
+    DeletionQueue::Init();
     RuntimeManager::Init();
         
     Logger::Init();
@@ -137,8 +168,9 @@ Application::Application(Config* a_config)
     ObjectManager::Init();
 
     m_audioEngine = new AudioEngine();
-    m_physicsEngine = new PhysicsEngine(a_config);
+    m_physicsEngine = new PhysicsEngine(m_config);
     m_renderEngine = new RenderEngine(m_appWindow, m_config);
+    m_networkManager = new NetworkManager();
 
     APPLICATION_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 
@@ -161,10 +193,16 @@ Application::~Application()
 
     UIControl::Destroy();
 
+    for (uint32_t i = 0; i < DeletionQueue::QueueSize; ++i)
+    {
+        DeletionQueue::Flush(DeletionIndex_Update);
+    }
+
     delete m_audioEngine;
     delete m_physicsEngine;
     delete m_renderEngine;
     delete m_inputManager;
+    delete m_networkManager;
     delete m_config;
 
     ObjectManager::Destroy();
@@ -174,12 +212,14 @@ Application::~Application()
     Scribe::Destroy();
 
     ThreadPool::Destroy();
+    DeletionQueue::Destroy();
+    FileCache::Destroy();
 
     TRACE("Final Disposal");
     delete m_appWindow;
 }
 
-void Application::SetCursorState(FlareBase::e_CursorState a_state)
+void Application::SetCursorState(e_CursorState a_state)
 {
     m_cursorState = a_state;
 
@@ -212,6 +252,18 @@ void Application::Run(int32_t a_argc, char* a_argv[])
             const double delta = glm::min(0.1, m_appWindow->GetDelta());
 
             {
+                PROFILESTACK("Network");
+
+                m_networkManager->Update();
+            }
+
+            {
+                PROFILESTACK("File Cache");
+
+                FileCache::Update();
+            }
+
+            {
                 PROFILESTACK("Animators");
 
                 {
@@ -238,10 +290,11 @@ void Application::Run(int32_t a_argc, char* a_argv[])
             {
                 PROFILESTACK("Physics");
                 
-                // Considering down the line using a fixed time step instead of a dynamic for physics simulation
                 m_physicsEngine->Update(delta);
             }
         }
+
+        DeletionQueue::Flush(DeletionIndex_Update); 
 
         Profiler::Stop();
     }

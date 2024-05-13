@@ -26,17 +26,17 @@ JPH::ValidateResult IcContactListener::OnContactValidate(const JPH::Body &a_lhs,
 
 void IcContactListener::OnContactAdded(const JPH::Body& a_lhs, const JPH::Body& a_rhs, const JPH::ContactManifold& a_manifold, JPH::ContactSettings& a_ioSettings)
 {
-    DispatchCollisionData data;
+    CollisionDataBuffer data;
 
-    data.IsTrigger = a_ioSettings.mIsSensor;
+    data.IsTrigger = (uint32_t)a_ioSettings.mIsSensor;
 
-    data.BodyAddrA = m_engine->GetBodyAddr(a_lhs.GetID().GetIndex());
-    data.BodyAddrB = m_engine->GetBodyAddr(a_rhs.GetID().GetIndex());
+    data.BodyAddrA = (uint32_t)m_engine->GetBodyAddr(a_lhs.GetID().GetIndex());
+    data.BodyAddrB = (uint32_t)m_engine->GetBodyAddr(a_rhs.GetID().GetIndex());
 
     const JPH::RVec3 normalV = a_manifold.mWorldSpaceNormal;
 
     data.Normal = glm::vec3(normalV.GetX(), normalV.GetY(), normalV.GetZ());
-    data.Depth = a_manifold.mPenetrationDepth;
+    data.Depth = (float)a_manifold.mPenetrationDepth;
 
     void* args[] =
     {
@@ -47,17 +47,17 @@ void IcContactListener::OnContactAdded(const JPH::Body& a_lhs, const JPH::Body& 
 }
 void IcContactListener::OnContactPersisted(const JPH::Body& a_lhs, const JPH::Body& a_rhs, const JPH::ContactManifold& a_manifold, JPH::ContactSettings& a_ioSettings)
 {
-    DispatchCollisionData data;
+    CollisionDataBuffer data;
 
-    data.IsTrigger = a_ioSettings.mIsSensor;
+    data.IsTrigger = (uint32_t)a_ioSettings.mIsSensor;
 
-    data.BodyAddrA = m_engine->GetBodyAddr(a_lhs.GetID().GetIndex());
-    data.BodyAddrB = m_engine->GetBodyAddr(a_rhs.GetID().GetIndex());
+    data.BodyAddrA = (uint32_t)m_engine->GetBodyAddr(a_lhs.GetID().GetIndex());
+    data.BodyAddrB = (uint32_t)m_engine->GetBodyAddr(a_rhs.GetID().GetIndex());
 
     const JPH::RVec3 normalV = a_manifold.mWorldSpaceNormal;
 
     data.Normal = glm::vec3(normalV.GetX(), normalV.GetY(), normalV.GetZ());
-    data.Depth = a_manifold.mPenetrationDepth;
+    data.Depth = (float)a_manifold.mPenetrationDepth;
 
     void* args[] =
     {
@@ -68,10 +68,10 @@ void IcContactListener::OnContactPersisted(const JPH::Body& a_lhs, const JPH::Bo
 }
 void IcContactListener::OnContactRemoved(const JPH::SubShapeIDPair& a_shapePair)
 {
-    DispatchCollisionData data;
+    CollisionDataBuffer data;
 
-    data.BodyAddrA = m_engine->GetBodyAddr(a_shapePair.GetBody1ID().GetIndex());
-    data.BodyAddrB = m_engine->GetBodyAddr(a_shapePair.GetBody2ID().GetIndex());
+    data.BodyAddrA = (uint32_t)m_engine->GetBodyAddr(a_shapePair.GetBody1ID().GetIndex());
+    data.BodyAddrB = (uint32_t)m_engine->GetBodyAddr(a_shapePair.GetBody2ID().GetIndex());
 
     void* args[] =
     {

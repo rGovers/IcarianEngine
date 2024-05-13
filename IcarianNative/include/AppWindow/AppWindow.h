@@ -3,9 +3,11 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include <vulkan/vulkan.hpp>
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+#include "Rendering/Vulkan/IcarianVulkanHeader.h"
+#endif
 
-#include "Flare/InputBindings.h"
+#include "EngineInputInteropStructures.h"
 
 class Application;
 
@@ -36,7 +38,7 @@ public:
     virtual double GetDelta() const = 0;
     virtual double GetTime() const = 0;
     
-    virtual void SetCursorState(FlareBase::e_CursorState a_state) = 0;
+    virtual void SetCursorState(e_CursorState a_state) = 0;
 
     virtual void Update() = 0;
 
@@ -54,6 +56,8 @@ public:
 
     virtual AppMonitor* GetMonitors(int* a_count) const { *a_count = 0; return nullptr; }
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
     virtual std::vector<const char*> GetRequiredVulkanExtenions() const = 0;
     virtual vk::SurfaceKHR GetSurface(const vk::Instance& a_instance) = 0;
+#endif
 };

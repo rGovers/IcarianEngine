@@ -2,7 +2,6 @@
 
 #include "AppWindow/AppWindow.h"
 
-#include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 
 class Config;
@@ -33,7 +32,7 @@ public:
     virtual double GetDelta() const;
     virtual double GetTime() const;
 
-    virtual void SetCursorState(FlareBase::e_CursorState a_state);
+    virtual void SetCursorState(e_CursorState a_state);
 
     virtual void Update();
 
@@ -48,6 +47,8 @@ public:
 
     virtual AppMonitor* GetMonitors(int* a_count) const;
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
     virtual std::vector<const char*> GetRequiredVulkanExtenions() const;
     virtual vk::SurfaceKHR GetSurface(const vk::Instance& a_instance);
+#endif
 };

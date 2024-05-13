@@ -5,8 +5,8 @@
 
 #include "Audio/AudioClips/AudioClip.h"
 #include "Audio/AudioEngineBindings.h"
-#include "Flare/IcarianDefer.h"
-#include "Logger.h"
+#include "DataTypes/RingAllocator.h"
+#include "IcarianError.h"
 #include "ObjectManager.h"
 #include "Profiler.h"
 #include "Trace.h"
@@ -32,7 +32,7 @@ AudioEngine::AudioEngine()
     m_device = alcOpenDevice(NULL);
     if (m_device == NULL)
     {
-        Logger::Warning("Failed to create AudioEngine: No audio device.");
+        IWARN("Failed to create AudioEngine: No audio device.");
 
         return;
     }
@@ -43,7 +43,7 @@ AudioEngine::AudioEngine()
         alcCloseDevice(m_device);
         m_device = NULL;
 
-        Logger::Warning("Failed to create AudioEngine: No default audio context.");
+        IWARN("Failed to create AudioEngine: No default audio context.");
 
         return;
     }
@@ -56,7 +56,7 @@ AudioEngine::AudioEngine()
         m_device = NULL;
         m_context = NULL;
 
-        Logger::Warning("Failed to create AudioEngine: Failed to make context current.");
+        IWARN("Failed to create AudioEngine: Failed to make context current.");
 
         return;
     }
@@ -72,7 +72,7 @@ AudioEngine::~AudioEngine()
     {
         if (m_audioClips.Exists(i))
         {
-            Logger::Warning("AudioClip was not destroyed.");
+            IWARN("AudioClip was not destroyed.");
 
             delete m_audioClips[i];
         }
@@ -82,7 +82,7 @@ AudioEngine::~AudioEngine()
     {
         if (m_audioSources.Exists(i))
         {
-            Logger::Warning("AudioSource was not destroyed.");
+            IWARN("AudioSource was not destroyed.");
 
             if (m_audioSources[i].Source != -1)
             {
@@ -100,7 +100,7 @@ AudioEngine::~AudioEngine()
     {
         if (m_audioListeners.Exists(i))
         {
-            Logger::Warning("AudioListener was not destroyed.");
+            IWARN("AudioListener was not destroyed.");
         }
     }
 
@@ -108,7 +108,7 @@ AudioEngine::~AudioEngine()
     {
         if (m_audioMixers.Exists(i))
         {
-            Logger::Warning("AudioMixer was not destroyed.");
+            IWARN("AudioMixer was not destroyed.");
         }
     }
 
@@ -177,7 +177,7 @@ static constexpr uint64_t GetAudioSize(e_AudioFormat a_format, uint32_t a_channe
     return 0;
 }
 
-static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip* a_clip, uint64_t a_sampleOffset, uint32_t a_sampleSize, bool a_canLoop)
+static uint64_t FillBuffers(RingAllocator* a_allocator, ALuint* a_buffer, uint32_t a_bufferCount, AudioClip* a_clip, uint64_t a_sampleOffset, uint32_t a_sampleSize, bool a_canLoop)
 {
     uint32_t outSampleSize;
     const uint32_t channelCount = a_clip->GetChannelCount();  
@@ -188,13 +188,12 @@ static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip*
 
     for (uint32_t i = 0; i < a_bufferCount; ++i)
     {
-        unsigned char* data = a_clip->GetAudioData(a_sampleOffset, a_sampleSize, &outSampleSize);
+        // Do not need to de-allocate this as it is managed by the ring allocator.
+        uint8_t* data = a_clip->GetAudioData(a_allocator, a_sampleOffset, a_sampleSize, &outSampleSize);
         if (data == nullptr)
         {
             break;
         }
-
-        IDEFER(delete[] data);
         
         // Unlikely but if the sample size is less than the requested sample size, we need to loop.
         // Not the most efficient way to do this but it works. KISS, right?
@@ -205,17 +204,16 @@ static uint64_t FillBuffers(ALuint* a_buffer, uint32_t a_bufferCount, AudioClip*
                 a_sampleOffset = 0;
 
                 uint32_t nextOutSampleSize;
-                const unsigned char* oldData = data;
-                const unsigned char* nextData = a_clip->GetAudioData(0, a_sampleSize - outSampleSize, &nextOutSampleSize);
+                const uint8_t* oldData = data;
+                // Do not need to de-allocate this as it is managed by the ring allocator.
+                const uint8_t* nextData = a_clip->GetAudioData(a_allocator, 0, a_sampleSize - outSampleSize, &nextOutSampleSize);
                 if (nextData == nullptr)
                 {
                     break;
                 }
 
-                IDEFER(delete[] nextData);
-                IDEFER(delete[] oldData);
-
-                unsigned char* newData = new unsigned char[(outSampleSize + nextOutSampleSize) * channelCount * sizeof(int16_t)];
+                // Again no need to de-allocate as it is managed by the ring allocator.
+                uint8_t* newData = (uint8_t*)a_allocator->Allocate<int16_t>((outSampleSize + nextOutSampleSize) * channelCount);
 
                 const uint32_t count = GetAudioSize(format, channelCount, outSampleSize);
                 memcpy(newData, data, count);
@@ -269,7 +267,7 @@ void AudioEngine::Update()
     const ALenum error = alGetError();
     if (error != AL_NO_ERROR)
     {
-        Logger::Error(std::string("OpenAL Error: ") + alGetString(error));
+        IWARN(std::string("OpenAL Error: ") + alGetString(error));
 
         return;
     }
@@ -310,6 +308,13 @@ void AudioEngine::Update()
 
     {
         PROFILESTACK("Source Update");
+        
+        // 128KB should be enough for anyone.
+        // Size is an educated guess based on the sample rate and sample size with several channels.
+        // Has not caused any issues so far but may need to be adjusted if overruns occur.
+        // Was looking for an excuse to write a ring allocator.
+        // Just Ye' Ol' if allocation is too expensive just dont. It is that simple.
+        RingAllocator allocator = RingAllocator(1024 * 128);
 
         const std::vector<bool> sourceState = m_audioSources.ToStateVector();
         TLockArray<AudioSourceBuffer> sourceBuffers = m_audioSources.ToLockArray();
@@ -340,16 +345,18 @@ void AudioEngine::Update()
                     alGenBuffers(AudioSourceBuffer::BufferCount, buffer.Buffers);                
                 }
 
-                if (buffer.Source == -1)
-                {
-                    alGenSources(1, &buffer.Source);
-                }
-                else
+                // OpenAL does not seem to like restarting sources for some reason
+                // Probably just me but seems odd
+                if (buffer.Source != -1)
                 {
                     alSourceStop(buffer.Source);
+
+                    alDeleteSources(1, &buffer.Source);
                 }
 
-                buffer.SampleOffset = FillBuffers(buffer.Buffers, AudioSourceBuffer::BufferCount, clip, 0, AudioBufferSampleSize, canLoop);
+                alGenSources(1, &buffer.Source);
+
+                buffer.SampleOffset = FillBuffers(&allocator, buffer.Buffers, AudioSourceBuffer::BufferCount, clip, 0, AudioBufferSampleSize, canLoop);
 
                 alSourceQueueBuffers(buffer.Source, AudioSourceBuffer::BufferCount, buffer.Buffers);
 
@@ -383,7 +390,7 @@ void AudioEngine::Update()
 
                     AudioClip* clip = m_audioClips[buffer.AudioClipAddr];
 
-                    buffer.SampleOffset = FillBuffers(&queueBuffer, 1, clip, buffer.SampleOffset, AudioBufferSampleSize, canLoop);
+                    buffer.SampleOffset = FillBuffers(&allocator, &queueBuffer, 1, clip, buffer.SampleOffset, AudioBufferSampleSize, canLoop);
 
                     alSourceQueueBuffers(buffer.Source, 1, &queueBuffer);
                 }

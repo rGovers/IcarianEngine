@@ -4,7 +4,7 @@
 #include <string>
 
 #include "DataTypes/TUMap.h"
-#include "Flare/IcarianAssert.h"
+#include "Core/IcarianAssert.h"
 
 class Scribe
 {

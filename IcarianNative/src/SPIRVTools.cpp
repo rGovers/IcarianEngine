@@ -2,169 +2,9 @@
 
 #include <spirv-tools/optimizer.hpp>
 
-#include "Flare/IcarianAssert.h"
-#include "Logger.h"
-#include "Rendering/ShaderBuffers.h"
-#include "Rendering/Vulkan/VulkanConstants.h"
+#include "Rendering/Vulkan/IcarianVulkanHeader.h"
+
 #include "Trace.h"
-
-static std::vector<std::string> SplitArgs(const std::string_view& a_string)
-{
-	std::vector<std::string> args;
-
-	std::size_t pos = 0;
-
-	while (true)
-	{
-		while (a_string[pos] == ' ')
-		{
-			++pos;
-		}
-
-		const std::size_t sPos = a_string.find(',', pos);
-		if (sPos == std::string_view::npos)
-		{
-			args.emplace_back(a_string.substr(pos));
-
-			break;
-		}
-
-		args.emplace_back(a_string.substr(pos, sPos - pos));
-		pos = sPos + 1;
-	}
-	
-	return args;
-}
-
-// Dont know why I never though of using the C++ preprocessor to write my shader uniforms for me 
-// My laziness knows no bounds
-std::string GLSL_fromFShader(const std::string_view& a_str)
-{
-	std::string shader = std::string(a_str);
-
-	std::size_t pos = 0;
-	while (true)
-	{
-		const std::size_t sPos = shader.find("#!", pos);
-		if (sPos == std::string::npos)
-		{
-			break;
-		}
-
-		const std::size_t sAPos = shader.find("(", sPos + 1);
-		const std::size_t eAPos = shader.find(')', sPos + 1);
-
-		ICARIAN_ASSERT_MSG_R(sAPos != std::string::npos && eAPos != std::string::npos, "Invalid Flare Shader definition at " + std::to_string(sPos));
-		ICARIAN_ASSERT_MSG_R(sAPos < eAPos, "Invalid Flare Shader braces at " + std::to_string(sPos));
-
-		const std::string defName = shader.substr(sPos + 2, sAPos - sPos - 2);
-		std::vector<std::string> args = SplitArgs(shader.substr(sAPos + 1, eAPos - sAPos - 1));
-
-		std::string rStr;
-		if (defName == "structure")
-		{
-			ICARIAN_ASSERT_MSG_R(args.size() == 4, "Flare Shader structure requires 4 arguments");
-
-			if (args[0] == "CameraBuffer")
-			{
-				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_CAMERA_SHADER_STRUCTURE);
-			}
-			else if (args[0] == "AmbientLightBuffer")
-			{
-				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_AMBIENT_LIGHT_SHADER_STRUCTURE);
-			}
-			else if (args[0] == "DirectionalLightBuffer")
-			{
-				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_DIRECTIONAL_LIGHT_SHADER_STRUCTURE);
-			}
-			else if (args[0] == "PointLightBuffer")
-			{
-				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_POINT_LIGHT_SHADER_STRUCTURE);
-			}
-			else if (args[0] == "SpotLightBuffer")
-			{
-				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_SPOT_LIGHT_SHADER_STRUCTURE);
-			}
-			else if (args[0] == "ShadowLightBuffer")
-			{
-				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_SHADOW_LIGHT_SHADER_STRUCTURE);
-			}
-			else if (args[0] == "TimeBuffer")
-			{
-				rStr = GLSL_UNIFORM_STRING(args[1], args[2], args[3], GLSL_TIME_SHADER_STRUCTURE);
-			}
-			else if (args[0] == "SSAmbientLightBuffer")
-			{
-				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_AMBIENT_LIGHT_SSBO_STRUCTURE, AMBIENT_LIGHT_SHADER_NAMESTR);
-			}
-			else if (args[0] == "SSDirectionalLightBuffer")
-			{
-				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_DIRECTIONAL_LIGHT_SSBO_STRUCTURE, DIRECTIONAL_LIGHT_SHADER_NAMESTR);
-			}
-			else if (args[0] == "SSPointLightBuffer")
-			{
-				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_POINT_LIGHT_SSBO_STRUCTURE, POINT_LIGHT_SHADER_NAMESTR);
-			}
-			else if (args[0] == "SSSpotLightBuffer")
-			{
-				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_SPOT_LIGHT_SSBO_STRUCTURE, SPOT_LIGHT_SHADER_NAMESTR);
-			}
-			else if (args[0] == "SSModelBuffer")
-			{
-				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_MODEL_SSBO_STRUCTURE, MODEL_SHADER_NAMESTR);
-			}
-			else if (args[0] == "SSBoneBuffer")
-			{
-				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_BONE_SSBO_STRUCTURE, BONE_SHADER_NAMESTR);
-			}
-			else if (args[0] == "SSShadowLightBuffer")
-			{
-				rStr = GLSL_SSBO_STRING(args[1], args[2], args[3], GLSL_SHADOW_LIGHT_SSBO_STRUCTURE, SHADOW_LIGHT_SHADER_NAMESTR);
-			}
-		}
-		else if (defName == "userbuffer")
-		{
-			ICARIAN_ASSERT_MSG_R(args.size() == 3, "Flare Shader ubo requires 3 arguments");
-
-			rStr = std::string("layout(std140, binding=") + args[0] + ", set=" + args[1] + ") uniform " + args[2];
-		}
-		else if (defName == "instancedstructure")
-		{
-			ICARIAN_ASSERT_MSG_R(args.size() == 1, "Flare Shader instancedstructure requires 1 argument");
-
-			rStr = args[0] + ".objects[gl_InstanceIndex]";
-		}
-		else if (defName == "pushbuffer")
-		{
-			ICARIAN_ASSERT_MSG_R(args.size() == 2, "Flare Shader pushbuffer requires 2 arguments");
-
-			if (args[0] == "PModelBuffer")
-			{
-				rStr = GLSL_PUSHBUFFER_STRING(args[1], GLSL_MODEL_SHADER_STRUCTURE);
-			}
-			else if (args[0] == "PUIBuffer")
-			{
-				rStr = GLSL_PUSHBUFFER_STRING(args[1], GLSL_UI_SHADER_STRUCTURE);
-			}
-			else if (args[0] == "PShadowLightBuffer")
-			{
-				rStr = GLSL_PUSHBUFFER_STRING(args[1], GLSL_SHADOW_LIGHT_SHADER_STRUCTURE);
-			}
-		}
-
-		std::size_t next = 1;
-		if (!rStr.empty())
-		{
-			next = rStr.size();
-		}
-
-		shader.replace(sPos, eAPos - sPos + 1, rStr);
-
-		pos = sPos + next;
-	}
-
-	return shader;
-}
 
 void spirv_init()
 {
@@ -300,9 +140,9 @@ std::vector<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const std::string_view&
 
     if (!shader.parse(&resource, 100, false, Messages))
     {
-		Logger::Error(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog());
+		IERROR(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(a_str));
 
-		ICARIAN_ASSERT(0);
+		return std::vector<uint32_t>();
     }
 
     glslang::TProgram program;
@@ -310,9 +150,9 @@ std::vector<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const std::string_view&
 
     if (!program.link(Messages))
     {
-		Logger::Error(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog());
+		IERROR(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(a_str));
 
-		ICARIAN_ASSERT(0);
+		return std::vector<uint32_t>();
     }
 
 	std::vector<uint32_t> spirv;
@@ -329,7 +169,12 @@ std::vector<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const std::string_view&
 
 		opt.RegisterPerformancePasses();
 
-		ICARIAN_ASSERT_MSG_R(opt.Run(spirv.data(), spirv.size(), &spirv), "Failed to optimize SPIRV");
+		if (!opt.Run(spirv.data(), spirv.size(), &spirv))
+		{
+			IERROR("Failed to optimize SPIRV");
+
+			return std::vector<uint32_t>();
+		}
 	}
 	
     TRACE("Generated SPIRV");

@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+class RingAllocator;
+
 enum e_AudioFormat : uint16_t
 {
     AudioFormat_U8,
@@ -28,5 +30,5 @@ public:
         return AudioFormat_S16;
     }
 
-    virtual unsigned char* GetAudioData(uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize) = 0;
+    virtual uint8_t* GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize) = 0;
 };

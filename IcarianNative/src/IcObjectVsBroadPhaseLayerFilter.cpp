@@ -1,6 +1,6 @@
 #include "Physics/IcObjectVsBroadPhaseLayerFilter.h"
 
-#include "Flare/IcarianAssert.h"
+#include "Core/IcarianAssert.h"
 #include "Physics/PhysicsEngine.h"
 
 IcObjectVsBroadPhaseLayerFilter::IcObjectVsBroadPhaseLayerFilter()

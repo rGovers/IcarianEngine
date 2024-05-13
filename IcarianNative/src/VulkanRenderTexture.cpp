@@ -2,8 +2,6 @@
 
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
 
-#include "Flare/IcarianAssert.h"
-#include "Logger.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
@@ -128,7 +126,7 @@ static vk::Format GetValidDepthFormat(vk::PhysicalDevice a_device)
         }
     }
 
-    ICARIAN_ASSERT_MSG(0, "No valid depth format");
+    IERROR("No valid depth format");
 
     return vk::Format::eUndefined;
 }
@@ -289,8 +287,8 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, ui
         dependencies
     );
 
-    ICARIAN_ASSERT_MSG_R(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass) == vk::Result::eSuccess, "Failed to create render texture render pass");
-    ICARIAN_ASSERT_MSG_R(device.createRenderPass(&renderPassNoClearInfo, nullptr, &m_renderPassNoClear) == vk::Result::eSuccess, "Failed to create render texture render pass");
+    VKRESERRMSG(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass), "Failed to create RenderTexture RenderPass");
+    VKRESERRMSG(device.createRenderPass(&renderPassNoClearInfo, nullptr, &m_renderPassNoClear), "Failed to create RenderTexture RenderPass");
 
     m_textures = new vk::Image[totalTextureCount];
     m_textureViews = new vk::ImageView[totalTextureCount];
@@ -368,12 +366,7 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
     for (uint32_t i = 0; i < m_textureCount; ++i)
     {
         VkImage image;
-        if (vmaCreateImage(allocator, &textureCreateInfo, &allocInfo, &image, &m_textureAllocations[i], nullptr) != VK_SUCCESS)
-        {
-            Logger::Error("Failed to create RenderTexture Image");
-
-            assert(0);
-        }
+        VKRESERRMSG(vmaCreateImage(allocator, &textureCreateInfo, &allocInfo, &image, &m_textureAllocations[i], nullptr), "Failed to create RenderTexture image");
         m_textures[i] = image;
 
         const vk::ImageViewCreateInfo textureImageView = vk::ImageViewCreateInfo
@@ -386,12 +379,7 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
             SubresourceRange
         );
 
-        if (device.createImageView(&textureImageView, nullptr, &m_textureViews[i]) != vk::Result::eSuccess)
-        {
-            Logger::Error("Failed to create RenderTexture Image View");
-
-            assert(0);
-        }
+        VKRESERRMSG(device.createImageView(&textureImageView, nullptr, &m_textureViews[i]), "Failed to create RenderTexture ImageView");
     }
     if (hasDepth)
     {
@@ -419,12 +407,7 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
         depthCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 
         VkImage image;
-        if (vmaCreateImage(allocator, &depthCreateInfo, &allocInfo, &image, &m_textureAllocations[m_textureCount], nullptr) != VK_SUCCESS)
-        {
-            Logger::Error("Failed to create RenderTexture Depth Image");
-
-            assert(0);
-        }
+        VKRESERRMSG(vmaCreateImage(allocator, &depthCreateInfo, &allocInfo, &image, &m_textureAllocations[m_textureCount], nullptr), "Failed to create RenderTexture depth image");
         m_textures[m_textureCount] = image;
 
         const vk::ImageViewCreateInfo depthImageView = vk::ImageViewCreateInfo
@@ -437,12 +420,7 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
             DepthSubresouceRange
         );
 
-        if (device.createImageView(&depthImageView, nullptr, &m_textureViews[m_textureCount]) != vk::Result::eSuccess)
-        {
-            Logger::Error("Failed to create RenderTexture depth Image View");
-
-            assert(0);
-        }
+        VKRESERRMSG(device.createImageView(&depthImageView, nullptr, &m_textureViews[m_textureCount]), "Failed to create RenderTexture depth ImageView");
     }
 
     TRACE("Creating Frame Buffer");
@@ -457,7 +435,7 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
         1
     );
 
-    ICARIAN_ASSERT_R(device.createFramebuffer(&fbCreateInfo, nullptr, &m_frameBuffer) == vk::Result::eSuccess);
+    VKRESERR(device.createFramebuffer(&fbCreateInfo, nullptr, &m_frameBuffer));
 }
 
 void VulkanRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
@@ -467,4 +445,5 @@ void VulkanRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 
     Init(a_width, a_height);
 }
+
 #endif

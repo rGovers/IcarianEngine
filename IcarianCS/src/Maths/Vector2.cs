@@ -8,10 +8,16 @@ namespace IcarianEngine.Maths
 {
     public static class Vector2Extensions
     {
+        /// <summary>
+        /// Converts a XmlElement to a Vector2
+        /// </summary>
         public static Vector2 ToVector2(this XmlElement a_element)
         {
             return ToVector2(a_element, Vector2.Zero);
         }
+        /// <summary>
+        /// Convertex a XmlElement to a Vector2 with a default value
+        /// </summary>
         public static Vector2 ToVector2(this XmlElement a_element, Vector2 a_default)
         {
             Vector2 vec = a_default;
@@ -22,6 +28,7 @@ namespace IcarianEngine.Maths
                 {
                 case "X":
                 case "S":
+                case "U":
                 {
                     vec.X = float.Parse(element.InnerText);
 
@@ -29,6 +36,7 @@ namespace IcarianEngine.Maths
                 }
                 case "Y":
                 case "T":
+                case "V":
                 {
                     vec.Y = float.Parse(element.InnerText);
 
@@ -40,10 +48,16 @@ namespace IcarianEngine.Maths
             return vec;
         }
 
+        /// <summary>
+        /// Creates an XmlElement from a Vector2
+        /// </summary>
         public static XmlElement ToXml(this Vector2 a_vec, XmlDocument a_doc, string a_name)
         {
             return ToXml(a_vec, a_doc, a_name, Vector2.Zero);
         }
+        /// <summary>
+        /// Creates an XmlElement from a Vector2
+        /// </summary>
         public static XmlElement ToXml(this Vector2 a_vec, XmlDocument a_doc, string a_name, Vector2 a_default)
         {
             if (a_vec == a_default)
@@ -143,6 +157,35 @@ namespace IcarianEngine.Maths
         /// V Component. Maps to the Y component of the vector
         /// </summary>
         public float V
+        {
+            get
+            {
+                return Y;
+            }
+            set
+            {
+                Y = value;
+            }
+        }
+
+        /// <summary>
+        /// S Component. Maps to the X component of the vector
+        /// </summary>
+        public float S
+        {
+            get
+            {
+                return X;
+            }
+            set
+            {
+                X = value;
+            }
+        }
+        /// <summary>
+        /// T Component. Maps to the Y component of the vector
+        /// </summary>
+        public float T
         {
             get
             {
@@ -257,6 +300,11 @@ namespace IcarianEngine.Maths
             Y = a_other.Y;
         }
 
+        public static explicit operator Vector2(IVector2 a_vec)
+        {
+            return new Vector2(a_vec.X, a_vec.Y);
+        }
+
         public static Vector2 operator -(Vector2 a_vec)
         {
             return new Vector2(-a_vec.X, -a_vec.Y);
@@ -278,6 +326,10 @@ namespace IcarianEngine.Maths
         {
             return new Vector2(a_lhs.X / a_rhs, a_lhs.Y / a_rhs);
         }
+        public static Vector2 operator %(Vector2 a_lhs, float a_rhs)
+        {
+            return new Vector2(a_lhs.X % a_rhs, a_lhs.Y % a_rhs);
+        }
         public static Vector2 operator *(Vector2 a_lhs, Vector2 a_rhs)
         {
             return new Vector2(a_lhs.X * a_rhs.X, a_lhs.Y * a_rhs.Y);
@@ -285,7 +337,7 @@ namespace IcarianEngine.Maths
         public static Vector2 operator /(Vector2 a_lhs, Vector2 a_rhs)
         {
             return new Vector2(a_lhs.X / a_rhs.X, a_lhs.Y / a_rhs.Y);
-        }
+        }        
 
         public static bool operator ==(Vector2 a_lhs, Vector2 a_rhs)
         {
@@ -370,8 +422,12 @@ namespace IcarianEngine.Maths
             return a_start + (a_end - a_start) * a_t;
         }
 
+        /// @cond SWIZZLE
+
         VEC_SWIZZLE_VEC2_FULL_VEC2
         VEC_SWIZZLE_VEC2_FULL_VEC3
         VEC_SWIZZLE_VEC2_FULL_VEC4
+        
+        /// @endcond
     }
 }

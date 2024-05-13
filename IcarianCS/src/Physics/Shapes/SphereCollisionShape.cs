@@ -2,15 +2,18 @@ using IcarianEngine.Definitions;
 using System;
 using System.Runtime.CompilerServices;
 
+#include "EngineSphereCollisionShapeInterop.h"
+#include "InteropBinding.h"
+
+ENGINE_SPHERECOLLISIONSHAPE_EXPORT_TABLE(IOP_BIND_FUNCTION);
+
 namespace IcarianEngine.Physics.Shapes
 {
     public class SphereCollisionShape : CollisionShape, IDestroy
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint CreateSphere(float a_radius);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static float GetRadius(uint a_addr);
-
+        /// <summary>
+        /// The Definition used to create the SphereCollisionShape
+        /// </summary>
         public SphereCollisionShapeDef SphereDef
         {
             get
@@ -19,6 +22,9 @@ namespace IcarianEngine.Physics.Shapes
             }
         }
 
+        /// <summary>
+        /// Whether the SphereCollisionShape is Disposed
+        /// <summary>
         public bool IsDisposed
         {
             get
@@ -27,49 +33,64 @@ namespace IcarianEngine.Physics.Shapes
             }
         }
 
+        /// <summary>
+        /// The radius of the SphereCollisionShape
+        /// </summary>
         public float Radius
         {
             get
             {
-                return GetRadius(InternalAddr);
+                return SphereCollisionShapeInterop.GetRadius(InternalAddr);
             }
         }
 
-        public SphereCollisionShape()
+        SphereCollisionShape()
         {
             InternalAddr = uint.MaxValue;
         }
+        /// <summary>
+        /// Create an Instance of <see cref="IcarianEngine.Physics.Shapes.SphereCollisionShape"/>
+        /// </summary>
+        /// <param name="a_radius">
+        public SphereCollisionShape(float a_radius)
+        {
+            InternalAddr = SphereCollisionShapeInterop.CreateSphere(a_radius);
+        }
 
-        public override void Init()
+        internal override void Init()
         {
             SphereCollisionShapeDef def = SphereDef;
 
             if (def != null)
             {
-                InternalAddr = CreateSphere(def.Radius);
+                InternalAddr = SphereCollisionShapeInterop.CreateSphere(def.Radius);
             }
             else
             {
-                InternalAddr = CreateSphere(1.0f);
+                InternalAddr = SphereCollisionShapeInterop.CreateSphere(1.0f);
             }
         }
 
+        /// <summary>
+        /// Disposes of the SphereCollisionShape
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the SphereCollisionShape is being Disposed
+        /// </summary>
+        /// <param name="a_disposing">Whether the SphereCollisionShape is being Disposed or Finalized</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(InternalAddr != uint.MaxValue)
             {
                 if(a_disposing)
                 {
-                    CollisionShape.DestroyShape(InternalAddr);
-
-                    InternalAddr = uint.MaxValue;
+                    CollisionShapeInterop.DestroyShape(InternalAddr);
                 }
                 else
                 {

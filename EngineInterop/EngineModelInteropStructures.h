@@ -2,15 +2,15 @@
 
 #include "InteropTypes.h"
 
-#ifdef CUBE_LANGUAGE_CPP
-#define GLM_FORCE_SWIZZLE
-#include <glm/glm.hpp>
-#endif
-
 #ifdef CUBE_LANGUAGE_CSHARP
 namespace IcarianEngine.Rendering {
 #endif
 
+/// @file EngineModelInteropStructures.h
+
+/// <summary>
+/// The type of vertex field
+/// </summary>
 IOP_CSPUBLIC enum IOP_ENUM_NAME(VertexType) : IOP_UINT16
 {
     IOP_ENUM_VALUE(VertexType, Null) = IOP_UINT16_MAX,
@@ -119,26 +119,10 @@ IOP_PACKED IOP_CSPUBLIC struct SkinnedVertex
     /// The bone weights of the vertex
     /// </summary>
     IOP_CSPUBLIC IOP_VEC4 BoneWeights;
-#ifdef CUBE_LANGUAGE_CSHARP
     /// <summary>
-    /// The first bone index of the vertex
+    /// The bone indices of the vertex
     /// </summary>
-    public int BoneIndexA;
-    /// <summary>
-    /// The second bone index of the vertex
-    /// </summary>
-    public int BoneIndexB;
-    /// <summary>
-    /// The third bone index of the vertex
-    /// </summary>
-    public int BoneIndexC;
-    /// <summary>
-    /// The fourth bone index of the vertex
-    /// </summary>
-    public int BoneIndexD;
-#else
-    glm::ivec4 BoneIndices;
-#endif
+    IOP_CSPUBLIC IOP_IVEC4 BoneIndices;
 
 #ifdef CUBE_LANGUAGE_CSHARP
     /// <summary>

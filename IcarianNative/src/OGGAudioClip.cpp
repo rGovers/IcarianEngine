@@ -1,5 +1,7 @@
 #include "Audio/AudioClips/OGGAudioClip.h"
 
+#include "DataTypes/RingAllocator.h"
+
 OGGAudioClip::OGGAudioClip(const std::filesystem::path& a_path) : AudioClip()
 {
     m_path = a_path;
@@ -37,13 +39,13 @@ uint64_t OGGAudioClip::GetSampleSize() const
     return m_sampleSize * m_info.channels;
 }
 
-unsigned char* OGGAudioClip::GetAudioData(uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
+uint8_t* OGGAudioClip::GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
 {
-    int16_t* buffer = new int16_t[a_sampleSize * m_info.channels];
+    uint8_t* buffer = (uint8_t*)a_allocator->Allocate<int16_t>(a_sampleSize * m_info.channels);
 
     stb_vorbis_seek(m_stream, (int)a_sampleOffset);
 
-    *a_outSampleSize = (uint32_t)stb_vorbis_get_samples_short_interleaved(m_stream, m_info.channels, buffer, a_sampleSize * m_info.channels);
+    *a_outSampleSize = (uint32_t)stb_vorbis_get_samples_short_interleaved(m_stream, m_info.channels, (short*)buffer, a_sampleSize * m_info.channels);
 
-    return (unsigned char*)buffer;
+    return buffer;
 }

@@ -34,3 +34,15 @@
 [submodule "IcarianNative/lib/SPIRV-Tools"]
 	path = IcarianNative/lib/SPIRV-Tools
 	url = https://github.com/KhronosGroup/SPIRV-Tools.git
+[submodule "deps/tinygltf"]
+	path = deps/tinygltf
+	url = https://github.com/syoyo/tinygltf.git
+[submodule "IcarianNative/lib/enet"]
+	path = IcarianNative/lib/enet
+	url = https://github.com/lsalzman/enet.git
+[submodule "deps/KTX-Software"]
+	path = deps/KTX-Software
+	url = https://github.com/KhronosGroup/KTX-Software
+[submodule "deps/imgui"]
+	path = deps/imgui
+	url = https://github.com/ocornut/imgui.git

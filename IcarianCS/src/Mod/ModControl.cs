@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Xml;
 
 namespace IcarianEngine.Mod
 {
@@ -26,6 +27,62 @@ namespace IcarianEngine.Mod
             private set;
         }
 
+        static void LoadMods(string a_path)
+        {
+            string modPath = Path.Combine(a_path, "Mod");
+            if (Directory.Exists(modPath))
+            {
+                string modListPath = Path.Combine(modPath, "ModList.xml");
+                if (!File.Exists(modListPath))
+                {
+                    return;
+                }
+
+                List<string> ids = new List<string>();
+                XmlDocument doc = new XmlDocument();
+                doc.Load(modListPath);
+
+                if (doc.DocumentElement is XmlElement root)
+                {
+                    foreach (XmlNode node in root.ChildNodes)
+                    {
+                        if (node is XmlElement element)
+                        {
+                            if (element.Name == "Mod")
+                            {
+                                ids.Add(element.InnerText);
+                            }
+                            else
+                            {
+                                Logger.IcarianError($"Invalid ModList element: {element.Name}, {a_path}");
+                            }
+                        }
+                    }
+                }
+
+                if (ids.Count <= 0)
+                {
+                    return;
+                }
+
+                string[] dirs = Directory.GetDirectories(modPath);
+                foreach (string d in dirs)
+                {
+                    IcarianAssemblyInfo info = IcarianAssemblyInfo.Load(d);
+                    string id = info.ID;
+
+                    if (info != null && ids.Contains(id))
+                    {
+                        IcarianAssembly asm = IcarianAssembly.LoadIcarianAssembly(info);
+
+                        ids.Remove(id);
+
+                        Assemblies.Add(asm);
+                    }
+                }
+            }
+        }
+
         internal static void Init()
         {
             Assemblies = new List<IcarianAssembly>();
@@ -36,14 +93,20 @@ namespace IcarianEngine.Mod
 
             if (working)
             {
-                CoreAssembly = IcarianAssembly.GetIcarianAssembly(corePath);
+                CoreAssembly = IcarianAssembly.LoadIcarianAssembly(corePath);
+
+                LoadMods(Application.WorkingDirectory);
             }
+
+            string curDir = Directory.GetCurrentDirectory();
 
             if (CoreAssembly == null)
             {
-                corePath = Path.Combine(Directory.GetCurrentDirectory(), "Core");
-                CoreAssembly = IcarianAssembly.GetIcarianAssembly(corePath);       
+                corePath = Path.Combine(curDir, "Core");
+                CoreAssembly = IcarianAssembly.LoadIcarianAssembly(corePath);       
             }
+
+            LoadMods(curDir);
 
             if (CoreAssembly == null)
             {
@@ -54,6 +117,15 @@ namespace IcarianEngine.Mod
             if (Directory.Exists(coreDefPath))
             {
                 DefLibrary.LoadDefs(coreDefPath);
+            }
+
+            foreach (IcarianAssembly iAsm in Assemblies)
+            {
+                string defPath = Path.Combine(iAsm.AssemblyInfo.Path, "Defs");
+                if (Directory.Exists(defPath))
+                {
+                    DefLibrary.LoadDefs(defPath);
+                }
             }
         }
 
@@ -308,15 +380,15 @@ namespace IcarianEngine.Mod
 
             for (int i = Assemblies.Count - 1; i >= 0; --i)
             {
-                string mPath = Path.Combine(Assemblies[i].AssemblyInfo.Path, "Assets", a_path);
-                if (File.Exists(mPath))
+                string mPath = Assemblies[i].GetAssetPath(a_path);
+                if (!string.IsNullOrEmpty(mPath))
                 {
                     return mPath;
                 }
             }
 
-            string cPath = Path.Combine(CoreAssembly.AssemblyInfo.Path, "Assets", a_path);
-            if (File.Exists(cPath))
+            string cPath = CoreAssembly.GetAssetPath(a_path);
+            if (!string.IsNullOrEmpty(cPath))
             {
                 return cPath;
             }
@@ -340,7 +412,7 @@ namespace IcarianEngine.Mod
             {
                 if (asm.AssemblyInfo.ID == a_modID)
                 {
-                    return Path.Combine(asm.AssemblyInfo.ID, "Scenes", a_path);
+                    return Path.Combine(asm.AssemblyInfo.Path, "Scenes", a_path);
                 }
             }
 

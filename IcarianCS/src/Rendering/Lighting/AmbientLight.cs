@@ -113,9 +113,13 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 AmbientLightBuffer buffer = GetBuffer(m_bufferAddr);
 
-                buffer.Intensity = value;
+                float v = Mathf.Max(value, 0.0f);
+                if (buffer.Intensity != v)
+                {
+                    buffer.Intensity = v;
 
-                SetBuffer(m_bufferAddr, buffer);
+                    SetBuffer(m_bufferAddr, buffer);
+                }
             }
         }
 

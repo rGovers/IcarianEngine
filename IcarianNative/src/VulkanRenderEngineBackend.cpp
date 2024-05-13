@@ -6,12 +6,14 @@
 
 #include "AppWindow/AppWindow.h"
 #include "Config.h"
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Logger.h"
 #include "Profiler.h"
 #include "Rendering/RenderEngine.h"
+#include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
+#include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanSwapchain.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
@@ -46,25 +48,28 @@ constexpr const char* StandaloneDeviceExtensions[] =
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT a_msgSeverity, VkDebugUtilsMessageTypeFlagsEXT a_msgType, const VkDebugUtilsMessengerCallbackDataEXT* a_callbackData, void* a_userData)
 {
+    constexpr static const char* ValidationPrefix = "Vulkan Validation Layer: ";
+
     switch (a_msgSeverity)
     {
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
     {
-        Logger::Message(std::string("Vulkan Validation Layer: ") + a_callbackData->pMessage);
+        Logger::Message(std::string(ValidationPrefix) + a_callbackData->pMessage);
 
         break;
     }
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
     {
-        Logger::Warning(std::string("Vulkan Validation Layer: ") + a_callbackData->pMessage);
+        Logger::Warning(std::string(ValidationPrefix) + a_callbackData->pMessage);
 
         break;
     }
     case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
     {
-        Logger::Error(std::string("Vulkan Validation Layer: ") + a_callbackData->pMessage);
+        Logger::Error(std::string(ValidationPrefix) + a_callbackData->pMessage);
 
-        break;
+        return VK_TRUE;
+        // break;
     }
     default:
     {
@@ -80,16 +85,17 @@ static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, cons
     uint32_t extensionCount;
     ICARIAN_ASSERT_R(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr) == vk::Result::eSuccess);
 
-    std::vector<vk::ExtensionProperties> availableExtensions = std::vector<vk::ExtensionProperties>(extensionCount);
-    ICARIAN_ASSERT_R(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions.data()) == vk::Result::eSuccess);
+    vk::ExtensionProperties* availableExtensions = new vk::ExtensionProperties[extensionCount];
+    IDEFER(delete[] availableExtensions);
+    ICARIAN_ASSERT_R(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions) == vk::Result::eSuccess);
 
     uint32_t requiredCount = (uint32_t)a_extensions.size();
 
     for (const char* requiredExtension : a_extensions)
     {
-        for (const vk::ExtensionProperties& extension : availableExtensions)
+        for (uint32_t i = 0; i < extensionCount; ++i)
         {
-            if (strcmp(requiredExtension, extension.extensionName) == 0)
+            if (strcmp(requiredExtension, availableExtensions[i].extensionName) == 0)
             {
                 --requiredCount;
 
@@ -129,14 +135,15 @@ static bool CheckValidationLayerSupport()
     uint32_t layerCount = 0;
     ICARIAN_ASSERT_R(vk::enumerateInstanceLayerProperties(&layerCount, nullptr) == vk::Result::eSuccess);
 
-    std::vector<vk::LayerProperties> availableLayers = std::vector<vk::LayerProperties>(layerCount);
-    ICARIAN_ASSERT_R(vk::enumerateInstanceLayerProperties(&layerCount, availableLayers.data()) == vk::Result::eSuccess);
+    vk::LayerProperties* availableLayers = new vk::LayerProperties[layerCount];
+    IDEFER(delete[] availableLayers);
+    ICARIAN_ASSERT_R(vk::enumerateInstanceLayerProperties(&layerCount, availableLayers) == vk::Result::eSuccess);
 
     for (const char* layerName : ValidationLayers)
     {
-        for (const vk::LayerProperties& properties : availableLayers)
+        for (uint32_t i = 0; i < layerCount; ++i)
         {
-            if (strcmp(layerName, properties.layerName) == 0)
+            if (strcmp(layerName, availableLayers[i].layerName) == 0)
             {
                 goto NextIter;
             }
@@ -271,8 +278,9 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     uint32_t queueFamilyCount = 0;
     m_pDevice.getQueueFamilyProperties(&queueFamilyCount, nullptr);
 
-    std::vector<vk::QueueFamilyProperties> queueFamilies = std::vector<vk::QueueFamilyProperties>(queueFamilyCount);
-    m_pDevice.getQueueFamilyProperties(&queueFamilyCount, queueFamilies.data());
+    vk::QueueFamilyProperties* queueFamilies = new vk::QueueFamilyProperties[queueFamilyCount];
+    IDEFER(delete[] queueFamilies);
+    m_pDevice.getQueueFamilyProperties(&queueFamilyCount, queueFamilies);
     
     for (uint32_t i = 0; i < queueFamilyCount; ++i)
     {
@@ -289,9 +297,13 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
             if (presentSupport)
             {
-                if (i == m_graphicsQueueIndex && m_presentQueueIndex == -1)
+                // Want graphics queue to be last resort
+                if (i == m_graphicsQueueIndex)
                 {
-                    m_presentQueueIndex = i;
+                    if (m_presentQueueIndex == -1)
+                    {
+                        m_presentQueueIndex = i;
+                    }
                 }
                 else
                 {
@@ -299,10 +311,30 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
                 }
             }
         }
-       
+
+        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
+        {
+            // Want present queue to be last resort
+            // Have it wanting to use the present queue on NVIDIA cards so this is needed
+            if (i == m_presentQueueIndex)
+            {
+                if (m_computeQueueIndex == -1)
+                {
+                    m_computeQueueIndex = i;
+                }
+            }
+            else
+            {
+                m_computeQueueIndex = i;
+            }
+        }
     }
 
     std::set<uint32_t> uniqueQueueFamilies;
+    if (m_computeQueueIndex != -1)
+    {
+        uniqueQueueFamilies.emplace(m_computeQueueIndex);
+    }
     if (m_graphicsQueueIndex != -1)
     {
         uniqueQueueFamilies.emplace(m_graphicsQueueIndex);
@@ -317,7 +349,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     constexpr float QueuePriority = 1.0f;
     for (const uint32_t queueFamily : uniqueQueueFamilies)
     {
-        queueCreateInfos.emplace_back(vk::DeviceQueueCreateInfo(vk::DeviceQueueCreateFlags(), queueFamily, 1, &QueuePriority));
+        queueCreateInfos.emplace_back(vk::DeviceQueueCreateInfo({ }, queueFamily, 1, &QueuePriority));
     }
 
     vk::PhysicalDeviceFeatures deviceFeatures;
@@ -330,13 +362,10 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         queueCreateInfos.data(), 
         0, 
         nullptr, 
-        0, 
-        nullptr,
+        (uint32_t)dRequiredExtensions.size(), 
+        dRequiredExtensions.data(),
         &deviceFeatures
     );
-
-    deviceCreateInfo.enabledExtensionCount = (uint32_t)dRequiredExtensions.size();
-    deviceCreateInfo.ppEnabledExtensionNames = dRequiredExtensions.data();
 
     if constexpr (VulkanEnableValidationLayers)
     {
@@ -365,6 +394,12 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     TRACE("Created Vulkan Allocator");
 
+    // By what I can tell most devices use the same queue for graphics and compute this is for correctness shold not affect much
+    // Not fussed if it shares with graphics as long as it is not the present queue
+    if (m_computeQueueIndex != -1)
+    {
+        m_lDevice.getQueue(m_computeQueueIndex, 0, &m_computeQueue);
+    }
     if (m_graphicsQueueIndex != -1)
     {
         m_lDevice.getQueue(m_graphicsQueueIndex, 0, &m_graphicsQueue);    
@@ -410,6 +445,8 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     GetPhysicalDeviceProperties2KHRFunc(m_pDevice, &deviceProps2);
     m_pushDescriptorProperties = pushProperties;
 
+    m_pushPool = new VulkanPushPool(this);
+    m_computeEngine = new VulkanComputeEngine(this);
     m_graphicsEngine = new VulkanGraphicsEngine(this);
 }
 VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
@@ -419,7 +456,10 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
     TRACE("Begin Vulkan clean up");
     m_lDevice.waitIdle();
 
-    delete m_graphicsEngine;
+    delete m_computeEngine;
+    delete m_pushPool;
+
+    m_graphicsEngine->Cleanup();
 
     TRACE("Destroy Vulkan Deletion Objects");
     for (uint32_t i = 0; i < VulkanDeletionQueueSize; ++i)
@@ -438,6 +478,8 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
 
         m_deletionObjects[i].UClear();
     }
+
+    delete m_graphicsEngine;
 
     TRACE("Destroy Command Pool");
     m_lDevice.destroyCommandPool(m_commandPool);
@@ -489,20 +531,24 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 {
     // TODO: Bump DMA buffers up in priority to allow GPU->GPU memory sharing between processes instead of GPU->CPU->GPU. 
     // RAM clock now effects even the linux build also probably want to improve locality of rendering data to allow more efficient use of the cache instead of RAM.
-    // Also investigate seeing if you can squezee some extra frames from a buffer scavenging system for GPU memory. At little bit of wasted memory for a few extra frames is probably worth it.
+    // Also investigate seeing if you can squezee some extra frames from a buffer scavenging system for GPU memory. A little bit of wasted memory for a few extra frames is probably worth it.
     // Constant allocation is killing performance on the GPU side. 
     // TODO: Can probably better manage semaphores.
     AppWindow* window = GetRenderEngine()->m_window;
+
+    const bool isHeadless = window->IsHeadless();
+    const bool init = m_swapchain != nullptr;
+
     {
         PROFILESTACK("Swap Setup");
 
-        if (m_swapchain == nullptr)
+        if (!init)
         {
             m_swapchain = new VulkanSwapchain(this, window);
             m_graphicsEngine->SetSwapchain(m_swapchain);
         }
 
-        if (!m_swapchain->StartFrame(m_imageAvailable[m_currentFlightFrame], m_inFlight[m_currentFlightFrame], &m_imageIndex, a_delta, a_time))
+        if (!m_swapchain->StartFrame(&m_imageIndex, a_delta, a_time))
         {
             return;
         }
@@ -510,27 +556,26 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     
     Profiler::StartFrame("Render Update");
 
-    const std::vector<vk::CommandBuffer> buffers = m_graphicsEngine->Update(m_currentFrame);
+    m_pushPool->Reset(m_currentFrame);
+
+    vk::CommandBuffer computeBuffer = m_computeEngine->Update(a_delta, a_time, m_currentFrame);
+    const std::vector<vk::CommandBuffer> buffers = m_graphicsEngine->Update(a_delta, a_time, m_currentFrame);
     
     Profiler::StartFrame("Render Setup");
 
     const uint32_t buffersSize = (uint32_t)buffers.size();
-    // If there is nothing to render no point doing anything
-    if (buffersSize <= 0)
+    uint32_t finalSemaphoreCount = buffersSize;
+    if (computeBuffer != vk::CommandBuffer(nullptr))
     {
-        Profiler::StopFrame();
-
-        return;
+        ++finalSemaphoreCount;
     }
-
-    constexpr vk::PipelineStageFlags WaitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
 
     const uint32_t semaphoreCount = (uint32_t)m_interSemaphore[m_currentFlightFrame].size();
     const uint32_t endBuffer = buffersSize - 1;
-    if (buffersSize > semaphoreCount)
+    if (finalSemaphoreCount > semaphoreCount)
     {
         TRACE("Allocating inter semaphores");
-        const uint32_t diff = buffersSize - semaphoreCount;
+        const uint32_t diff = finalSemaphoreCount - semaphoreCount;
 
         constexpr vk::SemaphoreCreateInfo SemaphoreInfo;
 
@@ -548,18 +593,54 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     Profiler::StartFrame("Render Submit");
 
     vk::Semaphore lastSemaphore = nullptr;
-    vk::Fence fence = nullptr;
-    if (!window->IsHeadless())
+    if (isHeadless)
+    {
+        if (init)
+        {
+            lastSemaphore = m_imageAvailable[m_currentFlightFrame];
+        }
+    }
+    else
     {
         lastSemaphore = m_imageAvailable[m_currentFlightFrame];
-        fence = m_inFlight[m_currentFlightFrame];
     }
 
     {
         const std::unique_lock l = std::unique_lock(m_graphicsQueueMutex);
+        uint32_t semaphoreIndex = 0;
+
+        if (computeBuffer != vk::CommandBuffer(nullptr))
+        {
+            constexpr vk::PipelineStageFlags WaitStages[] = { vk::PipelineStageFlagBits::eAllCommands };
+
+            vk::Semaphore curSemaphore = m_interSemaphore[m_currentFlightFrame][semaphoreIndex++];
+            vk::SubmitInfo submitInfo = vk::SubmitInfo
+            (
+                0,
+                nullptr,
+                WaitStages,
+                1,
+                &computeBuffer,
+                1,
+                &curSemaphore
+            );
+
+            if (lastSemaphore != vk::Semaphore(nullptr))
+            {
+                submitInfo.waitSemaphoreCount = 1;
+                submitInfo.pWaitSemaphores = &lastSemaphore;
+            }
+
+            ICARIAN_ASSERT_MSG_R(m_computeQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
+
+            lastSemaphore = curSemaphore;
+        }
 
         for (uint32_t i = 0; i < buffersSize; ++i)
         {
+            constexpr vk::PipelineStageFlags WaitStages[] = { vk::PipelineStageFlagBits::eAllGraphics };
+
+            vk::Semaphore curSemaphore = m_interSemaphore[m_currentFlightFrame][semaphoreIndex++];
             vk::SubmitInfo submitInfo = vk::SubmitInfo
             (
                 0,
@@ -568,7 +649,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
                 1,
                 &buffers[i],
                 1,
-                &m_interSemaphore[m_currentFlightFrame][i]
+                &curSemaphore
             );
 
             if (lastSemaphore != vk::Semaphore(nullptr))
@@ -579,14 +660,30 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
             if (i == endBuffer)
             {
-                ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, fence) == vk::Result::eSuccess, "Failed to submit command");
+                if (isHeadless)
+                {
+                    if (!m_swapchain->IsInitialized(m_imageIndex))
+                    {
+                        submitInfo.pSignalSemaphores = &m_imageAvailable[(m_currentFlightFrame + 1) % VulkanMaxFlightFrames];
+
+                        ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, m_inFlight[m_currentFlightFrame]) == vk::Result::eSuccess, "Failed to submit command");
+                    }
+                    else
+                    {
+                        ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
+                    }
+                }
+                else
+                {
+                    ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, m_inFlight[m_currentFlightFrame]) == vk::Result::eSuccess, "Failed to submit command");
+                }
             }
             else
             {
                 ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
             }
 
-            lastSemaphore = m_interSemaphore[m_currentFlightFrame][i];
+            lastSemaphore = curSemaphore;
         }    
     }
 
@@ -624,7 +721,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     {
         PROFILESTACK("Swap Present");
 
-        m_swapchain->EndFrame(m_interSemaphore[m_currentFlightFrame][endBuffer], m_inFlight[m_currentFlightFrame], m_imageIndex);
+        m_swapchain->EndFrame(lastSemaphore, m_imageIndex);
 
         m_currentFrame = (m_currentFrame + 1) % VulkanFlightPoolSize;
         m_currentFlightFrame = (m_currentFlightFrame + 1) % VulkanMaxFlightFrames;
@@ -719,9 +816,22 @@ void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, std
     ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to Submit Command");
 }
 
-uint32_t VulkanRenderEngineBackend::GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data)
+uint32_t VulkanRenderEngineBackend::GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius)
 {
-    return m_graphicsEngine->GenerateAlphaTexture(a_width, a_height, a_data);
+    return m_graphicsEngine->GenerateModel(a_vertices, a_vertexCount, a_vertexStride, a_indices, a_indexCount, a_radius);
+}
+void VulkanRenderEngineBackend::DestroyModel(uint32_t a_addr)
+{
+    m_graphicsEngine->DestroyModel(a_addr);
+}
+
+uint32_t VulkanRenderEngineBackend::GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data)
+{
+    return m_graphicsEngine->GenerateTexture(a_width, a_height, a_format, a_data);
+}
+uint32_t VulkanRenderEngineBackend::GenerateTextureMipMapped(uint32_t a_width, uint32_t a_height, uint32_t a_levels, uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize)
+{
+    return m_graphicsEngine->GenerateMipMappedTexture(a_width, a_height, a_levels, a_offsets, a_format, a_data, a_dataSize);
 }
 void VulkanRenderEngineBackend::DestroyTexture(uint32_t a_addr)
 {

@@ -1,10 +1,10 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+#include "Rendering/Vulkan/IcarianVulkanHeader.h"
+
 #include <unordered_map>
 #include <vector>
-
-#include "Rendering/Vulkan/VulkanConstants.h"
 
 struct CanvasBuffer;
 
@@ -13,11 +13,11 @@ class RuntimeFunction;
 class VulkanDepthCubeRenderTexture;
 class VulkanDepthRenderTexture;
 class VulkanGraphicsEngineBindings;
+class VulkanGraphicsParticle2D;
 class VulkanLightData;
 class VulkanModel;
 class VulkanPipeline;
 class VulkanPixelShader;
-class VulkanPushPool;
 class VulkanRenderCommand;
 class VulkanRenderEngineBackend;
 class VulkanRenderTexture;
@@ -26,6 +26,7 @@ class VulkanTexture;
 class VulkanUniformBuffer;
 class VulkanVertexShader;
 
+#include "DataTypes/Array.h"
 #include "DataTypes/TArray.h"
 #include "DataTypes/TNCArray.h"
 #include "DataTypes/TStatic.h"
@@ -33,6 +34,7 @@ class VulkanVertexShader;
 #include "Rendering/MaterialRenderStack.h"
 #include "Rendering/MeshRenderBuffer.h"
 #include "Rendering/SkinnedMeshRenderBuffer.h"
+#include "Rendering/TextureData.h"
 #include "Rendering/UI/CanvasRendererBuffer.h"
 
 #include "EngineAmbientLightInteropStructures.h"
@@ -65,7 +67,6 @@ private:
     RuntimeFunction*                              m_postProcessFunc;
 
     VulkanRenderEngineBackend*                    m_vulkanEngine;
-    VulkanPushPool*                               m_pushPool;
 
     std::shared_mutex                             m_pipeLock;
     std::unordered_map<uint64_t, VulkanPipeline*> m_pipelines;
@@ -87,7 +88,7 @@ private:
     TNCArray<TextureSamplerBuffer>                m_textureSampler;
 
     TNCArray<VulkanModel*>                        m_models;
-    TArray<VulkanTexture*>                        m_textures;
+    TNCArray<VulkanTexture*>                      m_textures;
 
     TNCArray<VulkanRenderTexture*>                m_renderTextures;
     TNCArray<VulkanDepthCubeRenderTexture*>       m_depthCubeRenderTextures;
@@ -97,6 +98,8 @@ private:
     TNCArray<SkinnedMeshRenderBuffer>             m_skinnedRenderBuffers;
     TArray<MaterialRenderStack*>                  m_renderStacks;
 
+    TNCArray<VulkanGraphicsParticle2D*>           m_particleEmitters;
+
     TNCArray<AmbientLightBuffer>                  m_ambientLights;
     TNCArray<DirectionalLightBuffer>              m_directionalLights;
     TNCArray<PointLightBuffer>                    m_pointLights;
@@ -105,10 +108,12 @@ private:
     TArray<Font*>                                 m_fonts;
 
     TArray<CameraBuffer>                          m_cameraBuffers;
-    std::vector<VulkanUniformBuffer*>             m_cameraUniforms;
+    Array<VulkanUniformBuffer*>                   m_cameraUniforms;
 
-    std::vector<vk::CommandPool>                  m_commandPool[VulkanFlightPoolSize];
-    std::vector<vk::CommandBuffer>                m_commandBuffers[VulkanFlightPoolSize];
+    VulkanUniformBuffer*                          m_timeUniform;
+
+    Array<vk::CommandPool>                        m_commandPool[VulkanFlightPoolSize];
+    Array<vk::CommandBuffer>                      m_commandBuffers[VulkanFlightPoolSize];
     
     TArray<CanvasRendererBuffer>                  m_canvasRenderers;
 
@@ -134,24 +139,21 @@ public:
     VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEngine);
     ~VulkanGraphicsEngine();
 
+    // Code reeks but cannot be fucked
+    // Later me problem
+    void Cleanup();
+
     inline void SetSwapchain(VulkanSwapchain* a_swapchaing)
     {
         m_swapchain = a_swapchaing;
     }
 
-    inline VulkanPushPool* GetPushPool() const
-    {
-        return m_pushPool;
-    }
+    std::vector<vk::CommandBuffer> Update(double a_delta, double a_time, uint32_t a_index);
 
-    std::vector<vk::CommandBuffer> Update(uint32_t a_index);
-
-    uint32_t GenerateGLSLVertexShader(const std::string_view& a_source);
     uint32_t GenerateFVertexShader(const std::string_view& a_source);
     void DestroyVertexShader(uint32_t a_addr);
     VulkanVertexShader* GetVertexShader(uint32_t a_addr);
 
-    uint32_t GenerateGLSLPixelShader(const std::string_view& a_source);
     uint32_t GenerateFPixelShader(const std::string_view& a_source);
     void DestroyPixelShader(uint32_t a_addr);
     VulkanPixelShader* GetPixelShader(uint32_t a_addr);
@@ -170,9 +172,17 @@ public:
         return m_cameraUniforms[a_addr];
     }
 
+    inline VulkanUniformBuffer* GetTimeUniformBuffer() const
+    {
+        return m_timeUniform;
+    }
+
+    uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius);
+    void DestroyModel(uint32_t a_addr);
     VulkanModel* GetModel(uint32_t a_addr);
 
-    uint32_t GenerateAlphaTexture(uint32_t a_width, uint32_t a_height, const void* a_data);
+    uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);
+    uint32_t GenerateMipMappedTexture(uint32_t a_width, uint32_t a_height, uint32_t a_levels, const uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize);
     void DestroyTexture(uint32_t a_addr);
     VulkanTexture* GetTexture(uint32_t a_addr);
 
@@ -182,6 +192,7 @@ public:
 
     uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     void DestroyTextureSampler(uint32_t a_addr);
+    TextureSamplerBuffer GetTextureSampler(uint32_t a_addr);
 
     Font* GetFont(uint32_t a_addr);
 };

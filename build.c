@@ -8,8 +8,9 @@
 #include "BuildBase.h"
 
 #include "deps/BuildDependencies.h"
-#include "FlareBase/BuildFlareBase.h"
+#include "IcarianCore/BuildIcarianCore.h"
 #include "IcarianCS/BuildIcarianCS.h"
+#include "IcarianModManager/BuildIcarianModManager.h"
 #include "IcarianNative/BuildIcarianNative.h"
 
 void PrintEngineHelp()
@@ -32,14 +33,17 @@ int main(int a_argc, char** a_argv)
     e_TargetPlatform targetPlatform;
     e_BuildConfiguration buildConfiguration;
 
-    CUBE_CProject flareBaseProject;
+    CUBE_CProject icarianCoreProject;
     CUBE_CSProject icarianCSProject;
     CUBE_CProject icarianNativeProject;
+    CUBE_CProject icarianModManagerProject;
 
     e_CUBE_CProjectCompiler compiler;
 
     CBUINT32 dependencyProjectCount;
     DependencyProject* dependencyProjects;
+
+    CBUINT32 jobThreads;
 
     CBUINT32 lineCount;
     CUBE_String* lines;
@@ -59,6 +63,8 @@ int main(int a_argc, char** a_argv)
 
     lineCount = 0;
     lines = CBNULL;
+
+    jobThreads = 4;
 
     enableTrace = CBFALSE;
     enableProfiler = CBFALSE;
@@ -93,6 +99,14 @@ int main(int a_argc, char** a_argv)
             else if (strcmp(platformStr, "linux") == 0)
             {
                 targetPlatform = TargetPlatform_Linux;
+            }
+            else if (strcmp(platformStr, "linuxclang") == 0)
+            {
+                targetPlatform = TargetPlatform_LinuxClang;
+            }
+            else if (strcmp(platformStr, "linuxzig") == 0)
+            {
+                targetPlatform = TargetPlatform_LinuxZig;
             }
             else
             {
@@ -145,6 +159,25 @@ int main(int a_argc, char** a_argv)
         {
             enableProfiler = CBTRUE;
         }
+        else if (strncmp(a_argv[i], JobString, JobStringLen) == 0)
+        {
+            const char* jobCountStr = a_argv[i] + JobStringLen;
+            while (*jobCountStr != '=' && *jobCountStr != 0)
+            {
+                ++jobCountStr;
+            }
+
+            if (*jobCountStr == 0)
+            {
+                printf("Invalid job count argument: %s\n", a_argv[i]);
+
+                return 1;
+            }
+
+            ++jobCountStr;
+
+            jobThreads = (CBUINT32)atoi(jobCountStr);
+        }
         else if (strncmp(a_argv[i], HelpString, HelpStringLen) == 0)
         {
             PrintEngineHelp();
@@ -188,6 +221,22 @@ int main(int a_argc, char** a_argv)
 
         break;
     }
+    case TargetPlatform_LinuxClang:
+    {
+        printf("Target Platform: Linux Clang\n");
+
+        compiler = CUBE_CProjectCompiler_Clang;
+
+        break;
+    }
+    case TargetPlatform_LinuxZig:
+    {
+        printf("Target Platform: Linux Zig\n");
+
+        compiler = CUBE_CProjectCompiler_Zig;
+
+        break;
+    }
     }
 
     CUBE_CommandLine commandLine = { 0 };
@@ -221,7 +270,7 @@ int main(int a_argc, char** a_argv)
     {
         printf("Compiling %s...\n", dependencyProjects[i].Project.Name.Data);
 
-        ret = CUBE_CProject_Compile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, &lines, &lineCount);
+        ret = CUBE_CProject_MultiCompile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, jobThreads, &lines, &lineCount);
 
         FlushLines(&lines, &lineCount);
 
@@ -239,26 +288,26 @@ int main(int a_argc, char** a_argv)
 
     free(dependencyProjects);
 
-    PrintHeader("Building FlareBase");
+    PrintHeader("Building IcarianCore");
 
-    printf("Creating FlareBase project...\n");
-    flareBaseProject = BuildFlareBaseProject(CBTRUE, targetPlatform, buildConfiguration);
+    printf("Creating IcarianCore project...\n");
+    icarianCoreProject = BuildIcarianCoreProject(CBTRUE, targetPlatform, buildConfiguration);
 
-    printf("Compiling FlareBase...\n");
-    ret = CUBE_CProject_Compile(&flareBaseProject, compiler, "FlareBase", CBNULL, &lines, &lineCount);
+    printf("Compiling IcarianCore...\n");
+    ret = CUBE_CProject_MultiCompile(&icarianCoreProject, compiler, "IcarianCore", CBNULL, jobThreads, &lines, &lineCount);
 
     FlushLines(&lines, &lineCount);
 
-    CUBE_CProject_Destroy(&flareBaseProject);
+    CUBE_CProject_Destroy(&icarianCoreProject);
 
     if (!ret)
     {
-        printf("Failed to compile FlareBase\n");
+        printf("Failed to compile IcarianCore\n");
 
         return 1;
     }
 
-    printf("FlareBase Compiled!\n");
+    printf("IcarianCore Compiled!\n");
 
     PrintHeader("Building IcarianCS");
 
@@ -299,7 +348,7 @@ int main(int a_argc, char** a_argv)
     {
         printf("Compiling %s...\n", dependencyProjects[i].Project.Name.Data);
 
-        ret = CUBE_CProject_Compile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, &lines, &lineCount);
+        ret = CUBE_CProject_MultiCompile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, jobThreads, &lines, &lineCount);
 
         FlushLines(&lines, &lineCount);
 
@@ -321,7 +370,7 @@ int main(int a_argc, char** a_argv)
     icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration, enableTrace, enableProfiler);
 
     printf("Compiling IcarianNative...\n");
-    ret = CUBE_CProject_Compile(&icarianNativeProject, compiler, "IcarianNative", CBNULL, &lines, &lineCount);
+    ret = CUBE_CProject_MultiCompile(&icarianNativeProject, compiler, "IcarianNative", CBNULL, jobThreads, &lines, &lineCount);
 
     FlushLines(&lines, &lineCount);
 
@@ -332,9 +381,28 @@ int main(int a_argc, char** a_argv)
         return 1;
     }
 
+    CUBE_CProject_Destroy(&icarianNativeProject);
+
     printf("IcarianNative Compiled!\n");
 
-    CUBE_CProject_Destroy(&icarianNativeProject);
+    PrintHeader("Building IcarianModManager");
+
+    icarianModManagerProject = BuildIcarianModManagerProject(targetPlatform, buildConfiguration);
+
+    ret = CUBE_CProject_MultiCompile(&icarianModManagerProject, compiler, "IcarianModManager", CBNULL, jobThreads, &lines, &lineCount);
+
+    FlushLines(&lines, &lineCount);
+
+    if (!ret)
+    {
+        printf("Failed to compile IcarianModManager\n");
+
+        return 1;
+    }
+
+    CUBE_CProject_Destroy(&icarianModManagerProject);
+
+    printf("IcarianModManager Compiled!\n");
 
     PrintHeader("Copying Files");
 
@@ -347,6 +415,7 @@ int main(int a_argc, char** a_argv)
     case TargetPlatform_Windows:
     {
         CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative.exe", "build/IcarianNative.exe");
+        CUBE_IO_CopyFileC("IcarianModManager/build/IcarianModManager.exe", "build/IcarianModManager.exe");
 
         CUBE_IO_CopyDirectoryC("deps/Mono/Windows/lib/", "build/lib/", CBTRUE);
         CUBE_IO_CopyDirectoryC("deps/Mono/Windows/etc/", "build/etc/", CBTRUE);
@@ -359,8 +428,10 @@ int main(int a_argc, char** a_argv)
     case TargetPlatform_Linux:
     {
         CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative", "build/IcarianNative");
+        CUBE_IO_CopyFileC("IcarianModManager/build/IcarianModManager", "build/IcarianModManager");
 
         CUBE_IO_CHMODC("build/IcarianNative", 0755);
+        CUBE_IO_CHMODC("build/IcarianModManager", 0755);
 
         CUBE_IO_CopyDirectoryC("deps/Mono/Linux/lib/", "build/lib/", CBTRUE);
         CUBE_IO_CopyDirectoryC("deps/Mono/Linux/etc/", "build/etc/", CBTRUE);

@@ -4,7 +4,7 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include "Rendering/Vulkan/VulkanConstants.h"
+#include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 #include "EngineTextureSamplerInteropStructures.h"
 

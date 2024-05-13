@@ -1,6 +1,6 @@
 #pragma once
 
-#include <string>
+#include <string_view>
 
 static constexpr const char InternalShaderPathString[] = "[INTERNAL]";
 

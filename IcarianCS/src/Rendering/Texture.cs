@@ -12,6 +12,9 @@ namespace IcarianEngine.Rendering
 
         uint m_bufferAddr = uint.MaxValue;
 
+        /// <summary>
+        /// Whether the texture has been <see cref="Disposed" />
+        /// <summary>
         public bool IsDisposed
         {
             get
@@ -32,7 +35,16 @@ namespace IcarianEngine.Rendering
         {
             m_bufferAddr = a_addr;
         }
-
+        
+        /// <summary>
+        /// Loads a texture from file relative to a mod directory
+        /// </summary>
+        /// <param name="a_path">The path to the texture</param>
+        /// <returns>The texture. Null on failure</returns>
+        /// Supported formats:
+        ///     .png,
+        ///     .ktx2
+        /// @see IcarianEngine.AssetLibrary.LoadTexture
         public static Texture LoadTexture(string a_path)
         {
             uint addr = GenerateFromFile(a_path);
@@ -46,13 +58,19 @@ namespace IcarianEngine.Rendering
             return null;
         }
 
+        /// <summary>
+        /// Disposes of the texture
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the texture is being disposed
+        /// </summary>
+        /// <param name="a_disposing">Whether the texture is being Disposed or Finalized</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)
@@ -73,7 +91,6 @@ namespace IcarianEngine.Rendering
                 Logger.IcarianError("Multiple Texture Dispose");
             }
         }
-
         ~Texture()
         {
             Dispose(false);

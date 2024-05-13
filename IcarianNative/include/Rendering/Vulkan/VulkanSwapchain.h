@@ -4,7 +4,7 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include "Rendering/Vulkan/VulkanConstants.h"
+#include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 class AppWindow;
 class RuntimeFunction;
@@ -89,10 +89,10 @@ public:
 
     inline bool IsInitialized(uint32_t a_index) const
     {
-        return m_init & 0b1 << a_index;
+        return (m_init & 0b1 << a_index) != 0;
     }
 
-    bool StartFrame(const vk::Semaphore& a_semaphore, const vk::Fence& a_fence, uint32_t* a_imageIndex, double a_delta, double a_time);
-    void EndFrame(const vk::Semaphore& a_semaphores, const vk::Fence& a_fence, uint32_t a_imageIndex);
+    bool StartFrame(uint32_t* a_imageIndex, double a_delta, double a_time);
+    void EndFrame(const vk::Semaphore& a_semaphores, uint32_t a_imageIndex);
 };
 #endif

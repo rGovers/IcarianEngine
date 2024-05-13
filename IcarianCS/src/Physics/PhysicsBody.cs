@@ -4,46 +4,30 @@ using IcarianEngine.Physics.Shapes;
 using System;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+
+#include "EnginePhysicsBodyInterop.h"
+#include "EnginePhysicsBodyInteropStructures.h"
+#include "InteropBinding.h"
+
+ENGINE_PHYSICSBODY_EXPORT_TABLE(IOP_BIND_FUNCTION);
 
 namespace IcarianEngine.Physics
 {
-    struct DispatchCollisionData
-    {
-        public uint IsTrigger;
-
-        public uint BodyAddrA;
-        public uint BodyAddrB;
-
-        public Vector3 Normal;
-        public float Depth;
-    }
-
     public struct CollisionData
     {
+        /// <summary>
+        /// The normal of the collision
+        /// </summary>
         public Vector3 Normal;
+        /// <summary>
+        /// The depth of the collision
+        /// </summary>
         public float Depth;
     }
 
     public class PhysicsBody : Component, IDestroy
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint CreatePhysicsBody(uint a_transformAddr, uint a_colliderAddr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void DestroyPhysicsBody(uint a_addr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetPosition(uint a_addr, Vector3 a_pos);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetRotation(uint a_addr, Quaternion a_rot);
-
-        public PhysicsBodyDef PhysicsBodyDef
-        {
-            get
-            {
-                return Def as PhysicsBodyDef;
-            }
-        }
-
         static ConcurrentDictionary<uint, PhysicsBody> s_bodies = new ConcurrentDictionary<uint, PhysicsBody>();
 
         bool           m_disposed = false;
@@ -64,6 +48,20 @@ namespace IcarianEngine.Physics
             }
         }
 
+        /// <summary>
+        /// The Definition used to create the PhysicsBody
+        /// </summary>
+        public PhysicsBodyDef PhysicsBodyDef
+        {
+            get
+            {
+                return Def as PhysicsBodyDef;
+            }
+        }
+
+        /// <summary>
+        /// Whether the PhysicsBody had been Disposed
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -72,6 +70,9 @@ namespace IcarianEngine.Physics
             }
         }
 
+        /// <summary>
+        /// The CollisionShape the PhysicsBox uses
+        /// </summary>
         public CollisionShape CollisionShape
         {
             get
@@ -106,6 +107,9 @@ namespace IcarianEngine.Physics
             return null;
         }
 
+        /// <summary>
+        /// Called when the PhysicsBody is created
+        /// </summary>
         public override void Init()
         {
             base.Init();
@@ -121,24 +125,47 @@ namespace IcarianEngine.Physics
         {
             if (m_internalAddr != uint.MaxValue)
             {
-                DestroyPhysicsBody(m_internalAddr);
+                PhysicsBodyInterop.DestroyPhysicsBody(m_internalAddr);
 
                 m_internalAddr = uint.MaxValue;
             }
 
             if (a_newShape != null)
             {
-                m_internalAddr = CreatePhysicsBody(Transform.InternalAddr, a_newShape.InternalAddr);
+                m_internalAddr = PhysicsBodyInterop.CreatePhysicsBody(Transform.InternalAddr, a_newShape.InternalAddr);
             }
         }
 
+        /// <summary>
+        /// Sets the position of the PhysicsBody
+        /// </summary>
+        /// <param name="a_pos">The position to set to</param>
+        public void SetPosition(Vector3 a_pos)
+        {
+            PhysicsBodyInterop.SetPosition(m_internalAddr, a_pos);
+        }
+        /// <summary>
+        /// Sets the rotation of the PhysicsBody
+        /// </summary>
+        /// <param name="a_rotation">The rotation to set to</param>
+        public void SetRotation(Quaternion a_rotation)
+        {
+            PhysicsBodyInterop.SetRotation(m_internalAddr, a_rotation);
+        }
+
+        /// <summary>
+        /// Disposes of the PhysicsBody
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the PhysicsBody is being Disposed
+        /// </summary
+        /// <param name="a_disposing">Whether the PhysicsBody is being Disposed or Finalized</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(!m_disposed)
@@ -161,22 +188,12 @@ namespace IcarianEngine.Physics
                 Logger.IcarianError("Multiple PhysicsBody Dispose");
             }
         }
-
         ~PhysicsBody()
         {
             Dispose(false);
         }
 
-        public void SetPosition(Vector3 a_pos)
-        {
-            SetPosition(m_internalAddr, a_pos);
-        }
-        public void SetRotation(Quaternion a_rotation)
-        {
-            SetRotation(m_internalAddr, a_rotation);
-        }
-
-        static void OnCollisionEnter(DispatchCollisionData a_data)
+        static void OnCollisionEnter(CollisionDataBuffer a_data)
         {
             if (!s_bodies.ContainsKey(a_data.BodyAddrA) && !s_bodies.ContainsKey(a_data.BodyAddrB))
             {
@@ -225,7 +242,7 @@ namespace IcarianEngine.Physics
                 }
             }
         }
-        static void OnCollisionStay(DispatchCollisionData a_data)
+        static void OnCollisionStay(CollisionDataBuffer a_data)
         {
             if (!s_bodies.ContainsKey(a_data.BodyAddrA) && !s_bodies.ContainsKey(a_data.BodyAddrB))
             {
@@ -274,7 +291,7 @@ namespace IcarianEngine.Physics
                 }
             }
         }
-        static void OnCollisionExit(DispatchCollisionData a_data)
+        static void OnCollisionExit(CollisionDataBuffer a_data)
         {
             if (!s_bodies.ContainsKey(a_data.BodyAddrA) && !s_bodies.ContainsKey(a_data.BodyAddrB))
             {

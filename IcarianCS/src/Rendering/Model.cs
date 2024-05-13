@@ -74,7 +74,9 @@ namespace IcarianEngine.Rendering
         /// Supported formats: 
         ///     .obj,
         ///     .fbx,
-        ///     .dae
+        ///     .dae,
+        ///     .gltf,
+        ///     .glb
         /// @see IcarianEngine.AssetLibrary.LoadModel
         /// @see IcarianEngine.Rendering::Vertex
         public static Model LoadModel(string a_path)
@@ -97,7 +99,9 @@ namespace IcarianEngine.Rendering
         /// Uses Type SkinnedVertex for the model.
         /// Supported formats:
         ///     .dae,
-        ///     .fbx
+        ///     .fbx,
+        ///     .gltf,
+        ///     .glb
         /// @see IcarianEngine.AssetLibrary.LoadSkinnedModel
         /// @see IcarianEngine.Rendering::SkinnedVertex
         public static Model LoadSkinnedModel(string a_path)

@@ -1,26 +1,38 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-#include "Rendering/Vulkan/VulkanConstants.h"
+#include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 class VulkanRenderEngineBackend;
+
+#include "EngineMaterialInteropStructures.h"
 
 class VulkanShader
 {
 private:
 
 protected:
-    VulkanRenderEngineBackend* m_engine = nullptr;
-
-    vk::ShaderModule           m_module = nullptr;
+    VulkanRenderEngineBackend*  m_engine;
     
-    VulkanShader(VulkanRenderEngineBackend* a_engine) 
-    { 
-        m_engine = a_engine;
-    }
+    vk::ShaderModule            m_module;
+    
+    ShaderBufferInput*          m_inputs;
+    uint32_t                    m_inputCount;
+
+    VulkanShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount);
+    
 public:
     VulkanShader() = delete;
-    virtual ~VulkanShader() { }
+    virtual ~VulkanShader();
+
+    inline uint32_t GetShaderInputCount() const
+    {
+        return m_inputCount;
+    }
+    inline ShaderBufferInput GetShaderInput(uint32_t a_index) const
+    {
+        return m_inputs[a_index];
+    }
 
     inline vk::ShaderModule GetShaderModule() const
     {

@@ -36,6 +36,8 @@ private:
     void InsertTransform(uint32_t a_addr, uint32_t a_transformAddr);
     void InsertSkinned(uint32_t a_addr, uint32_t a_transformAddr, uint32_t a_skeletonAddr);
 
+    void RemoveModelBuffer(uint32_t a_addr);
+
 protected:
 
 public:

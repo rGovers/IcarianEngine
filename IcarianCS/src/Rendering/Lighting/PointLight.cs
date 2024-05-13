@@ -120,9 +120,14 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 PointLightBuffer buffer = GetBuffer(m_bufferAddr);
 
-                buffer.Intensity = value;
+                float v = Mathf.Max(0.0f, value);
 
-                SetBuffer(m_bufferAddr, buffer);
+                if (buffer.Intensity != v)
+                {   
+                    buffer.Intensity = v;
+
+                    SetBuffer(m_bufferAddr, buffer);
+                }
             }
         }
 
@@ -141,9 +146,14 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 PointLightBuffer buffer = GetBuffer(m_bufferAddr);
 
-                buffer.Radius = value;
+                float v = Mathf.Max(0.0f, value);
 
-                SetBuffer(m_bufferAddr, buffer);
+                if (buffer.Radius != v)
+                {
+                    buffer.Radius = v;
+
+                    SetBuffer(m_bufferAddr, buffer);
+                }
             }
         }
 

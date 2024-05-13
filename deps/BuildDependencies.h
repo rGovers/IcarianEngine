@@ -64,6 +64,8 @@ CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfiguration 
         break;
     }
     case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
     {
         CUBE_CProject_AppendDefine(&project, "_GLFW_X11");
         
@@ -108,7 +110,7 @@ CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfiguration 
     return project;
 }
 
-// Not all platforms have a miniz implementation, so we need to build it ourselves for OpenFBX
+// Not all platforms have a miniz implementation, so we need to build it ourselves for OpenFBX and KTX
 CUBE_CProject BuildMINIZ(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
@@ -135,6 +137,364 @@ CUBE_CProject BuildMINIZ(e_TargetPlatform a_targetPlatform, e_BuildConfiguration
     CUBE_CProject_AppendSource(&project, "./miniz.c");
 
     switch (a_configuration)
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    }
+
+    return project;
+}
+
+CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    CUBE_CProject project = { 0 };
+    project.Name = CUBE_StackString_CreateC("ktxc");
+    project.Target = CUBE_CProjectTarget_StaticLibrary;
+    project.Language = CUBE_CProjectLanguage_C;
+    project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    if (a_configuration == BuildConfiguration_Debug)
+    {
+        CUBE_CProject_AppendDefine(&project, "DEBUG");
+    }
+    else 
+    {
+        CUBE_CProject_AppendDefine(&project, "NDEBUG");
+    }
+
+    if (a_targetPlatform == TargetPlatform_Windows)
+    {
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32"
+        );
+    }
+
+    CUBE_CProject_AppendDefines(&project, 
+        "KHRONOS_STATIC",
+        "LIBKTX",
+        "KTX_FEATURE_KTX1",
+        "KTX_FEATURE_KTX2",
+        "BASISU_SUPPORT_OPENCL=0",
+        "KTX_FEATURE_WRITE=0"
+    );
+
+    CUBE_CProject_AppendIncludePaths(&project, 
+        ".",
+        "./include/",
+        "./utils/"
+    );
+
+    CUBE_CProject_AppendSources(&project, 
+        "./lib/basisu/zstd/zstd.c",
+        "./lib/checkheader.c",
+        "./lib/dfdutils/createdfd.c",
+        "./lib/dfdutils/colourspaces.c",
+        "./lib/dfdutils/interpretdfd.c",
+        "./lib/dfdutils/printdfd.c",
+        "./lib/dfdutils/queries.c",
+        "./lib/dfdutils/vk2dfd.c",
+        "./lib/filestream.c",
+        "./lib/hashlist.c",
+        "./lib/info.c",
+        "./lib/memstream.c",
+        "./lib/strings.c",
+        "./lib/swap.c",
+        "./lib/texture.c",
+        "./lib/texture1.c",
+        "./lib/texture2.c",
+        "./lib/vkformat_check.c",
+        "./lib/vkformat_str.c",
+        "./lib/vkformat_typesize.c"
+    );
+
+    // Weird that the KTX project uses c99 when using string literals that where not introduced until c11 
+    // Throws a compile error because of it. I am 90% sure that the cmake version works cause it is using a C++ compiler and the c++11 takes priority
+    // Anyway debugging other peoples build systems fun....
+    CUBE_CProject_AppendCFlag(&project, "-std=c11");
+
+    switch (a_configuration) 
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    }
+
+    return project;
+}
+CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    CUBE_CProject project = { 0 };
+    project.Name = CUBE_StackString_CreateC("ktxcpp");
+    project.Target = CUBE_CProjectTarget_StaticLibrary;
+    project.Language = CUBE_CProjectLanguage_CPP;
+    project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    if (a_configuration == BuildConfiguration_Debug)
+    {
+        CUBE_CProject_AppendDefine(&project, "DEBUG");
+    }
+    else 
+    {
+        CUBE_CProject_AppendDefine(&project, "NDEBUG");
+    }
+
+    if (a_targetPlatform == TargetPlatform_Windows)
+    {
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32"
+        );
+    }
+
+    CUBE_CProject_AppendDefines(&project, 
+        "KHRONOS_STATIC",
+        "LIBKTX",
+        "KTX_FEATURE_KTX1",
+        "KTX_FEATURE_KTX2",
+        "BASISU_SUPPORT_OPENCL=0",
+        "KTX_FEATURE_WRITE=0"
+    );
+
+    CUBE_CProject_AppendIncludePaths(&project, 
+        ".",
+        "./include/",
+        "./utils/"
+    );
+
+    CUBE_CProject_AppendSources(&project, 
+        "./lib/basis_transcode.cpp",
+        "./lib/miniz_wrapper.cpp",
+        "./lib/etcdec.cxx",
+        "./lib/etcunpack.cxx",
+
+        "./lib/basisu/transcoder/basisu_transcoder.cpp"
+    );
+
+    CUBE_CProject_AppendCFlag(&project, "-std=c++11");
+
+    switch (a_configuration) 
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    }
+
+    return project;
+}
+CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    CUBE_CProject project = { 0 };
+    project.Name = CUBE_StackString_CreateC("ktxwritec");
+    project.Target = CUBE_CProjectTarget_StaticLibrary;
+    project.Language = CUBE_CProjectLanguage_C;
+    project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    if (a_configuration == BuildConfiguration_Debug)
+    {
+        CUBE_CProject_AppendDefine(&project, "DEBUG");
+    }
+    else 
+    {
+        CUBE_CProject_AppendDefine(&project, "NDEBUG");
+    }
+
+    if (a_targetPlatform == TargetPlatform_Windows)
+    {
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32"
+        );
+    }
+
+    CUBE_CProject_AppendDefines(&project, 
+        "KHRONOS_STATIC",
+        "LIBKTX",
+        "KTX_FEATURE_KTX1",
+        "KTX_FEATURE_KTX2",
+        "BASISU_SUPPORT_OPENCL=0",
+        "KTX_FEATURE_WRITE=1"
+    );
+
+    CUBE_CProject_AppendIncludePaths(&project, 
+        ".",
+        "./include/",
+        "./utils/"
+    );
+
+    CUBE_CProject_AppendSources(&project, 
+        "./lib/basisu/zstd/zstd.c",
+        "./lib/checkheader.c",
+        "./lib/dfdutils/createdfd.c",
+        "./lib/dfdutils/colourspaces.c",
+        "./lib/dfdutils/interpretdfd.c",
+        "./lib/dfdutils/printdfd.c",
+        "./lib/dfdutils/queries.c",
+        "./lib/dfdutils/vk2dfd.c",
+        "./lib/filestream.c",
+        "./lib/hashlist.c",
+        "./lib/info.c",
+        "./lib/memstream.c",
+        "./lib/strings.c",
+        "./lib/swap.c",
+        "./lib/texture.c",
+        "./lib/texture1.c",
+        "./lib/texture2.c",
+        "./lib/vkformat_check.c",
+        "./lib/vkformat_str.c",
+        "./lib/vkformat_typesize.c",
+        "./lib/writer1.c",
+        "./lib/writer2.c"
+    );
+
+    // Weird that the KTX project uses c99 when using string literals that where not introduced until c11 
+    // Throws a compile error because of it. I am 90% sure that the cmake version works cause it is using a C++ compiler and the c++11 takes priority
+    // Anyway debugging other peoples build systems fun....
+    CUBE_CProject_AppendCFlag(&project, "-std=c11");
+
+    switch (a_configuration) 
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    }
+
+    return project;
+}
+CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    CUBE_CProject project = { 0 };
+    project.Name = CUBE_StackString_CreateC("ktxwritecpp");
+    project.Target = CUBE_CProjectTarget_StaticLibrary;
+    project.Language = CUBE_CProjectLanguage_CPP;
+    project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    if (a_configuration == BuildConfiguration_Debug)
+    {
+        CUBE_CProject_AppendDefine(&project, "DEBUG");
+    }
+    else 
+    {
+        CUBE_CProject_AppendDefine(&project, "NDEBUG");
+    }
+
+    if (a_targetPlatform == TargetPlatform_Windows)
+    {
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32"
+        );
+    }
+
+    CUBE_CProject_AppendDefines(&project, 
+        "KHRONOS_STATIC",
+        "LIBKTX",
+        "KTX_FEATURE_KTX1",
+        "KTX_FEATURE_KTX2",
+        "BASISU_SUPPORT_OPENCL=0",
+        "KTX_FEATURE_WRITE=1"
+    );
+
+    CUBE_CProject_AppendIncludePaths(&project, 
+        ".",
+        "./include/",
+        "./utils/"
+    );
+
+    CUBE_CProject_AppendSources(&project, 
+        "./lib/basis_encode.cpp",
+        "./lib/basis_transcode.cpp",
+        "./lib/miniz_wrapper.cpp",
+        "./lib/etcdec.cxx",
+        "./lib/etcunpack.cxx",
+
+        "./lib/basisu/encoder/basisu_backend.cpp",
+        "./lib/basisu/encoder/basisu_basis_file.cpp",
+        "./lib/basisu/encoder/basisu_bc7enc.cpp",
+        "./lib/basisu/encoder/basisu_comp.cpp",
+        "./lib/basisu/encoder/basisu_enc.cpp",
+        "./lib/basisu/encoder/basisu_etc.cpp",
+        "./lib/basisu/encoder/basisu_frontend.cpp",
+        "./lib/basisu/encoder/basisu_gpu_texture.cpp",
+        "./lib/basisu/encoder/basisu_kernels_sse.cpp",
+        "./lib/basisu/encoder/basisu_opencl.cpp",
+        "./lib/basisu/encoder/basisu_pvrtc1_4.cpp",
+        "./lib/basisu/encoder/basisu_resample_filters.cpp",
+        "./lib/basisu/encoder/basisu_resampler.cpp",
+        "./lib/basisu/encoder/basisu_ssim.cpp",
+        "./lib/basisu/encoder/basisu_uastc_enc.cpp",
+
+        "./lib/basisu/transcoder/basisu_transcoder.cpp"
+    );
+
+    CUBE_CProject_AppendCFlag(&project, "-std=c++11");
+
+    switch (a_configuration) 
     {
     case BuildConfiguration_Debug:
     {
@@ -209,18 +569,43 @@ CUBE_CProject BuildOpenFBXLibDeflate(e_TargetPlatform a_targetPlatform, e_BuildC
 
 DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
-    *a_count = 3;
+    *a_count = 7;
 
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * (*a_count));
 
     projects[0].Project = BuildGLFW(a_targetPlatform, a_configuration);
     projects[0].WorkingDirectory = "deps/flare-glfw";
+    projects[0].Export = CBTRUE;
 
-    projects[1].Project = BuildMINIZ(a_targetPlatform, a_configuration);
-    projects[1].WorkingDirectory = "deps/miniz";
+    // I am glad the seperated the OpenGL code from the rest of the library but the Vulkan code is tied in deeply and they use a mix of C and C++ ahhhhhhh................
+    // Fucking pick one language and use it please otherwise it turns into a fucking mess
+    // The most frustrating part is in some of the C++ files they just extern to C FFS
+    // This library feels like a hack job and needs to be cleaned up
+    // May consider down the line
+    // Yes I am aware some of it is my build system is shit but still
+    projects[1].Project = BuildKTXC(a_targetPlatform, a_configuration);
+    projects[1].WorkingDirectory = "deps/KTX-Software";
+    projects[1].Export = CBTRUE;
 
-    projects[2].Project = BuildOpenFBXLibDeflate(a_targetPlatform, a_configuration);
-    projects[2].WorkingDirectory = "deps/OpenFBX";
+    projects[2].Project = BuildKTXCPP(a_targetPlatform, a_configuration);
+    projects[2].WorkingDirectory = "deps/KTX-Software";
+    projects[2].Export = CBTRUE;
+
+    projects[3].Project = BuildKTXWriteC(a_targetPlatform, a_configuration);
+    projects[3].WorkingDirectory = "deps/KTX-Software";
+    projects[3].Export = CBFALSE;
+
+    projects[4].Project = BuildKTXWriteCPP(a_targetPlatform, a_configuration);
+    projects[4].WorkingDirectory = "deps/KTX-Software";
+    projects[4].Export = CBFALSE;
+
+    projects[5].Project = BuildMINIZ(a_targetPlatform, a_configuration);
+    projects[5].WorkingDirectory = "deps/miniz";
+    projects[5].Export = CBTRUE;
+
+    projects[6].Project = BuildOpenFBXLibDeflate(a_targetPlatform, a_configuration);
+    projects[6].WorkingDirectory = "deps/OpenFBX";
+    projects[6].Export = CBTRUE;
 
     return projects;
 }

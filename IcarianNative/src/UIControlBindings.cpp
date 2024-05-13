@@ -1,7 +1,7 @@
 #include "Rendering/UI/UIControlBindings.h"
 
-#include "Flare/IcarianAssert.h"
-#include "Flare/IcarianDefer.h"
+#include "Core/IcarianAssert.h"
+#include "Core/IcarianDefer.h"
 #include "Rendering/UI/CanvasBuffer.h"
 #include "Rendering/UI/ImageUIElement.h"
 #include "Rendering/UI/TextUIElement.h"
@@ -360,7 +360,7 @@ std::u32string UIControlBindings::GetTextElementText(uint32_t a_addr) const
     ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetTextElementText element deleted");
     ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text, "GetTextElementText non text element");
 
-    const TextUIElement* element = (TextUIElement*)m_uiControl->m_uiElements[a_addr];
+    TextUIElement* element = (TextUIElement*)m_uiControl->m_uiElements[a_addr];
     return element->GetText();
 }
 void UIControlBindings::SetTextElementText(uint32_t a_addr, const std::u32string_view& a_text) const

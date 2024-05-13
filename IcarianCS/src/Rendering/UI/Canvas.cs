@@ -1,13 +1,13 @@
+using IcarianEngine.Definitions;
 using IcarianEngine.Mod;
 using IcarianEngine.Maths;
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Xml;
-using System.Collections.Generic;
-using System.Collections.Concurrent;
-using IcarianEngine.Definitions;
 
 namespace IcarianEngine.Rendering.UI
 {
@@ -115,6 +115,10 @@ namespace IcarianEngine.Rendering.UI
             m_bufferAddr = a_bufferAddr;
 
             s_canvasLookup.TryAdd(m_bufferAddr, this);
+        }
+        public Canvas(Vector2 a_refResolution) : this(CreateCanvas(a_refResolution))
+        {
+
         }
 
         internal static Canvas GetCanvas(uint a_addr)
@@ -548,7 +552,6 @@ namespace IcarianEngine.Rendering.UI
 
             GC.SuppressFinalize(this);
         }
-
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)
@@ -576,7 +579,6 @@ namespace IcarianEngine.Rendering.UI
                 Logger.IcarianError("Multiple Canvas Dispose");
             }
         }
-
         ~Canvas()
         {
             Dispose(false);

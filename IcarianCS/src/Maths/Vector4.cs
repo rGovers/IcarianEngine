@@ -8,10 +8,16 @@ namespace IcarianEngine.Maths
 {
     public static class Vector4Extensions
     {
+        /// <summary>
+        /// Converts a XmlElement to a Vector4
+        /// </summary>
         public static Vector4 ToVector4(this XmlElement a_element)
         {
             return ToVector4(a_element, Vector4.Zero);
         }
+        /// <summary>
+        /// Converts a XmlElement to a Vector4 with a default value
+        /// </summary>
         public static Vector4 ToVector4(this XmlElement a_element, Vector4 a_default)
         {
             Vector4 vec = a_default;
@@ -54,10 +60,16 @@ namespace IcarianEngine.Maths
             return vec;
         }
 
+        /// <summary>
+        /// Creates an XmlElement from a Vector4
+        /// </summary>
         public static XmlElement ToXml(this Vector4 a_vec, XmlDocument a_doc, string a_name)
         {
             return ToXml(a_vec, a_doc, a_name, Vector4.Zero);
         }
+        /// <summary>
+        /// Creates an XmlElement from a Vector4
+        /// </summary>
         public static XmlElement ToXml(this Vector4 a_vec, XmlDocument a_doc, string a_name, Vector4 a_default)
         {
             XmlElement element = a_doc.CreateElement(a_name);
@@ -408,6 +420,11 @@ namespace IcarianEngine.Maths
             W = a_other.W;
         }
 
+        public static explicit operator Vector4(IVector4 a_vec)
+        {
+            return new Vector4(a_vec.X, a_vec.Y, a_vec.Z, a_vec.W);
+        }
+
         /// <summary>
         /// Converts the vector to a color
         /// </summary>
@@ -437,6 +454,10 @@ namespace IcarianEngine.Maths
         public static Vector4 operator /(Vector4 a_lhs, float a_rhs)
         {
             return new Vector4(a_lhs.X / a_rhs, a_lhs.Y / a_rhs, a_lhs.Z / a_rhs, a_lhs.W / a_rhs);
+        }
+        public static Vector4 operator %(Vector4 a_lhs, float a_rhs)
+        {
+            return new Vector4(a_lhs.X % a_rhs, a_lhs.Y % a_rhs, a_lhs.Z % a_rhs, a_lhs.W % a_rhs);
         }
         public static Vector4 operator *(Vector4 a_lhs, Vector4 a_rhs)
         {
@@ -531,8 +552,12 @@ namespace IcarianEngine.Maths
             return a_start + (a_end - a_start) * a_t;
         }
 
+        /// @cond SWIZZLE
+
         VEC_SWIZZLE_VEC4_FULL_VEC2
         VEC_SWIZZLE_VEC4_FULL_VEC3
         VEC_SWIZZLE_VEC4_FULL_VEC4
+
+        /// @endcond
     }
 }

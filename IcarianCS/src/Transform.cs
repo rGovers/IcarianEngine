@@ -4,18 +4,14 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineTransformInterop.h"
+#include "EngineTransformInteropStructures.h"
+#include "InteropBinding.h"
+
+ENGINE_TRANSFORM_EXPORT_TABLE(IOP_BIND_FUNCTION);
+
 namespace IcarianEngine
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    internal struct TransformBuffer
-    {
-        public uint ParentIndex;
-
-        public Vector3 Translation;
-        public Quaternion Rotation;
-        public Vector3 Scale;
-    }
-
     public class Transform : IDestroy
     {      
         uint            m_bufferAddr = uint.MaxValue;
@@ -25,22 +21,9 @@ namespace IcarianEngine
         Transform       m_parent;
         List<Transform> m_children;
 
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateTransformBuffer();
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static TransformBuffer GetTransformBuffer(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetTransformBuffer(uint a_addr, TransformBuffer a_buffer);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void DestroyTransformBuffer(uint a_addr); 
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static float[] GetTransformMatrix(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static float[] GetGlobalTransformMatrix(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetTransformMatrix(uint a_addr, float[] a_matrix);
-
+        /// <summary>
+        /// Whether the Transform has been Disposed
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -57,6 +40,9 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// The parent of the Transform
+        /// </summary>
         public Transform Parent
         {
             get
@@ -72,23 +58,26 @@ namespace IcarianEngine
 
                 m_parent = value;
 
-                TransformBuffer buffer = GetTransformBuffer(m_bufferAddr);
+                TransformBuffer buffer = TransformInterop.GetTransformBuffer(m_bufferAddr);
 
                 if (m_parent != null)
                 {
                     m_parent.m_children.Add(this);
 
-                    buffer.ParentIndex = m_parent.m_bufferAddr;
+                    buffer.ParentAddr = m_parent.m_bufferAddr;
                 }
                 else
                 {
-                    buffer.ParentIndex = uint.MaxValue;
+                    buffer.ParentAddr = uint.MaxValue;
                 }
 
-                SetTransformBuffer(m_bufferAddr, buffer);
+                TransformInterop.SetTransformBuffer(m_bufferAddr, buffer);
             }
         }
 
+        /// <summary>
+        /// The children of the Tranform
+        /// </summary>
         public IEnumerable<Transform> Children
         {
             get
@@ -97,6 +86,9 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// The <see cref="IcarianEngine.GameObject" /> the Tranform is attached to
+        /// </summary>
         public GameObject Object
         {
             get
@@ -105,48 +97,58 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// The translation/position of the Transform
+        /// </summary>
         public Vector3 Translation
         {
             get
             {
-                return GetTransformBuffer(m_bufferAddr).Translation;
+                return TransformInterop.GetTransformBuffer(m_bufferAddr).Translation;
             }
             set
             {
-                TransformBuffer buffer = GetTransformBuffer(m_bufferAddr);
+                TransformBuffer buffer = TransformInterop.GetTransformBuffer(m_bufferAddr);
                 buffer.Translation = value;
-                SetTransformBuffer(m_bufferAddr, buffer);
+                TransformInterop.SetTransformBuffer(m_bufferAddr, buffer);
             }
         }
-
+        /// <summary>
+        /// The rotation of the Transform as a <see cref="IcarianEngine.Maths.Quaternion" />
+        /// </summary>
         public Quaternion Rotation
         {
             get
             {
-                return GetTransformBuffer(m_bufferAddr).Rotation;
+                return TransformInterop.GetTransformBuffer(m_bufferAddr).Rotation;
             }
             set
             {
-                TransformBuffer buffer = GetTransformBuffer(m_bufferAddr);
+                TransformBuffer buffer = TransformInterop.GetTransformBuffer(m_bufferAddr);
                 buffer.Rotation = value;
-                SetTransformBuffer(m_bufferAddr, buffer);
+                TransformInterop.SetTransformBuffer(m_bufferAddr, buffer);
             }
         }
-
+        /// <summary>
+        /// The scale of the Transform
+        /// </summary>
         public Vector3 Scale
         {
             get
             {
-                return GetTransformBuffer(m_bufferAddr).Scale;
+                return TransformInterop.GetTransformBuffer(m_bufferAddr).Scale;
             }
             set
             {
-                TransformBuffer buffer = GetTransformBuffer(m_bufferAddr);
+                TransformBuffer buffer = TransformInterop.GetTransformBuffer(m_bufferAddr);
                 buffer.Scale = value;
-                SetTransformBuffer(m_bufferAddr, buffer);
+                TransformInterop.SetTransformBuffer(m_bufferAddr, buffer);
             }
         }
 
+        /// <summary>
+        /// The forward vector of the Tranform
+        /// </summary>
         public Vector3 Forward
         {
             get
@@ -154,6 +156,9 @@ namespace IcarianEngine
                 return Rotation * Vector3.Forward;
             }
         }
+        /// <summary>
+        /// The up vector of the Transform
+        /// </summary>
         public Vector3 Up
         {
             get
@@ -161,6 +166,9 @@ namespace IcarianEngine
                 return Rotation * Vector3.Up;
             }
         }
+        /// <summary>
+        /// The right vector of the Transform
+        /// </summary>
         public Vector3 Right
         {
             get
@@ -169,23 +177,33 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// Sets the Transform to a transformation <see cref="IcarianEngine.Maths.Matrix4" />
+        /// </summary>
+        /// <param name="a_mat">The matrix to set the Transform to</param>
         public void SetMatrix(Matrix4 a_mat)
         {
-            SetTransformMatrix(m_bufferAddr, a_mat.ToArray());
+            TransformInterop.SetTransformMatrix(m_bufferAddr, a_mat.ToArray());
         }
 
+        /// <summary>
+        /// Turns the Transform into a transformation <see cref="IcarianEngine.Maths.Matrix4" />
+        /// </summary>
         public Matrix4 ToMatrix()
         {
-            float[] matrix = GetTransformMatrix(m_bufferAddr);
+            float[] matrix = TransformInterop.GetTransformMatrix(m_bufferAddr);
 
             return new Matrix4(matrix[0],  matrix[1],  matrix[2],  matrix[3],
                                matrix[4],  matrix[5],  matrix[6],  matrix[7],
                                matrix[8],  matrix[9],  matrix[10], matrix[11],
                                matrix[12], matrix[13], matrix[14], matrix[15]);
         }
+        /// <summary>
+        /// Turns the Transform into a global tranformation <see cref="IcarianEngine.Maths.Matrix4" />
+        /// </summary>
         public Matrix4 ToGlobalMatrix()
         {
-            float[] matrix = GetGlobalTransformMatrix(m_bufferAddr);
+            float[] matrix = TransformInterop.GetGlobalTransformMatrix(m_bufferAddr);
 
             return new Matrix4(matrix[0],  matrix[1],  matrix[2],  matrix[3],
                                matrix[4],  matrix[5],  matrix[6],  matrix[7],
@@ -193,28 +211,59 @@ namespace IcarianEngine
                                matrix[12], matrix[13], matrix[14], matrix[15]);
         }
 
+        Transform()
+        {
+            m_object = null;
+            m_children = new List<Transform>();
+        }
         internal Transform(GameObject a_object)
         {
             m_object = a_object;
             m_children = new List<Transform>();
 
-            m_bufferAddr = GenerateTransformBuffer();
+            m_bufferAddr = TransformInterop.GenerateTransformBuffer();
         }
 
+        internal static Transform[] BatchGenerateTransforms(GameObject[] a_gameObjects)
+        {
+            uint size = (uint)a_gameObjects.LongLength;
+
+            Transform[] transforms = new Transform[size];
+            uint[] addrs = TransformInterop.BatchGenerateTransformBuffer(size);
+
+            for (uint i = 0; i < size; ++i)
+            {
+                Transform t = new Transform();
+
+                t.m_bufferAddr = addrs[i];
+                t.m_object = a_gameObjects[i];
+
+                transforms[i] = t;
+            }
+
+            return transforms;
+        }
+
+        /// <summary>
+        /// Disposes of the Transform
+        /// <summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the Transform is being Disposed
+        /// </summary>
+        /// <param name="a_disposing">Whether the Transform is being Disposed or Finalized</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)
             {
                 if(a_disposing)
                 {
-                    DestroyTransformBuffer(m_bufferAddr);
+                    TransformInterop.DestroyTransformBuffer(m_bufferAddr);
                 }
                 else
                 {
@@ -228,7 +277,6 @@ namespace IcarianEngine
                 Logger.IcarianError("Multiple Transform Dispose");
             }
         }
-
         ~Transform()
         {
             Dispose(false);

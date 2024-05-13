@@ -7,20 +7,10 @@
 
 #include <Jolt/Physics/Collision/ContactListener.h>
 
-// Need to add contact points down the line
-struct DispatchCollisionData
-{
-    uint32_t IsTrigger;
-
-    uint32_t BodyAddrA;
-    uint32_t BodyAddrB;
-
-    glm::vec3 Normal;
-    float Depth;
-};
-
 class PhysicsEngine;
 class RuntimeFunction;
+
+#include "EnginePhysicsBodyInteropStructures.h"
 
 class IcContactListener : public JPH::ContactListener
 {

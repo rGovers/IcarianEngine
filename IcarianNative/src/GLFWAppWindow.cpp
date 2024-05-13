@@ -177,23 +177,23 @@ double GLFWAppWindow::GetTime() const
     return m_time - m_startTime;
 }
 
-void GLFWAppWindow::SetCursorState(FlareBase::e_CursorState a_state)
+void GLFWAppWindow::SetCursorState(e_CursorState a_state)
 {
     switch (a_state) 
     {
-    case FlareBase::CursorState_Normal:
+    case CursorState_Normal:
     {
         glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
         break;
     }
-    case FlareBase::CursorState_Hidden:
+    case CursorState_Hidden:
     {
         glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
 
         break;
     }
-    case FlareBase::CursorState_Locked:
+    case CursorState_Locked:
     {
         glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
@@ -214,6 +214,17 @@ void GLFWAppWindow::Update()
     m_prevTime = m_time;
     m_time = glfwGetTime();
 
+    // Putting a 1KHz limit in place cause dont need to hit 16KHz on a 5950x on Linux
+    // Still probably a little high
+    // This feels so wrong that this is needed in the standalone app
+    while (GetDelta() < 0.001f)
+    {
+        std::this_thread::yield();
+
+        glfwPollEvents();
+        m_time = glfwGetTime();
+    }
+
     m_shouldClose = glfwWindowShouldClose(m_window);
 
     const Application* app = GetApplication();
@@ -228,7 +239,7 @@ void GLFWAppWindow::Update()
         glm::dvec2 cPos;
         glfwGetCursorPos(m_window, &cPos.x, &cPos.y);
 
-        if (app->GetCursorState() == FlareBase::CursorState_Locked)
+        if (app->GetCursorState() == CursorState_Locked)
         {
             const glm::dvec2 delta = cPos - m_lastCursorPos;
 
@@ -256,13 +267,13 @@ void GLFWAppWindow::Update()
             UIControl::SubmitRelease((glm::vec2)cPos, (glm::vec2)winSize);
         }
 
-        inputManager->SetMouseButton(FlareBase::MouseButton_Left, leftDown);
-        inputManager->SetMouseButton(FlareBase::MouseButton_Middle, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS);
-        inputManager->SetMouseButton(FlareBase::MouseButton_Right, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
+        inputManager->SetMouseButton(MouseButton_Left, leftDown);
+        inputManager->SetMouseButton(MouseButton_Middle, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS);
+        inputManager->SetMouseButton(MouseButton_Right, glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
 
-        for (unsigned int i = 0; i < FlareBase::KeyCode_Last; ++i)
+        for (unsigned int i = 0; i < KeyCode_Last; ++i)
         {
-            inputManager->SetKeyboardKey((FlareBase::e_KeyCode)i, glfwGetKey(m_window, GLFWKeyTable[i]) == GLFW_PRESS);
+            inputManager->SetKeyboardKey((e_KeyCode)i, glfwGetKey(m_window, GLFWKeyTable[i]) == GLFW_PRESS);
         }
     }  
 }
@@ -324,6 +335,8 @@ AppMonitor* GLFWAppWindow::GetMonitors(int* a_count) const
     return monitors;
 }
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 vk::SurfaceKHR GLFWAppWindow::GetSurface(const vk::Instance& a_instance) 
 {
     if (m_surface == vk::SurfaceKHR(nullptr))
@@ -342,3 +355,5 @@ std::vector<const char*> GLFWAppWindow::GetRequiredVulkanExtenions() const
 
     return std::vector<const char*>(glfwExtensions, glfwExtensions + glfwExtensionCount);
 }
+
+#endif

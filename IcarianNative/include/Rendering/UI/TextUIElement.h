@@ -10,17 +10,19 @@ private:
     static constexpr uint32_t RefreshBit = 0;
     static constexpr uint32_t ValidBit = 1;
 
-    RenderEngine*  m_lastRenderEngine;
+    RenderEngine*     m_lastRenderEngine;
 
-    std::u32string m_text;
+    std::shared_mutex m_lock;
+
+    std::u32string    m_text;
     
-    uint32_t       m_textureAddr;
-    uint32_t       m_samplerAddr;
+    uint32_t          m_textureAddr;
+    uint32_t          m_samplerAddr;
 
-    float          m_fontSize;
-    uint32_t       m_fontAddr;
+    float             m_fontSize;
+    uint32_t          m_fontAddr;
 
-    unsigned char  m_flags;
+    unsigned char     m_flags;
 
 protected:
 
@@ -58,10 +60,7 @@ public:
         return m_flags & 0b1 << ValidBit;
     }
 
-    inline std::u32string GetText() const
-    {
-        return m_text;
-    }
+    std::u32string GetText();
     void SetText(const std::u32string_view& a_text);
 
     virtual void Update(RenderEngine* a_renderEngine);

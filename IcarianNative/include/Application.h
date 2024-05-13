@@ -7,6 +7,7 @@
 class AudioEngine;
 class Config;
 class InputManager;
+class NetworkManager;
 class ObjectManager;
 class PhysicsEngine;
 class RenderEngine;
@@ -15,17 +16,18 @@ class RuntimeManager;
 class Application
 {
 private:
-    AppWindow*               m_appWindow;
-         
-    bool                     m_close;
-    FlareBase::e_CursorState m_cursorState;
-         
-    Config*                  m_config;
-    InputManager*            m_inputManager;
+    AppWindow*      m_appWindow;
 
-    AudioEngine*             m_audioEngine;
-    PhysicsEngine*           m_physicsEngine;
-    RenderEngine*            m_renderEngine;
+    bool            m_close;
+    e_CursorState   m_cursorState;
+
+    Config*         m_config;
+    InputManager*   m_inputManager;
+
+    AudioEngine*    m_audioEngine;
+    PhysicsEngine*  m_physicsEngine;
+    RenderEngine*   m_renderEngine;
+    NetworkManager* m_networkManager;
 
 protected:
 
@@ -44,11 +46,11 @@ public:
         return (uint32_t)m_appWindow->GetSize().y;
     }
 
-    inline FlareBase::e_CursorState GetCursorState() const
+    inline e_CursorState GetCursorState() const
     {
         return m_cursorState;
     }
-    void SetCursorState(FlareBase::e_CursorState a_state);
+    void SetCursorState(e_CursorState a_state);
 
     inline void Resize(uint32_t a_width, uint32_t a_height)
     {

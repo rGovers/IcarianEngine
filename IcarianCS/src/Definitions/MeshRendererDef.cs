@@ -4,7 +4,10 @@ namespace IcarianEngine.Definitions
 {
     public class MeshRendererDef : RendererDef
     {
-        [EditorTooltip("Path relative to the project for the model file to be used.")]
+        /// <summary>
+        /// Path relative to the project for the model file to be used
+        /// </summary>
+        [EditorTooltip("Path relative to the project for the model file to be used"), EditorPathString(new string[] { ".obj", ".dae", ".fbx", ".glb", ".gltf"})]
         public string ModelPath;        
 
         public MeshRendererDef()
