@@ -101,10 +101,16 @@ static CUBE_CProject BuildIcarianModManagerProject(e_TargetPlatform a_targetPlat
     }
     case BuildConfiguration_Release:
     {
+        CUBE_CProject_AppendCFlag(&project, "-s");
         CUBE_CProject_AppendCFlag(&project, "-O3");
 
         CUBE_CProject_AppendCFlag(&project, "-flto");
         CUBE_CProject_AppendCFlag(&project, "-fwhole-program");
+
+        CUBE_CProject_AppendCFlag(&project, "-ffunction-sections");
+        CUBE_CProject_AppendCFlag(&project, "-fdata-sections"); 
+
+        CUBE_CProject_AppendCFlag(&project, "-Wl,--gc-sections");
 
         break;
     }

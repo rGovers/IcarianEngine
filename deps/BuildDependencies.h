@@ -198,6 +198,7 @@ CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration 
 
     CUBE_CProject_AppendIncludePaths(&project, 
         ".",
+        "../gen/KTX-Software/",
         "./include/",
         "./utils/"
     );
@@ -291,6 +292,7 @@ CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfiguratio
 
     CUBE_CProject_AppendIncludePaths(&project, 
         ".",
+        "../gen/KTX-Software/",
         "./include/",
         "./utils/"
     );
@@ -367,6 +369,7 @@ CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildConfigura
 
     CUBE_CProject_AppendIncludePaths(&project, 
         ".",
+        "../gen/KTX-Software/",
         "./include/",
         "./utils/"
     );
@@ -462,6 +465,7 @@ CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_BuildConfigu
 
     CUBE_CProject_AppendIncludePaths(&project, 
         ".",
+        "../gen/KTX-Software/",
         "./include/",
         "./utils/"
     );
