@@ -34,7 +34,7 @@ static CUBE_CProject BuildIcarianModManagerProject(e_TargetPlatform a_targetPlat
 
     CUBE_CProject_AppendDefines(&project,
         "ICARIANMODMANAGER_VERSION_MAJOR=2024",
-        "ICARIANMODMANAGER_VERSION_MINOR=0",
+        "ICARIANMODMANAGER_VERSION_MINOR=1",
         "ICARIANMODMANAGER_VERSION_PATCH=0",
         commitDefine.Data,
         "ICARIANMODMANAGER_VERSION_TAG=DEV"

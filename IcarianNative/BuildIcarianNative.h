@@ -82,7 +82,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
     CUBE_CProject_AppendDefines(&project,
         "ICARIANNATIVE_VERSION_MAJOR=2024",
-        "ICARIANNATIVE_VERSION_MINOR=0",
+        "ICARIANNATIVE_VERSION_MINOR=1",
         "ICARIANNATIVE_VERSION_PATCH=0",
         commitDefine.Data,
         "ICARIANNATIVE_VERSION_TAG=DEV",

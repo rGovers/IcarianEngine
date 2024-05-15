@@ -131,32 +131,32 @@ void ThreadPool::Destroy()
 
 uint32_t ThreadPool::GenerateLock()
 {
-    std::shared_mutex* mutex = new std::shared_mutex();
+    SharedSpinLock* lock = new SharedSpinLock();
 
     {
-        TLockArray<std::shared_mutex*> a = Instance->m_runtimeLocks.ToLockArray();
+        TLockArray<SharedSpinLock*> a = Instance->m_runtimeLocks.ToLockArray();
         const uint32_t count = a.Size();
 
         for (uint32_t i = 0; i < count; ++i)
         {
             if (a[i] == nullptr)
             {
-                a[i] = mutex;
+                a[i] = lock;
 
                 return i;
             }
         }
     }
 
-    return Instance->m_runtimeLocks.PushVal(mutex);
+    return Instance->m_runtimeLocks.PushVal(lock);
 }
 void ThreadPool::DestroyLock(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "DestroyLock invalid lock address");
     ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "DetroyLock lock is already destroyed");
 
-    const std::shared_mutex* mutex = Instance->m_runtimeLocks[a_addr];
-    IDEFER(delete mutex);
+    const SharedSpinLock* lock = Instance->m_runtimeLocks[a_addr];
+    IDEFER(delete lock);
     Instance->m_runtimeLocks.LockSet(a_addr, nullptr);
 }
 
@@ -165,28 +165,28 @@ void ThreadPool::ReadLock(uint32_t a_addr)
     ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "ReadLock invalid lock address");
     ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "ReadLock lock is already destroyed");
 
-    Instance->m_runtimeLocks[a_addr]->lock_shared();
+    Instance->m_runtimeLocks[a_addr]->LockShared();
 }
 void ThreadPool::ReadUnlock(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "ReadUnlock invalid lock address");
     ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "ReadUnlock lock is already destroyed");
 
-    Instance->m_runtimeLocks[a_addr]->unlock_shared();
+    Instance->m_runtimeLocks[a_addr]->UnlockShared();
 }
 void ThreadPool::WriteLock(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "WriteLock invalid lock address");
     ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "WriteLock lock is already destroyed");
 
-    Instance->m_runtimeLocks[a_addr]->lock();
+    Instance->m_runtimeLocks[a_addr]->Lock();
 }
 void ThreadPool::WriteUnlock(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "WriteUnlock invalid lock address");
     ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "WriteUnlock lock is already destroyed");
 
-    Instance->m_runtimeLocks[a_addr]->unlock();
+    Instance->m_runtimeLocks[a_addr]->Unlock();
 }
 
 uint32_t ThreadPool::GetThreadCount()

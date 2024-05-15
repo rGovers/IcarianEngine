@@ -19,21 +19,21 @@ private:
         }
     };
 
-    uint32_t                                                        m_threadCount;
-
     RuntimeFunction*                                                m_runtimeDispatch;
 
     std::thread*                                                    m_threads;
 
-    volatile bool*                                                  m_join;
-    volatile bool                                                   m_shutdown;
-
     std::mutex                                                      m_lock;
     std::condition_variable                                         m_jobAvailable;
 
-    TArray<std::shared_mutex*>                                      m_runtimeLocks;                                
+    TArray<SharedSpinLock*>                                         m_runtimeLocks;                                
 
     std::priority_queue<ThreadJob*, std::vector<ThreadJob*>, JLess> m_jobQueue;
+
+    volatile bool*                                                  m_join;
+
+    uint32_t                                                        m_threadCount;
+    volatile bool                                                   m_shutdown;
 
     static void Run(uint32_t a_thread);
 

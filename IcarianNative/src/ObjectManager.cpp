@@ -3,7 +3,6 @@
 #include <glm/gtx/matrix_decompose.hpp>
 
 #include "Core/IcarianAssert.h"
-#include "Core/IcarianDefer.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
@@ -116,7 +115,7 @@ void ObjectManager::SetTransformBuffer(uint32_t a_addr, const TransformBuffer& a
 }
 void ObjectManager::DestroyTransformBuffer(uint32_t a_addr)
 {
-    const std::unique_lock l = std::unique_lock(Instance->m_transformBuffer.Lock());
+    const ThreadGuard g = ThreadGuard(Instance->m_transformBuffer.SpinLock());
 
     Instance->m_freeTransforms.emplace(a_addr);
 }

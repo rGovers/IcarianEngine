@@ -68,13 +68,13 @@ private:
 
     VulkanRenderEngineBackend*                    m_vulkanEngine;
 
-    std::shared_mutex                             m_pipeLock;
+    SharedSpinLock                                m_pipeLock;
     std::unordered_map<uint64_t, VulkanPipeline*> m_pipelines;
 
-    std::shared_mutex                             m_shadowPipeLock;
+    SharedSpinLock                                m_shadowPipeLock;
     std::unordered_map<uint64_t, VulkanPipeline*> m_shadowPipelines;
 
-    std::shared_mutex                             m_cubeShadowPipeLock;
+    SharedSpinLock                                m_cubeShadowPipeLock;
     std::unordered_map<uint64_t, VulkanPipeline*> m_cubeShadowPipelines;
 
     TStatic<VulkanRenderCommand>                  m_renderCommands;

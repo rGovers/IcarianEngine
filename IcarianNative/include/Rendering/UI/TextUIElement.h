@@ -10,19 +10,19 @@ private:
     static constexpr uint32_t RefreshBit = 0;
     static constexpr uint32_t ValidBit = 1;
 
-    RenderEngine*     m_lastRenderEngine;
+    RenderEngine*  m_lastRenderEngine;
 
-    std::shared_mutex m_lock;
+    SharedSpinLock m_lock;
 
-    std::u32string    m_text;
+    std::u32string m_text;
     
-    uint32_t          m_textureAddr;
-    uint32_t          m_samplerAddr;
+    uint32_t       m_textureAddr;
+    uint32_t       m_samplerAddr;
 
-    float             m_fontSize;
-    uint32_t          m_fontAddr;
+    float          m_fontSize;
+    uint32_t       m_fontAddr;
 
-    unsigned char     m_flags;
+    uint8_t        m_flags;
 
 protected:
 

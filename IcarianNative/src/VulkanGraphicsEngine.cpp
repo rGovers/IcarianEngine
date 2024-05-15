@@ -389,7 +389,7 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
     }
 
     {
-        const std::unique_lock g = std::unique_lock(m_pipeLock);
+        const ThreadGuard g = ThreadGuard(m_pipeLock);
         
         Array<uint64_t> keys;
         for (auto iter = m_pipelines.begin(); iter != m_pipelines.end(); ++iter)
@@ -413,7 +413,7 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
     if (program.ShadowVertexShader != -1)
     {
         {
-            const std::unique_lock g = std::unique_lock(m_shadowPipeLock);
+            const ThreadGuard g = ThreadGuard(m_shadowPipeLock);
 
             Array<uint64_t> keys;
             for (auto iter = m_shadowPipelines.begin(); iter != m_shadowPipelines.end(); ++iter)
@@ -435,7 +435,7 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
         }
         
         {
-            const std::unique_lock g = std::unique_lock(m_cubeShadowPipeLock);
+            const ThreadGuard g = ThreadGuard(m_cubeShadowPipeLock);
 
             Array<uint64_t> keys;
             for (auto iter = m_cubeShadowPipelines.begin(); iter != m_cubeShadowPipelines.end(); ++iter)
@@ -473,7 +473,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetShadowPipeline(uint32_t a_renderTexture
 
     const uint64_t addr = (uint64_t)a_renderTexture | (uint64_t)a_pipeline << 32;
 
-    const std::unique_lock g = std::unique_lock(m_shadowPipeLock);
+    const ThreadGuard g = ThreadGuard(m_shadowPipeLock);
     const auto iter = m_shadowPipelines.find(addr);
     if (iter != m_shadowPipelines.end())
     {
@@ -500,7 +500,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetCubeShadowPipeline(uint32_t a_renderTex
 
     const uint64_t addr = (uint64_t)a_renderTexture | (uint64_t)a_pipeline << 32;
 
-    const std::unique_lock g = std::unique_lock(m_cubeShadowPipeLock);
+    const ThreadGuard g = ThreadGuard(m_cubeShadowPipeLock);
     const auto iter = m_cubeShadowPipelines.find(addr);
     if (iter != m_cubeShadowPipelines.end())
     {
@@ -527,7 +527,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetPipeline(uint32_t a_renderTexture, uint
 
     const uint64_t addr = (uint64_t)a_renderTexture | (uint64_t)a_pipeline << 32;
 
-    const std::unique_lock g = std::unique_lock(m_pipeLock);
+    const ThreadGuard g = ThreadGuard(m_pipeLock);
     const auto iter = m_pipelines.find(addr);
     if (iter != m_pipelines.end())
     {
@@ -565,7 +565,7 @@ vk::CommandBuffer VulkanGraphicsEngine::StartCommandBuffer(uint32_t a_bufferInde
     return commandBuffer;
 }
 
-void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uint32_t a_renderLayer, uint32_t a_renderTexture, bool a_cube, vk::CommandBuffer a_commandBuffer, uint32_t a_index)
+void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uint32_t a_renderLayer, uint32_t a_renderTexture, bool a_cube, vk::CommandBuffer a_commandBuffer, uint32_t a_frameIndex)
 {
     PROFILESTACK("Rendering");
     VulkanUniformBuffer* shadowLightBuffer = nullptr;
@@ -600,10 +600,10 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                         .Split = a_split
                     };
 
-                    shadowLightBuffer->SetData(a_index, &buffer);
+                    shadowLightBuffer->SetData(a_frameIndex, &buffer);
                 }
 
-                shaderData->PushShadowUniformBuffer(a_commandBuffer, shadowLightInput.Slot, shadowLightBuffer, a_index);
+                shaderData->PushShadowUniformBuffer(a_commandBuffer, shadowLightInput.Slot, shadowLightBuffer, a_frameIndex);
             } 
             else 
             {
@@ -673,7 +673,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                                 pipeline = GetCubeShadowPipeline(a_renderTexture, materialAddr);
                             }
 
-                            pipeline->Bind(a_index, a_commandBuffer);
+                            pipeline->Bind(a_frameIndex, a_commandBuffer);
                         }
 
                         model->Bind(a_commandBuffer);
@@ -695,7 +695,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                             const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderModelBuffer) * finalTransformCount, finalTransformCount, modelBuffer);
                             IDEFER(delete storage);
 
-                            shaderData->PushShadowShaderStorageObject(a_commandBuffer, modelSlot.Slot, storage, a_index);
+                            shaderData->PushShadowShaderStorageObject(a_commandBuffer, modelSlot.Slot, storage, a_frameIndex);
 
                             a_commandBuffer.drawIndexed(indexCount, finalTransformCount, 0, 0, 0);
                         } 
@@ -760,7 +760,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                                 pipeline = GetCubeShadowPipeline(a_renderTexture, materialAddr);
                             }
 
-                            pipeline->Bind(a_index, a_commandBuffer);
+                            pipeline->Bind(a_frameIndex, a_commandBuffer);
                         }
 
                         if (model == nullptr) 
@@ -813,7 +813,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                             const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderBoneBuffer) * boneCount, boneCount, boneBuffer);
                             IDEFER(delete storage);
 
-                            shaderData->PushShaderStorageObject(a_commandBuffer, boneSlot.Slot, storage, a_index);
+                            shaderData->PushShaderStorageObject(a_commandBuffer, boneSlot.Slot, storage, a_frameIndex);
                         }
 
                         shaderData->UpdateTransformBuffer(a_commandBuffer, transform);
@@ -826,7 +826,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
     }
 }
 
-vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index)
+vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
     // Could possibly reverse the pass order and do culling on the previous pass to speed this up
     Profiler::Start("Dir Shadow Pass");
@@ -843,7 +843,8 @@ vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camInde
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
 
-    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
+    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
+    IDEFER(commandBuffer.end());
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
@@ -928,7 +929,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camInde
             commandBuffer.setScissor(0, 1, &scissor);
             commandBuffer.setViewport(0, 1, &viewport);
             
-            DrawShadow(lvp[0], splits[0], buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_index);
+            DrawShadow(lvp[0], splits[0], buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_frameIndex);
 
             {
                 PROFILESTACK("Post Shadow");
@@ -940,13 +941,11 @@ vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camInde
 
     renderCommand.Flush();
 
-    commandBuffer.end();
-
     Profiler::StopFrame();
 
     return commandBuffer;
 }
-vk::CommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index)
+vk::CommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
     // ASAN hamstrings rendering performance have seen 2-4x performance improvements on linux with it disabled so make sure using release and not releasewithdebug for final build...
     // Probably want to do more effective culling and caching for point light shadow rendering as well
@@ -969,7 +968,8 @@ vk::CommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uin
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
 
-    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
+    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
+    IDEFER(commandBuffer.end());
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
@@ -1072,19 +1072,17 @@ vk::CommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uin
             commandBuffer.setScissor(0, 1, &scissor);
             commandBuffer.setViewport(0, 1, &viewport);
 
-            DrawShadow(lvp, 0.0f, buffer.RenderLayer, renderTextureIndex, true, commandBuffer, a_index);
+            DrawShadow(lvp, 0.0f, buffer.RenderLayer, renderTextureIndex, true, commandBuffer, a_frameIndex);
         }
     }
 
     renderCommand.Flush();
 
-    commandBuffer.end();
-
     Profiler::StopFrame();
 
     return commandBuffer;
 }
-vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index)
+vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
     Profiler::Start("Spot Shadow Pass");
     IDEFER(Profiler::Stop());
@@ -1100,7 +1098,8 @@ vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
 
-    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
+    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
+    IDEFER(commandBuffer.end());
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
@@ -1198,7 +1197,7 @@ vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint
         commandBuffer.setScissor(0, 1, &scissor);
         commandBuffer.setViewport(0, 1, &viewport);
         
-        DrawShadow(lvp[0], buffer.Radius, buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_index);
+        DrawShadow(lvp[0], buffer.Radius, buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_frameIndex);
 
         {
             PROFILESTACK("Post Shadow");
@@ -1209,14 +1208,12 @@ vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint
 
     renderCommand.Flush();
 
-    commandBuffer.end();
-
     Profiler::StopFrame();
 
     return commandBuffer;
 }
 
-vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index) 
+vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex) 
 {
     Profiler::Start("Draw Pass");
     IDEFER(Profiler::Stop());
@@ -1225,7 +1222,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
     
-    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
+    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
 
@@ -1322,7 +1319,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                             const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderModelBuffer) * transformCount, transformCount, modelBuffer);
                             IDEFER(delete storage);
 
-                            shaderData->PushShaderStorageObject(commandBuffer, modelSlot.Slot, storage, a_index);
+                            shaderData->PushShaderStorageObject(commandBuffer, modelSlot.Slot, storage, a_frameIndex);
 
                             commandBuffer.drawIndexed(indexCount, transformCount, 0, 0, 0);
                         }
@@ -1417,7 +1414,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
                                         const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderBoneBuffer) * boneCount, boneCount, boneBuffer);
                                         IDEFER(delete storage);
 
-                                        shaderData->PushShaderStorageObject(commandBuffer, boneSlot.Slot, storage, a_index);
+                                        shaderData->PushShaderStorageObject(commandBuffer, boneSlot.Slot, storage, a_frameIndex);
                                     }      
 
                                     shaderData->UpdateTransformBuffer(commandBuffer, transform);
@@ -1439,7 +1436,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
 
         for (VulkanGraphicsParticle2D* pSys : particleSystems)
         {
-            pSys->Update(a_index, a_bufferIndex, commandBuffer, renderTextureAddr);
+            pSys->Update(a_frameIndex, a_bufferIndex, commandBuffer, renderTextureAddr);
         }
     }
 
@@ -1457,7 +1454,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
 
     return commandBuffer;
 }
-vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index)
+vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
     Profiler::Start("Light Pass");
     IDEFER(Profiler::Stop());
@@ -1468,7 +1465,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
 
-    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
+    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
@@ -1566,9 +1563,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                         .LightColor = buffer.Color
                     };
 
-                    uniformBuffer->SetData(a_index, &shaderBuffer);
+                    uniformBuffer->SetData(a_frameIndex, &shaderBuffer);
 
-                    data->PushUniformBuffer(commandBuffer, dirLightInput.Slot, uniformBuffer, a_index);
+                    data->PushUniformBuffer(commandBuffer, dirLightInput.Slot, uniformBuffer, a_frameIndex);
                 }
 
                 const uint32_t count = lightBuffer->LightRenderTextureCount;
@@ -1591,7 +1588,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                     const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderShadowLightBuffer) * count, count, shadowLightBuffer);
                     IDEFER(delete storage);
 
-                    data->PushShaderStorageObject(commandBuffer, shadowLightInput.Slot, storage, a_index);
+                    data->PushShaderStorageObject(commandBuffer, shadowLightInput.Slot, storage, a_frameIndex);
                 }
 
                 ShaderBufferInput shadowTextureInput;
@@ -1620,7 +1617,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                         buffer[k].Data = VulkanTextureSampler::GenerateFromBuffer(m_vulkanEngine, this, buffer[k]);
                     }
 
-                    data->PushTextures(commandBuffer, shadowTextureInput.Slot, buffer, count, a_index);
+                    data->PushTextures(commandBuffer, shadowTextureInput.Slot, buffer, count, a_frameIndex);
                 }
 
                 commandBuffer.draw(4, 1, 0, 0);
@@ -1697,9 +1694,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                         .Radius = buffer.Radius,
                     };
 
-                    uniformBuffer->SetData(a_index, &shaderBuffer);
+                    uniformBuffer->SetData(a_frameIndex, &shaderBuffer);
 
-                    data->PushUniformBuffer(commandBuffer, pointLightInput.Slot, uniformBuffer, a_index);
+                    data->PushUniformBuffer(commandBuffer, pointLightInput.Slot, uniformBuffer, a_frameIndex);
                 }
 
                 ShaderBufferInput shadowTextureInput;
@@ -1716,7 +1713,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                     };
                     IDEFER(delete (VulkanTextureSampler*)buffer.Data);
 
-                    data->PushTexture(commandBuffer, shadowTextureInput.Slot, buffer, a_index);
+                    data->PushTexture(commandBuffer, shadowTextureInput.Slot, buffer, a_frameIndex);
                 }
                 
                 commandBuffer.draw(4, 1, 0, 0);
@@ -1796,9 +1793,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                         .CutoffAngle = glm::vec3(buffer.CutoffAngle, buffer.Radius)
                     };
 
-                    uniformBuffer->SetData(a_index, &shaderBuffer);
+                    uniformBuffer->SetData(a_frameIndex, &shaderBuffer);
 
-                    data->PushUniformBuffer(commandBuffer, spotLightInput.Slot, uniformBuffer, a_index);
+                    data->PushUniformBuffer(commandBuffer, spotLightInput.Slot, uniformBuffer, a_frameIndex);
                 }
 
                 ShaderBufferInput shadowTextureInput;
@@ -1815,7 +1812,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                     };
                     IDEFER(delete (VulkanTextureSampler*)buffer.Data);
 
-                    data->PushTexture(commandBuffer, shadowTextureInput.Slot, buffer, a_index);
+                    data->PushTexture(commandBuffer, shadowTextureInput.Slot, buffer, a_frameIndex);
                 }
 
                 ShaderBufferInput shadowBufferInput;
@@ -1829,9 +1826,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                         .Split = buffer.Radius
                     };
 
-                    uniformBuffer->SetData(a_index, &shaderBuffer);
+                    uniformBuffer->SetData(a_frameIndex, &shaderBuffer);
 
-                    data->PushUniformBuffer(commandBuffer, shadowBufferInput.Slot, uniformBuffer, a_index);
+                    data->PushUniformBuffer(commandBuffer, shadowBufferInput.Slot, uniformBuffer, a_frameIndex);
                 }
 
                 commandBuffer.draw(4, 1, 0, 0);
@@ -1888,9 +1885,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                             .LightColor = glm::vec4(ambientLight.Color.xyz(), ambientLight.Intensity)
                         };
 
-                        uniformBuffer->SetData(a_index, &buffer);
+                        uniformBuffer->SetData(a_frameIndex, &buffer);
 
-                        data->PushUniformBuffer(commandBuffer, ambientLightInput.Slot, uniformBuffer, a_index);
+                        data->PushUniformBuffer(commandBuffer, ambientLightInput.Slot, uniformBuffer, a_frameIndex);
 
                         commandBuffer.draw(4, 1, 0, 0);
                     }
@@ -1915,7 +1912,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                     const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderAmbientLightBuffer) * count, count, buffers);
                     IDEFER(delete storage);
 
-                    data->PushShaderStorageObject(commandBuffer, ambientLightInput.Slot, storage, a_index);
+                    data->PushShaderStorageObject(commandBuffer, ambientLightInput.Slot, storage, a_frameIndex);
 
                     commandBuffer.draw(4, 1, 0, 0);
                 }
@@ -1956,9 +1953,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                             .LightColor = dirLight.Color
                         };
 
-                        uniformBuffer->SetData(a_index, &buffer);
+                        uniformBuffer->SetData(a_frameIndex, &buffer);
                         
-                        data->PushUniformBuffer(commandBuffer, dirLightInput.Slot, uniformBuffer, a_index);
+                        data->PushUniformBuffer(commandBuffer, dirLightInput.Slot, uniformBuffer, a_frameIndex);
 
                         commandBuffer.draw(4, 1, 0, 0);
                     }
@@ -2003,7 +2000,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                     const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderDirectionalLightBuffer) * count, count, buffers);
                     IDEFER(delete storage);
 
-                    data->PushShaderStorageObject(commandBuffer, dirLightInput.Slot, storage, a_index);
+                    data->PushShaderStorageObject(commandBuffer, dirLightInput.Slot, storage, a_frameIndex);
 
                     commandBuffer.draw(4, 1, 0, 0);
                 }
@@ -2049,9 +2046,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                             .Radius = pointLight.Radius,
                         };
 
-                        uniformBuffer->SetData(a_index, &buffer);
+                        uniformBuffer->SetData(a_frameIndex, &buffer);
 
-                        data->PushUniformBuffer(commandBuffer, pointLightInput.Slot, uniformBuffer, a_index);
+                        data->PushUniformBuffer(commandBuffer, pointLightInput.Slot, uniformBuffer, a_frameIndex);
 
                         commandBuffer.draw(4, 1, 0, 0);
                     }
@@ -2096,7 +2093,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                     const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderPointLightBuffer) * count, count, buffers);
                     IDEFER(delete storage);
 
-                    data->PushShaderStorageObject(commandBuffer, pointLightInput.Slot, storage, a_index);
+                    data->PushShaderStorageObject(commandBuffer, pointLightInput.Slot, storage, a_frameIndex);
 
                     commandBuffer.draw(4, 1, 0, 0);
                 }
@@ -2146,9 +2143,9 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                             .CutoffAngle = glm::vec3(spotLight.CutoffAngle, spotLight.Radius)
                         };
 
-                        uniformBuffer->SetData(a_index, &buffer);
+                        uniformBuffer->SetData(a_frameIndex, &buffer);
 
-                        data->PushUniformBuffer(commandBuffer, spotLightInput.Slot, uniformBuffer, a_index);
+                        data->PushUniformBuffer(commandBuffer, spotLightInput.Slot, uniformBuffer, a_frameIndex);
 
                         commandBuffer.draw(4, 1, 0, 0);
                     }
@@ -2197,7 +2194,7 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
                     const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderSpotLightBuffer) * count, count, buffers);
                     IDEFER(delete storage);
 
-                    data->PushShaderStorageObject(commandBuffer, spotLightInput.Slot, storage, a_index);
+                    data->PushShaderStorageObject(commandBuffer, spotLightInput.Slot, storage, a_frameIndex);
 
                     commandBuffer.draw(4, 1, 0, 0);
                 }
@@ -2224,14 +2221,14 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
     return commandBuffer;
 }
-vk::CommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index)
+vk::CommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
     Profiler::Start("Post Pass");
     IDEFER(Profiler::Stop());
 
     Profiler::StartFrame("Update");
 
-    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_index);
+    const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
 
@@ -2350,26 +2347,26 @@ struct DrawCallBind
 
     uint32_t CamIndex;
     uint32_t BufferIndex;
-    uint32_t Index;
+    uint32_t FrameIndex;
 
     DrawFunc Function;
 
     DrawCallBind() = default;
     DrawCallBind(const DrawCallBind& a_other) = default;
-    DrawCallBind(VulkanGraphicsEngine* a_engine, uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index, DrawFunc a_function) 
+    DrawCallBind(VulkanGraphicsEngine* a_engine, uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex, DrawFunc a_function) 
     {
         Engine = a_engine;
 
         CamIndex = a_camIndex;
         BufferIndex = a_bufferIndex;
-        Index = a_index;
+        FrameIndex = a_frameIndex;
 
         Function = a_function;
     }
 
     inline vk::CommandBuffer operator()() const 
     {
-        return (Engine->*Function)(CamIndex, BufferIndex, Index);
+        return (Engine->*Function)(CamIndex, BufferIndex, FrameIndex);
     }
 };
 
