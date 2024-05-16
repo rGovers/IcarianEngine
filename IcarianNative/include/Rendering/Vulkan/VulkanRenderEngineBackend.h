@@ -5,9 +5,8 @@
 
 #include "DataTypes/TArray.h"
 #include "DataTypes/TLockObj.h"
+#include "DataTypes/SpinLock.h"
 #include "Rendering/RenderEngineBackend.h"
-
-#include <mutex>
 
 class AppWindow;
 class VulkanComputeEngine;
@@ -30,41 +29,40 @@ public:
 class VulkanRenderEngineBackend : public RenderEngineBackend
 {
 private:
-    VulkanComputeEngine*                          m_computeEngine;
-    VulkanGraphicsEngine*                         m_graphicsEngine;
-    VulkanSwapchain*                              m_swapchain = nullptr;
-    VulkanPushPool*                               m_pushPool;
+    VulkanComputeEngine*          m_computeEngine;
+    VulkanGraphicsEngine*         m_graphicsEngine;
+    VulkanSwapchain*              m_swapchain = nullptr;
+    VulkanPushPool*               m_pushPool;
                 
-    VmaAllocator                                  m_allocator;
+    VmaAllocator                  m_allocator;
                 
-    vk::Instance                                  m_instance;
-    vk::DebugUtilsMessengerEXT                    m_messenger;
-    vk::PhysicalDevice                            m_pDevice;
-    vk::Device                                    m_lDevice;
+    vk::Instance                  m_instance;
+    vk::DebugUtilsMessengerEXT    m_messenger;
+    vk::PhysicalDevice            m_pDevice;
+    vk::Device                    m_lDevice;
                         
-    std::mutex                                    m_graphicsQueueMutex;
-    vk::Queue                                     m_computeQueue = nullptr;
-    vk::Queue                                     m_graphicsQueue = nullptr;
-    vk::Queue                                     m_presentQueue = nullptr;
-    
-    vk::PhysicalDevicePushDescriptorPropertiesKHR m_pushDescriptorProperties;
+    vk::Queue                     m_computeQueue = nullptr;
+    vk::Queue                     m_graphicsQueue = nullptr;
+    vk::Queue                     m_presentQueue = nullptr;
 
-    TArray<VulkanDeletionObject*>                 m_deletionObjects[VulkanDeletionQueueSize];
+    TArray<VulkanDeletionObject*> m_deletionObjects[VulkanDeletionQueueSize];
 
-    std::vector<vk::Semaphore>                    m_interSemaphore[VulkanMaxFlightFrames];
-    vk::Semaphore                                 m_imageAvailable[VulkanMaxFlightFrames];
-    vk::Fence                                     m_inFlight[VulkanMaxFlightFrames];
+    Array<vk::Semaphore>          m_interSemaphore[VulkanMaxFlightFrames];
+    vk::Semaphore                 m_imageAvailable[VulkanMaxFlightFrames];
+    vk::Fence                     m_inFlight[VulkanMaxFlightFrames];
             
-    vk::CommandPool                               m_commandPool;
+    vk::CommandPool               m_commandPool;
                 
-    uint32_t                                      m_imageIndex = -1;
-    uint32_t                                      m_currentFrame = 0;
-    uint32_t                                      m_currentFlightFrame = 0;
-    uint32_t                                      m_dQueueIndex = 0;
+    uint32_t                      m_imageIndex = -1;
+    uint32_t                      m_currentFrame = 0;
+    uint32_t                      m_currentFlightFrame = 0;
+    uint32_t                      m_dQueueIndex = 0;
 
-    uint32_t                                      m_computeQueueIndex = -1;
-    uint32_t                                      m_graphicsQueueIndex = -1;
-    uint32_t                                      m_presentQueueIndex = -1;
+    uint32_t                      m_computeQueueIndex = -1;
+    uint32_t                      m_graphicsQueueIndex = -1;
+    uint32_t                      m_presentQueueIndex = -1;
+
+    SpinLock                      m_graphicsQueueLock;
 
 protected:
 
@@ -74,11 +72,11 @@ public:
 
     virtual void Update(double a_delta, double a_time);
 
-    TLockObj<vk::CommandBuffer, std::mutex>* CreateCommandBuffer(vk::CommandBufferLevel a_level);
-    void DestroyCommandBuffer(TLockObj<vk::CommandBuffer, std::mutex>* a_buffer);
+    TLockObj<vk::CommandBuffer, SpinLock>* CreateCommandBuffer(vk::CommandBufferLevel a_level);
+    void DestroyCommandBuffer(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer);
 
-    TLockObj<vk::CommandBuffer, std::mutex>* BeginSingleCommand();
-    void EndSingleCommand(TLockObj<vk::CommandBuffer, std::mutex>* a_buffer);
+    TLockObj<vk::CommandBuffer, SpinLock>* BeginSingleCommand();
+    void EndSingleCommand(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer);
 
     virtual uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius);
     virtual void DestroyModel(uint32_t a_addr);
@@ -153,13 +151,9 @@ public:
     {
         return m_presentQueue;
     }
-    inline vk::Queue GetCopmuteQueue() const
+    inline vk::Queue GetComputeQueue() const
     {
         return m_computeQueue;
-    }
-    inline std::mutex& GetGraphicsQueueMutex()
-    {
-        return m_graphicsQueueMutex;
     }
     inline vk::Queue GetGraphicsQueue() const
     {

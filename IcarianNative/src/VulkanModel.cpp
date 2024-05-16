@@ -2,7 +2,6 @@
 
 #include "Rendering/Vulkan/VulkanModel.h"
 
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
@@ -106,7 +105,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     VkBuffer stagingVBuffer = VK_NULL_HANDLE;
     VmaAllocation stagingVBAlloc = VK_NULL_HANDLE;
     VmaAllocationInfo stagingVBInfo = { 0 };
-    ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &vBInfo, &vBAInfo, &stagingVBuffer, &stagingVBAlloc, &stagingVBInfo) == VK_SUCCESS, "Failed to create vertex staging buffer");
+    VKRESERRMSG(vmaCreateBuffer(allocator, &vBInfo, &vBAInfo, &stagingVBuffer, &stagingVBAlloc, &stagingVBInfo), "Failed to create vertex staging buffer");
     IDEFER(m_engine->PushDeletionObject(new VulkanModelBufferDeletionObject(m_engine, stagingVBuffer, stagingVBAlloc)));
 #ifdef DEBUG
     vmaSetAllocationName(allocator, stagingVBAlloc, "Staging Vertex Buffer");
@@ -119,7 +118,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     vBAInfo.flags = 0;
 
     VkBuffer tVertexBuffer;
-    ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &vBInfo, &vBAInfo, &tVertexBuffer, &m_vbAlloc, nullptr) == VK_SUCCESS, "Failed to create vertex buffer");
+    VKRESERRMSG(vmaCreateBuffer(allocator, &vBInfo, &vBAInfo, &tVertexBuffer, &m_vbAlloc, nullptr), "Failed to create vertex buffer");
     m_vertexBuffer = tVertexBuffer;
 #ifdef DEBUG
     vmaSetAllocationName(allocator, m_vbAlloc, "Model Vertex Buffer");
@@ -139,7 +138,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     VkBuffer stagingIBuffer = VK_NULL_HANDLE;
     VmaAllocation stagingIBAlloc = VK_NULL_HANDLE;
     VmaAllocationInfo stagingIBInfo = { 0 };
-    ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &iBInfo, &iBAInfo, &stagingIBuffer, &stagingIBAlloc, &stagingIBInfo) == VK_SUCCESS, "Failed to create index staging buffer");
+    VKRESERRMSG(vmaCreateBuffer(allocator, &iBInfo, &iBAInfo, &stagingIBuffer, &stagingIBAlloc, &stagingIBInfo), "Failed to create index staging buffer");
     IDEFER(m_engine->PushDeletionObject(new VulkanModelBufferDeletionObject(m_engine, stagingIBuffer, stagingIBAlloc)));
 #ifdef DEBUG
     vmaSetAllocationName(allocator, stagingIBAlloc, "Staging Index Buffer");
@@ -152,14 +151,16 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     iBAInfo.flags = 0;
 
     VkBuffer tIndexBuffer;
-    ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &iBInfo, &iBAInfo, &tIndexBuffer, &m_ibAlloc, nullptr) == VK_SUCCESS, "Failed to create index buffer");
+    VKRESERRMSG(vmaCreateBuffer(allocator, &iBInfo, &iBAInfo, &tIndexBuffer, &m_ibAlloc, nullptr), "Failed to create index buffer");
     m_indexBuffer = tIndexBuffer;
 #ifdef DEBUG
     vmaSetAllocationName(allocator, m_ibAlloc, "Model Index Buffer");
 #endif
 
     TRACE("Copying buffers");
-    TLockObj<vk::CommandBuffer, std::mutex>* buffer = m_engine->BeginSingleCommand();
+    TLockObj<vk::CommandBuffer, SpinLock>* buffer = m_engine->BeginSingleCommand();
+    IDEFER(m_engine->EndSingleCommand(buffer));
+
     const vk::CommandBuffer cmdBuffer = buffer->Get();
 
     const vk::BufferCopy vBCopy = vk::BufferCopy(0, 0, (vk::DeviceSize)vbSize);
@@ -167,8 +168,6 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
 
     const vk::BufferCopy iBCopy = vk::BufferCopy(0, 0, (vk::DeviceSize)ibSize);
     cmdBuffer.copyBuffer(stagingIBuffer, m_indexBuffer, 1, &iBCopy);
-
-    m_engine->EndSingleCommand(buffer);
 }   
 VulkanModel::~VulkanModel()
 {

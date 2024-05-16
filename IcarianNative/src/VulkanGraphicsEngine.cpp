@@ -2370,7 +2370,7 @@ struct DrawCallBind
     }
 };
 
-std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_time, uint32_t a_index)
+Array<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_time, uint32_t a_index)
 {
     // TODO: Prebuild camera uniform buffers
     Profiler::StartFrame("Drawing Setup");
@@ -2548,6 +2548,7 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, doub
 
             // While we wait for other threads can draw UI on main render thread 
             vk::CommandBuffer buffer = StartCommandBuffer(camIndexSize * DrawingPassCount + i, a_index);
+            IDEFER(buffer.end());
 
             glm::ivec2 renderSize;
             const VulkanRenderTexture* renderTexture = GetRenderTexture(canvasRenderer.RenderTextureAddr);
@@ -2589,29 +2590,36 @@ std::vector<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, doub
 
             buffer.endRenderPass();
 
-            buffer.end();
-
             uiBuffers.Push(buffer);
         }
     }
     
-    std::vector<vk::CommandBuffer> cmdBuffers;
+    Array<vk::CommandBuffer> cmdBuffers;
     {
         PROFILESTACK("Draw Wait");
 
         for (std::future<vk::CommandBuffer>& f : futures)
         {
             f.wait();
+
             vk::CommandBuffer buffer = f.get();
             if (buffer != vk::CommandBuffer(nullptr))
             {
-                cmdBuffers.emplace_back(buffer);
+                cmdBuffers.Push(buffer);
             }
         }
 
         if (!uiBuffers.Empty())
         {
-            cmdBuffers.insert(cmdBuffers.end(), uiBuffers.begin(), uiBuffers.end());
+            for (const vk::CommandBuffer& buffer : uiBuffers)
+            {
+                if (buffer == vk::CommandBuffer(nullptr))
+                {
+                    continue;
+                }
+
+                cmdBuffers.Push(buffer);
+            }
         }
     }
 

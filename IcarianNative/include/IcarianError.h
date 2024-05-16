@@ -25,4 +25,6 @@ static void IcarianError(const std::string_view& a_msg)
 #endif
 
     ICARIAN_ASSERT_MSG_R(0, a_msg);
+
+    exit(1);
 }

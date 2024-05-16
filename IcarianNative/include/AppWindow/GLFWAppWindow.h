@@ -48,7 +48,7 @@ public:
     virtual AppMonitor* GetMonitors(int* a_count) const;
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-    virtual std::vector<const char*> GetRequiredVulkanExtenions() const;
+    virtual Array<const char*> GetRequiredVulkanExtenions() const;
     virtual vk::SurfaceKHR GetSurface(const vk::Instance& a_instance);
 #endif
 };

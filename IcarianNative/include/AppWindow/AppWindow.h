@@ -7,6 +7,8 @@
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 #endif
 
+#include "DataTypes/Array.h"
+
 #include "EngineInputInteropStructures.h"
 
 class Application;
@@ -57,7 +59,7 @@ public:
     virtual AppMonitor* GetMonitors(int* a_count) const { *a_count = 0; return nullptr; }
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-    virtual std::vector<const char*> GetRequiredVulkanExtenions() const = 0;
+    virtual Array<const char*> GetRequiredVulkanExtenions() const = 0;
     virtual vk::SurfaceKHR GetSurface(const vk::Instance& a_instance) = 0;
 #endif
 };

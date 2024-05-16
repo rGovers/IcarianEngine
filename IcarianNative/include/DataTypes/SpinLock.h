@@ -19,8 +19,12 @@
 // Credit as figuring out flags is a pain for optimization: https://rigtorp.se/spinlock/
 class SpinLock
 {
+private:
     std::atomic<bool> m_state;
+    
+protected:
 
+public:
     SpinLock()
     {
         m_state = false;
@@ -99,7 +103,7 @@ public:
     {
         while (true)
         {
-            while (m_write) 
+            while (m_write.load(std::memory_order_seq_cst)) 
             {
                 ISPINPAUSE;
             }
@@ -107,7 +111,7 @@ public:
             m_read.fetch_add(1, std::memory_order_acquire);
 
             // Aquired while writing value
-            if (m_write)
+            if (m_write.load(std::memory_order_seq_cst))
             {
                 m_read.fetch_sub(1, std::memory_order_release);
             }

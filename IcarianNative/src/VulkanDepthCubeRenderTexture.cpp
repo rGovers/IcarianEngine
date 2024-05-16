@@ -348,7 +348,7 @@ void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
     // My bad
     // Should only be necessary for cube maps due to optimization normal render textures should be fine
     // And yes that optimization is needed as in some scenes the difference between 20 and 120 fps 
-    TLockObj<vk::CommandBuffer, std::mutex>* l = m_engine->BeginSingleCommand();
+    TLockObj<vk::CommandBuffer, SpinLock>* l = m_engine->BeginSingleCommand();
     IDEFER(m_engine->EndSingleCommand(l));
 
     vk::CommandBuffer commandBuffer = l->Get();

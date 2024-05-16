@@ -137,7 +137,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
     VmaAllocationCreateInfo allocCreateInfo = { 0 };
     allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 
-    TLockObj<vk::CommandBuffer, std::mutex>* buffer = backend->BeginSingleCommand();
+    TLockObj<vk::CommandBuffer, SpinLock>* buffer = backend->BeginSingleCommand();
     IDEFER(backend->EndSingleCommand(buffer));
     const vk::CommandBuffer cmdBuffer = buffer->Get();
 

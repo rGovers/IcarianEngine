@@ -83,9 +83,9 @@ public:
     }
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-    virtual std::vector<const char*> GetRequiredVulkanExtenions() const
+    virtual Array<const char*> GetRequiredVulkanExtenions() const
     {
-        return std::vector<const char*>();
+        return Array<const char*>();
     }
     virtual vk::SurfaceKHR GetSurface(const vk::Instance& a_instance)
     {

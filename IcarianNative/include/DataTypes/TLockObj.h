@@ -1,9 +1,8 @@
 #pragma once
 
-#include <mutex>
-#include <shared_mutex>
+#include "DataTypes/SpinLock.h"
 
-template<typename T, typename TMutex = std::shared_mutex>
+template<typename T, typename TMutex = SpinLock>
 class TLockObj
 {
 private:
@@ -16,18 +15,18 @@ public:
     explicit TLockObj(const T& a_obj, TMutex* a_mutex)
     {
         m_lock = a_mutex;
-        m_lock->lock();
+        m_lock->Lock();
         
         m_obj = a_obj;
     }
     explicit TLockObj(TMutex* a_mutex)
     {
         m_lock = a_mutex;
-        m_lock->lock();
+        m_lock->Lock();
     }
     ~TLockObj()
     {
-        m_lock->unlock();
+        m_lock->Unlock();
     }
 
     inline T& operator*() 

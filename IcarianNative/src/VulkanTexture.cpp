@@ -210,7 +210,7 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
     allocInfo.priority = 1.0f;
 
     VkImage image;
-    ICARIAN_ASSERT_MSG_R(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &m_allocation, NULL) == VK_SUCCESS, "Failed to create VulkanTexture image");
+    VKRESERRMSG(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &m_allocation, NULL), "Failed to create VulkanTexture image");
     m_image = image;
 #ifdef DEBUG
     vmaSetAllocationName(allocator, m_allocation, "MipTexture");
@@ -228,7 +228,7 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
         subresourceRange
     );
 
-    ICARIAN_ASSERT_MSG_R(device.createImageView(&viewInfo, nullptr, &m_imageView) == vk::Result::eSuccess, "Failed to create VulkanTexture image view");
+    VKRESERRMSG(device.createImageView(&viewInfo, nullptr, &m_imageView), "Failed to create VulkanTexture image view");
 
     VkBufferCreateInfo stagingBufferInfo = { };
     stagingBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -243,7 +243,7 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
     VmaAllocation stagingAllocation;
 
     VmaAllocationInfo stagingAllocationInfo;
-    ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo) == VK_SUCCESS, "Failed to create staging texture");
+    VKRESERRMSG(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo), "Failed to create staging texture");
     IDEFER(m_engine->PushDeletionObject(new VulkanTextureBufferDeletionObject(m_engine, stagingBuffer, stagingAllocation)));
 #ifdef DEBUG
     vmaSetAllocationName(allocator, stagingAllocation, "StagingMipTexture");
@@ -273,7 +273,7 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
         );
     }
 
-    TLockObj<vk::CommandBuffer, std::mutex>* buffer = m_engine->BeginSingleCommand();
+    TLockObj<vk::CommandBuffer, SpinLock>* buffer = m_engine->BeginSingleCommand();
     IDEFER(m_engine->EndSingleCommand(buffer));
 
     const vk::CommandBuffer cmd = buffer->Get();
@@ -361,7 +361,7 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
     VmaAllocation stagingAllocation;
 
     VmaAllocationInfo stagingAllocationInfo;
-    ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo) == VK_SUCCESS, "Failed to create staging texture");
+    VKRESERRMSG(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo), "Failed to create staging texture");
     IDEFER(m_engine->PushDeletionObject(new VulkanTextureBufferDeletionObject(m_engine, stagingBuffer, stagingAllocation)));
 #ifdef DEBUG
     vmaSetAllocationName(allocator, stagingAllocation, "StagingTexture");
@@ -369,11 +369,11 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
 
     if (a_data != nullptr)
     {
-        IDEFER(ICARIAN_ASSERT_R(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)imageSize) == VK_SUCCESS));
+        IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)imageSize)));
         memcpy(stagingAllocationInfo.pMappedData, a_data, (size_t)imageSize);
     }
 
-    TLockObj<vk::CommandBuffer, std::mutex>* buffer = m_engine->BeginSingleCommand();
+    TLockObj<vk::CommandBuffer, SpinLock>* buffer = m_engine->BeginSingleCommand();
     IDEFER(m_engine->EndSingleCommand(buffer));
 
     const vk::CommandBuffer cmd = buffer->Get();

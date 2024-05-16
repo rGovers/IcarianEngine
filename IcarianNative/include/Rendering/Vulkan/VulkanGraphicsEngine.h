@@ -148,7 +148,7 @@ public:
         m_swapchain = a_swapchaing;
     }
 
-    std::vector<vk::CommandBuffer> Update(double a_delta, double a_time, uint32_t a_index);
+    Array<vk::CommandBuffer> Update(double a_delta, double a_time, uint32_t a_index);
 
     uint32_t GenerateFVertexShader(const std::string_view& a_source);
     void DestroyVertexShader(uint32_t a_addr);

@@ -11,6 +11,7 @@
 #include "Logger.h"
 #include "Profiler.h"
 #include "Rendering/RenderEngine.h"
+#include "Rendering/Vulkan/VulkanCommandBuffer.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanPushPool.h"
@@ -80,16 +81,16 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
     return VK_FALSE;
 }
 
-static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, const std::vector<const char*>& a_extensions)
+static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, const Array<const char*>& a_extensions)
 {
     uint32_t extensionCount;
-    ICARIAN_ASSERT_R(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr) == vk::Result::eSuccess);
+    VKRESERR(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr));
 
     vk::ExtensionProperties* availableExtensions = new vk::ExtensionProperties[extensionCount];
     IDEFER(delete[] availableExtensions);
-    ICARIAN_ASSERT_R(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions) == vk::Result::eSuccess);
+    VKRESERR(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions));
 
-    uint32_t requiredCount = (uint32_t)a_extensions.size();
+    uint32_t requiredCount = a_extensions.Size();
 
     for (const char* requiredExtension : a_extensions)
     {
@@ -107,10 +108,8 @@ static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, cons
     return requiredCount == 0;
 }
 
-static bool IsDeviceSuitable(const vk::Instance& a_instance, const vk::PhysicalDevice& a_device, const std::vector<const char*>& a_extensions, AppWindow* a_window)
+static bool IsDeviceSuitable(const vk::Instance& a_instance, const vk::PhysicalDevice& a_device, const Array<const char*>& a_extensions, AppWindow* a_window)
 {
-    // TODO: Improve device selection
-    // Fix issue with laptops and multi gpu
     if (!CheckDeviceExtensionSupport(a_device, a_extensions))
     {
         return false;
@@ -128,6 +127,45 @@ static bool IsDeviceSuitable(const vk::Instance& a_instance, const vk::PhysicalD
     const vk::PhysicalDeviceFeatures features = a_device.getFeatures();
 
     return features.geometryShader && features.samplerAnisotropy;
+}
+
+static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device)
+{
+    uint32_t score = 0;
+
+    const vk::PhysicalDeviceProperties properties = a_device.getProperties();
+    switch (properties.deviceType) 
+    {
+    case vk::PhysicalDeviceType::eDiscreteGpu:
+    {
+        score += 200;
+
+        break;
+    }
+    case vk::PhysicalDeviceType::eIntegratedGpu:
+    {
+        score += 100;
+
+        break;
+    }
+    case vk::PhysicalDeviceType::eCpu:
+    case vk::PhysicalDeviceType::eVirtualGpu:
+    {
+        score += 50;
+
+        break;
+    }
+    default:
+    {
+        break;
+    }
+    }
+
+    score += vk::apiVersionMajor(properties.apiVersion) * 10;
+    score += vk::apiVersionMinor(properties.apiVersion) * 5;
+    score += vk::apiVersionPatch(properties.apiVersion);
+
+    return score;
 }
 
 static bool CheckValidationLayerSupport()
@@ -157,18 +195,18 @@ NextIter:;
     return true;
 } 
 
-static std::vector<const char*> GetRequiredExtensions(const AppWindow* a_window)
+static Array<const char*> GetRequiredExtensions(const AppWindow* a_window)
 {
-    std::vector<const char*> extensions = a_window->GetRequiredVulkanExtenions();
+    Array<const char*> extensions = a_window->GetRequiredVulkanExtenions();
 
     if constexpr (VulkanEnableValidationLayers)
     {
-        extensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        extensions.Push(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
     for (const char* ext : InstanceExtensions)
     {
-        extensions.emplace_back(ext);
+        extensions.Push(ext);
     }
 
     return extensions;
@@ -179,7 +217,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     const RenderEngine* renderEngine = GetRenderEngine();
     AppWindow* window = renderEngine->m_window;
 
-    std::vector<const char*> enabledLayers;
+    Array<const char*> enabledLayers;
 
     const bool headless = window->IsHeadless();
 
@@ -187,9 +225,9 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     {
         ICARIAN_ASSERT_R(CheckValidationLayerSupport());
 
-        for (const auto& iter : ValidationLayers)
+        for (const char* v : ValidationLayers)
         {
-            enabledLayers.emplace_back(iter);
+            enabledLayers.Push(v);
         }
     }
 
@@ -203,7 +241,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         nullptr
     );
 
-    const std::vector<const char*> reqExtensions = GetRequiredExtensions(window);
+    const Array<const char*> reqExtensions = GetRequiredExtensions(window);
 
     constexpr vk::DebugUtilsMessengerCreateInfoEXT DebugCreateInfo = vk::DebugUtilsMessengerCreateInfoEXT
     (
@@ -217,10 +255,10 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     (
         vk::InstanceCreateFlags(),
         &appInfo, 
-        (uint32_t)enabledLayers.size(), 
-        enabledLayers.data(), 
-        (uint32_t)reqExtensions.size(), 
-        reqExtensions.data(),
+        enabledLayers.Size(), 
+        enabledLayers.Data(), 
+        reqExtensions.Size(), 
+        reqExtensions.Data(),
         nullptr
     );
 
@@ -229,49 +267,56 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         createInfo.pNext = &DebugCreateInfo;
     }
 
-    ICARIAN_ASSERT_MSG_R(vk::createInstance(&createInfo, nullptr, &m_instance) == vk::Result::eSuccess, "Failed to create Vulkan Instance");
+    VKRESERRMSG(vk::createInstance(&createInfo, nullptr, &m_instance), "Failed to create Vulkan Instance");
 
     TRACE("Created Vulkan Instance");
 
     if constexpr (VulkanEnableValidationLayers)
     {
-        ICARIAN_ASSERT_MSG_R(m_instance.createDebugUtilsMessengerEXT(&DebugCreateInfo, nullptr, &m_messenger) == vk::Result::eSuccess, "Failed to create Vulkan Debug Printing");
+        VKRESERRMSG(m_instance.createDebugUtilsMessengerEXT(&DebugCreateInfo, nullptr, &m_messenger), "Failed to create Vulkan Debug Printing");
 
         TRACE("Created Vulkan Debug Layer");
     }
 
-    std::vector<const char*> dRequiredExtensions = std::vector<const char*>(DeviceExtensions, DeviceExtensions + sizeof(DeviceExtensions) / sizeof(*DeviceExtensions));
+    Array<const char*> dRequiredExtensions = Array<const char*>(DeviceExtensions, sizeof(DeviceExtensions) / sizeof(*DeviceExtensions));
     if (!headless)
     {
         for (const char* ext : StandaloneDeviceExtensions)
         {
-            dRequiredExtensions.emplace_back(ext);
+            dRequiredExtensions.Push(ext);
         }
     }
 
     uint32_t deviceCount = 0;
-    ICARIAN_ASSERT_R(m_instance.enumeratePhysicalDevices(&deviceCount, nullptr) == vk::Result::eSuccess);
+    VKRESERR(m_instance.enumeratePhysicalDevices(&deviceCount, nullptr));
 
-    ICARIAN_ASSERT(deviceCount > 0);
+    IVERIFY(deviceCount > 0);
 
-    std::vector<vk::PhysicalDevice> devices = std::vector<vk::PhysicalDevice>(deviceCount);
-    ICARIAN_ASSERT_R(m_instance.enumeratePhysicalDevices(&deviceCount, devices.data()) == vk::Result::eSuccess);
+    vk::PhysicalDevice* devices = new vk::PhysicalDevice[deviceCount];
+    IDEFER(delete[] devices);
+    VKRESERR(m_instance.enumeratePhysicalDevices(&deviceCount, devices));
 
-    bool foundDevice = false;
+    uint32_t deviceScore = -1;
+    m_pDevice = vk::PhysicalDevice(nullptr);
 
-    for (const vk::PhysicalDevice& device : devices)
+    for (uint32_t i = 0; i < deviceCount; ++i)
     {
+        const vk::PhysicalDevice device = devices[i]; 
+
         if (IsDeviceSuitable(m_instance, device, dRequiredExtensions, window))
         {
+            const uint32_t score = GetDeviceScore(device);
+            if (score < deviceScore && deviceScore != -1)
+            {
+                continue;
+            }
+
+            deviceScore = score;
             m_pDevice = device;
-
-            foundDevice = true;
-
-            break;
         }
     }
 
-    ICARIAN_ASSERT(foundDevice);
+    IVERIFY(m_pDevice != vk::PhysicalDevice(nullptr));
 
     TRACE("Found Vulkan Physical Device");
 
@@ -344,12 +389,14 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         uniqueQueueFamilies.emplace(m_presentQueueIndex);
     }
 
-    std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
+    IVERIFY(!uniqueQueueFamilies.empty());
+
+    Array<vk::DeviceQueueCreateInfo> queueCreateInfos;
 
     constexpr float QueuePriority = 1.0f;
     for (const uint32_t queueFamily : uniqueQueueFamilies)
     {
-        queueCreateInfos.emplace_back(vk::DeviceQueueCreateInfo({ }, queueFamily, 1, &QueuePriority));
+        queueCreateInfos.Push(vk::DeviceQueueCreateInfo({ }, queueFamily, 1, &QueuePriority));
     }
 
     vk::PhysicalDeviceFeatures deviceFeatures;
@@ -358,12 +405,12 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo
     (
         { }, 
-        (uint32_t)queueCreateInfos.size(), 
-        queueCreateInfos.data(), 
+        queueCreateInfos.Size(), 
+        queueCreateInfos.Data(), 
         0, 
         nullptr, 
-        (uint32_t)dRequiredExtensions.size(), 
-        dRequiredExtensions.data(),
+        dRequiredExtensions.Size(), 
+        dRequiredExtensions.Data(),
         &deviceFeatures
     );
 
@@ -373,24 +420,26 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         deviceCreateInfo.ppEnabledLayerNames = ValidationLayers;
     }
 
-    ICARIAN_ASSERT_MSG_R(m_pDevice.createDevice(&deviceCreateInfo, nullptr, &m_lDevice) == vk::Result::eSuccess, "Failed to create Vulkan Logic Device");
+    VKRESERRMSG(m_pDevice.createDevice(&deviceCreateInfo, nullptr, &m_lDevice), "Failed to create Vulkan Logic Device");
 
     TRACE("Created Vulkan Device");
 
-    VmaVulkanFunctions vulkanFunctions;
-    memset(&vulkanFunctions, 0, sizeof(vulkanFunctions));
-    vulkanFunctions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
-    vulkanFunctions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
+    const VmaVulkanFunctions vulkanFunctions = 
+    {
+        .vkGetInstanceProcAddr = &vkGetInstanceProcAddr,
+        .vkGetDeviceProcAddr = &vkGetDeviceProcAddr
+    };
 
-    VmaAllocatorCreateInfo allocatorCreateInfo;
-    memset(&allocatorCreateInfo, 0, sizeof(allocatorCreateInfo));
-    allocatorCreateInfo.vulkanApiVersion = ICARIAN_VULKAN_VERSION;
-    allocatorCreateInfo.physicalDevice = m_pDevice;
-    allocatorCreateInfo.device = m_lDevice;
-    allocatorCreateInfo.instance = m_instance;
-    allocatorCreateInfo.pVulkanFunctions = &vulkanFunctions;
+    const VmaAllocatorCreateInfo allocatorCreateInfo =
+    {
+        .physicalDevice = m_pDevice,
+        .device = m_lDevice,
+        .pVulkanFunctions = &vulkanFunctions,
+        .instance = m_instance,
+        .vulkanApiVersion = ICARIAN_VULKAN_VERSION
+    };
 
-    ICARIAN_ASSERT_MSG_R(vmaCreateAllocator(&allocatorCreateInfo, &m_allocator) == VK_SUCCESS, "Failed to create Vulkan Allocator");
+    VKRESERRMSG(vmaCreateAllocator(&allocatorCreateInfo, &m_allocator), "Failed to create Vulkan Allocator");
 
     TRACE("Created Vulkan Allocator");
 
@@ -419,8 +468,8 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     for (uint32_t i = 0; i < VulkanMaxFlightFrames; ++i)
     {
-        ICARIAN_ASSERT_MSG_R(m_lDevice.createSemaphore(&SemaphoreInfo, nullptr, &m_imageAvailable[i]) == vk::Result::eSuccess, "Failed to create image semaphore");
-        ICARIAN_ASSERT_MSG_R(m_lDevice.createFence(&FenceInfo, nullptr, &m_inFlight[i]) == vk::Result::eSuccess, "Failed to create fence");
+        VKRESERRMSG(m_lDevice.createSemaphore(&SemaphoreInfo, nullptr, &m_imageAvailable[i]), "Failed to create image semaphore");
+        VKRESERRMSG(m_lDevice.createFence(&FenceInfo, nullptr, &m_inFlight[i]), "Failed to create fence");
     }
     
     TRACE("Created Vulkan sync objects");
@@ -431,19 +480,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         m_graphicsQueueIndex
     );  
 
-    ICARIAN_ASSERT_MSG_R(m_lDevice.createCommandPool(&poolInfo, nullptr, &m_commandPool) == vk::Result::eSuccess, "Failed to create command pool");
-
-    PFN_vkGetPhysicalDeviceProperties2KHR GetPhysicalDeviceProperties2KHRFunc = (PFN_vkGetPhysicalDeviceProperties2KHR)vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceProperties2KHR");
-
-    VkPhysicalDevicePushDescriptorPropertiesKHR pushProperties = { };
-    pushProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR;
-
-    VkPhysicalDeviceProperties2KHR deviceProps2 = { };
-    deviceProps2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
-	deviceProps2.pNext = &pushProperties;
-
-    GetPhysicalDeviceProperties2KHRFunc(m_pDevice, &deviceProps2);
-    m_pushDescriptorProperties = pushProperties;
+    VKRESERRMSG(m_lDevice.createCommandPool(&poolInfo, nullptr, &m_commandPool), "Failed to create command pool");
 
     m_pushPool = new VulkanPushPool(this);
     m_computeEngine = new VulkanComputeEngine(this);
@@ -496,7 +533,7 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
         m_lDevice.destroySemaphore(m_imageAvailable[i]);
         m_lDevice.destroyFence(m_inFlight[i]);
 
-        for (uint32_t j = 0; j < m_interSemaphore[i].size(); ++j)
+        for (uint32_t j = 0; j < m_interSemaphore[i].Size(); ++j)
         {
             m_lDevice.destroySemaphore(m_interSemaphore[i][j]);
         }
@@ -534,7 +571,8 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     // Also investigate seeing if you can squezee some extra frames from a buffer scavenging system for GPU memory. A little bit of wasted memory for a few extra frames is probably worth it.
     // Constant allocation is killing performance on the GPU side. 
     // TODO: Can probably better manage semaphores.
-    AppWindow* window = GetRenderEngine()->m_window;
+    const RenderEngine* renderEngine = GetRenderEngine();
+    AppWindow* window = renderEngine->m_window;
 
     const bool isHeadless = window->IsHeadless();
     const bool init = m_swapchain != nullptr;
@@ -558,24 +596,31 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
     m_pushPool->Reset(m_currentFrame);
 
-    vk::CommandBuffer computeBuffer = m_computeEngine->Update(a_delta, a_time, m_currentFrame);
-    const std::vector<vk::CommandBuffer> buffers = m_graphicsEngine->Update(a_delta, a_time, m_currentFrame);
+    Array<VulkanCommandBuffer> commandBuffers;
+
+    // TODO: Down the line setup the compute and graphics engine to return VulkanCommandBuffers
+    const vk::CommandBuffer computeBuffer = m_computeEngine->Update(a_delta, a_time, m_currentFrame);
+    commandBuffers.Push(VulkanCommandBuffer(computeBuffer, VulkanCommandBufferType_Compute));
+
+    {
+        const Array<vk::CommandBuffer> buffers = m_graphicsEngine->Update(a_delta, a_time, m_currentFrame);
+        for (const vk::CommandBuffer& b : buffers)
+        {
+            commandBuffers.Push(VulkanCommandBuffer(b, VulkanCommandBufferType_Graphics));
+        }
+    }
     
     Profiler::StartFrame("Render Setup");
 
-    const uint32_t buffersSize = (uint32_t)buffers.size();
-    uint32_t finalSemaphoreCount = buffersSize;
-    if (computeBuffer != vk::CommandBuffer(nullptr))
-    {
-        ++finalSemaphoreCount;
-    }
+    const uint32_t buffersSize = commandBuffers.Size();
 
-    const uint32_t semaphoreCount = (uint32_t)m_interSemaphore[m_currentFlightFrame].size();
+    const uint32_t semaphoreCount = m_interSemaphore[m_currentFlightFrame].Size();
     const uint32_t endBuffer = buffersSize - 1;
-    if (finalSemaphoreCount > semaphoreCount)
+
+    if (buffersSize > semaphoreCount)
     {
         TRACE("Allocating inter semaphores");
-        const uint32_t diff = finalSemaphoreCount - semaphoreCount;
+        const uint32_t diff = buffersSize - semaphoreCount;
 
         constexpr vk::SemaphoreCreateInfo SemaphoreInfo;
 
@@ -583,8 +628,8 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
         {
             vk::Semaphore semaphore;
 
-            ICARIAN_ASSERT_MSG_R(m_lDevice.createSemaphore(&SemaphoreInfo, nullptr, &semaphore) == vk::Result::eSuccess, "Failed to create inter semaphore");
-            m_interSemaphore[m_currentFlightFrame].emplace_back(semaphore);
+            VKRESERRMSG(m_lDevice.createSemaphore(&SemaphoreInfo, nullptr, &semaphore), "Failed to create inter semaphore");
+            m_interSemaphore[m_currentFlightFrame].Push(semaphore);
         }
     }
 
@@ -606,48 +651,48 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     }
 
     {
-        const std::unique_lock l = std::unique_lock(m_graphicsQueueMutex);
-        uint32_t semaphoreIndex = 0;
-
-        if (computeBuffer != vk::CommandBuffer(nullptr))
-        {
-            constexpr vk::PipelineStageFlags WaitStages[] = { vk::PipelineStageFlagBits::eAllCommands };
-
-            vk::Semaphore curSemaphore = m_interSemaphore[m_currentFlightFrame][semaphoreIndex++];
-            vk::SubmitInfo submitInfo = vk::SubmitInfo
-            (
-                0,
-                nullptr,
-                WaitStages,
-                1,
-                &computeBuffer,
-                1,
-                &curSemaphore
-            );
-
-            if (lastSemaphore != vk::Semaphore(nullptr))
-            {
-                submitInfo.waitSemaphoreCount = 1;
-                submitInfo.pWaitSemaphores = &lastSemaphore;
-            }
-
-            ICARIAN_ASSERT_MSG_R(m_computeQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
-
-            lastSemaphore = curSemaphore;
-        }
+        const ThreadGuard l = ThreadGuard(m_graphicsQueueLock);
 
         for (uint32_t i = 0; i < buffersSize; ++i)
         {
             constexpr vk::PipelineStageFlags WaitStages[] = { vk::PipelineStageFlagBits::eAllGraphics };
 
-            vk::Semaphore curSemaphore = m_interSemaphore[m_currentFlightFrame][semaphoreIndex++];
+            const vk::Semaphore curSemaphore = m_interSemaphore[m_currentFlightFrame][i];
+            IDEFER(lastSemaphore = curSemaphore);
+
+            const VulkanCommandBuffer& buffer = commandBuffers[i];
+            const vk::CommandBuffer cmdBuffer = buffer.GetCommandBuffer();
+
+            vk::Queue queue;
+            switch (buffer.GetBufferType())
+            {
+            case VulkanCommandBufferType_Compute:
+            {
+                queue = m_computeQueue;
+
+                break;
+            }
+            case VulkanCommandBufferType_Graphics:
+            {
+                queue = m_graphicsQueue;
+
+                break;
+            }
+            default:
+            {
+                ICARIAN_ASSERT_MSG(0, "Invalid command buffer type");
+
+                break;
+            }
+            }
+
             vk::SubmitInfo submitInfo = vk::SubmitInfo
             (
                 0,
                 nullptr,
                 WaitStages,
                 1,
-                &buffers[i],
+                &cmdBuffer,
                 1,
                 &curSemaphore
             );
@@ -666,24 +711,22 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
                     {
                         submitInfo.pSignalSemaphores = &m_imageAvailable[(m_currentFlightFrame + 1) % VulkanMaxFlightFrames];
 
-                        ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, m_inFlight[m_currentFlightFrame]) == vk::Result::eSuccess, "Failed to submit command");
+                        VKRESERRMSG(queue.submit(1, &submitInfo, m_inFlight[m_currentFlightFrame]), "Failed to submit command");
                     }
                     else
                     {
-                        ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
+                        VKRESERRMSG(queue.submit(1, &submitInfo, nullptr), "Failed to submit command");
                     }
                 }
                 else
                 {
-                    ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, m_inFlight[m_currentFlightFrame]) == vk::Result::eSuccess, "Failed to submit command");
+                    VKRESERRMSG(queue.submit(1, &submitInfo, m_inFlight[m_currentFlightFrame]), "Failed to submit command");
                 }
             }
             else
             {
-                ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to submit command");
+                VKRESERRMSG(queue.submit(1, &submitInfo, nullptr), "Failed to submit command");
             }
-
-            lastSemaphore = curSemaphore;
         }    
     }
 
@@ -700,6 +743,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
         PROFILESTACK("Queue Cleanup");
 
         const uint32_t nextIndex = (m_dQueueIndex + 1) % VulkanDeletionQueueSize;
+        IDEFER(m_dQueueIndex = nextIndex);
 
         const TLockArray a = m_deletionObjects[nextIndex].ToLockArray();
 
@@ -714,8 +758,6 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
         }
 
         m_deletionObjects[nextIndex].UClear();
-
-        m_dQueueIndex = nextIndex;
     }   
 
     {
@@ -755,7 +797,8 @@ public:
     }
 };
 
-TLockObj<vk::CommandBuffer, std::mutex>* VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBufferLevel a_level)
+// TODO: Down the line setup return VulkanCommandBuffers as TLockObj
+TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBufferLevel a_level)
 {   
     const vk::CommandBufferAllocateInfo allocInfo = vk::CommandBufferAllocateInfo
     (
@@ -764,17 +807,17 @@ TLockObj<vk::CommandBuffer, std::mutex>* VulkanRenderEngineBackend::CreateComman
         1
     );
 
-    TLockObj<vk::CommandBuffer, std::mutex>* lockObj = new TLockObj<vk::CommandBuffer, std::mutex>(&m_graphicsQueueMutex); 
+    TLockObj<vk::CommandBuffer, SpinLock>* lockObj = new TLockObj<vk::CommandBuffer, SpinLock>(&m_graphicsQueueLock); 
 
     vk::CommandBuffer cmdBuffer;
 
-    ICARIAN_ASSERT_MSG_R(m_lDevice.allocateCommandBuffers(&allocInfo, &cmdBuffer) == vk::Result::eSuccess, "Failed to Allocate Command Buffer");
+    VKRESERRMSG(m_lDevice.allocateCommandBuffers(&allocInfo, &cmdBuffer), "Failed to Allocate Command Buffer");
 
     lockObj->Set(cmdBuffer);
 
     return lockObj;
 }
-void VulkanRenderEngineBackend::DestroyCommandBuffer(TLockObj<vk::CommandBuffer, std::mutex>* a_buffer)
+void VulkanRenderEngineBackend::DestroyCommandBuffer(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer)
 {
     IDEFER(delete a_buffer);
 
@@ -783,9 +826,9 @@ void VulkanRenderEngineBackend::DestroyCommandBuffer(TLockObj<vk::CommandBuffer,
     PushDeletionObject(new VulkanCommandBufferDeletionObject(m_lDevice, m_commandPool, buffer));
 }
 
-TLockObj<vk::CommandBuffer, std::mutex>* VulkanRenderEngineBackend::BeginSingleCommand()
+TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::BeginSingleCommand()
 {
-    TLockObj<vk::CommandBuffer, std::mutex>* buffer = CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
+    TLockObj<vk::CommandBuffer, SpinLock>* buffer = CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
     const vk::CommandBuffer cmdBuffer = buffer->Get();
 
     constexpr vk::CommandBufferBeginInfo BufferBeginInfo = vk::CommandBufferBeginInfo
@@ -793,11 +836,11 @@ TLockObj<vk::CommandBuffer, std::mutex>* VulkanRenderEngineBackend::BeginSingleC
         vk::CommandBufferUsageFlagBits::eOneTimeSubmit
     );
 
-    ICARIAN_ASSERT_R(cmdBuffer.begin(&BufferBeginInfo) == vk::Result::eSuccess);
+    VKRESERR(cmdBuffer.begin(&BufferBeginInfo));
 
     return buffer;
 }
-void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, std::mutex>* a_buffer)
+void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer)
 {
     IDEFER(DestroyCommandBuffer(a_buffer));
     
@@ -813,7 +856,7 @@ void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, std
         &cmdBuffer
     );
 
-    ICARIAN_ASSERT_MSG_R(m_graphicsQueue.submit(1, &submitInfo, nullptr) == vk::Result::eSuccess, "Failed to Submit Command");
+    VKRESERRMSG(m_graphicsQueue.submit(1, &submitInfo, nullptr), "Failed to Submit Command");
 }
 
 uint32_t VulkanRenderEngineBackend::GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius)

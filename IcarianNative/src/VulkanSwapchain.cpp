@@ -600,8 +600,9 @@ void VulkanSwapchain::EndFrame(const vk::Semaphore& a_semaphore, uint32_t a_imag
             return;
         }
         
-        TLockObj<vk::CommandBuffer, std::mutex>* buffer = m_engine->CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
+        TLockObj<vk::CommandBuffer, SpinLock>* buffer = m_engine->CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
         IDEFER(m_engine->DestroyCommandBuffer(buffer));
+        
         const vk::CommandBuffer cmdBuffer = buffer->Get();
 
         constexpr vk::CommandBufferBeginInfo BufferBeginInfo = vk::CommandBufferBeginInfo
