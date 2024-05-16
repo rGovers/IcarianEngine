@@ -331,6 +331,11 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         // Magic string to get std library to link with MinGW
         CUBE_CProject_AppendCFlag(&project, "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic");
 
+        if (a_configuration == BuildConfiguration_Release)
+        {
+            CUBE_CProject_AppendCFlag(&project, "-Wl,-subsystem,windows");
+        }
+
         break;
     }
     case TargetPlatform_Linux:

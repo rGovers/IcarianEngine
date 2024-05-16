@@ -4,8 +4,9 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
-#include <shared_mutex>
 #include <unordered_map>
+
+#include "DataTypes/SpinLock.h"
 
 struct FileBuffer
 {
@@ -77,7 +78,7 @@ public:
 class FileCache
 {
 private:
-    std::shared_mutex                                      m_mutex;
+    SharedSpinLock                                         m_lock;
     uint64_t                                               m_size;
     uint64_t                                               m_allocated;
     uint32_t                                               m_updateFrame;

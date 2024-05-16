@@ -4,9 +4,9 @@
 #include <glm/glm.hpp>
 
 #include <cstring>
-#include <mutex>
 
 #include "Core/IcarianDefer.h"
+#include "DataTypes/ThreadGuard.h"
 #include "IcarianError.h"
 #include "Trace.h"
 
@@ -242,14 +242,15 @@ void FileCache::Update()
         
     }
 
-    if (Instance->m_allocated < Instance->m_size >> 1)
+    const uint64_t halfSize = Instance->m_size >> 1;
+    if (Instance->m_allocated < halfSize)
     {
         return;
     }
 
     const std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
 
-    const std::unique_lock g = std::unique_lock(Instance->m_mutex);
+    const ThreadGuard g = ThreadGuard(Instance->m_lock);
 
     const uint32_t mapSize = (uint32_t)Instance->m_files.size();
     if (mapSize == 0)
@@ -270,7 +271,7 @@ void FileCache::Update()
         }
 
         const float timePassed = std::chrono::duration<float>(now - buffer->TimePoint).count();
-        if (timePassed >= 1.0f) 
+        if (timePassed > 1.0f) 
         {
             keys[keyCount++] = iter.first;
         }
@@ -306,7 +307,7 @@ void FileCache::PreLoad(const std::filesystem::path& a_path)
     }
 
     {
-        const std::shared_lock g = std::shared_lock(Instance->m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
 
         const auto iter = Instance->m_files.find(a_path);
         if (iter != Instance->m_files.end())
@@ -315,7 +316,7 @@ void FileCache::PreLoad(const std::filesystem::path& a_path)
         }
     }
 
-    const std::unique_lock g = std::unique_lock(Instance->m_mutex);
+    const ThreadGuard g = ThreadGuard(Instance->m_lock);
 
     const std::string s = a_path.string();
     const uint64_t maxSize = Instance->m_size >> 3;
@@ -348,7 +349,7 @@ FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
     if (Instance != nullptr)
     {
         {
-            const std::shared_lock g = std::shared_lock(Instance->m_mutex);
+            const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
 
             const auto iter = Instance->m_files.find(a_path);
             if (iter != Instance->m_files.end())
@@ -357,7 +358,7 @@ FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
             }
         }
         
-        const std::unique_lock g = std::unique_lock(Instance->m_mutex);
+        const ThreadGuard g = ThreadGuard(Instance->m_lock);
 
         const std::string s = a_path.string();
         // Do not want the whole cache taken up by a single file otherwise it eliminates the point
