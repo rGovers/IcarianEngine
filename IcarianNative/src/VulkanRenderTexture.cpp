@@ -2,6 +2,8 @@
 
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
 
+#include "Rendering/Vulkan/VulkanDepthRenderTexture.h"
+#include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
@@ -144,38 +146,28 @@ static constexpr vk::ImageLayout GetDepthLayout(vk::Format a_format)
     return vk::ImageLayout::eDepthAttachmentOptimal;
 }
 
-VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr)
+void VulkanRenderTexture::Setup()
 {
     TRACE("Creating Render Texture");
-    m_engine = a_engine;
-
-    m_textureCount = a_textureCount;
-
-    m_width = a_width;
-    m_height = a_height;
-
-    m_flags = 0;
-    if (a_hdr)
-    {
-        m_flags |= 0b1 << HDRFlag;
-    }
-    if (a_depthTexture)
-    {
-        m_flags |= 0b1 << DepthTextureFlag;
-    }
-
-    const uint32_t totalTextureCount = GetTotalTextureCount();
-
     const VmaAllocator allocator = m_engine->GetAllocator();
     const vk::Device device = m_engine->GetLogicalDevice();
     const vk::PhysicalDevice physicalDevice = m_engine->GetPhysicalDevice();
 
-    const vk::Format format = GetFormat(a_hdr);
+    const bool hdr = IsHDR();
+    const bool hasDepth = HasDepthTexture();
+
+    const uint32_t totalTextureCount = GetTotalTextureCount();
+
+    const vk::Format format = GetFormat(hdr);
     const vk::Format depthFormat = GetValidDepthFormat(physicalDevice);
 
     TRACE("Creating Attachments");
-    std::vector<vk::AttachmentDescription> attachments = std::vector<vk::AttachmentDescription>(totalTextureCount);
-    std::vector<vk::AttachmentDescription> attachmentsNoClear = std::vector<vk::AttachmentDescription>(totalTextureCount);
+    vk::AttachmentDescription* attachments = new vk::AttachmentDescription[totalTextureCount];
+    IDEFER(delete[] attachments);
+    vk::AttachmentDescription* attachmentsNoClear = new vk::AttachmentDescription[totalTextureCount];
+    IDEFER(delete[] attachmentsNoClear);
+    vk::AttachmentDescription* attachmentsColorClear = new vk::AttachmentDescription[totalTextureCount];
+    IDEFER(delete[] attachmentsColorClear);
     for (uint32_t i = 0; i < m_textureCount; ++i)
     {
         attachments[i].format = format;
@@ -195,8 +187,17 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, ui
         attachmentsNoClear[i].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
         attachmentsNoClear[i].initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
         attachmentsNoClear[i].finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+
+        attachmentsColorClear[i].format = format;
+        attachmentsColorClear[i].samples = vk::SampleCountFlagBits::e1;
+        attachmentsColorClear[i].loadOp = vk::AttachmentLoadOp::eClear;
+        attachmentsColorClear[i].storeOp = vk::AttachmentStoreOp::eStore;
+        attachmentsColorClear[i].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+        attachmentsColorClear[i].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+        attachmentsColorClear[i].initialLayout = vk::ImageLayout::eUndefined;
+        attachmentsColorClear[i].finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     }
-    if (a_depthTexture)
+    if (hasDepth)
     {
         attachments[m_textureCount].format = depthFormat;
         attachments[m_textureCount].samples = vk::SampleCountFlagBits::e1;
@@ -215,14 +216,25 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, ui
         attachmentsNoClear[m_textureCount].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
         attachmentsNoClear[m_textureCount].initialLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
         attachmentsNoClear[m_textureCount].finalLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+
+        attachmentsColorClear[m_textureCount].format = depthFormat;
+        attachmentsColorClear[m_textureCount].samples = vk::SampleCountFlagBits::e1;
+        attachmentsColorClear[m_textureCount].loadOp = vk::AttachmentLoadOp::eLoad;
+        attachmentsColorClear[m_textureCount].storeOp = vk::AttachmentStoreOp::eStore;
+        attachmentsColorClear[m_textureCount].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+        attachmentsColorClear[m_textureCount].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+        attachmentsColorClear[m_textureCount].initialLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+        attachmentsColorClear[m_textureCount].finalLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
     }
 
-    std::vector<vk::AttachmentReference> colorAttachmentRef = std::vector<vk::AttachmentReference>(m_textureCount);
+    vk::AttachmentReference* colorAttachmentRef = new vk::AttachmentReference[m_textureCount];
+    IDEFER(delete[] colorAttachmentRef);
     for (uint32_t i = 0; i < m_textureCount; ++i)
     {
         colorAttachmentRef[i].attachment = i;
         colorAttachmentRef[i].layout = vk::ImageLayout::eColorAttachmentOptimal;
     }
+
     const vk::AttachmentReference depthAttachmentRef = vk::AttachmentReference
     (
         m_textureCount,
@@ -236,9 +248,9 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, ui
         0,
         nullptr,
         m_textureCount,
-        colorAttachmentRef.data()
+        colorAttachmentRef
     );
-    if (a_depthTexture)
+    if (hasDepth)
     {
         subpass.pDepthStencilAttachment = &depthAttachmentRef;
     }
@@ -258,7 +270,7 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, ui
     dependencies[1].srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
     dependencies[1].dstAccessMask = vk::AccessFlagBits::eShaderRead;
     dependencies[1].dependencyFlags = vk::DependencyFlagBits::eByRegion;
-    if (a_depthTexture)
+    if (hasDepth)
     {
         dependencies[0].dstStageMask |= vk::PipelineStageFlagBits::eEarlyFragmentTests;
         dependencies[0].dstAccessMask |= vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
@@ -270,46 +282,110 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, ui
     (
         { },
         totalTextureCount,
-        attachments.data(),
+        attachments,
         1,
         &subpass,
         2,
         dependencies
     );
+    VKRESERRMSG(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass), "Failed to create RenderTexture RenderPass");
+
     const vk::RenderPassCreateInfo renderPassNoClearInfo = vk::RenderPassCreateInfo
     (
         { },
         totalTextureCount,
-        attachmentsNoClear.data(),
+        attachmentsNoClear,
         1,
         &subpass,
         2,
         dependencies
     );
-
-    VKRESERRMSG(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass), "Failed to create RenderTexture RenderPass");
     VKRESERRMSG(device.createRenderPass(&renderPassNoClearInfo, nullptr, &m_renderPassNoClear), "Failed to create RenderTexture RenderPass");
+    
+    const vk::RenderPassCreateInfo renderPassColorClearInfo = vk::RenderPassCreateInfo
+    (
+        { },
+        totalTextureCount,
+        attachmentsColorClear,
+        1,
+        &subpass,
+        2,
+        dependencies
+    );
+    VKRESERRMSG(device.createRenderPass(&renderPassColorClearInfo, nullptr, &m_renderPassColorClear), "Failed to create RenderTexture RenderPass");
 
-    m_textures = new vk::Image[totalTextureCount];
+    m_textures = new vk::Image[m_textureCount];
+    m_textureAllocations = new VmaAllocation[m_textureCount];
     m_textureViews = new vk::ImageView[totalTextureCount];
-    m_textureAllocations = new VmaAllocation[totalTextureCount];
     m_clearValues = new vk::ClearValue[totalTextureCount];
     for (uint32_t i = 0; i < m_textureCount; ++i)
     {
         m_clearValues[i] = vk::ClearValue({ 0.0f, 0.0f, 0.0f, 0.0f });
     }
-    if (a_depthTexture)
+    if (hasDepth)
     {
         m_clearValues[m_textureCount] = vk::ClearValue(vk::ClearDepthStencilValue(1.0f, 0));
     }
 
     Init(m_width, m_height);
 }
+
+VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr)
+{
+    m_engine = a_engine;
+    m_gEngine = a_gEngine;
+
+    m_textureCount = a_textureCount;
+
+    m_width = a_width;
+    m_height = a_height;
+
+    m_depthHandle = -1;
+
+    m_flags = 0;
+    if (a_hdr)
+    {
+        ISETBIT(m_flags, HDRFlag);
+    }
+    if (a_depthTexture)
+    {
+        ISETBIT(m_flags, OwnsDepthTextureFlag);
+
+        m_depthHandle = m_gEngine->GenerateDepthRenderTexture(m_width, m_height);
+    }
+
+    Setup();
+}
+VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, uint32_t a_depthHandle, bool a_hdr)
+{
+    m_engine = a_engine;
+    m_gEngine = a_gEngine;
+
+    m_textureCount = a_textureCount;
+
+    m_width = a_width;
+    m_height = a_height;
+
+    m_depthHandle = a_depthHandle;
+
+    m_flags = 0;
+    if (a_hdr)
+    {
+        ISETBIT(m_flags, HDRFlag);
+    }
+
+    Setup();
+}
 VulkanRenderTexture::~VulkanRenderTexture()
 {
     TRACE("Queueing Render Texture for Deletion");
-    m_engine->PushDeletionObject(new VulkanRenderTextureDeletionObject(m_engine, GetTotalTextureCount(), m_textures, m_textureViews, m_textureAllocations, m_frameBuffer));
+    m_engine->PushDeletionObject(new VulkanRenderTextureDeletionObject(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer));
     m_engine->PushDeletionObject(new VulkanRenderTextureRenderPassDeletionObject(m_engine, m_renderPass, m_renderPassNoClear));
+
+    if (IISBITSET(m_flags, OwnsDepthTextureFlag))
+    {
+        m_gEngine->DestroyDepthRenderTexture(m_depthHandle);
+    }
 
     delete[] m_textures;
     delete[] m_textureViews;
@@ -323,7 +399,6 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
     const vk::PhysicalDevice physicalDevice = m_engine->GetPhysicalDevice();
     const VmaAllocator allocator = m_engine->GetAllocator();
 
-    const bool hasDepth = HasDepthTexture();
     const bool isHDR = IsHDR();
 
     const vk::Format format = GetFormat(isHDR);
@@ -349,10 +424,11 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
     textureCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
     textureCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-    VmaAllocationCreateInfo allocInfo = { 0 };
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    allocInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    allocInfo.flags = 0;
+    VmaAllocationCreateInfo allocInfo = 
+    { 
+        .usage = VMA_MEMORY_USAGE_AUTO,
+        .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    };
 
     constexpr vk::ImageSubresourceRange SubresourceRange = vk::ImageSubresourceRange
     (
@@ -381,46 +457,13 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 
         VKRESERRMSG(device.createImageView(&textureImageView, nullptr, &m_textureViews[i]), "Failed to create RenderTexture ImageView");
     }
+
+    const bool hasDepth = HasDepthTexture();
     if (hasDepth)
     {
-        constexpr vk::ImageSubresourceRange DepthSubresouceRange = vk::ImageSubresourceRange
-        (
-            vk::ImageAspectFlagBits::eDepth,
-            0,
-            1,
-            0,
-            1
-        );
+        const VulkanDepthRenderTexture* depth = m_gEngine->GetDepthRenderTexture(m_depthHandle);
 
-        VkImageCreateInfo depthCreateInfo = { };
-        depthCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        depthCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-        depthCreateInfo.format = (VkFormat)depthFormat;
-        depthCreateInfo.extent.width = m_width;
-        depthCreateInfo.extent.height = m_height;
-        depthCreateInfo.extent.depth = 1;
-        depthCreateInfo.mipLevels = 1;
-        depthCreateInfo.arrayLayers = 1;
-        depthCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        depthCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        depthCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        depthCreateInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-
-        VkImage image;
-        VKRESERRMSG(vmaCreateImage(allocator, &depthCreateInfo, &allocInfo, &image, &m_textureAllocations[m_textureCount], nullptr), "Failed to create RenderTexture depth image");
-        m_textures[m_textureCount] = image;
-
-        const vk::ImageViewCreateInfo depthImageView = vk::ImageViewCreateInfo
-        (
-            { },
-            m_textures[m_textureCount],
-            vk::ImageViewType::e2D,
-            depthFormat,
-            vk::ComponentMapping(),
-            DepthSubresouceRange
-        );
-
-        VKRESERRMSG(device.createImageView(&depthImageView, nullptr, &m_textureViews[m_textureCount]), "Failed to create RenderTexture depth ImageView");
+        m_textureViews[m_textureCount] = depth->GetImageView();
     }
 
     TRACE("Creating Frame Buffer");
@@ -441,7 +484,16 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 void VulkanRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 {
     TRACE("Resizing Render Texture");
-    m_engine->PushDeletionObject(new VulkanRenderTextureDeletionObject(m_engine, GetTotalTextureCount(), m_textures, m_textureViews, m_textureAllocations, m_frameBuffer));
+    m_engine->PushDeletionObject(new VulkanRenderTextureDeletionObject(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer));
+
+    if (IISBITSET(m_flags, OwnsDepthTextureFlag))
+    {
+        IVERIFY(HasDepthTexture());
+
+        VulkanDepthRenderTexture* depth = m_gEngine->GetDepthRenderTexture(m_depthHandle);
+
+        depth->Resize(a_width, a_height);
+    }
 
     Init(a_width, a_height);
 }

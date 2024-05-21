@@ -124,7 +124,7 @@ void VulkanRenderCommand::PushTexture(uint32_t a_slot, const TextureSamplerBuffe
     data->PushTexture(m_commandBuffer, a_slot, a_sampler, m_engine->GetCurrentFrame());
 }
 
-void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr)
+void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTextureBindMode a_bindMode)
 {
     const RenderEngine* renderEngine = m_engine->GetRenderEngine();
 
@@ -159,9 +159,37 @@ void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr)
     {
         screenSize = glm::vec2(renderTexture->GetWidth(), renderTexture->GetHeight());
 
+        vk::RenderPass renderPass;
+
+        switch (a_bindMode)
+        {
+        case RenderTextureBindMode_Clear:
+        {
+            renderPass = renderTexture->GetRenderPass();
+
+            break;
+        }
+        case RenderTextureBindMode_ClearColor:
+        {
+            renderPass = renderTexture->GetRenderPassColorClear();
+
+            break;
+        }
+        case RenderTextureBindMode_NoClear:
+        {
+            renderPass = renderTexture->GetRenderPassNoClear();
+
+            break;
+        }
+        default:
+        {
+            ICARIAN_ASSERT(0);
+        }
+        }
+
         const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
         (
-            renderTexture->GetRenderPass(),
+            renderPass,
             renderTexture->GetFramebuffer(),
             vk::Rect2D({ 0, 0 }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y }),
             renderTexture->GetTotalTextureCount(),

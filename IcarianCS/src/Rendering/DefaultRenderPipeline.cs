@@ -20,6 +20,7 @@ namespace IcarianEngine.Rendering
         PixelShader        m_directionalLightShadowPixel;
         PixelShader        m_pointLightShadowPixel;
         PixelShader        m_spotLightShadowPixel;
+        PixelShader        m_blendPixel;
         PixelShader        m_postPixel;
 
         Material           m_ambientLightMaterial;
@@ -29,18 +30,27 @@ namespace IcarianEngine.Rendering
         Material           m_directionalLightShadowMaterial;
         Material           m_pointLightShadowMaterial;
         Material           m_spotLightShadowMaterial;
+        Material           m_blendMaterial;
         Material           m_postMaterial;
 
-        MultiRenderTexture m_drawRenderTexture;
-        RenderTexture      m_lightRenderTexture;
+        DepthRenderTexture m_depthRenderTexture;
 
-        TextureSampler     m_colorSampler;
+        MultiRenderTexture m_drawRenderTexture;
+
+        RenderTexture      m_lightRenderTexture;
+        RenderTexture      m_forwardRenderTexture;
+        RenderTexture      m_colorRenderTexture;
+
+        TextureSampler     m_defferedColorSampler;
         TextureSampler     m_normalSampler;
         TextureSampler     m_specularSampler;
         TextureSampler     m_emissionSampler;
         TextureSampler     m_depthSampler;
 
         TextureSampler     m_lightColorSampler;
+        TextureSampler     m_forwardSampler;
+
+        TextureSampler     m_colorSampler;
 
         uint               m_width;
         uint               m_height;
@@ -49,7 +59,7 @@ namespace IcarianEngine.Rendering
         float              m_lambda;
 
         /// <summary>
-        /// The lambda value for cascaded shadow maps.
+        /// The lambda value for cascaded shadow maps
         /// </summary>
         public float CascadeLambda
         {
@@ -66,7 +76,7 @@ namespace IcarianEngine.Rendering
         /// <summary>
         /// The shadow cutoff for <see cref="IcarianEngine.Rendering.Lighting.DirectionalLight" />
         /// </summary>
-        /// 0-1 range of the far plane to use for shadows.
+        /// 0-1 range of the far plane to use for shadows
         public float ShadowCutoff
         {
             get
@@ -79,44 +89,56 @@ namespace IcarianEngine.Rendering
             }
         }
 
-        void SetTextures(Material a_mat)
+        void SetLightTextures(Material a_mat)
         {
-            a_mat.SetTexture(0, m_colorSampler);
+            a_mat.SetTexture(0, m_defferedColorSampler);
             a_mat.SetTexture(1, m_normalSampler);
             a_mat.SetTexture(2, m_specularSampler);
             a_mat.SetTexture(3, m_emissionSampler);
             a_mat.SetTexture(4, m_depthSampler);
         }
 
+        void SetBlendTextures()
+        {
+            m_blendMaterial.SetTexture(0, m_lightColorSampler);
+            m_blendMaterial.SetTexture(1, m_forwardSampler);
+        }
+
         void SetPostTextures()
         {
-            m_postMaterial.SetTexture(0, m_lightColorSampler);
+            m_postMaterial.SetTexture(0, m_colorSampler);
             m_postMaterial.SetTexture(1, m_normalSampler);
             m_postMaterial.SetTexture(2, m_emissionSampler);
             m_postMaterial.SetTexture(3, m_depthSampler);
         }
 
-        /// <summary>
-        /// Initializes a new instance of the DefaultRenderPipeline
-        /// </summary>
         public DefaultRenderPipeline()
         {
             m_lambda = 0.5f;
             m_shadowCutoff = 0.5f;
 
-            m_width = 1920;
-            m_height = 1080;
+            m_width = 1280;
+            m_height = 720;
 
-            m_drawRenderTexture = new MultiRenderTexture(4, m_width, m_height, true, true);
+            m_depthRenderTexture = new DepthRenderTexture(m_width, m_height);
+
+            m_drawRenderTexture = new MultiRenderTexture(4, m_width, m_height, m_depthRenderTexture, true);
+
             m_lightRenderTexture = new RenderTexture(m_width, m_height, false, true);
+            m_forwardRenderTexture = new RenderTexture(m_width, m_height, m_depthRenderTexture, true);
 
-            m_colorSampler = TextureSampler.GenerateRenderTextureSampler(m_drawRenderTexture, 0);
+            m_colorRenderTexture = new RenderTexture(m_width, m_height, false, true);
+
+            m_defferedColorSampler = TextureSampler.GenerateRenderTextureSampler(m_drawRenderTexture, 0);
             m_normalSampler = TextureSampler.GenerateRenderTextureSampler(m_drawRenderTexture, 1);
             m_specularSampler = TextureSampler.GenerateRenderTextureSampler(m_drawRenderTexture, 2);
             m_emissionSampler = TextureSampler.GenerateRenderTextureSampler(m_drawRenderTexture, 3);
             m_depthSampler = TextureSampler.GenerateRenderTextureDepthSampler(m_drawRenderTexture);
 
             m_lightColorSampler = TextureSampler.GenerateRenderTextureSampler(m_lightRenderTexture);
+            m_forwardSampler = TextureSampler.GenerateRenderTextureSampler(m_forwardRenderTexture);
+
+            m_colorSampler = TextureSampler.GenerateRenderTextureSampler(m_colorRenderTexture);
 
             m_quadVert = VertexShader.LoadVertexShader("[INTERNAL]Quad");
 
@@ -127,6 +149,7 @@ namespace IcarianEngine.Rendering
             m_directionalLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]DirectionalLightShadow");
             m_pointLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]PointLightShadow");
             m_spotLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]SpotLightShadow");
+            m_blendPixel = PixelShader.LoadPixelShader("[INTERNAL]Blend");
             m_postPixel = PixelShader.LoadPixelShader("[INTERNAL]Post");
 
             MaterialBuilder ambientLightBuilder = new MaterialBuilder()
@@ -166,10 +189,10 @@ namespace IcarianEngine.Rendering
             m_pointLightMaterial = Material.CreateMaterial(pointLightBuilder);
             m_spotLightMaterial = Material.CreateMaterial(spotLightBuilder);
 
-            SetTextures(m_ambientLightMaterial);
-            SetTextures(m_directionalLightMaterial);
-            SetTextures(m_pointLightMaterial);
-            SetTextures(m_spotLightMaterial);
+            SetLightTextures(m_ambientLightMaterial);
+            SetLightTextures(m_directionalLightMaterial);
+            SetLightTextures(m_pointLightMaterial);
+            SetLightTextures(m_spotLightMaterial);
 
             MaterialBuilder directionalLightShadowMaterial = new MaterialBuilder()
             {
@@ -199,9 +222,21 @@ namespace IcarianEngine.Rendering
             m_pointLightShadowMaterial = Material.CreateMaterial(pointLightShadowMaterial);
             m_spotLightShadowMaterial = Material.CreateMaterial(spotLightShadowMaterial);
 
-            SetTextures(m_directionalLightShadowMaterial);
-            SetTextures(m_pointLightShadowMaterial);
-            SetTextures(m_spotLightShadowMaterial);
+            SetLightTextures(m_directionalLightShadowMaterial);
+            SetLightTextures(m_pointLightShadowMaterial);
+            SetLightTextures(m_spotLightShadowMaterial);
+
+            MaterialBuilder blendMaterial = new MaterialBuilder()
+            {
+                VertexShader = m_quadVert,
+                PixelShader = m_blendPixel,
+                PrimitiveMode = PrimitiveMode.TriangleStrip,
+                ColorBlendMode = MaterialBlendMode.One
+            };
+
+            m_blendMaterial = Material.CreateMaterial(blendMaterial);
+
+            SetBlendTextures();
 
             MaterialBuilder postMaterial = new MaterialBuilder()
             {
@@ -217,7 +252,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Called when the SwapChain is resized.
+        /// Called when the SwapChain is resized
         /// </summary>
         /// <param name="a_width">The new width of the SwapChain.</param>
         /// <param name="a_height">The new height of the SwapChain.</param>
@@ -231,17 +266,23 @@ namespace IcarianEngine.Rendering
             m_width = a_width;
             m_height = a_height;
 
+            m_depthRenderTexture.Resize(m_width, m_height);
+
             m_drawRenderTexture.Resize(m_width, m_height);
             m_lightRenderTexture.Resize(m_width, m_height);
+            m_forwardRenderTexture.Resize(m_width, m_height);
+            m_colorRenderTexture.Resize(m_width, m_height);
 
-            SetTextures(m_ambientLightMaterial);
-            SetTextures(m_directionalLightMaterial);
-            SetTextures(m_pointLightMaterial);
-            SetTextures(m_spotLightMaterial);
+            SetLightTextures(m_ambientLightMaterial);
+            SetLightTextures(m_directionalLightMaterial);
+            SetLightTextures(m_pointLightMaterial);
+            SetLightTextures(m_spotLightMaterial);
 
-            SetTextures(m_directionalLightShadowMaterial);
-            SetTextures(m_pointLightShadowMaterial);
-            SetTextures(m_spotLightShadowMaterial);
+            SetLightTextures(m_directionalLightShadowMaterial);
+            SetLightTextures(m_pointLightShadowMaterial);
+            SetLightTextures(m_spotLightShadowMaterial);
+
+            SetBlendTextures();
 
             SetPostTextures();
         }
@@ -334,7 +375,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Called before starting the shadow pass
+        /// Called before starting the shadow pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
         /// <param name="a_lightType">The type of <see cref="IcarianEngine.Rendering.Lighting.Light" /> the shadow pass is for.</param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow pass is for.</param>
@@ -343,7 +384,7 @@ namespace IcarianEngine.Rendering
             
         }
         /// <summary>
-        /// Called before rendering the shadow map for a <see cref="IcarianEngine.Rendering.Lighting.Light" />
+        /// Called before rendering the shadow map for a <see cref="IcarianEngine.Rendering.Lighting.Light" /> for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
         /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the shadow map is for</param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow map is for</param>
@@ -396,7 +437,7 @@ namespace IcarianEngine.Rendering
             };
         }
         /// <summary>
-        /// Called after rendering the shadow map for a <see cref="IcarianEngine.Rendering.Lighting.Light" />
+        /// Called after rendering the shadow map for a <see cref="IcarianEngine.Rendering.Lighting.Light" /> for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
         /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the shadow map is for</param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow map is for</param>
@@ -407,7 +448,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Called before the render pass
+        /// Called before the render pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the render pass is for</param>
         public override void PreRender(Camera a_camera)
@@ -415,7 +456,7 @@ namespace IcarianEngine.Rendering
             RenderCommand.BindRenderTexture(m_drawRenderTexture);
         }
         /// <summary>
-        /// Called after the render pass
+        /// Called after the render pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the render pass is for.</param>
         public override void PostRender(Camera a_camera)
@@ -424,7 +465,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Called before the light pass
+        /// Called before the light pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the light setup is for</param>
         public override void LightSetup(Camera a_camera)
@@ -433,7 +474,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Called before the shadow pass for a <see cref="IcarianEngine.Rendering.Lighting.Light" />
+        /// Called before the shadow pass for a <see cref="IcarianEngine.Rendering.Lighting.Light" /> for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
         /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the shadow pass is for</param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow pass is for</param>
@@ -504,7 +545,7 @@ namespace IcarianEngine.Rendering
             return pass;
         }
         /// <summary>
-        /// Called after the shadow pass for a <see cref="IcarianEngine.Rendering.Lighting.Light" />
+        /// Called after the shadow pass for a <see cref="IcarianEngine.Rendering.Lighting.Light" /> for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
         /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the shadow pass is for</param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow pass is for</param>
@@ -513,9 +554,9 @@ namespace IcarianEngine.Rendering
             
         }
         /// <summary>
-        /// Called before the light pass for a <see cref="IcarianEngine.Rendering.Camera" /> type
+        /// Called before the light pass for a <see cref="IcarianEngine.Rendering.Lighting.Light" /> type for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
-        /// <param name="a_lightType">The type of the <see cref="IcarianEngine.Rendering.Lighting.Light" /></param>
+        /// <param name="a_lightType">The type of <see cref="IcarianEngine.Rendering.Lighting.Light" /></param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the light pass is for</param>
         /// <returns>The <see cref="IcarianEngine.Rendering.Material" /> to use for the light pass</returns>
         public override Material PreLight(LightType a_lightType, Camera a_camera)
@@ -543,7 +584,7 @@ namespace IcarianEngine.Rendering
             return null;
         }
         /// <summary>
-        /// Called after the light pass for a <see cref="IcarianEngine.Rendering.Lighting.Light" /> type
+        /// Called after the light pass for a <see cref="IcarianEngine.Rendering.Lighting.Light" /> type for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
         /// <param name="a_lightType">The type of <see cref="IcarianEngine.Rendering.Lighting.Light" /></param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the light pass is for.</param>
@@ -553,7 +594,27 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Called for the post process pass
+        /// Called before the forward pass for a <see cref="IcarianEngine.Rendering.Camera" />
+        /// </summary>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the forward pass is for</param>
+        public override void PreForward(Camera a_camera)
+        {
+            RenderCommand.BindRenderTexture(m_forwardRenderTexture, RenderTextureBindMode.ClearColor);
+        }
+        /// <summary>
+        /// Called after the forward pass for a <see cref="IcarianEngine.Rendering.Camera" />
+        /// </summary>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the forward pass is for</param>
+        public override void PostForward(Camera a_camera)
+        {
+            RenderCommand.BindRenderTexture(m_colorRenderTexture);
+            RenderCommand.BindMaterial(m_blendMaterial);
+
+            RenderCommand.DrawMaterial();
+        }
+
+        /// <summary>
+        /// Called for the post process pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the post processing pass is for</param>
         public override void PostProcess(Camera a_camera)
@@ -571,12 +632,18 @@ namespace IcarianEngine.Rendering
         {
             m_drawRenderTexture.Dispose();
             m_lightRenderTexture.Dispose();
+            m_forwardRenderTexture.Dispose();
+            m_colorRenderTexture.Dispose();
 
-            m_colorSampler.Dispose();
+            m_depthRenderTexture.Dispose();
+
+            m_defferedColorSampler.Dispose();
             m_normalSampler.Dispose();
             m_specularSampler.Dispose();
             m_emissionSampler.Dispose();
             m_depthSampler.Dispose();
+            m_forwardSampler.Dispose();
+            m_colorSampler.Dispose();
 
             m_lightColorSampler.Dispose();
 
@@ -590,6 +657,7 @@ namespace IcarianEngine.Rendering
             m_postMaterial.Dispose();
 
             m_quadVert.Dispose();
+
             m_ambientLightPixel.Dispose();
             m_directionalLightPixel.Dispose();
             m_pointLightPixel.Dispose();
@@ -597,6 +665,7 @@ namespace IcarianEngine.Rendering
             m_directionalLightShadowPixel.Dispose();
             m_pointLightShadowPixel.Dispose();
             m_spotLightShadowPixel.Dispose();
+            m_blendPixel.Dispose();
             m_postPixel.Dispose();
         }
     }

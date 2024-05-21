@@ -3,24 +3,29 @@
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
+#include "Core/Bitfield.h"
+
+class VulkanGraphicsEngine;
 class VulkanRenderEngineBackend;
 
 class VulkanRenderTexture
 {
 private:
-    static constexpr int HDRFlag = 0;
-    static constexpr int DepthTextureFlag = 1;
+    static constexpr uint32_t HDRFlag = 0;
+    static constexpr uint32_t OwnsDepthTextureFlag = 1;
 
     VulkanRenderEngineBackend* m_engine;
+    VulkanGraphicsEngine*      m_gEngine;
 
     uint32_t                   m_textureCount;
                     
     uint32_t                   m_width;
     uint32_t                   m_height;
 
-    unsigned char              m_flags;
+    uint32_t                   m_depthHandle;
 
     vk::RenderPass             m_renderPass;
+    vk::RenderPass             m_renderPassColorClear;
     vk::RenderPass             m_renderPassNoClear;
     vk::Framebuffer            m_frameBuffer;
 
@@ -29,13 +34,17 @@ private:
     VmaAllocation*             m_textureAllocations;
 
     vk::ClearValue*            m_clearValues;
+
+    uint8_t                    m_flags;
     
+    void Setup();
     void Init(uint32_t a_width, uint32_t a_height);
 
 protected:
 
 public:
-    VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr);
+    VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr);
+    VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, uint32_t a_depthHandle, bool a_hdr);
     ~VulkanRenderTexture();
 
     inline uint32_t GetWidth() const
@@ -49,11 +58,11 @@ public:
 
     inline bool IsHDR() const
     {
-        return m_flags & 0b1 << HDRFlag;
+        return IISBITSET(m_flags, HDRFlag);
     }
     inline bool HasDepthTexture() const
     {
-        return m_flags & 0b1 << DepthTextureFlag;
+        return m_depthHandle != -1;
     }
 
     inline uint32_t GetTextureCount() const
@@ -62,12 +71,7 @@ public:
     }
     inline uint32_t GetTotalTextureCount() const
     {
-        if (HasDepthTexture())
-        {
-            return m_textureCount + 1;
-        }
-
-        return m_textureCount;
+        return m_textureCount + HasDepthTexture();
     }
 
     inline vk::ImageView GetImageView(uint32_t a_index) const
@@ -99,6 +103,10 @@ public:
     inline vk::RenderPass GetRenderPass() const
     {
         return m_renderPass;
+    }
+    inline vk::RenderPass GetRenderPassColorClear() const
+    {
+        return m_renderPassColorClear;
     }
     inline vk::RenderPass GetRenderPassNoClear() const
     {

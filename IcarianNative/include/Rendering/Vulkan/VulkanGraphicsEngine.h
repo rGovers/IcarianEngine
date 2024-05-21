@@ -4,7 +4,6 @@
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 #include <unordered_map>
-#include <vector>
 
 struct CanvasBuffer;
 
@@ -49,7 +48,7 @@ class VulkanGraphicsEngine
 private:
     friend class VulkanGraphicsEngineBindings;
 
-    static constexpr uint32_t DrawingPassCount = 6;
+    static constexpr uint32_t DrawingPassCount = 7;
 
     VulkanGraphicsEngineBindings*                 m_runtimeBindings;
     VulkanSwapchain*                              m_swapchain;
@@ -64,6 +63,8 @@ private:
     RuntimeFunction*                              m_postShadowLightFunc;
     RuntimeFunction*                              m_preLightFunc;
     RuntimeFunction*                              m_postLightFunc;
+    RuntimeFunction*                              m_preForwardFunc;
+    RuntimeFunction*                              m_postForwardFunc;
     RuntimeFunction*                              m_postProcessFunc;
 
     VulkanRenderEngineBackend*                    m_vulkanEngine;
@@ -122,14 +123,16 @@ private:
 
     vk::CommandBuffer StartCommandBuffer(uint32_t a_bufferIndex, uint32_t a_index) const;
 
+    void Draw(bool a_forward, const CameraBuffer& a_camBuffer, const Frustum& a_frustum, VulkanRenderCommand* a_renderCommand, uint32_t a_frameIndex);
     void DrawShadow(const glm::mat4& a_lvp, float a_split, uint32_t a_renderLayer, uint32_t a_renderTexture, bool a_cube, vk::CommandBuffer a_commandBuffer, uint32_t a_index);
 
-    vk::CommandBuffer DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
-    vk::CommandBuffer PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
-    vk::CommandBuffer SpotShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
-    vk::CommandBuffer DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
-    vk::CommandBuffer LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
-    vk::CommandBuffer PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
+    vk::CommandBuffer DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    vk::CommandBuffer PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    vk::CommandBuffer SpotShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    vk::CommandBuffer DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    vk::CommandBuffer LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    vk::CommandBuffer ForwardPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    vk::CommandBuffer PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
 
     void DrawUIElement(vk::CommandBuffer a_commandBuffer, uint32_t a_addr, const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize, uint32_t a_index);
     
@@ -185,6 +188,9 @@ public:
     uint32_t GenerateMipMappedTexture(uint32_t a_width, uint32_t a_height, uint32_t a_levels, const uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize);
     void DestroyTexture(uint32_t a_addr);
     VulkanTexture* GetTexture(uint32_t a_addr);
+
+    uint32_t GenerateDepthRenderTexture(uint32_t a_width, uint32_t a_height);
+    void DestroyDepthRenderTexture(uint32_t a_addr);
 
     VulkanRenderTexture* GetRenderTexture(uint32_t a_addr);
     VulkanDepthRenderTexture* GetDepthRenderTexture(uint32_t a_addr);

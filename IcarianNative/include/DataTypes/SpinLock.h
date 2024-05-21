@@ -20,7 +20,7 @@
 class SpinLock
 {
 private:
-    std::atomic<bool> m_state;
+    volatile std::atomic<bool> m_state;
     
 protected:
 
@@ -58,8 +58,8 @@ public:
 class SharedSpinLock
 {
 private:
-    std::atomic<uint32_t> m_read;
-    std::atomic<bool>     m_write;
+    volatile std::atomic<uint32_t> m_read;
+    volatile std::atomic<bool>     m_write;
 
 protected:
 
@@ -89,7 +89,7 @@ public:
             }
         }
 
-        while (m_read > 0) 
+        while (m_read.load(std::memory_order_seq_cst) > 0) 
         { 
             ISPINPAUSE; 
         }

@@ -67,6 +67,7 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     F(void, IcarianEngine.Rendering, TextureSampler, DestroySampler, { Instance->DestroyTextureSampler(a_addr); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GenerateRenderTexture, { return Instance->GenerateRenderTexture(a_count, a_width, a_height, (bool)a_depthTexture, (bool)a_hdr); }, uint32_t a_count, uint32_t a_width, uint32_t a_height, uint32_t a_depthTexture, uint32_t a_hdr) \
+    F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GenerateRenderTextureD, { return Instance->GenerateRenderTextureD(a_count, a_width, a_height, a_depthHandle, (bool)a_hdr); }, uint32_t a_count, uint32_t a_width, uint32_t a_height, uint32_t a_depthHandle, uint32_t a_hdr) \
     F(void, IcarianEngine.Rendering, RenderTextureCmd, DestroyRenderTexture, { return Instance->DestroyRenderTexture(a_addr); }, uint32_t a_addr) \
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, HasDepth, { return (uint32_t)Instance->RenderTextureHasDepth(a_addr); }, uint32_t a_addr) \
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GetWidth, { return Instance->GetRenderTextureWidth(a_addr); }, uint32_t a_addr) \
@@ -130,7 +131,7 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     \
     F(void, IcarianEngine.Rendering, RenderCommand, BindMaterial, { Instance->BindMaterial(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, RenderCommand, PushTexture, { Instance->PushTexture(a_slot, a_samplerAddr); }, uint32_t a_slot, uint32_t a_samplerAddr) \
-    F(void, IcarianEngine.Rendering, RenderCommand, BindRenderTexture, { Instance->BindRenderTexture(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, RenderCommand, BindRenderTexture, { Instance->BindRenderTexture(a_addr, (e_RenderTextureBindMode)a_bindMode); }, uint32_t a_addr, uint32_t a_bindMode) \
     F(void, IcarianEngine.Rendering, RenderCommand, RTRTBlit, { Instance->BlitRTRT(a_srcAddr, a_dstAddr); }, uint32_t a_srcAddr, uint32_t a_dstAddr) \
     F(void, IcarianEngine.Rendering, RenderCommand, DrawMaterial, { Instance->DrawMaterial(); }) \
     \
@@ -634,9 +635,13 @@ uint32_t VulkanGraphicsEngineBindings::GenerateMeshRenderBuffer(uint32_t a_mater
 }
 void VulkanGraphicsEngineBindings::DestroyMeshRenderBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_renderBuffers.Size(), "DestroyMeshRenderBuffer out of bounds");
+    IPUSHDELETIONFUNC(
+    {
+        IVERIFY(a_addr < m_graphicsEngine->m_renderBuffers.Size());
+        IVERIFY(m_graphicsEngine->m_renderBuffers.Exists(a_addr));
 
-    m_graphicsEngine->m_renderBuffers.Erase(a_addr);
+        m_graphicsEngine->m_renderBuffers.Erase(a_addr);
+    }, DeletionIndex_Render);
 }
 void VulkanGraphicsEngineBindings::GenerateRenderStack(uint32_t a_meshAddr) const
 {
@@ -664,32 +669,34 @@ void VulkanGraphicsEngineBindings::GenerateRenderStack(uint32_t a_meshAddr) cons
 }
 void VulkanGraphicsEngineBindings::DestroyRenderStack(uint32_t a_meshAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_meshAddr < m_graphicsEngine->m_renderBuffers.Size(), "DestroyRenderStack out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderBuffers.Exists(a_meshAddr), "DestroyRenderStack renderer is destroyed")
-
-    TLockArray<MeshRenderBuffer> aBuffer = m_graphicsEngine->m_renderBuffers.ToLockArray();
-    const MeshRenderBuffer& buffer = aBuffer[a_meshAddr];
-
-    TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
-
-    const uint32_t size = a.Size();
-    for (uint32_t i = 0; i < size; ++i)
+    IPUSHDELETIONFUNC(
     {
-        MaterialRenderStack* stack = a[i];
+        IVERIFY(a_meshAddr < m_graphicsEngine->m_renderBuffers.Size());
+        IVERIFY(m_graphicsEngine->m_renderBuffers.Exists(a_meshAddr));
 
-        if (stack->Remove(buffer)) 
+        const MeshRenderBuffer buffer = m_graphicsEngine->m_renderBuffers[a_meshAddr];
+
+        TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
+
+        const uint32_t size = a.Size();
+        for (uint32_t i = 0; i < size; ++i)
         {
-            if (stack->Empty()) 
+            MaterialRenderStack* stack = a[i];
+
+            if (stack->Remove(buffer)) 
             {
-                IDEFER(delete stack);
+                if (stack->Empty()) 
+                {
+                    IDEFER(delete stack);
 
-                TRACE("Destroying RenderStack");
-                m_graphicsEngine->m_renderStacks.UErase(i);
+                    TRACE("Destroying RenderStack");
+                    m_graphicsEngine->m_renderStacks.UErase(i);
+                }
+
+                return;
             }
-
-            return;
         }
-    }
+    }, DeletionIndex_Render);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateSkinnedMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr, uint32_t a_skeletonAddr) const
@@ -701,10 +708,14 @@ uint32_t VulkanGraphicsEngineBindings::GenerateSkinnedMeshRenderBuffer(uint32_t 
 }
 void VulkanGraphicsEngineBindings::DestroySkinnedMeshRenderBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_skinnedRenderBuffers.Size(), "DestroySkinnedMeshRenderBuffer out of bounds");
+    IPUSHDELETIONFUNC(
+    {
+        TRACE("Destroying Skinned Render Buffer");
+        IVERIFY(a_addr < m_graphicsEngine->m_skinnedRenderBuffers.Size());
+        IVERIFY(m_graphicsEngine->m_skinnedRenderBuffers.Exists(a_addr));
 
-    TRACE("Destroying Skinned Render Buffer");
-    m_graphicsEngine->m_skinnedRenderBuffers.Erase(a_addr);
+        m_graphicsEngine->m_skinnedRenderBuffers.Erase(a_addr);
+    }, DeletionIndex_Render);
 }
 void VulkanGraphicsEngineBindings::GenerateSkinnedRenderStack(uint32_t a_addr) const
 {
@@ -732,30 +743,34 @@ void VulkanGraphicsEngineBindings::GenerateSkinnedRenderStack(uint32_t a_addr) c
 }
 void VulkanGraphicsEngineBindings::DestroySkinnedRenderStack(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_skinnedRenderBuffers.Size(), "DestroySkinnedRenderStack out of bounds");
+    IPUSHDELETIONFUNC(
+    {   
+        TRACE("Removing Skinned RenderStack");
+        IVERIFY(a_addr < m_graphicsEngine->m_skinnedRenderBuffers.Size());
+        IVERIFY(m_graphicsEngine->m_skinnedRenderBuffers.Exists(a_addr));
 
-    TRACE("Removing Skinned RenderStack");
-    const SkinnedMeshRenderBuffer& buffer = m_graphicsEngine->m_skinnedRenderBuffers[a_addr];
+        const SkinnedMeshRenderBuffer buffer = m_graphicsEngine->m_skinnedRenderBuffers[a_addr];
 
-    TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
+        TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
 
-    const uint32_t size = a.Size();
-    for (uint32_t i = 0; i < size; ++i)
-    {
-        if (a[i]->Remove(buffer))
+        const uint32_t size = a.Size();
+        for (uint32_t i = 0; i < size; ++i)
         {
-            if (a[i]->Empty())
+            if (a[i]->Remove(buffer))
             {
-                const MaterialRenderStack* stack = a[i];
-                IDEFER(delete stack);
+                if (a[i]->Empty())
+                {
+                    const MaterialRenderStack* stack = a[i];
+                    IDEFER(delete stack);
 
-                TRACE("Destroying Skinned RenderStack");
-                m_graphicsEngine->m_renderStacks.UErase(i);
+                    TRACE("Destroying Skinned RenderStack");
+                    m_graphicsEngine->m_renderStacks.UErase(i);
+                }
+
+                return;
             }
-
-            return;
         }
-    }
+    }, DeletionIndex_Render);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateGraphicsParticle2D(uint32_t a_computeBufferAddr) const
@@ -808,27 +823,41 @@ void VulkanGraphicsEngineBindings::DestroyTextureSampler(uint32_t a_addr) const
 
 uint32_t VulkanGraphicsEngineBindings::GenerateRenderTexture(uint32_t a_count, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr) const
 {
-    ICARIAN_ASSERT_MSG(a_count > 0, "GenerateRenderTexture no textures");
-    ICARIAN_ASSERT_MSG(a_width > 0, "GenerateRenderTexture width 0");
-    ICARIAN_ASSERT_MSG(a_height > 0, "GenerateRenderTexture height 0");
+    IVERIFY(a_count > 0);
+    IVERIFY(a_width > 0);
+    IVERIFY(a_height > 0);
 
-    VulkanRenderTexture* texture = new VulkanRenderTexture(m_graphicsEngine->m_vulkanEngine, a_count, a_width, a_height, a_depthTexture, a_hdr);
+    VulkanRenderTexture* texture = new VulkanRenderTexture(m_graphicsEngine->m_vulkanEngine, m_graphicsEngine, a_count, a_width, a_height, a_depthTexture, a_hdr);
+
+    return m_graphicsEngine->m_renderTextures.PushVal(texture);
+}
+uint32_t VulkanGraphicsEngineBindings::GenerateRenderTextureD(uint32_t a_count, uint32_t a_width, uint32_t a_height, uint32_t a_depthHandle, bool a_hdr) const
+{
+    IVERIFY(a_count > 0);
+    IVERIFY(a_width > 0);
+    IVERIFY(a_height > 0);
+
+    IVERIFY(a_depthHandle < m_graphicsEngine->m_depthRenderTextures.Size());
+    IVERIFY(m_graphicsEngine->m_depthRenderTextures.Exists(a_depthHandle));
+
+    VulkanRenderTexture* texture = new VulkanRenderTexture(m_graphicsEngine->m_vulkanEngine, m_graphicsEngine, a_count, a_width, a_height, a_depthHandle, a_hdr);
 
     return m_graphicsEngine->m_renderTextures.PushVal(texture);
 }
 void VulkanGraphicsEngineBindings::DestroyRenderTexture(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_renderTextures.Size(), "DestroyRenderTexture out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderTextures.Exists(a_addr), "DestroyRenderTexture already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_renderTextures.Size());
+    IVERIFY(m_graphicsEngine->m_renderTextures.Exists(a_addr));
 
     const VulkanRenderTexture* tex = m_graphicsEngine->m_renderTextures[a_addr];
     IDEFER(delete tex);
+
     m_graphicsEngine->m_renderTextures.Erase(a_addr);
 }
 uint32_t VulkanGraphicsEngineBindings::GetRenderTextureTextureCount(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_renderTextures.Size(), "GetRenderTextureCount out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderTextures.Exists(a_addr), "GetRenderTextureCount already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_renderTextures.Size());
+    IVERIFY(m_graphicsEngine->m_renderTextures.Exists(a_addr));
 
     const VulkanRenderTexture* texture = m_graphicsEngine->m_renderTextures[a_addr];
 
@@ -836,8 +865,8 @@ uint32_t VulkanGraphicsEngineBindings::GetRenderTextureTextureCount(uint32_t a_a
 }
 bool VulkanGraphicsEngineBindings::RenderTextureHasDepth(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_renderTextures.Size(), "RenderTextureHasDepth out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderTextures.Exists(a_addr), "RenderTextureHasDepth already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_renderTextures.Size());
+    IVERIFY(m_graphicsEngine->m_renderTextures.Exists(a_addr));
 
     const VulkanRenderTexture* texture = m_graphicsEngine->m_renderTextures[a_addr];
 
@@ -845,8 +874,8 @@ bool VulkanGraphicsEngineBindings::RenderTextureHasDepth(uint32_t a_addr) const
 }
 uint32_t VulkanGraphicsEngineBindings::GetRenderTextureWidth(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_renderTextures.Size(), "GetRenderTextureWidth out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderTextures.Exists(a_addr), "GetRenderTextureWidth already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_renderTextures.Size());
+    IVERIFY(m_graphicsEngine->m_renderTextures.Exists(a_addr));
 
     const VulkanRenderTexture* texture = m_graphicsEngine->m_renderTextures[a_addr];
 
@@ -854,8 +883,8 @@ uint32_t VulkanGraphicsEngineBindings::GetRenderTextureWidth(uint32_t a_addr) co
 }
 uint32_t VulkanGraphicsEngineBindings::GetRenderTextureHeight(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_renderTextures.Size(), "GetRenderTextureHeight out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderTextures.Exists(a_addr), "GetRenderTextureHeight already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_renderTextures.Size());
+    IVERIFY(m_graphicsEngine->m_renderTextures.Exists(a_addr));
 
     const VulkanRenderTexture* texture = m_graphicsEngine->m_renderTextures[a_addr];
 
@@ -863,10 +892,10 @@ uint32_t VulkanGraphicsEngineBindings::GetRenderTextureHeight(uint32_t a_addr) c
 }
 void VulkanGraphicsEngineBindings::ResizeRenderTexture(uint32_t a_addr, uint32_t a_width, uint32_t a_height) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_renderTextures.Size(), "ResizeRenderTexture out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderTextures.Exists(a_addr), "ResizeRenderTexture already destroyed");
-    ICARIAN_ASSERT_MSG(a_width > 0, "ResizeRenderTexture width 0")
-    ICARIAN_ASSERT_MSG(a_height > 0, "ResizeRenderTexture height 0")
+    IVERIFY(a_addr < m_graphicsEngine->m_renderTextures.Size());
+    IVERIFY(m_graphicsEngine->m_renderTextures.Exists(a_addr));
+    IVERIFY(a_width > 0);
+    IVERIFY(a_height > 0);
 
     TLockArray<VulkanRenderTexture*> a = m_graphicsEngine->m_renderTextures.ToLockArray();
 
@@ -876,27 +905,16 @@ void VulkanGraphicsEngineBindings::ResizeRenderTexture(uint32_t a_addr, uint32_t
 
 uint32_t VulkanGraphicsEngineBindings::GenerateDepthRenderTexture(uint32_t a_width, uint32_t a_height) const
 {
-    ICARIAN_ASSERT_MSG(a_width > 0, "GenerateDepthRenderTexture width 0")
-    ICARIAN_ASSERT_MSG(a_height > 0, "GenerateDepthRenderTexture height 0")
-
-    VulkanDepthRenderTexture* texture = new VulkanDepthRenderTexture(m_graphicsEngine->m_vulkanEngine, a_width, a_height);
-
-    return m_graphicsEngine->m_depthRenderTextures.PushVal(texture);
+    return m_graphicsEngine->GenerateDepthRenderTexture(a_width, a_height);
 }
 void VulkanGraphicsEngineBindings::DestroyDepthRenderTexture(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_depthRenderTextures.Size(), "DestroyDepthRenderTexture out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_depthRenderTextures.Exists(a_addr), "DestroyDepthRenderTexture already destroyed");
-
-    const VulkanDepthRenderTexture* tex = m_graphicsEngine->m_depthRenderTextures[a_addr];
-    IDEFER(delete tex);
-
-    m_graphicsEngine->m_depthRenderTextures.Erase(a_addr);
+    return m_graphicsEngine->DestroyDepthRenderTexture(a_addr);
 }
 uint32_t VulkanGraphicsEngineBindings::GetDepthRenderTextureWidth(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_depthRenderTextures.Size(), "GetDepthRenderTextureWidth out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_depthRenderTextures.Exists(a_addr), "GetDepthRenderTextureWidth already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_depthRenderTextures.Size());
+    IVERIFY(m_graphicsEngine->m_depthRenderTextures.Exists(a_addr));
 
     const VulkanDepthRenderTexture* texture = m_graphicsEngine->m_depthRenderTextures[a_addr];
     
@@ -904,8 +922,8 @@ uint32_t VulkanGraphicsEngineBindings::GetDepthRenderTextureWidth(uint32_t a_add
 }
 uint32_t VulkanGraphicsEngineBindings::GetDepthRenderTextureHeight(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_depthRenderTextures.Size(), "GetDepthRenderTextureHeight out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_depthRenderTextures.Exists(a_addr), "GetDepthRenderTextureHeight already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_depthRenderTextures.Size());
+    IVERIFY(m_graphicsEngine->m_depthRenderTextures.Exists(a_addr));
 
     const VulkanDepthRenderTexture* texture = m_graphicsEngine->m_depthRenderTextures[a_addr];
 
@@ -913,10 +931,10 @@ uint32_t VulkanGraphicsEngineBindings::GetDepthRenderTextureHeight(uint32_t a_ad
 }
 void VulkanGraphicsEngineBindings::ResizeDepthRenderTexture(uint32_t a_addr, uint32_t a_width, uint32_t a_height) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_depthRenderTextures.Size(), "ResizeDepthRenderTexture out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_depthRenderTextures.Exists(a_addr), "ResizeDepthRenderTexture already destroyed");
-    ICARIAN_ASSERT_MSG(a_width > 0, "ResizeDepthRenderTexture width 0")
-    ICARIAN_ASSERT_MSG(a_height > 0, "ResizeDepthRenderTexture height 0")
+    IVERIFY(a_addr < m_graphicsEngine->m_depthRenderTextures.Size());
+    IVERIFY(m_graphicsEngine->m_depthRenderTextures.Exists(a_addr));
+    IVERIFY(a_width > 0);
+    IVERIFY(a_height > 0);
 
     TLockArray<VulkanDepthRenderTexture*> a = m_graphicsEngine->m_depthRenderTextures.ToLockArray();
 
@@ -1499,19 +1517,20 @@ void VulkanGraphicsEngineBindings::PushTexture(uint32_t a_slot, uint32_t a_sampl
 
     m_graphicsEngine->m_renderCommands->PushTexture(a_slot, m_graphicsEngine->m_textureSampler[a_samplerAddr]);
 }
-void VulkanGraphicsEngineBindings::BindRenderTexture(uint32_t a_addr) const
+void VulkanGraphicsEngineBindings::BindRenderTexture(uint32_t a_addr, e_RenderTextureBindMode a_bindMode) const
 {
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderCommands.Exists(), "BindRenderTexture RenderCommand does not exist");
+    IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
 
     VulkanRenderTexture* tex = nullptr;
     if (a_addr != -1)
     {
-        ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_renderTextures.Size(), "BindRenderTexture out of bounds");
+        IVERIFY(a_addr < m_graphicsEngine->m_renderTextures.Size());
+        IVERIFY(m_graphicsEngine->m_renderTextures.Exists(a_addr));
 
         tex = m_graphicsEngine->m_renderTextures[a_addr];
     }
 
-    m_graphicsEngine->m_renderCommands->BindRenderTexture(a_addr);
+    m_graphicsEngine->m_renderCommands->BindRenderTexture(a_addr, a_bindMode);
 }
 void VulkanGraphicsEngineBindings::BlitRTRT(uint32_t a_srcAddr, uint32_t a_dstAddr) const
 {

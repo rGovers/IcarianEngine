@@ -24,7 +24,7 @@ namespace IcarianEngine.Rendering
         /// </summary>
         public LightShadowSplit[] Splits;
         /// <summary>
-        /// The material to use for the shadow light
+        /// The <see cref="IcarianEngine.Rendering.Material" /> to use for the shadow light
         /// </summary>
         public Material Material;
     };
@@ -32,9 +32,10 @@ namespace IcarianEngine.Rendering
     /// <summary>
     /// Render Pipeline used to control render passes
     /// </summary>
-    /// Functions are called asynchonously from render pass thread(s) in <see cref="IcarianEngine.ThreadPool"/>.
-    /// Thread safety is not guaranteed.
-    /// Order of calls is not guaranteed.
+    /// Functions are called asynchonously from render pass thread(s) in <see cref="IcarianEngine.ThreadPool" />.
+    /// Refer to <see cref="IcarianEngine.Rendering.DefaultRenderPipeline" /> for the default implementation
+    /// @warning Thread safety is not guaranteed
+    /// @warning Order of calls is not guaranteed
     public abstract class RenderPipeline
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -45,7 +46,7 @@ namespace IcarianEngine.Rendering
         static RenderPipeline s_instance = null;
 
         /// <summary>
-        /// The current render pipeline
+        /// The current RenderPipeline
         /// </summary>
         public static RenderPipeline Instance
         {
@@ -58,84 +59,97 @@ namespace IcarianEngine.Rendering
         /// <summary>
         /// Called when the swap chain is resized
         /// </summary>
+        /// <param name="a_width">The new width of the swapchain</param>
+        /// <param name="a_height">The new height of the swapchain</param>
         public abstract void Resize(uint a_width, uint a_height);
 
         /// <summary>
-        /// Called before the shadow pass
+        /// Called before the shadow pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
-        /// <param name="a_lightType">The type of light the shadow pass is for</param>
-        /// <param name="a_camera">The camera the shadow pass is for</param>
+        /// <param name="a_lightType">The type of <see cref="IcarianEngine.Rendering.Lighting.Light" /> the shadow pass is for</param>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow pass is for</param>
         public abstract void ShadowSetup(LightType a_lightType, Camera a_camera);
         /// <summary>
-        /// Called before each split of the shadow pass for a light
+        /// Called before each split of the shadow pass for a <see cref="IcarianEngine.Rendering.Lighting.Light" /> for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
-        /// <param name="a_light">The light the shadow pass is for</param>
-        /// <param name="a_camera">The camera the shadow pass is for</param>
+        /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the shadow pass is for</param>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow pass is for</param>
         /// <param name="a_textureSlot">The texture slot to render the shadow map to</param>
         /// <returns>Infomation to use for the shadow pass</returns>
         public abstract LightShadowSplit PreShadow(Light a_light, Camera a_camera, uint a_textureSlot);
         /// <summary>
-        /// Called after each split of the shadow pass for a light
+        /// Called after each split of the shadow pass for a <see cref="IcarianEngine.Rendering.Lighting.Light" /> for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
-        /// <param name="a_light">The light the shadow pass is for</param>
-        /// <param name="a_camera">The camera the shadow pass is for</param>
+        /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the shadow pass is for</param>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow pass is for</param>
         /// <param name="a_textureSlot">The texture slot to render the shadow map to</param>
         public abstract void PostShadow(Light a_light, Camera a_camera, uint a_textureSlot);
 
         /// <summary>
-        /// Called before the main render pass
+        /// Called before the main render pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
-        /// <param name="a_camera">The camera the render pass is for</param>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the render pass is for</param>
         public abstract void PreRender(Camera a_camera);
         /// <summary>
-        /// Called after the main render pass
+        /// Called after the main render pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
-        /// <param name="a_camera">The camera the render pass is for</param>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the render pass is for</param>
         public abstract void PostRender(Camera a_camera);
 
         /// <summary>
-        /// Called before the light pass
+        /// Called before the light pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
-        /// <param name="a_camera">The camera the light pass is for</param>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the light pass is for</param>
         public abstract void LightSetup(Camera a_camera);
         /// <summary>
-        /// Called before shadow casting lights before the light pass
+        /// Called before shadow casting lights before the light pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
-        /// <param name="a_light">The shadowed light the pass is for</param>
-        /// <param name="a_camera">The camera the light pass is for</param>
+        /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the pass is for</param>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the light pass is for</param>
         /// <returns>Infomation to use for the light shadow pass</returns>
         public abstract LightShadowPass PreShadowLight(Light a_light, Camera a_camera);
         /// <summary>
-        /// Called after shadow casting lights before the light pass
+        /// Called after shadow casting lights before the light pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
-        /// <param name="a_light">The shadowed light the pass is for</param>
-        /// <param name="a_camera">The camera the light pass is for</param>
+        /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the pass is for</param>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the light pass is for</param>
         public abstract void PostShadowLight(Light a_light, Camera a_camera);
         /// <summary>
-        /// Called before the light pass for a light type
+        /// Called before the light pass for a light type for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
-        /// <param name="a_lightType">The type of light the pass is for</param>
-        /// <param name="a_camera">The camera the light pass is for</param>
+        /// <param name="a_lightType">The type of <see cref="IcarianEngine.Rendering.Lighting.Light" /> the pass is for</param>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the light pass is for</param>
         /// <returns>The material to use for the light pass</returns>
         public abstract Material PreLight(LightType a_lightType, Camera a_camera);
         /// <summary>
-        /// Called after the light pass for a light type
+        /// Called after the light pass for a light type for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
-        /// <param name="a_lightType">The type of light the pass is for</param>
-        /// <param name="a_camera">The camera the light pass is for</param>
+        /// <param name="a_lightType">The type of <see cref="IcarianEngine.Rendering.Lighting.Light" /> the pass is for</param>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the <see cref="IcarianEngine.Rendering.Lighting.Light" /> pass is for</param>
         public abstract void PostLight(LightType a_lightType, Camera a_camera);
 
         /// <summary>
-        /// Called for the post processing pass
+        /// Called before the forward pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
-        /// <param name="a_camera">The camera the post process pass is for</param>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the forward pass is for</param>
+        public abstract void PreForward(Camera a_camera);
+        /// <summary>
+        /// Called after the forward pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
+        /// </summary>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the forward pass if for</param>
+        public abstract void PostForward(Camera a_camera);
+
+        /// <summary>
+        /// Called for the post processing pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
+        /// </summary>
+        /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the post process pass is for</param>
         public abstract void PostProcess(Camera a_camera);
 
         /// <summary>
         /// Sets the current render pipeline
         /// </summary>
-        /// <param name="a_pipeline">The render pipeline to use</param>
-        /// Disposes of the old render pipeline if it is disposable
+        /// <param name="a_pipeline">The RenderPipeline to use</param>
+        /// Disposes of the old RenderPipeline if it is Disposable
         public static void SetPipeline(RenderPipeline a_pipeline)
         {
             RenderPipeline oldPipeline = s_instance;
@@ -432,6 +446,39 @@ namespace IcarianEngine.Rendering
             else
             {
                 Logger.IcarianError("RenderPipelien not initialized");
+            }
+        }
+
+        static void PreForwardS(uint a_camBuffer)
+        {
+            if (s_instance != null)
+            {
+                Camera cam = Camera.GetCamera(a_camBuffer);
+
+                if (cam != null)
+                {
+                    s_instance.PreForward(cam);
+                }
+            }
+            else
+            {
+                Logger.IcarianError("RenderPipeline not initialized");
+            }
+        }
+        static void PostForwardS(uint a_camBuffer)
+        {
+            if (s_instance != null)
+            {
+                Camera cam = Camera.GetCamera(a_camBuffer);
+
+                if (cam != null)
+                {
+                    s_instance.PostForward(cam);
+                }
+            }
+            else
+            {
+                Logger.IcarianError("RenderPipeline not initialized");
             }
         }
 

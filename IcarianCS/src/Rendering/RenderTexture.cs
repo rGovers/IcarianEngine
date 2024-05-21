@@ -6,6 +6,9 @@ namespace IcarianEngine.Rendering
     {
         uint m_bufferAddr = uint.MaxValue;
 
+        /// <summary>
+        /// Whether or not the RenderTexture has been disposed/finalised
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -22,6 +25,9 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// The width of the RenderTexture
+        /// </summary>
         public uint Width
         {
             get
@@ -29,7 +35,9 @@ namespace IcarianEngine.Rendering
                 return RenderTextureCmd.GetWidth(m_bufferAddr);
             }
         }
-
+        /// <summary>
+        /// The height of the RenderTexture
+        /// </summary>
         public uint Height
         {
             get
@@ -37,7 +45,9 @@ namespace IcarianEngine.Rendering
                 return RenderTextureCmd.GetHeight(m_bufferAddr);
             }
         }
-
+        /// <summary>
+        /// If the RenderTexture has a depth component
+        /// </summary>
         public bool HasDepth
         {
             get
@@ -64,28 +74,43 @@ namespace IcarianEngine.Rendering
 
             RenderTextureCmd.PushRenderTexture(m_bufferAddr, this);
         }
-
-        public override bool Equals(object a_obj)
+        public RenderTexture(uint a_width, uint a_height, DepthRenderTexture a_depthTexture, bool a_hdr = false)
         {
-            if (a_obj == null && m_bufferAddr == uint.MaxValue)
+            if (a_hdr)
             {
-                return true;
+                m_bufferAddr = RenderTextureCmd.GenerateRenderTextureD(1, a_width, a_height, a_depthTexture.BufferAddr, 1);
+            }
+            else
+            {
+                m_bufferAddr = RenderTextureCmd.GenerateRenderTextureD(1, a_width, a_height, a_depthTexture.BufferAddr, 0);
             }
 
-            return base.Equals(a_obj);
-        }
-        public override int GetHashCode()
-        {
-            return base.GetHashCode();
+            RenderTextureCmd.PushRenderTexture(m_bufferAddr, this);
         }
 
+        /// <summary>
+        /// Resizes the RenderTexture
+        /// </summary>
+        /// <param name="a_width">The new width of the RenderTexture</param>
+        /// <param name="a_height">The new height of the RenderTexture</param>
+        public void Resize(uint a_width, uint a_height)
+        {
+            RenderTextureCmd.Resize(m_bufferAddr, a_width, a_height);
+        }
+
+        /// <summary>
+        /// Disposes of the RenderTexture
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the RenderTexture is being Disposed/Finalised
+        /// </summary>
+        /// <param name="a_disposing">Whether this has called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_bufferAddr != uint.MaxValue)
@@ -108,12 +133,6 @@ namespace IcarianEngine.Rendering
                 Logger.IcarianError("Multiple RenderTexture Dispose");
             }
         }
-
-        public void Resize(uint a_width, uint a_height)
-        {
-            RenderTextureCmd.Resize(m_bufferAddr, a_width, a_height);
-        }
-
         ~RenderTexture()
         {
             Dispose(false);

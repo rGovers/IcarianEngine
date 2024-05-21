@@ -3,8 +3,27 @@ using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Rendering
 {
-    public static class RenderTextureCmd
+    /// @cond INTERNAL
+
+    internal static class RenderTextureCmd
     {
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        internal static extern uint GenerateRenderTexture(uint a_count, uint a_width, uint a_height, uint a_depth, uint a_hdr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        internal static extern uint GenerateRenderTextureD(uint a_count, uint a_width, uint a_height, uint a_depthHandle, uint a_hdr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        internal static extern void DestroyRenderTexture(uint a_addr);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        internal static extern uint HasDepth(uint a_addr);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        internal static extern uint GetWidth(uint a_addr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        internal static extern uint GetHeight(uint a_addr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        internal static extern void Resize(uint a_addr, uint a_width, uint a_height);
+
         static Dictionary<uint, IRenderTexture> s_renderTextureTable = new Dictionary<uint, IRenderTexture>();
         static Dictionary<uint, IRenderTexture> s_depthRenderTextureTable = new Dictionary<uint, IRenderTexture>();
 
@@ -52,20 +71,8 @@ namespace IcarianEngine.Rendering
 
             return uint.MaxValue;
         }
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        internal static extern uint GenerateRenderTexture(uint a_count, uint a_width, uint a_height, uint a_depth, uint a_hdr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        internal static extern void DestroyRenderTexture(uint a_addr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        internal static extern uint HasDepth(uint a_addr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        internal static extern uint GetWidth(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        internal static extern uint GetHeight(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        internal static extern void Resize(uint a_addr, uint a_width, uint a_height);
     }
+
+
+    /// @endcond
 }

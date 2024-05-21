@@ -1,11 +1,12 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+#include "Rendering/Vulkan/IcarianVulkanHeader.h"
+
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include "Rendering/Vulkan/IcarianVulkanHeader.h"
-
+#include "EngineRenderCommandInteropStructures.h"
 #include "EngineTextureSamplerInteropStructures.h"
 
 class VulkanGraphicsEngine;
@@ -60,15 +61,21 @@ public:
     }
     VulkanPipeline* GetPipeline() const;
 
+    inline vk::CommandBuffer GetCommandBuffer() const
+    {
+        return m_commandBuffer;
+    }
+
     VulkanPipeline* BindMaterial(uint32_t a_materialAddr);
 
     void PushTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler) const;
     
-    void BindRenderTexture(uint32_t a_renderTexAddr);
+    void BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTextureBindMode a_bindMode);
     
     void Blit(const VulkanRenderTexture* a_src, const VulkanRenderTexture* a_dst);
 
     void DrawMaterial();
     void DrawModel(const glm::mat4& a_transform, uint32_t a_addr);
 };
+
 #endif

@@ -27,6 +27,10 @@ const char* GetPixelShaderString(const std::string_view& a_str)
     {
         return AmbientLightPixelShader;
     }
+    else if (a_str == iStr + "Blend")
+    {
+        return BlendPixelShader;
+    }
     else if (a_str == iStr + "DirectionalLight")
     {
         return DirectionalLightPixelShader;

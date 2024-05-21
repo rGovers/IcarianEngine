@@ -19,7 +19,8 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(MaterialBlendMode) : IOP_UINT8
 {
     IOP_ENUM_VALUE(MaterialBlendMode, None) = 0,
     IOP_ENUM_VALUE(MaterialBlendMode, One) = 1,
-    IOP_ENUM_VALUE(MaterialBlendMode, Alpha) = 2
+    IOP_ENUM_VALUE(MaterialBlendMode, Alpha) = 2,
+    IOP_ENUM_VALUE(MaterialBlendMode, AlphaBlend) = 3
 };
 
 /// <summary>
@@ -53,7 +54,6 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
     IOP_ENUM_VALUE(ShaderBufferType, SSParticleBuffer) = 22,
     IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 23
 };
-
 
 /// <summary>
 /// Culling mode enumeration.

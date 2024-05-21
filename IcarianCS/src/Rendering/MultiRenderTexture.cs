@@ -5,8 +5,14 @@ namespace IcarianEngine.Rendering
 {
     public class MultiRenderTexture : IRenderTexture
     {
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GetTextureCount(uint a_addr);
+
         uint m_bufferAddr = uint.MaxValue;
 
+        /// <summary>
+        /// Whether or not the MultiRenderTexture had been disposed/finalised
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -23,6 +29,9 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// The width of the MultiRenderTexture
+        /// </summary>
         public uint Width
         {
             get
@@ -30,7 +39,9 @@ namespace IcarianEngine.Rendering
                 return RenderTextureCmd.GetWidth(m_bufferAddr);
             }
         }
-
+        /// <summary>
+        /// The height of the MultiRenderTexture
+        /// </summary>
         public uint Height
         {
             get
@@ -39,6 +50,9 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// Gets the texture count not including depth
+        /// </summary>
         public uint TextureCount
         {
             get
@@ -47,6 +61,9 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// If the MutliRenderTexture has a depth component
+        /// </summary>
         public bool HasDepth
         {
             get
@@ -54,9 +71,6 @@ namespace IcarianEngine.Rendering
                 return RenderTextureCmd.HasDepth(m_bufferAddr) != 0;
             }
         }
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GetTextureCount(uint a_addr);
 
         public MultiRenderTexture(uint a_count, uint a_width, uint a_height, bool a_depth = false, bool a_hdr = false)
         {
@@ -76,13 +90,43 @@ namespace IcarianEngine.Rendering
 
             RenderTextureCmd.PushRenderTexture(m_bufferAddr, this);
         }
+        public MultiRenderTexture(uint a_count, uint a_width, uint a_height, DepthRenderTexture a_depthTexture, bool a_hdr = false)
+        {
+            if (a_hdr)
+            {
+                m_bufferAddr = RenderTextureCmd.GenerateRenderTextureD(a_count, a_width, a_height, a_depthTexture.BufferAddr, 1);
+            }
+            else
+            {
+                m_bufferAddr = RenderTextureCmd.GenerateRenderTextureD(a_count, a_width, a_height, a_depthTexture.BufferAddr, 0);
+            }
 
+            RenderTextureCmd.PushRenderTexture(m_bufferAddr, this);
+        }
+
+        /// <summary>
+        /// Resizes the MultiRenderTexture
+        /// </summary>
+        /// <param name="a_width">The new width of the RenderTexture</param>
+        /// <param name="a_height">The new height of the RenderTexture</param>
+        public void Resize(uint a_width, uint a_height)
+        {
+            RenderTextureCmd.Resize(m_bufferAddr, a_width, a_height);
+        }
+
+        /// <summary>
+        /// Disposes of the MultiRenderTexture
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
+        /// <summary>
+        /// Called when the MultiRenderTexture is being Disposed/Finalised
+        /// </summary>
+        /// <param name="a_disposing">Whether this has called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_bufferAddr != uint.MaxValue)
@@ -105,15 +149,9 @@ namespace IcarianEngine.Rendering
                 Logger.IcarianError("Multiple MultiRenderTexture Dispose");
             }
         }
-
         ~MultiRenderTexture()
         {
             Dispose(false);
-        }
-
-        public void Resize(uint a_width, uint a_height)
-        {
-            RenderTextureCmd.Resize(m_bufferAddr, a_width, a_height);
         }
     }
 }

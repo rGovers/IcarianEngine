@@ -8,12 +8,12 @@ class VulkanPixelShader;
 class VulkanVertexShader;
 
 #include "Rendering/CameraBuffer.h"
-#include "Rendering/TextureData.h"
 
 #include "EngineAmbientLightInteropStructures.h"
 #include "EngineDirectionalLightInteropStructures.h"
 #include "EngineMaterialInteropStructures.h"
 #include "EnginePointLightInteropStructures.h"
+#include "EngineRenderCommandInteropStructures.h"
 #include "EngineSpotLightInteropStructures.h"
 #include "EngineTextureSamplerInteropStructures.h"
 
@@ -77,6 +77,7 @@ public:
     void DestroyTextureSampler(uint32_t a_addr) const;
 
     uint32_t GenerateRenderTexture(uint32_t a_count, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr) const;
+    uint32_t GenerateRenderTextureD(uint32_t a_count, uint32_t a_width, uint32_t a_height, uint32_t a_depthHandle, bool a_hdr) const;
     void DestroyRenderTexture(uint32_t a_addr) const;
     uint32_t GetRenderTextureTextureCount(uint32_t a_addr) const;
     bool RenderTextureHasDepth(uint32_t a_addr) const;
@@ -134,7 +135,7 @@ public:
 
     void BindMaterial(uint32_t a_addr) const;
     void PushTexture(uint32_t a_slot, uint32_t a_samplerAddr) const;
-    void BindRenderTexture(uint32_t a_addr) const;
+    void BindRenderTexture(uint32_t a_addr, e_RenderTextureBindMode a_bindMode) const;
     void BlitRTRT(uint32_t a_srcAddr, uint32_t a_dstAddr) const;
     void DrawMaterial();
     void DrawModel(const glm::mat4& a_transform, uint32_t a_addr);

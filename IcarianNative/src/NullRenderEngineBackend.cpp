@@ -52,6 +52,7 @@
     F(void, IcarianEngine.Rendering, TextureSampler, DestroySampler, { }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GenerateRenderTexture, { return 0; }, uint32_t a_count, uint32_t a_width, uint32_t a_height, uint32_t a_depthTexture, uint32_t a_hdr) \
+    F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GenerateRenderTextureD, { return 0; }, uint32_t a_count, uint32_t a_width, uint32_t a_height, uint32_t a_depthHandle, uint32_t a_hdr) \
     F(void, IcarianEngine.Rendering, RenderTextureCmd, DestroyRenderTexture, { }, uint32_t a_addr) \
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, HasDepth, { return 0; }, uint32_t a_addr) \
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GetWidth, { return 0; }, uint32_t a_addr) \
@@ -114,7 +115,7 @@
     \
     F(void, IcarianEngine.Rendering, RenderCommand, BindMaterial, { }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, RenderCommand, PushTexture, { }, uint32_t a_slot, uint32_t a_samplerAddr) \
-    F(void, IcarianEngine.Rendering, RenderCommand, BindRenderTexture, { }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, RenderCommand, BindRenderTexture, { }, uint32_t a_addr, uint32_t a_bindMode) \
     F(void, IcarianEngine.Rendering, RenderCommand, RTRTBlit, { }, uint32_t a_srcAddr, uint32_t a_dstAddr) \
     F(void, IcarianEngine.Rendering, RenderCommand, DrawMaterial, { }) \
     F(void, IcarianEngine.Rendering, RenderCommand, DrawModel, { }, MonoArray* a_transform, uint32_t a_addr) \

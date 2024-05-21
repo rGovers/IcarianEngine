@@ -13,6 +13,7 @@ extern "C" {
 const static char* IcarianNativeShaderBasePaths[] =
 {
     "shaders/AmbientLight.fpix",
+    "shaders/Blend.fpix",
     "shaders/DirectionalLight.fpix",
     "shaders/PointLight.fpix",
     "shaders/Post.fpix",
