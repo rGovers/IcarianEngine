@@ -1,5 +1,6 @@
 using IcarianEngine.Maths;
 using IcarianEngine.Rendering.Lighting;
+using IcarianEngine.Rendering.PostEffects;
 using System;
 using System.Collections.Generic;
 
@@ -11,6 +12,7 @@ namespace IcarianEngine.Rendering
         /// The number of cascades to use for <see cref="IcarianEngine.Rendering.Lighting.DirectionalLight" /> shadows
         /// </summary>
         public const uint CascadeCount = 4;
+        public const uint PostTextureStackSize = 2;
 
         VertexShader       m_quadVert;
         PixelShader        m_ambientLightPixel;
@@ -21,7 +23,6 @@ namespace IcarianEngine.Rendering
         PixelShader        m_pointLightShadowPixel;
         PixelShader        m_spotLightShadowPixel;
         PixelShader        m_blendPixel;
-        PixelShader        m_postPixel;
 
         Material           m_ambientLightMaterial;
         Material           m_directionalLightMaterial;
@@ -31,7 +32,6 @@ namespace IcarianEngine.Rendering
         Material           m_pointLightShadowMaterial;
         Material           m_spotLightShadowMaterial;
         Material           m_blendMaterial;
-        Material           m_postMaterial;
 
         DepthRenderTexture m_depthRenderTexture;
 
@@ -40,6 +40,11 @@ namespace IcarianEngine.Rendering
         RenderTexture      m_lightRenderTexture;
         RenderTexture      m_forwardRenderTexture;
         RenderTexture      m_colorRenderTexture;
+
+        TextureSampler[]   m_postTextureSamplers;
+        RenderTexture[]    m_postRenderTextures;
+
+        List<PostEffect>   m_postEffects;
 
         TextureSampler     m_defferedColorSampler;
         TextureSampler     m_normalSampler;
@@ -89,6 +94,17 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// Gets a list of <see cref="IcarianEngine.Rendering.PostEffect" /> for the RenderPipeline
+        /// </summary>
+        public IEnumerable<PostEffect> PostEffects
+        {
+            get
+            {
+                return m_postEffects;
+            }
+        }
+
         void SetLightTextures(Material a_mat)
         {
             a_mat.SetTexture(0, m_defferedColorSampler);
@@ -104,16 +120,10 @@ namespace IcarianEngine.Rendering
             m_blendMaterial.SetTexture(1, m_forwardSampler);
         }
 
-        void SetPostTextures()
+        public DefaultRenderPipeline(IEnumerable<PostEffect> a_effects)
         {
-            m_postMaterial.SetTexture(0, m_colorSampler);
-            m_postMaterial.SetTexture(1, m_normalSampler);
-            m_postMaterial.SetTexture(2, m_emissionSampler);
-            m_postMaterial.SetTexture(3, m_depthSampler);
-        }
+            m_postEffects = new List<PostEffect>();
 
-        public DefaultRenderPipeline()
-        {
             m_lambda = 0.5f;
             m_shadowCutoff = 0.5f;
 
@@ -140,6 +150,14 @@ namespace IcarianEngine.Rendering
 
             m_colorSampler = TextureSampler.GenerateRenderTextureSampler(m_colorRenderTexture);
 
+            m_postRenderTextures = new RenderTexture[PostTextureStackSize];
+            m_postTextureSamplers = new TextureSampler[PostTextureStackSize];
+            for (uint i = 0; i < PostTextureStackSize; ++i)
+            {
+                m_postRenderTextures[i] = new RenderTexture(m_width, m_height, false, true);
+                m_postTextureSamplers[i] = TextureSampler.GenerateRenderTextureSampler(m_postRenderTextures[i]);
+            }
+
             m_quadVert = VertexShader.LoadVertexShader("[INTERNAL]Quad");
 
             m_ambientLightPixel = PixelShader.LoadPixelShader("[INTERNAL]AmbientLight");
@@ -150,7 +168,6 @@ namespace IcarianEngine.Rendering
             m_pointLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]PointLightShadow");
             m_spotLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]SpotLightShadow");
             m_blendPixel = PixelShader.LoadPixelShader("[INTERNAL]Blend");
-            m_postPixel = PixelShader.LoadPixelShader("[INTERNAL]Post");
 
             MaterialBuilder ambientLightBuilder = new MaterialBuilder()
             {
@@ -231,24 +248,36 @@ namespace IcarianEngine.Rendering
                 VertexShader = m_quadVert,
                 PixelShader = m_blendPixel,
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
-                ColorBlendMode = MaterialBlendMode.One
+                ColorBlendMode = MaterialBlendMode.None
             };
 
             m_blendMaterial = Material.CreateMaterial(blendMaterial);
 
             SetBlendTextures();
 
-            MaterialBuilder postMaterial = new MaterialBuilder()
+            m_postEffects.AddRange(a_effects);
+        }
+
+        /// <summary>
+        /// Adds a <see cref="IcarianEngine.Rendering.PostEffect" /> to the post processing stack
+        /// </summary>
+        /// <param name="a_postEffect"><see cref="IcarianEngine.Rendering.PostEffect" /> to add</param>
+        public void AddPostEffect(PostEffect a_postEffect)
+        {
+            if (m_postEffects.Contains(a_postEffect))
             {
-                VertexShader = m_quadVert,
-                PixelShader = m_postPixel,
-                PrimitiveMode = PrimitiveMode.TriangleStrip,
-                ColorBlendMode = MaterialBlendMode.One
-            };
+                return;
+            }
 
-            m_postMaterial = Material.CreateMaterial(postMaterial);
-
-            SetPostTextures();
+            m_postEffects.Add(a_postEffect);
+        }
+        /// <summary>
+        /// Removes a <see cref="IcarianEngine.Rendering.PostEffect" /> from the post processing stack
+        /// </summary>
+        /// <param name="a_postEffect"><see cref="IcarianEngine.Rendering.PostEffect" /> to remove</param>
+        public void RemovePostEffect(PostEffect a_postEffect)
+        {
+            m_postEffects.Remove(a_postEffect);
         }
 
         /// <summary>
@@ -273,6 +302,11 @@ namespace IcarianEngine.Rendering
             m_forwardRenderTexture.Resize(m_width, m_height);
             m_colorRenderTexture.Resize(m_width, m_height);
 
+            for (uint i = 0; i < PostTextureStackSize; ++i)
+            {
+                m_postRenderTextures[i].Resize(m_width, m_height);
+            }
+
             SetLightTextures(m_ambientLightMaterial);
             SetLightTextures(m_directionalLightMaterial);
             SetLightTextures(m_pointLightMaterial);
@@ -284,7 +318,10 @@ namespace IcarianEngine.Rendering
 
             SetBlendTextures();
 
-            SetPostTextures();
+            foreach (PostEffect effect in m_postEffects)
+            {
+                effect.Resize(m_width, m_height);
+            }
         }
 
         float GetCascade(uint a_index, uint a_count, float a_near, float a_far)
@@ -619,10 +656,29 @@ namespace IcarianEngine.Rendering
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the post processing pass is for</param>
         public override void PostProcess(Camera a_camera)
         {
-            RenderCommand.BindRenderTexture(a_camera.RenderTexture);
-            RenderCommand.BindMaterial(m_postMaterial);
+            TextureSampler sampler = m_colorSampler;
 
-            RenderCommand.DrawMaterial();
+            uint textureIndex = 0;
+
+            int size = m_postEffects.Count;
+            int end = size - 1;
+            for (int i = 0; i < size; ++i)
+            {
+                if (m_postEffects[i].ShouldRun)
+                {
+                    IRenderTexture renderTexture = m_postRenderTextures[textureIndex];
+                    if (i >= end)
+                    {
+                        renderTexture = a_camera.RenderTexture;
+                    }
+
+                    m_postEffects[i].Run(renderTexture, new TextureSampler[] { sampler, m_normalSampler, m_emissionSampler, m_depthSampler });
+
+                    sampler = m_postTextureSamplers[textureIndex];
+
+                    textureIndex = (textureIndex + 1) % 2;
+                }
+            }
         }
 
         /// <summary>
@@ -636,6 +692,27 @@ namespace IcarianEngine.Rendering
             m_colorRenderTexture.Dispose();
 
             m_depthRenderTexture.Dispose();
+
+            for (uint i = 0; i < PostTextureStackSize; ++i)
+            {
+                m_postRenderTextures[i].Dispose();
+                m_postTextureSamplers[i].Dispose();
+            }
+
+            foreach (PostEffect effect in m_postEffects)
+            {
+                if (effect is IDestroy dest)
+                {
+                    if (!dest.IsDisposed)
+                    {
+                        dest.Dispose();
+                    }
+                }
+                else if (effect is IDisposable disp)
+                {
+                    disp.Dispose();
+                }
+            }
 
             m_defferedColorSampler.Dispose();
             m_normalSampler.Dispose();
@@ -654,7 +731,7 @@ namespace IcarianEngine.Rendering
             m_directionalLightShadowMaterial.Dispose();
             m_pointLightShadowMaterial.Dispose();
             m_spotLightShadowMaterial.Dispose();
-            m_postMaterial.Dispose();
+            m_blendMaterial.Dispose();
 
             m_quadVert.Dispose();
 
@@ -666,7 +743,6 @@ namespace IcarianEngine.Rendering
             m_pointLightShadowPixel.Dispose();
             m_spotLightShadowPixel.Dispose();
             m_blendPixel.Dispose();
-            m_postPixel.Dispose();
         }
     }
 }

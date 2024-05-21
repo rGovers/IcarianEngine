@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
+#include "InteropTypes.h"
+
 // Quick 20min adventure I thought as the legwork was done in C++
 // 1 week of debugging later...
 // I now know more about UNIX signals and harware interrupts than I ever wanted to know
@@ -21,6 +23,9 @@ using System.Runtime.CompilerServices;
 
 namespace IcarianEngine
 {
+    /// <summary>
+    /// JobPriority enumeration
+    /// </summary>
     public enum JobPriority : uint
     {
         High = 4,
@@ -30,6 +35,9 @@ namespace IcarianEngine
 
     public interface IThreadJob
     {
+        /// <summary>
+        /// Called when the job is being executed
+        /// </summary>
         void Execute();
     }
 
@@ -60,13 +68,19 @@ namespace IcarianEngine
         static List<IThreadJob> s_jobs;
         static NativeLock s_lock;
 
+        /// <summary>
+        /// The number of threads in the ThreadPool
+        /// </summary>
         public static uint ThreadCount
         {
             get
             {
                 return GetThreadCount();
             }
-        }        
+        }
+        /// <summary>
+        /// The number of queued jobs in the ThreadPool
+        /// </summary>
         public static uint QueuedJobCount
         {
             get
@@ -86,6 +100,9 @@ namespace IcarianEngine
             s_lock.Dispose();
         }
 
+        /// <summary>
+        /// Delegate for ThreadPool jobs
+        /// </summary>
         public delegate void ThreadJobCallback();
 
         static void Dispatch(uint a_addr)
@@ -142,15 +159,32 @@ namespace IcarianEngine
                 s_lock.WriteUnlock();
             }
 
+            // Warnings where pissing me off as it is harmless 
+            // The warning itself is harmful as if the block above was wrapped in a conditional block can throw a compiler error
+            // Need to use macro to pass the macro through to the C# preprocessor as currently in the C preprocessor
+IOP_CSMACRO(pragma warning disable CS0162)
+
             return 0;
+
+IOP_CSMACRO(pragma warning restore CS0162)
         }
 
+        /// <summary>
+        /// Pushes a job to the ThreadPool
+        /// </summary>
+        /// <param name="a_job">The job to execute</param>
+        /// <param name="a_priority">The priority in which to execute the job</param>
         public static void PushJob(IThreadJob a_job, JobPriority a_priority = JobPriority.Medium)
         {
             uint index = PushJobList(a_job);
 
             AddJob(index, (uint)a_priority);
         }
+        /// <summary>
+        /// Pushes a job to the ThreadPool
+        /// </summary>
+        /// <param name="a_callback">Job to execute as a delegate</param>
+        /// <param name="a_priority">The priority in which to execute the job</param>
         public static void PushJob(ThreadJobCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             PushJob(new ThreadJobFunc(a_callback), a_priority);

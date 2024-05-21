@@ -55,9 +55,13 @@ const char* GetPixelShaderString(const std::string_view& a_str)
     {
         return ShadowSpotLightPixelShader;
     }
-    else if (a_str == iStr + "Post")
+    else if (a_str == iStr + "PostEmission")
     {
-        return PostPixelShader;
+        return PostEmissionPixelShader;
+    }
+    else if (a_str == iStr + "PostToneMap")
+    {
+        return PostToneMapPixelShader;
     }
     else if (a_str == iStr + "UIImage")
     {

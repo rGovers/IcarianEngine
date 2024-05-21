@@ -1,6 +1,7 @@
 using IcarianEngine.Definitions;
 using IcarianEngine.Mod;
 using IcarianEngine.Rendering;
+using IcarianEngine.Rendering.PostEffects;
 
 namespace IcarianEngine
 {
@@ -26,7 +27,11 @@ namespace IcarianEngine
                 }
             }
 
-            RenderPipeline.SetPipeline(new DefaultRenderPipeline());
+            RenderPipeline.SetPipeline(new DefaultRenderPipeline(new PostEffect[] 
+            { 
+                new EmissionPostEffect(),
+                new ToneMapPostEffect()
+            }));
 
             AssetLibrary.Init();
             DefLibrary.Init();

@@ -1,0 +1,18 @@
+#version 450
+
+layout(location = 0) in vec2 vUV;
+
+#!pushtexture(0, colorSampler)
+
+layout(location = 0) out vec4 fragColor;
+
+const float exposure = 1.5;
+
+void main()
+{
+    vec4 color = texture(colorSampler, vUV);
+
+    vec3 map = vec3(1.0) - exp(-color.xyz * exposure);
+
+    fragColor = vec4(map.xyz, 1.0);
+}

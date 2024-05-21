@@ -572,7 +572,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
 {
     vk::CommandBuffer commandBuffer = a_renderCommand->GetCommandBuffer();
 
-    const Array<MaterialRenderStack*> stacks = m_renderStacks.ToArray();
+    const TReadLockArray<MaterialRenderStack*> stacks = m_renderStacks.ToReadLockArray();
     const Array<RenderProgram> programs = m_shaderPrograms.ToArray();
 
     for (const MaterialRenderStack* renderStack : stacks)
@@ -2243,6 +2243,8 @@ vk::CommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint32_
     Profiler::Start("Forward Pass");
     IDEFER(Profiler::Stop());
 
+    Profiler::StartFrame("Update");
+
     const CameraBuffer camBuffer = m_cameraBuffers[a_camIndex];
     
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
@@ -2295,6 +2297,8 @@ vk::CommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint32_
     }
 
     renderCommand.Flush();
+
+    Profiler::StopFrame();
 
     return commandBuffer;
 }

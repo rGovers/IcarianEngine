@@ -71,16 +71,18 @@ private:
     VulkanRenderEngineBackend* m_engine;
 
     vk::RenderPass             m_renderPass;
+    vk::RenderPass             m_renderPassColorClear;
     vk::RenderPass             m_renderPassNoClear;
 
 protected:
 
 public:
-    VulkanRenderTextureRenderPassDeletionObject(VulkanRenderEngineBackend* a_engine, vk::RenderPass a_renderPass, vk::RenderPass a_renderPassNoClear)
+    VulkanRenderTextureRenderPassDeletionObject(VulkanRenderEngineBackend* a_engine, vk::RenderPass a_renderPass, vk::RenderPass a_renderPassColorClear, vk::RenderPass a_renderPassNoClear)
     {
         m_engine = a_engine;
 
         m_renderPass = a_renderPass;
+        m_renderPassColorClear = a_renderPassColorClear;
         m_renderPassNoClear = a_renderPassNoClear;
     }
     virtual ~VulkanRenderTextureRenderPassDeletionObject()
@@ -94,6 +96,7 @@ public:
         const vk::Device device = m_engine->GetLogicalDevice();
 
         device.destroyRenderPass(m_renderPass);
+        device.destroyRenderPass(m_renderPassColorClear);
         device.destroyRenderPass(m_renderPassNoClear);
     }
 };
@@ -380,7 +383,7 @@ VulkanRenderTexture::~VulkanRenderTexture()
 {
     TRACE("Queueing Render Texture for Deletion");
     m_engine->PushDeletionObject(new VulkanRenderTextureDeletionObject(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer));
-    m_engine->PushDeletionObject(new VulkanRenderTextureRenderPassDeletionObject(m_engine, m_renderPass, m_renderPassNoClear));
+    m_engine->PushDeletionObject(new VulkanRenderTextureRenderPassDeletionObject(m_engine, m_renderPass, m_renderPassColorClear, m_renderPassNoClear));
 
     if (IISBITSET(m_flags, OwnsDepthTextureFlag))
     {
