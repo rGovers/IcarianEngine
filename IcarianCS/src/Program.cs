@@ -11,7 +11,7 @@ namespace IcarianEngine
     {
         const string WorkingDirArg = "--wDir";
 
-        static void Main(string[] a_args)
+        static void Init(string[] a_args)
         {
             ThreadPool.Init();
 
@@ -29,6 +29,7 @@ namespace IcarianEngine
 
             RenderPipeline.SetPipeline(new DefaultRenderPipeline(new PostEffect[] 
             { 
+                new AtmospherePostEffect(),
                 new EmissionPostEffect(),
                 new ToneMapPostEffect()
             }));
@@ -91,6 +92,13 @@ namespace IcarianEngine
             ModControl.FrameUpdate();
         }
 
-        /// @endcond
+        // Need to not crash on Windows when compiled with a .NET compiler despite being a library and not used
+        // It is weird that using .NET compiler on Windows causes issues not gonna question it but
+        static void Main(string[] a_args)
+        {
+            
+        }
     }
+    
+    /// @endcond
 }

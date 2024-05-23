@@ -12,7 +12,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject project = { 0 };
 
     project.Name = CUBE_StackString_CreateC("IcarianCS");
-    project.Target = CUBE_CSProjectTarget_Exe;
+    project.Target = CUBE_CSProjectTarget_Library;
     project.OutputPath = CUBE_Path_CreateC("./build/");
     project.Optimise = a_optimise;
 
@@ -146,6 +146,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
         "src/Rendering/Lighting/PointLight.cs",
         "src/Rendering/Lighting/SpotLight.cs",
 
+        "src/Rendering/PostEffects/AtmospherePostEffect.cs",
         "src/Rendering/PostEffects/EmissionPostEffect.cs",
         "src/Rendering/PostEffects/PostEffect.cs",
         "src/Rendering/PostEffects/ToneMapPostEffect.cs",

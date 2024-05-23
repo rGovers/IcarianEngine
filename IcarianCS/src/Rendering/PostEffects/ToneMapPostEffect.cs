@@ -1,27 +1,70 @@
+using IcarianEngine.Maths;
 using System;
 
 namespace IcarianEngine.Rendering.PostEffects
 {
     public class ToneMapPostEffect : PostEffect, IDestroy
     {
-        bool         m_disposed;
+        Vector4      m_data;
 
         VertexShader m_quadVertex;
         PixelShader  m_toneMapPixel;
 
         Material     m_material;
 
+        /// <summary>
+        /// The exposure of the ToneMap
+        /// </summary>
+        public float Exposure
+        {
+            get
+            {
+                return m_data.X;
+            }
+            set
+            {
+                if (m_data.X != value)
+                {
+                    m_data.X = value;
+
+                    m_material.SetUserUniform(m_data);
+                }
+            }
+        }
+        /// <summary>
+        /// The gamma correction of the ToneMap
+        /// </summary>
+        public float Gamma
+        {
+            get
+            {
+                return m_data.Y;
+            }
+            set
+            {
+                if (m_data.Y != value)
+                {
+                    m_data.Y = value;
+
+                    m_material.SetUserUniform(m_data);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Whether or not the ToneMapPostEffect has been Disposed/Finalised
+        /// </summary>
         public bool IsDisposed
         {
             get
             {
-                return m_disposed;
+                return m_material == null;
             }
         }
 
         public ToneMapPostEffect()
         {
-            m_disposed = false;
+            m_data = new Vector4(1.5f, 1.2f, 0.0f, 0.0f);
 
             m_quadVertex = VertexShader.LoadVertexShader("[INTERNAL]Quad");
             m_toneMapPixel = PixelShader.LoadPixelShader("[INTERNAL]PostToneMap");
@@ -31,12 +74,18 @@ namespace IcarianEngine.Rendering.PostEffects
                 VertexShader = m_quadVertex,
                 PixelShader = m_toneMapPixel,
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
-                ColorBlendMode = MaterialBlendMode.None
+                ColorBlendMode = MaterialBlendMode.None,
+                UBOBuffer = m_data
             };
 
             m_material = Material.CreateMaterial(material);
         }
 
+        /// <summary>
+        /// Called when the post effect need to be run
+        /// </summary>
+        /// <param name="a_renderTexture">The target <see cref="IcarianEngine.Rendering.IRenderTexture" /></param>
+        /// <param name="a_samplers">Samplers used by the RenderPipeline</param>
         public override void Run(IRenderTexture a_renderTexture, TextureSampler[] a_samplers)
         {
             RenderCommand.BindRenderTexture(a_renderTexture);
@@ -47,15 +96,22 @@ namespace IcarianEngine.Rendering.PostEffects
             RenderCommand.DrawMaterial();
         }
 
+        /// <summary>
+        /// Disposes of the ToneMapPostEffect
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
+        /// <summary>
+        /// Called when the ToneMapPostEffect is being Disposed/Finalised
+        /// </summary>
+        /// <param name="a_disposing">Whether it is being called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
-            if (!m_disposed)
+            if (m_material != null)
             {
                 if (a_disposing)
                 {
@@ -69,7 +125,7 @@ namespace IcarianEngine.Rendering.PostEffects
                     Logger.IcarianWarning("ToneMapPostEffect Failed to Dispose");
                 }
 
-                m_disposed = true;
+                m_material = null;
             }
             else
             {

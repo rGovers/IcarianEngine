@@ -34,6 +34,7 @@ private:
                                         
     MonoClass*                                             m_programClass;
                                         
+    MonoMethod*                                            m_initMethod;
     MonoMethod*                                            m_updateMethod;
     MonoMethod*                                            m_shutdownMethod;
 

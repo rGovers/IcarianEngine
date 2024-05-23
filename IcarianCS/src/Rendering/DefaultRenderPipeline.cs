@@ -60,6 +60,7 @@ namespace IcarianEngine.Rendering
         uint               m_width;
         uint               m_height;
 
+        float              m_renderScale;
         float              m_shadowCutoff;
         float              m_lambda;
 
@@ -75,6 +76,17 @@ namespace IcarianEngine.Rendering
             set
             {
                 m_lambda = value;
+            }
+        }
+
+        /// <summary>
+        /// The render scale of the Pipeline
+        /// </summary>
+        public float RenderScale
+        {
+            get
+            {
+                return m_renderScale;
             }
         }
 
@@ -129,6 +141,7 @@ namespace IcarianEngine.Rendering
 
             m_width = 1280;
             m_height = 720;
+            m_renderScale = 1.0f;
 
             m_depthRenderTexture = new DepthRenderTexture(m_width, m_height);
 
@@ -281,25 +294,34 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
+        /// Sets the RenderScale of the DefaultRenderPipeline
+        /// </summary>
+        /// <param name="a_scale">The scale to set to</param>
+        public void SetRenderScale(float a_scale)
+        {
+            m_renderScale = a_scale;
+
+            Resize(m_width, m_height);
+        }
+
+        /// <summary>
         /// Called when the SwapChain is resized
         /// </summary>
         /// <param name="a_width">The new width of the SwapChain.</param>
         /// <param name="a_height">The new height of the SwapChain.</param>
         public override void Resize(uint a_width, uint a_height)
         {
-            if (a_width == m_width && a_height == m_height)
-            {
-                return;
-            }
-
             m_width = a_width;
             m_height = a_height;
 
-            m_depthRenderTexture.Resize(m_width, m_height);
+            uint scaledWidth = (uint)(m_width * m_renderScale);
+            uint scaledHeight = (uint)(m_height * m_renderScale);
 
-            m_drawRenderTexture.Resize(m_width, m_height);
-            m_lightRenderTexture.Resize(m_width, m_height);
-            m_forwardRenderTexture.Resize(m_width, m_height);
+            m_depthRenderTexture.Resize(scaledWidth, scaledHeight);
+
+            m_drawRenderTexture.Resize(scaledWidth, scaledHeight);
+            m_lightRenderTexture.Resize(scaledWidth, scaledHeight);
+            m_forwardRenderTexture.Resize(scaledWidth, scaledHeight);
             m_colorRenderTexture.Resize(m_width, m_height);
 
             for (uint i = 0; i < PostTextureStackSize; ++i)
@@ -337,7 +359,8 @@ namespace IcarianEngine.Rendering
                 return endFar;
             }
 
-            // I believe I need l near (far / near) ^ (i / N) + (1 - l)(near + (i / N)(far - near))
+            // I believe I need:
+            // c = l near (far / near) ^ (i / N) + (1 - l)(near + (i / N)(far - near))
             float fnDiff = endFar - a_near;
             float fON = endFar / a_near;
 

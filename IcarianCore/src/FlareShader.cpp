@@ -346,7 +346,7 @@ namespace IcarianCore
             }
             else if (defName == "userbuffer")
             {
-                if (args.size() != 2)
+                if (args.size() != 3)
                 {
                     *a_error = "Flare Shader user buffer requires 2 arguments"; 
 
@@ -357,13 +357,13 @@ namespace IcarianCore
                 {
                 case ShaderPlatform_Vulkan:
                 {
-                    rStr = "layout(std140,binding=" + args[0] + ",set=" + args[0] + ") uniform " + args[1] + ";";
+                    rStr = "layout(std140,binding=" + args[0] + ",set=" + args[0] + ") uniform UserBuffer " + args[1] + " " + args[2] + ";";
 
                     break;
                 }
                 case ShaderPlatform_OpenGL:
                 {
-                    rStr = "layout(std140,binding=" + args[0] + ") uniform " + args[1] + ";";
+                    rStr = "layout(std140,binding=" + args[0] + ") uniform UserBuffer " + args[1] + " " + args[2] + ";";
 
                     break;
                 }

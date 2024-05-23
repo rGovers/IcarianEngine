@@ -408,7 +408,7 @@ int main(int a_argc, char** a_argv)
 
     CUBE_IO_CreateDirectoryC("build");
 
-    CUBE_IO_CopyFileC("IcarianCS/build/IcarianCS.exe", "build/IcarianCS.dll");
+    CUBE_IO_CopyFileC("IcarianCS/build/IcarianCS.dll", "build/IcarianCS.dll");
 
     switch (targetPlatform)
     {

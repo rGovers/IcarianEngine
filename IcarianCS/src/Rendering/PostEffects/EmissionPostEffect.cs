@@ -4,25 +4,24 @@ namespace IcarianEngine.Rendering.PostEffects
 {
     public class EmissionPostEffect : PostEffect, IDestroy
     {
-        bool         m_disposed;
-
         VertexShader m_quadVertex;
         PixelShader  m_emissionPixel;
 
         Material     m_material;
 
+        /// <summary>
+        /// Whether or not the EmissionPostEffect has been Disposed/Finalised
+        /// </summary>
         public bool IsDisposed
         {
             get
             {
-                return m_disposed;
+                return m_material == null;
             }
         }
 
         public EmissionPostEffect()
         {
-            m_disposed = false;
-
             m_quadVertex = VertexShader.LoadVertexShader("[INTERNAL]Quad");
             m_emissionPixel = PixelShader.LoadPixelShader("[INTERNAL]PostEmission");
 
@@ -37,6 +36,11 @@ namespace IcarianEngine.Rendering.PostEffects
             m_material = Material.CreateMaterial(material);
         }
 
+        /// <summary>
+        /// Called when the post effect need to be run
+        /// </summary>
+        /// <param name="a_renderTexture">The target <see cref="IcarianEngine.Rendering.IRenderTexture" /></param>
+        /// <param name="a_samplers">Samplers used by the RenderPipeline</param>
         public override void Run(IRenderTexture a_renderTexture, TextureSampler[] a_samplers)
         {
             RenderCommand.BindRenderTexture(a_renderTexture);
@@ -48,15 +52,22 @@ namespace IcarianEngine.Rendering.PostEffects
             RenderCommand.DrawMaterial();
         }   
 
+        /// <summary>
+        /// Disposes of the EmissionPostEffect
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
+        /// <summary>
+        /// Called when the EmissionPostEffect is being Disposed/Finalised
+        /// </summary>
+        /// <param name="a_disposing">Whether it is being called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
-            if(!m_disposed)
+            if(m_material != null)
             {
                 if(a_disposing)
                 {
@@ -70,7 +81,7 @@ namespace IcarianEngine.Rendering.PostEffects
                     Logger.IcarianWarning("EmissionPostEffect Failed to Dispose");
                 }
 
-                m_disposed = true;
+                m_material = null;
             }
             else
             {

@@ -1,0 +1,88 @@
+#version 450
+
+layout(location = 0) in vec2 vUV;
+
+#!pushtexture(0, colorSampler)
+#!pushtexture(1, depthSampler)
+
+#!structure(CameraBuffer, 2, camBuffer)
+
+#!userbuffer(3,
+{
+    vec4 SunDir;
+    vec4 Rayleigh;
+    vec4 Mie;
+    vec4 SunColor;
+    vec4 HazeColor;
+}, userBuffer)
+
+layout(location = 0) out vec4 fragColor;
+
+const float pi = 3.14159265359;
+const float pi4 = pi * 4.0;
+const float pi16 = pi * 16.0;
+
+// Rayleigh values
+const float frM = 3.0 / pi16;
+
+// Note that this is not accurate at all this is an aproximation of an aproximation
+// Credit:
+// https://drivers.amd.com/developer/gdc/GDC02_HoffmanPreetham.pdf
+// https://www.shadertoy.com/view/Ml2cWG
+void main()
+{
+    float pL = camBuffer.Proj[2].z;
+    float pF = camBuffer.Proj[3].z;
+    float nP = pF / (pL + 0.0);
+    float fP = pF / (pL + 1.0);
+
+    vec3 sunDir = userBuffer.SunDir.xyz;
+
+    vec3 cP = camBuffer.InvView[3].xyz;
+
+    float d = texture(depthSampler, vUV).x;
+    float lD = nP * fP / (fP + d * (nP - fP));
+
+    vec4 pC = vec4(vUV * 2 + -1, d, 1.0);
+    vec4 pP = camBuffer.InvProj * pC;
+    pP /= pP.w;
+    vec4 mP = camBuffer.InvView * pP;
+
+    vec3 pD = normalize(mP.xyz - cP.xyz) * lD / fP;
+
+    float dt = dot(sunDir, pD);
+    float cS = clamp(dt, 0.0, 1.0);
+    float c2 = cS * cS;
+
+    vec3 hDir = normalize(vec3(sunDir.x, 0.0, sunDir.z));
+    float hDt = dot(hDir, pD);
+    float hCS = max(hDt, 0.0);
+
+    // Zenith
+    float dE = lD / fP;
+    float z = dE / pow(max(-sunDir.y, 0.001), 0.75);
+
+    // Rayleigh Scattering
+    float ray = frM * (1 + c2);
+
+    // Mie Scattering
+    float g = userBuffer.Mie.w;
+    float g2 = g * g;
+    float iG = 1 - g;
+    float mtF2 = iG * iG;
+    float l = 1 + g2 - 2 * g * cS;
+    float ml = pi4 * pow(max(l, 0.001), 1.5);
+    float mie = mtF2 / ml;
+
+    // In Scatter
+    // None of this is accurate but eh who tf cares
+    vec3 iS = vec3(userBuffer.Rayleigh.xyz * ray + userBuffer.Mie.xyz * mie);
+    vec3 sC = userBuffer.SunColor.xyz * pow(cS, 350);
+    // G is unrelated but seems to work so.....
+    vec3 hC = userBuffer.HazeColor.xyz * pow(hCS, 4) * max(0, (z - iG) * 2);
+
+    vec3 aC = iS + sC + hC;
+    vec4 c = texture(colorSampler, vUV);
+
+    fragColor = vec4(c.xyz + aC, 1.0);
+}
