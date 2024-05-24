@@ -8,8 +8,6 @@
 
 class PhysicsEngine;
 
-#include "Runtime/RuntimeManager.h"
-
 #include "EnginePhysicsInteropStructures.h"
 #include "EngineRigidBodyInteropStructures.h"
 
@@ -48,7 +46,7 @@ public:
     void SetPhysicsBodyPosition(uint32_t a_addr, const glm::vec3& a_pos) const;
     void SetPhysicsBodyRotation(uint32_t a_addr, const glm::quat& a_rot) const;
 
-    uint32_t CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) const;
+    uint32_t CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, uint32_t a_layer, float a_mass) const;
     glm::vec3 GetRigidBodyVelocity(uint32_t a_addr) const;
 
     void SetRigidBodyVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const;
@@ -61,6 +59,9 @@ public:
 
     void SetGravity(const glm::vec3& a_gravity) const;
     glm::vec3 GetGravity() const;
+
+    bool GetObjectLayerCollision(uint32_t a_lhs, uint32_t a_rhs) const;
+    void SetObjectLayerCollision(uint32_t a_lhs, uint32_t a_rhs, bool a_state) const;
 
     RaycastResultBuffer* Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir, uint32_t* a_resultCount) const;
     uint32_t* SphereCollision(const glm::vec3& a_pos, float a_radius, uint32_t* a_resultCount) const;

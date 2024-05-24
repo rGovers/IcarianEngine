@@ -25,6 +25,7 @@ namespace IcarianEngine.Physics
         /// <param name="a_other">The other body that collision ended with</param>
         public delegate void EndCollisionCallback(PhysicsBody a_other);
 
+        uint  m_objectLayer = 0;
         float m_mass = 10.0f;
 
         /// <summary>
@@ -74,6 +75,17 @@ namespace IcarianEngine.Physics
         }
 
         /// <summary>
+        /// The layer the Rigidbody is on
+        /// </summary>
+        public uint ObjectLayer
+        {
+            get
+            {
+                return m_objectLayer;
+            }
+        }
+
+        /// <summary>
         /// The velocity of the RigidBody
         /// </summary>
         public Vector3 Velocity
@@ -111,6 +123,7 @@ namespace IcarianEngine.Physics
             if (def != null)
             {
                 m_mass = def.Mass;
+                m_objectLayer = def.ObjectLayer;
             }
 
             base.Init();
@@ -179,7 +192,7 @@ namespace IcarianEngine.Physics
 
             if (a_newShape != null)
             {
-                InternalAddr = RigidBodyInterop.CreateRigidBody(Transform.InternalAddr, a_newShape.InternalAddr, m_mass);
+                InternalAddr = RigidBodyInterop.CreateRigidBody(Transform.InternalAddr, a_newShape.InternalAddr, m_objectLayer, m_mass);
 
                 RigidBodyInterop.SetVelocity(InternalAddr, vel);
                 RigidBodyInterop.SetAngularVelocity(InternalAddr, angVel);

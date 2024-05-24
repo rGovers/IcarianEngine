@@ -14,9 +14,9 @@ IcBodyActivationListener::~IcBodyActivationListener()
 
 }
 
-std::vector<JPH::BodyID> IcBodyActivationListener::ToBodies()
+Array<JPH::BodyID> IcBodyActivationListener::ToBodies()
 {
-    return m_bodies.ToVector();
+    return m_bodies.ToArray();
 }
 
 void IcBodyActivationListener::OnBodyActivated(const JPH::BodyID& a_bodyID, JPH::uint64 a_userData)

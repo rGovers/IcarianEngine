@@ -22,14 +22,15 @@
 #include <Jolt/Physics/Collision/CollisionCollectorImpl.h>
 #include <Jolt/Physics/Collision/RayCast.h>
 #include <Jolt/Physics/EActivation.h>
-#include <mutex>
 
+#include "Core/Bitfield.h"
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
-#include "DataTypes/TLockArray.h"
+#include "IcarianError.h"
 #include "ObjectManager.h"
 #include "Physics/InterfaceLock.h"
 #include "Physics/PhysicsEngine.h"
+#include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
 #include "EngineBoxCollisionShapeInterop.h"
@@ -269,7 +270,7 @@ void PhysicsEngineBindings::DestroyCollisionShape(uint32_t a_addr) const
 
 void PhysicsEngineBindings::AddBody(JPH::uint32 a_id, uint32_t a_index) const
 {
-    const std::unique_lock g = std::unique_lock(m_engine->m_mapMutex);
+    const ThreadGuard g = ThreadGuard(m_engine->m_mapLock);
 
     auto iter = m_engine->m_bodyMap.find(a_id);
     if (iter != m_engine->m_bodyMap.end()) 
@@ -399,9 +400,10 @@ void PhysicsEngineBindings::SetPhysicsBodyRotation(uint32_t a_addr, const glm::q
     ObjectManager::SetTransformBuffer(binding.TransformAddr, buffer);
 }
 
-uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, float a_mass) const
+uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, uint32_t a_layer, float a_mass) const
 {
-    ICARIAN_ASSERT_MSG(a_colliderAddr < m_engine->m_collisionShapes.Size(), "CreateRigidBody out of bounds");
+    IVERIFY(a_colliderAddr < m_engine->m_collisionShapes.Size());
+    IVERIFY(a_layer < 8);
 
     const glm::mat4 globalTransform = ObjectManager::GetGlobalMatrix(a_transformAddr);
 
@@ -418,7 +420,7 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
         JPH::RVec3(translation.x, translation.y, translation.z),
         JPH::Quat(rotation.x, rotation.y, rotation.z, rotation.w),
         JPH::EMotionType::Dynamic,
-        PhysicsEngine::LayerMoving
+        (JPH::ObjectLayer)a_layer
     );
     bodySettings.mMassPropertiesOverride.mMass = a_mass;
 
@@ -624,6 +626,20 @@ glm::vec3 PhysicsEngineBindings::GetGravity() const
     const JPH::Vec3 gravity = m_engine->m_physicsSystem->GetGravity();
 
     return glm::vec3(gravity.GetX(), gravity.GetY(), gravity.GetZ());
+}
+
+bool PhysicsEngineBindings::GetObjectLayerCollision(uint32_t a_lhs, uint32_t a_rhs) const
+{
+    return m_engine->CanObjectLayersCollide(a_lhs, a_rhs);
+}
+void PhysicsEngineBindings::SetObjectLayerCollision(uint32_t a_lhs, uint32_t a_rhs, bool a_state) const
+{
+    IVERIFY(a_lhs < 8);
+    IVERIFY(a_rhs < 8);
+
+    ITOGGLEBIT(a_state, m_engine->m_objectLayerCollisions[a_lhs], a_rhs);
+    // Not sure if I should toggle on both sides may change later just doing it for now
+    ITOGGLEBIT(a_state, m_engine->m_objectLayerCollisions[a_rhs], a_lhs);
 }
 
 RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir, uint32_t* a_resultCount) const

@@ -1,11 +1,10 @@
 #include "Physics/IcObjectLayerPairFilter.h"
 
-#include "Core/IcarianAssert.h"
 #include "Physics/PhysicsEngine.h"
 
-IcObjectLayerPairFilter::IcObjectLayerPairFilter()
+IcObjectLayerPairFilter::IcObjectLayerPairFilter(PhysicsEngine* a_engine)
 {
-
+    m_engine = a_engine;
 }
 IcObjectLayerPairFilter::~IcObjectLayerPairFilter()
 {
@@ -14,23 +13,5 @@ IcObjectLayerPairFilter::~IcObjectLayerPairFilter()
 
 bool IcObjectLayerPairFilter::ShouldCollide(JPH::ObjectLayer a_lhs, JPH::ObjectLayer a_rhs) const
 {
-    switch (a_lhs)
-    {
-    case PhysicsEngine::LayerNonMoving:
-    {
-        return a_rhs == PhysicsEngine::LayerMoving;
-    }
-    case PhysicsEngine::LayerMoving:
-    {
-        return true;
-    }
-    case PhysicsEngine::LayerTrigger:
-    {
-        return a_rhs == PhysicsEngine::LayerMoving;
-    }
-    }
-
-    ICARIAN_ASSERT(0);
-
-    return false;
+    return m_engine->CanObjectLayersCollide((uint32_t)a_lhs, (uint32_t)a_rhs);
 }

@@ -15,6 +15,14 @@
     { \
         Instance->SetGravity(a_gravity); \
     }, IOP_VEC3 a_gravity) \
+    F(IOP_UINT32, IcarianEngine.Physics, PhysicsInterop, GetObjectLayerCollision, \
+    { \
+        return (uint32_t)Instance->GetObjectLayerCollision(a_layerA, a_layerB); \
+    }, IOP_UINT32 a_layerA, IOP_UINT32 a_layerB) \
+    F(void, IcarianEngine.Physics, PhysicsInterop, SetObjectLayerCollision, \
+    { \
+        Instance->SetObjectLayerCollision(a_layerA, a_layerB, (bool)a_state); \
+    }, IOP_UINT32 a_layerA, IOP_UINT32 a_layerB, IOP_UINT32 a_state) \
     F(IOP_ARRAY(RaycastResultBuffer[]), IcarianEngine.Physics, PhysicsInterop, Raycast, \
     { \
         uint32_t resultCount; \

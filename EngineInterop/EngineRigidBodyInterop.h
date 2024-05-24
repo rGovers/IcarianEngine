@@ -9,8 +9,8 @@
 #define ENGINE_RIGIDBODY_EXPORT_TABLE(F) \
     F(IOP_UINT32, IcarianEngine.Physics, RigidBodyInterop, CreateRigidBody, \
     { \
-        return Instance->CreateRigidBody(a_transformAddr, a_colliderAddr, a_mass); \
-    }, IOP_UINT32 a_transformAddr, IOP_UINT32 a_colliderAddr, float a_mass) \
+        return Instance->CreateRigidBody(a_transformAddr, a_colliderAddr, a_layer, a_mass); \
+    }, IOP_UINT32 a_transformAddr, IOP_UINT32 a_colliderAddr, IOP_UINT32 a_layer, float a_mass) \
     F(IOP_VEC3, IcarianEngine.Physics, RigidBodyInterop, GetVelocity, \
     { \
         return Instance->GetRigidBodyVelocity(a_addr); \

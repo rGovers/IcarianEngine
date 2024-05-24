@@ -7,8 +7,7 @@
 class IcBroadPhaseLayerInterface : public JPH::BroadPhaseLayerInterface
 {
 private:
-    JPH::BroadPhaseLayer m_layers[3];
-
+    
 protected:
 
 public:

@@ -11,9 +11,9 @@
 #include <Jolt/Physics/Body/Body.h>
 #include <Jolt/Physics/Body/BodyID.h>
 #include <Jolt/Physics/PhysicsSystem.h>
-#include <shared_mutex>
 #include <unordered_map>
 
+#include "Core/Bitfield.h"
 #include "DataTypes/TArray.h"
 #include "Physics/IcBodyActivationListener.h"
 #include "Physics/IcBroadPhaseLayerInterface.h"
@@ -42,12 +42,22 @@ struct BodyBinding
 // Dunno if I will regret this but trying Jolt over Bullet
 class PhysicsEngine
 {
+public:
+    static constexpr JPH::BroadPhaseLayer BroadphaseNonMoving = JPH::BroadPhaseLayer(0);
+    static constexpr JPH::BroadPhaseLayer BroadphaseTrigger = JPH::BroadPhaseLayer(1);
+    static constexpr JPH::BroadPhaseLayer BroadphaseMoving = JPH::BroadPhaseLayer(2);
+    static constexpr JPH::ObjectLayer LayerTrigger = JPH::ObjectLayer(6);
+    static constexpr JPH::ObjectLayer LayerNonMoving = JPH::ObjectLayer(7);
+
 private:
     friend class PhysicsEngineBindings;
 
     static constexpr uint32_t MaxBodies = 65535;
     static constexpr uint32_t MaxContactConstraints = 1024 * 10;
     static constexpr uint32_t AllocatorSize = 1024 * 1024 * 10;
+
+    // Apparently Intel decided no fun allowed so array instead of uint64_t
+    uint8_t                                   m_objectLayerCollisions[8];
 
     double                                    m_fixedTimePassed;
     double                                    m_fixedTimeStep;
@@ -70,7 +80,7 @@ private:
 
     PhysicsEngineBindings*                    m_runtimeBindings;
 
-    std::shared_mutex                         m_mapMutex;
+    SharedSpinLock                            m_mapLock;
     std::unordered_map<JPH::uint32, uint32_t> m_bodyMap;
 
     TArray<JPH::ShapeSettings::ShapeResult>   m_collisionShapes;
@@ -82,14 +92,9 @@ public:
     PhysicsEngine(Config* a_config);
     ~PhysicsEngine();
 
+    bool CanObjectLayersCollide(uint32_t a_lhs, uint32_t a_rhs) const;
+
     void Update(double a_delta);
 
     uint32_t GetBodyAddr(JPH::uint32 a_joltIndex);
-
-    static constexpr JPH::BroadPhaseLayer BroadphaseNonMoving = JPH::BroadPhaseLayer(0);
-    static constexpr JPH::BroadPhaseLayer BroadphaseMoving = JPH::BroadPhaseLayer(1);
-    static constexpr JPH::BroadPhaseLayer BroadphaseTrigger = JPH::BroadPhaseLayer(2);
-    static constexpr JPH::ObjectLayer LayerNonMoving = JPH::ObjectLayer(0);
-    static constexpr JPH::ObjectLayer LayerMoving = JPH::ObjectLayer(1);
-    static constexpr JPH::ObjectLayer LayerTrigger = JPH::ObjectLayer(2);
 };

@@ -40,6 +40,34 @@ namespace IcarianEngine.Physics
         }
 
         /// <summary>
+        /// Checks if 2 ObjectLayers can collide
+        /// </summary>
+        /// <param name="a_layerA">The LHS layer. 0-8 range</param>
+        /// <param name="a_layerB">The RHS layer. 0-8 range</param>
+        /// <returns>If the layers can collide</returns>
+        public static bool CanObjectLayersCollide(uint a_layerA, uint a_layerB)
+        {
+            return PhysicsInterop.GetObjectLayerCollision(a_layerA, a_layerB) != 0;
+        }
+        /// <summary>
+        /// Sets if 2 ObjectLayers can collide
+        /// </summary>
+        /// <param name="a_layerA">The LHS layer. 0-8 range</param>
+        /// <param name="a_layerB">The RHS layer. 0-8 range</param>
+        /// <param name="a_state">If the layers can collide or not</param>
+        public static void SetObjectLayerCollision(uint a_layerA, uint a_layerB, bool a_state)
+        {
+            if (a_state)
+            {
+                PhysicsInterop.SetObjectLayerCollision(a_layerA, a_layerB, 1);
+            }
+            else
+            {
+                PhysicsInterop.SetObjectLayerCollision(a_layerA, a_layerB, 0);
+            }
+        }
+
+        /// <summary>
         /// Does a raycast in the physics simulation
         /// </summary>
         /// <param name="a_pos">The starting postion of the ray cast</param>

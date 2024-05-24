@@ -1,3 +1,28 @@
+#define MATRIX_TABLE(F, D) \
+    F(0, M00, D) \
+    F(1, M01, D) \
+    F(2, M02, D) \
+    F(3, M03, D) \
+    F(4, M10, D) \
+    F(5, M11, D) \
+    F(6, M12, D) \
+    F(7, M13, D) \
+    F(8, M20, D) \
+    F(9, M21, D) \
+    F(10, M22, D) \
+    F(11, M23, D) \
+    F(12, M30, D) \
+    F(13, M31, D) \
+    F(14, M32, D) \
+    F(15, M33, D) 
+
+#define MATRIX_VAR(I, V, D) public float V;
+#define MATRIX_ITER(I, V, D) D[I] = V;
+#define MATRIX_MITER(I, V, D) V = D[I];
+#define MATRIX_SET(I, V, D) V = D.V;
+#define MATRIX_ADD(I, V, D) D.V = a_lhs.V + a_rhs.V;
+#define MATRIX_SUB(I, V, D) D.V = a_lhs.V - a_rhs.V;
+
 namespace IcarianEngine.Maths
 {
     public struct Matrix4
@@ -7,7 +32,7 @@ namespace IcarianEngine.Maths
         /// </summary>
         public static readonly Matrix4 Identity = new Matrix4(1.0f);
 
-        float[] m_data;
+        MATRIX_TABLE(MATRIX_VAR, 0)
 
         /// <summary>
         /// Returns the row at the specified index
@@ -16,24 +41,72 @@ namespace IcarianEngine.Maths
         {
             get
             {
-                int offset = a_key * 4;
+                switch (a_key)
+                {
+                case 0:
+                {
+                    return new Vector4(M00, M01, M02, M03);
+                }
+                case 1:
+                {
+                    return new Vector4(M10, M11, M12, M13);
+                }
+                case 2:
+                {
+                    return new Vector4(M20, M21, M22, M23);
+                }
+                case 3:
+                {
+                    return new Vector4(M30, M31, M32, M33);
+                }
+                }
 
-                return new Vector4(m_data[offset + 0], m_data[offset + 1], m_data[offset + 2], m_data[offset + 3]);
+                return new Vector4(float.NaN);
             }
             set
             {
-                int offset = a_key * 4;
+                switch (a_key)
+                {
+                case 0:
+                {
+                    M00 = value.X;
+                    M01 = value.Y;
+                    M02 = value.Z;
+                    M03 = value.W;
 
-                m_data[offset + 0] = value.X;
-                m_data[offset + 1] = value.Y;
-                m_data[offset + 2] = value.Z;
-                m_data[offset + 3] = value.W;
+                    break;
+                }
+                case 1:
+                {
+                    M10 = value.X;
+                    M11 = value.Y;
+                    M12 = value.Z;
+                    M13 = value.W;
+
+                    break;
+                }
+                case 2:
+                {
+                    M20 = value.X;
+                    M21 = value.Y;
+                    M22 = value.Z;
+                    M23 = value.W;
+
+                    break;
+                }
+                case 3:
+                {
+                    M30 = value.X;
+                    M31 = value.Y;
+                    M32 = value.Z;
+                    M33 = value.W;
+
+                    break;
+                }
+                }
             }
         }
 
-        /// <summary>
-        /// Creates a new matrix with the specified values
-        /// </summary>
         public Matrix4(float a_val) : this(a_val, 0.0f, 0.0f, 0.0f,
                                            0.0f, a_val, 0.0f, 0.0f,
                                            0.0f, 0.0f, a_val, 0.0f,
@@ -41,9 +114,12 @@ namespace IcarianEngine.Maths
         {
 
         }
-        /// <summary>
-        /// Creates a new matrix with the specified values
-        /// </summary>
+
+        public Matrix4(float[] a_mat)
+        {
+            MATRIX_TABLE(MATRIX_MITER, a_mat);
+        }
+
         public Matrix4(Vector4 a_blk1, Vector4 a_blk2, Vector4 a_blk3, Vector4 a_blk4) : this(a_blk1.X, a_blk1.Y, a_blk1.Z, a_blk1.W,
                                                                                               a_blk2.X, a_blk2.Y, a_blk2.Z, a_blk2.W,
                                                                                               a_blk3.X, a_blk3.Y, a_blk3.Z, a_blk3.W,
@@ -51,52 +127,41 @@ namespace IcarianEngine.Maths
         {
 
         }
-        /// <summary>
-        /// Creates a new matrix with the specified values
-        /// </summary>
-        public Matrix4(float a_0_0, float a_0_1, float a_0_2, float a_0_3,
-                       float a_1_0, float a_1_1, float a_1_2, float a_1_3,
-                       float a_2_0, float a_2_1, float a_2_2, float a_2_3,
-                       float a_3_0, float a_3_1, float a_3_2, float a_3_3)
+
+        public Matrix4(float a_00, float a_01, float a_02, float a_03,
+                       float a_10, float a_11, float a_12, float a_13,
+                       float a_20, float a_21, float a_22, float a_23,
+                       float a_30, float a_31, float a_32, float a_33)
         {
-            m_data = new float[16];
+            M00 = a_00;
+            M01 = a_01;
+            M02 = a_02;
+            M03 = a_03;
 
-            m_data[0] = a_0_0;
-            m_data[1] = a_0_1;
-            m_data[2] = a_0_2;
-            m_data[3] = a_0_3;
+            M10 = a_10;
+            M11 = a_11;
+            M12 = a_12;
+            M13 = a_13;
 
-            m_data[4] = a_1_0;
-            m_data[5] = a_1_1;
-            m_data[6] = a_1_2;
-            m_data[7] = a_1_3;
+            M20 = a_20;
+            M21 = a_21;
+            M22 = a_22;
+            M23 = a_23;
 
-            m_data[8] = a_2_0;
-            m_data[9] = a_2_1;
-            m_data[10] = a_2_2;
-            m_data[11] = a_2_3;
-
-            m_data[12] = a_3_0;
-            m_data[13] = a_3_1;
-            m_data[14] = a_3_2;
-            m_data[15] = a_3_3;
+            M30 = a_30;
+            M31 = a_31;
+            M32 = a_32;
+            M33 = a_33;
         }
-        /// <summary>
-        /// Copies the values from another Matrix
-        /// </summary>
+
         public Matrix4(Matrix4 a_other)
         {
-            m_data = new float[16];
-
-            for (int i = 0; i < 16; ++i)
-            {
-                m_data[i] = a_other.m_data[i];
-            }
+            MATRIX_TABLE(MATRIX_SET, a_other);
         }
 
         public override string ToString()
         {
-            return $"( ({m_data[0]}, {m_data[1]}, {m_data[2]}, {m_data[3]}), ({m_data[4]}, {m_data[5]}, {m_data[6]}, {m_data[7]}), ({m_data[8]}, {m_data[9]}, {m_data[10]}, {m_data[11]}), ({m_data[12]}, {m_data[13]}, {m_data[14]}, {m_data[15]}) )";
+            return $"( ({M00}, {M01}, {M02}, {M03}), ({M10}, {M11}, {M12}, {M13}), ({M20}, {M21}, {M22}, {M23}), ({M30}, {M31}, {M32}, {M33}) )";
         }
 
         /// <summary>
@@ -105,7 +170,11 @@ namespace IcarianEngine.Maths
         /// <returns>The Matrix as an array</returns>
         public float[] ToArray()
         {
-            return m_data;
+            float[] data = new float[16];
+
+            MATRIX_TABLE(MATRIX_ITER, data);
+
+            return data;
         }
 
         /// <summary>
@@ -118,29 +187,29 @@ namespace IcarianEngine.Maths
             // I invoke the I see 2 pages of greek therefore fuck that C+V
             // Do not feel like translating the dead sea scrolls again when it is "just" an inverse
             // That and people can probably implement it better then me
-            float c00 = a_mat[2][2] * a_mat[3][3] - a_mat[3][2] * a_mat[2][3];
-            float c02 = a_mat[1][2] * a_mat[3][3] - a_mat[3][2] * a_mat[1][3];
-            float c03 = a_mat[1][2] * a_mat[2][3] - a_mat[2][2] * a_mat[1][3];
+            float c00 = a_mat.M22 * a_mat.M33 - a_mat.M32 * a_mat.M23;
+            float c02 = a_mat.M12 * a_mat.M33 - a_mat.M32 * a_mat.M13;
+            float c03 = a_mat.M12 * a_mat.M23 - a_mat.M22 * a_mat.M13;
 
-            float c04 = a_mat[2][1] * a_mat[3][3] - a_mat[3][1] * a_mat[2][3];
-            float c06 = a_mat[1][1] * a_mat[3][3] - a_mat[3][1] * a_mat[1][3];
-            float c07 = a_mat[1][1] * a_mat[2][3] - a_mat[2][1] * a_mat[1][3];
+            float c04 = a_mat.M21 * a_mat.M33 - a_mat.M31 * a_mat.M23;
+            float c06 = a_mat.M11 * a_mat.M33 - a_mat.M31 * a_mat.M13;
+            float c07 = a_mat.M11 * a_mat.M23 - a_mat.M21 * a_mat.M13;
 
-            float c08 = a_mat[2][1] * a_mat[3][2] - a_mat[3][1] * a_mat[2][2];
-            float c10 = a_mat[1][1] * a_mat[3][2] - a_mat[3][1] * a_mat[1][2];
-            float c11 = a_mat[1][1] * a_mat[2][2] - a_mat[2][1] * a_mat[1][2];
+            float c08 = a_mat.M21 * a_mat.M32 - a_mat.M31 * a_mat.M22;
+            float c10 = a_mat.M11 * a_mat.M32 - a_mat.M31 * a_mat.M12;
+            float c11 = a_mat.M11 * a_mat.M22 - a_mat.M21 * a_mat.M12;
 
-            float c12 = a_mat[2][0] * a_mat[3][3] - a_mat[3][0] * a_mat[2][3];
-            float c14 = a_mat[1][0] * a_mat[3][3] - a_mat[3][0] * a_mat[1][3];
-            float c15 = a_mat[1][0] * a_mat[2][3] - a_mat[2][0] * a_mat[1][3];
+            float c12 = a_mat.M20 * a_mat.M33 - a_mat.M30 * a_mat.M23;
+            float c14 = a_mat.M10 * a_mat.M33 - a_mat.M30 * a_mat.M13;
+            float c15 = a_mat.M10 * a_mat.M23 - a_mat.M20 * a_mat.M13;
 
-            float c16 = a_mat[2][0] * a_mat[3][2] - a_mat[3][0] * a_mat[2][2];
-            float c18 = a_mat[1][0] * a_mat[3][2] - a_mat[3][0] * a_mat[1][2];
-            float c19 = a_mat[1][0] * a_mat[2][2] - a_mat[2][0] * a_mat[1][2];
+            float c16 = a_mat.M20 * a_mat.M32 - a_mat.M30 * a_mat.M22;
+            float c18 = a_mat.M10 * a_mat.M32 - a_mat.M30 * a_mat.M12;
+            float c19 = a_mat.M10 * a_mat.M22 - a_mat.M20 * a_mat.M12;
 
-            float c20 = a_mat[2][0] * a_mat[3][1] - a_mat[3][0] * a_mat[2][1];
-            float c22 = a_mat[1][0] * a_mat[3][1] - a_mat[3][0] * a_mat[1][1];
-            float c23 = a_mat[1][0] * a_mat[2][1] - a_mat[2][0] * a_mat[1][1];
+            float c20 = a_mat.M20 * a_mat.M31 - a_mat.M30 * a_mat.M21;
+            float c22 = a_mat.M10 * a_mat.M31 - a_mat.M30 * a_mat.M11;
+            float c23 = a_mat.M10 * a_mat.M21 - a_mat.M20 * a_mat.M11;
 
             Vector4 fac0 = new Vector4(c00, c00, c02, c03);
             Vector4 fac1 = new Vector4(c04, c04, c06, c07);
@@ -149,10 +218,10 @@ namespace IcarianEngine.Maths
             Vector4 fac4 = new Vector4(c16, c16, c18, c19);
             Vector4 fac5 = new Vector4(c20, c20, c22, c23);
 
-            Vector4 vec0 = new Vector4(a_mat[1][0], a_mat[0][0], a_mat[0][0], a_mat[0][0]);
-            Vector4 vec1 = new Vector4(a_mat[1][1], a_mat[0][1], a_mat[0][1], a_mat[0][1]);
-            Vector4 vec2 = new Vector4(a_mat[1][2], a_mat[0][2], a_mat[0][2], a_mat[0][2]);
-            Vector4 vec3 = new Vector4(a_mat[1][3], a_mat[0][3], a_mat[0][3], a_mat[0][3]);
+            Vector4 vec0 = new Vector4(a_mat.M10, a_mat.M00, a_mat.M00, a_mat.M00);
+            Vector4 vec1 = new Vector4(a_mat.M11, a_mat.M01, a_mat.M01, a_mat.M01);
+            Vector4 vec2 = new Vector4(a_mat.M12, a_mat.M02, a_mat.M02, a_mat.M02);
+            Vector4 vec3 = new Vector4(a_mat.M13, a_mat.M03, a_mat.M03, a_mat.M03);
 
             Vector4 inv0 = new Vector4(vec1 * fac0 - vec2 * fac1 + vec3 * fac2);
             Vector4 inv1 = new Vector4(vec0 * fac0 - vec2 * fac3 + vec3 * fac4);
@@ -164,7 +233,7 @@ namespace IcarianEngine.Maths
 
             Matrix4 inverse = new Matrix4(inv0 * signA, inv1 * signB, inv2 * signA, inv3 * signB);
 
-            Vector4 row0 = new Vector4(inverse[0][0], inverse[1][0], inverse[2][0], inverse[3][0]);
+            Vector4 row0 = new Vector4(inverse.M00, inverse.M10, inverse.M20, inverse.M30);
 
             Vector4 dot0 = new Vector4(a_mat[0] * row0);
             float dot1 = (dot0.X + dot0.Y) + (dot0.Z + dot0.W);
@@ -261,7 +330,6 @@ namespace IcarianEngine.Maths
         /// <returns>Perspective Matrix</returns>
         public static Matrix4 CreatePerspective(float a_fov, float a_aspect, float a_near, float a_far)
         {
-            // float tanHalfFOV = Mathf.Tan(a_fov * 0.5f);
             float halfFov = a_fov * 0.5f;
             float f = Mathf.Cos(halfFov) / Mathf.Sin(halfFov);
 
@@ -337,23 +405,23 @@ namespace IcarianEngine.Maths
         /// <returns>Transposed Matrix</returns>
         public static Matrix4 Transpose(Matrix4 a_matrix)
         {
-            Matrix4 mat = new Matrix4(0.0f);
+            float[] mat = new float[16];
 
             for (int i = 0; i < 4; ++i)
             {
                 for (int j = 0; j < 4; ++j)
                 {
-                    mat.m_data[i * 4 + j] = a_matrix.m_data[i + j * 4];
+                    mat[i * 4 + j] = a_matrix[j][i];
                 }
             }
 
-            return mat;
+            return new Matrix4(mat);
         }
 
         public static Matrix4 operator *(Matrix4 a_lhs, Matrix4 a_rhs)
         {
             // Not the fastest matrix multiplication but should work for now
-            Matrix4 mat = new Matrix4(0.0f);
+            float[] mat = new float[16];
 
             for (int i = 0; i < 4; ++i)
             {
@@ -361,21 +429,18 @@ namespace IcarianEngine.Maths
                 {
                     for (int k = 0; k < 4; ++k)
                     {
-                        mat.m_data[i * 4 + j] += a_lhs.m_data[i * 4 + k] * a_rhs.m_data[k * 4 + j]; 
+                        mat[i * 4 + j] += a_lhs[i][k] * a_rhs[k][j];
                     }
                 }
             }
 
-            return mat;
+            return new Matrix4(mat);
         }
         public static Matrix4 operator +(Matrix4 a_lhs, Matrix4 a_rhs)
         {
             Matrix4 mat = new Matrix4(0.0f);
 
-            for (int i = 0; i < 16; ++i)
-            {
-                mat.m_data[i] = a_lhs.m_data[i] + a_rhs.m_data[i];
-            }
+            MATRIX_TABLE(MATRIX_ADD, mat);
 
             return mat;
         }
@@ -383,10 +448,7 @@ namespace IcarianEngine.Maths
         {
             Matrix4 mat = new Matrix4(0.0f);
 
-            for (int i = 0; i < 16; ++i)
-            {
-                mat.m_data[i] = a_lhs.m_data[i] + a_rhs.m_data[i];
-            }
+            MATRIX_TABLE(MATRIX_SUB, mat);
 
             return mat;
         }
@@ -399,7 +461,7 @@ namespace IcarianEngine.Maths
             {
                 for (int j = 0; j < 4; ++j)
                 {
-                    vec[i] += a_lhs.m_data[i * 4 + j] * a_rhs[j];
+                    vec[i] += a_lhs[i][j] * a_rhs[j];
                 }
             }
 
@@ -413,7 +475,7 @@ namespace IcarianEngine.Maths
             {
                 for (int j = 0; j < 4; ++j)
                 {
-                    vec[i] += a_lhs[j] * a_rhs.m_data[j * 4 + i];
+                    vec[i] += a_lhs[j] * a_rhs[j][i];
                 }
             }
 
