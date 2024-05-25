@@ -14,17 +14,15 @@ namespace IcarianEngine.Rendering {
 IOP_CSPUBLIC enum IOP_ENUM_NAME(ParticleEmitterType) : IOP_UINT16
 {
     IOP_ENUM_VALUE(ParticleEmitterType, Null) = IOP_UINT16_MAX,
-    IOP_ENUM_VALUE(ParticleEmitterType, Point) = 0,
-    IOP_ENUM_VALUE(ParticleEmitterType, Sphere) = 1
+    IOP_ENUM_VALUE(ParticleEmitterType, Point) = 0
 };
 
 /// @cond INTERNAL
 
 IOP_CSINTERNAL enum IOP_ENUM_NAME(ParticleDisplayMode) : IOP_UINT16
 {
-    IOP_ENUM_VALUE(ParticleDisplayMode, Point) = 0,
-    IOP_ENUM_VALUE(ParticleDisplayMode, Quad) = 1,
-    IOP_ENUM_VALUE(ParticleDisplayMode, Mesh) = 2
+    IOP_ENUM_VALUE(ParticleDisplayMode, Quad) = 0,
+    IOP_ENUM_VALUE(ParticleDisplayMode, Mesh) = 1
 };
 
 IOP_PACKED IOP_CSINTERNAL struct ComputeParticleBuffer
@@ -33,6 +31,7 @@ IOP_PACKED IOP_CSINTERNAL struct ComputeParticleBuffer
     IOP_CSINTERNAL static IOP_CONSTEXPR IOP_UINT32 PlayingBit = 1;
     IOP_CSINTERNAL static IOP_CONSTEXPR IOP_UINT32 DynamicBit = 2;
     IOP_CSINTERNAL static IOP_CONSTEXPR IOP_UINT32 RefreshBit = 3;
+    IOP_CSINTERNAL static IOP_CONSTEXPR IOP_UINT32 GraphicsRefreshBit = 4;
 
     IOP_CSPUBLIC IOP_ENUM_NAME(ParticleEmitterType) EmitterType;
     IOP_CSPUBLIC IOP_ENUM_NAME(ParticleDisplayMode) DisplayMode;

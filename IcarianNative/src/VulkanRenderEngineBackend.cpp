@@ -599,8 +599,8 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     Array<VulkanCommandBuffer> commandBuffers;
 
     // TODO: Down the line setup the compute and graphics engine to return VulkanCommandBuffers
-    const vk::CommandBuffer computeBuffer = m_computeEngine->Update(a_delta, a_time, m_currentFrame);
-    commandBuffers.Push(VulkanCommandBuffer(computeBuffer, VulkanCommandBufferType_Compute));
+    VulkanCommandBuffer computeCommandBuffer = m_computeEngine->Update(a_delta, a_time, m_currentFrame);
+    commandBuffers.Push(computeCommandBuffer);
 
     {
         const Array<vk::CommandBuffer> buffers = m_graphicsEngine->Update(a_delta, a_time, m_currentFrame);

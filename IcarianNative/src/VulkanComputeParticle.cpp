@@ -4,6 +4,7 @@
 
 #include <cstring>
 
+#include "Core/Bitfield.h"
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "Core/ShaderBuffers.h"
@@ -116,11 +117,11 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
 {
     Clear();
 
-    std::vector<ShaderBufferInput> inputs;
+    Array<ShaderBufferInput> inputs;
     const std::string shaderStr = VulkanParticleShaderGenerator::GenerateComputeShader(*a_buffer, &inputs);
 
     m_computeShader = m_engine->GenerateComputeFShader(shaderStr);
-    m_computeLayout = m_engine->GenerateComputePipelineLayout(inputs.data(), (uint32_t)inputs.size());
+    m_computeLayout = m_engine->GenerateComputePipelineLayout(inputs.Data(), inputs.Size());
     m_computePipeline = m_engine->GenerateComputePipeline(m_computeShader, m_computeLayout);
 
     VulkanRenderEngineBackend* backend = m_engine->GetRenderEngineBackend();
@@ -170,24 +171,24 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
         return;
     }
 
-    if (buffer.Flags & 0b1 << ComputeParticleBuffer::PlayBit)
+    if (IISBITSET(buffer.Flags, ComputeParticleBuffer::PlayBit))
     {
-        const bool generate = (buffer.Flags & 0b1 << ComputeParticleBuffer::DynamicBit) != 0 || m_computeShader == -1;
+        const bool generate = IISBITSET(buffer.Flags, ComputeParticleBuffer::DynamicBit) || m_computeShader == -1;
         if (generate)
         {
             Rebuild(&buffer);
         }
 
-        buffer.Flags &= ~(0b1 << ComputeParticleBuffer::PlayBit);
-        buffer.Flags |= 0b1 << ComputeParticleBuffer::PlayingBit;
+        ICLEARBIT(buffer.Flags, ComputeParticleBuffer::PlayBit);
+        ISETBIT(buffer.Flags, ComputeParticleBuffer::PlayingBit);
     }
 
-    if (buffer.Flags & 0b1 << ComputeParticleBuffer::RefreshBit)
+    if (IISBITSET(buffer.Flags, ComputeParticleBuffer::RefreshBit))
     {
         Rebuild(&buffer);
     }
 
-    if (buffer.Flags & 0b1 << ComputeParticleBuffer::PlayingBit)
+    if (IISBITSET(buffer.Flags, ComputeParticleBuffer::PlayingBit))
     {
         const VulkanRenderEngineBackend* backend = m_engine->GetRenderEngineBackend();
         VulkanPushPool* pushPool = backend->GetPushPool();
@@ -276,6 +277,8 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
             }
             default:
             {
+                IERROR("Invalid shader buffer type");
+
                 break;
             }
             }

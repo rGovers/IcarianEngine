@@ -142,6 +142,7 @@ namespace IcarianEngine.Rendering
                     unchecked
                     {
                         buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.RefreshBit);
+                        buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.GraphicsRefreshBit);
                     }
 
                     SetComputeBuffer(m_particleBufferAddr, buffer);
@@ -149,6 +150,9 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// The odds of creating a particle
+        /// </summary>
         public float EmitterRatio
         {
             get

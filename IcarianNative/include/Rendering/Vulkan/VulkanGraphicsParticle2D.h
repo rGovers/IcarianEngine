@@ -9,19 +9,24 @@ class VulkanComputeEngine;
 class VulkanGraphicsEngine;
 class VulkanRenderEngineBackend;
 
+#include "DataTypes/Array.h"
+
 #include "EngineMaterialInteropStructures.h"
 
 class VulkanGraphicsParticle2D
 {
 private:
-    VulkanRenderEngineBackend*     m_backend;
-    VulkanComputeEngine*           m_cEngine;
-    VulkanGraphicsEngine*          m_gEngine;
+    VulkanRenderEngineBackend* m_backend;
+    VulkanComputeEngine*       m_cEngine;
+    VulkanGraphicsEngine*      m_gEngine;
 
-    std::vector<ShaderBufferInput> m_inputs;
+    Array<ShaderBufferInput>   m_inputs;
 
-    uint32_t                       m_computeBufferAddr;
-    uint32_t                       m_renderProgramAddr;
+    uint32_t                   m_computeBufferAddr;
+    uint32_t                   m_renderProgramAddr;
+
+    void Build();
+    void Destroy();
 
 protected:
 

@@ -3,9 +3,8 @@
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
-#include <string_view>
-
 #include "DataTypes/TNCArray.h"
+#include "Rendering/Vulkan/VulkanCommandBuffer.h"
 
 class VulkanComputeEngineBindings;
 class VulkanComputeLayout;
@@ -53,7 +52,7 @@ public:
         return m_timeUniform;
     }
 
-    vk::CommandBuffer Update(double a_delta, double a_time, uint32_t a_index);
+    VulkanCommandBuffer Update(double a_delta, double a_time, uint32_t a_index);
 
     ComputeParticleBuffer GetParticleBuffer(uint32_t a_addr);
     void SetParticleBuffer(uint32_t a_addr, const ComputeParticleBuffer& a_buffer);

@@ -20,38 +20,6 @@ namespace IcarianEngine.Rendering
         uint m_graphicsSystemAddr = uint.MaxValue;
 
         /// <summary>
-        /// Determines if the ParticleSystem2D is in Quad or Point mode
-        /// </summary>
-        public bool IsQuad
-        {
-            get
-            {
-                ComputeParticleBuffer buffer = GetComputeBuffer(ParticleBufferAddr);
-
-                return buffer.DisplayMode == ParticleDisplayMode.Quad;
-            }
-            set
-            {
-                ComputeParticleBuffer buffer = GetComputeBuffer(ParticleBufferAddr);
-
-                bool isPoint = buffer.DisplayMode == ParticleDisplayMode.Quad;
-                if (isPoint != value)
-                {
-                    if (value)
-                    {
-                        buffer.DisplayMode = ParticleDisplayMode.Quad;
-                    }
-                    else
-                    {
-                        buffer.DisplayMode = ParticleDisplayMode.Point;
-                    }
-
-                    SetComputeBuffer(ParticleBufferAddr, buffer);
-                }
-            }
-        }
-
-        /// <summary>
         /// The ParticleSystem2DDef used to create this ParticleSystem2D
         /// </summary> 
         public ParticleSystem2DDef ParticleSystem2DDef
@@ -68,6 +36,12 @@ namespace IcarianEngine.Rendering
         public override void Init()
         {
             base.Init();
+
+            ComputeParticleBuffer buffer = GetComputeBuffer(ParticleBufferAddr);
+
+            buffer.DisplayMode = ParticleDisplayMode.Quad;
+
+            SetComputeBuffer(ParticleBufferAddr, buffer);
 
             m_particleSystemAddr = GenerateComputeParticleSystem(ParticleBufferAddr);
             m_graphicsSystemAddr = GenerateGraphicsParticleSystem(ParticleBufferAddr);

@@ -4,16 +4,16 @@
 
 #include <cstdint>
 
-#include "Core/IcarianAssert.h"
-#include "Core/ShaderBuffers.h"
+#include "Core/Bitfield.h"
+#include "IcarianError.h"
 
 // Shamelessly used Godot for reference
 // Credit:
 // https://github.com/godotengine/godot/blob/master/scene/resources/particle_process_material.cpp
 
-static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_parameters, std::vector<ShaderBufferInput>* a_inputs)
+static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_parameters, Array<ShaderBufferInput>* a_inputs)
 {
-    a_inputs->clear();
+    a_inputs->Clear();
 
     ShaderBufferInput input;
     input.Count = 1;
@@ -23,7 +23,7 @@ static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_param
     uint16_t slot = 0;
 
     // TODO: Dynamic values probably using the UserUBO or a ParticleComputeBuffer TBD
-    if (a_parameters.Flags & 0b1 << ComputeParticleBuffer::DynamicBit)
+    if (IISBITSET(a_parameters.Flags, ComputeParticleBuffer::DynamicBit))
     {
         
     }
@@ -37,37 +37,40 @@ static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_param
         {
             break;
         }
-        case ParticleEmitterType_Sphere:
-        {
-            code += "const float emitterRadius = " + std::to_string(glm::max(0.0f, a_parameters.EmitterRadius)) + "; \n";
+        // case ParticleEmitterType_Sphere:
+        // {
+        //     code += "const float emitterRadius = " + std::to_string(glm::max(0.0f, a_parameters.EmitterRadius)) + "; \n";
 
-            break;
-        }
+        //     break;
+        // }
         default:
         {
-            ICARIAN_ASSERT(0);
+            IERROR("Invalid particle emitter type");
+
+            break;
         }
         }
     }
 
     input.Slot = slot;
     input.BufferType = ShaderBufferType_TimeBuffer;
-    a_inputs->emplace_back(input);
+    a_inputs->Push(input);
     code += "#!structure(TimeBuffer," + std::to_string(slot++) + ",timeBuffer) \n";
 
     input.Slot = slot;
     input.BufferType = ShaderBufferType_SSParticleBuffer;
-    a_inputs->emplace_back(input);
+    a_inputs->Push(input);
     code += "#!structure(SSParticleBuffer," + std::to_string(slot++) + ",inParticleBuffer) \n";
 
     input.Slot = slot;
     input.BufferType = ShaderBufferType_SSParticleBuffer;
-    a_inputs->emplace_back(input);
-    code += "layout(std140,binding=" + std::to_string(slot++) + ") buffer ParticleShaderBufferOut \n";
+    a_inputs->Push(input);
+    code += "layout(std140,binding=" + std::to_string(slot) + ",set=" + std::to_string(slot) + ") buffer ParticleShaderBufferOut \n";
     code += "{ \n";
     code += "   int Count; \n";
-    code += "   ParticleShaderBufferData objects[]; \n";
+    code += "   ParticleBufferData objects[]; \n";
     code += "} outParticleBuffer; \n";
+    ++slot;
 
     return code;
 }
@@ -98,13 +101,15 @@ static std::string GenerateComputeBasicFunctions()
     return code;
 }
 
-std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputeParticleBuffer& a_parameters, std::vector<ShaderBufferInput>* a_inputs)
+std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputeParticleBuffer& a_parameters, Array<ShaderBufferInput>* a_inputs)
 {
     std::string code;
 
+    constexpr uint32_t WorkgroupSize = 256;
+
     code += "#version 450 \n";
 
-    code += "layout(local_size_x=256, local_size_y=1, local_size_z=1) in; \n";
+    code += "layout(local_size_x=" + std::to_string(WorkgroupSize) +", local_size_y=1, local_size_z=1) in; \n";
 
     code += GenerateComputeVariables(a_parameters, a_inputs);
 
@@ -113,14 +118,20 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
     code += "void main() \n";
     code += "{ \n";
     code += "   uint index = gl_GlobalInvocationID.x; \n";
-    code += "   uint seed = index; \n";
-    code += "   if (index >= inParticleBuffer.Count) \n";
-    code += "   { \n";
-    code += "       return; \n";
-    code += "   } \n";
+    if (a_parameters.MaxParticles % WorkgroupSize != 0)
+    {
+        code += "   if (index >= inParticleBuffer.Count) \n";
+        code += "   { \n";
+        code += "       return; \n";
+        code += "   } \n";
+    }
     
     code += "   float delta = timeBuffer.Time.x; \n";
-    code += "   ParticleShaderBufferData particle = inParticleBuffer.objects[index]; \n";
+    code += "   float timePassed = timeBuffer.Time.y; \n";
+    code += "   uint seedDelta = uint(timePassed * 1000); \n";
+    code += "   uint seed = index * seedDelta + seedDelta; \n";
+    
+    code += "   ParticleBufferData particle = inParticleBuffer.objects[index]; \n";
     code += "   if (particle.Position.w <= 0.0) \n";
     code += "   { \n";
     code += "       if (rand(seed) < emitterRatio) \n";
@@ -131,19 +142,16 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
     case ParticleEmitterType_Point:
     {
         code += "       outParticleBuffer.objects[index].Position = vec4(0.0, 0.0, 0.0, 5.0); \n";
-        code += "       outParticleBuffer.objects[index].Velocity = vec3(rand(seed) * 2 - 1, -rand(seed), rand(seed) * 2 - 1); \n";
+        code += "       outParticleBuffer.objects[index].Velocity = vec3(rand(seed) * 2 - 1, rand(seed) * 2 - 1, rand(seed) * 2 - 1); \n";
         code += "       outParticleBuffer.objects[index].Color = vec4(1.0); \n";
-
-        break;
-    }
-    case ParticleEmitterType_Sphere:
-    {
 
         break;
     }
     default:
     {
-        ICARIAN_ASSERT(0);
+        IERROR("Invalid particle emitter type");
+
+        break;
     }
     }
 
@@ -160,7 +168,7 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
     return code;
 }
 
-std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, std::vector<ShaderBufferInput>* a_inputs, std::vector<VertexInputAttribute>* a_vertexInputs)
+std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs, Array<VertexInputAttribute>* a_vertexInputs)
 {
     std::string code;
 
@@ -171,40 +179,11 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
 
     switch (a_parameters.DisplayMode)
     {
-    case ParticleDisplayMode_Point:
-    {
-        VertexInputAttribute att;
-
-        code += "layout(location=0) in vec4 particlePos; \n";
-        att.Count = 4;
-        att.Location = 0;
-        att.Offset = offsetof(IcarianCore::ShaderParticleBuffer, Position);
-        att.Type = VertexType_Float;
-        a_vertexInputs->emplace_back(att);
-
-        code += "layout(location=1) in vec3 particleVelocity; \n";
-        att.Count = 3;
-        att.Location = 1;
-        att.Offset = offsetof(IcarianCore::ShaderParticleBuffer, Velocity);
-        att.Type = VertexType_Float;
-        a_vertexInputs->emplace_back(att);
-
-        code += "layout(location=2) in vec4 particleColor; \n";
-        att.Count = 4;
-        att.Location = 2;
-        att.Offset = offsetof(IcarianCore::ShaderParticleBuffer, Color);
-        att.Type = VertexType_Float;
-        a_vertexInputs->emplace_back(att);
-        // There is an extension to allow point mode sprite rendering in OpenGL not sure about Vulkan however problem is was obscure functionality it OpenGL as is
-        // May have just been a relic of graphics accelerators
-
-        break;
-    }
     case ParticleDisplayMode_Quad:
     {
         input.Slot = *a_slot;
         input.BufferType = ShaderBufferType_SSParticleBuffer;
-        a_inputs->emplace_back(input);
+        a_inputs->Push(input);
         code += "#!structure(SSParticleBuffer," + std::to_string((*a_slot)++) + ",particleBuffer) \n";
 
         code += "vec2 positions[6] = vec2[] \n";
@@ -214,7 +193,7 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
         code += "   vec2(-1.0, -1.0), \n";
         code += "   vec2(1.0, 1.0), \n";
         code += "   vec2(1.0, -1.0), \n";
-        code += "   vec2(-1.0, -1.0), \n";
+        code += "   vec2(-1.0, -1.0) \n";
         code += "); \n";
 
         code += "vec2 uvs[6] = vec2[] \n";
@@ -224,7 +203,7 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
         code += "   vec2(0.0, 0.0), \n";
         code += "   vec2(1.0, 1.0), \n";
         code += "   vec2(1.0, 0.0), \n";
-        code += "   vec2(0.0, 0.0), \n";
+        code += "   vec2(0.0, 0.0) \n";
         code += "); \n";
 
         code += "layout(location=1) out vec2 fragUV; \n";
@@ -233,13 +212,15 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
     }
     default:
     {
-        ICARIAN_ASSERT(0);
+        IERROR("Invalid particle display mode");
+
+        break;
     }
     }
 
     input.Slot = *a_slot;
     input.BufferType = ShaderBufferType_CameraBuffer;
-    a_inputs->emplace_back(input);
+    a_inputs->Push(input);
     code += "#!structure(CameraBuffer," + std::to_string((*a_slot)++) + ",camBuffer) \n";
 
     code += "layout(location=0) out vec4 fragColor; \n";
@@ -248,42 +229,35 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
     code += "{ \n";
     switch (a_parameters.DisplayMode)
     {
-    case ParticleDisplayMode_Point:
-    {
-        code += "fragColor = particleColor; \n";
-
-        // Hic sunt dracones. 
-        // Exploting NaN/Inf to cull particles that are not alive by dividing by zero
-        // Setting point size to zero for the hardware that gives 0 for div by 0
-        // Between NaN culling and same point culling I think I have covered all hardware?
-        // Technically exploiting undefined behaviour so may break in future.
-        code += "float alive = max(sign(particlePos.w), 0.0); \n";
-        code += "gl_PointSize = 10.0 * alive; \n";
-        code += "gl_Position = camBuffer.ViewProj * vec4(particlePos.xyz / alive, 1.0); \n";
-
-        break;
-    }
     case ParticleDisplayMode_Quad:
     {
-        code += "int particleIndex = gl_VertexIndex / 6; \n";
-        code += "int vertexIndex = gl_VertexIndex % 6; \n";
+        code += "   int particleIndex = gl_VertexIndex / 6; \n";
+        code += "   int vertexIndex = gl_VertexIndex % 6; \n";
         
-        code += "ParticleShaderBuffer particle = particleBuffer.objects[particleIndex]; \n";
+        code += "   ParticleBufferData particle = particleBuffer.objects[particleIndex]; \n";
 
-        code += "float alive = max(sign(particle.Position.w), 0.0); \n";
+        code += "   float alive = max(sign(particle.Position.w), 0.0); \n";
+        code += "   fragColor = particle.Color; \n";
+        code += "   mat3 camBill = mat3(camBuffer.InvView); \n";
+        code += "   vec3 billPos = camBill * vec3(positions[vertexIndex], 0.0); \n";
+        code += "   float scale = 0.01 / alive; \n";
+        code += "   gl_Position = camBuffer.ViewProj * vec4(particle.Position.xyz + billPos * scale, 1.0); \n";
 
         break;
     }
     default:
     {
-        ICARIAN_ASSERT(0);
+        IERROR("Invalid particle display mode");
+
+        break;
     }
     }
+
     code += "} \n";
  
     return code;
 }
-std::string VulkanParticleShaderGenerator::GeneratePixelShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, std::vector<ShaderBufferInput>* a_inputs)
+std::string VulkanParticleShaderGenerator::GeneratePixelShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs)
 {
     std::string code;
 

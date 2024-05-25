@@ -28,7 +28,7 @@ VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
 
     for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
     {
-        ICARIAN_ASSERT_MSG_R(device.createCommandPool(&poolInfo, nullptr, &m_pools[i]) == vk::Result::eSuccess, "Failed to create Compute Command Pool");
+        VKRESERRMSG(device.createCommandPool(&poolInfo, nullptr, &m_pools[i]), "Failed to create Compute Command Pool");
 
         const vk::CommandBufferAllocateInfo commandBufferInfo = vk::CommandBufferAllocateInfo
         (
@@ -37,7 +37,7 @@ VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
             1
         );
 
-        ICARIAN_ASSERT_MSG_R(device.allocateCommandBuffers(&commandBufferInfo, &m_buffers[i]) == vk::Result::eSuccess, "Failed to create Compute Command Buffer");
+        VKRESERRMSG(device.allocateCommandBuffers(&commandBufferInfo, &m_buffers[i]), "Failed to create Compute Command Buffer");
     }
 
     m_timeUniform = new VulkanUniformBuffer(m_engine, sizeof(IcarianCore::ShaderTimeBuffer));
@@ -107,14 +107,11 @@ VulkanComputeEngine::~VulkanComputeEngine()
     }    
 }
 
-vk::CommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, uint32_t a_index)
+VulkanCommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, uint32_t a_index)
 {
     const vk::Device device = m_engine->GetLogicalDevice();
 
-    for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
-    {
-        device.resetCommandPool(m_pools[a_index]);
-    }
+    device.resetCommandPool(m_pools[a_index]);
 
     const IcarianCore::ShaderTimeBuffer timeBuffer =
     {
@@ -123,13 +120,13 @@ vk::CommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, uin
     
     m_timeUniform->SetData(a_index, &timeBuffer);
 
-    vk::CommandBuffer cmdBuffer = m_buffers[a_index];
+    const vk::CommandBuffer cmdBuffer = m_buffers[a_index];
 
     constexpr vk::CommandBufferBeginInfo BeginInfo;
     cmdBuffer.begin(BeginInfo);
     IDEFER(cmdBuffer.end());
 
-    const std::vector<ComputeParticleBuffer> particleBuffers = m_particleBuffers.ToActiveVector();
+    const Array<ComputeParticleBuffer> particleBuffers = m_particleBuffers.ToActiveArray();
     for (const ComputeParticleBuffer& buffer : particleBuffers)
     {
         VulkanComputeParticle* pSys = (VulkanComputeParticle*)buffer.Data;
@@ -139,28 +136,28 @@ vk::CommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, uin
         }
     }
 
-    return cmdBuffer;
+    return VulkanCommandBuffer(cmdBuffer, VulkanCommandBufferType_Compute);
 }
 
 ComputeParticleBuffer VulkanComputeEngine::GetParticleBuffer(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_particleBuffers.Size(), "GetParticleBuffer out of range");
-    ICARIAN_ASSERT_MSG(m_particleBuffers.Exists(a_addr), "GetParticleBuffer does not exist");
+    IVERIFY(a_addr < m_particleBuffers.Size());
+    IVERIFY(m_particleBuffers.Exists(a_addr));
 
     return m_particleBuffers[a_addr];
 }
 void VulkanComputeEngine::SetParticleBuffer(uint32_t a_addr, const ComputeParticleBuffer& a_buffer)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_particleBuffers.Size(), "SetParticleBuffer out of range");
-    ICARIAN_ASSERT_MSG(m_particleBuffers.Exists(a_addr), "SetParticleBuffer does not exist");
+    IVERIFY(a_addr < m_particleBuffers.Size());
+    IVERIFY(m_particleBuffers.Exists(a_addr));
 
     m_particleBuffers.LockSet(a_addr, a_buffer);
 }
 
 vk::Buffer VulkanComputeEngine::GetParticleBufferData(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_particleBuffers.Size(), "GetParticleBuffer out of range");
-    ICARIAN_ASSERT_MSG(m_particleBuffers.Exists(a_addr), "GetParticleBuffer does not exist");
+    IVERIFY(a_addr < m_particleBuffers.Size());
+    IVERIFY(m_particleBuffers.Exists(a_addr));
 
     const ComputeParticleBuffer buffer = m_particleBuffers[a_addr];
     VulkanComputeParticle* data = (VulkanComputeParticle*)buffer.Data; 
@@ -176,8 +173,8 @@ uint32_t VulkanComputeEngine::GenerateComputeFShader(const std::string_view& a_s
 }
 void VulkanComputeEngine::DestroyComputeShader(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_shaders.Size(), "DestroyComputeShader out of range");
-    ICARIAN_ASSERT_MSG(m_shaders.Exists(a_addr), "DestroyComputeShader does not exist");
+    IVERIFY(a_addr < m_shaders.Size());
+    IVERIFY(m_shaders.Exists(a_addr));
 
     const VulkanComputeShader* shader = m_shaders[a_addr];
     IDEFER(delete shader);
@@ -186,8 +183,8 @@ void VulkanComputeEngine::DestroyComputeShader(uint32_t a_addr)
 }
 VulkanComputeShader* VulkanComputeEngine::GetComputeShader(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_shaders.Size(), "GetComputeShader out of range");
-    ICARIAN_ASSERT_MSG(m_shaders.Exists(a_addr), "GetComputeShader does not exist");
+    IVERIFY(a_addr < m_shaders.Size());
+    IVERIFY(m_shaders.Exists(a_addr));
 
     return m_shaders[a_addr];
 }
@@ -200,8 +197,8 @@ uint32_t VulkanComputeEngine::GenerateComputePipelineLayout(const ShaderBufferIn
 }
 void VulkanComputeEngine::DestroyComputePipelineLayout(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_layouts.Size(), "DestroyComputePipelineLayout out of range");
-    ICARIAN_ASSERT_MSG(m_layouts.Exists(a_addr), "DestroyComputePipelineLayout does not exist");
+    IVERIFY(a_addr < m_layouts.Size());
+    IVERIFY(m_layouts.Exists(a_addr));
 
     const VulkanComputeLayout* layout = m_layouts[a_addr];
     IDEFER(delete layout);
@@ -210,8 +207,8 @@ void VulkanComputeEngine::DestroyComputePipelineLayout(uint32_t a_addr)
 }
 VulkanComputeLayout* VulkanComputeEngine::GetComputePipelineLayout(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_layouts.Size(), "GetComputePipelineLayout out of range");
-    ICARIAN_ASSERT_MSG(m_layouts.Exists(a_addr), "GetComputePipelineLayout does not exist");
+    IVERIFY(a_addr < m_layouts.Size());
+    IVERIFY(m_layouts.Exists(a_addr));
 
     return m_layouts[a_addr];
 }
@@ -219,14 +216,14 @@ VulkanComputeLayout* VulkanComputeEngine::GetComputePipelineLayout(uint32_t a_ad
 uint32_t VulkanComputeEngine::GenerateComputePipeline(uint32_t a_shaderAddr, uint32_t a_layoutAddr)
 {
     VulkanComputePipeline* pipeline = VulkanComputePipeline::CreatePipeline(this, a_layoutAddr, a_shaderAddr);
-    ICARIAN_ASSERT(pipeline != nullptr);
+    IVERIFY(pipeline != nullptr);
 
     return m_pipelines.PushVal(pipeline);
 }
 void VulkanComputeEngine::DestroyComputePipeline(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_pipelines.Size(), "DestroyComputePipeline out of range");
-    ICARIAN_ASSERT_MSG(m_pipelines.Exists(a_addr), "DestroyComputePipeline does not exist");
+    IVERIFY(a_addr < m_pipelines.Size());
+    IVERIFY(m_pipelines.Exists(a_addr));
 
     const VulkanComputePipeline* pipeline = m_pipelines[a_addr];
     IDEFER(delete pipeline);
@@ -235,8 +232,8 @@ void VulkanComputeEngine::DestroyComputePipeline(uint32_t a_addr)
 }
 VulkanComputePipeline* VulkanComputeEngine::GetComputePipeline(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_pipelines.Size(), "GetComputePipeline out of range");
-    ICARIAN_ASSERT_MSG(m_pipelines.Exists(a_addr), "GetComputePipeline does not exist");
+    IVERIFY(a_addr < m_pipelines.Size());
+    IVERIFY(m_pipelines.Exists(a_addr));
 
     return m_pipelines[a_addr];
 }
