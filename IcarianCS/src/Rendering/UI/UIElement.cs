@@ -5,71 +5,71 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineUIElementInterop.h"
+#include "EngineUIElementInteropStuctures.h"
+#include "InteropBinding.h"
+
+ENGINE_UIELEMENT_EXPORT_TABLE(IOP_BIND_FUNCTION);
+
 namespace IcarianEngine.Rendering.UI
 {
-    public enum ElementState : uint
+    public class UIElement : IDestroy
     {
-        Normal = 0,
-        Hovered = 1,
-        Pressed = 2,
-        Released = 3
-    };
-
-    public abstract class UIElement : IDestroy
-    {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void AddChildElement(uint a_addr, uint a_childAddr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void RemoveChildElement(uint a_addr, uint a_childAddr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint[] GetChildren(uint a_addr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        // extern static Vector2 GetPosition(uint a_addr);
-        // Getting stack corruption on Windows 10 using extern static Vector2 GetPosition(uint a_addr);
-        // Fix is to use IntPtr instead of Vector2
-        extern static void GetPosition(uint a_addr, IntPtr a_ptr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetPosition(uint a_addr, Vector2 a_pos);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        // extern static Vector2 GetSize(uint a_addr);
-        extern static void GetSize(uint a_addr, IntPtr a_ptr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetSize(uint a_addr, Vector2 a_size);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static Vector4 GetColor(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetColor(uint a_addr, Vector4 a_color);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GetElementState(uint a_addr);
-
         static readonly ConcurrentDictionary<uint, UIElement> s_elementLookup = new ConcurrentDictionary<uint, UIElement>();
 
+        /// <summary>
+        /// Delegate for UI events
+        /// </summary>
+        /// <param name="a_canvas">The <see cref="IcarianEngine.Rendering.UI.Canvas" /> the event is for</param>
+        /// <param name="a_element">The <see cref="IcarianEngine.Rendering.UI.UIElement" /> the event is for</param>
         public delegate void UIEvent(Canvas a_canvas, UIElement a_element);
 
+        uint   m_bufferAddr = uint.MaxValue;
         string m_name;
-        bool   m_destroyed = false;
 
+        /// <summary>
+        /// Delegate for normal events
+        /// </summary>
         public UIEvent OnNormal = null;
+        /// <summary>
+        /// Delegate for hover events
+        /// </summary>
         public UIEvent OnHover = null;
+        /// <summary>
+        /// Delegate for press events
+        /// </summary>
         public UIEvent OnPressed = null;
+        /// <summary>
+        /// Delegate for release events
+        /// </summary>
         public UIEvent OnReleased = null;
 
+        /// <summary>
+        /// Whether or not the UIElement is Disposed/Finalised
+        /// </summary>
         public bool IsDisposed
         {
             get
             {
-                return m_destroyed;
+                return m_bufferAddr == uint.MaxValue;
             }
         }
 
         internal uint BufferAddr
         {
-            get;
-            set;
+            get
+            {
+                return m_bufferAddr;
+            }
+            set
+            {
+                m_bufferAddr = value;
+            }
         }
 
+        /// <summary>
+        /// The name of the UIElement
+        /// </summary>
         public string Name
         {
             get
@@ -82,21 +82,28 @@ namespace IcarianEngine.Rendering.UI
             }
         }
 
+        /// <summary>
+        /// The current state of the UIElement
+        /// </summary>
         public ElementState ElementState
         {
             get
             {
-                return (ElementState)GetElementState(BufferAddr);
+                return (ElementState)UIElementInterop.GetElementState(m_bufferAddr);
             }
         }
 
+        /// <summary>
+        /// The position of the UIElement in <see cref="IcarianEngine.Rendering.UI.Canvas" /> space
+        /// </summary>
         public Vector2 Position
         {
             get
             {
+                // Get stack corruption with return value refer to EngineUIElementInterop.h
                 IntPtr ptr = Marshal.AllocHGlobal(Marshal.SizeOf<Vector2>());
 
-                GetPosition(BufferAddr, ptr);
+                UIElementInterop.GetPosition(m_bufferAddr, ptr);
                 Vector2 val = Marshal.PtrToStructure<Vector2>(ptr);
                 Marshal.FreeHGlobal(ptr);
 
@@ -104,46 +111,83 @@ namespace IcarianEngine.Rendering.UI
             }
             set
             {
-                SetPosition(BufferAddr, value);
+                UIElementInterop.SetPosition(m_bufferAddr, value);
             }
         }
+        /// <summary>
+        /// The size of the UIElement in <see cref="IcarianEngine.Rendering.UI.Canvas" /> space
+        /// </summary>
         public Vector2 Size
         {
             get
             {
+                // Get stack corruption with return value refer to EngineUIElementInterop.h
                 IntPtr ptr = Marshal.AllocHGlobal(Marshal.SizeOf<Vector2>());
 
-                GetSize(BufferAddr, ptr);
+                UIElementInterop.GetSize(m_bufferAddr, ptr);
                 Vector2 val = Marshal.PtrToStructure<Vector2>(ptr);
                 Marshal.FreeHGlobal(ptr);
 
                 return val;
-                // return GetSize(BufferAddr);
-                // return Vector2.One;
             }
             set
             {
-                SetSize(BufferAddr, value);
+                UIElementInterop.SetSize(m_bufferAddr, value);
             }
         }
 
+        /// <summary>
+        /// The colour of the UIElement
+        /// </summary>
         public Color Color
         {
             get
             {
-                return GetColor(BufferAddr).ToColor();
+                return UIElementInterop.GetColor(m_bufferAddr).ToColor();
             }
             set
             {
-                SetColor(BufferAddr, value.ToVector4());
+                UIElementInterop.SetColor(m_bufferAddr, value.ToVector4());
             }
         }
 
+        /// <summary>
+        /// The X anchor point for the UIElement
+        /// </summary>
+        public UIXAnchor XAnchor
+        {
+            get
+            {
+                return (UIXAnchor)UIElementInterop.GetElementXAnchor(m_bufferAddr);
+            }
+            set
+            {
+                UIElementInterop.SetElementXAnchor(m_bufferAddr, (uint)value);
+            }
+        }
+        /// <summary>
+        /// The Y anchor point for the UIElement
+        /// </summary>
+        public UIYAnchor YAnchor
+        {
+            get
+            {
+                return (UIYAnchor)UIElementInterop.GetElementYAnchor(m_bufferAddr);
+            }
+            set
+            {
+                UIElementInterop.SetElementYAnchor(m_bufferAddr, (uint)value);
+            }
+        }
+        
+        /// <summary>
+        /// The children of the UIElement
+        /// </summary>
         public IEnumerable<UIElement> Children
         {
             get
             {
-                uint[] children = GetChildren(BufferAddr);
+                uint[] children = UIElementInterop.GetChildren(m_bufferAddr);
 
                 foreach (uint child in children)
                 {
@@ -155,11 +199,26 @@ namespace IcarianEngine.Rendering.UI
             }
         }
 
-        protected void AddLookup(uint a_addr, UIElement a_element)
+        public UIElement()
+        {
+            m_bufferAddr = UIElementInterop.CreateUIElement();
+
+            AddLookup(m_bufferAddr, this);
+        }
+        protected internal UIElement(uint a_bufferAddr)
+        {
+            m_bufferAddr = a_bufferAddr;
+
+            AddLookup(m_bufferAddr, this);
+        }
+
+        /// @cond INTERNAL
+
+        internal void AddLookup(uint a_addr, UIElement a_element)
         {
             s_elementLookup.TryAdd(a_addr, a_element);
         }
-        protected void RemoveLookup(uint a_addr)
+        internal void RemoveLookup(uint a_addr)
         {
             s_elementLookup.TryRemove(a_addr, out UIElement _);
         }
@@ -172,6 +231,72 @@ namespace IcarianEngine.Rendering.UI
             }
 
             return null;
+        }
+
+        /// @endcond
+
+        /// <summary>
+        /// Gets the child of the UIElement with name recursively
+        /// </summary>
+        /// <param name="a_name">The name of the child to get</param>
+        /// <returns>The child UIElement. Null on failure</returns>
+        public UIElement GetNamedChild(string a_name)
+        {
+            foreach (UIElement child in Children)
+            {
+                if (child.Name == a_name)
+                {
+                    return child;
+                }
+
+                UIElement element = child.GetNamedChild(a_name);
+                if (element != null)
+                {
+                    return element;
+                }
+            }
+
+            return null;
+        }
+        /// <summary>
+        /// Gets the child of the UIElement of type T with name recursively
+        /// </summary>
+        /// <param name="a_name">The name of the child to get</param>
+        /// <returns>The child UIElement. Null on failure</returns>
+        public T GetNamedChild<T>(string a_name) where T : UIElement
+        {
+            return GetNamedChild(a_name) as T;
+        }
+
+        /// <summary>
+        /// Adds a child to the UIElement
+        /// </summary>
+        /// <param name="a_child">The child to add</param>
+        public void AddChild(UIElement a_child)
+        {
+            if (a_child == null)
+            {
+                Logger.IcarianWarning("Null UIElement");
+
+                return;
+            }
+
+            UIElementInterop.AddChildElement(BufferAddr, a_child.BufferAddr);
+        }
+        /// <summary>
+        /// Removes a child from the UIElement
+        /// </summary>
+        /// <param name="a_child">The child to remove</param>
+        public void RemoveChild(UIElement a_child)
+        {
+            if (a_child == null)
+            {
+                Logger.IcarianWarning("Null UIElement");
+
+                return;
+            }
+
+            UIElementInterop.RemoveChildElement(BufferAddr, a_child.BufferAddr);
         }
 
         static void OnNormalS(uint a_canvasAddr, uint a_elementAddr)
@@ -215,64 +340,28 @@ namespace IcarianEngine.Rendering.UI
             }
         }
 
-        public UIElement GetNamedChild(string a_name)
-        {
-            foreach (UIElement child in Children)
-            {
-                if (child.Name == a_name)
-                {
-                    return child;
-                }
-
-                UIElement element = child.GetNamedChild(a_name);
-                if (element != null)
-                {
-                    return element;
-                }
-            }
-
-            return null;
-        }
-        public T GetNamedChild<T>(string a_name) where T : UIElement
-        {
-            return GetNamedChild(a_name) as T;
-        }
-
-        public void AddChild(UIElement a_child)
-        {
-            if (a_child == null)
-            {
-                Logger.IcarianWarning("Null UIElement");
-
-                return;
-            }
-
-            AddChildElement(BufferAddr, a_child.BufferAddr);
-        }
-        public void RemoveChild(UIElement a_child)
-        {
-            if (a_child == null)
-            {
-                Logger.IcarianWarning("Null UIElement");
-            }
-
-            RemoveChildElement(BufferAddr, a_child.BufferAddr);
-        }
-
+        /// <summary>
+        /// Disposes of the UIElement
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the UIElement is Disposed/Finalised
+        /// </summary>
+        /// <param name="a_disposing">Whether or not it is called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
-            if (!m_destroyed)
+            if (m_bufferAddr != uint.MaxValue)
             {
                 if (a_disposing)
                 {
-                    RemoveLookup(BufferAddr);
+                    UIElementInterop.DestroyUIElement(m_bufferAddr);
+
+                    RemoveLookup(m_bufferAddr);
 
                     foreach (UIElement child in Children)
                     {
@@ -284,14 +373,13 @@ namespace IcarianEngine.Rendering.UI
                     Logger.IcarianWarning("UIElement failed to Dispose");
                 }
 
-                m_destroyed = true;
+                m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianWarning("Multiple Dispose calls on UIElement");
+                Logger.IcarianError("Multiple Dispose calls on UIElement");
             }
         }
-
         ~UIElement()
         {
             Dispose(false);

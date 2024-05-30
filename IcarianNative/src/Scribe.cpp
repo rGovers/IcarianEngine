@@ -35,7 +35,6 @@ RUNTIME_FUNCTION(MonoString*, Scribe, GetString,
     IDEFER(mono_free(key));
 
     const std::u32string str = Scribe::GetString(key);
-
     if (!str.empty())
     {
         return mono_string_from_utf32((mono_unichar4*)str.c_str());
@@ -143,12 +142,28 @@ void Scribe::Destroy()
     }
 }
 
+std::string Scribe::GetCurrentLanguage()
+{
+    IVERIFY(Instance != nullptr);
+
+    const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
+
+    return Instance->m_curLang;
+}
+void Scribe::SetCurrentLanguage(const std::string_view& a_language)
+{
+    IVERIFY(Instance != nullptr);
+
+    const ThreadGuard g = ThreadGuard(Instance->m_lock);
+
+    Instance->m_curLang = std::string(a_language);
+}
+
 uint32_t Scribe::GetFont(const std::string_view& a_key)
 {
-    ICARIAN_ASSERT(Instance != nullptr);
+    IVERIFY(Instance != nullptr);
 
     const std::string key = std::string(a_key);
-
     if (Instance->m_fonts.Exists(key))
     {
         return Instance->m_fonts[key];
@@ -159,10 +174,9 @@ uint32_t Scribe::GetFont(const std::string_view& a_key)
 
 std::u32string Scribe::GetString(const std::string_view& a_key)
 {
-    ICARIAN_ASSERT(Instance != nullptr);
-        
+    IVERIFY(Instance != nullptr);
+    
     const std::string key = std::string(a_key);
-
     if (Instance->m_strings.Exists(key))
     {
         return Instance->m_strings[key];
@@ -170,7 +184,7 @@ std::u32string Scribe::GetString(const std::string_view& a_key)
 
     return converter.from_bytes(key);
 }
-std::u32string Scribe::GetStringFormated(const std::string_view& a_key, char32_t* const* a_args, uint32_t a_count)
+std::u32string Scribe::GetStringFormated(const std::string_view& a_key, const char32_t* const* a_args, uint32_t a_count)
 {
     std::u32string str = GetString(a_key);
 

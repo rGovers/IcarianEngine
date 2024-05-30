@@ -9,41 +9,23 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Xml;
 
+#include "EngineCanvasInterop.h"
+#include "EngineCanvasInteropStructures.h"
+#include "InteropBinding.h"
+
+ENGINE_CANVAS_EXPORT_TABLE(IOP_BIND_FUNCTION);
+
 namespace IcarianEngine.Rendering.UI
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    struct CanvasBuffer
-    {
-        public Vector2 ReferenceResolution;
-        public uint ChildElementCount;
-        public IntPtr ChildElements;
-        public byte Flags;
-    }
-
     public class Canvas : IDestroy
     {
         static ConcurrentDictionary<uint, Canvas> s_canvasLookup = new ConcurrentDictionary<uint, Canvas>();
 
-        const int CaptureInputBit = 1;
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint CreateCanvas(Vector2 a_refResolution);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void DestroyCanvas(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static CanvasBuffer GetBuffer(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetBuffer(uint a_addr, CanvasBuffer a_buffer);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void AddChildElement(uint a_addr, uint a_childElementAddr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void RemoveChildElement(uint a_addr, uint a_childElementAddr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint[] GetChildren(uint a_addr);
-
         uint m_bufferAddr;
 
+        /// <summary>
+        /// Whether or not the Canvas has been Disposed/Finalised
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -60,45 +42,61 @@ namespace IcarianEngine.Rendering.UI
             }
         }
 
+        /// <summary>
+        /// The reference resolution of the Canvas
+        /// </summary>
         public Vector2 ReferenceResolution
         {
             get
             {
-                CanvasBuffer buffer = GetBuffer(m_bufferAddr);
+                CanvasBuffer buffer = CanvasInterop.GetBuffer(m_bufferAddr);
 
                 return buffer.ReferenceResolution;
             }
         }
+        /// <summary>
+        /// Whether or not the Canvas captures input
+        /// </summary>
         public bool CapturesInput
         {
             get
             {
-                CanvasBuffer buffer = GetBuffer(m_bufferAddr);
+                CanvasBuffer buffer = CanvasInterop.GetBuffer(m_bufferAddr);
 
-                return (buffer.Flags & 0b1 << CaptureInputBit) != 0;
+                return (buffer.Flags & 0b1 << (int)CanvasBuffer.CaptureInputBit) != 0;
             }
             set
             {
-                CanvasBuffer buffer = GetBuffer(m_bufferAddr);
+                CanvasBuffer buffer = CanvasInterop.GetBuffer(m_bufferAddr);
 
-                if (value)
+                unchecked
                 {
-                    buffer.Flags |= 0b1 << CaptureInputBit;
-                }
-                else
-                {
-                    buffer.Flags = (byte)(buffer.Flags & ~(0b1 << CaptureInputBit));
-                }
+                    bool state = (buffer.Flags & 0b1 << (int)CanvasBuffer.CaptureInputBit) != 0;
+                    if (state != value)
+                    {
+                        if (value)
+                        {
+                            buffer.Flags |= (byte)(0b1 << (int)CanvasBuffer.CaptureInputBit);
+                        }
+                        else
+                        {
+                            buffer.Flags &= (byte)~(0b1 << (int)CanvasBuffer.CaptureInputBit);
+                        }
 
-                SetBuffer(m_bufferAddr, buffer);
+                        CanvasInterop.SetBuffer(m_bufferAddr, buffer);
+                    }
+                }
             }
         }
 
+        /// <summary>
+        /// Gets the child <see cref="IcarianEngine.Rendering.UI.UIElement" />(s)
+        /// </summary>
         public IEnumerable<UIElement> Children
         {
             get
             {
-                uint[] childElementAddrs = GetChildren(m_bufferAddr);
+                uint[] childElementAddrs = CanvasInterop.GetChildren(m_bufferAddr);
                 foreach (uint childElementAddr in childElementAddrs)
                 {
                     UIElement element = UIElement.GetUIElement(childElementAddr);
@@ -116,7 +114,7 @@ namespace IcarianEngine.Rendering.UI
 
             s_canvasLookup.TryAdd(m_bufferAddr, this);
         }
-        public Canvas(Vector2 a_refResolution) : this(CreateCanvas(a_refResolution))
+        public Canvas(Vector2 a_refResolution) : this(CanvasInterop.CreateCanvas(a_refResolution))
         {
 
         }
@@ -132,26 +130,26 @@ namespace IcarianEngine.Rendering.UI
             return null;
         }
 
-        static bool SetBaseAttributes(UIElement a_element, XmlAttribute a_attribue)
+        static bool SetBaseAttributes(UIElement a_element, XmlAttribute a_attribute)
         {
-            switch (a_attribue.Name.ToLower())
+            switch (a_attribute.Name.ToLower())
             {
             case "name":
             {
-                a_element.Name = a_attribue.Value;
+                a_element.Name = a_attribute.Value;
 
                 return true;
             }
             case "xpos":
             {
                 float val;
-                if (float.TryParse(a_attribue.Value, out val))
+                if (float.TryParse(a_attribute.Value, out val))
                 {
                     a_element.Position = new Vector2(val, a_element.Position.Y);
                 }
                 else
                 {
-                    Logger.IcarianError($"Failed to parse xpos: {a_attribue.Value}");
+                    Logger.IcarianWarning($"Failed to parse xpos: {a_attribute.Value}");
                 }
 
                 return true;
@@ -159,13 +157,13 @@ namespace IcarianEngine.Rendering.UI
             case "ypos":
             {
                 float val;
-                if (float.TryParse(a_attribue.Value, out val))
+                if (float.TryParse(a_attribute.Value, out val))
                 {
                     a_element.Position = new Vector2(a_element.Position.X, val);
                 }
                 else
                 {
-                    Logger.IcarianError($"Failed to parse ypos: {a_attribue.Value}");
+                    Logger.IcarianWarning($"Failed to parse ypos: {a_attribute.Value}");
                 }
 
                 return true;
@@ -173,13 +171,13 @@ namespace IcarianEngine.Rendering.UI
             case "width":
             {
                 float val;
-                if (float.TryParse(a_attribue.Value, out val))
+                if (float.TryParse(a_attribute.Value, out val))
                 {
                     a_element.Size = new Vector2(val, a_element.Size.Y);
                 }
                 else
                 {
-                    Logger.IcarianError($"Failed to parse width: {a_attribue.Value}");
+                    Logger.IcarianWarning($"Failed to parse width: {a_attribute.Value}");
                 }
 
                 return true;
@@ -187,69 +185,97 @@ namespace IcarianEngine.Rendering.UI
             case "height":
             {
                 float val;
-                if (float.TryParse(a_attribue.Value, out val))
+                if (float.TryParse(a_attribute.Value, out val))
                 {
                     a_element.Size = new Vector2(a_element.Size.X, val);
                 }
                 else
                 {
-                    Logger.IcarianError($"Failed to parse height: {a_attribue.Value}");
+                    Logger.IcarianWarning($"Failed to parse height: {a_attribute.Value}");
+                }
+
+                return true;
+            }
+            case "xanchor":
+            {
+                UIXAnchor anchor;
+                if (Enum.TryParse<UIXAnchor>(a_attribute.Value, true, out anchor))
+                {
+                    a_element.XAnchor = anchor;
+                }
+                else
+                {
+                    Logger.IcarianWarning($"Failed to parse X anchor: {a_attribute.Value}");
+                }
+
+                return true;
+            }
+            case "yanchor":
+            {
+                UIYAnchor anchor;
+                if (Enum.TryParse<UIYAnchor>(a_attribute.Value, true, out anchor))
+                {
+                    a_element.YAnchor = anchor;
+                }
+                else
+                {
+                    Logger.IcarianWarning($"Failed to parse X anchor: {a_attribute.Value}");
                 }
 
                 return true;
             }
             case "onnormal":
             {
-                UIElement.UIEvent normalEvent = ModControl.GetFunction<UIElement.UIEvent>(a_attribue.Value);
+                UIElement.UIEvent normalEvent = ModControl.GetFunction<UIElement.UIEvent>(a_attribute.Value);
                 if (normalEvent != null)
                 {
                     a_element.OnNormal += normalEvent;
                 }
                 else
                 {
-                    Logger.IcarianError($"Failed to find OnNormal event: {a_attribue.Value}");
+                    Logger.IcarianWarning($"Failed to find OnNormal event: {a_attribute.Value}");
                 }
 
                 return true;
             }
             case "onhover":
             {
-                UIElement.UIEvent hoverEvent = ModControl.GetFunction<UIElement.UIEvent>(a_attribue.Value);
+                UIElement.UIEvent hoverEvent = ModControl.GetFunction<UIElement.UIEvent>(a_attribute.Value);
                 if (hoverEvent != null)
                 {
                     a_element.OnHover += hoverEvent;
                 }
                 else
                 {
-                    Logger.IcarianError($"Failed to find OnHover event: {a_attribue.Value}");
+                    Logger.IcarianWarning($"Failed to find OnHover event: {a_attribute.Value}");
                 }
 
                 return true;
             }
             case "onpressed":
             {
-                UIElement.UIEvent pressedEvent = ModControl.GetFunction<UIElement.UIEvent>(a_attribue.Value);
+                UIElement.UIEvent pressedEvent = ModControl.GetFunction<UIElement.UIEvent>(a_attribute.Value);
                 if (pressedEvent != null)
                 {
                     a_element.OnPressed += pressedEvent;
                 }
                 else
                 {
-                    Logger.IcarianError($"Failed to find OnPressed event: {a_attribue.Value}");
+                    Logger.IcarianWarning($"Failed to find OnPressed event: {a_attribute.Value}");
                 }
 
                 return true;
             }
             case "onreleased":
             {
-                UIElement.UIEvent releasedEvent = ModControl.GetFunction<UIElement.UIEvent>(a_attribue.Value);
+                UIElement.UIEvent releasedEvent = ModControl.GetFunction<UIElement.UIEvent>(a_attribute.Value);
                 if (releasedEvent != null)
                 {
                     a_element.OnReleased += releasedEvent;
                 }
                 else
                 {
-                    Logger.IcarianError($"Failed to find OnReleased event: {a_attribue.Value}");
+                    Logger.IcarianWarning($"Failed to find OnReleased event: {a_attribute.Value}");
                 }
 
                 return true;
@@ -264,6 +290,17 @@ namespace IcarianEngine.Rendering.UI
             UIElement baseElement = null;
             switch (a_element.Name.ToLower())
             {
+            case "element":
+            {
+                baseElement = new UIElement();
+
+                foreach (XmlAttribute att in a_element.Attributes)
+                {
+                    SetBaseAttributes(baseElement, att);
+                }
+
+                break;
+            }
             case "text":
             {
                 TextUIElement textElement = new TextUIElement();
@@ -282,8 +319,8 @@ namespace IcarianEngine.Rendering.UI
                             string text = att.Value;
                             if (Scribe.KeyExists(text))
                             {
-                                text = Scribe.GetString(text);
                                 scribeFont = Scribe.GetFont(text);
+                                text = Scribe.GetString(text);
                             }
 
                             textElement.Text = text;
@@ -299,7 +336,7 @@ namespace IcarianEngine.Rendering.UI
                             }
                             else
                             {
-                                Logger.IcarianError($"Failed to parse fontsize: {att.Value}");
+                                Logger.IcarianWarning($"Failed to parse fontsize: {att.Value}");
                             }
 
                             break;
@@ -313,14 +350,14 @@ namespace IcarianEngine.Rendering.UI
                             }
                             else
                             {
-                                Logger.IcarianError($"Failed to load font: {att.Value}");
+                                Logger.IcarianWarning($"Failed to load font: {att.Value}");
                             }
 
                             break;
                         }
                         default:
                         {
-                            Logger.IcarianError($"Unknown TextUIElement attribute: {att.Name}");
+                            Logger.IcarianWarning($"Unknown TextUIElement attribute: {att.Name}");
 
                             break;
                         }
@@ -368,7 +405,7 @@ namespace IcarianEngine.Rendering.UI
                             }
                             else
                             {
-                                Logger.IcarianError($"Failed to parse AddressMode: {att.Value}");
+                                Logger.IcarianWarning($"Failed to parse AddressMode: {att.Value}");
                             }
 
                             break;
@@ -382,7 +419,7 @@ namespace IcarianEngine.Rendering.UI
                             }
                             else
                             {
-                                Logger.IcarianError($"Failed to parse FilterMode: {att.Value}");
+                                Logger.IcarianWarning($"Failed to parse FilterMode: {att.Value}");
                             }
 
                             break;
@@ -424,6 +461,11 @@ namespace IcarianEngine.Rendering.UI
             return baseElement;
         }
 
+        /// <summary>
+        /// Loads a Canvas from path
+        /// </summary>
+        /// <param name="a_path">The path to load the Canvas from in Assets</param>
+        /// <returns>The Canvas. Null on Failure</returns>
         public static Canvas FromFile(string a_path)
         {
             string filePath = ModControl.GetAssetPath(a_path);
@@ -465,7 +507,7 @@ namespace IcarianEngine.Rendering.UI
 
                     if (refResolution.X > 0 && refResolution.Y > 0)
                     {
-                        uint canvasAddr = CreateCanvas(refResolution);
+                        uint canvasAddr = CanvasInterop.CreateCanvas(refResolution);
 
                         foreach (XmlNode node in root.ChildNodes)
                         {
@@ -475,7 +517,7 @@ namespace IcarianEngine.Rendering.UI
 
                                 if (uiElement != null)
                                 {
-                                    AddChildElement(canvasAddr, uiElement.BufferAddr);
+                                    CanvasInterop.AddChildElement(canvasAddr, uiElement.BufferAddr);
                                 }
                             }
                         }
@@ -500,6 +542,10 @@ namespace IcarianEngine.Rendering.UI
             return null;
         }
 
+        /// <summary>
+        /// Adds a child <see cref="IcarianEngine.Rendering.UI.UIElement" /> to the Canvas
+        /// </summary>
+        /// <param name="a_element">The <see cref="IcarianEngine.Rendering.UI.UIElement" /> to add as a child</param>
         public void AddChild(UIElement a_element)
         {
             if (a_element == null)
@@ -509,8 +555,12 @@ namespace IcarianEngine.Rendering.UI
                 return;
             }
 
-            AddChildElement(m_bufferAddr, a_element.BufferAddr);
+            CanvasInterop.AddChildElement(m_bufferAddr, a_element.BufferAddr);
         }
+        /// <summary>
+        /// Removes a child <see cref="IcarianEngine.Rendering.UI.UIElement" /> from the Canvas
+        /// </summary>
+        /// <param name="a_element">The <see cref="IcarianEngine.Rendering.UI.UIElement" /> to remove as a child</param>
         public void RemoveChild(UIElement a_element)
         {
             if (a_element == null)
@@ -520,9 +570,14 @@ namespace IcarianEngine.Rendering.UI
                 return;
             }
 
-            RemoveChildElement(m_bufferAddr, a_element.BufferAddr);
+            CanvasInterop.RemoveChildElement(m_bufferAddr, a_element.BufferAddr);
         }
 
+        /// <summary>
+        /// Recursively gets a named child <see cref="IcarianEngine.Rendering.UI.UIElement" />
+        /// </summary>
+        /// <param name="a_name">The name of the <see cref="IcarianEngine.Rendering.UI.UIElement" /> to find</param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.UI.UIElement" />. Null on failure</returns>
         public UIElement GetNamedChild(string a_name)
         {
             foreach (UIElement child in Children)
@@ -541,17 +596,29 @@ namespace IcarianEngine.Rendering.UI
 
             return null;
         }
+        /// <summary>
+        /// Recursively gets a named child <see cref="IcarianEngine.Rendering.UI.UIElement" /> of type T
+        /// </summary>
+        /// <param name="a_name">The name of the <see cref="IcarianEngine.Rendering.UI.UIElement" /> to find of type T</param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.UI.UIElement" /> of type T. Null on failure</returns>
         public T GetNamedChild<T>(string a_name) where T : UIElement
         {
             return GetNamedChild(a_name) as T;
         }
 
+        /// <summary>
+        /// Disposes of the Canvas
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
+        /// <summary>
+        /// Called when the Canvas is being Disposed/Finalised
+        /// </summary>
+        /// <param name="a_disposing">Whether or not it is called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)
@@ -565,7 +632,7 @@ namespace IcarianEngine.Rendering.UI
                         child.Dispose();
                     }
 
-                    DestroyCanvas(m_bufferAddr);
+                    CanvasInterop.DestroyCanvas(m_bufferAddr);
                 }
                 else
                 {

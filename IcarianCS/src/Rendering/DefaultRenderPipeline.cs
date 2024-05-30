@@ -679,11 +679,24 @@ namespace IcarianEngine.Rendering
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the post processing pass is for</param>
         public override void PostProcess(Camera a_camera)
         {
-            TextureSampler sampler = m_colorSampler;
+            if (m_postEffects == null)
+            {
+                RenderCommand.Blit(m_colorRenderTexture, a_camera.RenderTexture);
 
+                return;
+            }
+            
+            int size = m_postEffects.Count;
+            if (size == 0)
+            {
+                RenderCommand.Blit(m_colorRenderTexture, a_camera.RenderTexture);
+
+                return;
+            }
+
+            TextureSampler sampler = m_colorSampler;
             uint textureIndex = 0;
 
-            int size = m_postEffects.Count;
             int end = size - 1;
             for (int i = 0; i < size; ++i)
             {

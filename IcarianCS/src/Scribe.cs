@@ -52,15 +52,15 @@ namespace IcarianEngine
                 string fontpath = null;
                 foreach (XmlAttribute att in root.Attributes)
                 {
-                    switch (att.Name)
+                    switch (att.Name.ToLower())
                     {
-                    case "Language":
+                    case "language":
                     {
                         language = att.Value;
 
                         break;
                     }
-                    case "Font":
+                    case "font":
                     {
                         fontpath = att.Value;
 

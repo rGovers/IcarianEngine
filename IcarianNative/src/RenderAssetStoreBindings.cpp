@@ -1,8 +1,13 @@
 #include "Rendering/RenderAssetStoreBindings.h"
 
 #include "Core/IcarianDefer.h"
+#include "DeletionQueue.h"
+#include "IcarianError.h"
 #include "Rendering/RenderAssetStore.h"
+#include "Rendering/UI/Font.h"
 #include "Runtime/RuntimeManager.h"
+
+#include "EngineFontInterop.h"
 
 static RenderAssetStoreBindings* Instance = nullptr;
 
@@ -14,6 +19,8 @@ static RenderAssetStoreBindings* Instance = nullptr;
 
 RENDERASSETSTORE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
+ENGINE_FONT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+
 RenderAssetStoreBindings::RenderAssetStoreBindings(RenderAssetStore* a_store)
 {
     Instance = this;
@@ -21,10 +28,29 @@ RenderAssetStoreBindings::RenderAssetStoreBindings(RenderAssetStore* a_store)
     m_store = a_store;
 
     RENDERASSETSTORE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
+
+    ENGINE_FONT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 }
 RenderAssetStoreBindings::~RenderAssetStoreBindings()
 {
 
+}
+
+uint32_t RenderAssetStoreBindings::GenerateFont(const std::filesystem::path& a_path) const
+{
+    Font* font = Font::LoadFont(a_path);
+    IVERIFY(font != nullptr);
+
+    return m_store->m_fonts.PushVal(font);
+}
+void RenderAssetStoreBindings::DestroyFont(uint32_t a_addr) const
+{
+    IVERIFY(a_addr < m_store->m_fonts.Size());
+    IVERIFY(m_store->m_fonts.Exists(a_addr));
+
+    const Font* font = m_store->m_fonts[a_addr];
+    IDEFER(delete font);
+    m_store->m_fonts.Erase(a_addr);
 }
 
 uint32_t RenderAssetStoreBindings::GenerateModel(const std::filesystem::path& a_path) const

@@ -110,6 +110,47 @@ static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, cons
 
 static bool IsDeviceSuitable(const vk::Instance& a_instance, const vk::PhysicalDevice& a_device, const Array<const char*>& a_extensions, AppWindow* a_window)
 {
+    constexpr uint32_t VersionMajor = vk::apiVersionMajor(ICARIAN_VULKAN_VERSION);
+    constexpr uint32_t VersionMinor = vk::apiVersionMinor(ICARIAN_VULKAN_VERSION);
+    
+    const vk::PhysicalDeviceProperties properties = a_device.getProperties();
+
+    const uint32_t deviceMajorVersion = vk::apiVersionMajor(properties.apiVersion);
+
+    if (deviceMajorVersion == VersionMajor)
+    {
+        const uint32_t deviceMinorVersion = vk::apiVersionMinor(properties.apiVersion);
+
+        if (deviceMinorVersion < VersionMinor)
+        {
+            return false;
+        }
+    }
+    else if (deviceMajorVersion < VersionMajor)
+    {
+        return false;
+    }
+
+    uint64_t memTotal = 0;
+
+    // Ignore devices with less then 1/2 GiB of memory
+    // TODO: Have to change down the line but for now too much of a headache to deal with
+    const vk::PhysicalDeviceMemoryProperties memProp = a_device.getMemoryProperties();
+    for (uint32_t i = 0; i < memProp.memoryHeapCount; ++i)
+    {
+        const vk::MemoryHeap heap = memProp.memoryHeaps[i];
+
+        if (heap.flags & vk::MemoryHeapFlagBits::eDeviceLocal)
+        {
+            memTotal += heap.size;
+        }
+    }
+    
+    if (memTotal <= (0b1 << 29))
+    {
+        return false;
+    }
+
     if (!CheckDeviceExtensionSupport(a_device, a_extensions))
     {
         return false;
@@ -123,10 +164,10 @@ static bool IsDeviceSuitable(const vk::Instance& a_instance, const vk::PhysicalD
             return false;
         }
     }
-    
+
     const vk::PhysicalDeviceFeatures features = a_device.getFeatures();
 
-    return features.geometryShader && features.samplerAnisotropy;
+    return features.samplerAnisotropy;
 }
 
 static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device)
@@ -134,6 +175,8 @@ static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device)
     uint32_t score = 0;
 
     const vk::PhysicalDeviceProperties properties = a_device.getProperties();
+    // Weighting the score
+    // While there are situations that one type can be better then the other generally in this order
     switch (properties.deviceType) 
     {
     case vk::PhysicalDeviceType::eDiscreteGpu:
@@ -148,6 +191,7 @@ static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device)
 
         break;
     }
+    // Not really a good way to determine which is better so weight the same
     case vk::PhysicalDeviceType::eCpu:
     case vk::PhysicalDeviceType::eVirtualGpu:
     {
@@ -155,15 +199,29 @@ static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device)
 
         break;
     }
+    // Unknown so no weighting
     default:
     {
         break;
     }
     }
 
-    score += vk::apiVersionMajor(properties.apiVersion) * 10;
-    score += vk::apiVersionMinor(properties.apiVersion) * 5;
-    score += vk::apiVersionPatch(properties.apiVersion);
+    score += vk::apiVersionMajor(properties.apiVersion) * 100;
+    score += vk::apiVersionMinor(properties.apiVersion) * 10;
+
+    const vk::PhysicalDeviceMemoryProperties memProp = a_device.getMemoryProperties();
+    for (uint32_t i = 0; i < memProp.memoryHeapCount; ++i)
+    {
+        const vk::MemoryHeap heap = memProp.memoryHeaps[i];
+
+        if (heap.flags & vk::MemoryHeapFlagBits::eDeviceLocal)
+        {
+            // Rate the device by the 1/4 GiB of memory
+            const uint32_t memScore = (uint32_t)(heap.size / (0b1 << 28));
+
+            score += memScore;
+        }
+    }
 
     return score;
 }
@@ -171,11 +229,11 @@ static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device)
 static bool CheckValidationLayerSupport()
 {
     uint32_t layerCount = 0;
-    ICARIAN_ASSERT_R(vk::enumerateInstanceLayerProperties(&layerCount, nullptr) == vk::Result::eSuccess);
+    VKRESERR(vk::enumerateInstanceLayerProperties(&layerCount, nullptr));
 
     vk::LayerProperties* availableLayers = new vk::LayerProperties[layerCount];
     IDEFER(delete[] availableLayers);
-    ICARIAN_ASSERT_R(vk::enumerateInstanceLayerProperties(&layerCount, availableLayers) == vk::Result::eSuccess);
+    VKRESERR(vk::enumerateInstanceLayerProperties(&layerCount, availableLayers));
 
     for (const char* layerName : ValidationLayers)
     {
@@ -236,7 +294,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         renderEngine->m_config->GetApplicationName().data(), 
         0U, 
         "IcarianEngine", 
-        VK_MAKE_VERSION(ICARIANNATIVE_VERSION_MAJOR, ICARIANNATIVE_VERSION_MINOR, 0), 
+        VK_MAKE_VERSION(ICARIANNATIVE_VERSION_MAJOR, ICARIANNATIVE_VERSION_MINOR, ICARIANNATIVE_VERSION_PATCH), 
         ICARIAN_VULKAN_VERSION, 
         nullptr
     );
@@ -267,15 +325,13 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         createInfo.pNext = &DebugCreateInfo;
     }
 
+    TRACE("Creating Vulkan Instance");
     VKRESERRMSG(vk::createInstance(&createInfo, nullptr, &m_instance), "Failed to create Vulkan Instance");
-
-    TRACE("Created Vulkan Instance");
 
     if constexpr (VulkanEnableValidationLayers)
     {
+        TRACE("Creating Vulkan Debug Layer");
         VKRESERRMSG(m_instance.createDebugUtilsMessengerEXT(&DebugCreateInfo, nullptr, &m_messenger), "Failed to create Vulkan Debug Printing");
-
-        TRACE("Created Vulkan Debug Layer");
     }
 
     Array<const char*> dRequiredExtensions = Array<const char*>(DeviceExtensions, sizeof(DeviceExtensions) / sizeof(*DeviceExtensions));
@@ -292,6 +348,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     IVERIFY(deviceCount > 0);
 
+    // TODO: Should probably skip device selection if the user specifies a override
     vk::PhysicalDevice* devices = new vk::PhysicalDevice[deviceCount];
     IDEFER(delete[] devices);
     VKRESERR(m_instance.enumeratePhysicalDevices(&deviceCount, devices));
@@ -316,7 +373,15 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         }
     }
 
-    IVERIFY(m_pDevice != vk::PhysicalDevice(nullptr));
+    if (m_pDevice == vk::PhysicalDevice(nullptr))
+    {
+        IcarianError
+        (
+"No suitable GPU found to run. \
+\
+Please ensure you have a Vulkan 1.0 capable GPU with greater then 512MB of VRAM"
+        );
+    }
 
     TRACE("Found Vulkan Physical Device");
 
@@ -338,7 +403,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         {
             vk::Bool32 presentSupport = VK_FALSE;
 
-            ICARIAN_ASSERT_R(m_pDevice.getSurfaceSupportKHR(i, window->GetSurface(m_instance), &presentSupport) == vk::Result::eSuccess);
+            VKRESERR(m_pDevice.getSurfaceSupportKHR(i, window->GetSurface(m_instance), &presentSupport));
 
             if (presentSupport)
             {
@@ -420,9 +485,8 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         deviceCreateInfo.ppEnabledLayerNames = ValidationLayers;
     }
 
+    TRACE("Creating Vulkan Device");
     VKRESERRMSG(m_pDevice.createDevice(&deviceCreateInfo, nullptr, &m_lDevice), "Failed to create Vulkan Logic Device");
-
-    TRACE("Created Vulkan Device");
 
     const VmaVulkanFunctions vulkanFunctions = 
     {
@@ -439,9 +503,8 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         .vulkanApiVersion = ICARIAN_VULKAN_VERSION
     };
 
+    TRACE("Creating Vulkan Allocator");
     VKRESERRMSG(vmaCreateAllocator(&allocatorCreateInfo, &m_allocator), "Failed to create Vulkan Allocator");
-
-    TRACE("Created Vulkan Allocator");
 
     // By what I can tell most devices use the same queue for graphics and compute this is for correctness shold not affect much
     // Not fussed if it shares with graphics as long as it is not the present queue
@@ -466,14 +529,13 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         vk::FenceCreateFlagBits::eSignaled
     );
 
+    TRACE("Creating Vulkan sync objects");
     for (uint32_t i = 0; i < VulkanMaxFlightFrames; ++i)
     {
         VKRESERRMSG(m_lDevice.createSemaphore(&SemaphoreInfo, nullptr, &m_imageAvailable[i]), "Failed to create image semaphore");
         VKRESERRMSG(m_lDevice.createFence(&FenceInfo, nullptr, &m_inFlight[i]), "Failed to create fence");
     }
     
-    TRACE("Created Vulkan sync objects");
-
     const vk::CommandPoolCreateInfo poolInfo = vk::CommandPoolCreateInfo
     (
         vk::CommandPoolCreateFlagBits::eTransient,
@@ -655,32 +717,34 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
         for (uint32_t i = 0; i < buffersSize; ++i)
         {
-            constexpr vk::PipelineStageFlags WaitStages[] = { vk::PipelineStageFlagBits::eAllGraphics };
-
             const vk::Semaphore curSemaphore = m_interSemaphore[m_currentFlightFrame][i];
             IDEFER(lastSemaphore = curSemaphore);
 
             const VulkanCommandBuffer& buffer = commandBuffers[i];
             const vk::CommandBuffer cmdBuffer = buffer.GetCommandBuffer();
-
+            
+            vk::PipelineStageFlags waitStages;
             vk::Queue queue;
+
             switch (buffer.GetBufferType())
             {
             case VulkanCommandBufferType_Compute:
             {
                 queue = m_computeQueue;
+                waitStages = vk::PipelineStageFlagBits::eComputeShader;
 
                 break;
             }
             case VulkanCommandBufferType_Graphics:
             {
                 queue = m_graphicsQueue;
+                waitStages = vk::PipelineStageFlagBits::eAllGraphics;
 
                 break;
             }
             default:
             {
-                ICARIAN_ASSERT_MSG(0, "Invalid command buffer type");
+                IERROR("Invalid command buffer type");
 
                 break;
             }
@@ -690,7 +754,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
             (
                 0,
                 nullptr,
-                WaitStages,
+                &waitStages,
                 1,
                 &cmdBuffer,
                 1,
@@ -888,11 +952,6 @@ uint32_t VulkanRenderEngineBackend::GenerateTextureSampler(uint32_t a_textureAdd
 void VulkanRenderEngineBackend::DestroyTextureSampler(uint32_t a_addr)
 {
     m_graphicsEngine->DestroyTextureSampler(a_addr);
-}
-
-Font* VulkanRenderEngineBackend::GetFont(uint32_t a_addr)
-{
-    return m_graphicsEngine->GetFont(a_addr);
 }
 
 void VulkanRenderEngineBackend::PushDeletionObject(VulkanDeletionObject* a_object)

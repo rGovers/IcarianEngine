@@ -1,14 +1,14 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 
-#include "CanvasBuffer.h"
-#include "DataTypes/TArray.h"
+#include "DataTypes/TNCArray.h"
 
 class RuntimeFunction;
 class UIControlBindings;
 class UIElement;
+
+#include "EngineCanvasInteropStructures.h"
 
 class UIControl
 {
@@ -17,21 +17,21 @@ private:
 
     static UIControl* Instance;
 
-    TArray<CanvasBuffer> m_canvas;
-    TArray<UIElement*>   m_uiElements;
+    UIControlBindings*     m_bindings;
 
-    UIControlBindings*   m_bindings;
+    RuntimeFunction*       m_onNormal;
+    RuntimeFunction*       m_onHover;
+    RuntimeFunction*       m_onPressed;
+    RuntimeFunction*       m_onReleased;
 
-    RuntimeFunction*     m_onNormal;
-    RuntimeFunction*     m_onHover;
-    RuntimeFunction*     m_onPressed;
-    RuntimeFunction*     m_onReleased;
+    TNCArray<CanvasBuffer> m_canvas;
+    TNCArray<UIElement*>   m_uiElements;
 
     UIControl();
     
-    void SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos, const glm::vec2& a_scale);
-    bool SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos, const glm::vec2& a_scale);
-    void SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_scaledPos, const glm::vec2& a_scale);
+    void SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_pos, const glm::vec2& a_screenSize);
+    bool SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_pos, const glm::vec2& a_screenSize);
+    void SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_pos, const glm::vec2& a_screenSize);
 
 protected:
 

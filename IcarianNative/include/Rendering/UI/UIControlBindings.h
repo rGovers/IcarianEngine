@@ -8,6 +8,8 @@
 class RuntimeManager;
 class UIControl;
 
+#include "EngineUIElementInteropStuctures.h"
+
 class UIControlBindings
 {
 private:
@@ -25,6 +27,8 @@ public:
     void RemoveCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr) const;
     uint32_t* GetCanvasChildren(uint32_t a_addr, uint32_t* a_count) const;
 
+    uint32_t CreateUIElement() const;
+    void DestroyUIElement(uint32_t a_addr) const;
     void AddElementChild(uint32_t a_addr, uint32_t a_childAddr) const;
     void RemoveElementChild(uint32_t a_addr, uint32_t a_childAddr) const;
     uint32_t* GetElementChildren(uint32_t a_addr, uint32_t* a_count) const;
@@ -34,10 +38,13 @@ public:
     void SetElementSize(uint32_t a_addr, const glm::vec2& a_size) const;
     glm::vec4 GetElementColor(uint32_t a_addr) const;
     void SetElementColor(uint32_t a_addr, const glm::vec4& a_color) const;
-    uint32_t GetElementState(uint32_t a_addr) const;
+    e_UIXAnchor GetElementXAnchor(uint32_t a_addr) const;
+    void SetElementXAnchor(uint32_t a_addr, e_UIXAnchor a_anchor) const;
+    e_UIYAnchor GetElementYAnchor(uint32_t a_addr) const;
+    void SetElementYAnchor(uint32_t a_addr, e_UIYAnchor a_anchor) const;
+    e_ElementState GetElementState(uint32_t a_addr) const;
 
     uint32_t CreateTextElement() const;
-    void DestroyTextElement(uint32_t a_addr) const;
     std::u32string GetTextElementText(uint32_t a_addr) const;
     void SetTextElementText(uint32_t a_addr, const std::u32string_view& a_text) const;
     uint32_t GetTextElementFont(uint32_t a_addr) const;
@@ -46,7 +53,6 @@ public:
     void SetTextElementFontSize(uint32_t a_addr, float a_size) const;
 
     uint32_t CreateImageElement() const;
-    void DestroyImageElement(uint32_t a_addr) const;
     uint32_t GetImageElementSampler(uint32_t a_addr) const;
     void SetImageElementSampler(uint32_t a_addr, uint32_t a_samplerAddr) const;
 };

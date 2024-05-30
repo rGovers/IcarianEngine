@@ -1,105 +1,27 @@
 #include "Rendering/UI/UIControlBindings.h"
 
-#include "Core/IcarianAssert.h"
+#define GLM_FORCE_SWIZZLE 
+#include <glm/glm.hpp>
+
 #include "Core/IcarianDefer.h"
-#include "Rendering/UI/CanvasBuffer.h"
+#include "IcarianError.h"
 #include "Rendering/UI/ImageUIElement.h"
 #include "Rendering/UI/TextUIElement.h"
 #include "Rendering/UI/UIControl.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
-#include <glm/glm.hpp>
-
 static UIControlBindings* Instance = nullptr;
 
-#define UICONTROL_BINDING_FUNCTION_TABLE(F) \
-    F(uint32_t, IcarianEngine.Rendering.UI, Canvas, CreateCanvas, { return Instance->CreateCanvas(a_refRes); }, glm::vec2 a_refRes) \
-    F(void, IcarianEngine.Rendering.UI, Canvas, DestroyCanvas, { Instance->DestroyCanvas(a_addr); }, uint32_t a_addr) \
-    F(CanvasBuffer, IcarianEngine.Rendering.UI, Canvas, GetBuffer, { return UIControl::GetCanvas(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering.UI, Canvas, SetBuffer, { UIControl::SetCanvas(a_addr, a_buffer); }, uint32_t a_addr, CanvasBuffer a_buffer) \
-    F(void, IcarianEngine.Rendering.UI, Canvas, AddChildElement, { Instance->AddCanvasChild(a_addr, a_uiElementAddr); }, uint32_t a_addr, uint32_t a_uiElementAddr) \
-    F(void, IcarianEngine.Rendering.UI, Canvas, RemoveChildElement, { Instance->RemoveCanvasChild(a_addr, a_uiElementAddr); }, uint32_t a_addr, uint32_t a_uiElementAddr) \
-    \
-    F(void, IcarianEngine.Rendering.UI, UIElement, AddChildElement, { Instance->AddElementChild(a_addr, a_childAddr); }, uint32_t a_addr, uint32_t a_childAddr) \
-    F(void, IcarianEngine.Rendering.UI, UIElement, RemoveChildElement, { Instance->RemoveElementChild(a_addr, a_childAddr); }, uint32_t a_addr, uint32_t a_childAddr) \
-    F(void, IcarianEngine.Rendering.UI, UIElement, SetPosition, { Instance->SetElementPosition(a_addr, a_pos); }, uint32_t a_addr, glm::vec2 a_pos) \
-    F(void, IcarianEngine.Rendering.UI, UIElement, SetSize, { Instance->SetElementSize(a_addr, a_size); }, uint32_t a_addr, glm::vec2 a_size) \
-    F(glm::vec4, IcarianEngine.Rendering.UI, UIElement, GetColor, { return Instance->GetElementColor(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering.UI, UIElement, SetColor, { Instance->SetElementColor(a_addr, a_color); }, uint32_t a_addr, glm::vec4 a_color) \
-    F(uint32_t, IcarianEngine.Rendering.UI, UIElement, GetElementState, { return Instance->GetElementState(a_addr); }, uint32_t a_addr) \
-    \
-    F(uint32_t, IcarianEngine.Rendering.UI, TextUIElement, CreateTextElement, { return Instance->CreateTextElement(); }) \
-    F(void, IcarianEngine.Rendering.UI, TextUIElement, DestroyTextElement, { Instance->DestroyTextElement(a_addr); }, uint32_t a_addr) \
-    F(float, IcarianEngine.Rendering.UI, TextUIElement, GetFontSize, { return Instance->GetTextElementFontSize(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering.UI, TextUIElement, SetFontSize, { Instance->SetTextElementFontSize(a_addr, a_size); }, uint32_t a_addr, float a_size) \
-    F(uint32_t, IcarianEngine.Rendering.UI, TextUIElement, GetFont, { return Instance->GetTextElementFont(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering.UI, TextUIElement, SetFont, { Instance->SetTextElementFont(a_addr, a_fontAddr); }, uint32_t a_addr, uint32_t a_fontAddr) \
-    \
-    F(uint32_t, IcarianEngine.Rendering.UI, ImageUIElement, CreateImageElement, { return Instance->CreateImageElement(); }) \
-    F(void, IcarianEngine.Rendering.UI, ImageUIElement, DestroyImageElement, { Instance->DestroyImageElement(a_addr); }, uint32_t a_addr) \
-    F(uint32_t, IcarianEngine.Rendering.UI, ImageUIElement, GetSampler, { return Instance->GetImageElementSampler(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering.UI, ImageUIElement, SetSampler, { Instance->SetImageElementSampler(a_addr, a_samplerAddr); }, uint32_t a_addr, uint32_t a_samplerAddr) \
+#include "EngineCanvasInterop.h"
+#include "EngineUIElementInterop.h"
+#include "EngineImageUIElementInterop.h"
+#include "EngineTextUIElementInterop.h"
 
-    // Decomissioned for stack corruption on Windows 10 64bit 19045.3324
-    // Probably me doing something wrong but only on Windows to my knowledge so suspicious
-    // F(glm::vec2, IcarianEngine.Rendering.UI, UIElement, GetPosition, { return Instance->GetElementPosition(a_addr); }, uint32_t a_addr) 
-    // F(glm::vec2, IcarianEngine.Rendering.UI, UIElement, GetSize, { return Instance->GetElementSize(a_addr); }, uint32_t a_addr) \
-
-UICONTROL_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
-
-RUNTIME_FUNCTION(MonoArray*, Canvas, GetChildren,
-{
-    uint32_t count = 0;
-    const uint32_t* children = Instance->GetCanvasChildren(a_addr, &count);
-
-    MonoArray* arr = mono_array_new(mono_domain_get(), mono_get_uint32_class(), count);
-
-    for (uint32_t i = 0; i < count; ++i)
-    {
-        mono_array_set(arr, uint32_t, i, children[i]);
-    }
-
-    return arr;
-}, uint32_t a_addr)
-
-RUNTIME_FUNCTION(MonoArray*, UIElement, GetChildren, 
-{
-    uint32_t count = 0;
-    const uint32_t* children = Instance->GetElementChildren(a_addr, &count);
-
-    MonoArray* arr = mono_array_new(mono_domain_get(), mono_get_uint32_class(), count);
-
-    for (uint32_t i = 0; i < count; ++i)
-    {
-        mono_array_set(arr, uint32_t, i, children[i]);
-    }
-
-    return arr;
-}, uint32_t a_addr)
-
-RUNTIME_FUNCTION(void, UIElement, GetPosition,
-{
-    *a_ptr = Instance->GetElementPosition(a_addr);
-    }, uint32_t a_addr, glm::vec2* a_ptr)
-RUNTIME_FUNCTION(void, UIElement, GetSize,
-{
-    *a_ptr = Instance->GetElementSize(a_addr);
-}, uint32_t a_addr, glm::vec2* a_ptr);
-
-RUNTIME_FUNCTION(MonoString*, TextUIElement, GetText, 
-{
-    const std::u32string text = Instance->GetTextElementText(a_addr);
-
-    return mono_string_new_utf32(mono_domain_get(), (const mono_unichar4*)text.c_str(), text.size());
-}, uint32_t a_addr)
-RUNTIME_FUNCTION(void, TextUIElement, SetText, 
-{
-    mono_unichar4* str = mono_string_to_utf32(a_str);
-    IDEFER(mono_free(str));
-
-    Instance->SetTextElementText(a_addr, (char32_t*)str);
-}, uint32_t a_addr, MonoString* a_str)
+ENGINE_CANVAS_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_UIELEMENT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_IMAGEUIELEMENT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_TEXTUIELEMENT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 UIControlBindings::UIControlBindings(UIControl* a_uiControl)
 {
@@ -107,16 +29,10 @@ UIControlBindings::UIControlBindings(UIControl* a_uiControl)
 
     m_uiControl = a_uiControl;
 
-    UICONTROL_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
-
-    BIND_FUNCTION(IcarianEngine.Rendering.UI, Canvas, GetChildren);
-
-    BIND_FUNCTION(IcarianEngine.Rendering.UI, UIElement, GetChildren);
-    BIND_FUNCTION(IcarianEngine.Rendering.UI, UIElement, GetPosition);
-    BIND_FUNCTION(IcarianEngine.Rendering.UI, UIElement, GetSize);
-
-    BIND_FUNCTION(IcarianEngine.Rendering.UI, TextUIElement, GetText);
-    BIND_FUNCTION(IcarianEngine.Rendering.UI, TextUIElement, SetText);
+    ENGINE_CANVAS_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_UIELEMENT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_IMAGEUIELEMENT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_TEXTUIELEMENT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 }
 UIControlBindings::~UIControlBindings()
 {
@@ -126,40 +42,18 @@ UIControlBindings::~UIControlBindings()
 uint32_t UIControlBindings::CreateCanvas(const glm::vec2& a_refResolution) const
 {
     TRACE("Creating Canvas");
-
-    CanvasBuffer buffer;
-    buffer.ReferenceResolution = a_refResolution;
-    buffer.ChildElementCount = 0;
-    buffer.ChildElements = nullptr;
-    buffer.Flags = 0;
-
+    const CanvasBuffer buffer = 
     {
-        TLockArray<CanvasBuffer> a = m_uiControl->m_canvas.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i].Flags & 0b1 << CanvasBuffer::DestroyedBit)
-            {
-                a[i] = buffer;
-
-                return i;
-            }
-        }
-    }
+        .ReferenceResolution = a_refResolution,
+    };
 
     return m_uiControl->m_canvas.PushVal(buffer);
 }
 void UIControlBindings::DestroyCanvas(uint32_t a_addr) const
 {
     TRACE("Destroying Canvas");
-
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_canvas.Size(), "RemoveCanvas out of bounds");
-
-    CanvasBuffer destroyedBuffer;
-    destroyedBuffer.ChildElementCount = 0;
-    destroyedBuffer.ChildElements = nullptr;
-    destroyedBuffer.Flags |= 0b1 << CanvasBuffer::DestroyedBit;
+    IVERIFY(a_addr < m_uiControl->m_canvas.Size());
+    IVERIFY(m_uiControl->m_canvas.Exists(a_addr));
 
     const CanvasBuffer buffer = m_uiControl->m_canvas[a_addr];
     IDEFER(
@@ -167,297 +61,356 @@ void UIControlBindings::DestroyCanvas(uint32_t a_addr) const
 	{
 		delete[] buffer.ChildElements;
 	});
-    m_uiControl->m_canvas.LockSet(a_addr, destroyedBuffer);
+    m_uiControl->m_canvas.Erase(a_addr);
 }
 void UIControlBindings::AddCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_canvas.Size(), "AddCanvasChild Canvas out of bounds");
-    ICARIAN_ASSERT_MSG(a_uiElementAddr < m_uiControl->m_uiElements.Size(), "AddCanvasChild UIElement out of bounds");   
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_uiElementAddr] != nullptr, "AddCanvasChild UIElement deleted");
+    IVERIFY(a_addr < m_uiControl->m_canvas.Size());
+    IVERIFY(m_uiControl->m_canvas.Exists(a_addr));
+    IVERIFY(a_uiElementAddr < m_uiControl->m_uiElements.Size());   
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_uiElementAddr));
 
-    CanvasBuffer buffer = m_uiControl->m_canvas[a_addr];
-    if (buffer.ChildElements != nullptr)
     {
-        for (uint32_t i = 0; i < buffer.ChildElementCount; ++i)
+        TLockArray<CanvasBuffer> a = m_uiControl->m_canvas.ToLockArray();
+
+        CanvasBuffer& buffer = a[a_addr];
+        if (buffer.ChildElements != nullptr)
         {
-            if (buffer.ChildElements[i] == a_uiElementAddr)
+            for (uint32_t i = 0; i < buffer.ChildCount; ++i)
             {
-                return;
-            }
+                if (buffer.ChildElements[i] == a_uiElementAddr)
+                {
+                    return;
+                }
 
-            if (buffer.ChildElements[i] == -1)
-            {
-                buffer.ChildElements[i] = a_uiElementAddr;
+                if (buffer.ChildElements[i] == -1)
+                {
+                    buffer.ChildElements[i] = a_uiElementAddr;
 
-                return;
+                    return;
+                }
             }
         }
+
+        const uint32_t* oldBuffer = buffer.ChildElements;
+        IDEFER(delete[] oldBuffer);
+        buffer.ChildElements = new uint32_t[buffer.ChildCount + 1];
+
+        for (uint32_t i = 0; i < buffer.ChildCount; ++i)
+        {
+            buffer.ChildElements[i] = oldBuffer[i];
+        }
+
+        buffer.ChildElements[buffer.ChildCount++] = a_uiElementAddr;
     }
-
-    uint32_t* newBuffer = new uint32_t[buffer.ChildElementCount + 1];
-    const uint32_t* oldBuffer = buffer.ChildElements;
-    IDEFER(delete[] oldBuffer);
-
-    for (uint32_t i = 0; i < buffer.ChildElementCount; ++i)
+    
     {
-        newBuffer[i] = oldBuffer[i];
+        TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+        
+        UIElement* element = a[a_uiElementAddr];
+        element->SetParent(-1);
     }
-
-    newBuffer[buffer.ChildElementCount++] = a_uiElementAddr;
-    buffer.ChildElements = newBuffer;
-
-    m_uiControl->m_canvas.LockSet(a_addr, buffer);    
-
-    UIElement* element = m_uiControl->m_uiElements[a_uiElementAddr];
-    element->SetParent(-1);
 }
 void UIControlBindings::RemoveCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_canvas.Size(), "RemoveCanvasChild Canvas out of bounds");
-    ICARIAN_ASSERT_MSG(a_uiElementAddr < m_uiControl->m_uiElements.Size(), "RemoveCanvasChild UIElement out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_uiElementAddr] != nullptr, "RemoveCanvasChild UIElement deleted");
+    IVERIFY(a_addr < m_uiControl->m_canvas.Size());
+    IVERIFY(m_uiControl->m_canvas.Exists(a_addr));
+    IVERIFY(a_uiElementAddr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_uiElementAddr));
 
-    const CanvasBuffer buffer = m_uiControl->m_canvas[a_addr];
-
-    for (uint32_t i = 0; i < buffer.ChildElementCount; ++i)
     {
-        if (buffer.ChildElements[i] == a_uiElementAddr)
-        {
-            buffer.ChildElements[i] = -1;
+        TLockArray<CanvasBuffer> a = m_uiControl->m_canvas.ToLockArray();
 
-            return;
+        const CanvasBuffer buffer = a[a_addr];
+        for (uint32_t i = 0; i < buffer.ChildCount; ++i)
+        {
+            if (buffer.ChildElements[i] == a_uiElementAddr)
+            {
+                buffer.ChildElements[i] = -1;
+
+                break;
+            }
         }
     }
-
-    UIElement* element = m_uiControl->m_uiElements[a_uiElementAddr];
-    element->SetParent(-1);
 }
 uint32_t* UIControlBindings::GetCanvasChildren(uint32_t a_addr, uint32_t* a_count) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_canvas.Size(), "GetCanvasChildren out of bounds");
+    IVERIFY(a_addr < m_uiControl->m_canvas.Size());
 
-    const CanvasBuffer buffer = m_uiControl->m_canvas[a_addr];
+    const TReadLockArray<CanvasBuffer> a = m_uiControl->m_canvas.ToReadLockArray();
 
-    *a_count = buffer.ChildElementCount;
+    const CanvasBuffer buffer = a[a_addr];
+
+    *a_count = buffer.ChildCount;
     return buffer.ChildElements;
 }
 
+uint32_t UIControlBindings::CreateUIElement() const
+{
+    UIElement* element = new UIElement();
+
+    return m_uiControl->m_uiElements.PushVal(element);
+}
+void UIControlBindings::DestroyUIElement(uint32_t a_addr) const
+{
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+
+    const UIElement* element = m_uiControl->m_uiElements[a_addr];
+    IDEFER(delete element);
+    m_uiControl->m_uiElements.Erase(a_addr);
+}
 void UIControlBindings::AddElementChild(uint32_t a_addr, uint32_t a_childAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "AddElementChild out of bounds");
-    ICARIAN_ASSERT_MSG(a_childAddr < m_uiControl->m_uiElements.Size(), "AddElementChild child out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "AddElementChild element deleted");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_childAddr] != nullptr, "AddElementChild child element deleted");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+    IVERIFY(a_childAddr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_childAddr));
 
-    m_uiControl->m_uiElements[a_addr]->AddChild(a_childAddr);
-    m_uiControl->m_uiElements[a_childAddr]->SetParent(a_addr);
+    TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+
+    UIElement* pElement = a[a_addr];
+    pElement->AddChild(a_childAddr);
+    UIElement* cElement = a[a_childAddr];
+    cElement->SetParent(a_addr);
 }
 void UIControlBindings::RemoveElementChild(uint32_t a_addr, uint32_t a_childAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "RemoveElementChild out of bounds");
-    ICARIAN_ASSERT_MSG(a_childAddr < m_uiControl->m_uiElements.Size(), "RemoveElementChild child out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "RemoveElementChild element deleted");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_childAddr] != nullptr, "RemoveElementChild child element deleted");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+    IVERIFY(a_childAddr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_childAddr));
 
-    m_uiControl->m_uiElements[a_addr]->RemoveChild(a_childAddr);
-    m_uiControl->m_uiElements[a_childAddr]->SetParent(-1);
+    TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+
+    UIElement* pElement = a[a_addr];
+    pElement->RemoveChild(a_childAddr);
+    UIElement* cElement = a[a_addr];
+    cElement->SetParent(-1);
 }
 uint32_t* UIControlBindings::GetElementChildren(uint32_t a_addr, uint32_t* a_count) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "GetElementChildren out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetElementChildren element deleted");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
     
-    *a_count = m_uiControl->m_uiElements[a_addr]->GetChildCount();
-    return m_uiControl->m_uiElements[a_addr]->GetChildren();
+    const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
+
+    const UIElement* element = a[a_addr];
+
+    *a_count = element->GetChildCount();
+    return element->GetChildren();
 }
 glm::vec2 UIControlBindings::GetElementPosition(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "GetElementPosition out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetElementPosition element deleted");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
-    return m_uiControl->m_uiElements[a_addr]->GetPosition();
+    const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
+
+    const UIElement* element = a[a_addr];
+    return element->GetPosition();
 }
 void UIControlBindings::SetElementPosition(uint32_t a_addr, const glm::vec2& a_pos) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "SetElementPosition out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "SetElementPosition element deleted");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
-    m_uiControl->m_uiElements[a_addr]->SetPosition(a_pos);
+    TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+
+    UIElement* element = a[a_addr];
+    element->SetPosition(a_pos);
 }
 glm::vec2 UIControlBindings::GetElementSize(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "GetElementSize out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetElementSize element deleted");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
-    return m_uiControl->m_uiElements[a_addr]->GetSize();
+    const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
+
+    const UIElement* element = a[a_addr];
+    return element->GetSize();
 }
 void UIControlBindings::SetElementSize(uint32_t a_addr, const glm::vec2& a_size) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "SetElementSize out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "SetElementSize element deleted");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
-    m_uiControl->m_uiElements[a_addr]->SetSize(a_size);
+    TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+
+    UIElement* element = a[a_addr];
+    element->SetSize(a_size);
 }
 glm::vec4 UIControlBindings::GetElementColor(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "GetElementColor out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetElementColor element deleted");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
-    return m_uiControl->m_uiElements[a_addr]->GetColor();
+    const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
+
+    const UIElement* element = a[a_addr];
+    return element->GetColor();
 }
 void UIControlBindings::SetElementColor(uint32_t a_addr, const glm::vec4& a_color) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "SetElementColor out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "SetElementColor element deleted");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
-    m_uiControl->m_uiElements[a_addr]->SetColor(a_color);
+    TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+
+    UIElement* element = a[a_addr];
+    element->SetColor(a_color);
 }
-uint32_t UIControlBindings::GetElementState(uint32_t a_addr) const
+e_UIXAnchor UIControlBindings::GetElementXAnchor(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "GetElementState out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetElementState element deleted");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
-    return (uint32_t)m_uiControl->m_uiElements[a_addr]->GetState();
+    const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
+
+    const UIElement* element = a[a_addr];
+    return element->GetXAnchor();
+}
+void UIControlBindings::SetElementXAnchor(uint32_t a_addr, e_UIXAnchor a_anchor) const
+{
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+
+    TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+
+    UIElement* element = a[a_addr];
+    element->SetXAnchor(a_anchor);
+}
+e_UIYAnchor UIControlBindings::GetElementYAnchor(uint32_t a_addr) const
+{
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+
+    const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
+
+    const UIElement* element = a[a_addr];
+    return element->GetYAnchor();
+}
+void UIControlBindings::SetElementYAnchor(uint32_t a_addr, e_UIYAnchor a_anchor) const
+{
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+
+    TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+
+    UIElement* element = a[a_addr];
+    element->SetYAnchor(a_anchor);
+}
+e_ElementState UIControlBindings::GetElementState(uint32_t a_addr) const
+{
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+
+    const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
+
+    const UIElement* element = a[a_addr];
+    return element->GetState();
 }
 
 uint32_t UIControlBindings::CreateTextElement() const
 {
     TRACE("Creating Text UI Element");
-
     TextUIElement* element = new TextUIElement();
-
-    {
-        TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
-
-        const uint32_t size = a.Size();
-
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = element;
-
-                return i;
-            }
-        }
-    }
 
     return m_uiControl->m_uiElements.PushVal(element);
 }
-void UIControlBindings::DestroyTextElement(uint32_t a_addr) const
-{
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "DestroyTextElement out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "DestroyTextElement already destroyed");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text, "DestroyTextElement non text element");
-
-    const TextUIElement* element = (TextUIElement*)m_uiControl->m_uiElements[a_addr];
-    IDEFER(delete element);
-    m_uiControl->m_uiElements.LockSet(a_addr, nullptr);
-}
 std::u32string UIControlBindings::GetTextElementText(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "GetTextElementText out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetTextElementText element deleted");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text, "GetTextElementText non text element");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+    IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
 
-    TextUIElement* element = (TextUIElement*)m_uiControl->m_uiElements[a_addr];
+    const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
+
+    TextUIElement* element = (TextUIElement*)a[a_addr];
     return element->GetText();
 }
 void UIControlBindings::SetTextElementText(uint32_t a_addr, const std::u32string_view& a_text) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "SetTextElementText out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "SetTextElementText element deleted");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text, "SetTextElementText non text element");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+    IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
 
-    TextUIElement* element = (TextUIElement*)m_uiControl->m_uiElements[a_addr];
+    TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+
+    TextUIElement* element = (TextUIElement*)a[a_addr];
     element->SetText(a_text);
 }
 uint32_t UIControlBindings::GetTextElementFont(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "GetTextElementFont out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetTextElementFont element deleted");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text, "GetTextElementFont non text element");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+    IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
 
-    const TextUIElement* element = (TextUIElement*)m_uiControl->m_uiElements[a_addr];
+    const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
+
+    const TextUIElement* element = (TextUIElement*)a[a_addr];
     return element->GetFontAddr();
 }
 void UIControlBindings::SetTextElementFont(uint32_t a_addr, uint32_t a_fontAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "SetTextElementFont out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "SetTextElementFont element deleted");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text, "SetTextElementFont non text element");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+    IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
 
-    TextUIElement* element = (TextUIElement*)m_uiControl->m_uiElements[a_addr];
+    TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+
+    TextUIElement* element = (TextUIElement*)a[a_addr];
     element->SetFontAddr(a_fontAddr);
 }
 float UIControlBindings::GetTextElementFontSize(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "GetTextElementFontSize out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetTextElementFontSize element deleted");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text, "GetTextElementFontSize non text element");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+    IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
 
-    const TextUIElement* element = (TextUIElement*)m_uiControl->m_uiElements[a_addr];
+    const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
+
+    const TextUIElement* element = (TextUIElement*)a[a_addr];
     return element->GetFontSize();
 }
 void UIControlBindings::SetTextElementFontSize(uint32_t a_addr, float a_size) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "SetTextElementFontSize out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "SetTextElementFontSize element deleted");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text, "SetTextElementFontSize non text element");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+    IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
 
-    TextUIElement* element = (TextUIElement*)m_uiControl->m_uiElements[a_addr];
+    TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+
+    TextUIElement* element = (TextUIElement*)a[a_addr];
     element->SetFontSize(a_size);
 }
 
 uint32_t UIControlBindings::CreateImageElement() const
 {
     TRACE("Creating Image UI Element");
-
     ImageUIElement* element = new ImageUIElement();
-
-    {
-        TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
-
-        const uint32_t size = a.Size();
-
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = element;
-
-                return i;
-            }
-        }
-    }
 
     return m_uiControl->m_uiElements.PushVal(element);
 }
-void UIControlBindings::DestroyImageElement(uint32_t a_addr) const
-{
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "DestroyImageElement out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "DestroyImageElement already destroyed");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Image, "DestroyImageElement non image element");
-
-    const ImageUIElement* element = (ImageUIElement*)m_uiControl->m_uiElements[a_addr];
-    IDEFER(delete element);
-    m_uiControl->m_uiElements.LockSet(a_addr, nullptr);
-}
 uint32_t UIControlBindings::GetImageElementSampler(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "GetImageElementSampler out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "GetImageElementSampler element deleted");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Image, "GetImageElementSampler non image element");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
+    IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Image);
 
-    ImageUIElement* element = (ImageUIElement*)m_uiControl->m_uiElements[a_addr];
+    const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
+
+    const ImageUIElement* element = (ImageUIElement*)a[a_addr];
     return element->GetSamplerAddr();
 }
 void UIControlBindings::SetImageElementSampler(uint32_t a_addr, uint32_t a_samplerAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_uiControl->m_uiElements.Size(), "SetImageElementSampler out of bounds");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr] != nullptr, "SetImageElementSampler element deleted");
-    ICARIAN_ASSERT_MSG(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Image, "SetImageElementSampler non image element");
+    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    IVERIFY(m_uiControl->m_uiElements[a_addr] != nullptr);
+    IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Image);
 
-    ImageUIElement* element = (ImageUIElement*)m_uiControl->m_uiElements[a_addr];
+    TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
+
+    ImageUIElement* element = (ImageUIElement*)a[a_addr];
     element->SetSamplerAddr(a_samplerAddr);
 }

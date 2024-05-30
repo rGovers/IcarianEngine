@@ -189,14 +189,14 @@ Application::~Application()
 
     RuntimeManager::Destroy();
 
+    // Hacky but can depend on each other so need to clear them all
+    // Because the render engine is stopped should be safe to clear render object on the main thread
+    DeletionQueue::ClearQueue(DeletionIndex_Update);
+    DeletionQueue::ClearQueue(DeletionIndex_Render);
+    DeletionQueue::ClearQueue(DeletionIndex_Update);
+
     AnimationController::Destroy();
-
     UIControl::Destroy();
-
-    for (uint32_t i = 0; i < DeletionQueue::QueueSize; ++i)
-    {
-        DeletionQueue::Flush(DeletionIndex_Update);
-    }
 
     delete m_audioEngine;
     delete m_physicsEngine;

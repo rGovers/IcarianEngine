@@ -7,7 +7,6 @@
 
 struct CanvasBuffer;
 
-class Font;
 class RuntimeFunction;
 class VulkanDepthCubeRenderTexture;
 class VulkanDepthRenderTexture;
@@ -106,8 +105,6 @@ private:
     TNCArray<PointLightBuffer>                    m_pointLights;
     TNCArray<SpotLightBuffer>                     m_spotLights;
 
-    TArray<Font*>                                 m_fonts;
-
     TArray<CameraBuffer>                          m_cameraBuffers;
     Array<VulkanUniformBuffer*>                   m_cameraUniforms;
 
@@ -116,7 +113,7 @@ private:
     Array<vk::CommandPool>                        m_commandPool[VulkanFlightPoolSize];
     Array<vk::CommandBuffer>                      m_commandBuffers[VulkanFlightPoolSize];
     
-    TArray<CanvasRendererBuffer>                  m_canvasRenderers;
+    TNCArray<CanvasRendererBuffer>                m_canvasRenderers;
 
     uint32_t                                      m_textUIPipelineAddr;
     uint32_t                                      m_imageUIPipelineAddr;
@@ -146,9 +143,9 @@ public:
     // Later me problem
     void Cleanup();
 
-    inline void SetSwapchain(VulkanSwapchain* a_swapchaing)
+    inline void SetSwapchain(VulkanSwapchain* a_swapchain)
     {
-        m_swapchain = a_swapchaing;
+        m_swapchain = a_swapchain;
     }
 
     Array<vk::CommandBuffer> Update(double a_delta, double a_time, uint32_t a_index);
@@ -199,7 +196,5 @@ public:
     uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     void DestroyTextureSampler(uint32_t a_addr);
     TextureSamplerBuffer GetTextureSampler(uint32_t a_addr);
-
-    Font* GetFont(uint32_t a_addr);
 };
 #endif

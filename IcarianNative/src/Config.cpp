@@ -4,6 +4,8 @@
 #include <string>
 #include <tinyxml2.h>
 
+#include "Core/StringUtils.h"
+
 Config::Config(const std::string_view& a_path)
 {
     tinyxml2::XMLDocument doc;
@@ -14,30 +16,46 @@ Config::Config(const std::string_view& a_path)
 
         for (tinyxml2::XMLElement* element = configEle->FirstChildElement(); element != nullptr; element = element->NextSiblingElement())
         {
-            std::string_view name = element->Name();
-            if (name == "ApplicationName")
+            switch (StringHash(element->Name()))
+            {
+            case StringHash("ApplicationName"):
             {
                 m_appName = element->GetText();
+
+                break;
             }
-            else if (name == "RenderingEngine")
+            case StringHash("RenderingEngine"):
             {
-                std::string_view engineName = element->GetText();
-                if (engineName == "Vulkan")
+                switch (StringHash(element->GetText()))
+                {
+                case StringHash("Vulkan"):
                 {
                     m_renderingEngine = RenderingEngine_Vulkan;
+
+                    break;
                 }
-                else
+                default:
                 {
                     m_renderingEngine = RenderingEngine_Null;
+
+                    break;
                 }
+                }
+
+                break;
             }
-            else if (name == "FileCacheSize")
+            case StringHash("FileCacheSize"):
             {
                 m_fileCacheSize = (uint32_t)element->IntText();
+
+                break;
             }
-            else if (name == "FixedTimeStep")
+            case StringHash("FixedTimeStep"):
             {
                 m_fixedTimeStep = element->DoubleText();
+
+                break;
+            }
             }
         }
     }

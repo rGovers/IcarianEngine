@@ -2331,92 +2331,102 @@ vk::CommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t a
 
 void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint32_t a_addr, const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize, uint32_t a_index)
 {
-    if (a_addr == -1)
+    const bool valid = a_addr != -1;
+    if (!valid)
     {
         return;
     }
 
     UIElement* element = UIControl::GetUIElement(a_addr);
-    if (element != nullptr)
+    if (element == nullptr)
     {
-        const glm::vec2 pos = element->GetCanvasPosition(a_canvas, a_screenSize);
-        const glm::vec2 scale = element->GetCanvasScale(a_canvas, a_screenSize);
+        return;
+    }
 
-        const glm::vec2 screenPos = pos * a_canvas.ReferenceResolution;
-        const glm::vec2 screenSize = scale * a_canvas.ReferenceResolution;
+    const glm::vec2 pos = element->GetCanvasPosition(a_canvas, a_screenSize);
+    const glm::vec2 scale = element->GetCanvasScale(a_canvas, a_screenSize);
+
+    const glm::vec2 screenPos = pos * a_screenSize;
+    const glm::vec2 screenSize = scale * a_screenSize;
+
+    element->Update(m_vulkanEngine->GetRenderEngine());
+
+    VulkanPipeline* pipeline = nullptr;
+    VulkanShaderData* shaderData = nullptr;
+
+    switch (element->GetType()) 
+    {
+    case UIElementType_Base:
+    {
+        break;
+    }
+    case UIElementType_Text:
+    {
+        const TextUIElement* text = (TextUIElement*)element;
+
+        if (text->IsValid())
+        {
+            const vk::Rect2D scissor = vk::Rect2D({ (int32_t)screenPos.x, (int32_t)screenPos.y }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y });
+            a_commandBuffer.setScissor(0, 1, &scissor);
+            const vk::Viewport viewport = vk::Viewport(screenPos.x, screenPos.y, screenSize.x, screenSize.y, 0.0f, 1.0f);
+            a_commandBuffer.setViewport(0, 1, &viewport);
+
+            pipeline = GetPipeline(-1, m_textUIPipelineAddr);
+            IVERIFY(pipeline != nullptr);
+            shaderData = pipeline->GetShaderData();
+            IVERIFY(shaderData != nullptr);
+
+            const uint32_t samplerAddr = text->GetSamplerAddr();
+            const TextureSamplerBuffer& sampler = GetTextureSampler(samplerAddr);
+
+            shaderData->PushTexture(a_commandBuffer, 0, sampler, a_index);
+        }
+            
+        break;
+    }
+    case UIElementType_Image:
+    {
+        const ImageUIElement* image = (ImageUIElement*)element;
 
         const vk::Rect2D scissor = vk::Rect2D({ (int32_t)screenPos.x, (int32_t)screenPos.y }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y });
         a_commandBuffer.setScissor(0, 1, &scissor);
-
         const vk::Viewport viewport = vk::Viewport(screenPos.x, screenPos.y, screenSize.x, screenSize.y, 0.0f, 1.0f);
         a_commandBuffer.setViewport(0, 1, &viewport);
 
-        element->Update(m_vulkanEngine->GetRenderEngine());
+        pipeline = GetPipeline(-1, m_imageUIPipelineAddr);
+        IVERIFY(pipeline != nullptr);
+        shaderData = pipeline->GetShaderData();
+        IVERIFY(shaderData != nullptr);
+        
+        const uint32_t samplerAddr = image->GetSamplerAddr();
+        const TextureSamplerBuffer& sampler = GetTextureSampler(samplerAddr);
 
-        const glm::vec2 baseSize = element->GetSize();
-        const glm::vec2 size = baseSize;
+        shaderData->PushTexture(a_commandBuffer, 0, sampler, a_index);
 
-        VulkanPipeline* pipeline = nullptr;
-        VulkanShaderData* shaderData = nullptr;
+        break;
+    }
+    default:
+    {
+        IERROR("Invalid UIElement Type");
 
-        switch (element->GetType()) 
-        {
-        case UIElementType_Text:
-        {
-            const TextUIElement* text = (TextUIElement*)element;
+        break;
+    }
+    }
 
-            if (text->IsValid())
-            {
-                pipeline = GetPipeline(-1, m_textUIPipelineAddr);
-                ICARIAN_ASSERT(pipeline != nullptr);
-                shaderData = pipeline->GetShaderData();
-                ICARIAN_ASSERT(shaderData != nullptr);
+    const bool set = pipeline != nullptr && shaderData != nullptr;
+    if (set)
+    {
+        pipeline->Bind(a_index, a_commandBuffer);
+        shaderData->UpdateUIBuffer(a_commandBuffer, element);
 
-                ICARIAN_ASSERT_MSG_R(text->GetSamplerAddr() < m_textureSampler.Size(), "Invalid Sampler Address");
-                const TextureSamplerBuffer& sampler = m_textureSampler[text->GetSamplerAddr()];
+        a_commandBuffer.draw(4, 1, 0, 0);
+    }
 
-                shaderData->PushTexture(a_commandBuffer, 0, sampler, a_index);
-            }
-
-            break;
-        }
-        case UIElementType_Image:
-        {
-            const ImageUIElement* image = (ImageUIElement*)element;
-
-            pipeline = GetPipeline(-1, m_imageUIPipelineAddr);
-            ICARIAN_ASSERT(pipeline != nullptr);
-            shaderData = pipeline->GetShaderData();
-            ICARIAN_ASSERT(shaderData != nullptr);
-            
-            ICARIAN_ASSERT_MSG_R(image->GetSamplerAddr() < m_textureSampler.Size(), "Invalid Sampler Address");
-            const TextureSamplerBuffer& sampler = m_textureSampler[image->GetSamplerAddr()];
-
-            shaderData->PushTexture(a_commandBuffer, 0, sampler, a_index);
-
-            break;
-        }
-        default:
-        {
-            ICARIAN_ASSERT_MSG(0, "Invalid UI Element Type");
-        }
-        }
-
-        if (pipeline != nullptr && shaderData != nullptr)
-        {
-            pipeline->Bind(a_index, a_commandBuffer);
-
-            shaderData->UpdateUIBuffer(a_commandBuffer, element);
-
-            a_commandBuffer.draw(4, 1, 0, 0);
-        }
-
-        const uint32_t childCount = element->GetChildCount();
-        const uint32_t* children = element->GetChildren();
-        for (uint32_t i = 0; i < childCount; ++i)
-        {
-            DrawUIElement(a_commandBuffer, children[i], a_canvas, a_screenSize, a_index);
-        }
+    const uint32_t childCount = element->GetChildCount();
+    const uint32_t* children = element->GetChildren();
+    for (uint32_t i = 0; i < childCount; ++i)
+    {
+        DrawUIElement(a_commandBuffer, children[i], a_canvas, a_screenSize, a_index);
     }
 }
 
@@ -2470,7 +2480,7 @@ Array<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_t
             }
 
             RenderProgram& program = a[i];
-            ICARIAN_ASSERT(program.Data != nullptr);
+            IVERIFY(program.Data != nullptr);
 
             VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
             shaderData->Update(a_index, program);
@@ -2515,7 +2525,7 @@ Array<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_t
         for (uint32_t i = 0; i < diff; ++i)
         {
             vk::CommandPool pool;
-            ICARIAN_ASSERT_MSG_R(device.createCommandPool(&poolInfo, nullptr, &pool) == vk::Result::eSuccess, "Failed to create graphics command pool");
+            VKRESERRMSG(device.createCommandPool(&poolInfo, nullptr, &pool), "Failed to create graphics command pool");
             
             m_commandPool[a_index].Push(pool);
 
@@ -2527,7 +2537,7 @@ Array<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_t
             );
 
             vk::CommandBuffer buffer;
-            ICARIAN_ASSERT_MSG_R(device.allocateCommandBuffers(&commandBufferInfo, &buffer) == vk::Result::eSuccess, "Failed to allocate graphics command buffer");
+            VKRESERRMSG(device.allocateCommandBuffers(&commandBufferInfo, &buffer), "Failed to allocate graphics command buffer");
 
             m_commandBuffers[a_index].Push(buffer);
         }
@@ -2620,60 +2630,60 @@ Array<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_t
     {
         PROFILESTACK("UI Draw");
 
-        for (uint32_t i = 0; i < canvasCount; ++i)
+        const Array<CanvasRendererBuffer> a = m_canvasRenderers.ToActiveArray();
+
+        const uint32_t canvasArrSize = a.Size();
+        for (uint32_t i = 0; i < canvasArrSize; ++i)
         {
-            const CanvasRendererBuffer& canvasRenderer = canvasBuffer[i];
-            if (canvasRenderer.IsDestroyed() || canvasRenderer.CanvasAddr == -1)
+            const CanvasRendererBuffer& canvasRenderer = a[i];
+
+            const bool valid = canvasRenderer.CanvasAddr != -1;
+            if (!valid)
             {
                 continue;
             }
 
             const CanvasBuffer& canvas = UIControl::GetCanvas(canvasRenderer.CanvasAddr);
-            if (canvas.IsDestroyed())
-            {
-                continue;
-            }
 
-            // While we wait for other threads can draw UI on main render thread 
             vk::CommandBuffer buffer = StartCommandBuffer(camIndexSize * DrawingPassCount + i, a_index);
             IDEFER(buffer.end());
 
-            glm::ivec2 renderSize;
             const VulkanRenderTexture* renderTexture = GetRenderTexture(canvasRenderer.RenderTextureAddr);
 
+            glm::ivec2 screenSize;
             if (renderTexture != nullptr)
             {
-                renderSize = glm::ivec2((int)renderTexture->GetWidth(), (int)renderTexture->GetHeight());
-                const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
+                screenSize = glm::ivec2((int)renderTexture->GetWidth(), (int)renderTexture->GetHeight());
+                const vk::RenderPassBeginInfo renderPassInto = vk::RenderPassBeginInfo
                 (
                     renderTexture->GetRenderPassNoClear(),
                     renderTexture->GetFramebuffer(),
-                    vk::Rect2D({ 0, 0 }, { (uint32_t)renderSize.x, (uint32_t)renderSize.y }),
+                    vk::Rect2D({ 0, 0 }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y }),
                     renderTexture->GetTotalTextureCount(),
                     renderTexture->GetClearValues()
                 );
 
-                buffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+                buffer.beginRenderPass(renderPassInto, vk::SubpassContents::eInline);
             }
-            else 
+            else
             {
-                renderSize = m_swapchain->GetSize();
+                screenSize = m_swapchain->GetSize();
                 constexpr vk::ClearValue ClearColor = vk::ClearValue();
                 const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
                 (
                     m_swapchain->GetRenderPassNoClear(),
                     m_swapchain->GetFramebuffer(m_vulkanEngine->GetImageIndex()),
-                    vk::Rect2D({ 0, 0 }, { (uint32_t)renderSize.x, (uint32_t)renderSize.y }),
+                    vk::Rect2D({ 0, 0 }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y }),
                     1,
                     &ClearColor
                 );
 
-                buffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+                buffer.beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
             }
 
-            for (uint32_t j = 0; j < canvas.ChildElementCount; ++j)
+            for (uint32_t i = 0; i < canvas.ChildCount; ++i)
             {
-                DrawUIElement(buffer, canvas.ChildElements[j], canvas, renderSize, a_index);
+                DrawUIElement(buffer, canvas.ChildElements[i], canvas, screenSize, a_index);
             }
 
             buffer.endRenderPass();
@@ -2915,31 +2925,31 @@ uint32_t VulkanGraphicsEngine::GenerateTextureSampler(uint32_t a_textureAddr, e_
     {
         if (!ISRENDERASSETSTOREADDR(a_textureAddr))
         {
-            ICARIAN_ASSERT_MSG(a_textureAddr < m_textures.Size(), "GenerateTextureSampler Texture out of bounds");
-            ICARIAN_ASSERT_MSG(m_textures[a_textureAddr] != nullptr, "GenerateTextureSampler Texture already destroyed");
+            IVERIFY(a_textureAddr < m_textures.Size());
+            IVERIFY(m_textures[a_textureAddr] != nullptr);
         }
 
         break;
     }
     case TextureMode_RenderTexture:
     {
-        ICARIAN_ASSERT_MSG(a_textureAddr < m_renderTextures.Size(), "GenerateTextureSampler Render Texture out of bounds");
-        ICARIAN_ASSERT_MSG(m_renderTextures[a_textureAddr] != nullptr, "GenerateTextureSampler Render Texture already destroyed");
-        ICARIAN_ASSERT_MSG(a_slot < m_renderTextures[a_textureAddr]->GetTextureCount(), "GenerateTextureSampler Render Texture slot out of bounds");
+        IVERIFY(a_textureAddr < m_renderTextures.Size());
+        IVERIFY(m_renderTextures[a_textureAddr] != nullptr);
+        IVERIFY(a_slot < m_renderTextures[a_textureAddr]->GetTextureCount());
 
         break;
     }
     case TextureMode_RenderTextureDepth:
     {
-        ICARIAN_ASSERT_MSG(a_textureAddr < m_renderTextures.Size(), "GenerateTextureSampler Render Texture out of bounds");
-        ICARIAN_ASSERT_MSG(m_renderTextures[a_textureAddr] != nullptr, "GenerateTextureSampler Render Texture already destroyed");
+        IVERIFY(a_textureAddr < m_renderTextures.Size());
+        IVERIFY(m_renderTextures[a_textureAddr] != nullptr);
 
         break;
     }
     case TextureMode_DepthRenderTexture:
     {
-        ICARIAN_ASSERT_MSG(a_textureAddr < m_depthRenderTextures.Size(), "GenerateTextureSampler Depth Render Texture out of bounds");
-        ICARIAN_ASSERT_MSG(m_depthRenderTextures[a_textureAddr] != nullptr, "GenerateTextureSampler Depth Render Texture already destroyed");
+        IVERIFY(a_textureAddr < m_depthRenderTextures.Size());
+        IVERIFY(m_depthRenderTextures[a_textureAddr] != nullptr);
 
         break;
     }
@@ -2951,20 +2961,22 @@ uint32_t VulkanGraphicsEngine::GenerateTextureSampler(uint32_t a_textureAddr, e_
     }
     }
     
-    TextureSamplerBuffer sampler;
-    sampler.Addr = a_textureAddr;
-    sampler.Slot = a_slot;
-    sampler.TextureMode = a_textureMode;
-    sampler.AddressMode = a_addressMode;
-    sampler.FilterMode = a_filterMode;
+    TextureSamplerBuffer sampler =
+    {
+        .Addr = a_textureAddr,
+        .Slot = a_slot,
+        .TextureMode = a_textureMode,
+        .FilterMode = a_filterMode,
+        .AddressMode = a_addressMode,
+    };
     sampler.Data = VulkanTextureSampler::GenerateFromBuffer(m_vulkanEngine, this, sampler);
 
     return m_textureSampler.PushVal(sampler);
 }
 void VulkanGraphicsEngine::DestroyTextureSampler(uint32_t a_addr) 
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_textureSampler.Size(), "DestroyTextureSampler Texture out of bounds");
-    ICARIAN_ASSERT_MSG(m_textureSampler[a_addr].TextureMode != TextureMode_Null, "DestroyTextureSampler already destroyed");
+    IVERIFY(a_addr < m_textureSampler.Size());
+    IVERIFY(m_textureSampler.Exists(a_addr));
 
     const TextureSamplerBuffer sampler = m_textureSampler[a_addr];
     IDEFER(
@@ -2977,16 +2989,10 @@ void VulkanGraphicsEngine::DestroyTextureSampler(uint32_t a_addr)
 }
 TextureSamplerBuffer VulkanGraphicsEngine::GetTextureSampler(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_textureSampler.Size(), "GetTextureSampler out of bounds");
-    ICARIAN_ASSERT_MSG(m_textureSampler.Exists(a_addr), "GetTextureSampler sampler already destroyed");
+    IVERIFY(a_addr < m_textureSampler.Size());
+    IVERIFY(m_textureSampler.Exists(a_addr));
 
     return m_textureSampler[a_addr];
 }
 
-Font* VulkanGraphicsEngine::GetFont(uint32_t a_addr)
-{
-    ICARIAN_ASSERT_MSG(a_addr < m_fonts.Size(), "GetFont out of bounds");
-
-    return m_fonts[a_addr];
-}
 #endif

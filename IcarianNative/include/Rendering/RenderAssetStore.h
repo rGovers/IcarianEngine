@@ -5,6 +5,7 @@
 
 #include "DataTypes/TNCArray.h"
 
+class Font;
 class RenderEngine;
 class RenderAssetStoreBindings;
 
@@ -27,7 +28,12 @@ struct RenderAsset
 
 class RenderAssetStore
 {
+public:
+    static constexpr uint32_t RenderAssetStoreBit = 30;
+
 private:
+    friend class RenderAssetStoreBindings;
+
     static constexpr uint16_t DeReqCount = 20;
 
     RenderEngine*             m_renderEngine;
@@ -35,17 +41,21 @@ private:
 
     TNCArray<RenderAsset>     m_models;
     TNCArray<RenderAsset>     m_textures;
+    TNCArray<Font*>           m_fonts;
 
 protected:
 
 public:
-    static constexpr uint32_t RenderAssetStoreBit = 30;
-
     RenderAssetStore(RenderEngine* a_renderEngine);
     ~RenderAssetStore();
 
     void Update();
     void Flush();
+
+    inline Font* GetFont(uint32_t a_addr)
+    {
+        return m_fonts[a_addr];
+    }
 
     uint32_t LoadModel(const std::filesystem::path& a_path);
     uint32_t LoadSkinnedModel(const std::filesystem::path& a_path);

@@ -315,6 +315,14 @@ public:
     {
         const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
+        if constexpr (std::is_pointer<T>())
+        {
+            if (m_data[a_addr] == nullptr)
+            {
+                return false;
+            }
+        }
+
         const uint32_t stateIndex = a_addr / StateValBitSize;
         const uint32_t stateOffset = a_addr % StateValBitSize;
 

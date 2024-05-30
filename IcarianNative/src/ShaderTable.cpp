@@ -1,79 +1,82 @@
 #include "Rendering/ShaderTable.h"
 
-#include <string>
-
+#include "Core/StringUtils.h"
 #include "Shaders.h"
 
 const char* GetVertexShaderString(const std::string_view& a_str)
 {
-    const std::string iStr = std::string(InternalShaderPathString);
-
-    if (a_str == iStr + "Quad")
+    switch (StringHash(a_str.data())) 
+    {
+    case StringHash("Quad"):
     {
         return QuadVertexShader;
     }
-    else if (a_str == iStr + "UI")
+    case StringHash("UI"):
     {
         return UIVertexShader;
+    }
     }
 
     return nullptr;
 }
 const char* GetPixelShaderString(const std::string_view& a_str)
 {
-    const std::string iStr = std::string(InternalShaderPathString);
-
-    if (a_str == iStr + "AmbientLight")
+    // Never optimised string comparisions as building jump tables is a pain in the ass then realised already have one just use switch statements
+    // We have constexpr in this day and age
+    switch (StringHash(a_str.data()) )
+    {
+    case StringHash("AmbientLight"):
     {
         return AmbientLightPixelShader;
     }
-    else if (a_str == iStr + "Blend")
+    case StringHash("Blend"):
     {
         return BlendPixelShader;
     }
-    else if (a_str == iStr + "DirectionalLight")
+    case StringHash("DirectionalLight"):
     {
         return DirectionalLightPixelShader;
     }
-    else if (a_str == iStr + "PointLight")
+    case StringHash("PointLight"):
     {
         return PointLightPixelShader;
     }
-    else if (a_str == iStr + "SpotLight")
+    case StringHash("SpotLight"):
     {
         return SpotLightPixelShader;
     }
-    else if (a_str == iStr + "DirectionalLightShadow")
+    case StringHash("DirectionalLightShadow"):
     {
         return ShadowDirectionalLightPixelShader;
     }
-    else if (a_str == iStr + "PointLightShadow")
+    case StringHash("PointLightShadow"):
     {
         return ShadowPointLightPixelShader;
     }
-    else if (a_str == iStr + "SpotLightShadow")
+    case StringHash("SpotLightShadow"):
     {
         return ShadowSpotLightPixelShader;
     }
-    else if (a_str == iStr + "PostAtmosphere")
+    case StringHash("PostAtmosphere"):
     {
         return PostAtmospherePixelShader;
     }
-    else if (a_str == iStr + "PostEmission")
+    case StringHash("PostEmission"):
     {
         return PostEmissionPixelShader;
     }
-    else if (a_str == iStr + "PostToneMap")
+    case StringHash("PostToneMap"):
     {
         return PostToneMapPixelShader;
     }
-    else if (a_str == iStr + "UIImage")
+    case StringHash("UIImage"):
     {
         return UIImagePixelShader;
     }
-    else if (a_str == iStr + "UIText")
+    case StringHash("UIText"):
     {
         return UITextPixelShader;
+    }
     }
 
     return nullptr;

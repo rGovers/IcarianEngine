@@ -75,4 +75,10 @@ void DeletionQueue::Flush(e_DeletionIndex a_index)
 
     Instance->m_deletionObjects[nextIndex][a_index].UClear();
 }
-    
+void DeletionQueue::ClearQueue(e_DeletionIndex a_index)
+{
+    for (uint32_t i = 0; i < QueueSize; ++i)
+    {
+        Flush(a_index);
+    }
+}

@@ -1,14 +1,14 @@
 #pragma once
 
-#include <mutex>
-#include <shared_mutex>
 #include <unordered_map>
+
+#include "DataTypes/ThreadGuard.h"
 
 template<typename TKey, typename TValue>
 class TUMap
 {
 private:
-    std::shared_mutex                m_mutex;
+    SharedSpinLock                   m_lock;
     std::unordered_map<TKey, TValue> m_map;
 
 protected:
@@ -20,8 +20,8 @@ public:
     }
     TUMap(const TUMap& a_other)
     {
-        const std::unique_lock g = std::unique_lock(m_mutex);
-        const std::unique_lock otherG = std::unique_lock(a_other.m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
+        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
         
         m_map = a_other.m_map;
     }
@@ -32,8 +32,8 @@ public:
 
     TUMap& operator =(const TUMap& a_other)
     {
-        const std::unique_lock g = std::unique_lock(m_mutex);
-        const std::unique_lock otherG = std::unique_lock(a_other.m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
+        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
 
         m_map = a_other.m_map;
 
@@ -42,7 +42,7 @@ public:
 
     void Push(const TKey& a_key, const TValue& a_value)
     {
-        const std::unique_lock g = std::unique_lock(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         const auto iter = m_map.find(a_key);
         if (iter != m_map.end())
@@ -57,20 +57,20 @@ public:
 
     inline bool Exists(const TKey& a_key)
     {
-        const std::shared_lock g = std::shared_lock(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         return m_map.find(a_key) != m_map.end(); 
     }
     inline void Clear()
     {
-        const std::unique_lock g = std::unique_lock(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         m_map.clear();
     }
 
     inline TValue& operator [](const TKey& a_key)
     {
-        const std::shared_lock g = std::shared_lock(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         return m_map[a_key];
     }

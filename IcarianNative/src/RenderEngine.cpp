@@ -68,10 +68,7 @@ RenderEngine::~RenderEngine()
     m_assets->Flush();
 
     // Ensure all queued objects are freed otherwise get a double free when freed by backend doing free checks
-    for (uint32_t i = 0; i < DeletionQueue::QueueSize; ++i)
-    {
-        DeletionQueue::Flush(DeletionIndex_Render);
-    }
+    DeletionQueue::ClearQueue(DeletionIndex_Render);
 
     spirv_destroy();
 
@@ -97,8 +94,13 @@ void RenderEngine::Stop()
 
     TRACE("Stopping Render Thread");
     m_shutdown = true;
-    while (!m_join) { }
+    while (!m_join) 
+    {
+        std::this_thread::yield();
+    }
     m_thread.join();
+
+    DeletionQueue::ClearQueue(DeletionIndex_Render);
 }
 
 void RenderEngine::Run()
@@ -198,5 +200,5 @@ void RenderEngine::DestroyTextureSampler(uint32_t a_addr) const
 
 Font* RenderEngine::GetFont(uint32_t a_addr) const
 {
-    return m_backend->GetFont(a_addr);
+    return m_assets->GetFont(a_addr);
 }

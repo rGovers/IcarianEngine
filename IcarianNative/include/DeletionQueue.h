@@ -30,7 +30,6 @@ public:
     constexpr static uint32_t QueueSize = 2;
     
 private:
-
     uint32_t                m_queueIndex[DeletionIndex_Last];
     TArray<DeletionObject*> m_deletionObjects[QueueSize][DeletionIndex_Last];
 
@@ -47,6 +46,8 @@ public:
     static void Push(DeletionObject* a_object, e_DeletionIndex a_index);
 
     static void Flush(e_DeletionIndex a_index);
+
+    static void ClearQueue(e_DeletionIndex a_index);
 };
 
 #define ICARIAN_DELFUNC_NAMEI(a, b) a##b
@@ -74,3 +75,5 @@ public:
         } \
     }; \
     DeletionQueue::Push(new ICARIAN_DELFUNC_NAME(_delObj_class)(ICARIAN_DELFUNC_NAME(_delObj)), deletionIndex)
+
+#define IDUALDELETIONFUNC(code) IPUSHDELETIONFUNC(IPUSHDELETIONFUNC(code, DeletionIndex_Update), DeletionIndex_Render)

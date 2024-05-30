@@ -2,6 +2,7 @@
 
 #include "Core/IcarianAssert.h"
 #include "Core/ShaderBuffers.h"
+#include "Core/StringUtils.h"
 
 #define FSHADER_PLATFORM_UBOSTR(str, platform, argA, argB, structure) \
     switch (platform) \
@@ -108,7 +109,7 @@
     F(ShadowLightBuffer, GLSL_SHADOW_LIGHT_SHADER_STRUCTURE) \
 
 #define FSHADER_UBO_DEFINITION(str, structure) \
-    if (args[0] == #str) \
+    case StringHash(#str): \
     { \
         FSHADER_PLATFORM_UBOSTR(rStr, a_platform, args[1], args[2], structure); \
         const ShaderBufferInput input = \
@@ -117,10 +118,11 @@
             .BufferType = ShaderBufferType_##str, \
         }; \
         a_inputs->emplace_back(input); \
+        break; \
     } \
     
 #define FSHADER_SSBO_DEFINITION(str, structure) \
-    if (args[0] == "SS" #str) \
+    case StringHash("SS" #str): \
     { \
         FSHADER_PLATFORM_SSBOSTR(rStr, a_platform, args[1], args[2], structure, #str); \
         const ShaderBufferInput input = \
@@ -129,10 +131,11 @@
             .BufferType = ShaderBufferType_SS##str, \
         }; \
         a_inputs->emplace_back(input); \
+        break; \
     } \
     
 #define FSHADER_PUSHBUFFER_DEFINITION(str, structure) \
-    if (args[0] == "P" #str) \
+    case StringHash("P" #str): \
     { \
         FSHADER_PLATFORM_PUSHSTR(rStr, a_platform, structure, args[1]); \
         const ShaderBufferInput input = \
@@ -141,11 +144,12 @@
             .BufferType = ShaderBufferType_P##str, \
         }; \
         a_inputs->emplace_back(input); \
+        break; \
     } \
 
-#define FSHADER_UBO do { FSHADER_UBO_STRUCTURETABLE(FSHADER_UBO_DEFINITION) } while (0)
-#define FSHADER_SSBO do { FSHADER_SSBO_STRUCTURETABLE(FSHADER_SSBO_DEFINITION) } while (0)
-#define FSHADER_PUSHBUFFER do { FSHADER_PUSHBUFFER_STRUCTURETABLE(FSHADER_PUSHBUFFER_DEFINITION) } while (0)
+#define FSHADER_UBO FSHADER_UBO_STRUCTURETABLE(FSHADER_UBO_DEFINITION)
+#define FSHADER_SSBO FSHADER_SSBO_STRUCTURETABLE(FSHADER_SSBO_DEFINITION)
+#define FSHADER_PUSHBUFFER FSHADER_PUSHBUFFER_STRUCTURETABLE(FSHADER_PUSHBUFFER_DEFINITION)
 
 namespace IcarianCore
 {
@@ -215,7 +219,9 @@ namespace IcarianCore
             const std::vector<std::string> args = SplitArgs(shader.substr(sAPos + 1, eApos - sAPos - 1));
 
             std::string rStr;
-            if (defName == "structure")
+            switch (StringHash(defName.c_str()))
+            {
+            case StringHash("structure"):
             {
                 if (args.size() != 3)
                 {
@@ -225,10 +231,15 @@ namespace IcarianCore
                 }
 
                 // I am lazy therefore let the pre processor write it
-                FSHADER_UBO;
-                FSHADER_SSBO;
+                switch (StringHash(args[0].c_str()))
+                {
+                FSHADER_UBO
+                FSHADER_SSBO
+                }
+
+                break;
             }
-            else if (defName == "texture")
+            case StringHash("texture"):
             {
                 if (args.size() != 2)
                 {
@@ -246,8 +257,10 @@ namespace IcarianCore
                 };
 
                 a_inputs->emplace_back(input);
+
+                break;
             }
-            else if (defName == "pushtexture")
+            case StringHash("pushtexture"):
             {
                 if (args.size() != 2)
                 {
@@ -265,8 +278,10 @@ namespace IcarianCore
                 };
 
                 a_inputs->emplace_back(input);
+
+                break;
             }
-            else if (defName == "shadowtexture")
+            case StringHash("shadowtexture"):
             {
                 if (args.size() != 2)
                 {
@@ -284,8 +299,10 @@ namespace IcarianCore
                 };
 
                 a_inputs->emplace_back(input);
+
+                break;
             }
-            else if (defName == "cubeshadowtexture")
+            case StringHash("cubeshadowtexture"):
             {
                 if (args.size() != 2)
                 {
@@ -303,8 +320,10 @@ namespace IcarianCore
                 };
 
                 a_inputs->emplace_back(input);
+
+                break;
             }
-            else if (defName == "shadowtexturearray")
+            case StringHash("shadowtexturearray"):
             {
                 if (args.size() != 3)
                 {
@@ -343,8 +362,10 @@ namespace IcarianCore
                 };
 
                 a_inputs->emplace_back(input);
+
+                break;
             }
-            else if (defName == "userbuffer")
+            case StringHash("userbuffer"):
             {
                 if (args.size() != 3)
                 {
@@ -382,8 +403,10 @@ namespace IcarianCore
                 };
 
                 a_inputs->emplace_back(input);
+
+                break;
             }
-            else if (defName == "instancestructure")
+            case StringHash("instancestructure"):
             {
                 if (args.size() != 1)
                 {
@@ -413,8 +436,10 @@ namespace IcarianCore
                     break;
                 }
                 }
+
+                break;
             }
-            else if (defName == "pushbuffer")
+            case StringHash("pushbuffer"):
             {
                 if (args.size() != 2)
                 {
@@ -423,7 +448,13 @@ namespace IcarianCore
                     return std::string();
                 }
 
-                FSHADER_PUSHBUFFER;
+                switch (StringHash(args[0].c_str()))
+                {
+                FSHADER_PUSHBUFFER
+                }
+
+                break;
+            }
             }
 
             std::size_t next = 1;

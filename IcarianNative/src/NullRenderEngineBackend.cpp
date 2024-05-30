@@ -4,7 +4,6 @@
 #include <glm/glm.hpp>
 
 #include "Rendering/CameraBuffer.h"
-#include "Rendering/UI/Font.h"
 #include "Runtime/RuntimeManager.h"
 
 #include "EngineAmbientLightInteropStructures.h"
@@ -103,9 +102,6 @@
     F(uint32_t, IcarianEngine.Rendering.Lighting, SpotLight, GetShadowMap, { return 0; }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Lighting, SpotLight, SetShadowMap, { }, uint32_t a_addr, uint32_t a_shadowMapAddr) \
     \
-    F(uint32_t, IcarianEngine.Rendering.UI, Font, GenerateFont, { return 0; }, MonoString* a_path) \
-    F(void, IcarianEngine.Rendering.UI, Font, DestroyFont, { }, uint32_t a_addr) \
-    \
     F(uint32_t, IcarianEngine.Rendering.UI, CanvasRenderer, GenerateBuffer, { return 0; }) \
     F(void, IcarianEngine.Rendering.UI, CanvasRenderer, DestroyBuffer, { }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.UI, CanvasRenderer, SetCanvas, { }, uint32_t a_addr, uint32_t a_canvasAddr) \
@@ -165,11 +161,6 @@ uint32_t NullRenderEngineBackend::GenerateTextureSampler(uint32_t a_textureAddr,
 void NullRenderEngineBackend::DestroyTextureSampler(uint32_t a_sampler)
 {
 
-}
-
-Font* NullRenderEngineBackend::GetFont(uint32_t a_addr)
-{
-    return nullptr;
 }
 
 void NullRenderEngineBackend::Update(double a_delta, double a_time)

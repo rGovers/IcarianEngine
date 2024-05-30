@@ -4,12 +4,12 @@
 
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "Core/StringUtils.h"
 #include "DeletionQueue.h"
 #include "FileCache.h"
 #include "ObjectManager.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/ShaderTable.h"
-#include "Rendering/UI/Font.h"
 #include "Rendering/Vulkan/VulkanDepthCubeRenderTexture.h"
 #include "Rendering/Vulkan/VulkanDepthRenderTexture.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
@@ -119,11 +119,8 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     F(void, IcarianEngine.Rendering.Lighting, SpotLight, SetShadowMap, { Instance->SetSpotLightShadowMap(a_addr, a_shadowMapAddr); }, uint32_t a_addr, uint32_t a_shadowMapAddr) \
     F(uint32_t, IcarianEngine.Rendering.Lighting, SpotLight, GetShadowMap, { return Instance->GetSpotLightShadowMap(a_addr); }, uint32_t a_addr) \
     \
-    F(uint32_t, IcarianEngine.Rendering.UI, Font, GenerateFont, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return Instance->GenerateFont(str); }, MonoString* a_path) \
-    F(void, IcarianEngine.Rendering.UI, Font, DestroyFont, { Instance->DestroyFont(a_addr); }, uint32_t a_addr) \
-    \
     F(uint32_t, IcarianEngine.Rendering.UI, CanvasRenderer, GenerateBuffer, { return Instance->GenerateCanvasRenderer(); }) \
-    F(void, IcarianEngine.Rendering.UI, CanvasRenderer, DestroyBuffer, { Instance->DestroyCanvasRenderer(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.UI, CanvasRenderer, DestroyBuffer, { IPUSHDELETIONFUNC(Instance->DestroyCanvasRenderer(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.UI, CanvasRenderer, SetCanvas, { Instance->SetCanvasRendererCanvas(a_addr, a_canvasAddr); }, uint32_t a_addr, uint32_t a_canvasAddr) \
     F(uint32_t, IcarianEngine.Rendering.UI, CanvasRenderer, GetCanvas, { return Instance->GetCanvasRendererCanvas(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.UI, CanvasRenderer, SetRenderTexture, { Instance->SetCanvasRendererRenderTexture(a_addr, a_renderTextureAddr); }, uint32_t a_addr, uint32_t a_renderTextureAddr) \
@@ -144,12 +141,10 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
-    constexpr char InternalStr[] = "[INTERNAL]";
-    constexpr uint32_t InternalStrSize = sizeof(InternalStr) / sizeof(*InternalStr) - 1;
-
-    if (strncmp(str, InternalStr, InternalStrSize) == 0)
+    // Faster to do the comparison if it is a single comparison
+    if (strncmp(str, INTERNALSHADERPATHSTR, InternalShaderStringSize) == 0)
     {
-        const char* shader = GetVertexShaderString(str);
+        const char* shader = GetVertexShaderString(str + InternalShaderStringSize);
 
         if (shader != nullptr)
         {
@@ -165,7 +160,12 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
         const std::filesystem::path p = std::filesystem::path(str);
         const std::filesystem::path ext = p.extension();
 
-        if (ext == ".fvert")
+        const std::string extStr = ext.string();
+
+        // Slower as just one comparison but can be expanded and consistant with pixel shader
+        switch (StringHash<uint32_t>(extStr.c_str())) 
+        {
+        case StringHash<uint32_t>(".fvert"):
         {
             FileHandle* handle = FileCache::LoadFile(p);
             if (handle != nullptr)
@@ -181,14 +181,17 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
 
                 return Instance->GenerateFVertexShaderAddr(std::string_view(str, size));
             }
-            else
-            {
-                IERROR(std::string("VertexShader failed to open: ") + str);
-            }
+            
+            IWARN(std::string("VertexShader failed to open: ") + str);
+
+            break;
         }
-        else
+        default:
         {
             IWARN(std::string("VertexShader invalid file format: ") + str);
+
+            break;
+        }
         }
     }
 
@@ -199,12 +202,10 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
-    constexpr char InternalStr[] = "[INTERNAL]";
-    constexpr uint32_t InternalStrSize = sizeof(InternalStr) / sizeof(*InternalStr) - 1;
-
-    if (strncmp(str, InternalStr, InternalStrSize) == 0)
+    // Faster to do the comparison if it is a single comparison
+    if (strncmp(str, INTERNALSHADERPATHSTR, InternalShaderStringSize) == 0)
     {
-        const char* shader = GetPixelShaderString(str);
+        const char* shader = GetPixelShaderString(str + InternalShaderStringSize);
 
         if (shader != nullptr)
         {
@@ -220,7 +221,12 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
         const std::filesystem::path p = std::filesystem::path(str);
         const std::filesystem::path ext = p.extension();
 
-        if (ext == ".fpix" || ext == ".ffrag")
+        const std::string extStr = ext.string();
+
+        switch (StringHash<uint32_t>(extStr.c_str())) 
+        {
+        case StringHash<uint32_t>(".fpix"):
+        case StringHash<uint32_t>(".ffrag"):
         {
             FileHandle* handle = FileCache::LoadFile(p);
             if (handle != nullptr)
@@ -236,14 +242,17 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
 
                 return Instance->GenerateFPixelShaderAddr(std::string_view(str, size));
             }
-            else 
-            {
-                IERROR(std::string("PixelShader failed to open: ") + str);
-            }
+
+            IWARN(std::string("PixelShader failed to open: ") + str);
+
+            break;
         }
-        else
+        default:
         {
             IWARN(std::string("PixelShader invalid file format: ") + str);
+
+            break;
+        }
         }
     }
 
@@ -297,6 +306,7 @@ RUNTIME_FUNCTION(MonoArray*, DirectionalLight, GetShadowMaps,
 
 RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram, 
 {
+    // List initialisers are being drunk so guess zero and init it is
     RenderProgram program;
     memset(&program, 0, sizeof(RenderProgram));
     program.VertexShader = a_vertexShader;
@@ -1401,102 +1411,55 @@ uint32_t VulkanGraphicsEngineBindings::GetSpotLightShadowMap(uint32_t a_addr) co
     return lightBuffer->LightRenderTextures[0];
 }
 
-uint32_t VulkanGraphicsEngineBindings::GenerateFont(const std::string_view& a_path) const
-{
-    Font* font = Font::LoadFont(a_path.data());
-
-    {
-        TLockArray<Font*> a = m_graphicsEngine->m_fonts.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i] == nullptr)
-            {
-                a[i] = font;
-
-                return i;
-            }
-        }
-    }
-
-    return m_graphicsEngine->m_fonts.PushVal(font);
-}
-void VulkanGraphicsEngineBindings::DestroyFont(uint32_t a_addr) const
-{
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_fonts.Size(), "DestroyFont out of bounds");
-
-    Font* font = m_graphicsEngine->m_fonts[a_addr];
-    m_graphicsEngine->m_fonts[a_addr] = nullptr;
-    delete font;
-}
-
 uint32_t VulkanGraphicsEngineBindings::GenerateCanvasRenderer() const
 {
-    CanvasRendererBuffer canvas;
-    canvas.Flags = 0;
-    canvas.CanvasAddr = -1;
-    canvas.RenderTextureAddr = -1;
-
+    const CanvasRendererBuffer canvas = 
     {
-        TLockArray<CanvasRendererBuffer> a = m_graphicsEngine->m_canvasRenderers.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            if (a[i].IsDestroyed())
-            {
-                a[i] = canvas;
-
-                return i;
-            }
-        }
-    }
+        .CanvasAddr = uint32_t(-1),
+        .RenderTextureAddr = uint32_t(-1)
+    };
 
     return m_graphicsEngine->m_canvasRenderers.PushVal(canvas);
 }
 void VulkanGraphicsEngineBindings::DestroyCanvasRenderer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_canvasRenderers.Size(), "DestroyCanvasRenderer out of bounds");
-    ICARIAN_ASSERT_MSG(!m_graphicsEngine->m_canvasRenderers[a_addr].IsDestroyed(), "DestroyCanvasRenderer canvas renderer destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_canvasRenderers.Size());
+    IVERIFY(m_graphicsEngine->m_canvasRenderers.Exists(a_addr));
 
-    CanvasRendererBuffer nullBuffer;
-    nullBuffer.Flags = 0b1 << CanvasRendererBuffer::DestroyedBit;
-
-    m_graphicsEngine->m_canvasRenderers.LockSet(a_addr, nullBuffer);
+    m_graphicsEngine->m_canvasRenderers.Erase(a_addr);
 }
 void VulkanGraphicsEngineBindings::SetCanvasRendererCanvas(uint32_t a_addr, uint32_t a_canvasAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_canvasRenderers.Size(), "SetCanvasRendererCanvas out of bounds");
-    ICARIAN_ASSERT_MSG(!m_graphicsEngine->m_canvasRenderers[a_addr].IsDestroyed(), "SetCanvasRenderer canvas renderer destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_canvasRenderers.Size());
+    IVERIFY(m_graphicsEngine->m_canvasRenderers.Exists(a_addr));
     
-    CanvasRendererBuffer& buffer = m_graphicsEngine->m_canvasRenderers[a_addr];
-    buffer.CanvasAddr = a_canvasAddr;
+    TLockArray<CanvasRendererBuffer> a = m_graphicsEngine->m_canvasRenderers.ToLockArray();
+    a[a_addr].CanvasAddr = a_canvasAddr;
 }
 uint32_t VulkanGraphicsEngineBindings::GetCanvasRendererCanvas(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_canvasRenderers.Size(), "GetCanvasRenderer out of bounds");
-    ICARIAN_ASSERT_MSG(!m_graphicsEngine->m_canvasRenderers[a_addr].IsDestroyed(), "GetCanvasRenderer canvas renderer destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_canvasRenderers.Size());
+    IVERIFY(m_graphicsEngine->m_canvasRenderers.Exists(a_addr));
 
     return m_graphicsEngine->m_canvasRenderers[a_addr].CanvasAddr;
 }
 void VulkanGraphicsEngineBindings::SetCanvasRendererRenderTexture(uint32_t a_addr, uint32_t a_renderTextureAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_canvasRenderers.Size(), "SetCanvasRendererRenderTexture Canvas out of bounds");
-    ICARIAN_ASSERT_MSG(!m_graphicsEngine->m_canvasRenderers[a_addr].IsDestroyed(), "SetCanvasRendererRenderTexture canvas renderer destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_canvasRenderers.Size());
+    IVERIFY(m_graphicsEngine->m_canvasRenderers.Exists(a_addr));
     if (a_renderTextureAddr != -1)
     {
-        ICARIAN_ASSERT_MSG(a_renderTextureAddr < m_graphicsEngine->m_renderTextures.Size(), "SetCanvasRenderTexture Render Texture out of bounds");
-        ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderTextures[a_renderTextureAddr] != nullptr, "SetCanvasRenderRenderTexture Render Texture destroyer");
+        IVERIFY(a_renderTextureAddr < m_graphicsEngine->m_renderTextures.Size());
+        IVERIFY(m_graphicsEngine->m_renderTextures.Exists(a_renderTextureAddr));
     }
 
-    CanvasRendererBuffer& buffer = m_graphicsEngine->m_canvasRenderers[a_addr];
-    buffer.RenderTextureAddr = a_renderTextureAddr;
+    TLockArray<CanvasRendererBuffer> a = m_graphicsEngine->m_canvasRenderers.ToLockArray();
+    a[a_addr].RenderTextureAddr = a_renderTextureAddr;
 }
 uint32_t VulkanGraphicsEngineBindings::GetCanvasRendererRenderTexture(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_canvasRenderers.Size(), "GetCanvasRendererRenderTexture out of bounds");
-    ICARIAN_ASSERT_MSG(!m_graphicsEngine->m_canvasRenderers[a_addr].IsDestroyed(), "GetCanvasRenderRenderTexuture canvas renderer destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_canvasRenderers.Size());
+    IVERIFY(m_graphicsEngine->m_canvasRenderers.Exists(a_addr));
 
     return m_graphicsEngine->m_canvasRenderers[a_addr].RenderTextureAddr;
 }
@@ -1513,9 +1476,11 @@ void VulkanGraphicsEngineBindings::BindMaterial(uint32_t a_addr) const
 }
 void VulkanGraphicsEngineBindings::PushTexture(uint32_t a_slot, uint32_t a_samplerAddr) const
 {
-    ICARIAN_ASSERT_MSG_R(a_samplerAddr < m_graphicsEngine->m_textureSampler.Size(), "PushTexture sampler out of bounds");
+    IVERIFY(a_samplerAddr < m_graphicsEngine->m_textureSampler.Size());
+    IVERIFY(m_graphicsEngine->m_textureSampler.Exists(a_samplerAddr));
 
-    m_graphicsEngine->m_renderCommands->PushTexture(a_slot, m_graphicsEngine->m_textureSampler[a_samplerAddr]);
+    const TReadLockArray<TextureSamplerBuffer> a = m_graphicsEngine->m_textureSampler.ToReadLockArray();
+    m_graphicsEngine->m_renderCommands->PushTexture(a_slot, a[a_samplerAddr]);
 }
 void VulkanGraphicsEngineBindings::BindRenderTexture(uint32_t a_addr, e_RenderTextureBindMode a_bindMode) const
 {

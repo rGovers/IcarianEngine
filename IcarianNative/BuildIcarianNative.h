@@ -179,6 +179,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "src/ThreadPool.cpp",
         "src/UIControl.cpp",
         "src/UIControlBindings.cpp",
+        "src/UIElement.cpp",
         "src/VulkanComputeEngine.cpp",
         "src/VulkanComputeEngineBindings.cpp",
         "src/VulkanComputeLayout.cpp",

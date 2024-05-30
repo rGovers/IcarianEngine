@@ -22,7 +22,5 @@ public:
     virtual uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     virtual void DestroyTextureSampler(uint32_t a_sampler);
 
-    virtual Font* GetFont(uint32_t a_addr);
-
     virtual void Update(double a_delta, double a_time);
 };
