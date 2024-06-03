@@ -370,26 +370,21 @@ namespace IcarianEngine.Maths
             float sqX = X * X;
             float sqY = Y * Y;
             float sqZ = Z * Z;
-            float sqW = W * W;
 
-            float inv = 1.0f / (sqX + sqY + sqZ + sqW);
+            float qXZ = X * Z;
+            float qXY = X * Y;
+            float qYZ = Y * Z;
+            float qWX = W * X;
+            float qWY = W * Y;
+            float qWZ = W * Z;
 
-            float v1 = X * Y;
-            float v2 = Z * W;
-            float v3 = X * Z;
-            float v4 = Y * W;
-            float v5 = Y * Z;
-            float v6 = X * W;
-
-            Matrix4 mat = new Matrix4
+            return new Matrix4
             (
-                (sqX - sqY - sqZ + sqW) * inv, 2.0f * (v1 - v2) * inv,         2.0f * (v3 + v4) * inv,         0.0f,
-                2.0f * (v1 + v2) * inv,        (-sqX + sqY - sqZ + sqW) * inv, 2.0f * (v5 - v6) * inv,         0.0f,
-                2.0f * (v3 - v4) * inv,        2.0f * (v5 + v6) * inv,         (-sqX - sqY + sqZ + sqW) * inv, 0.0f,
-                0.0f,                          0.0f,                           0.0f,                           1.0f
+                1.0f - 2.0f * (sqY + sqZ), 2.0f * (qXY + qWZ),        2.0f * (qXZ - qWY),        0.0f,
+                2.0f * (qXY - qWZ),        1.0f - 2.0f * (sqX + sqZ), 2.0f * (qYZ + qWX),        0.0f,
+                2.0f * (qXZ + qWY),        2.0f * (qYZ - qWX),        1.0f - 2.0f * (sqX + sqY), 0.0f,
+                0.0f,                      0.0f,                      0.0f,                      1.0f
             );
-
-            return mat;
         }
 
         /// <summary>
@@ -504,8 +499,12 @@ namespace IcarianEngine.Maths
             return a_lhs * (1.0f - a_t) + a_rhs * a_t;
         }
 
+        /// @cond SWIZZLE
+
         VEC_SWIZZLE_QUAT_FULL_VEC2
         VEC_SWIZZLE_QUAT_FULL_VEC3
         VEC_SWIZZLE_QUAT_FULL_VEC4
+
+        /// @endcond
     }
 }
