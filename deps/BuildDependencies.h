@@ -193,6 +193,7 @@ CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration 
         "KTX_FEATURE_KTX1",
         "KTX_FEATURE_KTX2",
         "BASISU_SUPPORT_OPENCL=0",
+        "BASISU_SUPPORT_SSE=1",
         "KTX_FEATURE_WRITE=0"
     );
 
@@ -200,18 +201,12 @@ CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration 
         ".",
         "../gen/KTX-Software/",
         "./include/",
-        "./utils/"
+        "./utils/",
+        "./external"
     );
 
     CUBE_CProject_AppendSources(&project, 
-        "./lib/basisu/zstd/zstd.c",
         "./lib/checkheader.c",
-        "./lib/dfdutils/createdfd.c",
-        "./lib/dfdutils/colourspaces.c",
-        "./lib/dfdutils/interpretdfd.c",
-        "./lib/dfdutils/printdfd.c",
-        "./lib/dfdutils/queries.c",
-        "./lib/dfdutils/vk2dfd.c",
         "./lib/filestream.c",
         "./lib/hashlist.c",
         "./lib/info.c",
@@ -223,12 +218,17 @@ CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration 
         "./lib/texture2.c",
         "./lib/vkformat_check.c",
         "./lib/vkformat_str.c",
-        "./lib/vkformat_typesize.c"
+        "./lib/vkformat_typesize.c",
+
+        "./external/basisu/zstd/zstd.c",
+        "./external/dfdutils/createdfd.c",
+        "./external/dfdutils/colourspaces.c",
+        "./external/dfdutils/interpretdfd.c",
+        "./external/dfdutils/printdfd.c",
+        "./external/dfdutils/queries.c",
+        "./external/dfdutils/vk2dfd.c"
     );
 
-    // Weird that the KTX project uses c99 when using string literals that where not introduced until c11 
-    // Throws a compile error because of it. I am 90% sure that the cmake version works cause it is using a C++ compiler and the c++11 takes priority
-    // Anyway debugging other peoples build systems fun....
     CUBE_CProject_AppendCFlag(&project, "-std=c11");
 
     switch (a_configuration) 
@@ -287,6 +287,7 @@ CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfiguratio
         "KTX_FEATURE_KTX1",
         "KTX_FEATURE_KTX2",
         "BASISU_SUPPORT_OPENCL=0",
+        "BASISU_SUPPORT_SSE=1",
         "KTX_FEATURE_WRITE=0"
     );
 
@@ -294,19 +295,21 @@ CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfiguratio
         ".",
         "../gen/KTX-Software/",
         "./include/",
-        "./utils/"
+        "./utils/",
+        "./external"
     );
 
     CUBE_CProject_AppendSources(&project, 
         "./lib/basis_transcode.cpp",
         "./lib/miniz_wrapper.cpp",
-        "./lib/etcdec.cxx",
+        // "./lib/etcdec.cxx",
         "./lib/etcunpack.cxx",
 
-        "./lib/basisu/transcoder/basisu_transcoder.cpp"
+        "./external/basisu/transcoder/basisu_transcoder.cpp"
     );
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++11");
+    CUBE_CProject_AppendCFlag(&project, "-msse4.1");
 
     switch (a_configuration) 
     {
@@ -364,6 +367,7 @@ CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildConfigura
         "KTX_FEATURE_KTX1",
         "KTX_FEATURE_KTX2",
         "BASISU_SUPPORT_OPENCL=0",
+        "BASISU_SUPPORT_SSE=1",
         "KTX_FEATURE_WRITE=1"
     );
 
@@ -371,18 +375,12 @@ CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildConfigura
         ".",
         "../gen/KTX-Software/",
         "./include/",
-        "./utils/"
+        "./utils/",
+        "./external"
     );
 
     CUBE_CProject_AppendSources(&project, 
-        "./lib/basisu/zstd/zstd.c",
         "./lib/checkheader.c",
-        "./lib/dfdutils/createdfd.c",
-        "./lib/dfdutils/colourspaces.c",
-        "./lib/dfdutils/interpretdfd.c",
-        "./lib/dfdutils/printdfd.c",
-        "./lib/dfdutils/queries.c",
-        "./lib/dfdutils/vk2dfd.c",
         "./lib/filestream.c",
         "./lib/hashlist.c",
         "./lib/info.c",
@@ -396,12 +394,17 @@ CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildConfigura
         "./lib/vkformat_str.c",
         "./lib/vkformat_typesize.c",
         "./lib/writer1.c",
-        "./lib/writer2.c"
+        "./lib/writer2.c",
+
+        "./external/basisu/zstd/zstd.c",
+        "./external/dfdutils/createdfd.c",
+        "./external/dfdutils/colourspaces.c",
+        "./external/dfdutils/interpretdfd.c",
+        "./external/dfdutils/printdfd.c",
+        "./external/dfdutils/queries.c",
+        "./external/dfdutils/vk2dfd.c"
     );
 
-    // Weird that the KTX project uses c99 when using string literals that where not introduced until c11 
-    // Throws a compile error because of it. I am 90% sure that the cmake version works cause it is using a C++ compiler and the c++11 takes priority
-    // Anyway debugging other peoples build systems fun....
     CUBE_CProject_AppendCFlag(&project, "-std=c11");
 
     switch (a_configuration) 
@@ -460,6 +463,7 @@ CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_BuildConfigu
         "KTX_FEATURE_KTX1",
         "KTX_FEATURE_KTX2",
         "BASISU_SUPPORT_OPENCL=0",
+        "BASISU_SUPPORT_SSE=1",
         "KTX_FEATURE_WRITE=1"
     );
 
@@ -467,36 +471,38 @@ CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_BuildConfigu
         ".",
         "../gen/KTX-Software/",
         "./include/",
-        "./utils/"
+        "./utils/",
+        "./external/"
     );
 
     CUBE_CProject_AppendSources(&project, 
         "./lib/basis_encode.cpp",
         "./lib/basis_transcode.cpp",
         "./lib/miniz_wrapper.cpp",
-        "./lib/etcdec.cxx",
-        "./lib/etcunpack.cxx",
+        // "./lib/etcdec.cxx",
+        // "./lib/etcunpack.cxx"
 
-        "./lib/basisu/encoder/basisu_backend.cpp",
-        "./lib/basisu/encoder/basisu_basis_file.cpp",
-        "./lib/basisu/encoder/basisu_bc7enc.cpp",
-        "./lib/basisu/encoder/basisu_comp.cpp",
-        "./lib/basisu/encoder/basisu_enc.cpp",
-        "./lib/basisu/encoder/basisu_etc.cpp",
-        "./lib/basisu/encoder/basisu_frontend.cpp",
-        "./lib/basisu/encoder/basisu_gpu_texture.cpp",
-        "./lib/basisu/encoder/basisu_kernels_sse.cpp",
-        "./lib/basisu/encoder/basisu_opencl.cpp",
-        "./lib/basisu/encoder/basisu_pvrtc1_4.cpp",
-        "./lib/basisu/encoder/basisu_resample_filters.cpp",
-        "./lib/basisu/encoder/basisu_resampler.cpp",
-        "./lib/basisu/encoder/basisu_ssim.cpp",
-        "./lib/basisu/encoder/basisu_uastc_enc.cpp",
+        "./external/basisu/encoder/basisu_backend.cpp",
+        "./external/basisu/encoder/basisu_basis_file.cpp",
+        "./external/basisu/encoder/basisu_bc7enc.cpp",
+        "./external/basisu/encoder/basisu_comp.cpp",
+        "./external/basisu/encoder/basisu_enc.cpp",
+        "./external/basisu/encoder/basisu_etc.cpp",
+        "./external/basisu/encoder/basisu_frontend.cpp",
+        "./external/basisu/encoder/basisu_gpu_texture.cpp",
+        "./external/basisu/encoder/basisu_kernels_sse.cpp",
+        "./external/basisu/encoder/basisu_opencl.cpp",
+        "./external/basisu/encoder/basisu_pvrtc1_4.cpp",
+        "./external/basisu/encoder/basisu_resample_filters.cpp",
+        "./external/basisu/encoder/basisu_resampler.cpp",
+        "./external/basisu/encoder/basisu_ssim.cpp",
+        "./external/basisu/encoder/basisu_uastc_enc.cpp",
 
-        "./lib/basisu/transcoder/basisu_transcoder.cpp"
+        "./external/basisu/transcoder/basisu_transcoder.cpp"
     );
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++11");
+    CUBE_CProject_AppendCFlag(&project, "-msse4.1");
 
     switch (a_configuration) 
     {
