@@ -225,8 +225,8 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// Creates a quaternion from a rotation matrix
         /// </summary>
-        /// <param name="a_mat">The rotation matrix</param>
-        /// <returns>The Quaternion</returns>
+        /// <param name="a_mat">The rotation matrix to use</param>
+        /// <returns>The quaternion</returns>
         public static Quaternion FromMatrix(Matrix4 a_mat)
         {
             return FromDirectionVectors(a_mat[0].XYZ, a_mat[1].XYZ, a_mat[2].XYZ);
@@ -234,14 +234,22 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// Creates a quaternion from an axis and angle
         /// </summary>
+        /// <param name="a_axis">The axis to use</param>
+        /// <param name="a_angle">The angle to use</param>
+        /// <returns>The quaternion</returns>
         public static Quaternion FromAxisAngle(Vector3 a_axis, float a_angle)
         {
             float halfAngle = a_angle * 0.5f;
 
-            float sin = (float)Math.Sin(halfAngle);
+            float sin = Mathf.Sin(halfAngle);
 
-            return new Quaternion(a_axis.X * sin, a_axis.Y * sin, a_axis.Z * sin, (float)Math.Cos(halfAngle));
+            return new Quaternion(a_axis.X * sin, a_axis.Y * sin, a_axis.Z * sin, Mathf.Cos(halfAngle));
         }
+        /// <summary>
+        /// Creates a quaternion from euler angles
+        /// </summary>
+        /// <param name="a_euler">The euler angles to use</param>
+        /// <returns>The quaternion</returns>
         public static Quaternion FromEuler(Vector3 a_euler)
         {
             // Not the most efficent but it works and less hair pulling
@@ -271,6 +279,11 @@ namespace IcarianEngine.Maths
         {
             return new Quaternion(a_lhs.X * a_rhs, a_lhs.Y * a_rhs, a_lhs.Z * a_rhs, a_lhs.W * a_rhs);
         }
+        public static Quaternion operator /(Quaternion a_lhs, float a_rhs)
+        {
+            return new Quaternion(a_lhs.X / a_rhs, a_lhs.Y / a_rhs, a_lhs.Z / a_rhs, a_lhs.W / a_rhs);
+        }
+
         public static Vector3 operator *(Quaternion a_lhs, Vector3 a_rhs)
         {
             Vector3 qVec = new Vector3(a_lhs.X, a_lhs.Y, a_lhs.Z);

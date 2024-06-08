@@ -165,7 +165,7 @@ namespace IcarianEngine.Maths
         {
             unchecked
             {
-                // I suspect the JIT is actually good as I cannot find a diffence between this one and the System.Math.Min upto several million interations
+                // I suspect the JIT is actually good as I cannot find a difference between this one and the System.Math.Min upto several million interations
                 // Gonna leave as it already works
                 int v = -((a_b - a_a).GetHashCode() >> 31);
                 int invV = 1 - v;
@@ -190,6 +190,18 @@ namespace IcarianEngine.Maths
                 return a_a * v + a_b * invV;
             }
         }
+        /// <summary>
+        /// Clamps a value in a range
+        /// </summary>
+        /// <param name="a_a">The value to clamp</param>
+        /// <param name="a_min">The minimum value for the value</param>
+        /// <param name="a_max">The maximum value for the value</param>
+        /// <returns>The value clamped to the range</returns>
+        public static float Clamp(float a_a, float a_min, float a_max)
+        {
+            return Mathf.Min(a_max, Mathf.Max(a_a, a_min));
+        }
+
         /// <summary>
         /// Gets the minimum of 2 values
         /// </summary>
@@ -221,6 +233,17 @@ namespace IcarianEngine.Maths
 
                 return a_a * v + a_b * invV;
             }
+        }
+        /// <summary>
+        /// Clamps a value in a range
+        /// </summary>
+        /// <param name="a_a">The value to clamp</param>
+        /// <param name="a_min">The minimum value for the value</param>
+        /// <param name="a_max">The maximum value for the value</param>
+        /// <returns>The value clamped to the range</returns>
+        public static int Clamp(int a_a, int a_min, int a_max)
+        {
+            return Mathf.Min(a_max, Mathf.Max(a_a, a_min));
         }
 
         /// <summary>

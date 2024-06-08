@@ -11,6 +11,14 @@
     { \
         return Instance->CreateRigidBody(a_transformAddr, a_colliderAddr, a_layer, a_mass); \
     }, IOP_UINT32 a_transformAddr, IOP_UINT32 a_colliderAddr, IOP_UINT32 a_layer, float a_mass) \
+    F(void, IcarianEngine.Physics, RigidBodyInterop, SetGravityFactor, \
+    { \
+        Instance->SetRigidBodyGravityFactor(a_addr, a_factor); \
+    }, IOP_UINT32 a_addr, float a_factor) \
+    F(float, IcarianEngine.Physics, RigidBodyInterop, GetGravityFactor, \
+    { \
+        return Instance->GetRigidBodyGravityFactor(a_addr); \
+    }, IOP_UINT32 a_addr) \
     F(IOP_VEC3, IcarianEngine.Physics, RigidBodyInterop, GetVelocity, \
     { \
         return Instance->GetRigidBodyVelocity(a_addr); \

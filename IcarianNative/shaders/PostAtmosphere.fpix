@@ -61,6 +61,7 @@ void main()
     // Zenith
     float dE = lD / fP;
     float z = dE / pow(max(-sunDir.y, 0.001), 0.75);
+    float zS = min(1.0, 1 + sunDir.y);
 
     // Rayleigh Scattering
     float ray = frM * (1 + c2);
@@ -79,7 +80,7 @@ void main()
     vec3 iS = vec3(userBuffer.Rayleigh.xyz * ray + userBuffer.Mie.xyz * mie);
     vec3 sC = userBuffer.SunColor.xyz * pow(cS, 350);
     // G is unrelated but seems to work so.....
-    vec3 hC = userBuffer.HazeColor.xyz * pow(hCS, 4) * max(0, (z - iG) * 2);
+    vec3 hC = userBuffer.HazeColor.xyz * pow(hCS, 4) * max(0, (z - iG) * 2) * zS;
 
     vec3 aC = iS + sC + hC;
     vec4 c = texture(colorSampler, vUV);

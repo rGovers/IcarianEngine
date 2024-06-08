@@ -49,6 +49,8 @@ public:
     uint32_t CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, uint32_t a_layer, float a_mass) const;
     glm::vec3 GetRigidBodyVelocity(uint32_t a_addr) const;
 
+    void SetRigidBodyGravityFactor(uint32_t a_addr, float a_factor) const;
+    float GetRigidBodyGravityFactor(uint32_t a_addr) const;
     void SetRigidBodyVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const;
     glm::vec3 GetRigidBodyAngularVelocity(uint32_t a_addr) const;
     void SetRigidBodyAngularVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const;

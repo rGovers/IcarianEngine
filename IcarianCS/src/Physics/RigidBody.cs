@@ -27,6 +27,7 @@ namespace IcarianEngine.Physics
 
         uint  m_objectLayer = 0;
         float m_mass = 10.0f;
+        float m_gravityFactor = 1.0f;
 
         /// <summary>
         /// Callback used for events on collision enter
@@ -75,6 +76,29 @@ namespace IcarianEngine.Physics
         }
 
         /// <summary>
+        /// The factor of Gravity applied to the RigidBody
+        /// </summary>
+        public float GravityFactor
+        {
+            get
+            {
+                return m_gravityFactor;
+            }
+            set
+            {
+                if (m_gravityFactor != value)
+                {
+                    m_gravityFactor = value;
+
+                    if (InternalAddr != uint.MaxValue)
+                    {
+                        RigidBodyInterop.SetGravityFactor(InternalAddr, m_gravityFactor);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         /// The layer the Rigidbody is on
         /// </summary>
         public uint ObjectLayer
@@ -92,10 +116,22 @@ namespace IcarianEngine.Physics
         {
             get
             {
+                if (InternalAddr == uint.MaxValue)
+                {
+                    return Vector3.Zero;
+                }
+
                 return RigidBodyInterop.GetVelocity(InternalAddr);
             }
             set
             {
+                if (InternalAddr == uint.MaxValue)
+                {
+                    Logger.IcarianWarning("Setting velocity of unintialised RigidBody");
+
+                    return;
+                }
+
                 RigidBodyInterop.SetVelocity(InternalAddr, value);
             }
         }
@@ -106,10 +142,22 @@ namespace IcarianEngine.Physics
         {
             get
             {
+                if (InternalAddr == uint.MaxValue)
+                {
+                    return Vector3.Zero;
+                }
+
                 return RigidBodyInterop.GetAngularVelocity(InternalAddr);
             }
             set
             {
+                if (InternalAddr == uint.MaxValue)
+                {
+                    Logger.IcarianWarning("Setting angular velocity of unintialised RigidBody");
+
+                    return;
+                }
+
                 RigidBodyInterop.SetAngularVelocity(InternalAddr, value);
             }
         }
@@ -136,11 +184,18 @@ namespace IcarianEngine.Physics
         /// <param name="a_forceMode">The force mode of the force</param>
         public void AddForce(Vector3 a_force, ForceMode a_forceMode = ForceMode.Force)
         {
+            if (InternalAddr == uint.MaxValue)
+            {
+                Logger.IcarianWarning("Adding force to unitialised RigidBody");
+
+                return;
+            }
+
             switch (a_forceMode)
             {
             case ForceMode.Acceleration:
             {
-                RigidBodyInterop.AddForce(InternalAddr, a_force * Time.DeltaTime, (uint)ForceMode.Impulse);
+                RigidBodyInterop.AddForce(InternalAddr, a_force * Time.FixedDeltaTime, (uint)ForceMode.Impulse);
 
                 break;
             }
@@ -159,11 +214,18 @@ namespace IcarianEngine.Physics
         /// <param name="a_forceMode">The mode of the torque</param>
         public void AddTorque(Vector3 a_torque, ForceMode a_forceMode = ForceMode.Force)
         {
+            if (InternalAddr == uint.MaxValue)
+            {
+                Logger.IcarianWarning("Adding torque to unitialised RigidBody");
+
+                return;
+            }
+
             switch (a_forceMode)
             {
             case ForceMode.Acceleration:
             {
-                RigidBodyInterop.AddTorque(InternalAddr, a_torque * Time.DeltaTime, (uint)ForceMode.Impulse);
+                RigidBodyInterop.AddTorque(InternalAddr, a_torque * Time.FixedDeltaTime, (uint)ForceMode.Impulse);
 
                 break;
             }
