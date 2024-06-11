@@ -145,6 +145,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "src/GamePad.cpp",
         "src/GLFWAppWindow.cpp",
         "src/HeadlessAppWindow.cpp",
+        "src/IcarianError.cpp",
         "src/IcBodyActivationListener.cpp",
         "src/IcBroadPhaseLayerInterface.cpp",
         "src/IcContactListener.cpp",

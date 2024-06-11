@@ -11,7 +11,7 @@ namespace IcarianEngine.Rendering
         /// <summary>
         /// The number of cascades to use for <see cref="IcarianEngine.Rendering.Lighting.DirectionalLight" /> shadows
         /// </summary>
-        public const uint CascadeCount = 4;
+        public const uint CascadeCount = 6;
         public const uint PostTextureStackSize = 2;
 
         VertexShader       m_quadVert;
@@ -406,6 +406,7 @@ namespace IcarianEngine.Rendering
             mid /= 8.0f;
 
             Quaternion rot = a_light.Transform.Rotation;
+            rot.W = -rot.W;
 
             Matrix4 lightTrans = rot.ToMatrix() * new Matrix4(Vector4.UnitX, Vector4.UnitY, Vector4.UnitZ, new Vector4(mid, 1.0f));
             Matrix4 lightView = Matrix4.Inverse(lightTrans);

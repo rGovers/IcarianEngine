@@ -1,6 +1,7 @@
 using IcarianEngine.Definitions;
 using IcarianEngine.Maths;
 using IcarianEngine.Mod;
+using IcarianEngine.Physics;
 using System;
 using System.Collections.Generic;
 using System.Xml;
@@ -437,7 +438,20 @@ namespace IcarianEngine
             {
                 Matrix4 t = obj.Transform.ToMatrix() * a_transform;
 
-                obj.Transform.SetMatrix(t);
+                PhysicsBody body = obj.GetComponent<PhysicsBody>();
+                if (body != null)
+                {
+                    Vector3 trans;
+                    Quaternion rot;
+                    Matrix4.Decompose(t, out trans, out rot, out Vector3 _);
+
+                    body.SetPosition(trans);
+                    body.SetRotation(rot);
+                }
+                else
+                {
+                    obj.Transform.SetMatrix(t);
+                }
 
                 m_objects.Add(obj);
             }

@@ -2,14 +2,14 @@
 
 layout(location = 0) in vec2 vUV;
 
-#define CascadeCount 4
+#define CascadeCount 6
 
 #!texture(0, colorSampler)
 #!texture(1, normalSampler)
 #!texture(2, specSampler)
 #!texture(3, emissionSampler)
 #!texture(4, depthSampler)
-#!shadowtexturearray(5, 4, shadowSampler)
+#!shadowtexturearray(5, 6, shadowSampler)
 
 #!structure(CameraBuffer, 6, camBuffer)
 #!structure(DirectionalLightBuffer, 7, dirLightBuffer)

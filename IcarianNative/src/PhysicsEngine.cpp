@@ -6,14 +6,15 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <Jolt/Core/Factory.h>
 #include <Jolt/Math/Vec3.h>
+#include <Jolt/Physics/Body/Body.h>
 #include <Jolt/Physics/Body/BodyID.h>
+#include <Jolt/Physics/Body/BodyInterface.h>
 #include <Jolt/RegisterTypes.h>
 #include <sstream>
 
 #include "Config.h"
+#include "Core/Bitfield.h"
 #include "IcarianError.h"
-#include "Jolt/Physics/Body/Body.h"
-#include "Jolt/Physics/Body/BodyInterface.h"
 #include "ObjectManager.h"
 #include "Physics/InterfaceLock.h"
 #include "Physics/PhysicsEngineBindings.h"
@@ -165,7 +166,7 @@ void PhysicsEngine::Update(double a_delta)
             m_fixedTimeTimer -= m_fixedTimeStep;
             m_fixedTimePassed += m_fixedTimeStep;
 
-            m_physicsSystem->Update((float)m_fixedTimeStep, steps, 2, m_allocator, m_jobSystem);
+            m_physicsSystem->Update((float)m_fixedTimeStep, steps, m_allocator, m_jobSystem);
 
             void* args[] = 
             { 
@@ -185,6 +186,8 @@ void PhysicsEngine::Update(double a_delta)
 
         // Should not need but doing just incase for good practice as it multithreaded app
         const JPH::BodyLockInterfaceLocking& interface = m_physicsSystem->GetBodyLockInterface();
+
+        const float blendVal = (float)m_fixedTimeTimer;
 
         // Need to sync the physics transform to the transform
         for (const JPH::BodyID id : bodies)
@@ -228,7 +231,7 @@ void PhysicsEngine::Update(double a_delta)
 
             const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(id, interface);
 
-            const JPH::RVec3 jTranslation = body->GetPosition();
+            const JPH::RVec3 jTranslation = body->GetPosition() + body->GetLinearVelocity() * blendVal;
             const JPH::Quat jRotation = body->GetRotation();
 
             const glm::vec4 diff = glm::vec4(jTranslation.GetX(), jTranslation.GetY(), jTranslation.GetZ(), 1.0f) + glm::vec4(iTranslation, 0.0f);

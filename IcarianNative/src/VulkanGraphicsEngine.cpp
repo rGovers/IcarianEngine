@@ -3,6 +3,7 @@
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 
 #include <future>
+#include <glm/gtx/matrix_decompose.hpp>
 #include <vulkan/vulkan_handles.hpp>
 
 #include "Core/IcarianAssert.h"
@@ -632,9 +633,16 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                         if (transformAddr != -1)
                         {
                             const glm::mat4 transform = ObjectManager::GetGlobalMatrix(transformAddr);
-                            const glm::vec3 position = transform[3].xyz();
+                            glm::vec3 scale;
+                            glm::quat rotation;
+                            glm::vec3 translation;
+                            glm::vec3 s;
+                            glm::vec4 p;
+                            glm::decompose(transform, scale, rotation, translation, s, p);
 
-                            if (a_frustum.CompareSphere(position, radius))
+                            const float sFactor = glm::max(scale.x, glm::max(scale.y, scale.z));
+
+                            if (a_frustum.CompareSphere(translation, radius * sFactor))
                             {
                                 transforms[transformCount++] = transform;
                             }

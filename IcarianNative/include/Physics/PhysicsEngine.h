@@ -13,7 +13,6 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <unordered_map>
 
-#include "Core/Bitfield.h"
 #include "DataTypes/TArray.h"
 #include "Physics/IcBodyActivationListener.h"
 #include "Physics/IcBroadPhaseLayerInterface.h"

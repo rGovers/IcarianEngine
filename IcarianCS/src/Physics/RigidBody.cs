@@ -256,6 +256,7 @@ namespace IcarianEngine.Physics
             {
                 InternalAddr = RigidBodyInterop.CreateRigidBody(Transform.InternalAddr, a_newShape.InternalAddr, m_objectLayer, m_mass);
 
+                RigidBodyInterop.SetGravityFactor(InternalAddr, m_gravityFactor);
                 RigidBodyInterop.SetVelocity(InternalAddr, vel);
                 RigidBodyInterop.SetAngularVelocity(InternalAddr, angVel);
             }
