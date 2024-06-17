@@ -864,9 +864,16 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                                 }
 
                                 const glm::mat4 transform = ObjectManager::GetGlobalMatrix(transformAddr);
-                                const glm::vec3 pos = transform[3].xyz();
+                                glm::vec3 scale;
+                                glm::quat rotation;
+                                glm::vec3 translation;
+                                glm::vec3 s;
+                                glm::vec4 p;
+                                glm::decompose(transform, scale, rotation, translation, s, p);
 
-                                if (frustum.CompareSphere(pos, radius)) 
+                                const float sFactor = glm::max(scale.x, glm::max(scale.y, scale.z));
+
+                                if (frustum.CompareSphere(translation, radius * sFactor))
                                 {
                                     // Scale slightly to improve shadows around edges of objects
                                     transforms[finalTransformCount++] = glm::scale(transform, glm::vec3(1.025));
