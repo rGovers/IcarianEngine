@@ -403,10 +403,9 @@ namespace IcarianEngine.Rendering
                 mid += corners[i].XYZ;
             }
 
-            mid /= 8.0f;
+            mid *= 0.125f;
 
-            Quaternion rot = a_light.Transform.Rotation;
-            rot.W = -rot.W;
+            Quaternion rot = a_light.Transform.Rotation * Quaternion.FromAxisAngle(Vector3.UnitX, Mathf.PI);
 
             Matrix4 lightTrans = rot.ToMatrix() * new Matrix4(Vector4.UnitX, Vector4.UnitY, Vector4.UnitZ, new Vector4(mid, 1.0f));
             Matrix4 lightView = Matrix4.Inverse(lightTrans);

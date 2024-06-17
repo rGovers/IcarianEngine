@@ -31,7 +31,7 @@ namespace IcarianEngine
         Transform       m_transform;
 
         /// <summary>
-        /// Gets the number of GameObjects in existance
+        /// Gets the number of GameObjects in existence
         /// </summary>
         public static uint GameObjectCount
         {
@@ -185,7 +185,9 @@ namespace IcarianEngine
                     {
                         if (comp is Scriptable script)
                         {
-                            s_scriptableComps.Remove(script);
+                            // Cannot ensure the script exists yet if destroyed while initialising
+                            // Use the queue to ensure proper deletion
+                            s_scriptableRemoveQueue.Enqueue(script);
                         }
 
                         if (comp is IDestroy dest)
@@ -200,7 +202,6 @@ namespace IcarianEngine
                             disp.Dispose();
                         }
                     }
-                    
                     obj.m_components.Clear();
 
                     s_objs.Remove(obj);
@@ -252,8 +253,6 @@ namespace IcarianEngine
         {
             Profiler.StartFrame("Script Update");
 
-            RemoveScripts();
-
             while (!s_scriptableAddQueue.IsEmpty)
             {
                 Scriptable script = null;
@@ -269,6 +268,8 @@ namespace IcarianEngine
                     Logger.IcarianWarning("Scriptable failed to Instantiate");
                 }
             }
+
+            RemoveScripts();
 
             foreach (Scriptable script in s_scriptableComps)
             {
@@ -437,20 +438,20 @@ namespace IcarianEngine
             }
         }
         /// <summary>
-        /// Gets a <see cref="IcarianEngine.Component" /> from a ComponentDef from the GameObject
+        /// Gets a <see cref="IcarianEngine.Component" /> with <see cref="IcarianEngine.Definitions.ComponentDef "/> from the GameObject
         /// </summary>
         /// <param name="a_def">The <see cref="IcarianEngine.Definitions.ComponentDef" /> to get</param>
-        /// <returns>The <see cref="IcarianEngine.Component" /> from the <see cref="IcarianEngine.Definitions.ComponentDef" />. Null on failure.</returns>
+        /// <returns>The <see cref="IcarianEngine.Component" /> with <see cref="IcarianEngine.Definitions.ComponentDef" />. Null on failure.</returns>
         public Component GetComponent(ComponentDef a_def)
         {
             return GetComponent<Component>(a_def);
         }
 
         /// <summary>
-        /// Gets a <see cref="IcarianEngine.Component" /> of type T from a ComponentDef from the GameObject
+        /// Gets a <see cref="IcarianEngine.Component" /> of type T with <see cref="IcarianEngine.Definitions.ComponentDef "/> from the GameObject
         /// </summary>
         /// <param name="a_def">The <see cref="IcarianEngine.Definitions.ComponentDef "/> to get</param>
-        /// <returns>The <see cref="IcarianEngine.Component" /> of type T from the <see cref="IcarianEngine.Definitions.ComponentDef" />. Null on failure.</returns>
+        /// <returns>The <see cref="IcarianEngine.Component" /> of type T with <see cref="IcarianEngine.Definitions.ComponentDef" />. Null on failure.</returns>
         public T GetComponent<T>(ComponentDef a_def) where T : Component
         {
             foreach (Component comp in m_components)
@@ -838,11 +839,6 @@ namespace IcarianEngine
 
             if (obj != null)
             {
-                if (!string.IsNullOrEmpty(a_tag))
-                {
-                    s_objDictionary.Add(a_tag, obj);
-                }
-
                 return obj;
             }
             

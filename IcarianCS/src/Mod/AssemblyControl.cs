@@ -16,6 +16,10 @@ namespace IcarianEngine.Mod
         /// </summary>
         public abstract void Update();
         /// <summary>
+        /// Called on late update.
+        /// </summary>
+        public virtual void LateUpdate() { }
+        /// <summary>
         /// Called on fixed update.
         /// </summary>
         public abstract void FixedUpdate();

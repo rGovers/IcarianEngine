@@ -54,6 +54,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
         "src/Definitions/BoxCollisionShapeDef.cs",
         "src/Definitions/CameraDef.cs",
         "src/Definitions/CapsuleCollisionShapeDef.cs",
+        "src/Definitions/CharacterControllerDef.cs",
         "src/Definitions/CollisionShapeDef.cs",
         "src/Definitions/ComponentDef.cs",
         "src/Definitions/CylinderCollisionShapeDef.cs",
@@ -99,6 +100,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
         "src/Networking/NetworkServer.cs",
         "src/Networking/NetworkSocket.cs",
 
+        "src/Physics/CharacterController.cs",
         "src/Physics/Physics.cs",
         "src/Physics/PhysicsBody.cs",
         "src/Physics/RigidBody.cs",

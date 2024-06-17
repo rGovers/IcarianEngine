@@ -326,6 +326,22 @@ namespace IcarianEngine.Mod
 
             Profiler.StopFrame();
         }
+        internal static void LateUpdate()
+        {
+            Profiler.StartFrame("Assembly Late Update");
+
+            CoreAssembly.AssemblyControl.LateUpdate();
+
+            foreach (IcarianAssembly asm in Assemblies)
+            {
+                if (asm.AssemblyControl != null)
+                {
+                    asm.AssemblyControl.LateUpdate();
+                }
+            }
+
+            Profiler.StopFrame();
+        }
         internal static void FixedUpdate()
         {
             CoreAssembly.AssemblyControl.FixedUpdate();

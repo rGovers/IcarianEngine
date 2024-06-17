@@ -333,7 +333,7 @@ namespace IcarianEngine.Maths
         {
             get
             {
-                return (float)Math.Sqrt(MagnitudeSqr);
+                return Mathf.Sqrt(MagnitudeSqr);
             }
         }
 
@@ -528,6 +528,25 @@ namespace IcarianEngine.Maths
         public static Vector3 Lerp(Vector3 a_start, Vector3 a_end, float a_t)
         {
             return a_start + (a_end - a_start) * a_t;
+        }
+
+        /// <summary>
+        /// Spherical interpolation between two direction vectors
+        /// </summmary>
+        /// <param name="a_start">Start direction vector</param>
+        /// <param name="a_end">End direction vector</param>
+        /// <param name="a_t">Interpolation value</param>
+        /// <returns>Interpolated vector</returns>
+        public static Vector3 Slerp(Vector3 a_start, Vector3 a_end, float a_t)
+        {
+            float d = Dot(a_start, a_end);
+            float theta = Mathf.Acos(d);
+            float sin = Mathf.Sin(a);
+
+            float tA = Mathf.Sin((1.0f - a_t) * theta) / sin;
+            float tB = Mathf.Sin(a_t * theta) / sin;
+
+            return a_start * tA + a_end * tB;
         }
 
         /// @cond SWIZZLE

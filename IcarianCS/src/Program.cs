@@ -74,6 +74,11 @@ namespace IcarianEngine
             GameObject.UpdateScripts();
         }
 
+        static void LateUpdate()
+        {
+            ModControl.LateUpdate();
+        }
+
         static void FixedUpdate(double a_delta, double a_time)
         {
             Time.DFixedDeltaTime = a_delta;

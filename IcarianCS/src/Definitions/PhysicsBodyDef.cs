@@ -17,14 +17,14 @@ namespace IcarianEngine.Definitions
 
             if (ComponentType != typeof(PhysicsBody) && !ComponentType.IsSubclassOf(typeof(PhysicsBody)))
             {
-                Logger.IcarianError($"Physics Body Def Invalid ComponentType: {ComponentType}");
+                Logger.IcarianError($"PhysicsBodyDef {DefName} Invalid ComponentType: {ComponentType}");
 
                 return;
             }
 
             if (CollisionShape == null)
             {
-                Logger.IcarianWarning($"Physics Body Def null CollisionShape");
+                Logger.IcarianWarning($"PhysicsBodyDef {DefName} null CollisionShape");
 
                 return;
             }

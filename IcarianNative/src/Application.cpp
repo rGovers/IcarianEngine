@@ -292,6 +292,8 @@ void Application::Run(int32_t a_argc, char* a_argv[])
                 
                 m_physicsEngine->Update(delta);
             }
+
+            RuntimeManager::LateUpdate();
         }
 
         DeletionQueue::Flush(DeletionIndex_Update); 

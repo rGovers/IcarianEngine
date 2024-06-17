@@ -40,11 +40,18 @@ public:
 
     void DestroyCollisionShape(uint32_t a_addr) const;
 
+    uint32_t CreateCharacterController(uint32_t a_transformAddr, uint32_t a_colliderAddr, const glm::vec3& a_up, float a_slopeAngle, float a_mass) const;
+    void DestroyCharacterController(uint32_t a_addr) const;
+    glm::vec3 GetCharacterControllerVelocity(uint32_t a_addr) const;
+    void SetCharacterControllerVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const;
+
     uint32_t CreatePhysicsBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const;
     void DestroyPhysicsBody(uint32_t a_addr) const;
 
     void SetPhysicsBodyPosition(uint32_t a_addr, const glm::vec3& a_pos) const;
+    glm::vec3 GetPhysicsBodyPosition(uint32_t a_addr) const;
     void SetPhysicsBodyRotation(uint32_t a_addr, const glm::quat& a_rot) const;
+    glm::quat GetPhysicsBodyRotation(uint32_t a_addr) const;
 
     uint32_t CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, uint32_t a_layer, float a_mass) const;
     glm::vec3 GetRigidBodyVelocity(uint32_t a_addr) const;

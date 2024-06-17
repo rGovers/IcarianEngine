@@ -36,6 +36,7 @@ private:
                                         
     MonoMethod*                                            m_initMethod;
     MonoMethod*                                            m_updateMethod;
+    MonoMethod*                                            m_lateUpdateMethod;
     MonoMethod*                                            m_shutdownMethod;
 
     RuntimeManager();
@@ -51,6 +52,7 @@ public:
 
     static void Exec(int32_t a_argc, char* a_argv[]);
     static void Update(double a_delta, double a_time);
+    static void LateUpdate();
 
     static void AttachThread();
 

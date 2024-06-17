@@ -148,6 +148,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "src/IcarianError.cpp",
         "src/IcBodyActivationListener.cpp",
         "src/IcBroadPhaseLayerInterface.cpp",
+        "src/IcCharacterListener.cpp",
         "src/IcContactListener.cpp",
         "src/IcObjectLayerPairFilter.cpp",
         "src/IcObjectVsBroadPhaseLayerFilter.cpp",

@@ -10,12 +10,14 @@
 #include <Jolt/Core/TempAllocator.h>
 #include <Jolt/Physics/Body/Body.h>
 #include <Jolt/Physics/Body/BodyID.h>
+#include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <unordered_map>
 
-#include "DataTypes/TArray.h"
+#include "DataTypes/TNCArray.h"
 #include "Physics/IcBodyActivationListener.h"
 #include "Physics/IcBroadPhaseLayerInterface.h"
+#include "Physics/IcCharacterListener.h"
 #include "Physics/IcContactListener.h"
 #include "Physics/IcObjectVsBroadPhaseLayerFilter.h"
 #include "Physics/IcObjectLayerPairFilter.h"
@@ -28,14 +30,7 @@ class RuntimeFunction;
 struct BodyBinding
 {
     uint32_t TransformAddr;
-
     JPH::BodyID Body;
-
-    BodyBinding(uint32_t a_transform = -1, JPH::BodyID a_body = JPH::BodyID())
-    {
-        TransformAddr = a_transform;
-        Body = a_body;
-    }  
 };
 
 // Dunno if I will regret this but trying Jolt over Bullet
@@ -55,6 +50,8 @@ private:
     static constexpr uint32_t MaxContactConstraints = 1024 * 10;
     static constexpr uint32_t AllocatorSize = 1024 * 1024 * 10;
 
+    PhysicsEngineBindings*                    m_runtimeBindings;
+
     // Apparently Intel decided no fun allowed so array instead of uint64_t
     uint8_t                                   m_objectLayerCollisions[8];
 
@@ -72,18 +69,18 @@ private:
     
     IcBodyActivationListener*                 m_activationListener;
     IcContactListener*                        m_contactListener;
+    IcCharacterListener*                      m_characterListener;
 
     JPH::TempAllocatorImpl*                   m_allocator;
 
     JPH::PhysicsSystem*                       m_physicsSystem;
 
-    PhysicsEngineBindings*                    m_runtimeBindings;
-
-    SharedSpinLock                            m_mapLock;
+    SharedSpinLock                            m_bodyMapLock;
     std::unordered_map<JPH::uint32, uint32_t> m_bodyMap;
 
-    TArray<JPH::ShapeSettings::ShapeResult>   m_collisionShapes;
-    TArray<BodyBinding>                       m_bodyBindings;
+    TNCArray<JPH::ShapeSettings::ShapeResult> m_collisionShapes;
+    TNCArray<BodyBinding>                     m_bodyBindings;
+    TNCArray<JPH::CharacterVirtual*>          m_characters;
 
 protected:
 

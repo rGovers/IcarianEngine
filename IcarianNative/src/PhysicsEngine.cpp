@@ -97,6 +97,7 @@ PhysicsEngine::PhysicsEngine(Config* a_config)
 
     m_contactListener = new IcContactListener(this);
     m_activationListener = new IcBodyActivationListener();
+    m_characterListener = new IcCharacterListener(this);
 
     m_physicsSystem->SetContactListener(m_contactListener);
     m_physicsSystem->SetGravity(JPH::Vec3(0.0f, 9.807f, 0.0f));
@@ -111,6 +112,7 @@ PhysicsEngine::~PhysicsEngine()
 
     delete m_contactListener;
     delete m_activationListener;
+    delete m_characterListener;
 
     delete m_broadPhase;
     delete m_objectBroad;
@@ -138,7 +140,7 @@ bool PhysicsEngine::CanObjectLayersCollide(uint32_t a_lhs, uint32_t a_rhs) const
 
 uint32_t PhysicsEngine::GetBodyAddr(JPH::uint a_joltIndex)
 {
-    const SharedThreadGuard g = SharedThreadGuard(m_mapLock);
+    const SharedThreadGuard g = SharedThreadGuard(m_bodyMapLock);
 
     const auto iter = m_bodyMap.find(a_joltIndex);
     if (iter != m_bodyMap.end())
@@ -147,6 +149,33 @@ uint32_t PhysicsEngine::GetBodyAddr(JPH::uint a_joltIndex)
     }
 
     return -1;
+}
+
+static void TransformObject(uint32_t a_transformAddr, const glm::vec3& a_translation, const glm::quat& a_rotation)
+{
+    TransformBuffer buffer = ObjectManager::GetTransformBuffer(a_transformAddr);
+
+    glm::vec3 iTranslation = glm::vec3(0.0f);
+    glm::quat iRotation = glm::identity<glm::quat>();
+
+    if (buffer.ParentAddr != -1)
+    {
+        glm::vec3 s;
+        glm::vec3 sk;
+        glm::vec4 p;
+
+        const glm::mat4 pMat = ObjectManager::GetGlobalMatrix(buffer.ParentAddr);
+        const glm::mat4 pInv = glm::inverse(pMat);
+
+        glm::decompose(pInv, iTranslation, iRotation, s, sk, p);
+    }
+
+    const glm::vec4 diff = glm::vec4(a_translation, 1.0f) + glm::vec4(iTranslation, 0.0f);
+
+    buffer.Translation = (iRotation * diff).xyz();
+    buffer.Rotation = a_rotation * iRotation;
+
+    ObjectManager::SetTransformBuffer(a_transformAddr, buffer);
 }
 
 void PhysicsEngine::Update(double a_delta)
@@ -166,8 +195,6 @@ void PhysicsEngine::Update(double a_delta)
             m_fixedTimeTimer -= m_fixedTimeStep;
             m_fixedTimePassed += m_fixedTimeStep;
 
-            m_physicsSystem->Update((float)m_fixedTimeStep, steps, m_allocator, m_jobSystem);
-
             void* args[] = 
             { 
                 &m_fixedTimeStep, 
@@ -175,71 +202,93 @@ void PhysicsEngine::Update(double a_delta)
             };
 
             m_fixedUpdateFunction->Exec(args);
+
+            const JPH::Vec3 gravity = m_physicsSystem->GetGravity();
+
+            const JPH::DefaultBroadPhaseLayerFilter broadFilter = m_physicsSystem->GetDefaultBroadPhaseLayerFilter(0);
+            const JPH::DefaultObjectLayerFilter objectFilter = m_physicsSystem->GetDefaultLayerFilter(0);
+
+            const Array<JPH::CharacterVirtual*> characters = m_characters.ToActiveArray();
+            for (JPH::CharacterVirtual* c : characters)
+            {
+                const JPH::Vec3 up = c->GetUp();
+
+                const JPH::CharacterVirtual::ExtendedUpdateSettings updateSettings = 
+                {
+                    .mStickToFloorStepDown = -up * 0.2f,
+                    .mWalkStairsStepUp = up * 0.2f
+                };
+
+                c->ExtendedUpdate((float)m_fixedTimeStep, gravity, updateSettings, broadFilter, objectFilter, { }, { }, *m_allocator);
+            }
+
+            m_physicsSystem->Update((float)m_fixedTimeStep, steps, m_allocator, m_jobSystem);
         }
     }
 
     {
         PROFILESTACK("Physics Sync");
 
-        const Array<JPH::BodyID> bodies = m_activationListener->ToBodies();
-        const SharedThreadGuard g = SharedThreadGuard(m_mapLock);
-
-        // Should not need but doing just incase for good practice as it multithreaded app
-        const JPH::BodyLockInterfaceLocking& interface = m_physicsSystem->GetBodyLockInterface();
-
-        const float blendVal = (float)m_fixedTimeTimer;
-
-        // Need to sync the physics transform to the transform
-        for (const JPH::BodyID id : bodies)
         {
-            const auto iter = m_bodyMap.find(id.GetIndex());
-            if (iter == m_bodyMap.end())
+            PROFILESTACK("Physics Bodies");
+
+            const Array<JPH::BodyID> bodies = m_activationListener->ToBodies();
+            const SharedThreadGuard g = SharedThreadGuard(m_bodyMapLock);
+
+            // Should not need but doing just incase for good practice as it multithreaded app
+            const JPH::BodyLockInterfaceLocking& interface = m_physicsSystem->GetBodyLockInterface();
+
+            // Need to sync the physics transform to the transform
+            for (const JPH::BodyID id : bodies)
             {
-                continue;
-            }
+                const auto iter = m_bodyMap.find(id.GetIndex());
+                if (iter == m_bodyMap.end())
+                {
+                    continue;
+                }
 
-            const BodyBinding binding = m_bodyBindings[iter->second];
-            
-            const bool valid = binding.TransformAddr != -1;
-            if (!valid)
+                const BodyBinding binding = m_bodyBindings[iter->second];
+
+                const bool valid = binding.TransformAddr != -1;
+                if (!valid)
+                {
+                    continue;
+                }
+
+                const JPH::Body* body = interface.TryGetBody(id);
+                if (body == nullptr)
+                {
+                    continue;
+                }
+
+                const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(id, interface);
+
+                const JPH::RVec3 jTranslation = body->GetPosition() + body->GetLinearVelocity() * m_fixedTimeTimer;
+                const JPH::Quat jRotation = body->GetRotation();
+
+                const glm::vec3 translation = glm::vec3(jTranslation.GetX(), jTranslation.GetY(), jTranslation.GetZ());
+                const glm::quat rotation = glm::quat(jRotation.GetX(), jRotation.GetY(), jRotation.GetZ(), jRotation.GetW());
+
+                TransformObject(binding.TransformAddr, translation, rotation);
+            }
+        }
+        
+        {
+            PROFILESTACK("Characters");
+
+            const Array<JPH::CharacterVirtual*> characters = m_characters.ToActiveArray();
+            for (const JPH::CharacterVirtual* c : characters)
             {
-                continue;
+                const uint32_t transformAddr = (uint32_t)(c->GetUserData() & 0xFFFFFFFF);
+
+                const JPH::Vec3 jTranslation = c->GetPosition();
+                const JPH::Quat jRotation = c->GetRotation();
+
+                const glm::vec3 translation = glm::vec3(jTranslation.GetX(), jTranslation.GetY(), jTranslation.GetZ());
+                const glm::quat rotation = glm::quat(jRotation.GetX(), jRotation.GetY(), jRotation.GetZ(), jRotation.GetW());
+
+                TransformObject(transformAddr, translation, rotation);
             }
-
-            const JPH::Body* body = interface.TryGetBody(id);
-            if (body == nullptr)
-            {
-                continue;
-            }
-
-            TransformBuffer buffer = ObjectManager::GetTransformBuffer(binding.TransformAddr);
-
-            glm::vec3 iTranslation = glm::vec3(0.0f);
-            glm::quat iRotation = glm::identity<glm::quat>();
-
-            if (buffer.ParentAddr != -1)
-            {
-                glm::vec3 iScale;
-                glm::vec3 iSkew;
-                glm::vec4 iPerspectice;
-
-                const glm::mat4 pMat = ObjectManager::GetGlobalMatrix(buffer.ParentAddr);
-                const glm::mat4 pInv = glm::inverse(pMat);
-
-                glm::decompose(pInv, iTranslation, iRotation, iScale, iSkew, iPerspectice);
-            }
-
-            const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(id, interface);
-
-            const JPH::RVec3 jTranslation = body->GetPosition() + body->GetLinearVelocity() * blendVal;
-            const JPH::Quat jRotation = body->GetRotation();
-
-            const glm::vec4 diff = glm::vec4(jTranslation.GetX(), jTranslation.GetY(), jTranslation.GetZ(), 1.0f) + glm::vec4(iTranslation, 0.0f);
-
-            buffer.Translation = (iRotation * diff).xyz();
-            buffer.Rotation = glm::quat(jRotation.GetX(), jRotation.GetY(), jRotation.GetZ(), jRotation.GetW()) * iRotation;
-
-            ObjectManager::SetTransformBuffer(binding.TransformAddr, buffer);
         }
     }
 }

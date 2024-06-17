@@ -136,12 +136,17 @@ RuntimeManager::RuntimeManager()
     m_initMethod = mono_method_desc_search_in_class(initDesc, m_programClass);
     IVERIFY(m_initMethod != NULL);
 
-
     MonoMethodDesc* updateDesc = mono_method_desc_new(":Update(double,double)", 0);
     IVERIFY(updateDesc != NULL);
     IDEFER(mono_method_desc_free(updateDesc));
     m_updateMethod = mono_method_desc_search_in_class(updateDesc, m_programClass);
     IVERIFY(m_updateMethod != NULL);
+
+    MonoMethodDesc* lateUpdateDesc = mono_method_desc_new(":LateUpdate()", 0);
+    IVERIFY(lateUpdateDesc != NULL);
+    IDEFER(mono_method_desc_free(lateUpdateDesc));
+    m_lateUpdateMethod = mono_method_desc_search_in_class(lateUpdateDesc, m_programClass);
+    IVERIFY(m_lateUpdateMethod != NULL);
 
     MonoMethodDesc* shutdownDesc = mono_method_desc_new(":Shutdown()", 0);
     IVERIFY(shutdownDesc != NULL);
@@ -155,7 +160,9 @@ RuntimeManager::~RuntimeManager()
 {
     mono_runtime_invoke(m_shutdownMethod, NULL, NULL, NULL);
 
+    mono_free_method(m_initMethod);
     mono_free_method(m_updateMethod);
+    mono_free_method(m_lateUpdateMethod);
     mono_free_method(m_shutdownMethod);
 
     mono_jit_cleanup(m_domain);
@@ -211,6 +218,12 @@ void RuntimeManager::Update(double a_delta, double a_time)
     };
 
     mono_runtime_invoke(Instance->m_updateMethod, NULL, args, NULL);
+}
+void RuntimeManager::LateUpdate()
+{
+    PROFILESTACK("Runtime Late Update");
+
+    mono_runtime_invoke(Instance->m_lateUpdateMethod, NULL, NULL, NULL);
 }
 
 void RuntimeManager::BindFunction(const std::string_view& a_location, void* a_function)

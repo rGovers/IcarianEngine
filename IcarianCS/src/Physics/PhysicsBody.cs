@@ -60,7 +60,7 @@ namespace IcarianEngine.Physics
         }
 
         /// <summary>
-        /// Whether the PhysicsBody had been Disposed
+        /// Whether the PhysicsBody had been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -71,7 +71,7 @@ namespace IcarianEngine.Physics
         }
 
         /// <summary>
-        /// The CollisionShape the PhysicsBox uses
+        /// The collider the PhysicsBody uses
         /// </summary>
         public CollisionShape CollisionShape
         {
@@ -95,7 +95,6 @@ namespace IcarianEngine.Physics
                 }
             }
         }
-       
 
         internal static PhysicsBody GetBody(uint a_addr)
         {
@@ -145,6 +144,14 @@ namespace IcarianEngine.Physics
             PhysicsBodyInterop.SetPosition(m_internalAddr, a_pos);
         }
         /// <summary>
+        /// Gets the position of the PhysicsBody
+        /// </summary>
+        public Vector3 GetPosition()
+        {
+            return PhysicsBodyInterop.GetPosition(m_internalAddr);
+        }
+
+        /// <summary>
         /// Sets the rotation of the PhysicsBody
         /// </summary>
         /// <param name="a_rotation">The rotation to set to</param>
@@ -152,45 +159,12 @@ namespace IcarianEngine.Physics
         {
             PhysicsBodyInterop.SetRotation(m_internalAddr, a_rotation);
         }
-
         /// <summary>
-        /// Disposes of the PhysicsBody
+        /// Gets the rotation of the PhysicsBody
         /// </summary>
-        public void Dispose()
+        public Quaternion GetRotation()
         {
-            Dispose(true);
-
-            GC.SuppressFinalize(this);
-        }
-        /// <summary>
-        /// Called when the PhysicsBody is being Disposed
-        /// </summary
-        /// <param name="a_disposing">Whether the PhysicsBody is being Disposed or Finalized</param>
-        protected virtual void Dispose(bool a_disposing)
-        {
-            if(!m_disposed)
-            {
-                if(a_disposing)
-                {
-                    CollisionShape = null;
-
-                    m_disposed = true;
-                }
-                else
-                {
-                    Logger.IcarianWarning("PhysicsBody Failed to Dispose");
-                }
-
-                m_internalAddr = uint.MaxValue;
-            }
-            else
-            {
-                Logger.IcarianError("Multiple PhysicsBody Dispose");
-            }
-        }
-        ~PhysicsBody()
-        {
-            Dispose(false);
+            return PhysicsBodyInterop.GetRotation(m_internalAddr);
         }
 
         static void OnCollisionEnter(CollisionDataBuffer a_data)
@@ -327,6 +301,46 @@ namespace IcarianEngine.Physics
                     tBodyB.OnTriggerEndCallback(bodyA);
                 }
             }
+        }
+
+        /// <summary>
+        /// Disposes of the PhysicsBody
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+
+            GC.SuppressFinalize(this);
+        }
+        /// <summary>
+        /// Called when the PhysicsBody is being Disposed
+        /// </summary
+        /// <param name="a_disposing">Whether the PhysicsBody is being Disposed or Finalized</param>
+        protected virtual void Dispose(bool a_disposing)
+        {
+            if(!m_disposed)
+            {
+                if(a_disposing)
+                {
+                    CollisionShape = null;
+
+                    m_disposed = true;
+                }
+                else
+                {
+                    Logger.IcarianWarning("PhysicsBody Failed to Dispose");
+                }
+
+                m_internalAddr = uint.MaxValue;
+            }
+            else
+            {
+                Logger.IcarianError("Multiple PhysicsBody Dispose");
+            }
+        }
+        ~PhysicsBody()
+        {
+            Dispose(false);
         }
     }
 }
