@@ -541,7 +541,7 @@ namespace IcarianEngine.Maths
         {
             float d = Dot(a_start, a_end);
             float theta = Mathf.Acos(d);
-            float sin = Mathf.Sin(a);
+            float sin = Mathf.Sin(theta);
 
             float tA = Mathf.Sin((1.0f - a_t) * theta) / sin;
             float tB = Mathf.Sin(a_t * theta) / sin;

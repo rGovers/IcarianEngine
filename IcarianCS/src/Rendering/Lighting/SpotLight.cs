@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 
 namespace IcarianEngine.Rendering.Lighting
 {
-    public class SpotLight : Light, IDestroy
+    public class SpotLight : ShadowLight, IDestroy
     {
         static ConcurrentDictionary<uint, SpotLight> s_lightMap = new ConcurrentDictionary<uint, SpotLight>();
 
@@ -230,7 +230,31 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Returns the ShadowMap of the SpotLight.
+        /// Shadow Bias used by the SpotLight
+        /// </summary>
+        public override Vector2 ShadowBias 
+        { 
+            get
+            {
+                SpotLightBuffer buffer = GetBuffer(m_bufferAddr);
+
+                return buffer.ShadowBias;
+            } 
+            set
+            { 
+                SpotLightBuffer buffer = GetBuffer(m_bufferAddr);
+
+                if (buffer.ShadowBias != value)
+                {
+                    buffer.ShadowBias = value;
+
+                    SetBuffer(m_bufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns the Shadow Map of the SpotLight
         /// </summary>
         public override IEnumerable<IRenderTexture> ShadowMaps
         {

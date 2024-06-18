@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 
 namespace IcarianEngine.Rendering.Lighting
 {
-    public class DirectionalLight : Light, IDestroy
+    public class DirectionalLight : ShadowLight, IDestroy
     {
         static ConcurrentDictionary<uint, DirectionalLight> s_lightMap = new ConcurrentDictionary<uint, DirectionalLight>();
 
@@ -133,7 +133,31 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// ShadowMaps used by the DirectionalLight.
+        /// Shadow Bias used by the DirectionalLight
+        /// </summary>
+        public override Vector2 ShadowBias 
+        { 
+            get
+            {
+                DirectionalLightBuffer buffer = GetBuffer(m_bufferAddr);
+
+                return buffer.ShadowBias;
+            } 
+            set
+            { 
+                DirectionalLightBuffer buffer = GetBuffer(m_bufferAddr);
+
+                if (buffer.ShadowBias != value)
+                {
+                    buffer.ShadowBias = value;
+
+                    SetBuffer(m_bufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Shadow Maps used by the DirectionalLight.
         /// </summary>
         public override IEnumerable<IRenderTexture> ShadowMaps
         {

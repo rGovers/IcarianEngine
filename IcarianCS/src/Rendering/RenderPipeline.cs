@@ -76,14 +76,14 @@ namespace IcarianEngine.Rendering
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow pass is for</param>
         /// <param name="a_textureSlot">The texture slot to render the shadow map to</param>
         /// <returns>Infomation to use for the shadow pass</returns>
-        public abstract LightShadowSplit PreShadow(Light a_light, Camera a_camera, uint a_textureSlot);
+        public abstract LightShadowSplit PreShadow(ShadowLight a_light, Camera a_camera, uint a_textureSlot);
         /// <summary>
         /// Called after each split of the shadow pass for a <see cref="IcarianEngine.Rendering.Lighting.Light" /> for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
         /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the shadow pass is for</param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow pass is for</param>
         /// <param name="a_textureSlot">The texture slot to render the shadow map to</param>
-        public abstract void PostShadow(Light a_light, Camera a_camera, uint a_textureSlot);
+        public abstract void PostShadow(ShadowLight a_light, Camera a_camera, uint a_textureSlot);
 
         /// <summary>
         /// Called before the main render pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
@@ -107,13 +107,13 @@ namespace IcarianEngine.Rendering
         /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the pass is for</param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the light pass is for</param>
         /// <returns>Infomation to use for the light shadow pass</returns>
-        public abstract LightShadowPass PreShadowLight(Light a_light, Camera a_camera);
+        public abstract LightShadowPass PreShadowLight(ShadowLight a_light, Camera a_camera);
         /// <summary>
         /// Called after shadow casting lights before the light pass for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
         /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the pass is for</param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the light pass is for</param>
-        public abstract void PostShadowLight(Light a_light, Camera a_camera);
+        public abstract void PostShadowLight(ShadowLight a_light, Camera a_camera);
         /// <summary>
         /// Called before the light pass for a light type for a <see cref="IcarianEngine.Rendering.Camera" /> 
         /// </summary>
@@ -192,7 +192,7 @@ namespace IcarianEngine.Rendering
             if (s_instance != null)
             {
                 Camera cam = Camera.GetCamera(a_camBuffer);
-                Light light = null;
+                ShadowLight light = null;
                 LightType type = (LightType)a_lightType;
                 switch (type)
                 {
@@ -232,7 +232,7 @@ namespace IcarianEngine.Rendering
             if (s_instance != null)
             {
                 Camera cam = Camera.GetCamera(a_camBuffer);
-                Light light = null;
+                ShadowLight light = null;
                 switch ((LightType)a_lightType)
                 {
                 case LightType.Directional:
@@ -314,7 +314,7 @@ namespace IcarianEngine.Rendering
             if (s_instance != null)
             {
                 Camera cam = Camera.GetCamera(a_camBuffer);
-                Light light = null;
+                ShadowLight light = null;
                 LightType type = (LightType)a_lightType;
 
                 switch (type)
@@ -380,7 +380,7 @@ namespace IcarianEngine.Rendering
             if (s_instance != null)
             {
                 Camera cam = Camera.GetCamera(a_camBuffer);
-                Light light = null;
+                ShadowLight light = null;
 
                 switch ((LightType)a_lightType)
                 {

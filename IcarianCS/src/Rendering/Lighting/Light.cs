@@ -44,14 +44,6 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// ShadowMap of the Light.
-        /// </summary>
-        public abstract IEnumerable<IRenderTexture> ShadowMaps
-        {
-            get;
-        }
-
-        /// <summary>
         /// Returns the Definition used to create the Light.
         /// </summary>
         public LightDef LightDef

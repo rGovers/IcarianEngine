@@ -93,8 +93,11 @@ void main()
     float invMetal = 1.0 - metal;
 
     vec4 sP = lP * 0.5 + 0.5;
-    float sV = texture(shadowSampler[sI], sP.xy).x - 0.0001;
-    float iS = max(sign(sV - lP.z), 0.0);
+    float sV = texture(shadowSampler[sI], sP.xy).x;
+    if (lP.z > sV)
+    {
+        discard;
+    }
 
     vec4 lD = dirLightBuffer.LightDir;
     vec4 lCr = dirLightBuffer.LightColor;
@@ -105,7 +108,7 @@ void main()
     float dL = max(dot(normal.xyz, lD.xyz), 0.0);
 
     // Light
-    vec3 lC = color.xyz * lCr.xyz * lD.w * iS;
+    vec3 lC = color.xyz * lCr.xyz * lD.w;
 
     // Metal
     vec3 f0 = mix(vec3(0.04), color.xyz, metal);

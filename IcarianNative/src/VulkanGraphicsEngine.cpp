@@ -358,11 +358,6 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
             delete (VulkanShaderData*)program.Data;
         }
 
-        if (program.UBOData != NULL)
-        {
-            free(program.UBOData);
-        }
-
         if (program.Flags & 0b1 << RenderProgram::DestroyFlag)
         {
             DestroyVertexShader(program.VertexShader);
@@ -784,7 +779,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
         }
     }
 }
-void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uint32_t a_renderLayer, uint32_t a_renderTexture, bool a_cube, vk::CommandBuffer a_commandBuffer, uint32_t a_frameIndex)
+void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, const glm::vec2& a_bias, uint32_t a_renderLayer, uint32_t a_renderTexture, bool a_cube, vk::CommandBuffer a_commandBuffer, uint32_t a_frameIndex)
 {
     PROFILESTACK("Rendering");
     VulkanUniformBuffer* shadowLightBuffer = nullptr;
@@ -876,7 +871,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                                 if (frustum.CompareSphere(translation, radius * sFactor))
                                 {
                                     // Scale slightly to improve shadows around edges of objects
-                                    transforms[finalTransformCount++] = glm::scale(transform, glm::vec3(1.025));
+                                    transforms[finalTransformCount++] = transform;
                                 }
                             }
                         }
@@ -900,6 +895,8 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, uin
                             }
 
                             pipeline->Bind(a_frameIndex, a_commandBuffer);
+
+                            a_commandBuffer.setDepthBias(a_bias.x, 0.0f, a_bias.y);
                         }
 
                         model->Bind(a_commandBuffer);
@@ -1155,7 +1152,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camInde
             commandBuffer.setScissor(0, 1, &scissor);
             commandBuffer.setViewport(0, 1, &viewport);
             
-            DrawShadow(lvp[0], splits[0], buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_frameIndex);
+            DrawShadow(lvp[0], splits[0], buffer.ShadowBias, buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_frameIndex);
 
             {
                 PROFILESTACK("Post Shadow");
@@ -1298,7 +1295,7 @@ vk::CommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uin
             commandBuffer.setScissor(0, 1, &scissor);
             commandBuffer.setViewport(0, 1, &viewport);
 
-            DrawShadow(lvp, 0.0f, buffer.RenderLayer, renderTextureIndex, true, commandBuffer, a_frameIndex);
+            DrawShadow(lvp, buffer.Radius, buffer.ShadowBias, buffer.RenderLayer, renderTextureIndex, true, commandBuffer, a_frameIndex);
         }
     }
 
@@ -1423,7 +1420,7 @@ vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint
         commandBuffer.setScissor(0, 1, &scissor);
         commandBuffer.setViewport(0, 1, &viewport);
         
-        DrawShadow(lvp[0], buffer.Radius, buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_frameIndex);
+        DrawShadow(lvp[0], buffer.Radius, buffer.ShadowBias, buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_frameIndex);
 
         {
             PROFILESTACK("Post Shadow");

@@ -10,7 +10,7 @@ using System.Runtime.InteropServices;
 
 namespace IcarianEngine.Rendering.Lighting
 {
-    public class PointLight : Light, IDestroy
+    public class PointLight : ShadowLight, IDestroy
     {
         static ConcurrentDictionary<uint, PointLight> s_lightMap = new ConcurrentDictionary<uint, PointLight>();
 
@@ -158,7 +158,31 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Returns the Light ShadowMaps.
+        /// Shadow Bias used by the PointLight
+        /// </summary>
+        public override Vector2 ShadowBias 
+        { 
+            get
+            {
+                PointLightBuffer buffer = GetBuffer(m_bufferAddr);
+
+                return buffer.ShadowBias;
+            } 
+            set
+            { 
+                PointLightBuffer buffer = GetBuffer(m_bufferAddr);
+
+                if (buffer.ShadowBias != value)
+                {
+                    buffer.ShadowBias = value;
+
+                    SetBuffer(m_bufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns the Light Shadow Maps
         /// </summary>
         public override IEnumerable<IRenderTexture> ShadowMaps
         {

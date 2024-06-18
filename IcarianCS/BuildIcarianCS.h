@@ -146,6 +146,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
         "src/Rendering/Lighting/DirectionalLight.cs",
         "src/Rendering/Lighting/Light.cs",
         "src/Rendering/Lighting/PointLight.cs",
+        "src/Rendering/Lighting/ShadowLight.cs",
         "src/Rendering/Lighting/SpotLight.cs",
 
         "src/Rendering/PostEffects/AtmospherePostEffect.cs",

@@ -407,11 +407,13 @@ namespace IcarianEngine.Rendering
 
             Quaternion rot = a_light.Transform.Rotation * Quaternion.FromAxisAngle(Vector3.UnitX, Mathf.PI);
 
-            Matrix4 lightTrans = rot.ToMatrix() * new Matrix4(Vector4.UnitX, Vector4.UnitY, Vector4.UnitZ, new Vector4(mid, 1.0f));
+            Matrix4 lightTrans = rot.ToMatrix();
+            lightTrans[3] = new Vector4(mid, 1.0f);
+
             Matrix4 lightView = Matrix4.Inverse(lightTrans);
 
-            Vector3 min = Vector3.One * float.MaxValue;
-            Vector3 max = Vector3.One * float.MinValue;
+            Vector3 min = new Vector3(float.MaxValue);
+            Vector3 max = new Vector3(float.MinValue);
 
             for (int i = 0; i < 8; ++i)
             {
@@ -450,7 +452,7 @@ namespace IcarianEngine.Rendering
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow map is for</param>
         /// <param name="a_textureSlot">The slot of the shadow map</param>
         /// <returns>The information for the shadow map</returns>
-        public override LightShadowSplit PreShadow(Light a_light, Camera a_camera, uint a_textureSlot) 
+        public override LightShadowSplit PreShadow(ShadowLight a_light, Camera a_camera, uint a_textureSlot) 
         {
             switch (a_light.LightType)
             {
@@ -502,7 +504,7 @@ namespace IcarianEngine.Rendering
         /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the shadow map is for</param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow map is for</param>
         /// <param name="a_textureSlot">The slot of the shadow map</param>
-        public override void PostShadow(Light a_light, Camera a_camera, uint a_textureSlot)
+        public override void PostShadow(ShadowLight a_light, Camera a_camera, uint a_textureSlot)
         {
             
         }
@@ -539,7 +541,7 @@ namespace IcarianEngine.Rendering
         /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the shadow pass is for</param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow pass is for</param>
         /// <returns>Information to use for the shadow pass</returns>
-        public override LightShadowPass PreShadowLight(Light a_light, Camera a_camera)
+        public override LightShadowPass PreShadowLight(ShadowLight a_light, Camera a_camera)
         {
             LightShadowPass pass = new LightShadowPass();
 
@@ -609,7 +611,7 @@ namespace IcarianEngine.Rendering
         /// </summary>
         /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> the shadow pass is for</param>
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the shadow pass is for</param>
-        public override void PostShadowLight(Light a_light, Camera a_camera)
+        public override void PostShadowLight(ShadowLight a_light, Camera a_camera)
         {
             
         }

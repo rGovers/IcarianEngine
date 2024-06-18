@@ -124,18 +124,6 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Returns the shadow maps used by the light
-        /// </summary>
-        /// Unused for ambient lights
-        public override IEnumerable<IRenderTexture> ShadowMaps
-        {
-            get
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
         /// Called when the light is initialized
         /// </summary>
         public override void Init()

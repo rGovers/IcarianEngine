@@ -21,6 +21,15 @@ static constexpr vk::DynamicState DynamicStates[] =
 
 static constexpr uint32_t DynamicStateCount = sizeof(DynamicStates) / sizeof(*DynamicStates);
 
+static constexpr vk::DynamicState ShadowDynamicStates[] =
+{
+    vk::DynamicState::eViewport,
+    vk::DynamicState::eScissor,
+    vk::DynamicState::eDepthBias
+};
+
+static constexpr uint32_t ShadowDynamicStateCount = sizeof(ShadowDynamicStates) / sizeof(*ShadowDynamicStates);
+
 static constexpr vk::Viewport Viewport = vk::Viewport(0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f);
 static constexpr vk::Rect2D Scissor = vk::Rect2D({ 0, 0 }, { 1, 1 });
 
@@ -252,14 +261,18 @@ constexpr static vk::Format GetFormat(const VertexInputAttribute& a_attrib)
     default:
     {
         ICARIAN_ASSERT(0);
+
+        break;
     }
     }
 
     return vk::Format::eUndefined;
 }
 
-VulkanPipeline::VulkanPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_programAddr, e_VulkanPipelineType a_type)
+VulkanPipeline::VulkanPipeline(vk::Pipeline a_pipeline, VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_programAddr, e_VulkanPipelineType a_type)
 {
+    m_pipeline = a_pipeline;
+
     m_engine = a_engine;
     m_gEngine = a_gEngine;
 
@@ -276,14 +289,14 @@ VulkanPipeline::~VulkanPipeline()
 VulkanShaderData* VulkanPipeline::GetShaderData() const
 {
     const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
-    ICARIAN_ASSERT(program.Data != nullptr);
+    IVERIFY(program.Data != nullptr);
     
     return (VulkanShaderData*)program.Data;
 }
 void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
 {
     const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
-    ICARIAN_ASSERT(program.Data != nullptr);
+    IVERIFY(program.Data != nullptr);
 
     const VulkanShaderData* data = (VulkanShaderData*)program.Data;
 
@@ -309,8 +322,6 @@ void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) c
 VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const vk::RenderPass& a_renderPass, bool a_depth, uint32_t a_textureCount, uint32_t a_programAddr)
 {
     TRACE("Creating Vulkan Pipeline");
-    VulkanPipeline* pipeline = new VulkanPipeline(a_engine, a_gEngine, a_programAddr, VulkanPipelineType_Graphics);
-
     const vk::Device device = a_engine->GetLogicalDevice();
     const RenderProgram program = a_gEngine->GetRenderProgram(a_programAddr);
     IVERIFY(program.Data != nullptr);
@@ -461,6 +472,8 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
     default:
     {
         ICARIAN_ASSERT(0);
+
+        break;
     }
     }
 
@@ -506,9 +519,10 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
         pipelineInfo.pDepthStencilState = &depthStencil;
     }
 
-    VKRESERRMSG(device.createGraphicsPipelines(nullptr, 1, &pipelineInfo, nullptr, &pipeline->m_pipeline), "Failed to create Vulkan Pipeline");
+    vk::Pipeline pipeline;
+    VKRESERRMSG(device.createGraphicsPipelines(nullptr, 1, &pipelineInfo, nullptr, &pipeline), "Failed to create Vulkan Pipeline");
 
-    return pipeline;
+    return new VulkanPipeline(pipeline, a_engine, a_gEngine, a_programAddr, VulkanPipelineType_Graphics);
 }
 
 VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const vk::RenderPass& a_renderPass, uint32_t a_programAddr)
@@ -519,14 +533,13 @@ VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* 
     IVERIFY(program.ShadowVertexShader != -1);
 
     TRACE("Creating Vulkan Shadow Pipeline");
-    VulkanPipeline* pipeline = new VulkanPipeline(a_engine, a_gEngine, a_programAddr, VulkanPipelineType_Shadow);
     const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
 
     const vk::PipelineDynamicStateCreateInfo dynamicState = vk::PipelineDynamicStateCreateInfo
     (
         { },
-        DynamicStateCount,
-        DynamicStates
+        ShadowDynamicStateCount,
+        ShadowDynamicStates
     );
 
     const vk::VertexInputBindingDescription bindingDescription = vk::VertexInputBindingDescription
@@ -563,10 +576,11 @@ VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* 
         vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
     }
 
+    const vk::PrimitiveTopology primitiveMode = GetPrimitiveMode(program.PrimitiveMode);
     const vk::PipelineInputAssemblyStateCreateInfo inputAssembly = vk::PipelineInputAssemblyStateCreateInfo
     (
         { },
-        GetPrimitiveMode(program.PrimitiveMode),
+        primitiveMode,
         VK_FALSE
     );
 
@@ -579,15 +593,16 @@ VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* 
         &Scissor
     );
 
+    const vk::CullModeFlags cullMode = GetCullingMode(program.CullingMode);
     const vk::PipelineRasterizationStateCreateInfo rasterizer = vk::PipelineRasterizationStateCreateInfo
     (
         { },
         VK_FALSE,
         VK_FALSE,
         vk::PolygonMode::eFill,
-        GetCullingMode(program.CullingMode),
+        cullMode,
         vk::FrontFace::eClockwise,
-        VK_FALSE,
+        VK_TRUE,
         0.0f,
         0.0f,
         0.0f,
@@ -656,8 +671,9 @@ VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* 
         a_renderPass
     );
 
-    ICARIAN_ASSERT_MSG_R(device.createGraphicsPipelines(nullptr, 1, &pipelineInfo, nullptr, &pipeline->m_pipeline) == vk::Result::eSuccess, "Failed to create Vulkan Shadow Pipeline");
+    vk::Pipeline pipeline;
+    VKRESERRMSG(device.createGraphicsPipelines(nullptr, 1, &pipelineInfo, nullptr, &pipeline), "Failed to create Vulkan Shadow Pipeline");
 
-    return pipeline;
+    return new VulkanPipeline(pipeline, a_engine, a_gEngine, a_programAddr, VulkanPipelineType_Shadow);
 }
 #endif

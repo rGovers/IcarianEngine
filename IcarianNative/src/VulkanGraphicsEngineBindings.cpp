@@ -347,6 +347,11 @@ RUNTIME_FUNCTION(void, Material, DestroyProgram,
     if (program.VertexAttributes != nullptr)
     {
         delete[] program.VertexAttributes;
+    }
+    
+    if (program.UBOData != NULL)
+    {
+        free(program.UBOData);
     });
 
     Instance->DestroyShaderProgram(a_addr);
@@ -1006,68 +1011,51 @@ void VulkanGraphicsEngineBindings::ResizeDepthCubeRenderTexture(uint32_t a_addr,
 
 uint32_t VulkanGraphicsEngineBindings::GenerateAmbientLightBuffer() const
 {
-    AmbientLightBuffer buffer;
-    buffer.Color = glm::vec4(1.0f);
-    buffer.Intensity = 1.0f;
-    buffer.RenderLayer = 0b1;
-    buffer.Data = nullptr;
+    const AmbientLightBuffer buffer = 
+    {
+        .RenderLayer = 0b1,
+        .Color = glm::vec4(1.0f),
+        .Intensity = 1.0f
+    };
 
     return m_graphicsEngine->m_ambientLights.PushVal(buffer);
 }
 void VulkanGraphicsEngineBindings::SetAmbientLightBuffer(uint32_t a_addr, const AmbientLightBuffer& a_buffer) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_ambientLights.Size(), "SetAmbientLightBuffer out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_ambientLights.Exists(a_addr), "SetAmbientLightBuffer already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_ambientLights.Size());
+    IVERIFY(m_graphicsEngine->m_ambientLights.Exists(a_addr));
 
     m_graphicsEngine->m_ambientLights.LockSet(a_addr, a_buffer);
 }
 AmbientLightBuffer VulkanGraphicsEngineBindings::GetAmbientLightBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_ambientLights.Size(), "GetAmbientLightBuffer out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_ambientLights.Exists(a_addr), "GetAmbientLightBuffer already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_ambientLights.Size());
+    IVERIFY(m_graphicsEngine->m_ambientLights.Exists(a_addr));
 
     return m_graphicsEngine->m_ambientLights[a_addr];
 }
 void VulkanGraphicsEngineBindings::DestroyAmbientLightBuffer(uint32_t a_addr) const
 {
-    class VulkanAmbientLightDeletionObject : public DeletionObject
-    {
-    private:
-        uint32_t m_addr;
+    IPUSHDELETIONFUNC(
+    {   
+        IVERIFY(a_addr < m_graphicsEngine->m_ambientLights.Size());
+        IVERIFY(m_graphicsEngine->m_ambientLights.Exists(a_addr));
 
-    protected:
-
-    public:
-        VulkanAmbientLightDeletionObject(uint32_t a_addr)
-        {
-            m_addr = a_addr;
-        }
-        virtual ~VulkanAmbientLightDeletionObject()
-        {
-
-        }
-
-        virtual void Destroy()
-        {
-            ICARIAN_ASSERT_MSG(m_addr < Instance->m_graphicsEngine->m_ambientLights.Size(), "DestroyAmbientLightBuffer out of bounds");
-            ICARIAN_ASSERT_MSG(Instance->m_graphicsEngine->m_ambientLights.Exists(m_addr), "DestroyAmbientLightBuffer already destroyed");
-
-            Instance->m_graphicsEngine->m_ambientLights.Erase(m_addr);
-        }
-    };
-
-    DeletionQueue::Push(new VulkanAmbientLightDeletionObject(a_addr), DeletionIndex_Render);
+        m_graphicsEngine->m_ambientLights.Erase(a_addr);
+    }, DeletionIndex_Render);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateDirectionalLightBuffer(uint32_t a_transformAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_transformAddr != -1, "GenerateDirectionalLightBuffer no transform");
+    IVERIFY(a_transformAddr != -1);
 
-    DirectionalLightBuffer buffer;
-    buffer.TransformAddr = a_transformAddr;
-    buffer.Color = glm::vec4(1.0f);
-    buffer.Intensity = 1.0f;
-    buffer.RenderLayer = 0b1;
+    DirectionalLightBuffer buffer = 
+    {
+        .TransformAddr = a_transformAddr,
+        .RenderLayer = 0b1,
+        .Color = glm::vec4(1.0f),
+        .Intensity = 1.0f,
+    };
     
     VulkanLightBuffer* lightBuffer = new VulkanLightBuffer();
     lightBuffer->LightRenderTextureCount = 0;
@@ -1078,55 +1066,40 @@ uint32_t VulkanGraphicsEngineBindings::GenerateDirectionalLightBuffer(uint32_t a
 }
 void VulkanGraphicsEngineBindings::SetDirectionalLightBuffer(uint32_t a_addr, const DirectionalLightBuffer& a_buffer) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_directionalLights.Size(), "SetDirectionalLightBuffer out of bounds");
+    IVERIFY(a_addr < m_graphicsEngine->m_directionalLights.Size());
+    IVERIFY(m_graphicsEngine->m_directionalLights.Exists(a_addr));
 
     m_graphicsEngine->m_directionalLights.LockSet(a_addr, a_buffer);
 }
 DirectionalLightBuffer VulkanGraphicsEngineBindings::GetDirectionalLightBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_directionalLights.Size(), "GetDirectionalLightBuffer out of bounds");
+    IVERIFY(a_addr < m_graphicsEngine->m_directionalLights.Size());
+    IVERIFY(m_graphicsEngine->m_directionalLights.Exists(a_addr));
 
     return m_graphicsEngine->m_directionalLights[a_addr];
 }
 void VulkanGraphicsEngineBindings::DestroyDirectionalLightBuffer(uint32_t a_addr) const
 {
-    class VulkanDirectionalLightDeletionObject : public DeletionObject
+    IPUSHDELETIONFUNC(
     {
-    private:
-        uint32_t m_addr;
+        IVERIFY(a_addr < m_graphicsEngine->m_directionalLights.Size());
+        IVERIFY(m_graphicsEngine->m_directionalLights.Exists(a_addr));
 
-    protected:
+        const DirectionalLightBuffer buffer = m_graphicsEngine->m_directionalLights[a_addr];
+        IVERIFY(buffer.Data != nullptr);
 
-    public:
-        VulkanDirectionalLightDeletionObject(uint32_t a_addr)
-        {
-            m_addr = a_addr;
-        }
-        virtual ~VulkanDirectionalLightDeletionObject()
-        {
+        const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
+        IDEFER(delete lightBuffer);
 
-        }
-
-        virtual void Destroy()
-        {
-            ICARIAN_ASSERT_MSG(m_addr < Instance->m_graphicsEngine->m_directionalLights.Size(), "DestroyDirectionalLightBuffer out of bounds");
-            ICARIAN_ASSERT_MSG(Instance->m_graphicsEngine->m_directionalLights.Exists(m_addr), "DestroyDirectionalLightBuffer already destroyed");
-
-            const DirectionalLightBuffer buffer = Instance->m_graphicsEngine->m_directionalLights[m_addr];
-            const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
-            IDEFER(delete lightBuffer);
-            Instance->m_graphicsEngine->m_directionalLights.Erase(m_addr);
-        }
-    };
-
-    DeletionQueue::Push(new VulkanDirectionalLightDeletionObject(a_addr), DeletionIndex_Render);
+        m_graphicsEngine->m_directionalLights.Erase(a_addr);
+    }, DeletionIndex_Render);
 }
 void VulkanGraphicsEngineBindings::AddDirectionalLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_directionalLights.Size(), "AddDirectionalLightShadowMap DirectionalLight out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_directionalLights.Exists(a_addr), "AddDirectionalLightShadowMap DirectionalLight already destroyed");
-    ICARIAN_ASSERT_MSG(a_shadowMapAddr < m_graphicsEngine->m_depthRenderTextures.Size(), "AddDirectionalLightShadowMap DepthShadowMap out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_depthRenderTextures.Exists(a_shadowMapAddr), "AddDirectionalLightShadowMap DepthShadowMap already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_directionalLights.Size());
+    IVERIFY(m_graphicsEngine->m_directionalLights.Exists(a_addr));
+    IVERIFY(a_shadowMapAddr < m_graphicsEngine->m_depthRenderTextures.Size());
+    IVERIFY(m_graphicsEngine->m_depthRenderTextures.Exists(a_shadowMapAddr));
 
     TLockArray<DirectionalLightBuffer> a = m_graphicsEngine->m_directionalLights.ToLockArray();
 
@@ -1152,10 +1125,10 @@ void VulkanGraphicsEngineBindings::AddDirectionalLightShadowMap(uint32_t a_addr,
 }
 void VulkanGraphicsEngineBindings::RemoveDirectionalLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_directionalLights.Size(), "RemoveDirectionalLightShadowMap DirectionalLight out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_directionalLights.Exists(a_addr), "RemoveDirectionalLightShadowMap DirectionalLight already destroyed");
-    ICARIAN_ASSERT_MSG(a_shadowMapAddr < m_graphicsEngine->m_depthRenderTextures.Size(), "RemoveDirectionalLightShadowMap DepthShadowMap out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_depthRenderTextures.Exists(a_shadowMapAddr), "RemoveDirectionalLightShadowMap DepthShadowMap already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_directionalLights.Size());
+    IVERIFY(m_graphicsEngine->m_directionalLights.Exists(a_addr));
+    IVERIFY(a_shadowMapAddr < m_graphicsEngine->m_depthRenderTextures.Size());
+    IVERIFY(m_graphicsEngine->m_depthRenderTextures.Exists(a_shadowMapAddr));
 
     TLockArray<DirectionalLightBuffer> a = m_graphicsEngine->m_directionalLights.ToLockArray();
 
@@ -1175,14 +1148,16 @@ void VulkanGraphicsEngineBindings::RemoveDirectionalLightShadowMap(uint32_t a_ad
 
 uint32_t VulkanGraphicsEngineBindings::GeneratePointLightBuffer(uint32_t a_transformAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_transformAddr != -1, "GeneratePointLightBuffer no transform");
+    IVERIFY(a_transformAddr != -1);
     
-    PointLightBuffer buffer;
-    buffer.TransformAddr = a_transformAddr;
-    buffer.Color = glm::vec4(1.0f);
-    buffer.Radius = 1.0f;
-    buffer.Intensity = 1.0f;
-    buffer.RenderLayer = 0b1;
+    PointLightBuffer buffer = 
+    {
+        .TransformAddr = a_transformAddr,
+        .RenderLayer = 0b1,
+        .Color = glm::vec4(1.0f),
+        .Intensity = 1.0f,
+        .Radius = 1.0f
+    };
 
     VulkanLightBuffer* lightBuffer = new VulkanLightBuffer();
     lightBuffer->LightRenderTextureCount = 0;
@@ -1193,60 +1168,43 @@ uint32_t VulkanGraphicsEngineBindings::GeneratePointLightBuffer(uint32_t a_trans
 }
 void VulkanGraphicsEngineBindings::SetPointLightBuffer(uint32_t a_addr, const PointLightBuffer& a_buffer) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_pointLights.Size(), "SetPointLightBuffer out of bounds");
+    IVERIFY(a_addr < m_graphicsEngine->m_pointLights.Size());
+    IVERIFY(m_graphicsEngine->m_pointLights.Exists(a_addr));
 
     m_graphicsEngine->m_pointLights.LockSet(a_addr, a_buffer);
 }
 PointLightBuffer VulkanGraphicsEngineBindings::GetPointLightBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_pointLights.Size(), "GetPointLightBuffer out of bounds");
+    IVERIFY(a_addr < m_graphicsEngine->m_pointLights.Size());
+    IVERIFY(m_graphicsEngine->m_pointLights.Exists(a_addr));
 
     return m_graphicsEngine->m_pointLights[a_addr];
 }
 void VulkanGraphicsEngineBindings::DestroyPointLightBuffer(uint32_t a_addr) const
 {
-    class VulkanPointLightDeletionObject : public DeletionObject
+    IPUSHDELETIONFUNC(
     {
-    private:
-        uint32_t m_addr;
+        IVERIFY(a_addr < m_graphicsEngine->m_pointLights.Size());
+        IVERIFY(m_graphicsEngine->m_pointLights.Exists(a_addr));
 
-    protected:
+        const PointLightBuffer buffer = m_graphicsEngine->m_pointLights[a_addr];
+        IVERIFY(buffer.Data != nullptr);
 
-    public:
-        VulkanPointLightDeletionObject(uint32_t a_addr)
-        {
-            m_addr = a_addr;
-        }
-        virtual ~VulkanPointLightDeletionObject()
-        {
+        const VulkanLightBuffer* data = (VulkanLightBuffer*)buffer.Data;
+        IDEFER(delete data);
 
-        }
-
-        virtual void Destroy()
-        {
-            ICARIAN_ASSERT_MSG(m_addr < Instance->m_graphicsEngine->m_pointLights.Size(), "DestroyPointLightBuffer out of bounds");
-            ICARIAN_ASSERT_MSG(Instance->m_graphicsEngine->m_pointLights.Exists(m_addr), "DestroyPointLightBuffer already destroyed");
-
-            const PointLightBuffer buffer = Instance->m_graphicsEngine->m_pointLights[m_addr];
-            const VulkanLightBuffer* data = (VulkanLightBuffer*)buffer.Data;
-            IDEFER(delete data);
-
-            Instance->m_graphicsEngine->m_pointLights.Erase(m_addr);
-        }
-    };
-
-    DeletionQueue::Push(new VulkanPointLightDeletionObject(a_addr), DeletionIndex_Render);
+        m_graphicsEngine->m_pointLights.Erase(a_addr);
+    }, DeletionIndex_Render);
 }
 void VulkanGraphicsEngineBindings::SetPointLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_pointLights.Size(), "SetPointLightShadowMap PointLight out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_pointLights.Exists(a_addr), "SetPointLightShadowMap PointLight already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_pointLights.Size());
+    IVERIFY(m_graphicsEngine->m_pointLights.Exists(a_addr));
     
     TLockArray<PointLightBuffer> a = m_graphicsEngine->m_pointLights.ToLockArray();
 
     const PointLightBuffer& buffer = a[a_addr];
-
-    ICARIAN_ASSERT(buffer.Data != nullptr);
+    IVERIFY(buffer.Data != nullptr);
 
     VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
 
@@ -1261,25 +1219,23 @@ void VulkanGraphicsEngineBindings::SetPointLightShadowMap(uint32_t a_addr, uint3
 
     if (a_shadowMapAddr != -1)
     {
-        ICARIAN_ASSERT_MSG(a_shadowMapAddr < m_graphicsEngine->m_depthCubeRenderTextures.Size(), "SetPointLightShadowMap DepthShadowMap out of bounds");
-        ICARIAN_ASSERT_MSG(m_graphicsEngine->m_depthCubeRenderTextures.Exists(a_shadowMapAddr), "SetPointLightShadowMap DepthShadowMap already destroyed");
+        IVERIFY(a_shadowMapAddr < m_graphicsEngine->m_depthCubeRenderTextures.Size());
+        IVERIFY(m_graphicsEngine->m_depthCubeRenderTextures.Exists(a_shadowMapAddr));
 
-        uint32_t* renderTextures = new uint32_t[1];
+        lightBuffer->LightRenderTextures = new uint32_t[1];
 
-        renderTextures[0] = a_shadowMapAddr;
+        lightBuffer->LightRenderTextures[0] = a_shadowMapAddr;
 
-        lightBuffer->LightRenderTextures = renderTextures;
         lightBuffer->LightRenderTextureCount = 1;
     }
 }
 uint32_t VulkanGraphicsEngineBindings::GetPointLightShadowMap(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_pointLights.Size(), "GetPointLightShadowMap PointLight out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_pointLights.Exists(a_addr), "GetPointLightShadowMap PointLight already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_pointLights.Size());
+    IVERIFY(m_graphicsEngine->m_pointLights.Exists(a_addr));
 
     const PointLightBuffer& buffer = m_graphicsEngine->m_pointLights[a_addr];
-
-    ICARIAN_ASSERT(buffer.Data != nullptr);
+    IVERIFY(buffer.Data != nullptr);
 
     const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
     if (lightBuffer->LightRenderTextureCount == 0)
@@ -1292,15 +1248,17 @@ uint32_t VulkanGraphicsEngineBindings::GetPointLightShadowMap(uint32_t a_addr) c
 
 uint32_t VulkanGraphicsEngineBindings::GenerateSpotLightBuffer(uint32_t a_transformAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_transformAddr != -1, "GenerateSpotLightBuffer no tranform");
+    IVERIFY(a_transformAddr != -1);
     
-    SpotLightBuffer buffer;
-    buffer.TransformAddr = a_transformAddr;
-    buffer.Color = glm::vec4(1.0f);
-    buffer.Radius = 1.0f;
-    buffer.Intensity = 1.0f;
-    buffer.CutoffAngle = glm::vec2(1.0f, 1.5f);
-    buffer.RenderLayer = 0b1;
+    SpotLightBuffer buffer =
+    {
+        .TransformAddr = a_transformAddr,
+        .RenderLayer = 0b1,
+        .Color = glm::vec4(1.0f),
+        .Intensity = 1.0f,
+        .CutoffAngle = glm::vec2(1.0f, 1.5f),
+        .Radius = 1.0f
+    };
     
     VulkanLightBuffer* lightBuffer = new VulkanLightBuffer();
     lightBuffer->LightRenderTextureCount = 0;
@@ -1311,61 +1269,43 @@ uint32_t VulkanGraphicsEngineBindings::GenerateSpotLightBuffer(uint32_t a_transf
 }
 void VulkanGraphicsEngineBindings::SetSpotLightBuffer(uint32_t a_addr, const SpotLightBuffer& a_buffer) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_spotLights.Size(), "SetSpotLightBuffer out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_spotLights.Exists(a_addr), "SetSpotLightBuffer already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_spotLights.Size());
+    IVERIFY(m_graphicsEngine->m_spotLights.Exists(a_addr));
 
     m_graphicsEngine->m_spotLights.LockSet(a_addr, a_buffer);
 }
 SpotLightBuffer VulkanGraphicsEngineBindings::GetSpotLightBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_spotLights.Size(), "GetSpotLightBuffer out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_spotLights.Exists(a_addr), "GetSpotLightBuffer already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_spotLights.Size());
+    IVERIFY(m_graphicsEngine->m_spotLights.Exists(a_addr));
 
     return m_graphicsEngine->m_spotLights[a_addr];
 }
 void VulkanGraphicsEngineBindings::DestroySpotLightBuffer(uint32_t a_addr) const
 {
-    class VulkanSpotLightDeletionObject : public DeletionObject
+    IPUSHDELETIONFUNC(
     {
-    private:
-        uint32_t m_addr;
+        IVERIFY(a_addr < m_graphicsEngine->m_spotLights.Size());
+        IVERIFY(m_graphicsEngine->m_spotLights.Exists(a_addr));
 
-    protected:
+        const SpotLightBuffer buffer = m_graphicsEngine->m_spotLights[a_addr];
+        IVERIFY(buffer.Data);
 
-    public:
-        VulkanSpotLightDeletionObject(uint32_t a_addr)
-        {
-            m_addr = a_addr;
-        }
-        virtual ~VulkanSpotLightDeletionObject()
-        {
+        const VulkanLightBuffer* data = (VulkanLightBuffer*)buffer.Data;
+        IDEFER(delete data);
 
-        }
-
-        virtual void Destroy()
-        {
-            ICARIAN_ASSERT_MSG(m_addr < Instance->m_graphicsEngine->m_spotLights.Size(), "DestroySpotLightBuffer out of bounds");
-            ICARIAN_ASSERT_MSG(Instance->m_graphicsEngine->m_spotLights.Exists(m_addr), "DestroySpotLightBuffer already destroyed");
-
-            const SpotLightBuffer buffer = Instance->m_graphicsEngine->m_spotLights[m_addr];
-            const VulkanLightBuffer* data = (VulkanLightBuffer*)buffer.Data;
-            IDEFER(delete data);
-
-            Instance->m_graphicsEngine->m_spotLights.Erase(m_addr);
-        }
-    };
-
-    DeletionQueue::Push(new VulkanSpotLightDeletionObject(a_addr), DeletionIndex_Render);   
+        m_graphicsEngine->m_spotLights.Erase(a_addr);
+    }, DeletionIndex_Render);
 }
 void VulkanGraphicsEngineBindings::SetSpotLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_spotLights.Size(), "SetSpotLightShadowMap SpotLight out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_spotLights.Exists(a_addr), "SetSpotLightShadowMap SpotLight already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_spotLights.Size());
+    IVERIFY(m_graphicsEngine->m_spotLights.Exists(a_addr));
 
     TLockArray<SpotLightBuffer> a = m_graphicsEngine->m_spotLights.ToLockArray();
 
     const SpotLightBuffer& buffer = a[a_addr];
-    ICARIAN_ASSERT(buffer.Data != nullptr);
+    IVERIFY(buffer.Data != nullptr);
 
     VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
 
@@ -1376,8 +1316,8 @@ void VulkanGraphicsEngineBindings::SetSpotLightShadowMap(uint32_t a_addr, uint32
 
     if (a_shadowMapAddr != -1)
     {
-        ICARIAN_ASSERT_MSG(a_shadowMapAddr < m_graphicsEngine->m_depthRenderTextures.Size(), "SetSpotLightShadowMap DepthShadowMap out of bounds");
-        ICARIAN_ASSERT_MSG(m_graphicsEngine->m_depthRenderTextures.Exists(a_shadowMapAddr), "SetSpotLightShadowMap DepthShadowMap already destroyed");
+        IVERIFY(a_shadowMapAddr < m_graphicsEngine->m_depthRenderTextures.Size());
+        IVERIFY(m_graphicsEngine->m_depthRenderTextures.Exists(a_shadowMapAddr));
 
         if (renderTextures == nullptr)
         {
@@ -1396,11 +1336,11 @@ void VulkanGraphicsEngineBindings::SetSpotLightShadowMap(uint32_t a_addr, uint32
 }
 uint32_t VulkanGraphicsEngineBindings::GetSpotLightShadowMap(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_spotLights.Size(), "GetSpotLightShadowMap SpotLight out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_spotLights.Exists(a_addr), "GetSpotLightShadowMap SpotLight already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_spotLights.Size());
+    IVERIFY(m_graphicsEngine->m_spotLights.Exists(a_addr));
 
     const SpotLightBuffer& buffer = m_graphicsEngine->m_spotLights[a_addr];
-    ICARIAN_ASSERT(buffer.Data != nullptr);
+    IVERIFY(buffer.Data != nullptr);
 
     const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
     if (lightBuffer->LightRenderTextureCount == 0)

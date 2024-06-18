@@ -75,7 +75,7 @@ void main()
     vec4 sP = shadowLightBuffer.LVP * mP;
     sP /= sP.w;
     vec4 sPP = sP * 0.5 + 0.5;
-    float sD = texture(shadowSampler, sPP.xy).x + 0.0001;
+    float sD = texture(shadowSampler, sPP.xy).x;
     float sN = NearPlane * lCa.z / (lCa.z + sD * (NearPlane - lCa.z));
 
     vec3 vD = lP - mP.xyz;
