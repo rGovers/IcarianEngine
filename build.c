@@ -241,10 +241,10 @@ int main(int a_argc, char** a_argv)
 
     CUBE_CommandLine commandLine = { 0 };
 
-    CUBE_String_AppendC(&commandLine.Path, "IcarianNative/lib/SPIRV-Tools");
+    CUBE_String_AppendC(&commandLine.Path, "IcarianNative/lib/glslang");
     CUBE_String_AppendC(&commandLine.Command, "python3");
 
-    CUBE_CommandLine_AppendArgumentC(&commandLine, "utils/git-sync-deps");
+    CUBE_CommandLine_AppendArgumentC(&commandLine, "update_glslang_sources.py");
 
     int retCode = CUBE_CommandLine_Execute(&commandLine, &lines, &lineCount);
 

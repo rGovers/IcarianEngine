@@ -12,6 +12,7 @@ extern "C" {
 
 const static char* IcarianNativeShaderBasePaths[] =
 {
+    "shaders/AmbientOcclusion.fpix",
     "shaders/AmbientLight.fpix",
     "shaders/Blend.fpix",
     "shaders/DirectionalLight.fpix",
@@ -95,6 +96,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "GLM_FORCE_QUAT_DATA_XYZW",
         "GLM_FORCE_DEPTH_ZERO_TO_ONE",
         "GLM_FORCE_RADIANS",
+        "ENABLE_OPT=1",
         "AL_LIBTYPE_STATIC",
         "KHRONOS_STATIC",
         "LIBKTX",
@@ -321,9 +323,9 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "lib/enet/build/enet.lib",
             "lib/glslang/build/glslang.lib",
             "lib/glslang/build/SPIRV.lib",
+            "lib/glslang/External/spirv-tools/build/SPIRV-Tools.lib",
             "lib/JoltPhysics/build/Jolt.lib",
-            "lib/openal-soft/build/OpenALSoft.lib",
-            "lib/SPIRV-Tools/build/SPIRV-Tools.lib"
+            "lib/openal-soft/build/OpenALSoft.lib"
         );
 
         CUBE_CProject_AppendReference(&project, "gdi32");
@@ -363,9 +365,9 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "lib/enet/build/libenet.a",
             "lib/glslang/build/libglslang.a",
             "lib/glslang/build/libSPIRV.a",
+            "lib/glslang/External/spirv-tools/build/libSPIRV-Tools.a",
             "lib/JoltPhysics/build/libJolt.a",
-            "lib/openal-soft/build/libOpenALSoft.a",
-            "lib/SPIRV-Tools/build/libSPIRV-Tools.a"
+            "lib/openal-soft/build/libOpenALSoft.a"
         );
 
         CUBE_CProject_AppendReference(&project, "vulkan");

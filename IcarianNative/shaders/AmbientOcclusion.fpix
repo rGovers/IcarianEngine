@@ -1,0 +1,81 @@
+#version 450
+
+layout(location = 0) in vec2 vUV;
+
+#!texture(0, normalSampler)
+#!texture(1, depthSampler)
+
+#!structure(CameraBuffer, 2, camBuffer)
+
+layout(location = 0) out vec4 fragColor;
+
+const int samples = 6;
+const float radius = 0.25;
+
+// Credit: https://gist.github.com/patriciogonzalezvivo/670c22f3966e662d2f83
+float rand(float a_n)
+{
+    return fract(sin(a_n) * 43758.5453123);
+}
+
+float noise(float a_p)
+{
+	float fl = floor(a_p);
+    float fc = fract(a_p);
+
+	return mix(rand(fl), rand(fl + 1.0), fc);
+}
+
+float linearDepth(float a_d, float a_n, float a_f)
+{
+    return a_n * a_f / (a_f + a_d * (a_n - a_f));
+}
+
+// Credit: https://lettier.github.io/3d-game-shaders-for-beginners/ssao.html
+void main()
+{   
+    vec3 normal = texture(normalSampler, vUV).xyz;
+    float depth = texture(depthSampler, vUV).x;
+
+    float pL = camBuffer.Proj[2].z;
+    float pF = camBuffer.Proj[3].z;
+    float nP = pF / pL;
+    float fP = pF / (pL + 1.0);
+
+    vec4 cP = vec4(vUV * 2.0 + -1.0, depth, 1.0);
+    vec4 vP = camBuffer.InvProj * cP;
+    vP /= vP.w;
+    vec4 mP = camBuffer.InvView * vP;
+
+    vec3 r = vec3(rand(0.5 + gl_FragCoord.x * gl_FragCoord.y * 1.83), rand(1.5 + gl_FragCoord.y * gl_FragCoord.x * 1.34), 0.5) * 2 + -1;
+
+    vec3 tg = normalize(r - normal * dot(r, normal));
+    vec3 bt = cross(normal, tg);
+    mat3 tbn = mat3(tg, bt, normal);
+
+    float o = 0.0;
+    #!preloop(iter, 0, 6,
+    {
+        vec3 rS = normalize(vec3(noise((iter + 1) * 1.83) * 2 + -1, noise((iter + 2) * 1.34) * 2 + -1, noise(iter)));
+
+        vec3 sD = tbn * rS;
+        vec3 sP = mP.xyz + sD * radius;
+
+        vec4 pP = camBuffer.ViewProj * vec4(sP, 1.0);
+        pP /= pP.w;
+
+        vec2 oP = pP.xy * 0.5 + 0.5;
+
+        float dV = texture(depthSampler, oP).x;
+
+        float oC = max(sign(pP.z - dV - 0.00001), 0.0);
+
+        float lP = linearDepth(pP.z, nP, fP);
+        float lD = linearDepth(dV, nP, fP);
+
+        o += oC * smoothstep(0.0, 1.0, radius / abs(lP - lD));
+    })
+    o /= samples;
+
+    fragColor = vec4(o.xxx, 1.0);
+}

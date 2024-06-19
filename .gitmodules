@@ -31,9 +31,6 @@
 [submodule "deps/miniz"]
 	path = deps/miniz
 	url = https://github.com/richgel999/miniz.git
-[submodule "IcarianNative/lib/SPIRV-Tools"]
-	path = IcarianNative/lib/SPIRV-Tools
-	url = https://github.com/KhronosGroup/SPIRV-Tools.git
 [submodule "deps/tinygltf"]
 	path = deps/tinygltf
 	url = https://github.com/syoyo/tinygltf.git

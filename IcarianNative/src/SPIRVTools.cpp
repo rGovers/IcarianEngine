@@ -1,8 +1,8 @@
 #include "Rendering/SPIRVTools.h"
 
-#include <spirv-tools/optimizer.hpp>
-
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
+
+#include <SPIRV/SpvTools.h>
 
 #include "Trace.h"
 
@@ -14,10 +14,9 @@ void spirv_destroy()
 {
     glslang::FinalizeProcess();   
 }
-TBuiltInResource spirv_create_resources()
+constexpr TBuiltInResource spirv_create_resources()
 {
-    TBuiltInResource resource;
-    memset(&resource, 0, sizeof(resource));
+    TBuiltInResource resource = { 0 };
 
     resource.maxLights = 32;
 	resource.maxClipPlanes = 6;
@@ -122,7 +121,7 @@ TBuiltInResource spirv_create_resources()
 
     return resource;
 }
-std::vector<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str, bool a_optimize)
+std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str, bool a_optimize)
 {
 	constexpr EShMessages Messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
 
@@ -136,9 +135,8 @@ std::vector<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const std::string_view&
 	};
     shader.setStrings(strs, 1);
 
-    const TBuiltInResource resource = spirv_create_resources();
-
-    if (!shader.parse(&resource, 100, false, Messages))
+    constexpr TBuiltInResource Resource = spirv_create_resources();
+    if (!shader.parse(&Resource, 100, true, Messages))
     {
 		IERROR(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(a_str));
 
@@ -155,26 +153,22 @@ std::vector<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const std::string_view&
 		return std::vector<uint32_t>();
     }
 
-	std::vector<uint32_t> spirv;
+	std::vector<unsigned int> spirv;
 	spirv.reserve(1024);
 
-    glslang::GlslangToSpv(*program.getIntermediate(a_lang), spirv);
+	glslang::SpvOptions options = 
+	{
+		.disableOptimizer = !a_optimize,
+		.validate = true
+	};
+	glslang::TIntermediate* intermediate = program.getIntermediate(a_lang);
+
+    glslang::GlslangToSpv(*intermediate, spirv, &options);
 
 	if (a_optimize)
 	{
-		// TODO: Seems to be better with not copying values back and forth however unrolling loops seems to be broken and/or shit
-		// investigate further
-		// not high priority as high level optimizations are still a bit shit
-		spvtools::Optimizer opt = spvtools::Optimizer(VulkanShaderTarget);
-
-		opt.RegisterPerformancePasses();
-
-		if (!opt.Run(spirv.data(), spirv.size(), &spirv))
-		{
-			IERROR("Failed to optimize SPIRV");
-
-			return std::vector<uint32_t>();
-		}
+		spv::SpvBuildLogger logger;
+		glslang::SpirvToolsTransform(*intermediate, spirv, &logger, &options);
 	}
 	
     TRACE("Generated SPIRV");

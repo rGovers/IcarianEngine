@@ -180,51 +180,6 @@ CUBE_CProject BuildGLSLangProject(e_TargetPlatform a_targetPlatform, e_BuildConf
     return project;
 }
 
-CUBE_CProject BuildOGLCompilersProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
-{
-    CUBE_CProject project = { 0 };
-
-    project.Name = CUBE_StackString_CreateC("OGLCompiler");
-    project.Target = CUBE_CProjectTarget_StaticLibrary;
-    project.Language = CUBE_CProjectLanguage_CPP;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
-
-    if (a_configuration == BuildConfiguration_Debug)
-    {
-        CUBE_CProject_AppendDefine(&project, "DEBUG");
-    }
-    else 
-    {
-        CUBE_CProject_AppendDefine(&project, "NDEBUG");
-    }
-
-    CUBE_CProject_AppendSource(&project, "OGLCompilersDLL/InitializeDll.cpp");
-
-    switch (a_configuration)
-    {
-    case BuildConfiguration_Debug:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-g");
-
-        break;
-    }
-    case BuildConfiguration_ReleaseWithDebug:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-g");
-        CUBE_CProject_AppendCFlag(&project, "-O3");
-
-        break;
-    }
-    case BuildConfiguration_Release:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-O3");
-
-        break;
-    }
-    }
-
-    return project;
-}
 CUBE_CProject BuildSPIRVProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
@@ -242,6 +197,8 @@ CUBE_CProject BuildSPIRVProject(e_TargetPlatform a_targetPlatform, e_BuildConfig
     {
         CUBE_CProject_AppendDefine(&project, "NDEBUG");
     }
+
+    CUBE_CProject_AppendDefine(&project, "ENABLE_OPT=1");
 
     CUBE_CProject_AppendIncludePath(&project, ".");
     CUBE_CProject_AppendIncludePath(&project, "../gen/glslang/include");
@@ -303,7 +260,7 @@ CUBE_CProject BuildSPIRVToolsProject(e_TargetPlatform a_targetPlatform, e_BuildC
     CUBE_CProject_AppendIncludePath(&project, ".");
     CUBE_CProject_AppendIncludePath(&project, "./include");
     CUBE_CProject_AppendIncludePath(&project, "external/spirv-headers/include");
-    CUBE_CProject_AppendIncludePath(&project, "../gen/SPIRV-Tools/include");
+    CUBE_CProject_AppendIncludePath(&project, "../../../gen/glslang/SPIRV-Tools");
 
     CUBE_CProject_AppendSource(&project, "source/assembly_grammar.cpp");
     CUBE_CProject_AppendSource(&project, "source/binary.cpp");
@@ -432,7 +389,7 @@ CUBE_CProject BuildSPIRVToolsProject(e_TargetPlatform a_targetPlatform, e_BuildC
     CUBE_CProject_AppendSource(&project, "source/opt/instruction_list.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/instrument_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/interface_var_sroa.cpp");
-    // CUBE_CProject_AppendSource(&project, "source/opt/invocation_interlock_placement_pass.cpp");
+    CUBE_CProject_AppendSource(&project, "source/opt/invocation_interlock_placement_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/interp_fixup_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/ir_context.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/ir_loader.cpp");
@@ -480,8 +437,8 @@ CUBE_CProject BuildSPIRVToolsProject(e_TargetPlatform a_targetPlatform, e_BuildC
     CUBE_CProject_AppendSource(&project, "source/opt/strip_debug_info_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/strip_nonsemantic_info_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/struct_cfg_analysis.cpp");
-    // CUBE_CProject_AppendSource(&project, "source/opt/switch_descriptorset_pass.cpp");
-    // CUBE_CProject_AppendSource(&project, "source/opt/trim_capabilities_pass.cpp");
+    CUBE_CProject_AppendSource(&project, "source/opt/switch_descriptorset_pass.cpp");
+    CUBE_CProject_AppendSource(&project, "source/opt/trim_capabilities_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/type_manager.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/types.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/unify_const_pass.cpp");
@@ -989,7 +946,7 @@ DependencyProject* BuildIcarianNativeIDependencies(CBUINT32* a_count, e_TargetPl
     projects[2].WorkingDirectory = "IcarianNative/lib/glslang";
 
     projects[3].Project = BuildSPIRVToolsProject(a_targetPlatform, a_configuration);
-    projects[3].WorkingDirectory = "IcarianNative/lib/SPIRV-Tools";
+    projects[3].WorkingDirectory = "IcarianNative/lib/glslang/External/spirv-tools";
 
     projects[4].Project = BuildJoltPhysicsProject(a_targetPlatform, a_configuration);
     projects[4].WorkingDirectory = "IcarianNative/lib/JoltPhysics";

@@ -25,6 +25,10 @@ const char* GetPixelShaderString(const std::string_view& a_str)
     // We have constexpr in this day and age
     switch (StringHash(a_str.data()) )
     {
+    case StringHash("AmbientOcclusion"):
+    {
+        return AmbientOcclusionPixelShader;
+    }
     case StringHash("AmbientLight"):
     {
         return AmbientLightPixelShader;

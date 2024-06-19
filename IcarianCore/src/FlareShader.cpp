@@ -153,31 +153,82 @@
 
 namespace IcarianCore
 {
-    static std::vector<std::string> SplitArgs(const std::string_view& a_string)
+    static uint32_t SplitArgs(const std::string_view& a_string, std::vector<std::string>* a_args)
     {
-    	std::vector<std::string> args;
+        const char* start = a_string.data();
+        const char* iter = start;
+        const char* prevIter = start;
+
+        const uint32_t len = (uint32_t)a_string.length();
+
+        int32_t block = 0;
+        int32_t scope = 1;
+        while (true)
+        {
+            if (iter - start >= len)
+            {
+                if (*iter == '}')
+                {
+                    --block;
+                }
+
+                a_args->emplace_back(a_string.substr(prevIter - start, iter - prevIter));
+                
+                ICARIAN_ASSERT(block == 0);
+
+                return iter - start + 1;
+            }
+
+            switch (*iter) 
+            {
+            case '(':
+            {
+                ++scope;
+
+                break;
+            }
+            case ')':
+            {
+                if (--scope == 0)
+                {
+                    a_args->emplace_back(a_string.substr(prevIter - start, iter - prevIter));
+
+                    ICARIAN_ASSERT(block == 0);
+
+                    return iter - start + 1;
+                }
+
+                break;
+            }
+            case '{':
+            {
+                ++block;
+
+                break;
+            }
+            case '}':
+            {
+                --block;
+
+                break;
+            }
+            case ',':
+            {
+                if (block == 0)
+                {
+                    a_args->emplace_back(a_string.substr(prevIter - start, iter - prevIter));
+
+                    prevIter = iter + 1;
+                }
+
+                break;
+            }
+            }
+
+            ++iter;
+        }
     
-    	std::size_t pos = 0;
-    	while (true)
-    	{
-    		while (a_string[pos] == ' ')
-    		{
-    			++pos;
-    		}
-    
-    		const std::size_t sPos = a_string.find(',', pos);
-    		if (sPos == std::string_view::npos)
-    		{
-    			args.emplace_back(a_string.substr(pos));
-    
-    			break;
-    		}
-    
-    		args.emplace_back(a_string.substr(pos, sPos - pos));
-    		pos = sPos + 1;
-    	}
-    
-    	return args;
+    	return -1;
     }
 
     std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error)
@@ -186,28 +237,19 @@ namespace IcarianCore
 
         *a_error = std::string();
 
-        std::size_t pos = 0;
         while (true) 
         {
-            const std::size_t sPos = shader.find("#!", pos);
+            const std::size_t sPos = shader.find("#!");
             if (sPos == std::string::npos)
             {
                 break;
             }
 
             const std::size_t sAPos = shader.find('(', sPos + 1);
-            const std::size_t eApos = shader.find(')', sPos + 1);
 
-            if (sAPos == std::string::npos || eApos == std::string::npos)
+            if (sAPos == std::string::npos)
             {
                 *a_error = "Invalid Flare Shader definition: " + std::to_string(sPos);
-
-                return std::string();
-            }
-
-            if (sAPos > eApos)
-            {
-                *a_error = "Invalid Flare Shader braces: " + std::to_string(sPos);
 
                 return std::string();
             }
@@ -216,7 +258,8 @@ namespace IcarianCore
             // Could probably have a single array with a double null terminator to determine the end
             // Not an issue at the moment but could reduce allocations and jumping around in memory
             // Potential improvement if performance becomes an issue
-            const std::vector<std::string> args = SplitArgs(shader.substr(sAPos + 1, eApos - sAPos - 1));
+            std::vector<std::string> args;
+            const std::size_t eAPos = sAPos + SplitArgs(shader.data() + sAPos + 1, &args);
 
             std::string rStr;
             switch (StringHash(defName.c_str()))
@@ -455,6 +498,38 @@ namespace IcarianCore
 
                 break;
             }
+            case StringHash("preloop"):
+            {
+                if (args.size() != 4)
+                {
+                    *a_error = "Flare Shader pre loop requires 4 arguements";
+
+                    return std::string();
+                }
+
+                const std::string val = args[0];
+                const int startIndex = std::stoi(args[1]);
+                const int endIndex = std::stoi(args[2]);
+                const uint32_t size = val.size();
+
+                for (int i = startIndex; i < endIndex; ++i)
+                {
+                    const std::string valStr = std::to_string(i);
+                    std::string snippet = args[3];
+                    
+                    std::size_t index = snippet.find(val);
+                    while (index != std::string::npos)
+                    {
+                        snippet.replace(index, size, valStr);
+
+                        index = snippet.find(val);
+                    }
+
+                    rStr += snippet;
+                }
+
+                break;
+            }
             }
 
             std::size_t next = 1;
@@ -463,9 +538,7 @@ namespace IcarianCore
                 next = rStr.size();
             }
 
-            shader.replace(sPos, eApos - sPos + 1, rStr);
-
-            pos = sPos + next;
+            shader.replace(sPos, eAPos - sPos + 1, rStr);
         }
 
         return shader;
