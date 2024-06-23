@@ -138,13 +138,6 @@ namespace IcarianEngine.Maths
             }
         }
 
-        /// <summary>
-        /// Constructor
-        /// </summary>
-        /// <param name="a_x">X component</param>
-        /// <param name="a_y">Y component</param>
-        /// <param name="a_z">Z component</param>
-        /// <param name="a_w">W component</param>
         public Quaternion(float a_x, float a_y, float a_z, float a_w)
         {
             X = a_x;
@@ -152,10 +145,6 @@ namespace IcarianEngine.Maths
             Z = a_z;
             W = a_w;
         }
-        /// <summary>
-        /// Constructor
-        /// </summary>
-        /// <param name="a_vec">Vector to copy</param>
         public Quaternion(Quaternion a_other)
         {
             X = a_other.X;
@@ -165,7 +154,7 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Creates a quaternion from direction vectors
+        /// Creates a Quaternion from direction vectors
         /// </summary>
         /// <param name="a_right">Right vector</param>
         /// <param name="a_up">Up vector</param>
@@ -173,54 +162,83 @@ namespace IcarianEngine.Maths
         /// <returns>The Quaternion</returns>
         public static Quaternion FromDirectionVectors(Vector3 a_right, Vector3 a_up, Vector3 a_forward)
         {
-            float tr = a_right.X + a_up.Y + a_forward.Z;
+            // Credit to glm quaternion
+            // 3 direction vectors are basically a mat3
+            // Someone is gonna throw semantics
+            float xSqrInv = a_right.X - a_up.Y - a_forward.Z;
+            float ySqrInv = a_up.Y - a_right.X - a_forward.Z;
+            float zSqrInv = a_forward.Z - a_right.X - a_up.Y;
+            float wSqrInv = a_right.X + a_up.Y + a_forward.Z;
 
-            if (tr > 0)
+            uint maxIndex = 0;
+            float maxValSqr = wSqrInv;
+            
+            if (xSqrInv > maxValSqr)
             {
-                float s = Mathf.Sqrt(1 + tr) * 2;
-
-                return new Quaternion
-                (
-                    (a_forward.Y - a_up.Z) / s,
-                    (a_right.Z - a_forward.X) / s,
-                    (a_up.X - a_right.Y) / s,
-                    s * 0.25f
-                );
+                maxValSqr = xSqrInv;
+                maxIndex = 1;
             }
-            else if (a_right.X > a_up.Y && a_forward.X > a_forward.Z)
+            if (ySqrInv > maxValSqr)
             {
-                float s = Mathf.Sqrt(1 + a_right.X - a_up.Y - a_forward.Z) * 2;
-
-                return new Quaternion
-                (
-                    s * 0.25f,
-                    (a_right.Y + a_up.X) / s,
-                    (a_right.Z + a_forward.X) / s,
-                    (a_forward.Y - a_up.Z) / s
-                );
+                maxValSqr = ySqrInv;
+                maxIndex = 2;
             }
-            else if (a_up.Y > a_forward.Z)
+            if (zSqrInv > maxValSqr)
             {
-                float s = Mathf.Sqrt(1 + a_up.Y - a_right.X - a_forward.Z) * 2;
-
-                return new Quaternion
-                (
-                    (a_right.Y + a_up.X) / s,
-                    s * 0.25f,
-                    (a_up.Z + a_forward.Y) / s,
-                    (a_right.Z - a_forward.X) / s
-                );
+                maxValSqr = zSqrInv;
+                maxIndex = 3;
             }
 
-            float sV = Mathf.Sqrt(1 + a_forward.Z - a_right.X - a_up.Y) * 2;
+            float val = Mathf.Sqrt(maxValSqr + 1.0f) * 0.5f;
+            float mul = 0.25f / val;
 
-            return new Quaternion
-            (
-                (a_right.Z + a_forward.X) / sV,
-                (a_up.Z + a_forward.Y) / sV,
-                sV * 0.25f,
-                (a_up.X - a_right.Y) / sV
-            );
+            switch (maxIndex)
+            {
+            case 0:
+            {
+                return new Quaternion
+                (
+                    (a_up.Z - a_forward.Y) * mul,
+                    (a_forward.X - a_right.Z) * mul,
+                    (a_right.Y - a_up.X) * mul,
+                    val
+                );
+            }
+            case 1:
+            {
+                return new Quaternion
+                (
+                    val,
+                    (a_right.Y + a_up.X) * mul,
+                    (a_forward.X + a_right.Z) * mul,
+                    (a_up.Z - a_forward.Y) * mul
+                );
+            }
+            case 2:
+            {
+                return new Quaternion
+                (
+                    (a_right.Y + a_up.X) * mul,
+                    val,
+                    (a_up.Z + a_forward.Y) * mul,
+                    (a_forward.X - a_right.Z) * mul
+                );
+            }
+            case 3:
+            {
+                return new Quaternion
+                (
+                    (a_forward.X + a_right.Z) * mul,
+                    (a_up.Z + a_forward.Y) * mul,
+                    val,
+                    (a_right.Y - a_up.X) * mul
+                );
+            }
+            }
+
+            Logger.IcarianError("Invalid direction vector quaternion");
+
+            return Quaternion.Identity;
         }
         /// <summary>
         /// Creates a quaternion from a rotation matrix

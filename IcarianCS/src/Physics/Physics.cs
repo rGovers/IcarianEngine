@@ -13,9 +13,17 @@ namespace IcarianEngine.Physics
     public struct RaycastResult
     {
         /// <summary>
+        /// The fraction along the ray
+        /// </summary>
+        public float Fraction;
+        /// <summary>
         /// The position of the hit
         /// </summary>
         public Vector3 Position;
+        /// <summary>
+        /// The normal of the hit
+        /// </summary>
+        public Vector3 Normal;
         /// <summary>
         /// The body that was hit
         /// </summary>
@@ -88,7 +96,9 @@ namespace IcarianEngine.Physics
 
                 for (int i = 0; i < count; ++i)
                 {
+                    a_hits[i].Fraction = result[i].Fraction;
                     a_hits[i].Position = result[i].Position;
+                    a_hits[i].Normal = result[i].Normal;
                     a_hits[i].Body = PhysicsBody.GetBody(result[i].BodyAddr);
                 }
 
@@ -113,34 +123,27 @@ namespace IcarianEngine.Physics
             if (Raycast(a_pos, a_dir, a_distance, out results))
             {
                 uint count = (uint)results.LongLength;
-                float[] distances = new float[count];
                 a_hits = new RaycastResult[count];
 
                 for (uint i = 0; i < count; ++i)
                 {
-                    Vector3 hitPos = results[i].Position;
-
-                    Vector3 vecTo = hitPos - a_pos;
-                    float dist = vecTo.Magnitude;
+                    float frac = results[i].Fraction;
 
                     for (uint j = 0; j < i; ++j)
                     {
-                        if (dist < distances[j])
+                        if (frac < a_hits[j].Fraction)
                         {
-                            for (uint k = j; k < i; ++k)
+                            for (uint k = i; k > j; --k)
                             {
-                                distances[k + 1] = distances[k];
-                                a_hits[k + 1] = a_hits[k];
+                                a_hits[k] = a_hits[k - 1];
                             }
 
-                            distances[j] = dist;
                             a_hits[j] = results[i];
 
                             goto NextIter;
                         }
                     }
 
-                    distances[i] = dist;
                     a_hits[i] = results[i];
 
                     NextIter:;

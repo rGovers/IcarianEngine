@@ -12,7 +12,9 @@ namespace IcarianEngine.Physics {
 
 IOP_PACKED IOP_CSINTERNAL struct RaycastResultBuffer
 {
+    IOP_CSPUBLIC float Fraction;
     IOP_CSPUBLIC IOP_VEC3 Position;
+    IOP_CSPUBLIC IOP_VEC3 Normal;
     IOP_CSPUBLIC IOP_UINT32 BodyAddr;
 };
 

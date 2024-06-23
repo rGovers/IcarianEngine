@@ -24,7 +24,6 @@
 #include <Jolt/Physics/EActivation.h>
 
 #include "Core/Bitfield.h"
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "IcarianError.h"
 #include "ObjectManager.h"
@@ -176,6 +175,7 @@ uint32_t PhysicsEngineBindings::CreateCylinderShape(float a_height, float a_radi
     const JPH::CylinderShapeSettings cylinderSettings = JPH::CylinderShapeSettings(a_height * 0.5f, a_radius);
     const JPH::ShapeSettings::ShapeResult result = cylinderSettings.Create();
     IVERIFY(result.IsValid());
+    IVERIFY(!result.HasError());
 
     return m_engine->m_collisionShapes.PushVal(result);
 }
@@ -732,13 +732,23 @@ RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, cons
         *a_resultCount = collector.Results.Size();
         RaycastResultBuffer* results = new RaycastResultBuffer[*a_resultCount];
 
+        const JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
+
         for (uint32_t i = 0; i < *a_resultCount; ++i)
         {
             const JPH::RayCastResult& res = collector.Results[i];
 
             const JPH::Vec3 pos = ray.GetPointOnRay(res.mFraction);
 
+            JPH::RefConst<JPH::Shape> shape = interface.GetShape(res.mBodyID);
+
+            const JPH::RMat44 mat = interface.GetWorldTransform(res.mBodyID);
+            const JPH::RMat44 invMat = mat.Inversed();
+            const JPH::Vec3 normal = shape->GetSurfaceNormal(res.mSubShapeID2, invMat * pos);
+
+            results[i].Fraction = res.mFraction;
             results[i].Position = glm::vec3(pos.GetX(), pos.GetY(), pos.GetZ());
+            results[i].Normal = glm::vec3(normal.GetX(), normal.GetY(), normal.GetZ());
             results[i].BodyAddr = m_engine->GetBodyAddr(res.mBodyID.GetIndex());
         }
 

@@ -309,14 +309,17 @@ namespace IcarianEngine.Rendering
             {
                 userUBO = Activator.CreateInstance(t);
 
-                foreach (UBOField field in a_def.UniformBufferFields)
+                if (a_def.UniformBufferFields != null)
                 {
-                    FieldInfo info = t.GetField(field.Name);
-                    if (info != null)
+                    foreach (UBOField field in a_def.UniformBufferFields)
                     {
-                        Type fieldType = info.FieldType;
+                        FieldInfo info = t.GetField(field.Name);
+                        if (info == null)
+                        {
+                            continue;
+                        }
 
-                        object value = MaterialDef.UBOValueToObject(fieldType, field.Value);
+                        object value = MaterialDef.UBOValueToObject(info.FieldType, field.Value);
 
                         info.SetValue(userUBO, value);
                     }

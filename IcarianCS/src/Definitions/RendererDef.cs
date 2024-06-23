@@ -18,14 +18,14 @@ namespace IcarianEngine.Definitions
 
             if (!ComponentType.IsSubclassOf(typeof(Renderer)))
             {
-                Logger.IcarianError($"RendererDef Invalid ComponentType: {ComponentType}");
+                Logger.IcarianError($"RendererDef {DefName} Invalid ComponentType: {ComponentType}");
 
                 return;
             }
 
             if (MaterialDef == null)
             {
-                Logger.IcarianWarning("RendererDef null material");
+                Logger.IcarianWarning($"RendererDef {DefName} null material");
             }
         }
     }

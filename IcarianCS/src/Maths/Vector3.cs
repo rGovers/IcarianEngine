@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Xml;
 
@@ -171,10 +172,12 @@ namespace IcarianEngine.Maths
         /// </summary>
         public float U
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 return X;
             }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
                 X = value;
@@ -185,10 +188,12 @@ namespace IcarianEngine.Maths
         /// </summary>
         public float V
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 return Y;
             }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
                 Y = value;
@@ -199,10 +204,12 @@ namespace IcarianEngine.Maths
         /// </summary>
         public float W
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 return Z;
             }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
                 Z = value;
@@ -214,10 +221,12 @@ namespace IcarianEngine.Maths
         /// </summary>
         public float R
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 return X;
             }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
                 X = value;
@@ -228,10 +237,12 @@ namespace IcarianEngine.Maths
         /// </summary>
         public float G
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 return Y;
             }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
                 Y = value;
@@ -242,10 +253,12 @@ namespace IcarianEngine.Maths
         /// </summary>
         public float B
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 return Z;
             }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
                 Z = value;
@@ -257,6 +270,7 @@ namespace IcarianEngine.Maths
         /// </summary>
         public float this[int a_key]
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 switch (a_key)
@@ -283,6 +297,7 @@ namespace IcarianEngine.Maths
 
                 return float.NaN;
             }
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             set
             {
                 switch (a_key)
@@ -320,6 +335,7 @@ namespace IcarianEngine.Maths
         /// </summary>
         public float MagnitudeSqr
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 return X * X + Y * Y + Z * Z;
@@ -331,60 +347,42 @@ namespace IcarianEngine.Maths
         /// </summary>
         public float Magnitude
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 return Mathf.Sqrt(MagnitudeSqr);
             }
         }
 
-        /// <summary>
-        /// Constructor for the vector
-        /// </summary>
-        /// <param name="a_val">The value for all components</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector3(float a_val)
         {
             X = a_val;
             Y = a_val;   
             Z = a_val;
         }
-        /// <summary>
-        /// Constructor for the vector
-        /// </summary>
-        /// <param name="a_x">The X component of the vector</param>
-        /// <param name="a_y">The Y component of the vector</param>
-        /// <param name="a_z">The Z component of the vector</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector3(float a_x, float a_y, float a_z)
         {
             X = a_x;
             Y = a_y;
             Z = a_z;
         }
-        /// <summary>
-        /// Constructor for the vector
-        /// </summary>
-        /// <param name="a_xy">The XY components of the vector</param>
-        /// <param name="a_z">The Z component of the vector</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector3(Vector2 a_xy, float a_z)
         {
             X = a_xy.X;
             Y = a_xy.Y;
             Z = a_z;
         }
-        /// <summary>
-        /// Constructor for the vector
-        /// </summary>
-        /// <param name="a_x">The X component of the vector</param>
-        /// <param name="a_yz">The YZ components of the vector</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector3(float a_x, Vector2 a_yz)
         {
             X = a_x;
             Y = a_yz.X;
             Z = a_yz.Y;
         }
-        /// <summary>
-        /// Constructor for the vector
-        /// </summary>
-        /// <param name="a_xyz">Vector to copy</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector3(Vector3 a_other)
         {
             X = a_other.X;
@@ -392,49 +390,60 @@ namespace IcarianEngine.Maths
             Z = a_other.Z;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static explicit operator Vector3(IVector3 a_vec)
         {
             return new Vector3(a_vec.X, a_vec.Y, a_vec.Z);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 operator -(Vector3 a_vec)
         {
             return new Vector3(-a_vec.X, -a_vec.Y, -a_vec.Z);
         }
         
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 operator +(Vector3 a_lhs, Vector3 a_rhs)
         {
             return new Vector3(a_lhs.X + a_rhs.X, a_lhs.Y + a_rhs.Y, a_lhs.Z + a_rhs.Z);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 operator -(Vector3 a_lhs, Vector3 a_rhs)
         {
             return new Vector3(a_lhs.X - a_rhs.X, a_lhs.Y - a_rhs.Y, a_lhs.Z - a_rhs.Z);   
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 operator *(Vector3 a_lhs, float a_rhs)
         {
             return new Vector3(a_lhs.X * a_rhs, a_lhs.Y * a_rhs, a_lhs.Z * a_rhs);
-        }        
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 operator /(Vector3 a_lhs, float a_rhs)
         {
             return new Vector3(a_lhs.X / a_rhs, a_lhs.Y / a_rhs, a_lhs.Z / a_rhs);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 operator %(Vector3 a_lhs, float a_rhs)
         {
             return new Vector3(a_lhs.X % a_rhs, a_lhs.Y % a_rhs, a_lhs.Z % a_rhs);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 operator *(Vector3 a_lhs, Vector3 a_rhs)
         {
             return new Vector3(a_lhs.X * a_rhs.X, a_lhs.Y * a_rhs.Y, a_lhs.Z * a_rhs.Z);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 operator /(Vector3 a_lhs, Vector3 a_rhs)
         {
             return new Vector3(a_lhs.X / a_rhs.X, a_lhs.Y / a_rhs.Y, a_lhs.Z / a_rhs.Z);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(Vector3 a_lhs, Vector3 a_rhs)
         {
             return a_lhs.X == a_rhs.X && a_lhs.Y == a_rhs.Y && a_lhs.Z == a_rhs.Z;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(Vector3 a_lhs, Vector3 a_rhs)
         {
             return a_lhs.X != a_rhs.X || a_lhs.Y != a_rhs.Y || a_lhs.Z != a_rhs.Z;
@@ -442,7 +451,7 @@ namespace IcarianEngine.Maths
 
         public override bool Equals(object a_obj)
         {
-            if (a_obj == null || !this.GetType().Equals(a_obj.GetType()))
+            if (a_obj == null || !GetType().Equals(a_obj.GetType()))
             {
                 return false;
             }
@@ -472,6 +481,7 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// Normalizes the vector
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Normalize()
         {
             float mag = Magnitude;
@@ -483,13 +493,14 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// Gets a normalized copy of the vector
         /// </summary>
-        /// <param name="a_other">Vector to normalize</param>
+        /// <param name="a_vec">Vector to normalize</param>
         /// <returns>Normalized copy of the vector</returns>
-        public static Vector3 Normalized(Vector3 a_other)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector3 Normalized(Vector3 a_vec)
         {
-            float mag = a_other.Magnitude;
+            float mag = a_vec.Magnitude;
 
-            return new Vector3(a_other.X / mag, a_other.Y / mag, a_other.Z / mag);
+            return a_vec / mag;
         }
 
         /// <summary>
@@ -498,6 +509,7 @@ namespace IcarianEngine.Maths
         /// <param name="a_lhs">Left hand side of the dot product</param>
         /// <param name="a_rhs">Right hand side of the dot product</param>
         /// <returns>Dot product of the two vectors</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float Dot(Vector3 a_lhs, Vector3 a_rhs)
         {
             return a_lhs.X * a_rhs.X + a_lhs.Y * a_rhs.Y + a_lhs.Z * a_rhs.Z;
@@ -508,6 +520,7 @@ namespace IcarianEngine.Maths
         /// <param name="a_lhs">Left hand side of the cross product</param>
         /// <param name="a_rhs">Right hand side of the cross product</param>
         /// <returns>Cross product of the two vectors</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 Cross(Vector3 a_lhs, Vector3 a_rhs)
         {
             return new Vector3
@@ -519,12 +532,28 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
+        /// Reflects a direction along a normal
+        /// </summary>
+        /// <param name="a_dir">The input direction</param>
+        /// <param name="a_normal">The normal to reflect across</param>
+        /// <returns>The reflected vector</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Vector3 Reflect(Vector3 a_dir, Vector3 a_normal)
+        {
+            float d = Dot(a_normal, a_dir);
+            float f = -d * 2.0f;
+
+            return a_normal * f + a_dir;
+        }
+
+        /// <summary>
         /// Linearly interpolates between two vectors
         /// </summary>
         /// <param name="a_start">Start vector</param>
         /// <param name="a_end">End vector</param>
         /// <param name="a_t">Interpolation value</param>
         /// <returns>Interpolated vector</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 Lerp(Vector3 a_start, Vector3 a_end, float a_t)
         {
             return a_start + (a_end - a_start) * a_t;
@@ -537,6 +566,7 @@ namespace IcarianEngine.Maths
         /// <param name="a_end">End direction vector</param>
         /// <param name="a_t">Interpolation value</param>
         /// <returns>Interpolated vector</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 Slerp(Vector3 a_start, Vector3 a_end, float a_t)
         {
             float d = Dot(a_start, a_end);

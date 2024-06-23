@@ -21,14 +21,14 @@ namespace IcarianEngine.Definitions
 
             if (ComponentType != typeof(MeshRenderer) && !ComponentType.IsSubclassOf(typeof(MeshRenderer)))
             {
-                Logger.IcarianError($"MeshRendererDef Invalid ComponentType: {ComponentType}");
+                Logger.IcarianError($"MeshRendererDef {DefName} Invalid ComponentType: {ComponentType}");
 
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(ModelPath))
             {
-                Logger.IcarianWarning("MeshRendererDef Invalid ModelPath");
+                Logger.IcarianWarning($"MeshRendererDef {DefName} Invalid ModelPath");
             }            
         }
     }
