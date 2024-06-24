@@ -200,18 +200,23 @@ CUBE_CProject BuildSPIRVProject(e_TargetPlatform a_targetPlatform, e_BuildConfig
 
     CUBE_CProject_AppendDefine(&project, "ENABLE_OPT=1");
 
-    CUBE_CProject_AppendIncludePath(&project, ".");
-    CUBE_CProject_AppendIncludePath(&project, "../gen/glslang/include");
+    CUBE_CProject_AppendIncludePaths(&project, 
+        ".",
+        "External/spirv-tools/include",
+        "../gen/glslang/include"
+    );
 
-    CUBE_CProject_AppendSource(&project, "SPIRV/GlslangToSpv.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/InReadableOrder.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/Logger.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/SpvBuilder.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/SpvPostProcess.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/doc.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/SpvTools.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/disassemble.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/CInterface/spirv_c_interface.cpp");
+    CUBE_CProject_AppendSources(&project, 
+        "SPIRV/GlslangToSpv.cpp",
+        "SPIRV/InReadableOrder.cpp",
+        "SPIRV/Logger.cpp",
+        "SPIRV/SpvBuilder.cpp",
+        "SPIRV/SpvPostProcess.cpp",
+        "SPIRV/doc.cpp",
+        "SPIRV/SpvTools.cpp",
+        "SPIRV/disassemble.cpp",
+        "SPIRV/CInterface/spirv_c_interface.cpp"
+    );
 
     switch (a_configuration)
     {

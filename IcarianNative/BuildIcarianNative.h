@@ -126,6 +126,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "../deps/flare-tinyxml2",
         "lib/enet/include",
         "lib/glslang",
+        "lib/glslang/External/spirv-tools/include",
         "lib/JoltPhysics",
         "lib/openal-soft/include",
         "lib/SPIRV-Tools/include",
