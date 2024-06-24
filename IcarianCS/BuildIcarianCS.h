@@ -162,6 +162,8 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
         "src/Rendering/UI/UIElement.cs"
     );
 
+    CUBE_CSProject_AppendReference(&project, "System.Xml.dll");
+
     return project;
 }
 
