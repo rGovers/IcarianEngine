@@ -40,7 +40,7 @@ struct DirectoryEntry
     int32_t InodeType;
 };
 
-enum e_Error
+enum e_Error : int32_t
 {
     Error_SUCCESS = 0,
 
@@ -484,25 +484,23 @@ constexpr int32_t SystemNative_ConvertErrorPlatformToPal(int32_t a_platformError
     return Error_ENONSTANDARD;
 }
 
-static FileStatus ToFileStatus(const struct stat* a_stat)
+constexpr static FileStatus ToFileStatus(const struct stat* a_stat)
 {
-    FileStatus status;
-    memset(&status, 0, sizeof(FileStatus));
-
-    status.Dev = (int64_t)a_stat->st_dev;
-    status.Ino = (int64_t)a_stat->st_ino;
-    status.Mode = (int32_t)a_stat->st_mode;
-    status.UID = a_stat->st_uid;
-    status.GID = a_stat->st_gid;
-    status.Size = a_stat->st_size;
-
-    status.ATime = a_stat->st_atim.tv_sec;
-    status.MTime = a_stat->st_mtim.tv_sec;
-    status.CTime = a_stat->st_ctim.tv_sec;
-
-    status.ATimeNsec = a_stat->st_atim.tv_nsec;
-    status.MTimeNsec = a_stat->st_mtim.tv_nsec;
-    status.CTimeNsec = a_stat->st_ctim.tv_nsec;
+    const FileStatus status =
+    {
+        .Mode = (int32_t)a_stat->st_mode,
+        .UID = a_stat->st_uid,
+        .GID = a_stat->st_gid,
+        .Size = a_stat->st_size,
+        .ATime = a_stat->st_atim.tv_sec,
+        .ATimeNsec = a_stat->st_atim.tv_nsec,
+        .MTime = a_stat->st_mtim.tv_sec,
+        .MTimeNsec = a_stat->st_mtim.tv_nsec,
+        .CTime = a_stat->st_ctim.tv_sec,
+        .CTimeNsec = a_stat->st_ctim.tv_nsec,
+        .Dev = (int64_t)a_stat->st_dev,
+        .Ino = (int64_t)a_stat->st_ino,
+    };
 
     return status;
 }   
@@ -611,7 +609,22 @@ namespace IcarianCore
 
     MonoNativeImpl::MonoNativeImpl()
     {
+#ifndef WIN32
+        m_functions.emplace("SystemNative_ConvertErrorPlatformToPal", (void*)SystemNative_ConvertErrorPlatformToPal);
 
+        m_functions.emplace("SystemNative_Stat2", (void*)SystemNative_Stat2);
+        m_functions.emplace("SystemNative_LStat2", (void*)SystemNative_LStat2);
+
+        m_functions.emplace("SystemNative_OpenDir", (void*)SystemNative_OpenDir);
+        m_functions.emplace("SystemNative_CloseDir", (void*)SystemNative_CloseDir);
+        m_functions.emplace("SystemNative_ReadDirR", (void*)SystemNative_ReadDirR);
+
+        m_functions.emplace("SystemNative_GetReadDirRBufferSize", (void*)SystemNative_GetReadDirRBufferSize);
+
+        m_functions.emplace("SystemNative_LChflagsCanSetHiddenFlag", (void*)SystemNative_LChflagsCanSetHiddenFlag);
+
+        m_functions.emplace("SystemNative_GetNonCryptographicallySecureRandomBytes", (void*)SystemNative_GetNonCryptographicallySecureRandomBytes);
+#endif
     }
     MonoNativeImpl::~MonoNativeImpl()
     {
@@ -623,23 +636,6 @@ namespace IcarianCore
         if (Instance == nullptr)
         {
             Instance = new MonoNativeImpl();
-
-#ifndef WIN32
-            Instance->m_functions.emplace("SystemNative_ConvertErrorPlatformToPal", (void*)SystemNative_ConvertErrorPlatformToPal);
-
-            Instance->m_functions.emplace("SystemNative_Stat2", (void*)SystemNative_Stat2);
-            Instance->m_functions.emplace("SystemNative_LStat2", (void*)SystemNative_LStat2);
-
-            Instance->m_functions.emplace("SystemNative_OpenDir", (void*)SystemNative_OpenDir);
-            Instance->m_functions.emplace("SystemNative_CloseDir", (void*)SystemNative_CloseDir);
-            Instance->m_functions.emplace("SystemNative_ReadDirR", (void*)SystemNative_ReadDirR);
-
-            Instance->m_functions.emplace("SystemNative_GetReadDirRBufferSize", (void*)SystemNative_GetReadDirRBufferSize);
-
-            Instance->m_functions.emplace("SystemNative_LChflagsCanSetHiddenFlag", (void*)SystemNative_LChflagsCanSetHiddenFlag);
-
-            Instance->m_functions.emplace("SystemNative_GetNonCryptographicallySecureRandomBytes", (void*)SystemNative_GetNonCryptographicallySecureRandomBytes);
-#endif
         }
     }
 
