@@ -178,6 +178,29 @@ public:
         memcpy(m_data + a_index, m_data + a_index + 1, (aSize - a_index) * sizeof(T));
         memset(m_data + m_size, 0, sizeof(T));
     }
+
+    void Resize(uint32_t a_size)
+    {
+        IDEFER(m_size = a_size);
+
+        if (a_size > m_capacity)
+        {
+            const uint32_t cap = a_size;
+            const uint32_t diff = cap - m_capacity;
+            IDEFER(m_capacity = cap);
+
+            m_data = (T*)realloc(m_data, sizeof(T) * cap);
+            memset(m_data + m_capacity, 0, diff * sizeof(T));
+        }
+
+        if constexpr (std::is_constructible<T>())
+        {
+            for (uint32_t i = m_size; i < a_size; ++i)
+            {
+                m_data[i] = T();
+            }
+        }
+    }
     void Reserve(uint32_t a_size)
     {
         IDEFER(m_capacity = a_size);

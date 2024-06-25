@@ -431,34 +431,43 @@ namespace IcarianEngine
             ThreadPool.PushJob(job, a_priority);
         }
 
-        void GenerateGameObject(Matrix4 a_transform, GameObjectDef a_def)
+        GameObject GenerateGameObject(Matrix4 a_transform, GameObjectDef a_def)
         {
-            GameObject obj = GameObject.FromDef(a_def);
-            if (obj != null)
+            Matrix4 t = Matrix4.FromTransform(a_def.Translation, a_def.Rotation, a_def.Scale) * a_transform;
+
+            GameObject obj = GameObject.Instantiate();
+            obj.Transform.SetMatrix(t);
+
+            if (a_def.Children != null)
             {
-                Matrix4 t = obj.Transform.ToMatrix() * a_transform;
-
-                PhysicsBody body = obj.GetComponent<PhysicsBody>();
-                if (body != null)
+                foreach (GameObjectDef def in a_def.Children)
                 {
-                    Vector3 trans;
-                    Quaternion rot;
-                    Matrix4.Decompose(t, out trans, out rot, out Vector3 _);
+                    if (def == null)
+                    {
+                        continue;
+                    }
 
-                    body.SetPosition(trans);
-                    body.SetRotation(rot);
+                    GameObject child = GenerateGameObject(Matrix4.Identity, def);
+                    child.Transform.Parent = obj.Transform;
                 }
-                else
-                {
-                    obj.Transform.SetMatrix(t);
-                }
-
-                m_objects.Add(obj);
             }
-            else
+
+            if (a_def.Components != null)
             {
-                Logger.IcarianWarning($"GenerateGameObject null obj");
+                foreach (ComponentDef def in a_def.Components)
+                {
+                    if (def == null)
+                    {
+                        continue;
+                    }
+
+                    obj.AddComponent(def);
+                }
             }
+
+            m_objects.Add(obj);
+
+            return obj;
         }
 
         /// <summary>

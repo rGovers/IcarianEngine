@@ -23,6 +23,13 @@
         { \
             Instance->DestroyFont(a_addr); \
         }); \
-    }, IOP_UINT32 a_addr)
+    }, IOP_UINT32 a_addr) \
+    F(IOP_UINT32, IcarianEngine.Rendering.UI, FontInterop, GenerateModel, \
+    { \
+        mono_unichar4* str = mono_string_to_utf32(a_str); \
+        IDEFER(mono_free(str)); \
+        return Instance->GenerateModelFromString(a_addr, std::u32string_view((char32_t*)str), a_fontSize, a_scale, a_depth); \
+    }, IOP_UINT32 a_addr, IOP_STRING a_str, float a_fontSize, float a_scale, float a_depth) \
+
 
 /// @endcond

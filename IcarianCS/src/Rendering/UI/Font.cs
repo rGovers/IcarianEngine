@@ -51,6 +51,27 @@ namespace IcarianEngine.Rendering.UI
             return new Font(FontInterop.GenerateFont(a_path));
         }
 
+        /// <summary>
+        /// Creates a <see cref="IcarianEngine.Rendering.Model" /> from a string
+        /// </summary>
+        /// <param name="a_string">The input string to make a <see cref="IcarianEngine.Rendering.Model" /> of</param>
+        /// <param name="a_fontSize">The size of the font</param>
+        /// <param name="a_scale">Scale to apply to the <see cref="IcarianEngine.Rendering.Model" /></param>
+        /// <param name="a_depth">The depth of the <see cref="IcarianEngine.Rendering.Model" /></param>
+        /// <returns>The model. Null on failure</returns>
+        public Model CreateModel(string a_string, float a_fontSize, float a_scale, float a_depth)
+        {
+            uint addr = FontInterop.GenerateModel(m_bufferAddr, a_string, a_fontSize, a_scale, a_depth);
+            if (addr == uint.MaxValue)
+            {
+                Logger.IcarianWarning("Failed to create model from string");
+
+                return null;
+            }
+
+            return new Model(addr);
+        }
+
         internal static Font GetFont(uint a_buffer)
         {
             if (s_bufferLookup.ContainsKey(a_buffer))

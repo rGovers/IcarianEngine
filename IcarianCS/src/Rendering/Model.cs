@@ -39,7 +39,7 @@ namespace IcarianEngine.Rendering
             }
         }
 
-        Model(uint a_addr)
+        internal Model(uint a_addr)
         {
             m_bufferAddr = a_addr;
         }

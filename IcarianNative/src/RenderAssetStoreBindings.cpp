@@ -4,6 +4,7 @@
 #include "DeletionQueue.h"
 #include "IcarianError.h"
 #include "Rendering/RenderAssetStore.h"
+#include "Rendering/RenderEngine.h"
 #include "Rendering/UI/Font.h"
 #include "Runtime/RuntimeManager.h"
 
@@ -51,6 +52,25 @@ void RenderAssetStoreBindings::DestroyFont(uint32_t a_addr) const
     const Font* font = m_store->m_fonts[a_addr];
     IDEFER(delete font);
     m_store->m_fonts.Erase(a_addr);
+}
+uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, const std::u32string_view& a_str, float a_fontSize, float a_scale, float a_depth) const
+{
+    IVERIFY(a_addr < m_store->m_fonts.Size());
+    IVERIFY(m_store->m_fonts.Exists(a_addr));
+
+    const Font* font = m_store->m_fonts[a_addr];
+
+    Array<Vertex> vertices;
+    Array<uint32_t> indices;
+    float radius;
+    font->StringToModel(a_str, a_fontSize, a_scale, a_depth, &vertices, &indices, &radius);
+    
+    if (radius > 0 && !vertices.Empty() && !indices.Empty())
+    {
+        return m_store->m_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), sizeof(Vertex), indices.Data(), indices.Size(), radius);
+    }
+
+    return -1;
 }
 
 uint32_t RenderAssetStoreBindings::GenerateModel(const std::filesystem::path& a_path) const
