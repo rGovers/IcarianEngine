@@ -744,7 +744,8 @@ RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, cons
 
             const JPH::RMat44 mat = interface.GetWorldTransform(res.mBodyID);
             const JPH::RMat44 invMat = mat.Inversed();
-            const JPH::Vec3 normal = shape->GetSurfaceNormal(res.mSubShapeID2, invMat * pos);
+            const JPH::RMat44 rot = mat.GetRotation();
+            const JPH::Vec3 normal = rot * shape->GetSurfaceNormal(res.mSubShapeID2, invMat * pos);
 
             results[i].Fraction = res.mFraction;
             results[i].Position = glm::vec3(pos.GetX(), pos.GetY(), pos.GetZ());

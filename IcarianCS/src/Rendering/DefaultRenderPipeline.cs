@@ -715,7 +715,7 @@ namespace IcarianEngine.Rendering
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the post processing pass is for</param>
         public override void PostProcess(Camera a_camera)
         {
-            if (m_postEffects == null)
+            if (m_postEffects == null || !a_camera.ApplyPost)
             {
                 RenderCommand.Blit(m_colorRenderTexture, a_camera.RenderTexture);
 
@@ -754,7 +754,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Called when the render pipeline is destroyed.
+        /// Called when the DefaultRenderPipeline is Disposed
         /// </summary>
         public virtual void Dispose()
         {

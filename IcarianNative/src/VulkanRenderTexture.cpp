@@ -482,6 +482,28 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
     );
 
     VKRESERR(device.createFramebuffer(&fbCreateInfo, nullptr, &m_frameBuffer));
+
+    TLockObj<vk::CommandBuffer, SpinLock>* l = m_engine->BeginSingleCommand();
+    IDEFER(m_engine->EndSingleCommand(l));
+
+    vk::CommandBuffer commandBuffer = l->Get();
+
+    for (uint32_t i = 0; i < m_textureCount; ++i)
+    {
+        const vk::ImageMemoryBarrier memoryBarrier = vk::ImageMemoryBarrier
+        (
+            vk::AccessFlags(),
+            vk::AccessFlagBits::eShaderRead,
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eShaderReadOnlyOptimal,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            m_textures[i],
+            SubresourceRange
+        );
+
+        commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eFragmentShader, vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &memoryBarrier);
+    }
 }
 
 void VulkanRenderTexture::Resize(uint32_t a_width, uint32_t a_height)

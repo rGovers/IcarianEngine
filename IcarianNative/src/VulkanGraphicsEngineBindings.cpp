@@ -548,7 +548,7 @@ void VulkanGraphicsEngineBindings::SetRenderProgram(uint32_t a_addr, const Rende
 
 uint32_t VulkanGraphicsEngineBindings::GenerateCameraBuffer(uint32_t a_transformAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_transformAddr != -1, "GenerateCameraBuffer invalid transform address")
+    IVERIFY(a_transformAddr != -1);
 
     const CameraBuffer buff = CameraBuffer(a_transformAddr);
 
@@ -560,7 +560,7 @@ uint32_t VulkanGraphicsEngineBindings::GenerateCameraBuffer(uint32_t a_transform
         size = a.Size();
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (a[i].TransformAddr != -1)
+            if (a[i].TransformAddr == -1)
             {
                 a[i] = buff;
 
@@ -576,30 +576,32 @@ uint32_t VulkanGraphicsEngineBindings::GenerateCameraBuffer(uint32_t a_transform
 }
 void VulkanGraphicsEngineBindings::DestroyCameraBuffer(uint32_t a_addr) const
 {
-    TLockArray<CameraBuffer> a = m_graphicsEngine->m_cameraBuffers.ToLockArray();
+    IVERIFY(a_addr < m_graphicsEngine->m_cameraBuffers.Size());
 
-    ICARIAN_ASSERT_MSG(a_addr < a.Size(), "DestroyCameraBuffer out of bounds")
+    TLockArray<CameraBuffer> a = m_graphicsEngine->m_cameraBuffers.ToLockArray();
     a[a_addr].TransformAddr = -1;
 }
 CameraBuffer VulkanGraphicsEngineBindings::GetCameraBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_cameraBuffers.Size(), "GetCameraBuffer out of bounds")
+    IVERIFY(a_addr < m_graphicsEngine->m_cameraBuffers.Size());
+    IVERIFY(m_graphicsEngine->m_cameraBuffers[a_addr].TransformAddr != -1);
 
     return m_graphicsEngine->m_cameraBuffers[a_addr];
 }
 void VulkanGraphicsEngineBindings::SetCameraBuffer(uint32_t a_addr, const CameraBuffer& a_buffer) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_cameraBuffers.Size(), "SetCameraBuffer out of bounds")
+    IVERIFY(a_addr < m_graphicsEngine->m_cameraBuffers.Size());
+    IVERIFY(m_graphicsEngine->m_cameraBuffers[a_addr].TransformAddr != -1);
 
     m_graphicsEngine->m_cameraBuffers.LockSet(a_addr, a_buffer);
 }
 glm::vec3 VulkanGraphicsEngineBindings::CameraScreenToWorld(uint32_t a_addr, const glm::vec3& a_screenPos, const glm::vec2& a_screenSize) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_cameraBuffers.Size(), "CameraScreenToWorld out of bounds");
+    IVERIFY(a_addr < m_graphicsEngine->m_cameraBuffers.Size());
 
     const CameraBuffer camBuf = m_graphicsEngine->m_cameraBuffers[a_addr];
 
-    ICARIAN_ASSERT_MSG(camBuf.TransformAddr != -1, "CameraScreenToWorld invalid transform");
+    IVERIFY(camBuf.TransformAddr != -1);
 
     const glm::mat4 proj = camBuf.ToProjection(a_screenSize);
     const glm::mat4 invProj = glm::inverse(proj);
@@ -613,8 +615,8 @@ glm::vec3 VulkanGraphicsEngineBindings::CameraScreenToWorld(uint32_t a_addr, con
 }
 glm::mat4 VulkanGraphicsEngineBindings::GetCameraProjectionMatrix(uint32_t a_addr, uint32_t a_width, uint32_t a_height) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_cameraBuffers.Size(), "GetCameraProjectionMatrix out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_cameraBuffers[a_addr].TransformAddr != -1, "GetCameraProjectionMatrix invalid transform");
+    IVERIFY(a_addr < m_graphicsEngine->m_cameraBuffers.Size());
+    IVERIFY(m_graphicsEngine->m_cameraBuffers[a_addr].TransformAddr != -1);
 
     const CameraBuffer camBuf = m_graphicsEngine->m_cameraBuffers[a_addr];
 
@@ -622,8 +624,8 @@ glm::mat4 VulkanGraphicsEngineBindings::GetCameraProjectionMatrix(uint32_t a_add
 }
 glm::mat4 VulkanGraphicsEngineBindings::GetCameraProjectionMatrix(uint32_t a_addr, uint32_t a_width, uint32_t a_height, float a_near, float a_far) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_cameraBuffers.Size(), "GetCameraProjectionMatrix out of bounds");
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_cameraBuffers[a_addr].TransformAddr != -1, "GetCameraProjectionMatrix invalid transform");
+    IVERIFY(a_addr < m_graphicsEngine->m_cameraBuffers.Size());
+    IVERIFY(m_graphicsEngine->m_cameraBuffers[a_addr].TransformAddr != -1);
 
     const CameraBuffer camBuf = m_graphicsEngine->m_cameraBuffers[a_addr];
 
