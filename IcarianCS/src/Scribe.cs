@@ -83,20 +83,27 @@ namespace IcarianEngine
 
                 if (language.ToLower() == "default")
                 {
-                    foreach (XmlElement e in root.ChildNodes)
+                    foreach (XmlNode node in root.ChildNodes)
                     {
-                        string name = e.Name;
+                        XmlElement element = node as XmlElement;
+                        if (element == null)
+                        {
+                            continue;
+                        }
+
+                        string name = element.Name;
                         if (!string.IsNullOrWhiteSpace(name))
                         {
                             if (Exists(name) == 0)
                             {
-                                string text = e.InnerText;
+                                string text = element.InnerText;
                                 if (text == null)
                                 {
                                     text = string.Empty;
                                 }
 
-                                SetString(name, e.InnerText);
+                                SetString(name, element.InnerText);
+
                                 if (font != null)
                                 {
                                     SetFont(name, font.BufferAddr);
@@ -105,24 +112,31 @@ namespace IcarianEngine
                         }
                         else
                         {
-                            Logger.IcarianWarning($"Invalid key name in scribe file at {a_path}");
+                            Logger.IcarianWarning($"Invalid key name in Scribe file at {a_path}");
                         }
                     }
                 }
                 else if (language.ToLower() == GetInternalLanguage().ToLower())
                 {
-                    foreach (XmlElement e in root.ChildNodes)
+                    foreach (XmlNode node in root.ChildNodes)
                     {
-                        string name = e.Name;
+                        XmlElement element = node as XmlElement;
+                        if (element == null)
+                        {
+                            continue;
+                        }
+
+                        string name = element.Name;
                         if (!string.IsNullOrWhiteSpace(name))
                         {
-                            string text = e.InnerText;
+                            string text = element.InnerText;
                             if (text == null)
                             {
                                 text = string.Empty;
                             }
 
                             SetString(name, text);
+
                             if (font != null)
                             {
                                 SetFont(name, font.BufferAddr);
@@ -130,7 +144,7 @@ namespace IcarianEngine
                         }
                         else
                         {
-                            Logger.IcarianWarning($"Invalid key name in scribe file at {a_path}");
+                            Logger.IcarianWarning($"Invalid key name in Scribe file at {a_path}");
                         }
                     }
                 }
