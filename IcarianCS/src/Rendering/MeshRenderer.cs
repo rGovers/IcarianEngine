@@ -6,16 +6,6 @@ namespace IcarianEngine.Rendering
 {
     public class MeshRenderer : Renderer, IDestroy
     {
-        bool     m_disposed = false;
-
-        bool     m_visible = true;
-
-        uint     m_bufferAddr = uint.MaxValue;
-
-        Model    m_model = null;
-
-        Material m_material = null;
-
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         extern static uint GenerateBuffer(uint a_transformAddr, uint a_materialAddr, uint a_modelAddr); 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
@@ -26,6 +16,19 @@ namespace IcarianEngine.Rendering
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         extern static void DestroyRenderStack(uint a_addr); 
 
+        bool     m_disposed = false;
+
+        bool     m_visible = true;
+
+        uint     m_bufferAddr = uint.MaxValue;
+
+        Model    m_model = null;
+
+        Material m_material = null;
+
+        /// <summary>
+        /// Whether the MeshRenderer has been Disposed/Finalised
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -34,6 +37,9 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// The Def used to create this MeshRenderer
+        /// </summary>
         public MeshRendererDef MeshRendererDef
         {
             get
@@ -42,6 +48,9 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// Whether the MeshRender is visible
+        /// </summary>
         public override bool Visible
         {
             get
@@ -67,6 +76,9 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// The <see cref="IcarianEngine.Rendering.Material" /> of the MeshRenderer
+        /// </summary>
         public override Material Material
         {
             get
@@ -84,6 +96,9 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// The <see cref="IcarianEngine.Rendering.Model" /> of the MeshRender
+        /// </summary>
         public Model Model
         {
             get
@@ -126,6 +141,9 @@ namespace IcarianEngine.Rendering
             }
         }
 
+        /// <summary>
+        /// Called when the MeshRenderer is created
+        /// </summary>
         public override void Init()
         {
             base.Init();
@@ -136,18 +154,24 @@ namespace IcarianEngine.Rendering
                 Material = AssetLibrary.GetMaterial(def.MaterialDef);
                 if (!string.IsNullOrWhiteSpace(def.ModelPath))
                 {
-                    Model = AssetLibrary.LoadModel(def.ModelPath);
+                    Model = AssetLibrary.LoadModel(def.ModelPath, def.Index);
                 }   
             }
         }
 
+        /// <summary>
+        /// Disposes of the MeshRenderer
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the MeshRenderer is Dispose/Finalised
+        /// </summary>
+        /// <param name="a_disposing">Whether was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(!m_disposed)
@@ -181,7 +205,6 @@ namespace IcarianEngine.Rendering
                 Logger.IcarianError("Multiple MeshRenderer Dispose");
             }
         }
-
         ~MeshRenderer()
         {
             Dispose(false);

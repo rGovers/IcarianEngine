@@ -56,17 +56,12 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
     );
 
     CUBE_CProject_AppendSources(&project,
-        "../deps/OpenFBX/src/ofbx.cpp",
         "../deps/flare-tinyxml2/tinyxml2.cpp",
 
-        "src/ColladaLoader.cpp",
-        "src/FBXLoader.cpp",
         "src/FlareShader.cpp",
-        "src/GLTFLoader.cpp",
         "src/InputBindings.cpp",
         "src/IPCPipe.cpp",
-        "src/MonoNativeImpl.cpp",
-        "src/OBJLoader.cpp"
+        "src/MonoNativeImpl.cpp"
     );
     
     CUBE_CProject_AppendReference(&project, "stdc++");

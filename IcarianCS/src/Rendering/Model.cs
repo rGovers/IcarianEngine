@@ -12,9 +12,9 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateModel(Array a_vertices, uint[] a_indices, ushort a_vertexSize, float a_radius); 
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateFromFile(string a_path);
+        extern static uint GenerateFromFile(string a_path, uint a_modelIndex);
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateSkinnedFromFile(string a_path);
+        extern static uint GenerateSkinnedFromFile(string a_path, uint a_modelIndex);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyModel(uint a_addr);
 
@@ -79,9 +79,9 @@ namespace IcarianEngine.Rendering
         ///     .glb
         /// @see IcarianEngine.AssetLibrary.LoadModel
         /// @see IcarianEngine.Rendering::Vertex
-        public static Model LoadModel(string a_path)
+        public static Model LoadModel(string a_path, byte a_modelIndex = byte.MaxValue)
         {
-            uint addr = GenerateFromFile(a_path);
+            uint addr = GenerateFromFile(a_path, (uint)a_modelIndex);
             if (addr != uint.MaxValue)
             {
                 return new Model(addr);
@@ -104,9 +104,9 @@ namespace IcarianEngine.Rendering
         ///     .glb
         /// @see IcarianEngine.AssetLibrary.LoadSkinnedModel
         /// @see IcarianEngine.Rendering::SkinnedVertex
-        public static Model LoadSkinnedModel(string a_path)
+        public static Model LoadSkinnedModel(string a_path, byte a_modelIndex = byte.MaxValue)
         {
-            uint addr = GenerateSkinnedFromFile(a_path);
+            uint addr = GenerateSkinnedFromFile(a_path, (uint)a_modelIndex);
             if (addr != uint.MaxValue)
             {
                 return new Model(addr);

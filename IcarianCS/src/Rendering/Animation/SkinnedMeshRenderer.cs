@@ -193,7 +193,7 @@ namespace IcarianEngine.Rendering.Animation
                 }
                 if (!string.IsNullOrWhiteSpace(def.ModelPath))
                 {
-                    Model = AssetLibrary.LoadSkinnedModel(def.ModelPath);
+                    Model = AssetLibrary.LoadSkinnedModel(def.ModelPath, def.Index);
                 }
             }
         }

@@ -21,8 +21,8 @@ public:
 
     uint32_t GenerateModelFromString(uint32_t a_addr, const std::u32string_view& a_str, float a_fontSize, float a_scale, float a_depth) const;
 
-    uint32_t GenerateModel(const std::filesystem::path& a_path) const;
-    uint32_t GenerateSkinnedModel(const std::filesystem::path& a_path) const;
+    uint32_t GenerateModel(const std::filesystem::path& a_path, uint32_t a_index) const;
+    uint32_t GenerateSkinnedModel(const std::filesystem::path& a_path, uint32_t a_index) const;
 
     uint32_t GenerateTexture(const std::filesystem::path& a_path) const;
 };

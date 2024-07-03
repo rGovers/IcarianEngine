@@ -13,8 +13,8 @@
 static RenderAssetStoreBindings* Instance = nullptr;
 
 #define RENDERASSETSTORE_BINDING_FUNCTION_TABLE(F) \
-    F(uint32_t, IcarianEngine.Rendering, Model, GenerateFromFile, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return TORENDERSTOREADDR(Instance->GenerateModel(str)); }, MonoString* a_path) \
-    F(uint32_t, IcarianEngine.Rendering, Model, GenerateSkinnedFromFile, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return TORENDERSTOREADDR(Instance->GenerateSkinnedModel(str)); }, MonoString* a_path) \
+    F(uint32_t, IcarianEngine.Rendering, Model, GenerateFromFile, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return TORENDERSTOREADDR(Instance->GenerateModel(str, a_index)); }, MonoString* a_path, uint32_t a_index) \
+    F(uint32_t, IcarianEngine.Rendering, Model, GenerateSkinnedFromFile, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return TORENDERSTOREADDR(Instance->GenerateSkinnedModel(str, a_index)); }, MonoString* a_path, uint32_t a_index) \
     \
     F(uint32_t, IcarianEngine.Rendering, Texture, GenerateFromFile, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return TORENDERSTOREADDR(Instance->GenerateTexture(str)); }, MonoString* a_path) \
 
@@ -73,13 +73,13 @@ uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, cons
     return -1;
 }
 
-uint32_t RenderAssetStoreBindings::GenerateModel(const std::filesystem::path& a_path) const
+uint32_t RenderAssetStoreBindings::GenerateModel(const std::filesystem::path& a_path, uint32_t a_index) const
 {
-    return m_store->LoadModel(a_path);
+    return m_store->LoadModel(a_path, a_index);
 }
-uint32_t RenderAssetStoreBindings::GenerateSkinnedModel(const std::filesystem::path& a_path) const
+uint32_t RenderAssetStoreBindings::GenerateSkinnedModel(const std::filesystem::path& a_path, uint32_t a_index) const
 {
-    return m_store->LoadSkinnedModel(a_path);
+    return m_store->LoadSkinnedModel(a_path, a_index);
 }
 
 uint32_t RenderAssetStoreBindings::GenerateTexture(const std::filesystem::path& a_path) const

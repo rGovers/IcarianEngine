@@ -19,6 +19,7 @@ struct RenderAsset
     std::string Path;
     uint32_t InternalAddress;
     uint16_t DeReq;
+    uint8_t Data;
     uint8_t Flags;
 };
 
@@ -57,8 +58,8 @@ public:
         return m_fonts[a_addr];
     }
 
-    uint32_t LoadModel(const std::filesystem::path& a_path);
-    uint32_t LoadSkinnedModel(const std::filesystem::path& a_path);
+    uint32_t LoadModel(const std::filesystem::path& a_path, uint32_t a_index);
+    uint32_t LoadSkinnedModel(const std::filesystem::path& a_path, uint32_t a_index);
     void DestroyModel(uint32_t a_addr);
     uint32_t GetModel(uint32_t a_addr);
 

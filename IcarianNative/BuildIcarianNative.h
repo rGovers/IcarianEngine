@@ -119,6 +119,8 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "include",
         "../EngineInterop",
         "../IcarianCore/include",
+        "../deps/assimp/include",
+        "../deps/gen/assimp",
         "../deps/flare-glfw/include",
         "../deps/flare-glm",
         "../deps/flare-stb",
@@ -319,14 +321,15 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "../deps/KTX-Software/build/ktxcpp.lib",
             "../deps/Mono/Windows/lib/mono-2.0-sgen.lib",
             "../deps/Mono/Windows/lib/MonoPosixHelper.lib",
-            "../deps/OpenFBX/build/OpenFBXLibDeflate.lib",
+            "../deps/assimp/build/assimp.lib",
+            "../deps/assimp/contrib/unzip/build/unzip.lib",
 
-            "lib/enet/build/enet.lib",
-            "lib/glslang/build/glslang.lib",
-            "lib/glslang/build/SPIRV.lib",
-            "lib/glslang/External/spirv-tools/build/SPIRV-Tools.lib",
-            "lib/JoltPhysics/build/Jolt.lib",
-            "lib/openal-soft/build/OpenALSoft.lib"
+            "./lib/enet/build/enet.lib",
+            "./lib/glslang/build/glslang.lib",
+            "./lib/glslang/build/SPIRV.lib",
+            "./lib/glslang/External/spirv-tools/build/SPIRV-Tools.lib",
+            "./lib/JoltPhysics/build/Jolt.lib",
+            "./lib/openal-soft/build/OpenALSoft.lib"
         );
 
         CUBE_CProject_AppendReference(&project, "gdi32");
@@ -336,6 +339,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         CUBE_CProject_AppendReference(&project, "winmm");
         CUBE_CProject_AppendReference(&project, "ole32");
         CUBE_CProject_AppendReference(&project, "xinput");
+        CUBE_CProject_AppendReference(&project, "z");
 
         // Magic string to get std library to link with MinGW
         CUBE_CProject_AppendCFlag(&project, "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic");
@@ -361,22 +365,22 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "../deps/KTX-Software/build/libktxc.a",
             "../deps/KTX-Software/build/libktxcpp.a",
             "../deps/Mono/Linux/lib/libmonosgen-2.0.a",
-            "../deps/OpenFBX/build/libOpenFBXLibDeflate.a",
+            "../deps/assimp/build/libassimp.a",
+            "../deps/assimp/contrib/unzip/build/libunzip.a",
 
-            "lib/enet/build/libenet.a",
-            "lib/glslang/build/libglslang.a",
-            "lib/glslang/build/libSPIRV.a",
-            "lib/glslang/External/spirv-tools/build/libSPIRV-Tools.a",
-            "lib/JoltPhysics/build/libJolt.a",
-            "lib/openal-soft/build/libOpenALSoft.a"
+            "./lib/enet/build/libenet.a",
+            "./lib/glslang/build/libglslang.a",
+            "./lib/glslang/build/libSPIRV.a",
+            "./lib/glslang/External/spirv-tools/build/libSPIRV-Tools.a",
+            "./lib/JoltPhysics/build/libJolt.a",
+            "./lib/openal-soft/build/libOpenALSoft.a"
         );
 
         CUBE_CProject_AppendReference(&project, "vulkan");
-        CUBE_CProject_AppendReference(&project, "z");
-
         CUBE_CProject_AppendReference(&project, "stdc++");
         CUBE_CProject_AppendReference(&project, "atomic");
         CUBE_CProject_AppendReference(&project, "m");
+        CUBE_CProject_AppendReference(&project, "z");
 
         break;
     }

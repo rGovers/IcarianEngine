@@ -21,6 +21,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     CUBE_CSProject_AppendSources(&project, 
         "src/Application.cs",
         "src/AssetLibrary.cs",
+        "src/AssetLibrary.Containers.cs",
         "src/Component.cs",
         "src/EditorPathStringAttribute.cs",
         "src/EditorTooltipAttribute.cs",

@@ -1,8 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <filesystem>
-#include <mono/metadata/object.h>
 
 #include "Rendering/AnimationController.h"
 
@@ -26,8 +24,4 @@ public:
     void DestroySkeletonBuffer(uint32_t a_addr) const;
     void ClearSkeletonBuffer(uint32_t a_addr) const;
     void PushSkeletonBoneData(uint32_t a_addr, uint32_t a_transformIndex, const glm::mat4& a_inverseBindPose) const;
-
-    MonoArray* LoadColladaAnimation(const std::filesystem::path& a_path) const;
-    MonoArray* LoadFBXAnimation(const std::filesystem::path& a_path) const;
-    MonoArray* LoadGLTFAnimation(const std::filesystem::path& a_path) const;
 };

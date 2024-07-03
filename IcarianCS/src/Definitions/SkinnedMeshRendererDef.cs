@@ -16,6 +16,12 @@ namespace IcarianEngine.Definitions
         [EditorTooltip("Path relative to the project for the model file to be used"), EditorPathString(new string[] { ".dae", ".fbx", ".glb", ".gltf" })]
         public string ModelPath;
 
+        /// <summary>
+        /// The mesh index to load
+        /// </summary>
+        [EditorTooltip("The mesh index to load")]
+        public byte Index;
+
         public SkinnedMeshRendererDef()
         {
             ComponentType = typeof(SkinnedMeshRenderer);

@@ -19,7 +19,7 @@
     } \
     default: \
     { \
-        ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform"); \
+        ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform"); \
         break; \
     } \
     }
@@ -39,7 +39,7 @@
     } \
     default: \
     { \
-        ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform"); \
+        ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform"); \
         break; \
     } \
     }
@@ -59,7 +59,7 @@
     } \
     default: \
     { \
-        ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform"); \
+        ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform"); \
         break; \
     } \
     }
@@ -79,7 +79,7 @@
     } \
     default: \
     { \
-        ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform"); \
+        ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform"); \
         break; \
     } \
     }
@@ -391,7 +391,7 @@ namespace IcarianCore
                 }
                 default: 
                 {
-                    ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform");
+                    ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform");
 
                     break;
                 }
@@ -433,7 +433,7 @@ namespace IcarianCore
                 }
                 default:
                 {
-                    ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform");
+                    ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform");
 
                     break;
                 }
@@ -474,7 +474,7 @@ namespace IcarianCore
                 }
                 default:
                 {
-                    ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform");
+                    ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform");
 
                     break;
                 }

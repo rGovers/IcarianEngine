@@ -7,7 +7,6 @@ using IcarianEngine.Rendering.Animation;
 using IcarianEngine.Rendering.UI;
 using System;
 using System.Collections.Concurrent;
-using System.Threading;
 
 namespace IcarianEngine
 {
@@ -22,642 +21,73 @@ namespace IcarianEngine
         Failed
     }
 
-    /// @cond INTERNAL
-    class LoadAudioClipThreadJob : IThreadJob
-    {
-        ConcurrentDictionary<string, AudioClipContainer> m_clips;
-        string                                           m_path;
-        AssetLibrary.LoadAudioClipCallback               m_callback;
-
-        public LoadAudioClipThreadJob(ConcurrentDictionary<string, AudioClipContainer> a_clips, string a_path, AssetLibrary.LoadAudioClipCallback a_callback)
-        {
-            m_clips = a_clips;
-            m_path = a_path;
-            m_callback = a_callback;
-        }
-
-        public void Execute()
-        {
-            LoadStatus status;
-
-            AudioClip clip = AssetLibrary.LoadInternalData<AudioClip, AudioClipContainer>(m_path, m_clips, out status);
-
-            if (m_callback != null)
-            {
-                m_callback(clip, status);
-            }
-        }
-    }
-    class GetMaterialThreadJob : IThreadJob
-    {
-        MaterialDef                      m_def;
-        AssetLibrary.GetMaterialCallback m_callback;
-
-        public GetMaterialThreadJob(MaterialDef a_def, AssetLibrary.GetMaterialCallback a_callback)
-        {
-            m_def = a_def;
-            m_callback = a_callback;
-        }
-
-        public void Execute()
-        {
-            LoadStatus status;
-
-            Material material = AssetLibrary.GetMaterialInternal(m_def, out status);
-
-            if (m_callback != null)
-            {
-                m_callback(material, status);
-            }
-        }
-    }
-    class LoadVertexShaderThreadJob : IThreadJob
-    {
-        ConcurrentDictionary<string, VertexShaderContainer> m_shaders;
-        string                                              m_path;
-        AssetLibrary.LoadVertexShaderCallback               m_callback;
-
-        public LoadVertexShaderThreadJob(ConcurrentDictionary<string, VertexShaderContainer> a_shaders, string a_path, AssetLibrary.LoadVertexShaderCallback a_callback)
-        {
-            m_shaders = a_shaders;
-            m_path = a_path;
-            m_callback = a_callback;
-        }
-
-        public void Execute()
-        {
-            LoadStatus status;
-
-            VertexShader shader = AssetLibrary.LoadInternalData<VertexShader, VertexShaderContainer>(m_path, m_shaders, out status);
-
-            if (m_callback != null)
-            {
-                m_callback(shader, status);
-            }
-        }
-    }
-    class LoadPixelShaderThreadJob : IThreadJob
-    {
-        ConcurrentDictionary<string, PixelShaderContainer> m_shaders;
-        string                                             m_path;
-        AssetLibrary.LoadPixelShaderCallback               m_callback;
-
-        public LoadPixelShaderThreadJob(ConcurrentDictionary<string, PixelShaderContainer> a_shaders, string a_path, AssetLibrary.LoadPixelShaderCallback a_callback)
-        {
-            m_shaders = a_shaders;
-            m_path = a_path;
-            m_callback = a_callback;
-        }
-
-        public void Execute()
-        {
-            LoadStatus status;
-
-            PixelShader shader = AssetLibrary.LoadInternalData<PixelShader, PixelShaderContainer>(m_path, m_shaders, out status);
-
-            if (m_callback != null)
-            {
-                m_callback(shader, status);
-            }
-        }
-    }
-    class LoadModelThreadJob : IThreadJob
-    {
-        ConcurrentDictionary<string, ModelContainer> m_models;
-        string                                       m_path;
-        AssetLibrary.LoadModelCallback               m_callback;
-
-        public LoadModelThreadJob(ConcurrentDictionary<string, ModelContainer> a_models, string a_path, AssetLibrary.LoadModelCallback a_callback)
-        {
-            m_models = a_models;
-            m_path = a_path;
-            m_callback = a_callback;
-        }
-
-        public void Execute()
-        {
-            LoadStatus status;
-
-            Model model = AssetLibrary.LoadInternalData<Model, ModelContainer>(m_path, m_models, out status);
- 
-            if (m_callback != null)
-            {
-                m_callback(model, status);
-            }
-        }
-    }
-    class LoadSkinnedModelThreadJob : IThreadJob
-    {
-        string                                       m_path;
-        AssetLibrary.LoadModelCallback               m_callback;
-
-        public LoadSkinnedModelThreadJob(string a_path, AssetLibrary.LoadModelCallback a_callback)
-        {
-            m_path = a_path;
-            m_callback = a_callback;
-        }
-
-        public void Execute()
-        {
-            LoadStatus status;
-
-            Model model = AssetLibrary.LoadSkinnedModelInternal(m_path, out status);
-
-            if (m_callback != null)
-            {
-                m_callback(model, status);
-            }
-        }
-    }
-    class LoadTextureThreadJob : IThreadJob
-    {
-        ConcurrentDictionary<string, TextureContainer> m_textures;
-        string                                         m_path;
-        AssetLibrary.LoadTextureCallback               m_callback;
-
-        public LoadTextureThreadJob(ConcurrentDictionary<string, TextureContainer> a_textures, string a_path, AssetLibrary.LoadTextureCallback a_callback)
-        {
-            m_textures = a_textures;
-            m_path = a_path;
-            m_callback = a_callback;
-        }
-
-        public void Execute()
-        {
-            LoadStatus status;
-
-            Texture texture = AssetLibrary.LoadInternalData<Texture, TextureContainer>(m_path, m_textures, out status);
-
-            if (m_callback != null)
-            {
-                m_callback(texture, status);
-            }
-        }
-    }
-    class LoadAnimationClipThreadJob : IThreadJob
-    {
-        ConcurrentDictionary<string, AnimationClipContainer> m_clips;
-        string                                               m_path;
-        AssetLibrary.LoadAnimationClipCallback               m_callback;
-
-        public LoadAnimationClipThreadJob(ConcurrentDictionary<string, AnimationClipContainer> a_clips, string a_path, AssetLibrary.LoadAnimationClipCallback a_callback)
-        {
-            m_clips = a_clips;
-            m_path = a_path;
-            m_callback = a_callback;
-        }
-
-        public void Execute()
-        {
-            LoadStatus status;
-
-            AnimationClip clip = AssetLibrary.LoadInternalData<AnimationClip, AnimationClipContainer>(m_path, m_clips, out status);
-
-            if (m_callback != null)
-            {
-                m_callback(clip, status);
-            }
-        }
-    }
-    class LoadSkeletonThreadJob : IThreadJob
-    {
-        ConcurrentDictionary<string, SkeletonContainer> m_skeletons;
-        string                                          m_path;
-        AssetLibrary.LoadSkeletonCallback               m_callback;
-
-        public LoadSkeletonThreadJob(ConcurrentDictionary<string, SkeletonContainer> a_skeletons, string a_path, AssetLibrary.LoadSkeletonCallback a_callback)
-        {
-            m_skeletons = a_skeletons;
-            m_path = a_path;
-            m_callback = a_callback;
-        }
-
-        public void Execute()
-        {
-            LoadStatus status;
-
-            Skeleton skeleton = AssetLibrary.LoadInternalData<Skeleton, SkeletonContainer>(m_path, m_skeletons, out status);
-
-            if (m_callback != null)
-            {
-                m_callback(skeleton, status);
-            }
-        }
-    }
-
-    interface IAssetContainer
-    {
-        LoadStatus Status
-        {
-            get;
-            set;
-        }
-        EventWaitHandle WaitHandle
-        {
-            get;
-        }
-
-        object Value
-        {
-            get;
-            set;
-        }
-
-        object LoadValue(string a_input);
-    }
-    
-    class AudioClipContainer : IAssetContainer
-    {
-        public LoadStatus Status
-        {
-            get;
-            set;
-        }
-        public EventWaitHandle WaitHandle
-        {
-            get;
-            set;
-        }
-        public AudioClip Clip
-        {
-            get;
-            set;
-        }
-
-        public object Value
-        {
-            get
-            {
-                return Clip;
-            }
-            set
-            {
-                Clip = (AudioClip)value;
-            }
-        }
-
-        public AudioClipContainer()
-        {
-            Status = LoadStatus.Unloaded;
-            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-            Clip = null;
-        }
-
-        public object LoadValue(string a_input)
-        {
-            return AudioClip.LoadAudioClip(a_input);
-        }
-    }
-    class MaterialContainer : IAssetContainer
-    {
-        public LoadStatus Status
-        {
-            get;
-            set;
-        }
-        public EventWaitHandle WaitHandle
-        {
-            get;
-            set;
-        }
-        public Material Material
-        {
-            get;
-            set;
-        }
-
-        public object Value
-        {
-            get
-            {
-                return Material;
-            }
-            set
-            {
-                Material = (Material)value;
-            }
-        }
-
-        public MaterialContainer()
-        {
-            Status = LoadStatus.Unloaded;
-            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-            Material = null;
-        }
-
-        public object LoadValue(string a_input) 
-        { 
-            return null; 
-        }
-    }
-    class VertexShaderContainer : IAssetContainer
-    {
-        public LoadStatus Status
-        {
-            get;
-            set;
-        }
-        public EventWaitHandle WaitHandle
-        {
-            get;
-            set;
-        }
-        public VertexShader Shader
-        {
-            get;
-            set;
-        }
-
-        public object Value
-        {
-            get
-            {
-                return Shader;
-            }
-            set
-            {
-                Shader = (VertexShader)value;
-            }
-        }
-
-        public VertexShaderContainer()
-        {
-            Status = LoadStatus.Unloaded;
-            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-            Shader = null;
-        }
-
-        public object LoadValue(string a_input)
-        {
-            return VertexShader.LoadVertexShader(a_input);
-        }
-    }
-    class PixelShaderContainer : IAssetContainer
-    {
-        public LoadStatus Status
-        {
-            get;
-            set;
-        }
-        public EventWaitHandle WaitHandle
-        {
-            get;
-            set;
-        }
-        public PixelShader Shader
-        {
-            get;
-            set;
-        }
-
-        public object Value
-        {
-            get
-            {
-                return Shader;
-            }
-            set
-            {
-                Shader = (PixelShader)value;
-            }
-        }
-
-        public PixelShaderContainer()
-        {
-            Status = LoadStatus.Unloaded;
-            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-            Shader = null;
-        }
-
-        public object LoadValue(string a_input)
-        {
-            return PixelShader.LoadPixelShader(a_input);
-        }
-    }
-    class ModelContainer : IAssetContainer
-    {
-        public LoadStatus Status
-        {
-            get;
-            set;
-        }
-        public EventWaitHandle WaitHandle
-        {
-            get;
-            set;
-        }
-        public Model Model
-        {
-            get;
-            set;
-        }
-
-        public object Value
-        {
-            get
-            {
-                return Model;
-            }
-            set
-            {
-                Model = (Model)value;
-            }
-        }
-
-        public ModelContainer()
-        {
-            Status = LoadStatus.Unloaded;
-            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-            Model = null;
-        }
-
-        public object LoadValue(string a_input)
-        {
-            return Model.LoadModel(a_input);
-        }
-    }
-    class TextureContainer : IAssetContainer
-    {
-        public LoadStatus Status
-        {
-            get;
-            set;
-        }
-        public EventWaitHandle WaitHandle
-        {
-            get;
-            set;
-        }
-        public Texture Texture
-        {
-            get;
-            set;
-        }
-
-        public object Value
-        {
-            get
-            {
-                return Texture;
-            }
-            set
-            {
-                Texture = (Texture)value;
-            }
-        }
-
-        public TextureContainer()
-        {
-            Status = LoadStatus.Unloaded;
-            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-            Texture = null;
-        }
-
-        public object LoadValue(string a_input)
-        {
-            return Texture.LoadTexture(a_input);
-        }
-    }
-    class AnimationClipContainer : IAssetContainer
-    {
-        public LoadStatus Status
-        {
-            get;
-            set;
-        }
-        public EventWaitHandle WaitHandle
-        {
-            get;
-            set;
-        }
-        public AnimationClip Clip
-        {
-            get;
-            set;
-        }
-
-        public object Value
-        {
-            get
-            {
-                return Clip;
-            }
-            set
-            {
-                Clip = (AnimationClip)value;
-            }
-        }
-
-        public AnimationClipContainer()
-        {
-            Status = LoadStatus.Unloaded;
-            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-            Clip = null;
-        }
-
-        public object LoadValue(string a_input)
-        {
-            return AnimationClip.LoadAnimationClip(a_input);
-        }
-    }
-    class SkeletonContainer : IAssetContainer
-    {
-        public LoadStatus Status
-        {
-            get;
-            set;
-        }
-        public EventWaitHandle WaitHandle
-        {
-            get;
-            set;
-        }
-        public Skeleton Skeleton
-        {
-            get;
-            set;
-        }
-
-        public object Value
-        {
-            get
-            {
-                return Skeleton;
-            }
-            set
-            {
-                Skeleton = (Skeleton)value;
-            }
-        }
-
-        public SkeletonContainer()
-        {
-            Status = LoadStatus.Unloaded;
-            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-            Skeleton = null;
-        }
-
-        public object LoadValue(string a_input)
-        {
-            return Skeleton.LoadSkeleton(a_input);
-        }
-    }
-    /// @endcond
-
     public static class AssetLibrary
     {
-        static ConcurrentDictionary<string, AudioClipContainer>     s_audioClips;
-
-        static ConcurrentDictionary<string, MaterialContainer>      s_materials;
-        static ConcurrentDictionary<string, VertexShaderContainer>  s_vertexShaders;
-        static ConcurrentDictionary<string, PixelShaderContainer>   s_pixelShaders;
-  
-        static ConcurrentDictionary<string, TextureContainer>       s_textures;
-        static ConcurrentDictionary<TextureInput, TextureSampler>   s_textureSamplers;
-  
-        static ConcurrentDictionary<string, ModelContainer>         s_models;
-        static ConcurrentDictionary<string, ModelContainer>         s_skinnedModels;
+        static ConcurrentDictionary<string, AudioClipContainer>      s_audioClips;
  
-        static ConcurrentDictionary<string, AnimationClipContainer> s_animationClips;
-
-        static ConcurrentDictionary<string, SkeletonContainer>      s_skeletons;
+        static ConcurrentDictionary<string, MaterialContainer>       s_materials;
+        static ConcurrentDictionary<string, VertexShaderContainer>   s_vertexShaders;
+        static ConcurrentDictionary<string, PixelShaderContainer>    s_pixelShaders;
+   
+        static ConcurrentDictionary<string, TextureContainer>        s_textures;
+        static ConcurrentDictionary<string, TextureSamplerContainer> s_textureSamplers;
+   
+        static ConcurrentDictionary<string, ModelContainer>          s_models;
+        static ConcurrentDictionary<string, ModelContainer>          s_skinnedModels;
   
-        static ConcurrentDictionary<string, Font>                   s_fonts;
+        static ConcurrentDictionary<string, AnimationClipContainer>  s_animationClips;
+ 
+        static ConcurrentDictionary<string, SkeletonContainer>       s_skeletons;
+   
+        static ConcurrentDictionary<string, FontContainer>           s_fonts;
   
-        static ConcurrentDictionary<string, CollisionShape>         s_collisionShapes;
+        static ConcurrentDictionary<string, CollisionShapeContainer> s_collisionShapes;
 
         /// <summary>
-        /// Delegate for loading an AudioClip async.
+        /// Delegate for loading a <see cref="IcarianEngine.Audio.AudioClip" /> async
         /// </summary>
         public delegate void LoadAudioClipCallback(AudioClip a_clip, LoadStatus a_status);
         /// <summary>
-        /// Delegate for getting a Material async.
-        /// </summary>
-        public delegate void GetMaterialCallback(Material a_material, LoadStatus a_status);
-        /// <summary>
-        /// Delegate for loading a VertexShader async.
+        /// Delegate for loading a <see cref="IcarianEngine.Rendering.VertexShader" /> async
         /// </summary>
         public delegate void LoadVertexShaderCallback(VertexShader a_shader, LoadStatus a_status);
         /// <summary>
-        /// Delegate for loading a PixelShader async.
+        /// Delegate for loading a <see cref="IcarianEngine.Rendering.PixelShader" /> async
         /// </summary>
         public delegate void LoadPixelShaderCallback(PixelShader a_shader, LoadStatus a_status);
         /// <summary>
-        /// Delegate for loading a Model async.
+        /// Delegate for loading a <see cref="IcarianEngine.Rendering.UI.Font" /> async
+        /// </summary>
+        public delegate void LoadFontCallback(Font a_font, LoadStatus a_status);
+        /// <summary>
+        /// Delegate for loading a <see cref="IcarianEngine.Rendering.Model" /> async
         /// </summary>
         public delegate void LoadModelCallback(Model a_model, LoadStatus a_status);
         /// <summary>
-        /// Delegate for loading a Texture async.
+        /// Delegate for loading a <see cref="IcarianEngine.Rendering.Texture" /> async
         /// </summary>
         public delegate void LoadTextureCallback(Texture a_texture, LoadStatus a_status);
         /// <summary>
-        /// Delegate for loading an Skeleton async.
+        /// Delegate for loading a <see cref="IcarianEngine.Rendering.Animation.Skeleton" /> async
         /// </summary>
         public delegate void LoadSkeletonCallback(Skeleton a_skeleton, LoadStatus a_status);
         /// <summary>
-        /// Delegate for loading an AnimationClip async.
+        /// Delegate for loading a <see cref="IcarianEngine.Rendering.Animation.AnimationClip" /> async
         /// </summary>
         public delegate void LoadAnimationClipCallback(AnimationClip a_clip, LoadStatus a_status);
+
+        /// <summary>
+        /// Delegate for getting a <see cref="IcarianEngine.Rendering.TextureSampler" /> async
+        /// </summary>
+        public delegate void GetTextureSamplerCallback(TextureSampler a_sampler, LoadStatus a_status);
+        /// <summary>
+        /// Delegate for getting a <see cref="IcarianEngine.Rendering.Material" /> async
+        /// </summary>
+        public delegate void GetMaterialCallback(Material a_material, LoadStatus a_status);
+        /// <summary>
+        /// Delegate for getting a <see cref="IcarianEngine.Physics.Shapes.CollisionShape" /> async
+        /// </summary>
+        public delegate void GetCollisionShapeCallback(CollisionShape a_shape, LoadStatus a_status);
 
         internal static void Init()
         {
@@ -669,7 +99,7 @@ namespace IcarianEngine
             s_pixelShaders = new ConcurrentDictionary<string, PixelShaderContainer>();
 
             s_textures = new ConcurrentDictionary<string, TextureContainer>();
-            s_textureSamplers = new ConcurrentDictionary<TextureInput, TextureSampler>();
+            s_textureSamplers = new ConcurrentDictionary<string, TextureSamplerContainer>();
 
             s_models = new ConcurrentDictionary<string, ModelContainer>();
             s_skinnedModels = new ConcurrentDictionary<string, ModelContainer>();
@@ -678,9 +108,9 @@ namespace IcarianEngine
 
             s_skeletons = new ConcurrentDictionary<string, SkeletonContainer>();
 
-            s_fonts = new ConcurrentDictionary<string, Font>();
+            s_fonts = new ConcurrentDictionary<string, FontContainer>();
 
-            s_collisionShapes = new ConcurrentDictionary<string, CollisionShape>();
+            s_collisionShapes = new ConcurrentDictionary<string, CollisionShapeContainer>();
         }
 
         static string GetPath(string a_path)
@@ -694,7 +124,7 @@ namespace IcarianEngine
         }
 
         /// <summary>
-        /// Clears all assets from the AssetLibrary.
+        /// Clears all assets from the AssetLibrary
         /// </summary>
         public static void ClearAssets()
         {
@@ -792,11 +222,21 @@ namespace IcarianEngine
             }
             s_textures.Clear();
 
-            foreach (TextureSampler sampler in s_textureSamplers.Values)
+            foreach (TextureSamplerContainer sampler in s_textureSamplers.Values)
             {
-                if (!sampler.IsDisposed)
+                if (sampler.Status == LoadStatus.Failed)
                 {
-                    sampler.Dispose();
+                    continue;
+                }
+
+                if (sampler.Status != LoadStatus.Loaded)
+                {
+                    sampler.WaitHandle.WaitOne();
+                }
+
+                if (sampler.Sampler != null && !sampler.Sampler.IsDisposed)
+                {
+                    sampler.Sampler.Dispose();
                 }
             }
             s_textureSamplers.Clear();
@@ -839,29 +279,42 @@ namespace IcarianEngine
             }
             s_skinnedModels.Clear();
 
-            foreach (Font font in s_fonts.Values)
+            foreach (FontContainer font in s_fonts.Values)
             {
-                if (!font.IsDisposed)
+                if (font.Status == LoadStatus.Failed)
                 {
-                    font.Dispose();
+                    continue;
+                }
+
+                if (font.Status != LoadStatus.Loaded)
+                {
+                    font.WaitHandle.WaitOne();
+                }
+
+                if (font.Font != null && !font.Font.IsDisposed)
+                {
+                    font.Font.Dispose();
                 }
             }
             s_fonts.Clear();
 
-            foreach (CollisionShape shape in s_collisionShapes.Values)
+            foreach (CollisionShapeContainer shape in s_collisionShapes.Values)
             {
-                if (shape is IDisposable disp)
+                if (shape.Status == LoadStatus.Failed)
                 {
-                    if (disp is IDestroy dest)
+                    continue;
+                }
+
+                if (shape.Status != LoadStatus.Loaded)
+                {
+                    shape.WaitHandle.WaitOne();
+                }
+
+                if (shape.CollisionShape is IDestroy dest)
+                {
+                    if (!dest.IsDisposed)
                     {
-                        if (!dest.IsDisposed)
-                        {
-                            dest.Dispose();
-                        }
-                    }
-                    else
-                    {
-                        disp.Dispose();
+                        dest.Dispose();
                     }
                 }
             }
@@ -896,6 +349,31 @@ namespace IcarianEngine
             }
 
             a_container.WaitHandle.WaitOne();
+        }
+
+        static T WaitContainer<T>(IAssetContainer a_container) where T : class
+        {
+            switch (a_container.Status)
+            {
+            case LoadStatus.Loading:
+            case LoadStatus.Unloaded:
+            {
+                a_container.WaitHandle.WaitOne();
+                
+                break;
+            }
+            case LoadStatus.Failed:
+            {
+                return null;
+            }
+            }
+
+            if (a_container.Status == LoadStatus.Failed)
+            {
+                return null;
+            }
+
+            return a_container.Value as T;
         }
         static T LoadData<T, C>(string a_path, ConcurrentDictionary<string, C> a_data) where T : class where C : IAssetContainer
         {
@@ -996,172 +474,205 @@ namespace IcarianEngine
         }
 
         /// <summary>
-        /// Loads a AudioClip from the given path in a mod.
+        /// Loads a <see cref="IcarianEngine.Audio.AudioClip" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the AudioClip.</param>
-        /// <returns>The AudioClip if it was loaded successfully, null otherwise.</returns>
-        /// @see AudioClip.LoadAudioClip
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Audio.AudioClip" /></param>
+        /// <returns>The <see cref="IcarianEngine.Audio.AudioClip" /> if it was loaded successfully, null otherwise.</returns>
+        /// @see IcarianEngine.Audio.AudioClip.LoadAudioClip
         public static AudioClip LoadAudioClip(string a_path)
         {
             return LoadData<AudioClip, AudioClipContainer>(a_path, s_audioClips);
         }
         /// <summary>
-        /// Loads a AudioClip from the given path in a mod asynchronously.
+        /// Loads a <see cref="IcarianEngine.Audio.AudioClip" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchronously
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the AudioClip.</param>
-        /// <param name="a_callback">The callback to call when the AudioClip is loaded.</param>
-        /// <param name="a_priority">The priority of the job.</param>
-        /// @see AudioClip.LoadAudioClip
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Audio.AudioClip" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Audio.AudioClip" /> is loaded</param>
+        /// <param name="a_priority">The priority of the job</param>
+        /// @see IcarianEngine.Audio.AudioClip.LoadAudioClip
         public static void LoadAudioClipAsync(string a_path, LoadAudioClipCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
+            if (string.IsNullOrWhiteSpace(a_path))
+            {
+                Logger.IcarianWarning("Null Audio Clip Path");
+
+                if (a_callback != null)
+                {
+                    a_callback(null, LoadStatus.Failed);
+                }
+
+                return;
+            }
+
             s_audioClips.TryAdd(a_path, new AudioClipContainer());
 
-            LoadAudioClipThreadJob job = new LoadAudioClipThreadJob(s_audioClips, a_path, a_callback);
+            ThreadPool.PushJob(() =>
+            {
+                LoadStatus status;
 
-            ThreadPool.PushJob(job, a_priority);
+                AudioClip clip = LoadInternalData<AudioClip, AudioClipContainer>(a_path, s_audioClips, out status);
+
+                if (a_callback != null)
+                {
+                    a_callback(clip, status);
+                }
+            }, a_priority);
         }
 
         /// <summary>
-        /// Loads a VertexShader from the given path in a mod.
+        /// Loads a <see cref="IcarianEngine.Rendering.VertexShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the VertexShader.</param>
-        /// <returns>The VertexShader if it was loaded successfully, null otherwise.</returns>
-        /// @see VertexShader.LoadVertexShader
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.VertexShader" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.VertexShader" /> if it was loaded successfully, null otherwise.</returns>
+        /// @see IcarianEngine.Rendering.VertexShader.LoadVertexShader
         public static VertexShader LoadVertexShader(string a_path)
         {
             return LoadData<VertexShader, VertexShaderContainer>(a_path, s_vertexShaders);
         }
         /// <summary>
-        /// Loads a VertexShader from the given path in a mod asynchronously.
+        /// Loads a <see cref="IcarianEngine.Rendering.VertexShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchronously
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the VertexShader.</param>
-        /// <param name="a_callback">The callback to call when the VertexShader is loaded.</param>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.VertexShader" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.VertexShader" /> is loaded</param>
         /// <param name="a_priority">The priority of the job.</param>
-        /// @see VertexShader.LoadVertexShader
+        /// @see IcarianEngine.Rendering.VertexShader.LoadVertexShader
         public static void LoadVertexShaderAsync(string a_path, LoadVertexShaderCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
+            if (string.IsNullOrWhiteSpace(a_path))
+            {
+                Logger.IcarianWarning("Null Vertex Path");
+
+                if (a_callback != null)
+                {
+                    a_callback(null, LoadStatus.Failed);
+                }
+
+                return;
+            }
+
             s_vertexShaders.TryAdd(a_path, new VertexShaderContainer());
 
-            LoadVertexShaderThreadJob job = new LoadVertexShaderThreadJob(s_vertexShaders, a_path, a_callback);
+            ThreadPool.PushJob(() =>
+            {
+                LoadStatus status;
 
-            ThreadPool.PushJob(job, a_priority);
+                VertexShader shader = LoadInternalData<VertexShader, VertexShaderContainer>(a_path, s_vertexShaders, out status);
+
+                if (a_callback != null)
+                {
+                    a_callback(shader, status);
+                }
+            }, a_priority);
         }
         /// <summary>
-        /// Loads a PixelShader from the given path in a mod.
+        /// Loads a <see cref="IcarianEngine.Rendering.PixelShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the PixelShader.</param>
-        /// <returns>The PixelShader if it was loaded successfully, null otherwise.</returns>
-        /// @see PixelShader.LoadPixelShader
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.PixelShader" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.PixelShader" /> if it was loaded successfully, null otherwise.</returns>
+        /// @see IcarianEngine.Rendering.PixelShader.LoadPixelShader
         public static PixelShader LoadPixelShader(string a_path)
         {
             return LoadData<PixelShader, PixelShaderContainer>(a_path, s_pixelShaders);
         }
         /// <summary>
-        /// Loads a PixelShader from the given path in a mod asynchronously.
+        /// Loads a <see cref="IcarianEngine.Rendering.PixelShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchronously
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the PixelShader.</param>
-        /// <param name="a_callback">The callback to call when the PixelShader is loaded.</param>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.PixelShader" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.PixelShader" /> is loaded</param>
         /// <param name="a_priority">The priority of the job.</param>
-        /// @see PixelShader.LoadPixelShader
+        /// @see IcarianEngine.Rendering.PixelShader.LoadPixelShader
         public static void LoadPixelShaderAsync(string a_path, LoadPixelShaderCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
+            if (string.IsNullOrWhiteSpace(a_path))
+            {
+                Logger.IcarianWarning("Null Pixel Path");
+
+                if (a_callback != null)
+                {
+                    a_callback(null, LoadStatus.Failed);
+                }
+
+                return;
+            }
+
             s_pixelShaders.TryAdd(a_path, new PixelShaderContainer());
 
-            LoadPixelShaderThreadJob job = new LoadPixelShaderThreadJob(s_pixelShaders, a_path, a_callback);
+            ThreadPool.PushJob(() =>
+            {
+                LoadStatus status;
 
-            ThreadPool.PushJob(job, a_priority);
+                PixelShader shader = LoadInternalData<PixelShader, PixelShaderContainer>(a_path, s_pixelShaders, out status);
+
+                if (a_callback != null)
+                {
+                    a_callback(shader, status);
+                }
+            }, a_priority);
         }
 
         /// <summary>
-        /// Loads a Font from the given path in a mod.
+        /// Loads a <see cref="IcarianEngine.Rendering.UI.Font" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the Font.</param>
-        /// <returns>The Font if it was loaded successfully, null otherwise.</returns>
-        /// @warning Not thread safe.
-        /// @see Font.LoadFont
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.UI.Font" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.UI.Font" /> if it was loaded successfully, null otherwise</returns>
+        /// @see IcarianEngine.Rendering.UI.Font.LoadFont
         public static Font LoadFont(string a_path)
         {
-            Font oldFont = null;
-            if (s_fonts.ContainsKey(a_path))
+            return LoadData<Font, FontContainer>(a_path, s_fonts);
+        }
+        /// <summary>
+        /// Loads a <see cref="IcarianEngine.Rendering.UI.Font" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchornously
+        /// </summary>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.UI.Font" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.UI.Font" /> is loaded</param>
+        /// <param name="a_priority">The priority of the job</param>
+        /// @see IcarianEngine.Rendering.UI.Font.LoadFont
+        public static void LoadFontAsync(string a_path, LoadFontCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        {
+            if (string.IsNullOrWhiteSpace(a_path))
             {
-                oldFont = s_fonts[a_path];
-                if (!oldFont.IsDisposed)
+                Logger.IcarianWarning("Null Font Path");
+
+                if (a_callback != null)
                 {
-                    return oldFont;
+                    a_callback(null, LoadStatus.Failed);
                 }
+
+                return;
             }
 
-            string filepath = GetPath(a_path);
-            if (string.IsNullOrEmpty(filepath))
+            s_fonts.TryAdd(a_path, new FontContainer());
+
+            ThreadPool.PushJob(() =>
             {
-                Logger.IcarianError($"Cannot find filepath: {a_path}");
+                LoadStatus status;
 
-                return null;
-            }
+                Font font = LoadInternalData<Font, FontContainer>(a_path, s_fonts, out status);
 
-            Font font = Font.LoadFont(filepath);
-            if (font == null)
-            {
-                Logger.IcarianError($"Error loading Font: {a_path} at {filepath}");
-
-                return null;
-            }
-
-            if (oldFont == null)
-            {
-                s_fonts.TryAdd(a_path, font);
-            }
-            else
-            {
-                s_fonts.TryUpdate(a_path, font, oldFont);
-            }
-
-            return font;
+                if (a_callback != null)
+                {
+                    a_callback(font, status);
+                }
+            }, a_priority);
         }
 
-        /// <summary>
-        /// Loads a Model from the given path in a mod.
-        /// </summary>
-        /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the Model.</param>
-        /// <returns>The Model if it was loaded successfully, null otherwise.</returns>
-        /// @see IcarianEngine.Rendering.Model.LoadModel
-        public static Model LoadModel(string a_path)
-        {
-            return LoadData<Model, ModelContainer>(a_path, s_models);
-        }
-        /// <summary>
-        /// Loads a Model from the given path in a mod asynchronously.
-        /// </summary>
-        /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the Model.</param>
-        /// <param name="a_callback">The callback to call when the Model is loaded.</param>
-        /// <param name="a_priority">The priority of the job.</param>
-        /// @see IcarianEngine.Rendering.Model.LoadModel
-        public static void LoadModelAsync(string a_path, LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
-        {
-            s_models.TryAdd(a_path, new ModelContainer());
-
-            LoadModelThreadJob job = new LoadModelThreadJob(s_models, a_path, a_callback);
-
-            ThreadPool.PushJob(job, a_priority);
-        }
-
-        internal static Model LoadSkinnedModelInternal(string a_path, out LoadStatus a_status)
+        internal static Model LoadModelInternal(string a_path, byte a_index, out LoadStatus a_status)
         {
             a_status = LoadStatus.Failed;
 
+            string str = $"[{a_index}] {a_path}";
+
             ModelContainer container = null;
-            if (s_skinnedModels.ContainsKey(a_path))
+            if (s_models.ContainsKey(str))
             {
-                container = s_skinnedModels[a_path];
+                container = s_models[str];
             }
             else
             {
@@ -1185,7 +696,7 @@ namespace IcarianEngine
                 return null;
             }
 
-            Model model = Model.LoadSkinnedModel(filepath);
+            Model model = Model.LoadModel(filepath, a_index);
 
             lock (container)
             {
@@ -1208,17 +719,19 @@ namespace IcarianEngine
             return model;
         }
         /// <summary>
-        /// Loads a SkinnedModel from the given path in a mod.
+        /// Loads a <see cref="IcarianEngine.Rendering.Model" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the SkinnedModel.</param>
-        /// <returns>The SkinnedModel if it was loaded successfully, null otherwise.</returns>
-        /// @see IcarianEngine.Rendering.Model.LoadSkinnedModel
-        public static Model LoadSkinnedModel(string a_path)
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Model" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Model" /> if it was loaded successfully, null otherwise</returns>
+        /// @see IcarianEngine.Rendering.Model.LoadModel
+        public static Model LoadModel(string a_path, byte a_index = byte.MaxValue)
         {
-            if (s_skinnedModels.ContainsKey(a_path))
+            string str = $"[{a_index}] {a_path}";
+
+            if (s_models.ContainsKey(str))
             {
-                ModelContainer c = s_skinnedModels[a_path];
+                ModelContainer c = s_models[str];
 
                 switch (c.Status)
                 {
@@ -1248,152 +761,429 @@ namespace IcarianEngine
                 }
             }
 
-            s_skinnedModels.TryAdd(a_path, new ModelContainer());
+            s_models.TryAdd(str, new ModelContainer());
 
-            return LoadSkinnedModelInternal(a_path, out LoadStatus _);
+            return LoadModelInternal(a_path, a_index, out LoadStatus _);
         }
         /// <summary>
-        /// Loads a SkinnedModel from the given path in a mod asynchronously.
+        /// Loads a <see cref="IcarianEngine.Rendering.Model" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchronously
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the SkinnedModel.</param>
-        /// <param name="a_callback">The callback to call when the SkinnedModel is loaded.</param>
-        /// <param name="a_priority">The priority of the job.</param>
-        /// @see IcarianEngine.Rendering.Model.LoadSkinnedModel
-        public static void LoadSkinnedModelAsync(string a_path, LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Model" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.Model" /> is loaded</param>
+        /// <param name="a_priority">The priority of the job</param>
+        /// @see IcarianEngine.Rendering.Model.LoadModel
+        public static void LoadModelAsync(string a_path, byte a_index, LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
-            s_skinnedModels.TryAdd(a_path, new ModelContainer());
+            if (string.IsNullOrWhiteSpace(a_path))
+            {
+                Logger.IcarianWarning("Null Model Path");
 
-            LoadSkinnedModelThreadJob job = new LoadSkinnedModelThreadJob(a_path, a_callback);
+                if (a_callback != null)
+                {
+                    a_callback(null, LoadStatus.Failed);
+                }
 
-            ThreadPool.PushJob(job, a_priority);
+                return;
+            }
+
+            string str = $"[{a_index}] {a_path}";
+
+            s_models.TryAdd(str, new ModelContainer());
+
+            ThreadPool.PushJob(() =>
+            {
+                LoadStatus status;
+
+                Model model = LoadModelInternal(a_path, a_index, out status);
+    
+                if (a_callback != null)
+                {
+                    a_callback(model, status);
+                }
+            }, a_priority);
+        }
+
+        internal static Model LoadSkinnedModelInternal(string a_path, byte a_index, out LoadStatus a_status)
+        {
+            a_status = LoadStatus.Failed;
+
+            string str = $"[{a_index}] {a_path}";
+
+            ModelContainer container = null;
+            if (s_skinnedModels.ContainsKey(str))
+            {
+                container = s_skinnedModels[str];
+            }
+            else
+            {
+                return null;
+            }
+
+            ProcessContainer(container);
+
+            if (container.Status != LoadStatus.Loading)
+            {
+                a_status = container.Status;
+
+                return container.Model;
+            }
+
+            string filepath = GetPath(a_path);
+            if (string.IsNullOrEmpty(filepath))
+            {
+                Logger.IcarianError($"Cannot find filepath: {a_path}");
+
+                return null;
+            }
+
+            Model model = Model.LoadSkinnedModel(filepath, a_index);
+
+            lock (container)
+            {
+                if (model != null)
+                {
+                    container.Model = model;
+                    container.Status = LoadStatus.Loaded;
+
+                    a_status = LoadStatus.Loaded;
+                }
+                else
+                {
+                    container.Model = null;
+                    container.Status = LoadStatus.Failed;
+                }
+            }
+
+            container.WaitHandle.Set();
+
+            return model;
+        }
+        /// <summary>
+        /// Loads a Skinned <see cref="IcarianEngine.Rendering.Model" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
+        /// </summary>
+        /// Lifetime managed by AssetLibrary
+        /// <param name="a_path">The path to the Skinned <see cref="IcarianEngine.Rendering.Model" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Model" /> if it was loaded successfully, null otherwise.</returns>
+        /// @see IcarianEngine.Rendering.Model.LoadSkinnedModel
+        public static Model LoadSkinnedModel(string a_path, byte a_index = byte.MaxValue)
+        {
+            string str = $"[{a_index}] {a_path}";
+
+            if (s_skinnedModels.ContainsKey(str))
+            {
+                ModelContainer c = s_skinnedModels[str];
+
+                switch (c.Status)
+                {
+                case LoadStatus.Loading:
+                case LoadStatus.Unloaded:
+                {
+                    c.WaitHandle.WaitOne();
+                    
+                    break;
+                }
+                case LoadStatus.Failed:
+                {
+                    return null;
+                }
+                }
+
+                if (c.Model != null)
+                {
+                    if (!c.Model.IsDisposed)
+                    {
+                        return c.Model;
+                    }
+                }
+                else
+                {
+                    return c.Model;
+                }
+            }
+
+            s_skinnedModels.TryAdd(str, new ModelContainer());
+
+            return LoadSkinnedModelInternal(a_path, a_index, out LoadStatus _);
+        }
+        /// <summary>
+        /// Loads a Skinned <see cref="IcarianEngine.Rendering.Model" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchronously
+        /// </summary>
+        /// Lifetime managed by AssetLibrary
+        /// <param name="a_path">The path to the Skinned <see cref="IcarianEngine.Rendering.Model" /></param>
+        /// <param name="a_callback">The callback to call when the Skinned <see cref="IcarianEngine.Rendering.Model" /> is loaded</param>
+        /// <param name="a_priority">The priority of the job</param>
+        /// @see IcarianEngine.Rendering.Model.LoadSkinnedModel
+        public static void LoadSkinnedModelAsync(string a_path, byte a_index, LoadModelCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        {
+            if (string.IsNullOrWhiteSpace(a_path))
+            {
+                Logger.IcarianWarning("Null Skinned Model Path");
+
+                if (a_callback != null)
+                {
+                    a_callback(null, LoadStatus.Failed);
+                }
+
+                return;
+            }
+
+            string str = $"[{a_index}] {a_path}";
+
+            s_skinnedModels.TryAdd(str, new ModelContainer());
+
+            ThreadPool.PushJob(() =>
+            {
+                LoadStatus status;
+
+                Model model = LoadSkinnedModelInternal(a_path, a_index, out status);
+
+                if (a_callback != null)
+                {
+                    a_callback(model, status);
+                }
+            }, a_priority);
         }
 
         /// <summary>
-        /// Loads a Texture from the given path in a mod.
+        /// Loads a <see cref="IcarianEngine.Rendering.Texture" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the Texture.</param>
-        /// <returns>The Texture if it was loaded successfully, null otherwise.</returns>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Texture" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Texture" /> if it was loaded successfully, null otherwise</returns>
         /// @see IcarianEngine.Rendering.Texture.LoadTexture
         public static Texture LoadTexture(string a_path)
         {
             return LoadData<Texture, TextureContainer>(a_path, s_textures);
         }
         /// <summary>
-        /// Loads a Texture from the given path in a mod asynchronously.
+        /// Loads a <see cref="IcarianEngine.Rendering.Texture" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchronously
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the Texture.</param>
-        /// <param name="a_callback">The callback to call when the Texture is loaded.</param>
-        /// <param name="a_priority">The priority of the job.</param>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Texture" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.Texture" /> is loaded</param>
+        /// <param name="a_priority">The priority of the job</param>
         /// @see IcarianEngine.Rendering.Texture.LoadTexture
         public static void LoadTextureAsync(string a_path, LoadTextureCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
+            if (string.IsNullOrWhiteSpace(a_path))
+            {
+                Logger.IcarianWarning("Null Texture Path");
+
+                if (a_callback != null)
+                {
+                    a_callback(null, LoadStatus.Failed);
+                }
+
+                return;
+            }
+
             s_textures.TryAdd(a_path, new TextureContainer());
 
-            LoadTextureThreadJob job = new LoadTextureThreadJob(s_textures, a_path, a_callback);
+            ThreadPool.PushJob(() =>
+            {
+                LoadStatus status;
 
-            ThreadPool.PushJob(job, a_priority);
+                Texture texture = LoadInternalData<Texture, TextureContainer>(a_path, s_textures, out status);
+
+                if (a_callback != null)
+                {
+                    a_callback(texture, status);
+                }
+            }, a_priority);
         }
 
         /// <summary>
-        /// Loads an AnimationClip from the given path in a mod.
+        /// Loads a <see cref="IcarianEngine.Rendering.Animation.AnimationClip" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the AnimationClip.</param>
-        /// <returns>The AnimationClip if it was loaded successfully, null otherwise.</returns>
-        /// @see AnimationClip.LoadAnimationClip
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Animation.AnimationClip" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Animation.AnimationClip" /> if it was loaded successfully, null otherwise.</returns>
+        /// @see IcarianEngine.Rendering.Animation.AnimationClip.LoadAnimationClip
         public static AnimationClip LoadAnimationClip(string a_path)
         {
             return LoadData<AnimationClip, AnimationClipContainer>(a_path, s_animationClips);
         }
         /// <summary>
-        /// Loads an AnimationClip from the given path in a mod asynchronously.
+        /// Loads a <see cref="IcarianEngine.Rendering.Animation.AnimationClip" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchronously
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the AnimationClip.</param>
-        /// <param name="a_callback">The callback to call when the AnimationClip is loaded.</param>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Animation.AnimationClip" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.Animation.AnimationClip" /> is loaded</param>
         /// <param name="a_priority">The priority of the job.</param>
-        /// @see AnimationClip.LoadAnimationClip
+        /// @see IcarianEngine.Rendering.Animation.AnimationClip.LoadAnimationClip
         public static void LoadAnimationClipAsync(string a_path, LoadAnimationClipCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
+            if (string.IsNullOrWhiteSpace(a_path))
+            {
+                Logger.IcarianWarning("Null Animation Clip Path");
+
+                if (a_callback != null)
+                {
+                    a_callback(null, LoadStatus.Failed);
+                }
+
+                return;
+            }
+
             s_animationClips.TryAdd(a_path, new AnimationClipContainer());
 
-            LoadAnimationClipThreadJob job = new LoadAnimationClipThreadJob(s_animationClips, a_path, a_callback);
+            ThreadPool.PushJob(() => 
+            {
+                LoadStatus status;
 
-            ThreadPool.PushJob(job, a_priority);
+                AnimationClip clip = LoadInternalData<AnimationClip, AnimationClipContainer>(a_path, s_animationClips, out status);
+
+                if (a_callback != null)
+                {
+                    a_callback(clip, status);
+                }
+            }, a_priority);
         }
 
         /// <summary>
-        /// Loads a Skeleton from the given path in a mod.
+        /// Loads a <see cref="IcarianEngine.Rendering.Animation.Skeleton" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the Skeleton.</param>
-        /// <returns>The Skeleton if it was loaded successfully, null otherwise.</returns>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Animation.Skeleton" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Animation.Skeleton" /> if it was loaded successfully, null otherwise.</returns>
         /// @see IcarianEngine.Rendering.Animation.Skeleton.LoadSkeleton
         public static Skeleton LoadSkeleton(string a_path)
         {
             return LoadData<Skeleton, SkeletonContainer>(a_path, s_skeletons);
         }
         /// <summary>
-        /// Loads a Skeleton from the given path in a mod asynchronously.
+        /// Loads a <see cref="IcarianEngine.Rendering.Animation.Skeleton" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchronously
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the Skeleton.</param>
-        /// <param name="a_callback">The callback to call when the Skeleton is loaded.</param>
-        /// <param name="a_priority">The priority of the job.</param>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Animation.Skeleton" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.Animation.Skeleton" /> is loaded</param>
+        /// <param name="a_priority">The priority of the job</param>
         /// @see IcarianEngine.Rendering.Animation.Skeleton.LoadSkeleton
         public static void LoadSkeletonAsync(string a_path, LoadSkeletonCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
-            s_skeletons.TryAdd(a_path, new SkeletonContainer());
-
-            LoadSkeletonThreadJob job = new LoadSkeletonThreadJob(s_skeletons, a_path, a_callback);
-
-            ThreadPool.PushJob(job, a_priority);
-        }
-
-        /// <summary>
-        /// Gets a TextureSampler from the given TextureInput.
-        /// </summary>
-        /// Lifetime managed by AssetLibrary
-        /// <param name="a_input">The TextureInput to get the TextureSampler from.</param>
-        /// <returns>The TextureSampler if it was loaded successfully, null otherwise.</returns>
-        /// @warning Not thread safe.
-        public static TextureSampler GetSampler(TextureInput a_input)
-        {
-            TextureSampler oldSampler = null;
-            if (s_textureSamplers.ContainsKey(a_input))
+            if (string.IsNullOrWhiteSpace(a_path))
             {
-                oldSampler = s_textureSamplers[a_input];
-                if (!oldSampler.IsDisposed)
+                Logger.IcarianWarning("Null Skeleton Path");
+
+                if (a_callback != null)
                 {
-                    return oldSampler;
+                    a_callback(null, LoadStatus.Failed);
                 }
+
+                return;
             }
 
-            Texture texture = LoadTexture(a_input.Path);
-            if (texture == null)
+            s_skeletons.TryAdd(a_path, new SkeletonContainer());
+
+            ThreadPool.PushJob(() =>
             {
-                Logger.IcarianError("Failed to load texture for sampler");
-                
+                LoadStatus status;
+
+                Skeleton skeleton = LoadInternalData<Skeleton, SkeletonContainer>(a_path, s_skeletons, out status);
+
+                if (a_callback != null)
+                {
+                    a_callback(skeleton, status);
+                }
+            }, a_priority);
+        }
+
+        internal static TextureSampler GetTextureSamplerInternal(TextureInput a_input, out LoadStatus a_status)
+        {
+            a_status = LoadStatus.Failed;
+
+            TextureSamplerContainer container = null;
+            string str = $"{a_input.Path}: {a_input.AddressMode},{a_input.FilterMode}";
+            if (s_textureSamplers.ContainsKey(str))
+            {
+                container = s_textureSamplers[str];
+            }
+            else
+            {
                 return null;
             }
 
-            TextureSampler sampler = TextureSampler.GenerateTextureSampler(texture, a_input.FilterMode, a_input.AddressMode);
-            if (sampler != null)
+            ProcessContainer(container);
+
+            if (container.Status != LoadStatus.Loading)
             {
-                if (oldSampler == null)
+                a_status = container.Status;
+
+                return container.Sampler;
+            }
+
+            Texture tex = LoadTexture(a_input.Path);
+            if (tex == null)
+            {
+                a_status = LoadStatus.Failed;
+
+                return null;
+            }
+
+            TextureSampler sampler = TextureSampler.GenerateTextureSampler(tex, a_input.FilterMode, a_input.AddressMode);
+            lock (container)
+            {
+                if (sampler != null)
                 {
-                    s_textureSamplers.TryAdd(a_input, sampler);
+                    container.Sampler = sampler;
+                    container.Status = LoadStatus.Loaded;
+
+                    a_status = LoadStatus.Loaded;
                 }
                 else
                 {
-                    s_textureSamplers.TryUpdate(a_input, sampler, oldSampler);
+                    container.Sampler = null;
+                    container.Status = LoadStatus.Failed;
                 }
             }
 
+            container.WaitHandle.Set();
+
             return sampler;
+        }
+        /// <summary>
+        /// Gets a <see cref="IcarianEngine.Rendering.TextureSampler" /> from the given <see cref="IcarianEngine.Definitions.TextureInput" />
+        /// </summary>
+        /// Lifetime managed by AssetLibrary
+        /// <param name="a_input">The <see cref="IcarianEngine.Definitions.TextureInput" /> to get the <see cref="IcarianEngine.Rendering.TextureSampler" /> from</param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.TextureSampler" /> if it was loaded successfully, null otherwise</returns>
+        public static TextureSampler GetSampler(TextureInput a_input)
+        {
+            string str = $"{a_input.Path}: {a_input.AddressMode},{a_input.FilterMode}";
+
+            if (s_textureSamplers.ContainsKey(str))
+            {
+                return WaitContainer<TextureSampler>(s_textureSamplers[str]);
+            }
+
+            s_textureSamplers.TryAdd(str, new TextureSamplerContainer());
+
+            return GetTextureSamplerInternal(a_input, out LoadStatus _);
+        }
+        /// <summary>
+        /// Gets a <see cref="IcarianEngine.Rendering.TextureSampler" /> from the given <see cref="IcarianEngine.Definitions.TextureInput" /> asynchronously
+        /// </summary>
+        /// <param name="a_input">The <see cref="IcarianEngine.Definitions.TextureInput" /> to get the <see cref="IcarianEngine.Rendering.TextureSampler" /> from</param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.TextureSampler" /> is loaded</param>
+        /// <param name="a_priority">The priority of the job</param>
+        public static void GetTextureAsync(TextureInput a_input, GetTextureSamplerCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        {
+            string str = $"{a_input.Path}: {a_input.AddressMode},{a_input.FilterMode}";
+
+            s_textureSamplers.TryAdd(str, new TextureSamplerContainer());
+
+            ThreadPool.PushJob(() =>
+            {
+                LoadStatus status;
+
+                TextureSampler sampler = GetTextureSamplerInternal(a_input, out status);
+
+                if (a_callback != null)
+                {
+                    a_callback(sampler, status);
+                }
+            }, a_priority);
         }
 
         internal static Material GetMaterialInternal(MaterialDef a_def, out LoadStatus a_status)
@@ -1443,11 +1233,11 @@ namespace IcarianEngine
             return mat;
         }
         /// <summary>
-        /// Gets a Material from the given MaterialDef.
+        /// Gets a <see cref="IcarianEngine.Rendering.Material" /> from the given <see cref="IcarianEngine.Definitions.MaterialDef" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_def">The MaterialDef to get the Material from.</param>
-        /// <returns>The Material if it was loaded successfully, null otherwise.</returns>
+        /// <param name="a_def">The <see cref="IcarianEngine.Definitions.MaterialDef" /> to get the <see cref="IcarianEngine.Rendering.Material" /> from</param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Material" /> if it was loaded successfully, null otherwise.</returns>
         /// @see IcarianEngine.Rendering.Material.FromDef
         public static Material GetMaterial(MaterialDef a_def)
         {
@@ -1461,24 +1251,7 @@ namespace IcarianEngine
             string str = $"{a_def.DefName}: [{a_def.VertexShaderPath}] [{a_def.PixelShaderPath}]";
             if (s_materials.ContainsKey(str))
             {
-                MaterialContainer c = s_materials[str];
-
-                switch (c.Status)
-                {
-                case LoadStatus.Loading:
-                case LoadStatus.Unloaded:
-                {
-                    c.WaitHandle.WaitOne();
-                    
-                    break;
-                }
-                case LoadStatus.Failed:
-                {
-                    return null;
-                }
-                }
-
-                return c.Material;
+                return WaitContainer<Material>(s_materials[str]);
             }
 
             s_materials.TryAdd(str, new MaterialContainer());
@@ -1486,11 +1259,11 @@ namespace IcarianEngine
             return GetMaterialInternal(a_def, out LoadStatus _);
         }
         /// <summary>
-        /// Gets a Material from the given MaterialDef asynchronously.
+        /// Gets a <see cref="IcarianEngine.Rendering.Material" /> from the given <see cref="IcarianEngine.Definitions.MaterialDef" /> asynchronously
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_def">The MaterialDef to get the Material from.</param>
-        /// <param name="a_callback">The callback to call when the Material is loaded.</param>
+        /// <param name="a_def">The <see cref="IcarianEngine.Definitions.MaterialDef" /> to get the <see cref="IcarianEngine.Rendering.Material" /> from</param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.Material" /> is loaded</param>
         /// <param name="a_priority">The priority of the job.</param>
         /// @see IcarianEngine.Rendering.Material.FromDef
         public static void GetMaterialAsync(MaterialDef a_def, GetMaterialCallback a_callback, JobPriority a_priority = JobPriority.Medium)
@@ -1507,18 +1280,75 @@ namespace IcarianEngine
                 return;
             }
 
-            GetMaterialThreadJob job = new GetMaterialThreadJob(a_def, a_callback);
+            string str = $"{a_def.DefName}: [{a_def.VertexShaderPath}] [{a_def.PixelShaderPath}]";
+            s_materials.TryAdd(str, new MaterialContainer());
 
-            ThreadPool.PushJob(job, a_priority);
+            ThreadPool.PushJob(() =>
+            {
+                LoadStatus status;
+
+                Material material = GetMaterialInternal(a_def, out status);
+
+                if (a_callback != null)
+                {
+                    a_callback(material, status);
+                }
+            }, a_priority);
+        }
+
+        internal static CollisionShape GetCollisionShapeInternal(CollisionShapeDef a_def, out LoadStatus a_status)
+        {
+            a_status = LoadStatus.Failed;
+
+            CollisionShapeContainer container = null;
+            if (s_collisionShapes.ContainsKey(a_def.DefName))
+            {
+                container = s_collisionShapes[a_def.DefName];
+            }
+            else
+            {
+                return null;
+            }
+            
+            ProcessContainer(container);
+
+            if (container.Status != LoadStatus.Loading)
+            {
+                a_status = container.Status;
+
+                return container.CollisionShape;
+            }
+
+            CollisionShape shape = CollisionShape.FromDef(a_def);
+
+            lock (container)
+            {
+                if (shape != null)
+                {
+                    container.CollisionShape = shape;
+                    container.Status = LoadStatus.Loaded;
+
+                    a_status = LoadStatus.Loaded;
+                }
+                else
+                {
+                    container.CollisionShape = null;
+                    container.Status = LoadStatus.Failed;
+                }
+            }
+            
+            container.WaitHandle.Set();
+
+            return shape;
         }
 
         /// <summary>
-        /// Gets a CollisionShape from the given CollisionShapeDef.
+        /// Gets a <see cref="IcarianEngine.Physics.Shapes.CollisionShape" /> from the given <see cref="IcarianEngine.Definitions.CollisionShapeDef" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_def">The CollisionShapeDef to get the CollisionShape from.</param>
-        /// <returns>The CollisionShape if it was loaded successfully, null otherwise.</returns>
-        /// @warning Not thread safe.
+        /// <param name="a_def">The <see cref="IcarianEngine.Definitions.CollisionShapeDef" /> to get the <see cref="IcarianEngine.Physics.Shapes.CollisionShape" /> from</param>
+        /// <returns>The <see cref="IcarianEngine.Physics.Shapes.CollisionShape" /> if it was loaded successfully, null otherwise.</returns>
+        /// @see IcarianEngine.Physics.Shapes.CollisionShape.FromDef
         public static CollisionShape GetCollisionShape(CollisionShapeDef a_def)
         {
             if (a_def == null)
@@ -1528,38 +1358,50 @@ namespace IcarianEngine
                 return null;
             }
 
-            CollisionShape oldShape = null;
             if (s_collisionShapes.ContainsKey(a_def.DefName))
             {
-                oldShape = s_collisionShapes[a_def.DefName];
-                IDestroy dest = oldShape as IDestroy;
-                if (dest != null)
-                {
-                    if (!dest.IsDisposed)
-                    {
-                        return oldShape;
-                    }
-                }
-                else
-                {
-                    return oldShape;
-                }
+                return WaitContainer<CollisionShape>(s_collisionShapes[a_def.DefName]);
             }
 
-            CollisionShape shape = CollisionShape.FromDef(a_def);
-            if (shape != null)
+            s_collisionShapes.TryAdd(a_def.DefName, new CollisionShapeContainer());
+
+            return GetCollisionShapeInternal(a_def, out LoadStatus _);
+        }
+        /// <summary>
+        /// Gets a <see cref="IcarianEngine.Physics.Shapes.CollisionShape" / from the given <see cref="IcarianEngine.Definitions.CollisionShapeDef" /> asynchronously
+        /// </summary>
+        /// Lifetime managed by AssetLibrary
+        /// <param name="a_def">The <see cref="IcarianEngine.Definitions.CollisionShapeDef" /> to get the <see cref="IcarianEngine.Physics.Shapes.CollisionShape" />  from</param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Physics.Shapes.CollisionShape" />  is loaded</param>
+        /// <param name="a_priority">The priority of the job</param>
+        /// @see IcarianEngine.Physics.Shapes.CollisionShape.FromDef
+        public static void GetCollisionShapeAsync(CollisionShapeDef a_def, GetCollisionShapeCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        {
+            if (a_def == null)
             {
-                if (oldShape == null)
+                Logger.IcarianWarning("Null CollisionShapeDef");
+
+                if (a_callback != null)
                 {
-                    s_collisionShapes.TryAdd(a_def.DefName, shape);
+                    a_callback(null, LoadStatus.Failed);
                 }
-                else
-                {
-                    s_collisionShapes.TryUpdate(a_def.DefName, shape, oldShape);
-                }
+
+                return;
             }
 
-            return shape;
+            s_collisionShapes.TryAdd(a_def.DefName, new CollisionShapeContainer());
+
+            ThreadPool.PushJob(() =>
+            {
+                LoadStatus status;
+
+                CollisionShape shape = GetCollisionShapeInternal(a_def, out status);
+
+                if (a_callback != null)
+                {
+                    a_callback(shape, status);
+                }
+            }, a_priority);
         }
     }
 }

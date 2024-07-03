@@ -2760,11 +2760,11 @@ CameraBuffer VulkanGraphicsEngine::GetCameraBuffer(uint32_t a_addr)
 
 uint32_t VulkanGraphicsEngine::GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius)
 {
-    ICARIAN_ASSERT_MSG(a_vertices != nullptr, "GenerateModel vertices null");
-    ICARIAN_ASSERT_MSG(a_vertexCount > 0, "GenerateModel no vertices");
-    ICARIAN_ASSERT_MSG(a_indices != nullptr, "GenerateModel indices null");
-    ICARIAN_ASSERT_MSG(a_indexCount > 0, "GenerateModel no indices");
-    ICARIAN_ASSERT_MSG(a_vertexStride > 0, "GenerateModel vertex stride 0");
+    IVERIFY(a_vertices != nullptr);
+    IVERIFY(a_vertexCount > 0);
+    IVERIFY(a_indices != nullptr);
+    IVERIFY(a_indexCount > 0);
+    IVERIFY(a_vertexStride > 0);
 
     VulkanModel* model = new VulkanModel(m_vulkanEngine, a_vertexCount, a_vertices, a_vertexStride, a_indexCount, a_indices, a_radius);
 
@@ -2783,8 +2783,8 @@ void VulkanGraphicsEngine::DestroyModel(uint32_t a_addr)
     }
     else
     {
-        ICARIAN_ASSERT_MSG(a_addr < m_models.Size(), "DestroyModel out of bounds");
-        ICARIAN_ASSERT_MSG(m_models.Exists(a_addr), "DestroyModel already destroyed");
+        IVERIFY(a_addr < m_models.Size());
+        IVERIFY(m_models.Exists(a_addr));
 
         const VulkanModel* model = m_models[a_addr];
         IDEFER(delete model);
@@ -2810,8 +2810,8 @@ VulkanModel* VulkanGraphicsEngine::GetModel(uint32_t a_addr)
         finalAddr = store->GetModel(addr);
     }
 
-    ICARIAN_ASSERT_MSG(finalAddr < m_models.Size(), "GetModel out of bounds");
-    ICARIAN_ASSERT_MSG(m_models.Exists(finalAddr), "GetModel already destroyed");
+    IVERIFY(finalAddr < m_models.Size());
+    IVERIFY(m_models.Exists(finalAddr));
 
     return m_models[finalAddr];
 }
