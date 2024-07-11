@@ -181,28 +181,41 @@ namespace IcarianEngine
 
                 if (obj != null)
                 {
-                    foreach (Component comp in obj.m_components)
+                    if (obj.m_components != null)
                     {
-                        if (comp is Scriptable script)
+                        foreach (Component comp in obj.m_components)
                         {
-                            // Cannot ensure the script exists yet if destroyed while initialising
-                            // Use the queue to ensure proper deletion
-                            s_scriptableRemoveQueue.Enqueue(script);
-                        }
-
-                        if (comp is IDestroy dest)
-                        {
-                            if (!dest.IsDisposed)
+                            if (comp == null)
                             {
-                                dest.Dispose();
+                                continue;
+                            }
+
+                            if (comp is Scriptable script)
+                            {
+                                // Cannot ensure the script exists yet if destroyed while initialising
+                                // Use the queue to ensure proper deletion
+                                s_scriptableRemoveQueue.Enqueue(script);
+                            }
+
+                            if (comp is IDestroy dest)
+                            {
+                                if (!dest.IsDisposed)
+                                {
+                                    dest.Dispose();
+                                }
+                            }
+                            else if (comp is IDisposable disp)
+                            {
+                                disp.Dispose();
                             }
                         }
-                        else if (comp is IDisposable disp)
-                        {
-                            disp.Dispose();
-                        }
+
+                        obj.m_components.Clear();
                     }
-                    obj.m_components.Clear();
+                    else
+                    {
+                        Logger.IcarianWarning("GameObject null Components");
+                    }
 
                     s_objs.Remove(obj);
 
@@ -211,8 +224,19 @@ namespace IcarianEngine
                         s_objDictionary.Remove(obj.m_tag);
                     }
 
-                    obj.m_transform.Dispose();
-                    obj.m_transform = null;
+                    if (obj.m_transform != null)
+                    {
+                        obj.m_transform.Dispose();
+                        obj.m_transform = null;
+                    }
+                    else
+                    {
+                        // TODO: Getting a null Transform rarely on GameObjects created at runtime 
+                        // Put a guard in as should not crash the app but need to figure out why it is happening in the first place
+                        // The part that makes it fucking weird is I know it exists because it should crash somewhere else when setting the Transform
+                        // Losing the reference somehow and need to find where
+                        Logger.IcarianWarning("GameObject null Transform");
+                    }
                 }
                 else
                 {
@@ -225,8 +249,6 @@ namespace IcarianEngine
         {
             Profiler.StartFrame("Object Update");
 
-            RemoveObjects();
-            
             while (!s_objAddQueue.IsEmpty)
             {
                 GameObject obj = null;
@@ -247,6 +269,8 @@ namespace IcarianEngine
                 }
             }
             
+            RemoveObjects();
+
             Profiler.StopFrame();
         }
         internal static void UpdateScripts()
@@ -340,7 +364,12 @@ namespace IcarianEngine
         /// </summary>
         public virtual void Init() { }
 
-        Component AddComponentN(ComponentDef a_def)
+        internal static void AddScriptable(Scriptable a_script)
+        {
+            s_scriptableAddQueue.Enqueue(a_script);
+        }
+
+        internal Component AddComponentN(ComponentDef a_def)
         {
             Component comp = Component.FromDef(a_def);
             if (comp != null)

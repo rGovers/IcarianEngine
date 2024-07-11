@@ -2,18 +2,10 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineApplicationInteropStructures.h"
+
 namespace IcarianEngine
 {
-    [StructLayout(LayoutKind.Sequential)]
-    public struct Monitor
-    {
-        public uint Index;
-        public string Name;
-        public uint Width;
-        public uint Height;
-        IntPtr Handle;
-    }
-
     public static class Application
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -34,12 +26,18 @@ namespace IcarianEngine
         [MethodImpl(MethodImplOptions.InternalCall)]
         public extern static Monitor[] GetMonitors();
 
+        /// <summary>
+        /// The current working directory of the Application
+        /// </summary>
         public static string WorkingDirectory
         {
             get;
             internal set;
         }
 
+        /// <summary>
+        /// The width of the Application
+        /// </summary>
         public static uint Width
         {
             get
@@ -47,6 +45,9 @@ namespace IcarianEngine
                 return GetWidth();
             }
         }
+        /// <summary>
+        /// The height of the Application
+        /// </summary>
         public static uint Height
         {
             get
@@ -55,6 +56,9 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// Whether the Application is running is headless mode
+        /// </summary>
         public static bool IsHeadless
         {
             get
@@ -63,6 +67,9 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// Whether the Application is running in the IcarianEditor
+        /// </summary>
         public static bool IsEditor
         {
             get
@@ -71,6 +78,13 @@ namespace IcarianEngine
             }
         }
 
+        /// <summary>
+        /// Sets the fullscreen state of the Application
+        /// </summary>
+        /// <param name="a_monitor">The <see cref="IcarianEngine.Monitor" /> for the Application to be on</param>
+        /// <param name="a_state">The fullscreen state to set the Application to</param>
+        /// <param name="a_width">The target screen resolution width for the Application</param>
+        /// <param name="a_height">The target screen resolution height for the Application</param>
         public static void SetFullscreen(Monitor a_monitor, bool a_state, uint a_width, uint a_height)
         {
             if (a_state)

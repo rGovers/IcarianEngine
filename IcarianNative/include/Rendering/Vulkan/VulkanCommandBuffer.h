@@ -1,11 +1,13 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 enum e_VulkanCommandBufferType
 {
     VulkanCommandBufferType_Compute,
+    VulkanCommandBufferType_VideoDecode,
     VulkanCommandBufferType_Graphics,
 };
 
@@ -30,6 +32,11 @@ public:
     {
         return m_commandBuffer;
     }
+    inline void SetCommandBuffer(const vk::CommandBuffer& a_buffer)
+    {
+        m_commandBuffer = a_buffer;
+    }
+
     inline e_VulkanCommandBufferType GetBufferType() const
     {
         return m_type;

@@ -1,9 +1,29 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 #include <unordered_map>
+
+#include "DataTypes/Array.h"
+#include "DataTypes/TArray.h"
+#include "DataTypes/TNCArray.h"
+#include "DataTypes/TStatic.h"
+#include "Rendering/CameraBuffer.h"
+#include "Rendering/MaterialRenderStack.h"
+#include "Rendering/MeshRenderBuffer.h"
+#include "Rendering/SkinnedMeshRenderBuffer.h"
+#include "Rendering/TextureData.h"
+#include "Rendering/UI/CanvasRendererBuffer.h"
+#include "Rendering/Vulkan/VulkanCommandBuffer.h"
+
+#include "EngineAmbientLightInteropStructures.h"
+#include "EngineDirectionalLightInteropStructures.h"
+#include "EngineMaterialInteropStructures.h"
+#include "EnginePointLightInteropStructures.h"
+#include "EngineSpotLightInteropStructures.h"
+#include "EngineTextureSamplerInteropStructures.h"
 
 struct CanvasBuffer;
 
@@ -23,24 +43,7 @@ class VulkanSwapchain;
 class VulkanTexture;
 class VulkanUniformBuffer;
 class VulkanVertexShader;
-
-#include "DataTypes/Array.h"
-#include "DataTypes/TArray.h"
-#include "DataTypes/TNCArray.h"
-#include "DataTypes/TStatic.h"
-#include "Rendering/CameraBuffer.h"
-#include "Rendering/MaterialRenderStack.h"
-#include "Rendering/MeshRenderBuffer.h"
-#include "Rendering/SkinnedMeshRenderBuffer.h"
-#include "Rendering/TextureData.h"
-#include "Rendering/UI/CanvasRendererBuffer.h"
-
-#include "EngineAmbientLightInteropStructures.h"
-#include "EngineDirectionalLightInteropStructures.h"
-#include "EngineMaterialInteropStructures.h"
-#include "EnginePointLightInteropStructures.h"
-#include "EngineSpotLightInteropStructures.h"
-#include "EngineTextureSamplerInteropStructures.h"
+class VulkanVideoTexture;
 
 class VulkanGraphicsEngine
 {
@@ -89,6 +92,7 @@ private:
 
     TNCArray<VulkanModel*>                        m_models;
     TNCArray<VulkanTexture*>                      m_textures;
+    TNCArray<VulkanVideoTexture*>                 m_videoTextures;
 
     TNCArray<VulkanRenderTexture*>                m_renderTextures;
     TNCArray<VulkanDepthCubeRenderTexture*>       m_depthCubeRenderTextures;
@@ -110,6 +114,9 @@ private:
 
     VulkanUniformBuffer*                          m_timeUniform;
 
+    vk::CommandPool                               m_decodePool[VulkanFlightPoolSize];
+    vk::CommandBuffer                             m_decodeBuffer[VulkanFlightPoolSize];
+
     Array<vk::CommandPool>                        m_commandPool[VulkanFlightPoolSize];
     Array<vk::CommandBuffer>                      m_commandBuffers[VulkanFlightPoolSize];
     
@@ -123,13 +130,13 @@ private:
     void Draw(bool a_forward, const CameraBuffer& a_camBuffer, const Frustum& a_frustum, VulkanRenderCommand* a_renderCommand, uint32_t a_frameIndex);
     void DrawShadow(const glm::mat4& a_lvp, float a_split, const glm::vec2& a_bias, uint32_t a_renderLayer, uint32_t a_renderTexture, bool a_cube, vk::CommandBuffer a_commandBuffer, uint32_t a_index);
 
-    vk::CommandBuffer DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
-    vk::CommandBuffer PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
-    vk::CommandBuffer SpotShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
-    vk::CommandBuffer DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
-    vk::CommandBuffer LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
-    vk::CommandBuffer ForwardPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
-    vk::CommandBuffer PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer SpotShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer ForwardPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
 
     void DrawUIElement(vk::CommandBuffer a_commandBuffer, uint32_t a_addr, const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize, uint32_t a_index);
     
@@ -148,7 +155,7 @@ public:
         m_swapchain = a_swapchain;
     }
 
-    Array<vk::CommandBuffer> Update(double a_delta, double a_time, uint32_t a_index);
+    Array<VulkanCommandBuffer> Update(double a_delta, double a_time, uint32_t a_index);
 
     uint32_t GenerateFVertexShader(const std::string_view& a_source);
     void DestroyVertexShader(uint32_t a_addr);

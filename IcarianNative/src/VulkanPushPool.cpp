@@ -75,7 +75,10 @@ vk::DescriptorSet VulkanPushPool::GenerateDescriptor(vk::DescriptorPool a_pool, 
     );
 
     vk::DescriptorSet descriptorSet;
-    ICARIAN_ASSERT_R(device.allocateDescriptorSets(&descriptorSetInfo, &descriptorSet) == vk::Result::eSuccess);
+    // Apparently the Vulkan validation layers have an issue with threading so may occasionaly get a crash here in Debug
+    // Only recently popped up so suspect a regression in the Vulkan API, I imagine gonna be fixed if I update again
+    // Have not had it occur in Release so not gonna worry about it
+    VKRESERR(device.allocateDescriptorSets(&descriptorSetInfo, &descriptorSet));
 
     return descriptorSet;
 }

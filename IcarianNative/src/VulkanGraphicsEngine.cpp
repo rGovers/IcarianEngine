@@ -39,6 +39,7 @@
 #include "Rendering/Vulkan/VulkanTextureSampler.h"
 #include "Rendering/Vulkan/VulkanUniformBuffer.h"
 #include "Rendering/Vulkan/VulkanVertexShader.h"
+#include "Rendering/Vulkan/VulkanVideoTexture.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 #include "Shaders.h"
@@ -91,6 +92,33 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
         .PrimitiveMode = PrimitiveMode_TriangleStrip,
         .Flags = 0b1 << RenderProgram::DestroyFlag
     };
+
+    const uint32_t decodeIndex = m_vulkanEngine->GetVideoDecodeIndex();
+    if (decodeIndex != -1)
+    {
+        TRACE("Allocating video decode command pools");
+        const vk::CommandPoolCreateInfo poolInfo = vk::CommandPoolCreateInfo
+        (
+            vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+            decodeIndex
+        );  
+
+        const vk::Device device = m_vulkanEngine->GetLogicalDevice();
+
+        for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
+        {
+            VKRESERRMSG(device.createCommandPool(&poolInfo, nullptr, &m_decodePool[i]), "Failed to create video decode command pool");
+
+            const vk::CommandBufferAllocateInfo commandBufferInfo = vk::CommandBufferAllocateInfo
+            (
+                m_decodePool[i],
+                vk::CommandBufferLevel::ePrimary,
+                1
+            );
+
+            VKRESERRMSG(device.allocateCommandBuffers(&commandBufferInfo, &m_decodeBuffer[i]), "Failed to allocate video decode command buffer");
+        }
+    }
 
     m_imageUIPipelineAddr = GenerateRenderProgram(imageProgram);
 
@@ -201,6 +229,15 @@ void VulkanGraphicsEngine::Cleanup()
         }
     }
 
+    const uint32_t decodeIndex = m_vulkanEngine->GetVideoDecodeIndex();
+    if (decodeIndex != -1)
+    {
+        for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
+        {
+            device.destroyCommandPool(m_decodePool[i]);
+        }
+    }
+
     TRACE("Deleting camera ubos");
     for (const VulkanUniformBuffer* uniform : m_cameraUniforms)
     {
@@ -290,6 +327,18 @@ void VulkanGraphicsEngine::Cleanup()
 
             delete (VulkanTextureSampler*)m_textureSampler[i].Data;
             m_textureSampler[i].Data = nullptr;
+        }
+    }
+
+    TRACE("Checking if video textures where deleted");
+    for (uint32_t i = 0; i < m_videoTextures.Size(); ++i)
+    {
+        if (m_videoTextures[i] != nullptr)
+        {
+            Logger::Warning("Video Texture was not destroyed");
+
+            delete m_videoTextures[i];
+            m_videoTextures[i] = nullptr;
         }
     }
 }
@@ -1049,8 +1098,10 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
     }
 }
 
-vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
+VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
+    VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(nullptr, VulkanCommandBufferType_Graphics);
+
     // Could possibly reverse the pass order and do culling on the previous pass to speed this up
     Profiler::Start("Dir Shadow Pass");
     IDEFER(Profiler::Stop());
@@ -1061,13 +1112,14 @@ vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camInde
     {
         Profiler::StopFrame();
 
-        return nullptr;
+        return vCmdBuffer;
     }
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
 
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
     IDEFER(commandBuffer.end());
+    vCmdBuffer.SetCommandBuffer(commandBuffer);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
@@ -1166,10 +1218,12 @@ vk::CommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camInde
 
     Profiler::StopFrame();
 
-    return commandBuffer;
+    return vCmdBuffer;
 }
-vk::CommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
+VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
+    VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(nullptr, VulkanCommandBufferType_Graphics);
+
     // ASAN hamstrings rendering performance have seen 2-4x performance improvements on linux with it disabled so make sure using release and not releasewithdebug for final build...
     // Probably want to do more effective culling and caching for point light shadow rendering as well
 
@@ -1186,13 +1240,14 @@ vk::CommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uin
     {
         Profiler::StopFrame();
 
-        return nullptr;
+        return vCmdBuffer;
     }
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
 
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
     IDEFER(commandBuffer.end());
+    vCmdBuffer.SetCommandBuffer(commandBuffer);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
@@ -1303,10 +1358,12 @@ vk::CommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uin
 
     Profiler::StopFrame();
 
-    return commandBuffer;
+    return vCmdBuffer;
 }
-vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
+VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
+    VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(nullptr, VulkanCommandBufferType_Graphics);
+
     Profiler::Start("Spot Shadow Pass");
     IDEFER(Profiler::Stop());
 
@@ -1316,13 +1373,14 @@ vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint
     {
         Profiler::StopFrame();
 
-        return nullptr;
+        return vCmdBuffer;
     }
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
 
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
     IDEFER(commandBuffer.end());
+    vCmdBuffer.SetCommandBuffer(commandBuffer);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
@@ -1433,10 +1491,10 @@ vk::CommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint
 
     Profiler::StopFrame();
 
-    return commandBuffer;
+    return vCmdBuffer;
 }
 
-vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex) 
+VulkanCommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex) 
 {
     Profiler::Start("Draw Pass");
     IDEFER(Profiler::Stop());
@@ -1447,6 +1505,7 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
     
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
     IDEFER(commandBuffer.end());
+    const VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_Graphics);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
 
@@ -1481,9 +1540,9 @@ vk::CommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t a
 
     Profiler::StopFrame();
 
-    return commandBuffer;
+    return vCmdBuffer;
 }
-vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
+VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
     Profiler::Start("Light Pass");
     IDEFER(Profiler::Stop());
@@ -1495,6 +1554,8 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
 
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
+    IDEFER(commandBuffer.end());
+    const VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_Graphics);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
@@ -2244,13 +2305,11 @@ vk::CommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_t 
 
     renderCommand.Flush();
 
-    commandBuffer.end();
-
     Profiler::StopFrame();
 
-    return commandBuffer;
+    return vCmdBuffer;
 }
-vk::CommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
+VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
     Profiler::Start("Forward Pass");
     IDEFER(Profiler::Stop());
@@ -2261,6 +2320,7 @@ vk::CommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint32_
     
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
     IDEFER(commandBuffer.end());
+    const VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_Graphics);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
@@ -2312,9 +2372,9 @@ vk::CommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint32_
 
     Profiler::StopFrame();
 
-    return commandBuffer;
+    return vCmdBuffer;
 }
-vk::CommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
+VulkanCommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
     Profiler::Start("Post Pass");
     IDEFER(Profiler::Stop());
@@ -2322,6 +2382,8 @@ vk::CommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t a
     Profiler::StartFrame("Update");
 
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
+    IDEFER(commandBuffer.end());
+    const VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_Graphics);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
 
@@ -2334,11 +2396,9 @@ vk::CommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t a
 
     renderCommand.Flush();
 
-    commandBuffer.end();
-
     Profiler::StopFrame();
 
-    return commandBuffer;
+    return vCmdBuffer;
 }
 
 void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint32_t a_addr, const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize, uint32_t a_index)
@@ -2442,7 +2502,7 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
     }
 }
 
-typedef vk::CommandBuffer (VulkanGraphicsEngine::*DrawFunc)(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
+typedef VulkanCommandBuffer (VulkanGraphicsEngine::*DrawFunc)(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
 
 struct DrawCallBind 
 {
@@ -2467,13 +2527,13 @@ struct DrawCallBind
         Function = a_function;
     }
 
-    inline vk::CommandBuffer operator()() const 
+    inline VulkanCommandBuffer operator()() const 
     {
         return (Engine->*Function)(CamIndex, BufferIndex, FrameIndex);
     }
 };
 
-Array<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_time, uint32_t a_index)
+Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_time, uint32_t a_index)
 {
     // TODO: Prebuild camera uniform buffers
     Profiler::StartFrame("Drawing Setup");
@@ -2576,68 +2636,101 @@ Array<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_t
 
     PROFILESTACK("Drawing Cmd");
 
-    std::vector<std::future<vk::CommandBuffer>> futures;
+    std::vector<std::future<VulkanCommandBuffer>> futures;
     for (uint32_t i = 0; i < camIndexSize; ++i)
     {
         const uint32_t camIndex = camIndices[i];
         const uint32_t poolIndex = i * DrawingPassCount;
 
-        FThreadJob<vk::CommandBuffer, DrawCallBind>* dirShadowJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* dirShadowJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
         (
             DrawCallBind(this, camIndex, poolIndex + 0, a_index, &VulkanGraphicsEngine::DirectionalShadowPass),
             JobPriority_EngineUrgent
         );
-        FThreadJob<vk::CommandBuffer, DrawCallBind>* pointShadowJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
+        futures.emplace_back(dirShadowJob->GetFuture());
+        ThreadPool::PushJob(dirShadowJob);
+
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* pointShadowJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
         (
             DrawCallBind(this, camIndex, poolIndex + 1, a_index, &VulkanGraphicsEngine::PointShadowPass),
             JobPriority_EngineUrgent
         );
-        FThreadJob<vk::CommandBuffer, DrawCallBind>* spotShadowJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
+        futures.emplace_back(pointShadowJob->GetFuture());
+        ThreadPool::PushJob(pointShadowJob);
+
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* spotShadowJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
         (
             DrawCallBind(this, camIndex, poolIndex + 2, a_index, &VulkanGraphicsEngine::SpotShadowPass),
             JobPriority_EngineUrgent
         );
-        FThreadJob<vk::CommandBuffer, DrawCallBind>* drawJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
+        futures.emplace_back(spotShadowJob->GetFuture());
+        ThreadPool::PushJob(spotShadowJob);
+
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* drawJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
         (   
             DrawCallBind(this, camIndex, poolIndex + 3, a_index, &VulkanGraphicsEngine::DrawPass), 
             JobPriority_EngineUrgent
         );
-        FThreadJob<vk::CommandBuffer, DrawCallBind>* lightJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
+        futures.emplace_back(drawJob->GetFuture());
+        ThreadPool::PushJob(drawJob);
+
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* lightJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
         (
             DrawCallBind(this, camIndex, poolIndex + 4, a_index, &VulkanGraphicsEngine::LightPass),
             JobPriority_EngineUrgent
         );
-        FThreadJob<vk::CommandBuffer, DrawCallBind>* forwardJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
+        futures.emplace_back(lightJob->GetFuture());
+        ThreadPool::PushJob(lightJob);
+
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* forwardJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
         (
             DrawCallBind(this, camIndex, poolIndex + 5, a_index, &VulkanGraphicsEngine::ForwardPass),
             JobPriority_EngineUrgent
         );
-        FThreadJob<vk::CommandBuffer, DrawCallBind>* postJob = new FThreadJob<vk::CommandBuffer, DrawCallBind>
+        futures.emplace_back(forwardJob->GetFuture());
+        ThreadPool::PushJob(forwardJob);
+
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* postJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
         (
             DrawCallBind(this, camIndex, poolIndex + 6, a_index, &VulkanGraphicsEngine::PostPass),
             JobPriority_EngineUrgent
         );
-
-        futures.emplace_back(dirShadowJob->GetFuture());
-        futures.emplace_back(pointShadowJob->GetFuture());
-        futures.emplace_back(spotShadowJob->GetFuture());
-        futures.emplace_back(drawJob->GetFuture());
-        futures.emplace_back(lightJob->GetFuture());
-        futures.emplace_back(forwardJob->GetFuture());
         futures.emplace_back(postJob->GetFuture());
-
-        // Quite pleased with myself got a 2x performance improvement by switching to a thread pool over async
-        // And that is without using priorities either
-        // Now here is hoping that it lasts when doing actual grunt work
-        ThreadPool::PushJob(dirShadowJob);
-        ThreadPool::PushJob(pointShadowJob);
-        ThreadPool::PushJob(spotShadowJob);
-        ThreadPool::PushJob(drawJob);
-        ThreadPool::PushJob(lightJob);
-        ThreadPool::PushJob(forwardJob);
         ThreadPool::PushJob(postJob);
     }
     
+    Array<VulkanCommandBuffer> cmdBuffers;
+    {
+        PROFILESTACK("Video Decode");
+
+        const Array<VulkanVideoTexture*> videoTextures = m_videoTextures.ToActiveArray();
+        if (!videoTextures.Empty())
+        {
+            if (m_vulkanEngine->IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME))
+            {   
+                device.resetCommandPool(m_decodePool[a_index]);
+                
+                const vk::CommandBuffer commandBuffer = m_decodeBuffer[a_index];
+
+                constexpr vk::CommandBufferBeginInfo BeginInfo;
+                commandBuffer.begin(BeginInfo);
+                IDEFER(commandBuffer.end());
+
+                for (VulkanVideoTexture* tex : videoTextures)
+                {
+                    tex->UpdateVulkan(commandBuffer, a_delta);
+                }
+
+                const VulkanCommandBuffer buffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_VideoDecode);
+                cmdBuffers.Push(buffer);
+            }
+            else 
+            {
+                IERROR("Software decoding not supported");
+            }
+        }        
+    }
+
     Array<vk::CommandBuffer> uiBuffers;
     {
         PROFILESTACK("UI Draw");
@@ -2704,16 +2797,15 @@ Array<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_t
         }
     }
     
-    Array<vk::CommandBuffer> cmdBuffers;
     {
         PROFILESTACK("Draw Wait");
 
-        for (std::future<vk::CommandBuffer>& f : futures)
+        for (std::future<VulkanCommandBuffer>& f : futures)
         {
             f.wait();
 
-            vk::CommandBuffer buffer = f.get();
-            if (buffer != vk::CommandBuffer(nullptr))
+            const VulkanCommandBuffer buffer = f.get();
+            if (buffer.GetCommandBuffer() != vk::CommandBuffer(nullptr))
             {
                 cmdBuffers.Push(buffer);
             }
@@ -2728,7 +2820,9 @@ Array<vk::CommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_t
                     continue;
                 }
 
-                cmdBuffers.Push(buffer);
+                const VulkanCommandBuffer vBuffer = VulkanCommandBuffer(buffer, VulkanCommandBufferType_Graphics);
+
+                cmdBuffers.Push(vBuffer);
             }
         }
     }

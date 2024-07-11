@@ -18,23 +18,16 @@
 #include "Rendering/AnimationController.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/UI/UIControl.h"
+#include "Rendering/Video/VideoManager.h"
 #include "Runtime/RuntimeManager.h"
 #include "Scribe.h"
 #include "Trace.h"
 #include "ThreadPool.h"
 
+#include "EngineApplicationInteropStructures.h"
 #include "EngineInputInterop.h"
 
 static Application* Instance = nullptr;
-
-struct Monitor
-{
-    uint32_t Index;
-    MonoString* Name;
-    uint32_t Width;
-    uint32_t Height;
-    void* Handle;
-};
 
 #define APPLICATION_BINDING_FUNCTION_TABLE(F) \
     F(uint32_t, IcarianEngine, Application, GetWidth, { return Instance->GetWidth(); }) \
@@ -90,36 +83,10 @@ RUNTIME_FUNCTION(void, Application, SetFullscreenState,
     appMonitor.Height = a_monitor.Height;
     appMonitor.Handle = a_monitor.Handle;
 
-    class ApplicationSetFullscreen : public DeletionObject
+    IPUSHDELETIONFUNC(
     {
-    private:
-        bool       m_state;
-        uint32_t   m_width;
-        uint32_t   m_height;
-        AppMonitor m_monitor;
-
-    protected:
-
-    public:
-        ApplicationSetFullscreen(bool a_state, uint32_t a_width, uint32_t a_height, const AppMonitor& a_monitor)
-        {
-            m_state = a_state;
-            m_width = a_width;
-            m_height = a_height;
-            m_monitor = a_monitor;
-        }
-        virtual ~ApplicationSetFullscreen()
-        {
-            
-        }
-
-        virtual void Destroy()
-        {
-            Instance->SetFullscreen(m_monitor, m_state, m_width, m_height);
-        }
-    };
-
-    DeletionQueue::Push(new ApplicationSetFullscreen((bool)a_state, a_width, a_height, appMonitor), DeletionIndex_Render);
+        Instance->SetFullscreen(appMonitor, (bool)a_state, a_width, a_height);   
+    }, DeletionIndex_Render);
 }, Monitor a_monitor, uint32_t a_state, uint32_t a_width, uint32_t a_height)
 
 static void AppAssertCallback(const std::string& a_string)
@@ -166,6 +133,7 @@ Application::Application(Config* a_config)
     m_inputManager = new InputManager();
 
     ObjectManager::Init();
+    VideoManager::Init();
 
     m_audioEngine = new AudioEngine();
     m_physicsEngine = new PhysicsEngine(m_config);
@@ -206,6 +174,7 @@ Application::~Application()
     delete m_config;
 
     ObjectManager::Destroy();
+    VideoManager::Destroy();
 
     Random::Destroy();
     Profiler::Destroy();

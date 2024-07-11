@@ -40,3 +40,9 @@
 [submodule "deps/assimp"]
 	path = deps/assimp
 	url = https://github.com/assimp/assimp.git
+[submodule "IcarianNative/lib/minimp4"]
+	path = IcarianNative/lib/minimp4
+	url = https://github.com/lieff/minimp4.git
+[submodule "deps/zlib"]
+	path = deps/zlib
+	url = https://github.com/madler/zlib

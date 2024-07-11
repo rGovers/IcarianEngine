@@ -142,7 +142,7 @@ GLFWAppWindow::GLFWAppWindow(Application* a_app, Config* a_config) : AppWindow(a
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     m_window = glfwCreateWindow(1280, 720, a_config->GetApplicationName().data(), NULL, NULL);
 
     glfwMakeContextCurrent(m_window);
@@ -274,6 +274,15 @@ void GLFWAppWindow::Update()
         for (unsigned int i = 0; i < KeyCode_Last; ++i)
         {
             inputManager->SetKeyboardKey((e_KeyCode)i, glfwGetKey(m_window, GLFWKeyTable[i]) == GLFW_PRESS);
+        }
+
+        if (inputManager->IsKeyDown(KeyCode_LeftAlt) || inputManager->IsKeyDown(KeyCode_RightAlt))
+        {
+            if (inputManager->IsKeyDown(KeyCode_F4))
+            {
+                // Alt+F4 is unreliable under XWayland 
+                m_shouldClose = true;
+            }
         }
     }  
 }

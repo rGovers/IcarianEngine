@@ -454,6 +454,8 @@ namespace IcarianEngine
 
             if (a_def.Components != null)
             {
+                List<Component> comps = new List<Component>();
+
                 foreach (ComponentDef def in a_def.Components)
                 {
                     if (def == null)
@@ -461,7 +463,17 @@ namespace IcarianEngine
                         continue;
                     }
 
-                    obj.AddComponent(def);
+                    comps.Add(obj.AddComponentN(def));
+                }
+
+                foreach (Component comp in comps)
+                {
+                    comp.Init();
+
+                    if (comp is Scriptable script)
+                    {
+                        GameObject.AddScriptable(script);
+                    }
                 }
             }
 

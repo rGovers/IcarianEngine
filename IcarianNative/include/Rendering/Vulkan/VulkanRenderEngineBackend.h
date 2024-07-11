@@ -1,18 +1,29 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 #include "DataTypes/TArray.h"
 #include "DataTypes/TLockObj.h"
 #include "DataTypes/SpinLock.h"
 #include "Rendering/RenderEngineBackend.h"
+#include "Rendering/Vulkan/VulkanCommandBuffer.h"
 
 class AppWindow;
+class LibVulkan;
 class VulkanComputeEngine;
 class VulkanGraphicsEngine;
 class VulkanPushPool;
 class VulkanSwapchain;
+
+struct VulkanVideoDecodeCapabilities
+{
+    vk::VideoProfileInfoKHR VideoProfile;
+    vk::VideoDecodeCapabilitiesKHR DecodeCapabilities;
+    vk::VideoCapabilitiesKHR VideoCapabilities;
+    vk::VideoDecodeH264CapabilitiesKHR DecodeH264Capabilities;
+};
 
 class VulkanDeletionObject
 {
@@ -29,10 +40,20 @@ public:
 class VulkanRenderEngineBackend : public RenderEngineBackend
 {
 private:
+    constexpr static vk::VideoDecodeH264ProfileInfoKHR DecodeProfile = vk::VideoDecodeH264ProfileInfoKHR
+    (
+        STD_VIDEO_H264_PROFILE_IDC_HIGH,
+        vk::VideoDecodeH264PictureLayoutFlagBitsKHR::eInterlacedInterleavedLines
+    );
+
+    LibVulkan*                    m_vulkanLib;
+
     VulkanComputeEngine*          m_computeEngine;
     VulkanGraphicsEngine*         m_graphicsEngine;
     VulkanSwapchain*              m_swapchain = nullptr;
     VulkanPushPool*               m_pushPool;
+
+    Array<bool>                   m_optionalExtensionMask;
                 
     VmaAllocator                  m_allocator;
                 
@@ -42,6 +63,7 @@ private:
     vk::Device                    m_lDevice;
                         
     vk::Queue                     m_computeQueue = nullptr;
+    vk::Queue                     m_videoDecodeQueue = nullptr;
     vk::Queue                     m_graphicsQueue = nullptr;
     vk::Queue                     m_presentQueue = nullptr;
 
@@ -59,8 +81,11 @@ private:
     uint32_t                      m_dQueueIndex = 0;
 
     uint32_t                      m_computeQueueIndex = -1;
+    uint32_t                      m_videoDecodeQueueIndex = -1;
     uint32_t                      m_graphicsQueueIndex = -1;
     uint32_t                      m_presentQueueIndex = -1;
+
+    VulkanVideoDecodeCapabilities m_videoDecodeCapabilities;
 
     SpinLock                      m_graphicsQueueLock;
 
@@ -69,6 +94,8 @@ protected:
 public:
     VulkanRenderEngineBackend(RenderEngine* a_engine);
     virtual ~VulkanRenderEngineBackend();
+
+    bool IsExtensionEnabled(const std::string_view& a_extension) const;
 
     virtual void Update(double a_delta, double a_time);
 
@@ -87,7 +114,7 @@ public:
 
     virtual uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     virtual void DestroyTextureSampler(uint32_t a_addr);
-
+    
     inline VulkanComputeEngine* GetComputeEngine() const
     {
         return m_computeEngine;
@@ -100,6 +127,11 @@ public:
     inline VulkanPushPool* GetPushPool() const
     {
         return m_pushPool;
+    }
+
+    inline const VulkanVideoDecodeCapabilities* GetVideoDecodeCapabilities() const
+    {
+        return &m_videoDecodeCapabilities;
     }
 
     void PushDeletionObject(VulkanDeletionObject* a_object);
@@ -140,6 +172,10 @@ public:
     {
         return m_computeQueueIndex;
     }
+    inline uint32_t GetVideoDecodeIndex() const
+    {
+        return m_videoDecodeQueueIndex;
+    }
     inline uint32_t GetGraphicsQueueIndex() const
     {
         return m_graphicsQueueIndex;
@@ -152,6 +188,10 @@ public:
     inline vk::Queue GetComputeQueue() const
     {
         return m_computeQueue;
+    }
+    inline vk::Queue GetVideoDecodeQueue() const
+    {
+        return m_videoDecodeQueue;
     }
     inline vk::Queue GetGraphicsQueue() const
     {

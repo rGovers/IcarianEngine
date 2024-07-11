@@ -3,6 +3,7 @@ using IcarianEngine.Physics.Shapes;
 using IcarianEngine.Rendering;
 using IcarianEngine.Rendering.Animation;
 using IcarianEngine.Rendering.UI;
+using IcarianEngine.Rendering.Video;
 using System.Threading;
 
 namespace IcarianEngine
@@ -56,7 +57,7 @@ namespace IcarianEngine
             }
             set
             {
-                Clip = (AudioClip)value;
+                Clip = value as AudioClip;
             }
         }
 
@@ -70,6 +71,49 @@ namespace IcarianEngine
         public object LoadValue(string a_input)
         {
             return AudioClip.LoadAudioClip(a_input);
+        }
+    }
+
+    class VideoClipContainer : IAssetContainer
+    {
+        public LoadStatus Status
+        {
+            get;
+            set;
+        }
+        public EventWaitHandle WaitHandle
+        {
+            get;
+            set;
+        }
+        public VideoClip Clip
+        {
+            get;
+            set;
+        }
+
+        public object Value
+        {
+            get
+            {
+                return Clip;
+            }
+            set
+            {
+                Clip = value as VideoClip;
+            }
+        }
+
+        public VideoClipContainer()
+        {
+            Status = LoadStatus.Unloaded;
+            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            Clip = null;
+        }
+
+        public object LoadValue(string a_input)
+        {
+            return VideoClip.LoadVideoClip(a_input);
         }
     }
 
@@ -99,7 +143,7 @@ namespace IcarianEngine
             }
             set
             {
-                Shader = (VertexShader)value;
+                Shader = value as VertexShader;
             }
         }
 
@@ -141,7 +185,7 @@ namespace IcarianEngine
             }
             set
             {
-                Shader = (PixelShader)value;
+                Shader = value as PixelShader;
             }
         }
 

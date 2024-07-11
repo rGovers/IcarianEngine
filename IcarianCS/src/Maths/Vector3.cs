@@ -570,6 +570,11 @@ namespace IcarianEngine.Maths
         public static Vector3 Slerp(Vector3 a_start, Vector3 a_end, float a_t)
         {
             float d = Dot(a_start, a_end);
+            if (d > 0.99f)
+            {
+                return Vector3.Lerp(a_start, a_end, a_t);
+            }
+
             float theta = Mathf.Acos(d);
             float sin = Mathf.Sin(theta);
 

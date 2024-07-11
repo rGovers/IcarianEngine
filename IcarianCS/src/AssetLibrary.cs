@@ -5,6 +5,7 @@ using IcarianEngine.Physics.Shapes;
 using IcarianEngine.Rendering;
 using IcarianEngine.Rendering.Animation;
 using IcarianEngine.Rendering.UI;
+using IcarianEngine.Rendering.Video;
 using System;
 using System.Collections.Concurrent;
 
@@ -24,6 +25,7 @@ namespace IcarianEngine
     public static class AssetLibrary
     {
         static ConcurrentDictionary<string, AudioClipContainer>      s_audioClips;
+        static ConcurrentDictionary<string, VideoClipContainer>      s_videoClips;
  
         static ConcurrentDictionary<string, MaterialContainer>       s_materials;
         static ConcurrentDictionary<string, VertexShaderContainer>   s_vertexShaders;
@@ -92,6 +94,7 @@ namespace IcarianEngine
         internal static void Init()
         {
             s_audioClips = new ConcurrentDictionary<string, AudioClipContainer>();
+            s_videoClips = new ConcurrentDictionary<string, VideoClipContainer>();
 
             s_materials = new ConcurrentDictionary<string, MaterialContainer>();
 
@@ -129,6 +132,23 @@ namespace IcarianEngine
         public static void ClearAssets()
         {
             foreach (AudioClipContainer clip in s_audioClips.Values)
+            {
+                if (clip.Status == LoadStatus.Failed)
+                {
+                    continue;
+                }
+
+                if (clip.Status != LoadStatus.Loaded)
+                {
+                    clip.WaitHandle.WaitOne();
+                }
+
+                if (clip.Clip != null && !clip.Clip.IsDisposed)
+                {
+                    clip.Clip.Dispose();
+                }
+            }
+            foreach (VideoClipContainer clip in s_videoClips.Values)
             {
                 if (clip.Status == LoadStatus.Failed)
                 {
@@ -519,6 +539,11 @@ namespace IcarianEngine
                     a_callback(clip, status);
                 }
             }, a_priority);
+        }
+
+        public static VideoClip LoadVideoClip(string a_path)
+        {
+            return LoadData<VideoClip, VideoClipContainer>(a_path, s_videoClips);
         }
 
         /// <summary>

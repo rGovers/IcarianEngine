@@ -11,6 +11,7 @@
 #include "Logger.h"
 #include "Profiler.h"
 #include "Rendering/RenderEngine.h"
+#include "Rendering/Vulkan/LibVulkan.h"
 #include "Rendering/Vulkan/VulkanCommandBuffer.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
@@ -34,11 +35,10 @@ constexpr const char* ValidationLayers[] =
 
 constexpr const char* InstanceExtensions[] = 
 {
-    VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
+    
 };
 constexpr const char* DeviceExtensions[] = 
 {
-    VK_KHR_MAINTENANCE_3_EXTENSION_NAME,
     VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME
 };
 
@@ -46,6 +46,15 @@ constexpr const char* StandaloneDeviceExtensions[] =
 {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
+
+constexpr const char* OptionalDeviceExtensions[] = 
+{
+    VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
+    VK_KHR_VIDEO_QUEUE_EXTENSION_NAME,
+    VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME,
+    VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME,
+};
+constexpr uint32_t OptionalDeviceExtensionCount = sizeof(OptionalDeviceExtensions) / sizeof(*OptionalDeviceExtensions);
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT a_msgSeverity, VkDebugUtilsMessageTypeFlagsEXT a_msgType, const VkDebugUtilsMessengerCallbackDataEXT* a_callbackData, void* a_userData)
 {
@@ -81,8 +90,14 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
     return VK_FALSE;
 }
 
-static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, const Array<const char*>& a_extensions)
+static Array<bool> GetDeviceExtensionSupport(const vk::PhysicalDevice& a_device, const Array<const char*>& a_extensions)
 {
+    const uint32_t size = a_extensions.Size();
+
+    Array<bool> mask;
+    // Array zeros memory so defaults to false
+    mask.Resize(size);
+
     uint32_t extensionCount;
     VKRESERR(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr));
 
@@ -90,22 +105,47 @@ static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, cons
     IDEFER(delete[] availableExtensions);
     VKRESERR(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions));
 
-    uint32_t requiredCount = a_extensions.Size();
-
-    for (const char* requiredExtension : a_extensions)
+    for (uint32_t i = 0; i < size; ++i)
     {
-        for (uint32_t i = 0; i < extensionCount; ++i)
+        for (uint32_t j = 0; j < extensionCount; ++j)
         {
-            if (strcmp(requiredExtension, availableExtensions[i].extensionName) == 0)
+            if (strcmp(a_extensions[i], availableExtensions[j].extensionName) == 0)
             {
-                --requiredCount;
+                mask[i] = true;
 
                 break;
             }
         }
     }
 
-    return requiredCount == 0;
+    return mask;
+}
+
+static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, const Array<const char*>& a_extensions)
+{
+    const Array<bool> support = GetDeviceExtensionSupport(a_device, a_extensions);
+
+    for (const bool s : support)
+    {
+        if (!s)
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+static uint32_t GetDeviceExtensionScore(const vk::PhysicalDevice& a_device)
+{
+    const Array<bool> support = GetDeviceExtensionSupport(a_device, Array<const char*>(OptionalDeviceExtensions, OptionalDeviceExtensionCount));
+
+    uint32_t score = 0;
+    for (const bool s : support)
+    {
+        score += s * 20;
+    }
+
+    return score;
 }
 
 static bool IsDeviceSuitable(const vk::Instance& a_instance, const vk::PhysicalDevice& a_device, const Array<const char*>& a_extensions, AppWindow* a_window)
@@ -209,6 +249,8 @@ static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device)
     score += vk::apiVersionMajor(properties.apiVersion) * 100;
     score += vk::apiVersionMinor(properties.apiVersion) * 10;
 
+    score += GetDeviceExtensionScore(a_device);
+
     const vk::PhysicalDeviceMemoryProperties memProp = a_device.getMemoryProperties();
     for (uint32_t i = 0; i < memProp.memoryHeapCount; ++i)
     {
@@ -270,8 +312,16 @@ static Array<const char*> GetRequiredExtensions(const AppWindow* a_window)
     return extensions;
 }
 
+#ifdef VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
+#endif
+
 VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : RenderEngineBackend(a_engine)
 {
+    m_vulkanLib = new LibVulkan();
+
+    VULKAN_HPP_DEFAULT_DISPATCHER.init((PFN_vkGetInstanceProcAddr)m_vulkanLib->vkGetInstanceProcAddr);
+
     const RenderEngine* renderEngine = GetRenderEngine();
     AppWindow* window = renderEngine->m_window;
 
@@ -289,9 +339,11 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         }
     }
 
+    const std::string applicationName = renderEngine->m_config->GetApplicationName();
+
     const vk::ApplicationInfo appInfo = vk::ApplicationInfo
     (
-        renderEngine->m_config->GetApplicationName().data(), 
+        applicationName.c_str(), 
         0U, 
         "IcarianEngine", 
         VK_MAKE_VERSION(ICARIANNATIVE_VERSION_MAJOR, ICARIANNATIVE_VERSION_MINOR, ICARIANNATIVE_VERSION_PATCH), 
@@ -327,6 +379,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     TRACE("Creating Vulkan Instance");
     VKRESERRMSG(vk::createInstance(&createInfo, nullptr, &m_instance), "Failed to create Vulkan Instance");
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(m_instance);
 
     if constexpr (VulkanEnableValidationLayers)
     {
@@ -334,12 +387,12 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         VKRESERRMSG(m_instance.createDebugUtilsMessengerEXT(&DebugCreateInfo, nullptr, &m_messenger), "Failed to create Vulkan Debug Printing");
     }
 
-    Array<const char*> dRequiredExtensions = Array<const char*>(DeviceExtensions, sizeof(DeviceExtensions) / sizeof(*DeviceExtensions));
+    Array<const char*> extensions = Array<const char*>(DeviceExtensions, sizeof(DeviceExtensions) / sizeof(*DeviceExtensions));
     if (!headless)
     {
         for (const char* ext : StandaloneDeviceExtensions)
         {
-            dRequiredExtensions.Push(ext);
+            extensions.Push(ext);
         }
     }
 
@@ -360,7 +413,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     {
         const vk::PhysicalDevice device = devices[i]; 
 
-        if (IsDeviceSuitable(m_instance, device, dRequiredExtensions, window))
+        if (IsDeviceSuitable(m_instance, device, extensions, window))
         {
             const uint32_t score = GetDeviceScore(device);
             if (score < deviceScore && deviceScore != -1)
@@ -379,11 +432,20 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         (
 "No suitable GPU found to run. \
 \
-Please ensure you have a Vulkan 1.0 capable GPU with greater then 512MB of VRAM"
+Please ensure you have a Vulkan 1.1 capable GPU with greater then 512MB of VRAM"
         );
     }
 
     TRACE("Found Vulkan Physical Device");
+
+    m_optionalExtensionMask = GetDeviceExtensionSupport(m_pDevice, Array<const char*>(OptionalDeviceExtensions, OptionalDeviceExtensionCount));
+    for (uint32_t i = 0; i < OptionalDeviceExtensionCount; ++i)
+    {
+        if (m_optionalExtensionMask[i])
+        {
+            extensions.Push(OptionalDeviceExtensions[i]);
+        }
+    }
 
     uint32_t queueFamilyCount = 0;
     m_pDevice.getQueueFamilyProperties(&queueFamilyCount, nullptr);
@@ -399,10 +461,14 @@ Please ensure you have a Vulkan 1.0 capable GPU with greater then 512MB of VRAM"
             m_graphicsQueueIndex = i;
         }
         
+        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eVideoDecodeKHR)
+        {
+            m_videoDecodeQueueIndex = i;
+        }
+
         if (!headless)
         {
             vk::Bool32 presentSupport = VK_FALSE;
-
             VKRESERR(m_pDevice.getSurfaceSupportKHR(i, window->GetSurface(m_instance), &presentSupport));
 
             if (presentSupport)
@@ -445,6 +511,10 @@ Please ensure you have a Vulkan 1.0 capable GPU with greater then 512MB of VRAM"
     {
         uniqueQueueFamilies.emplace(m_computeQueueIndex);
     }
+    if (m_videoDecodeQueueIndex != -1)
+    {
+        uniqueQueueFamilies.emplace(m_videoDecodeQueueIndex);
+    }
     if (m_graphicsQueueIndex != -1)
     {
         uniqueQueueFamilies.emplace(m_graphicsQueueIndex);
@@ -474,8 +544,8 @@ Please ensure you have a Vulkan 1.0 capable GPU with greater then 512MB of VRAM"
         queueCreateInfos.Data(), 
         0, 
         nullptr, 
-        dRequiredExtensions.Size(), 
-        dRequiredExtensions.Data(),
+        extensions.Size(), 
+        extensions.Data(),
         &deviceFeatures
     );
 
@@ -487,11 +557,12 @@ Please ensure you have a Vulkan 1.0 capable GPU with greater then 512MB of VRAM"
 
     TRACE("Creating Vulkan Device");
     VKRESERRMSG(m_pDevice.createDevice(&deviceCreateInfo, nullptr, &m_lDevice), "Failed to create Vulkan Logic Device");
+    VULKAN_HPP_DEFAULT_DISPATCHER.init(m_lDevice);
 
     const VmaVulkanFunctions vulkanFunctions = 
     {
-        .vkGetInstanceProcAddr = &vkGetInstanceProcAddr,
-        .vkGetDeviceProcAddr = &vkGetDeviceProcAddr
+        .vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)m_vulkanLib->vkGetInstanceProcAddr,
+        .vkGetDeviceProcAddr = (PFN_vkGetDeviceProcAddr)m_vulkanLib->vkGetDeviceProcAddr
     };
 
     const VmaAllocatorCreateInfo allocatorCreateInfo =
@@ -511,6 +582,10 @@ Please ensure you have a Vulkan 1.0 capable GPU with greater then 512MB of VRAM"
     if (m_computeQueueIndex != -1)
     {
         m_lDevice.getQueue(m_computeQueueIndex, 0, &m_computeQueue);
+    }
+    if (m_videoDecodeQueueIndex != -1)
+    {
+        m_lDevice.getQueue(m_videoDecodeQueueIndex, 0, &m_videoDecodeQueue);
     }
     if (m_graphicsQueueIndex != -1)
     {
@@ -543,6 +618,23 @@ Please ensure you have a Vulkan 1.0 capable GPU with greater then 512MB of VRAM"
     );  
 
     VKRESERRMSG(m_lDevice.createCommandPool(&poolInfo, nullptr, &m_commandPool), "Failed to create command pool");
+
+    if (IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME))
+    {
+        m_videoDecodeCapabilities.VideoProfile = vk::VideoProfileInfoKHR
+        (
+            vk::VideoCodecOperationFlagBitsKHR::eDecodeH264,
+            vk::VideoChromaSubsamplingFlagBitsKHR::e420,
+            vk::VideoComponentBitDepthFlagBitsKHR::e8,
+            vk::VideoComponentBitDepthFlagBitsKHR::e8,
+            &DecodeProfile
+        );
+
+        m_videoDecodeCapabilities.VideoCapabilities.pNext = &m_videoDecodeCapabilities.DecodeCapabilities;
+        m_videoDecodeCapabilities.DecodeCapabilities.pNext = &m_videoDecodeCapabilities.DecodeH264Capabilities;
+
+        VKRESERR(m_pDevice.getVideoCapabilitiesKHR(&m_videoDecodeCapabilities.VideoProfile, &m_videoDecodeCapabilities.VideoCapabilities));
+    }
 
     m_pushPool = new VulkanPushPool(this);
     m_computeEngine = new VulkanComputeEngine(this);
@@ -623,7 +715,22 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
     TRACE("Destroying Vulkan Instance");
     m_instance.destroy();
 
+    delete m_vulkanLib;
+
     TRACE("Vulkan cleaned up");
+}
+
+bool VulkanRenderEngineBackend::IsExtensionEnabled(const std::string_view& a_extension) const
+{
+    for (uint32_t i = 0; i < OptionalDeviceExtensionCount; ++i)
+    {
+        if (a_extension == OptionalDeviceExtensions[i])
+        {
+            return m_optionalExtensionMask[i];
+        }
+    }
+
+    return false;
 }
 
 void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
@@ -661,14 +768,14 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     Array<VulkanCommandBuffer> commandBuffers;
 
     // TODO: Down the line setup the compute and graphics engine to return VulkanCommandBuffers
-    VulkanCommandBuffer computeCommandBuffer = m_computeEngine->Update(a_delta, a_time, m_currentFrame);
+    const VulkanCommandBuffer computeCommandBuffer = m_computeEngine->Update(a_delta, a_time, m_currentFrame);
     commandBuffers.Push(computeCommandBuffer);
 
     {
-        const Array<vk::CommandBuffer> buffers = m_graphicsEngine->Update(a_delta, a_time, m_currentFrame);
-        for (const vk::CommandBuffer& b : buffers)
+        const Array<VulkanCommandBuffer> buffers = m_graphicsEngine->Update(a_delta, a_time, m_currentFrame);
+        for (const VulkanCommandBuffer& b : buffers)
         {
-            commandBuffers.Push(VulkanCommandBuffer(b, VulkanCommandBufferType_Graphics));
+            commandBuffers.Push(b);
         }
     }
     
@@ -713,6 +820,11 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     }
 
     {
+        // TODO: Redo command buffer submission, can probably get benefits from allowing GPUs with multli queue to do stuff at the same time.
+        // Also just generally a bit of a mess
+        // Alot of benefit comes from allowing video at the same time.
+        // Not a lot of benefit atleast for the GPUs I have compute and graphics is the same queue and it they do have seperate queues compute is shared with the present queue annoyingly
+        // May consider allowing present and compute to share need to do further investigation
         const ThreadGuard l = ThreadGuard(m_graphicsQueueLock);
 
         for (uint32_t i = 0; i < buffersSize; ++i)
@@ -732,6 +844,13 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
             {
                 queue = m_computeQueue;
                 waitStages = vk::PipelineStageFlagBits::eComputeShader;
+
+                break;
+            }
+            case VulkanCommandBufferType_VideoDecode:
+            {
+                queue = m_videoDecodeQueue;
+                waitStages = vk::PipelineStageFlagBits::eAllCommands;
 
                 break;
             }
@@ -959,26 +1078,4 @@ void VulkanRenderEngineBackend::PushDeletionObject(VulkanDeletionObject* a_objec
     m_deletionObjects[m_dQueueIndex].Push(a_object);
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkCreateDebugUtilsMessengerEXT(VkInstance a_instance, const VkDebugUtilsMessengerCreateInfoEXT* a_createInfo, const VkAllocationCallbacks* a_allocator, VkDebugUtilsMessengerEXT* a_messenger)
-{
-    TRACE("Custom Vulkan Debug Initializer Called");
-
-    PFN_vkCreateDebugUtilsMessengerEXT func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(a_instance, "vkCreateDebugUtilsMessengerEXT");
-    if (func != nullptr)
-    {
-        return func(a_instance, a_createInfo, a_allocator, a_messenger);
-    }
-
-    return VK_ERROR_UNKNOWN;
-}
-VKAPI_ATTR void VKAPI_CALL vkDestroyDebugUtilsMessengerEXT(VkInstance a_instance, VkDebugUtilsMessengerEXT a_messenger, const VkAllocationCallbacks* a_allocator)
-{
-    TRACE("Custom Vulkan Debug Destructor Called");
-
-    PFN_vkDestroyDebugUtilsMessengerEXT func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(a_instance, "vkDestroyDebugUtilsMessengerEXT");
-    if (func != nullptr)
-    {
-        func(a_instance, a_messenger, a_allocator);
-    }
-}
 #endif

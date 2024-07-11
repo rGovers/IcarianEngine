@@ -35,7 +35,7 @@ public:
         return m_fileCacheSize;
     }
 
-    inline const std::string_view GetApplicationName() const
+    inline const std::string GetApplicationName() const
     {
         return m_appName;
     }

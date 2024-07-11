@@ -160,7 +160,10 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
         "src/Rendering/UI/Font.cs",
         "src/Rendering/UI/ImageUIElement.cs",
         "src/Rendering/UI/TextUIElement.cs",
-        "src/Rendering/UI/UIElement.cs"
+        "src/Rendering/UI/UIElement.cs",
+        
+        "src/Rendering/Video/VideoClip.cs",
+        "src/Rendering/Video/VideoTexture.cs"
     );
 
     CUBE_CSProject_AppendReference(&project, "System.Xml.dll");

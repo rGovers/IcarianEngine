@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
     project.Name = CUBE_StackString_CreateC("GLFW");
@@ -111,7 +111,7 @@ CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfiguration 
 }
 
 // Not all platforms have a miniz implementation, so we need to build it ourselves for KTX
-CUBE_CProject BuildMINIZ(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+static CUBE_CProject BuildMINIZ(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
     project.Name = CUBE_StackString_CreateC("miniz");
@@ -162,7 +162,7 @@ CUBE_CProject BuildMINIZ(e_TargetPlatform a_targetPlatform, e_BuildConfiguration
     return project;
 }
 
-CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
     project.Name = CUBE_StackString_CreateC("ktxc");
@@ -256,7 +256,7 @@ CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration 
 
     return project;
 }
-CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
     project.Name = CUBE_StackString_CreateC("ktxcpp");
@@ -336,7 +336,7 @@ CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfiguratio
 
     return project;
 }
-CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+static CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
     project.Name = CUBE_StackString_CreateC("ktxwritec");
@@ -432,7 +432,7 @@ CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildConfigura
 
     return project;
 }
-CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+static CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
     project.Name = CUBE_StackString_CreateC("ktxwritecpp");
@@ -530,7 +530,7 @@ CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     return project;
 }
 
-CUBE_CProject BuildUnzip(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+static CUBE_CProject BuildUnzip(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
     project.Name = CUBE_StackString_CreateC("unzip");
@@ -591,7 +591,85 @@ CUBE_CProject BuildUnzip(e_TargetPlatform a_targetPlatform, e_BuildConfiguration
     return project;
 }
 
-CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+static CUBE_CProject BuildZLib(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    CUBE_CProject project = { 0 };
+    project.Name = CUBE_StackString_CreateC("zlib");
+    project.Target = CUBE_CProjectTarget_StaticLibrary;
+    project.Language = CUBE_CProjectLanguage_C;
+    project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    if (a_configuration == BuildConfiguration_Debug)
+    {
+        CUBE_CProject_AppendDefine(&project, "DEBUG");
+    }
+    else 
+    {
+        CUBE_CProject_AppendDefine(&project, "NDEBUG");
+    }
+
+    if (a_targetPlatform == TargetPlatform_Windows)
+    {
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32"
+        );
+    }
+    else
+    {
+        CUBE_CProject_AppendDefine(&project, "Z_HAVE_UNISTD_H");
+    }
+
+    CUBE_CProject_AppendDefines(&project, 
+        "HAVE_STDINT_H",
+        "HAVE_STDDEF_H"
+    );
+
+    CUBE_CProject_AppendSources(&project, 
+        "./adler32.c",
+        "./compress.c",
+        "./crc32.c",
+        "./deflate.c",
+        "./gzclose.c",
+        "./gzlib.c",
+        "./gzread.c",
+        "./gzwrite.c",
+        "./infback.c",
+        "./inffast.c",
+        "./inflate.c",
+        "./inftrees.c",
+        "./trees.c",
+        "./uncompr.c",
+        "./zutil.c"
+    );
+
+    switch (a_configuration) 
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    }
+
+    return project;
+}
+
+static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
     project.Name = CUBE_StackString_CreateC("assimp");
@@ -813,7 +891,7 @@ CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfiguratio
 
 DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
-    *a_count = 8;
+    *a_count = 9;
 
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * (*a_count));
 
@@ -847,13 +925,17 @@ DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targe
     projects[5].WorkingDirectory = "deps/miniz";
     projects[5].Export = CBTRUE;
 
-    projects[6].Project = BuildUnzip(a_targetPlatform, a_configuration);
-    projects[6].WorkingDirectory = "deps/assimp/contrib/unzip";
+    projects[6].Project = BuildZLib(a_targetPlatform, a_configuration);
+    projects[6].WorkingDirectory = "deps/zlib";
     projects[6].Export = CBTRUE;
 
-    projects[7].Project = BuildAssimp(a_targetPlatform, a_configuration);
-    projects[7].WorkingDirectory = "deps/assimp";
+    projects[7].Project = BuildUnzip(a_targetPlatform, a_configuration);
+    projects[7].WorkingDirectory = "deps/assimp/contrib/unzip";
     projects[7].Export = CBTRUE;
+
+    projects[8].Project = BuildAssimp(a_targetPlatform, a_configuration);
+    projects[8].WorkingDirectory = "deps/assimp";
+    projects[8].Export = CBTRUE;
 
     return projects;
 }

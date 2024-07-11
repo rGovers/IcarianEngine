@@ -22,6 +22,7 @@
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
 #include "Rendering/Vulkan/VulkanShaderData.h"
 #include "Rendering/Vulkan/VulkanTextureSampler.h"
+#include "Rendering/Vulkan/VulkanVideoTexture.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
@@ -60,6 +61,9 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     \
     F(void, IcarianEngine.Rendering, Texture, DestroyTexture, { Instance->DestroyTexture(a_addr); }, uint32_t a_addr) \
     \
+    F(uint32_t, IcarianEngine.Rendering.Video, VideoTexture, GenerateTexture, { return Instance->GenerateVideoTexture(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Video, VideoTexture, DestroyTexture, { IPUSHDELETIONFUNC({ Instance->DestroyVideoTexture(a_addr); }, DeletionIndex_Render); }, uint32_t a_addr) \
+    \
     F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateTextureSampler, { return Instance->GenerateTextureSampler(a_texture, (e_TextureFilter)a_filter, (e_TextureAddress)a_addressMode ); }, uint32_t a_texture, uint32_t a_filter, uint32_t a_addressMode) \
     F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateRenderTextureSampler, { return Instance->GenerateRenderTextureSampler(a_renderTexture, a_textureIndex, (e_TextureFilter)a_filter, (e_TextureAddress)a_addressMode); }, uint32_t a_renderTexture, uint32_t a_textureIndex, uint32_t a_filter, uint32_t a_addressMode) \
     F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateRenderTextureDepthSampler, { return Instance->GenerateRenderTextureDepthSampler(a_renderTexture, (e_TextureFilter)a_filter, (e_TextureAddress)a_addressMode); }, uint32_t a_renderTexture, uint32_t a_filter, uint32_t a_addressMode) \
@@ -88,7 +92,7 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     \
     F(uint32_t, IcarianEngine.Renddering, MultiRenderTexture, GetTextureCount, { return Instance->GetRenderTextureTextureCount(a_addr); }, uint32_t a_addr) \
     \
-    F(void, IcarianEngine.Rendering, Model, DestroyModel, { Instance->DestroyModel(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, Model, DestroyModel, { IPUSHDELETIONFUNC({ Instance->DestroyModel(a_addr); }, DeletionIndex_Render); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, ParticleSystem2D, GenerateGraphicsParticleSystem, { return Instance->GenerateGraphicsParticle2D(a_computeBuffer); }, uint32_t a_computeBuffer) \
     F(void, IcarianEngine.Rendering, ParticleSystem2D, DestroyGraphicsParticleSystem, { Instance->DestroyGraphicsParticle2D(a_bufferAddr); }, uint32_t a_bufferAddr) \
@@ -815,6 +819,22 @@ void VulkanGraphicsEngineBindings::DestroyTexture(uint32_t a_addr) const
     {
         m_graphicsEngine->DestroyTexture(a_addr);
     }, DeletionIndex_Render);
+}
+
+uint32_t VulkanGraphicsEngineBindings::GenerateVideoTexture(uint32_t a_videoAddr) const
+{
+    VulkanVideoTexture* texture = new VulkanVideoTexture(m_graphicsEngine->m_vulkanEngine, a_videoAddr);
+
+    return m_graphicsEngine->m_videoTextures.PushVal(texture);
+}
+void VulkanGraphicsEngineBindings::DestroyVideoTexture(uint32_t a_addr) const
+{
+    IVERIFY(a_addr < m_graphicsEngine->m_videoTextures.Size());
+    IVERIFY(m_graphicsEngine->m_videoTextures.Exists(a_addr));
+
+    const VulkanVideoTexture* texture = m_graphicsEngine->m_videoTextures[a_addr];
+    IDEFER(delete texture);
+    m_graphicsEngine->m_videoTextures.Erase(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateTextureSampler(uint32_t a_texture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const

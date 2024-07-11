@@ -93,6 +93,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
         "ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN",
 
+        "VK_NO_PROTOTYPES",
         "GLM_FORCE_QUAT_DATA_XYZW",
         "GLM_FORCE_DEPTH_ZERO_TO_ONE",
         "GLM_FORCE_RADIANS",
@@ -116,7 +117,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     }
 
     CUBE_CProject_AppendIncludePaths(&project, 
-        "include",
+        "./include",
         "../EngineInterop",
         "../IcarianCore/include",
         "../deps/assimp/include",
@@ -126,96 +127,104 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "../deps/flare-stb",
         "../deps/KTX-Software/include",
         "../deps/flare-tinyxml2",
-        "lib/enet/include",
-        "lib/glslang",
-        "lib/glslang/External/spirv-tools/include",
-        "lib/JoltPhysics",
-        "lib/openal-soft/include",
-        "lib/SPIRV-Tools/include",
-        "lib/VulkanMemoryAllocator/include"
+        "./lib/enet/include",
+        "./lib/glslang",
+        "./lib/glslang/External/spirv-tools/include",
+        "./lib/JoltPhysics",
+        "./lib/minimp4",
+        "./lib/openal-soft/include",
+        "./lib/SPIRV-Tools/include",
+        "./lib/VulkanMemoryAllocator/include"
     );
 
     CUBE_CProject_AppendSources(&project, 
         "../deps/flare-tinyxml2/tinyxml2.cpp",
 
-        "src/AnimationController.cpp",
-        "src/AnimationControllerBindings.cpp",
-        "src/Application.cpp",
-        "src/AudioEngine.cpp",
-        "src/AudioEngineBindings.cpp",
-        "src/Config.cpp",
-        "src/DeletionQueue.cpp",
-        "src/FileCache.cpp",
-        "src/Font.cpp",
-        "src/GamePad.cpp",
-        "src/GLFWAppWindow.cpp",
-        "src/HeadlessAppWindow.cpp",
-        "src/IcarianError.cpp",
-        "src/IcBodyActivationListener.cpp",
-        "src/IcBroadPhaseLayerInterface.cpp",
-        "src/IcCharacterListener.cpp",
-        "src/IcContactListener.cpp",
-        "src/IcObjectLayerPairFilter.cpp",
-        "src/IcObjectVsBroadPhaseLayerFilter.cpp",
-        "src/IcPhysicsJobSystem.cpp",
-        "src/ImageUIElement.cpp",
-        "src/InputManager.cpp",
-        "src/Logger.cpp",
-        "src/main.cpp",
-        "src/MaterialRenderStack.cpp",
-        "src/NetworkClient.cpp",
-        "src/NetworkManager.cpp",
-        "src/NetworkServer.cpp",
-        "src/NullRenderEngineBackend.cpp",
-        "src/ObjectManager.cpp",
-        "src/OGGAudioClip.cpp",
-        "src/PhysicsEngine.cpp",
-        "src/PhysicsEngineBindings.cpp",
-        "src/Profiler.cpp",
-        "src/Random.cpp",
-        "src/RenderAssetStore.cpp",
-        "src/RenderAssetStoreBindings.cpp",
-        "src/RenderEngine.cpp",
-        "src/RuntimeFunction.cpp",
-        "src/RuntimeManager.cpp",
-        "src/RuntimeThreadJob.cpp",
-        "src/Scribe.cpp",
-        "src/ShaderTable.cpp",
-        "src/SPIRVTools.cpp",
-        "src/TextUIElement.cpp",
-        "src/ThreadPool.cpp",
-        "src/UIControl.cpp",
-        "src/UIControlBindings.cpp",
-        "src/UIElement.cpp",
-        "src/VulkanComputeEngine.cpp",
-        "src/VulkanComputeEngineBindings.cpp",
-        "src/VulkanComputeLayout.cpp",
-        "src/VulkanComputeParticle.cpp",
-        "src/VulkanComputePipeline.cpp",
-        "src/VulkanComputeShader.cpp",
-        "src/VulkanDepthCubeRenderTexture.cpp",
-        "src/VulkanDepthRenderTexture.cpp",
-        "src/VulkanGraphicsEngine.cpp",
-        "src/VulkanGraphicsEngineBindings.cpp",
-        "src/VulkanGraphicsParticle2D.cpp",
-        "src/VulkanLightData.cpp",
-        "src/VulkanModel.cpp",
-        "src/VulkanParticleShaderGenerator.cpp",
-        "src/VulkanPipeline.cpp",
-        "src/VulkanPixelShader.cpp",
-        "src/VulkanPushPool.cpp",
-        "src/VulkanRenderCommand.cpp",
-        "src/VulkanRenderEngineBackend.cpp",
-        "src/VulkanRenderTexture.cpp",
-        "src/VulkanShader.cpp",
-        "src/VulkanShaderData.cpp",
-        "src/VulkanShaderStorageObject.cpp",
-        "src/VulkanSwapchain.cpp",
-        "src/VulkanTexture.cpp",
-        "src/VulkanTextureSampler.cpp",
-        "src/VulkanUniformBuffer.cpp",
-        "src/VulkanVertexShader.cpp",
-        "src/WAVAudioClip.cpp"
+        "./src/AnimationController.cpp",
+        "./src/AnimationControllerBindings.cpp",
+        "./src/Application.cpp",
+        "./src/AudioEngine.cpp",
+        "./src/AudioEngineBindings.cpp",
+        "./src/Config.cpp",
+        "./src/DeletionQueue.cpp",
+        "./src/FileCache.cpp",
+        "./src/Font.cpp",
+        "./src/GamePad.cpp",
+        "./src/GLFWAppWindow.cpp",
+        "./src/H264.cpp",
+        "./src/HeadlessAppWindow.cpp",
+        "./src/IcarianError.cpp",
+        "./src/IcBodyActivationListener.cpp",
+        "./src/IcBroadPhaseLayerInterface.cpp",
+        "./src/IcCharacterListener.cpp",
+        "./src/IcContactListener.cpp",
+        "./src/IcObjectLayerPairFilter.cpp",
+        "./src/IcObjectVsBroadPhaseLayerFilter.cpp",
+        "./src/IcPhysicsJobSystem.cpp",
+        "./src/ImageUIElement.cpp",
+        "./src/InputManager.cpp",
+        "./src/Logger.cpp",
+        "./src/main.cpp",
+        "./src/MaterialRenderStack.cpp",
+        "./src/NetworkClient.cpp",
+        "./src/NetworkManager.cpp",
+        "./src/NetworkServer.cpp",
+        "./src/NullRenderEngineBackend.cpp",
+        "./src/ObjectManager.cpp",
+        "./src/OGGAudioClip.cpp",
+        "./src/PhysicsEngine.cpp",
+        "./src/PhysicsEngineBindings.cpp",
+        "./src/Profiler.cpp",
+        "./src/Random.cpp",
+        "./src/RenderAssetStore.cpp",
+        "./src/RenderAssetStoreBindings.cpp",
+        "./src/RenderEngine.cpp",
+        "./src/RuntimeFunction.cpp",
+        "./src/RuntimeManager.cpp",
+        "./src/RuntimeThreadJob.cpp",
+        "./src/Scribe.cpp",
+        "./src/ShaderTable.cpp",
+        "./src/SPIRVTools.cpp",
+        "./src/TextUIElement.cpp",
+        "./src/ThreadPool.cpp",
+        "./src/UIControl.cpp",
+        "./src/UIControlBindings.cpp",
+        "./src/UIElement.cpp",
+        "./src/VideoClip.cpp",
+        "./src/VideoManager.cpp",
+        "./src/VideoManagerBindings.cpp",
+        "./src/VulkanComputeEngine.cpp",
+        "./src/VulkanComputeEngineBindings.cpp",
+        "./src/VulkanComputeLayout.cpp",
+        "./src/VulkanComputeParticle.cpp",
+        "./src/VulkanComputePipeline.cpp",
+        "./src/VulkanComputeShader.cpp",
+        "./src/VulkanDepthCubeRenderTexture.cpp",
+        "./src/VulkanDepthRenderTexture.cpp",
+        "./src/VulkanGraphicsEngine.cpp",
+        "./src/VulkanGraphicsEngineBindings.cpp",
+        "./src/VulkanGraphicsParticle2D.cpp",
+        "./src/VulkanLightData.cpp",
+        "./src/VulkanModel.cpp",
+        "./src/VulkanParticleShaderGenerator.cpp",
+        "./src/VulkanPipeline.cpp",
+        "./src/VulkanPixelShader.cpp",
+        "./src/VulkanPushPool.cpp",
+        "./src/VulkanRenderCommand.cpp",
+        "./src/VulkanRenderEngineBackend.cpp",
+        "./src/VulkanRenderTexture.cpp",
+        "./src/VulkanShader.cpp",
+        "./src/VulkanShaderData.cpp",
+        "./src/VulkanShaderStorageObject.cpp",
+        "./src/VulkanSwapchain.cpp",
+        "./src/VulkanTexture.cpp",
+        "./src/VulkanTextureSampler.cpp",
+        "./src/VulkanUniformBuffer.cpp",
+        "./src/VulkanVertexShader.cpp",
+        "./src/VulkanVideoTexture.cpp",
+        "./src/WAVAudioClip.cpp",
+
+        "./src/Library/LibVulkan.cpp"
     );
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
@@ -321,6 +330,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "../deps/KTX-Software/build/ktxcpp.lib",
             "../deps/Mono/Windows/lib/mono-2.0-sgen.lib",
             "../deps/Mono/Windows/lib/MonoPosixHelper.lib",
+            "../deps/zlib/build/zlib.lib",
             "../deps/assimp/build/assimp.lib",
             "../deps/assimp/contrib/unzip/build/unzip.lib",
 
@@ -333,13 +343,12 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         );
 
         CUBE_CProject_AppendReference(&project, "gdi32");
-        CUBE_CProject_AppendReference(&project, "vulkan-1");
+        // CUBE_CProject_AppendReference(&project, "vulkan-1");
         CUBE_CProject_AppendReference(&project, "wsock32");
         CUBE_CProject_AppendReference(&project, "ws2_32");
         CUBE_CProject_AppendReference(&project, "winmm");
         CUBE_CProject_AppendReference(&project, "ole32");
         CUBE_CProject_AppendReference(&project, "xinput");
-        CUBE_CProject_AppendReference(&project, "z");
 
         // Magic string to get std library to link with MinGW
         CUBE_CProject_AppendCFlag(&project, "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic");
@@ -365,6 +374,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "../deps/KTX-Software/build/libktxc.a",
             "../deps/KTX-Software/build/libktxcpp.a",
             "../deps/Mono/Linux/lib/libmonosgen-2.0.a",
+            "../deps/zlib/build/libzlib.a",
             "../deps/assimp/build/libassimp.a",
             "../deps/assimp/contrib/unzip/build/libunzip.a",
 
@@ -376,12 +386,10 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "./lib/openal-soft/build/libOpenALSoft.a"
         );
 
-        CUBE_CProject_AppendReference(&project, "vulkan");
+        // CUBE_CProject_AppendReference(&project, "vulkan");
         CUBE_CProject_AppendReference(&project, "stdc++");
         CUBE_CProject_AppendReference(&project, "atomic");
         CUBE_CProject_AppendReference(&project, "m");
-        CUBE_CProject_AppendReference(&project, "z");
-
         break;
     }
     }

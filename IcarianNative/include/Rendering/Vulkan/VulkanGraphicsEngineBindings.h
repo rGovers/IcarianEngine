@@ -70,6 +70,9 @@ public:
 
     void DestroyTexture(uint32_t a_addr) const;
 
+    uint32_t GenerateVideoTexture(uint32_t a_videoAddr) const;
+    void DestroyVideoTexture(uint32_t a_addr) const;
+
     uint32_t GenerateTextureSampler(uint32_t a_texture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;
     uint32_t GenerateRenderTextureSampler(uint32_t a_renderTexture, uint32_t a_textureIndex, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;
     uint32_t GenerateRenderTextureDepthSampler(uint32_t a_renderTexture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;
