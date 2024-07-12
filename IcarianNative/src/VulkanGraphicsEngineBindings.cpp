@@ -132,9 +132,12 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     \
     F(void, IcarianEngine.Rendering, RenderCommand, BindMaterial, { Instance->BindMaterial(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, RenderCommand, PushTexture, { Instance->PushTexture(a_slot, a_samplerAddr); }, uint32_t a_slot, uint32_t a_samplerAddr) \
+    F(void, IcarianEngine.Rendering, RenderCommand, PushLight, { Instance->PushLight(a_slot, (e_LightType)a_lightType, a_lightAddr); }, uint32_t a_slot, uint32_t a_lightType, uint32_t a_lightAddr) \
+    F(void, IcarianEngine.Rendering, RenderCommand, PushShadowTextureArray, { Instance->PushShadowTextureArray(a_slot, a_lightAddr); }, uint32_t a_slot, uint32_t a_lightAddr) \
     F(void, IcarianEngine.Rendering, RenderCommand, BindRenderTexture, { Instance->BindRenderTexture(a_addr, (e_RenderTextureBindMode)a_bindMode); }, uint32_t a_addr, uint32_t a_bindMode) \
     F(void, IcarianEngine.Rendering, RenderCommand, RTRTBlit, { Instance->BlitRTRT(a_srcAddr, a_dstAddr); }, uint32_t a_srcAddr, uint32_t a_dstAddr) \
     F(void, IcarianEngine.Rendering, RenderCommand, DrawMaterial, { Instance->DrawMaterial(); }) \
+    F(void, IcarianEngine.Rendering, RenderCommand, DrawModel, { Instance->DrawModel(a_transform, a_addr); }, glm::mat4 a_transform, uint32_t a_addr) \
     \
     F(void, IcarianEngine.Rendering.Animation, SkeletonAnimator, PushTransform, { }, uint32_t a_addr, MonoString* a_object, MonoArray* a_transform) \
 
@@ -390,53 +393,35 @@ RUNTIME_FUNCTION(uint32_t, Model, GenerateModel,
     return M_Model_GenerateModel(a_vertices, a_indices, a_vertexStride, a_radius);
 }, MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride, float a_radius);
 
-RUNTIME_FUNCTION(void, RenderCommand, DrawModel, 
-{
-    glm::mat4 transform;
-
-    float* f = (float*)&transform;
-    for (int i = 0; i < 16; ++i)
-    {
-        f[i] = mono_array_get(a_transform, float, i);
-    }
-
-    Instance->DrawModel(transform, a_addr);
-}, MonoArray* a_transform, uint32_t a_addr)
-
-RUNTIME_FUNCTION(void, RenderPipeline, SetLightLVP,
-{
-    const uint32_t lightLVPCount = (uint32_t)mono_array_length(a_lightLVP);
-
-    glm::mat4* lightLVP = new glm::mat4[lightLVPCount];
-    IDEFER(delete[] lightLVP);
-
-    for (uint32_t i = 0; i < lightLVPCount; ++i)
-    {
-        MonoArray* lvpArray = mono_array_get(a_lightLVP, MonoArray*, i);
-
-        float* f = (float*)&(lightLVP[i]);
-        for (int j = 0; j < 16; ++j)
-        {
-            f[j] = mono_array_get(lvpArray, float, j);
-        }
-    }
-
-    Instance->SetLightLVP(lightLVP, lightLVPCount);
-}, MonoArray* a_lightLVP)
 RUNTIME_FUNCTION(void, RenderPipeline, SetLightSplits, 
 {
     const uint32_t lightSplitCount = (uint32_t)mono_array_length(a_lightSplits);
 
-    float* lightSplits = new float[lightSplitCount];
+    LightShadowSplit* lightSplits = new LightShadowSplit[lightSplitCount];
     IDEFER(delete[] lightSplits);
 
     for (uint32_t i = 0; i < lightSplitCount; ++i)
     {
-        lightSplits[i] = mono_array_get(a_lightSplits, float, i);
+        lightSplits[i] = mono_array_get(a_lightSplits, LightShadowSplit, i);
     }
 
     Instance->SetLightSplits(lightSplits, lightSplitCount);
 }, MonoArray* a_lightSplits)
+
+RUNTIME_FUNCTION(void, RenderCommand, PushShadowSplits, 
+{
+    const uint32_t lightSplitCount = (uint32_t)mono_array_length(a_splits);
+
+    LightShadowSplit* lightSplits = new LightShadowSplit[lightSplitCount];
+    IDEFER(delete[] lightSplits);
+
+    for (uint32_t i = 0; i < lightSplitCount; ++i)
+    {
+        lightSplits[i] = mono_array_get(a_splits, LightShadowSplit, i);
+    }
+
+    Instance->PushLightSplits(a_slot, lightSplits, lightSplitCount);
+}, uint32_t a_slot, MonoArray* a_splits)
 
 VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(VulkanGraphicsEngine* a_graphicsEngine)
 {
@@ -460,9 +445,8 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(VulkanGraphicsEngine*
 
     BIND_FUNCTION(IcarianEngine.Rendering, Model, GenerateModel);
 
-    BIND_FUNCTION(IcarianEngine.Rendering, RenderCommand, DrawModel);
+    BIND_FUNCTION(IcarianEngine.Rendering, RenderCommand, PushShadowSplits);
 
-    BIND_FUNCTION(IcarianEngine.Rendering, RenderPipeline, SetLightLVP);
     BIND_FUNCTION(IcarianEngine.Rendering, RenderPipeline, SetLightSplits);
 }
 VulkanGraphicsEngineBindings::~VulkanGraphicsEngineBindings()
@@ -1051,10 +1035,7 @@ void VulkanGraphicsEngineBindings::SetAmbientLightBuffer(uint32_t a_addr, const 
 }
 AmbientLightBuffer VulkanGraphicsEngineBindings::GetAmbientLightBuffer(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_graphicsEngine->m_ambientLights.Size());
-    IVERIFY(m_graphicsEngine->m_ambientLights.Exists(a_addr));
-
-    return m_graphicsEngine->m_ambientLights[a_addr];
+    return m_graphicsEngine->GetAmbientLight(a_addr);
 }
 void VulkanGraphicsEngineBindings::DestroyAmbientLightBuffer(uint32_t a_addr) const
 {
@@ -1095,10 +1076,7 @@ void VulkanGraphicsEngineBindings::SetDirectionalLightBuffer(uint32_t a_addr, co
 }
 DirectionalLightBuffer VulkanGraphicsEngineBindings::GetDirectionalLightBuffer(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_graphicsEngine->m_directionalLights.Size());
-    IVERIFY(m_graphicsEngine->m_directionalLights.Exists(a_addr));
-
-    return m_graphicsEngine->m_directionalLights[a_addr];
+    return m_graphicsEngine->GetDirectionalLight(a_addr);
 }
 void VulkanGraphicsEngineBindings::DestroyDirectionalLightBuffer(uint32_t a_addr) const
 {
@@ -1197,10 +1175,7 @@ void VulkanGraphicsEngineBindings::SetPointLightBuffer(uint32_t a_addr, const Po
 }
 PointLightBuffer VulkanGraphicsEngineBindings::GetPointLightBuffer(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_graphicsEngine->m_pointLights.Size());
-    IVERIFY(m_graphicsEngine->m_pointLights.Exists(a_addr));
-
-    return m_graphicsEngine->m_pointLights[a_addr];
+    return m_graphicsEngine->GetPointLight(a_addr);
 }
 void VulkanGraphicsEngineBindings::DestroyPointLightBuffer(uint32_t a_addr) const
 {
@@ -1298,10 +1273,7 @@ void VulkanGraphicsEngineBindings::SetSpotLightBuffer(uint32_t a_addr, const Spo
 }
 SpotLightBuffer VulkanGraphicsEngineBindings::GetSpotLightBuffer(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_graphicsEngine->m_spotLights.Size());
-    IVERIFY(m_graphicsEngine->m_spotLights.Exists(a_addr));
-
-    return m_graphicsEngine->m_spotLights[a_addr];
+    return m_graphicsEngine->GetSpotLight(a_addr);
 }
 void VulkanGraphicsEngineBindings::DestroySpotLightBuffer(uint32_t a_addr) const
 {
@@ -1428,21 +1400,41 @@ uint32_t VulkanGraphicsEngineBindings::GetCanvasRendererRenderTexture(uint32_t a
 
 void VulkanGraphicsEngineBindings::BindMaterial(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderCommands.Exists(), "BindMaterial RenderCommand does not exist");
+    IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
     if (a_addr != -1)
     {
-        ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_shaderPrograms.Size(), "BindMaterial out of bounds");
+        IVERIFY(a_addr < m_graphicsEngine->m_shaderPrograms.Size());
     }
 
     m_graphicsEngine->m_renderCommands->BindMaterial(a_addr);
 }
 void VulkanGraphicsEngineBindings::PushTexture(uint32_t a_slot, uint32_t a_samplerAddr) const
 {
+    IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
+
     IVERIFY(a_samplerAddr < m_graphicsEngine->m_textureSampler.Size());
     IVERIFY(m_graphicsEngine->m_textureSampler.Exists(a_samplerAddr));
 
     const TReadLockArray<TextureSamplerBuffer> a = m_graphicsEngine->m_textureSampler.ToReadLockArray();
     m_graphicsEngine->m_renderCommands->PushTexture(a_slot, a[a_samplerAddr]);
+}
+void VulkanGraphicsEngineBindings::PushLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr) const
+{
+    IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
+
+    m_graphicsEngine->m_renderCommands->PushLight(a_slot, a_lightType, a_lightAddr);
+}
+void VulkanGraphicsEngineBindings::PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount) const
+{
+    IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
+
+    m_graphicsEngine->m_renderCommands->PushLightSplits(a_slot, a_splits, a_splitCount);
+}
+void VulkanGraphicsEngineBindings::PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr) const
+{
+    IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
+
+    m_graphicsEngine->m_renderCommands->PushShadowTextureArray(a_slot, a_dirLightAddr);
 }
 void VulkanGraphicsEngineBindings::BindRenderTexture(uint32_t a_addr, e_RenderTextureBindMode a_bindMode) const
 {
@@ -1461,20 +1453,20 @@ void VulkanGraphicsEngineBindings::BindRenderTexture(uint32_t a_addr, e_RenderTe
 }
 void VulkanGraphicsEngineBindings::BlitRTRT(uint32_t a_srcAddr, uint32_t a_dstAddr) const
 {
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderCommands.Exists(), "BlitRTRT RenderCommand does not exist");
+    IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
     
     VulkanRenderTexture* srcTex = nullptr;
     VulkanRenderTexture* dstTex = nullptr;
 
     if (a_srcAddr != -1)
     {
-        ICARIAN_ASSERT_MSG(a_srcAddr < m_graphicsEngine->m_renderTextures.Size(), "BlitRTRT source out of bounds");
+        IVERIFY(a_srcAddr < m_graphicsEngine->m_renderTextures.Size());
 
         srcTex = m_graphicsEngine->m_renderTextures[a_srcAddr];
     }
     if (a_dstAddr != -1)
     {
-        ICARIAN_ASSERT_MSG(a_dstAddr < m_graphicsEngine->m_renderTextures.Size(), "BlitRTRT destination out of bounds");
+        IVERIFY(a_dstAddr < m_graphicsEngine->m_renderTextures.Size());
 
         dstTex = m_graphicsEngine->m_renderTextures[a_dstAddr];
     }
@@ -1483,28 +1475,22 @@ void VulkanGraphicsEngineBindings::BlitRTRT(uint32_t a_srcAddr, uint32_t a_dstAd
 }
 void VulkanGraphicsEngineBindings::DrawMaterial()
 {
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderCommands.Exists(), "DrawMaterial RenderCommand does not exist");
+    IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
 
     m_graphicsEngine->m_renderCommands->DrawMaterial();
 }
 void VulkanGraphicsEngineBindings::DrawModel(const glm::mat4& a_transform, uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_renderCommands.Exists(), "DrawModel RenderCommand does not exist");
+    IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
 
     m_graphicsEngine->m_renderCommands->DrawModel(a_transform, a_addr);
 }
 
-void VulkanGraphicsEngineBindings::SetLightLVP(const glm::mat4* a_lvp, uint32_t a_lvpCount) const
+void VulkanGraphicsEngineBindings::SetLightSplits(const LightShadowSplit* a_splits, uint32_t a_splitCount) const
 {
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_lightData.Exists(), "SetLightLVP LightData does not exist");
+    IVERIFY(m_graphicsEngine->m_lightData.Exists());
 
-    m_graphicsEngine->m_lightData->SetLVP(a_lvp, a_lvpCount);
-}
-void VulkanGraphicsEngineBindings::SetLightSplits(const float* a_splits, uint32_t a_splitCount) const
-{
-    ICARIAN_ASSERT_MSG(m_graphicsEngine->m_lightData.Exists(), "SetLightSplits LightData does not exist");
-
-    m_graphicsEngine->m_lightData->SetSplits(a_splits, a_splitCount);
+    m_graphicsEngine->m_lightData->SetLightSplits(a_splits, a_splitCount);
 }
 
 #endif

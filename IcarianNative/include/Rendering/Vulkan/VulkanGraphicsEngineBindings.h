@@ -11,6 +11,7 @@ class VulkanVertexShader;
 
 #include "EngineAmbientLightInteropStructures.h"
 #include "EngineDirectionalLightInteropStructures.h"
+#include "EngineLightInteropStructures.h"
 #include "EngineMaterialInteropStructures.h"
 #include "EnginePointLightInteropStructures.h"
 #include "EngineRenderCommandInteropStructures.h"
@@ -138,12 +139,14 @@ public:
 
     void BindMaterial(uint32_t a_addr) const;
     void PushTexture(uint32_t a_slot, uint32_t a_samplerAddr) const;
+    void PushLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr) const;
+    void PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount) const;
+    void PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr) const;
     void BindRenderTexture(uint32_t a_addr, e_RenderTextureBindMode a_bindMode) const;
     void BlitRTRT(uint32_t a_srcAddr, uint32_t a_dstAddr) const;
     void DrawMaterial();
     void DrawModel(const glm::mat4& a_transform, uint32_t a_addr);
 
-    void SetLightLVP(const glm::mat4* a_lvp, uint32_t a_lvpCount) const;
-    void SetLightSplits(const float* a_splits, uint32_t a_splitCount) const;
+    void SetLightSplits(const LightShadowSplit* a_splits, uint32_t a_splitCount) const;
 };
 #endif

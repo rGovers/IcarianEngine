@@ -1,3 +1,4 @@
+#include "Rendering/Vulkan/VulkanShaderStorageObject.h"
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
 #include "Rendering/Vulkan/VulkanRenderCommand.h"
@@ -7,12 +8,15 @@
 #include "ObjectManager.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
+#include "Rendering/Vulkan/VulkanLightBuffer.h"
 #include "Rendering/Vulkan/VulkanModel.h"
 #include "Rendering/Vulkan/VulkanPipeline.h"
+#include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
 #include "Rendering/Vulkan/VulkanShaderData.h"
 #include "Rendering/Vulkan/VulkanSwapchain.h"
+#include "Rendering/Vulkan/VulkanTextureSampler.h"
 #include "Rendering/Vulkan/VulkanUniformBuffer.h"
 
 VulkanRenderCommand::VulkanRenderCommand(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, VulkanSwapchain* a_swapchain, vk::CommandBuffer a_buffer, uint32_t a_camAddr, uint32_t a_bufferIndex)
@@ -40,14 +44,7 @@ VulkanRenderCommand::~VulkanRenderCommand()
 
 void VulkanRenderCommand::SetFlushedState(bool a_value)
 {
-    if (a_value)
-    {
-        m_flags |= 0b1 << FlushedBit;
-    }
-    else
-    {
-        m_flags &= ~(0b1 << FlushedBit);
-    }
+    ITOGGLEBIT(a_value, m_flags, FlushedBit);
 }
 
 void VulkanRenderCommand::Flush()
@@ -116,12 +113,172 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr)
 
 void VulkanRenderCommand::PushTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler) const
 {
-    ICARIAN_ASSERT_MSG_R(m_materialAddr != -1, "PushTexture Material not bound");
+    IVERIFY(m_materialAddr != -1);
 
     const RenderProgram program = m_gEngine->GetRenderProgram(m_materialAddr);
+    IVERIFY(program.Data != nullptr);
     VulkanShaderData* data = (VulkanShaderData*)program.Data;
 
     data->PushTexture(m_commandBuffer, a_slot, a_sampler, m_engine->GetCurrentFrame());
+}
+void VulkanRenderCommand::PushLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr) const
+{
+    const RenderProgram program = m_gEngine->GetRenderProgram(m_materialAddr);
+    IVERIFY(program.Data != nullptr);
+    VulkanShaderData* data = (VulkanShaderData*)program.Data;
+
+    VulkanPushPool* pushPool = m_engine->GetPushPool();
+
+    const uint32_t index = m_engine->GetCurrentFrame();
+
+    switch (a_lightType)
+    {
+    case LightType_Ambient:
+    {
+        const AmbientLightBuffer light = m_gEngine->GetAmbientLight(a_lightAddr);
+
+        const IcarianCore::ShaderAmbientLightBuffer buffer =
+        {
+            .LightColor = glm::vec4(light.Color.xyz(), light.Intensity)
+        };
+
+        VulkanUniformBuffer* lightBuffer = pushPool->AllocateAmbientLightUniformBuffer();
+        lightBuffer->SetData(index, &buffer);
+
+        data->PushUniformBuffer(m_commandBuffer, a_slot, lightBuffer, index);
+
+        break;
+    }
+    case LightType_Directional:
+    {
+        const DirectionalLightBuffer light = m_gEngine->GetDirectionalLight(a_lightAddr);
+
+        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(light.TransformAddr);
+        const glm::vec3 forward = glm::normalize(tMat[2].xyz());
+
+        const IcarianCore::ShaderDirectionalLightBuffer buffer = 
+        {
+            .LightDir = glm::vec4(forward, light.Intensity),
+            .LightColor = light.Color
+        };
+
+        VulkanUniformBuffer* lightBuffer = pushPool->AllocateDirectionalLightUniformBuffer();
+        lightBuffer->SetData(index, &buffer);
+
+        data->PushUniformBuffer(m_commandBuffer, a_slot, lightBuffer, index);
+
+        break;
+    }
+    case LightType_Point:
+    {
+        const PointLightBuffer light = m_gEngine->GetPointLight(a_lightAddr);
+
+        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(light.TransformAddr);
+        const glm::vec3 position = tMat[3].xyz();
+
+        const IcarianCore::ShaderPointLightBuffer buffer = 
+        {
+            .LightPos = glm::vec4(position, light.Intensity),
+            .LightColor = light.Color,
+            .Radius = light.Radius
+        };
+
+        VulkanUniformBuffer* lightBuffer = pushPool->AllocatePointLightUniformBuffer();
+        lightBuffer->SetData(index, &buffer);
+
+        data->PushUniformBuffer(m_commandBuffer, a_slot, lightBuffer, index);
+
+        break;
+    }
+    case LightType_Spot:
+    {
+        const SpotLightBuffer light = m_gEngine->GetSpotLight(a_lightAddr);
+
+        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(light.TransformAddr);
+        const glm::vec3 position = tMat[3].xyz();
+        const glm::vec3 forward = glm::normalize(tMat[2].xyz());
+
+        const IcarianCore::ShaderSpotLightBuffer buffer =
+        {
+            .LightPos = position,
+            .LightDir = glm::vec4(forward, light.Intensity),
+            .LightColor = light.Color,
+            .CutoffAngle = glm::vec3(light.CutoffAngle, light.Radius)
+        };
+
+        VulkanUniformBuffer* lightBuffer = pushPool->AllocateSpotLightUniformBuffer();
+        lightBuffer->SetData(index, &buffer);
+
+        data->PushUniformBuffer(m_commandBuffer, a_slot, lightBuffer, index);
+
+        break;
+    }
+    default:
+    {
+        IERROR("Invalid light type");
+
+        break;
+    }
+    }
+}
+void VulkanRenderCommand::PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount) const
+{
+    const RenderProgram program = m_gEngine->GetRenderProgram(m_materialAddr);
+    IVERIFY(program.Data != nullptr);
+    VulkanShaderData* data = (VulkanShaderData*)program.Data;
+
+    VulkanPushPool* pushPool = m_engine->GetPushPool();
+
+    IcarianCore::ShaderShadowLightBuffer* shadowLightBuffer = new IcarianCore::ShaderShadowLightBuffer[a_splitCount];
+    IDEFER(delete[] shadowLightBuffer);
+
+    for (uint32_t i = 0; i < a_splitCount; ++i)
+    {
+        shadowLightBuffer[i].LVP = a_splits[i].LVP;
+        shadowLightBuffer[i].Split = a_splits[i].Split;
+    }
+
+    const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_engine, sizeof(IcarianCore::ShaderShadowLightBuffer) * a_splitCount, a_splitCount, shadowLightBuffer);
+    IDEFER(delete storage);
+
+    data->PushShaderStorageObject(m_commandBuffer, a_slot, storage, m_engine->GetCurrentFrame());
+}
+void VulkanRenderCommand::PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr) const
+{
+    const RenderProgram program = m_gEngine->GetRenderProgram(m_materialAddr);
+    IVERIFY(program.Data != nullptr);
+    VulkanShaderData* data = (VulkanShaderData*)program.Data;
+
+    const DirectionalLightBuffer dirLight = m_gEngine->GetDirectionalLight(a_dirLightAddr);
+    IVERIFY(dirLight.Data != nullptr);
+
+    const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)dirLight.Data;
+    const uint32_t count = lightBuffer->LightRenderTextureCount;
+
+    TextureSamplerBuffer* buffer = new TextureSamplerBuffer[count];
+    IDEFER(
+    {
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            delete (VulkanTextureSampler*)buffer[i].Data;
+        }
+
+        delete[] buffer;
+    });
+
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const uint32_t renderTex = lightBuffer->LightRenderTextures[i];
+
+        buffer[i].Addr = renderTex;
+        buffer[i].Slot = 0;
+        buffer[i].TextureMode = TextureMode_DepthRenderTexture;
+        buffer[i].FilterMode = TextureFilter_Linear;
+        buffer[i].AddressMode = TextureAddress_ClampToEdge;
+        buffer[i].Data = VulkanTextureSampler::GenerateFromBuffer(m_engine, m_gEngine, buffer[i]);
+    }
+
+    data->PushTextures(m_commandBuffer, a_slot, buffer, count, m_engine->GetCurrentFrame());
 }
 
 void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTextureBindMode a_bindMode)

@@ -23,7 +23,7 @@ namespace IcarianEngine.Rendering.Lighting
         uint m_bufferAddr = uint.MaxValue;
 
         /// <summary>
-        /// Returns true if the object has been disposed
+        /// Determines if the AmbientLight has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -33,8 +33,16 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        internal uint InternalAddr
+        {
+            get
+            {
+                return m_bufferAddr;
+            }
+        }
+
         /// <summary>
-        /// Returns the type of light
+        /// The <see cref="IcarianEngine.Rendering.Lighting.LightType" /> of the AmbientLight
         /// </summary>
         public override LightType LightType
         {
@@ -45,7 +53,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Returns the light definition used to create the light
+        /// The Definition used to create the AmbientLight
         /// </summary>
         public AmbientLightDef AmbientLightDef
         {
@@ -56,7 +64,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Render layer the ambient light is on
+        /// Render layer the AmbientLight is on
         /// </summary>
         /// Bitmask of render layers
         public override uint RenderLayer
@@ -78,7 +86,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Color of the ambient light
+        /// Color of the AmbientLight
         /// </summary>
         public override Color Color
         {
@@ -99,7 +107,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Intensity of the ambient light
+        /// Intensity of the AmbientLight
         /// </summary>
         public override float Intensity
         {
@@ -146,10 +154,6 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
-        ~AmbientLight()
-        {
-            Dispose(false);
-        }
         /// <summary>
         /// Disposes of the object
         /// </summary>
@@ -160,9 +164,9 @@ namespace IcarianEngine.Rendering.Lighting
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// Called when the object is disposed
+        /// Called when the object is Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">True if the object is being disposed, false if it is being finalized</param>
+        /// <param name="a_disposing">Determines if the AmibentLight is being Disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_bufferAddr != uint.MaxValue)
@@ -182,6 +186,10 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 Logger.IcarianError("Multiple AmbientLight Dispose");
             }
+        }
+        ~AmbientLight()
+        {
+            Dispose(false);
         }
     }
 }

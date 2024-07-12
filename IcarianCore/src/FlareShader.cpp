@@ -498,6 +498,7 @@ namespace IcarianCore
 
                 break;
             }
+            // Exists because optimisation is terrible with unrolling loops so a pre processor loop is needed
             case StringHash("preloop"):
             {
                 if (args.size() != 4)
@@ -511,6 +512,13 @@ namespace IcarianCore
                 const int startIndex = std::stoi(args[1]);
                 const int endIndex = std::stoi(args[2]);
                 const uint32_t size = val.size();
+
+                // Only gets optimised away if there is no break
+                // Therefore there is no cost if you do not break
+                // Do this to allow breaking in preprocessor loops
+                // Potential for no cost with a break but depends on vendor SPIRV compiler so mileage my vary
+                rStr += "switch(0) { \n";
+                rStr += "default: { \n";
 
                 for (int i = startIndex; i < endIndex; ++i)
                 {
@@ -527,6 +535,8 @@ namespace IcarianCore
 
                     rStr += snippet;
                 }
+
+                rStr += "}} \n";
 
                 break;
             }

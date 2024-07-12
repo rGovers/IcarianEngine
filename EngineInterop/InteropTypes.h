@@ -21,6 +21,7 @@
 #define IOP_IVEC2 IVector2
 #define IOP_IVEC3 IVector3
 #define IOP_IVEC4 IVector4
+#define IOP_MAT4 Matrix4
 #define IOP_UINT8 byte
 #define IOP_UINT16 ushort
 #define IOP_UINT32 uint
@@ -63,6 +64,7 @@
 #define IOP_IVEC2 glm::ivec2
 #define IOP_IVEC3 glm::ivec3
 #define IOP_IVEC4 glm::ivec4
+#define IOP_MAT4 glm::mat4
 #define IOP_UINT8 uint8_t
 #define IOP_UINT16 uint16_t
 #define IOP_UINT32 uint32_t

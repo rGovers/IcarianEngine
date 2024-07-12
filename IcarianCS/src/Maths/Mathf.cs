@@ -219,6 +219,22 @@ namespace IcarianEngine.Maths
             }   
         }
         /// <summary>
+        /// Gets the minimum of 2 values
+        /// </summary>
+        /// <param name="a_a">The first value to get the minimum value of</param>
+        /// <param name="a_b">The second value to get the minimum value of</param>
+        /// <returns>The mimimum of the values</returns>
+        public static uint Min(uint a_a, uint a_b)
+        {
+            // Unsigned so cannot use sign bit to get min
+            if (a_a < a_b)
+            {
+                return a_a;
+            }
+
+            return a_b;
+        }
+        /// <summary>
         /// Gets the maximum of 2 values
         /// </summary>
         /// <param name="a_a">The first value to get the maximum of</param>
@@ -233,6 +249,22 @@ namespace IcarianEngine.Maths
 
                 return a_a * v + a_b * invV;
             }
+        }
+        /// <summary>
+        /// Gets the maximum of 2 values
+        /// </summary>
+        /// <param name="a_a">The first value to get the maximum of</param>
+        /// <param name="a_b">The second value to get the maximum of</param>
+        /// <returns>The maximum of the values</returns>
+        public static uint Max(uint a_a, uint a_b)
+        {
+            // Unsigned so cannot use sign bit to get max
+            if (a_a > a_b)
+            {
+                return a_a;
+            }
+
+            return a_b;
         }
         /// <summary>
         /// Clamps a value in a range

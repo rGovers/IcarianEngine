@@ -5,18 +5,6 @@ using System.Runtime.CompilerServices;
 
 namespace IcarianEngine.Rendering
 {
-    public struct LightShadowSplit
-    {
-        /// <summary>
-        /// The far plane of the split
-        /// </summary>
-        public float Split;
-        /// <summary>
-        /// The light view projection matrix for the split
-        /// </summary>
-        public Matrix4 LVP;
-    }
-
     public struct LightShadowPass
     {
         /// <summary>
@@ -39,9 +27,7 @@ namespace IcarianEngine.Rendering
     public abstract class RenderPipeline
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetLightLVP(float[][] a_lvp);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetLightSplits(float[] a_splits);
+        extern static void SetLightSplits(LightShadowSplit[] a_splits);
 
         static RenderPipeline s_instance = null;
 
@@ -214,12 +200,7 @@ namespace IcarianEngine.Rendering
                 {
                     LightShadowSplit split = s_instance.PreShadow(light, cam, a_textureSlot);
 
-                    SetLightLVP(new float[][] { split.LVP.ToArray() });
-
-                    if (type == LightType.Directional)
-                    {
-                        SetLightSplits(new float[] { split.Split });
-                    }
+                    SetLightSplits(new LightShadowSplit[] { split });
                 }
             }
             else
@@ -347,26 +328,7 @@ namespace IcarianEngine.Rendering
 
                     if (pass.Splits != null)
                     {
-                        int count = pass.Splits.Length;
-
-                        float[][] lvp = new float[count][];
-                        for (int i = 0; i < count; ++i)
-                        {
-                            lvp[i] = pass.Splits[i].LVP.ToArray();
-                        }
-
-                        SetLightLVP(lvp);
-
-                        if (type == LightType.Directional)
-                        {
-                            float[] splits = new float[count];
-                            for (int i = 0; i < count; ++i)
-                            {
-                                splits[i] = pass.Splits[i].Split;
-                            }
-
-                            SetLightSplits(splits);
-                        }
+                        SetLightSplits(pass.Splits);
                     }
                 }
             }

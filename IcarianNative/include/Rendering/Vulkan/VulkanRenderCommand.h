@@ -1,11 +1,15 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
+#include "Core/Bitfield.h"
+
+#include "EngineLightInteropStructures.h"
 #include "EngineRenderCommandInteropStructures.h"
 #include "EngineTextureSamplerInteropStructures.h"
 
@@ -26,13 +30,13 @@ private:
 
     uint32_t                   m_bufferIndex;
 
-    unsigned char              m_flags;
-
     uint32_t                   m_renderTexAddr;
     uint32_t                   m_materialAddr;
     uint32_t                   m_cameraAddr;
 
     vk::CommandBuffer          m_commandBuffer;
+
+    uint8_t                    m_flags;
 
     void SetFlushedState(bool a_value);
 
@@ -44,7 +48,7 @@ public:
 
     inline bool IsFlushed() const
     {
-        return m_flags & 0b1 << FlushedBit;
+        return IISBITSET(m_flags, FlushedBit);
     }
 
     void Flush();
@@ -69,7 +73,10 @@ public:
     VulkanPipeline* BindMaterial(uint32_t a_materialAddr);
 
     void PushTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler) const;
-    
+    void PushLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr) const;
+    void PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount) const;
+    void PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr) const;
+
     void BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTextureBindMode a_bindMode);
     
     void Blit(const VulkanRenderTexture* a_src, const VulkanRenderTexture* a_dst);

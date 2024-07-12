@@ -200,6 +200,11 @@ public:
     VulkanDepthRenderTexture* GetDepthRenderTexture(uint32_t a_addr);
     VulkanDepthCubeRenderTexture* GetDepthCubeRenderTexture(uint32_t a_addr);
 
+    AmbientLightBuffer GetAmbientLight(uint32_t a_addr);
+    DirectionalLightBuffer GetDirectionalLight(uint32_t a_addr);
+    PointLightBuffer GetPointLight(uint32_t a_addr);
+    SpotLightBuffer GetSpotLight(uint32_t a_addr);
+
     uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     void DestroyTextureSampler(uint32_t a_addr);
     TextureSamplerBuffer GetTextureSampler(uint32_t a_addr);

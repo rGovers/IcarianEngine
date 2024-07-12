@@ -1,5 +1,7 @@
 using IcarianEngine.Maths;
+using IcarianEngine.Rendering.Lighting;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 #include "EngineRenderCommandInteropStructures.h"
 
@@ -12,12 +14,24 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void PushTexture(uint a_slot, uint a_sampler);
         [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void PushLight(uint a_slot, uint a_lightType, uint a_lightAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void PushShadowTextureArray(uint a_slot, uint a_lightAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void BindRenderTexture(uint a_addr, uint a_bindMode);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void RTRTBlit(uint a_srcAddr, uint a_dstAddr);
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void DrawModel(float[] a_transform, uint a_modelAddr);
+        extern static void DrawModel(Matrix4 a_transform, uint a_modelAddr);
 
+        /// <summary>
+        /// Sets a <see cref="IcarianEngine.Rendering.ShaderBufferType.SSShadowLightBuffer" /> for the current render state
+        /// </summary>
+        /// <param name="a_slot">The shader slot to bind the <see cref="IcarianEngine.Rendering.LightShadowSplit" />(s) to</param>
+        /// <param name="a_splits">The <see cref="IcarianEngine.Rendering.LightShadowSplit" />(s) to bind to the slot</param>
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public extern static void PushShadowSplits(uint a_slot, LightShadowSplit[] a_splits);
+        
         /// <summary>
         /// Draws the currently bound <see cref="IcarianEngine.Rendering.Material" />
         /// </summary>
@@ -57,6 +71,80 @@ namespace IcarianEngine.Rendering
 
             PushTexture(a_slot, a_sampler.BufferAddr);
         }
+        /// <summary>
+        /// Sets a respective light buffer for the current render state
+        /// </summary>
+        /// <param name="a_slot">The shader slot to bind the <see cref="IcarianEngine.Rendering.Lighting.Light" /> to</param>
+        /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.Light" /> to bind to the slot</param>
+        public static void PushLight(uint a_slot, Light a_light)
+        {
+            if (a_light == null)
+            {
+                Logger.IcarianWarning("PushLight null light");
+
+                return;
+            }
+
+            switch (a_light.LightType)
+            {
+            case LightType.Ambient:
+            {
+                AmbientLight ambientLight = (AmbientLight)a_light;
+
+                PushLight(a_slot, (uint)LightType.Ambient, ambientLight.InternalAddr);
+
+                break;
+            }
+            case LightType.Directional:
+            {
+                DirectionalLight dirLight = (DirectionalLight)a_light;
+
+                PushLight(a_slot, (uint)LightType.Directional, dirLight.InternalAddr);
+
+                break;
+            }
+            case LightType.Point:
+            {
+                PointLight pointLight = (PointLight)a_light;
+
+                PushLight(a_slot, (uint)LightType.Point, pointLight.InternalAddr);
+
+                break;
+            }
+            case LightType.Spot:
+            {
+                SpotLight spotLight = (SpotLight)a_light;
+
+                PushLight(a_slot, (uint)LightType.Spot, spotLight.InternalAddr);
+
+                break;
+            }
+            }
+        }
+
+        /// <summary>
+        /// Sets a <see cref="IcarianEngine.Rendering.ShaderBufferType.AShadowTexture2D" /> for the current render state
+        /// </summary>
+        /// <param name="a_slot">The shader slot to bind the ShadowMap to</param>
+        /// <param name="a_light">The <see cref="IcarianEngine.Rendering.Lighting.DirectionalLight" /> to use for the texture array</param>
+        public static void PushShadowTextureArray(uint a_slot, DirectionalLight a_light)
+        {
+            if (a_light == null)
+            {
+                Logger.IcarianWarning("PushShadowTextureArray null light");
+
+                return;
+            }
+
+            if (a_light.ShadowMaps == null)
+            {
+                Logger.IcarianWarning("PushShadowTextureArray null ShadowMaps");
+
+                return;
+            }
+
+            PushShadowTextureArray(a_slot, a_light.InternalAddr);
+        }
 
         /// <summary>
         /// Binds a RenderTexture for rendering to
@@ -84,7 +172,14 @@ namespace IcarianEngine.Rendering
         /// Renders a model with the currently bound <see cref="IcarianEngine.Rendering.Material" /> to the currently bound <see cref="IcarianEngine.Rendering.IRenderTexture" />
         public static void DrawModel(Matrix4 a_transform, Model a_model)
         {
-            DrawModel(a_transform.ToArray(), a_model.InternalAddr);
+            if (a_model == null)
+            {
+                Logger.IcarianWarning("DrawModel null model");
+
+                return;
+            }
+
+            DrawModel(a_transform, a_model.InternalAddr);
         }
     }
 }

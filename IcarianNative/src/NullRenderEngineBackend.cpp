@@ -111,12 +111,13 @@
     \
     F(void, IcarianEngine.Rendering, RenderCommand, BindMaterial, { }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, RenderCommand, PushTexture, { }, uint32_t a_slot, uint32_t a_samplerAddr) \
+    F(void, IcarianEngine.Rendering, RenderCommand, PushLight, { }, uint32_t a_slot, uint32_t a_lightType, uint32_t a_lightAddr) \
+    F(void, IcarianEngine.Rendering, RenderCommand, PushShadowSplits, { }, uint32_t alot, MonoArray* a_splits) \
     F(void, IcarianEngine.Rendering, RenderCommand, BindRenderTexture, { }, uint32_t a_addr, uint32_t a_bindMode) \
     F(void, IcarianEngine.Rendering, RenderCommand, RTRTBlit, { }, uint32_t a_srcAddr, uint32_t a_dstAddr) \
     F(void, IcarianEngine.Rendering, RenderCommand, DrawMaterial, { }) \
-    F(void, IcarianEngine.Rendering, RenderCommand, DrawModel, { }, MonoArray* a_transform, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, RenderCommand, DrawModel, { }, glm::mat4 a_transform, uint32_t a_addr) \
     \
-    F(void, IcarianEngine.Rendering, RenderPipeline, SetLightLVP, { }, MonoArray* a_lvp) \
     F(void, IcarianEngine.Rendering, RenderPipeline, SetLightSplits, { }, MonoArray* a_splits) \
     \
     F(void, IcarianEngine.Rendering.Animation, SkeletonAnimator, PushTransform, { }, uint32_t a_addr, MonoString* a_object, MonoArray* a_transform) \

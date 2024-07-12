@@ -2,8 +2,6 @@
 
 layout(location = 0) in vec2 vUV;
 
-#define CascadeCount 6
-
 #!texture(0, colorSampler)
 #!texture(1, normalSampler)
 #!texture(2, specSampler)
@@ -63,8 +61,6 @@ void main()
         discard;
     }
 
-    vec4 color = texture(colorSampler, vUV);
-    vec4 spec = texture(specSampler, vUV);
     float depth = texture(depthSampler, vUV).x;
 
     vec4 cP = vec4(vUV * 2.0 + -1.0, depth, 1.0);
@@ -74,23 +70,16 @@ void main()
 
     int sI = 0;
     vec4 lP;
-    for (int i = 0; i < CascadeCount; i++)
+    #!preloop(iter, 0, 6,
     {
-        if (-vP.z <= shadowLightBuffer.objects[i].Split)
+        if (-vP.z <= shadowLightBuffer.objects[iter].Split)
         {
-            sI = i;
-            lP = shadowLightBuffer.objects[i].LVP * mP;
+            sI = iter;
+            lP = shadowLightBuffer.objects[iter].LVP * mP;
 
             break;
         }
-    }
-
-    vec3 p = camBuffer.InvView[3].xyz;
-    vec3 cV = normalize(p - mP.xyz);
-
-    float rough = spec.x;
-    float metal = spec.y;
-    float invMetal = 1.0 - metal;
+    })
 
     vec4 sP = lP * 0.5 + 0.5;
     float sV = texture(shadowSampler[sI], sP.xy).x;
@@ -98,6 +87,15 @@ void main()
     {
         discard;
     }
+
+    vec3 p = camBuffer.InvView[3].xyz;
+    vec3 cV = normalize(p - mP.xyz);
+
+    vec4 color = texture(colorSampler, vUV);
+    vec4 spec = texture(specSampler, vUV);
+    float rough = spec.x;
+    float metal = spec.y;
+    float invMetal = 1.0 - metal;
 
     vec4 lD = dirLightBuffer.LightDir;
     vec4 lCr = dirLightBuffer.LightColor;

@@ -195,8 +195,9 @@ namespace IcarianEngine.Rendering
                 VertexShader = m_quadVert,
                 PixelShader = m_aoPixel,
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
-                ColorBlendMode = MaterialBlendMode.One
+                ColorBlendMode = MaterialBlendMode.None
             };
+
             MaterialBuilder ambientLightBuilder = new MaterialBuilder()
             {
                 VertexShader = m_quadVert,
@@ -204,7 +205,6 @@ namespace IcarianEngine.Rendering
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
                 ColorBlendMode = MaterialBlendMode.One
             };
-
             MaterialBuilder directionalLightBuilder = new MaterialBuilder()
             {
                 VertexShader = m_quadVert,
@@ -212,7 +212,6 @@ namespace IcarianEngine.Rendering
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
                 ColorBlendMode = MaterialBlendMode.One
             };
-            
             MaterialBuilder pointLightBuilder = new MaterialBuilder()
             {
                 VertexShader = m_quadVert,
@@ -220,7 +219,6 @@ namespace IcarianEngine.Rendering
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
                 ColorBlendMode = MaterialBlendMode.One
             };
-
             MaterialBuilder spotLightBuilder = new MaterialBuilder()
             {
                 VertexShader = m_quadVert,
@@ -329,8 +327,8 @@ namespace IcarianEngine.Rendering
         /// <summary>
         /// Called when the SwapChain is resized
         /// </summary>
-        /// <param name="a_width">The new width of the SwapChain.</param>
-        /// <param name="a_height">The new height of the SwapChain.</param>
+        /// <param name="a_width">The new width of the SwapChain</param>
+        /// <param name="a_height">The new height of the SwapChain</param>
         public override void Resize(uint a_width, uint a_height)
         {
             m_width = a_width;
@@ -339,13 +337,16 @@ namespace IcarianEngine.Rendering
             uint scaledWidth = (uint)(m_width * m_renderScale);
             uint scaledHeight = (uint)(m_height * m_renderScale);
 
+            uint minWidth = Mathf.Min(m_width, scaledWidth);
+            uint minHeight = Mathf.Min(m_height, scaledHeight);
+
             m_depthRenderTexture.Resize(scaledWidth, scaledHeight);
 
             m_drawRenderTexture.Resize(scaledWidth, scaledHeight);
             m_lightRenderTexture.Resize(scaledWidth, scaledHeight);
             m_forwardRenderTexture.Resize(scaledWidth, scaledHeight);
-            m_aoRenderTexture.Resize(m_width, m_height);
-            m_colorRenderTexture.Resize(m_width, m_height);
+            m_aoRenderTexture.Resize(minWidth, minHeight);
+            m_colorRenderTexture.Resize(minWidth, minHeight);
 
             for (uint i = 0; i < PostTextureStackSize; ++i)
             {
@@ -405,7 +406,6 @@ namespace IcarianEngine.Rendering
             // https://learnopengl.com/Guest-Articles/2021/CSM
             // On second though something did not look right in the maths so I knicked this
             // https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf
-
             Matrix4 cameraTrans = a_camera.Transform.ToGlobalMatrix();
             Matrix4 proj = a_camera.ToProjection(m_width, m_height, a_near, a_far);
             Matrix4 projInv = Matrix4.Inverse(proj);
