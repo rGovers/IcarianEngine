@@ -3,11 +3,6 @@
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include <vulkan/vulkan.hpp>
 
-#include <spirv-tools/libspirv.hpp>
-
-// #define ICARIAN_VMA_VULKAN_VERSION 1000000
-// #define ICARIAN_VULKAN_VERSION VK_API_VERSION_1_0
-
 #define ICARIAN_VMA_VULKAN_VERSION 1001000
 #define ICARIAN_VULKAN_VERSION VK_API_VERSION_1_1
 
@@ -19,8 +14,6 @@
 static constexpr uint32_t VulkanMaxFlightFrames = 2;
 static constexpr uint32_t VulkanFlightPoolSize = VulkanMaxFlightFrames + 1;
 static constexpr uint32_t VulkanDeletionQueueSize = VulkanFlightPoolSize + 1;
-
-static constexpr spv_target_env VulkanShaderTarget = SPV_ENV_VULKAN_1_0;
 
 #ifdef NDEBUG
 static constexpr bool VulkanEnableValidationLayers = false;
