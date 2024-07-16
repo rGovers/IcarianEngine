@@ -2,6 +2,11 @@
 
 ## Internal
 
+### minimp4
+Original Project:
+
+https://github.com/lieff/minimp4.git
+
 ### glslang
 Original Project:
 
@@ -35,6 +40,11 @@ http://enet.bespin.org/
 https://github.com/lsalzman/enet
 
 ## Shared
+
+### assimp
+Original Project:
+
+https://github.com/assimp/assimp
 
 ### Dear ImGui
 Original Project:
@@ -79,6 +89,11 @@ https://github.com/leethomason/tinyxml2
 Original Project:
 
 https://github.com/richgel999/miniz
+
+### zlib
+Original Project:
+
+https://github.com/madler/zlib
 
 ### tinygltf
 Original Project:
