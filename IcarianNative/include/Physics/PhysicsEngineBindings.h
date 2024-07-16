@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 
 #include <cstdint>
+#include <filesystem>
 #include <Jolt/Core/Core.h>
 
 class PhysicsEngine;
@@ -37,6 +38,8 @@ public:
     uint32_t CreateCylinderShape(float a_height, float a_radius) const;
     float GetCylinderShapeHeight(uint32_t a_addr) const;
     float GetCylinderShapeRadius(uint32_t a_addr) const;
+
+    uint32_t CreateMeshShape(const std::filesystem::path& a_path) const;
 
     void DestroyCollisionShape(uint32_t a_addr) const;
 

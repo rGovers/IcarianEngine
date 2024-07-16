@@ -2,6 +2,9 @@
 
 #include <Jolt/Jolt.h>
 
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <Jolt/Core/Core.h>
 #include <Jolt/Geometry/OrientedBox.h>
@@ -12,6 +15,7 @@
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 #include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
 #include <Jolt/Physics/Collision/Shape/CylinderShape.h>
+#include <Jolt/Physics/Collision/Shape/MeshShape.h>
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Math/Quat.h>
 #include <Jolt/Math/Real.h>
@@ -25,6 +29,8 @@
 
 #include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
+#include "Core/StringUtils.h"
+#include "FileCache.h"
 #include "IcarianError.h"
 #include "ObjectManager.h"
 #include "Physics/InterfaceLock.h"
@@ -37,6 +43,7 @@
 #include "EngineCollisionShapeInterop.h"
 #include "EngineCylinderCollisionShapeInterop.h"
 #include "EngineCharacterControllerInterop.h"
+#include "EngineMeshCollisionShapeInterop.h"
 #include "EnginePhysicsBodyInterop.h"
 #include "EnginePhysicsInterop.h"
 #include "EngineRigidBodyInterop.h"
@@ -50,6 +57,7 @@ ENGINE_COLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 ENGINE_BOXCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 ENGINE_CAPSULECOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 ENGINE_CYLINDERCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_MESHCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 ENGINE_SPHERECOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 ENGINE_CHARACTERCONTROLLER_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
@@ -73,6 +81,7 @@ PhysicsEngineBindings::PhysicsEngineBindings(PhysicsEngine* a_engine)
     ENGINE_BOXCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
     ENGINE_CAPSULECOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
     ENGINE_CYLINDERCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_MESHCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
     ENGINE_SPHERECOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 
     ENGINE_CHARACTERCONTROLLER_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
@@ -202,6 +211,87 @@ float PhysicsEngineBindings::GetCylinderShapeRadius(uint32_t a_addr) const
     const JPH::CylinderShape* cShape = (JPH::CylinderShape*)shape.GetPtr();
 
     return cShape->GetRadius();
+}
+
+uint32_t PhysicsEngineBindings::CreateMeshShape(const std::filesystem::path& a_path) const
+{
+    TRACE("Creating Mesh Shape");
+
+    const std::filesystem::path ext = a_path.extension();
+    const std::string extStr = ext.string();
+
+    switch (StringHash<uint32_t>(extStr.c_str()))
+    {
+    case StringHash<uint32_t>(".obj"):
+    case StringHash<uint32_t>(".dae"):
+    case StringHash<uint32_t>(".fbx"):
+    case StringHash<uint32_t>(".glb"):
+    case StringHash<uint32_t>(".gltf"):
+    {
+        FileHandle* handle = FileCache::LoadFile(a_path);
+        IVERIFY(handle != nullptr);
+        IDEFER(delete handle);
+
+        const uint64_t size = handle->GetSize();
+        uint8_t* dat = new uint8_t[size];
+        IDEFER(delete[] dat);
+        if (handle->Read(dat, size) != size)
+        {
+            IERROR("Failed reading mesh data: " + a_path.string());
+
+            break;
+        }
+
+        Assimp::Importer importer;
+
+        const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, aiProcess_Triangulate | aiProcess_PreTransformVertices, extStr.c_str() + 1);
+        IVERIFY(scene != nullptr);
+
+        JPH::IndexedTriangleList faces;
+        JPH::VertexList vertices;
+        for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
+        {
+            const aiMesh* mesh = scene->mMeshes[i];
+
+            const uint32_t vertexCount = (uint32_t)mesh->mNumVertices;
+            vertices.reserve(vertices.size() + vertexCount);
+
+            for (uint32_t i = 0; i < vertexCount; ++i)
+            {
+                const aiVector3D& pos = mesh->mVertices[i];
+
+                const JPH::Float3 vert = JPH::Float3(pos.x, -pos.y, pos.z);
+                vertices.push_back(vert);
+            }
+
+            const uint32_t faceCount = (uint32_t)mesh->mNumFaces;
+            faces.reserve(faces.size() + faceCount);
+
+            for (uint32_t i = 0; i < faceCount; ++i)
+            {
+                const aiFace& face = mesh->mFaces[i];
+
+                const JPH::IndexedTriangle tri = JPH::IndexedTriangle(face.mIndices[0], face.mIndices[2], face.mIndices[1]);
+                faces.emplace_back(tri);
+            }
+        }
+
+        const JPH::MeshShapeSettings meshSettings = JPH::MeshShapeSettings(vertices, faces);
+        const JPH::ShapeSettings::ShapeResult result = meshSettings.Create();
+        IVERIFY(result.IsValid());
+        IVERIFY(!result.HasError());
+
+        return m_engine->m_collisionShapes.PushVal(result);
+    }
+    default:
+    {
+        IERROR("Invalid model file extension: " + a_path.string());
+
+        break;
+    }
+    }
+
+    return -1;
 }
 
 void PhysicsEngineBindings::DestroyCollisionShape(uint32_t a_addr) const

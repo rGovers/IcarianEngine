@@ -128,6 +128,7 @@ std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_v
     TRACE("Generating SPIRV");
 
     glslang::TShader shader = glslang::TShader(a_lang);
+	shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_1);
 
     const char* strs[] =
 	{
@@ -159,17 +160,14 @@ std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_v
 	glslang::SpvOptions options = 
 	{
 		.disableOptimizer = !a_optimize,
+		.optimizeSize = true,
+#ifdef DEBUG
 		.validate = true
+#endif
 	};
 	glslang::TIntermediate* intermediate = program.getIntermediate(a_lang);
 
     glslang::GlslangToSpv(*intermediate, spirv, &options);
-
-	if (a_optimize)
-	{
-		spv::SpvBuildLogger logger;
-		glslang::SpirvToolsTransform(*intermediate, spirv, &logger, &options);
-	}
 	
     TRACE("Generated SPIRV");
 
