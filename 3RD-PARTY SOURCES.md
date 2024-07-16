@@ -94,13 +94,3 @@ https://github.com/richgel999/miniz
 Original Project:
 
 https://github.com/madler/zlib
-
-### tinygltf
-Original Project:
-
-https://github.com/syoyo/tinygltf
-
-### OpenFBX
-Original Project:
-
-https://github.com/nem0/OpenFBX
