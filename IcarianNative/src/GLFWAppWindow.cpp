@@ -153,7 +153,9 @@ GLFWAppWindow::GLFWAppWindow(Application* a_app, Config* a_config) : AppWindow(a
 
     glfwGetCursorPos(m_window, &m_lastCursorPos.x, &m_lastCursorPos.y);
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
     m_surface = nullptr;
+#endif
 
     m_shouldClose = false;
 }

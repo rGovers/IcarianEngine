@@ -205,8 +205,8 @@ namespace H264
             vui.MaxBitsPerMBDenom = a_bitstream->ue();
             vui.Log2MaxMvLengthHorizontal = a_bitstream->ue();
             vui.Log2MaxMvLengthVertical = a_bitstream->ue();
-            vui.NumReorderFrames = a_bitstream->ue();
-            vui.MaxDecFrameBuffering = a_bitstream->ue();
+            vui.NumReorderFrames = (uint8_t)a_bitstream->ue();
+            vui.MaxDecFrameBuffering = (uint8_t)a_bitstream->ue();
         }
 
         return vui;
@@ -275,7 +275,7 @@ namespace H264
         {
         case 0:
         {
-            sps.Log2MaxPicOrderCNTLSBMinus4 = a_bitstream->ue();
+            sps.Log2MaxPicOrderCNTLSBMinus4 = (uint8_t)a_bitstream->ue();
 
             break;
         }

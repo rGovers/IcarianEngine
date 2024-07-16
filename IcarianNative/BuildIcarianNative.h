@@ -91,8 +91,6 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         commitDefine.Data,
         "ICARIANNATIVE_VERSION_TAG=DEV",
 
-        "ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN",
-
         "VK_NO_PROTOTYPES",
         "GLM_FORCE_QUAT_DATA_XYZW",
         "GLM_FORCE_DEPTH_ZERO_TO_ONE",
@@ -193,39 +191,49 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "./src/VideoClip.cpp",
         "./src/VideoManager.cpp",
         "./src/VideoManagerBindings.cpp",
-        "./src/VulkanComputeEngine.cpp",
-        "./src/VulkanComputeEngineBindings.cpp",
-        "./src/VulkanComputeLayout.cpp",
-        "./src/VulkanComputeParticle.cpp",
-        "./src/VulkanComputePipeline.cpp",
-        "./src/VulkanComputeShader.cpp",
-        "./src/VulkanDepthCubeRenderTexture.cpp",
-        "./src/VulkanDepthRenderTexture.cpp",
-        "./src/VulkanGraphicsEngine.cpp",
-        "./src/VulkanGraphicsEngineBindings.cpp",
-        "./src/VulkanGraphicsParticle2D.cpp",
-        "./src/VulkanLightData.cpp",
-        "./src/VulkanModel.cpp",
-        "./src/VulkanParticleShaderGenerator.cpp",
-        "./src/VulkanPipeline.cpp",
-        "./src/VulkanPixelShader.cpp",
-        "./src/VulkanPushPool.cpp",
-        "./src/VulkanRenderCommand.cpp",
-        "./src/VulkanRenderEngineBackend.cpp",
-        "./src/VulkanRenderTexture.cpp",
-        "./src/VulkanShader.cpp",
-        "./src/VulkanShaderData.cpp",
-        "./src/VulkanShaderStorageObject.cpp",
-        "./src/VulkanSwapchain.cpp",
-        "./src/VulkanTexture.cpp",
-        "./src/VulkanTextureSampler.cpp",
-        "./src/VulkanUniformBuffer.cpp",
-        "./src/VulkanVertexShader.cpp",
-        "./src/VulkanVideoTexture.cpp",
-        "./src/WAVAudioClip.cpp",
-
-        "./src/Library/LibVulkan.cpp"
+        
+        "./src/WAVAudioClip.cpp"
     );
+
+    // Keeping it on for now just breaking it out in preperation for platform configuration
+    if (1)
+    {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN");
+
+        CUBE_CProject_AppendSources(&project,
+            "./src/Platform/Vulkan/VulkanComputeEngine.cpp",
+            "./src/Platform/Vulkan/VulkanComputeEngineBindings.cpp",
+            "./src/Platform/Vulkan/VulkanComputeLayout.cpp",
+            "./src/Platform/Vulkan/VulkanComputeParticle.cpp",
+            "./src/Platform/Vulkan/VulkanComputePipeline.cpp",
+            "./src/Platform/Vulkan/VulkanComputeShader.cpp",
+            "./src/Platform/Vulkan/VulkanDepthCubeRenderTexture.cpp",
+            "./src/Platform/Vulkan/VulkanDepthRenderTexture.cpp",
+            "./src/Platform/Vulkan/VulkanGraphicsEngine.cpp",
+            "./src/Platform/Vulkan/VulkanGraphicsEngineBindings.cpp",
+            "./src/Platform/Vulkan/VulkanGraphicsParticle2D.cpp",
+            "./src/Platform/Vulkan/VulkanLightData.cpp",
+            "./src/Platform/Vulkan/VulkanModel.cpp",
+            "./src/Platform/Vulkan/VulkanParticleShaderGenerator.cpp",
+            "./src/Platform/Vulkan/VulkanPipeline.cpp",
+            "./src/Platform/Vulkan/VulkanPixelShader.cpp",
+            "./src/Platform/Vulkan/VulkanPushPool.cpp",
+            "./src/Platform/Vulkan/VulkanRenderCommand.cpp",
+            "./src/Platform/Vulkan/VulkanRenderEngineBackend.cpp",
+            "./src/Platform/Vulkan/VulkanRenderTexture.cpp",
+            "./src/Platform/Vulkan/VulkanShader.cpp",
+            "./src/Platform/Vulkan/VulkanShaderData.cpp",
+            "./src/Platform/Vulkan/VulkanShaderStorageObject.cpp",
+            "./src/Platform/Vulkan/VulkanSwapchain.cpp",
+            "./src/Platform/Vulkan/VulkanTexture.cpp",
+            "./src/Platform/Vulkan/VulkanTextureSampler.cpp",
+            "./src/Platform/Vulkan/VulkanUniformBuffer.cpp",
+            "./src/Platform/Vulkan/VulkanVertexShader.cpp",
+            "./src/Platform/Vulkan/VulkanVideoTexture.cpp",
+
+            "./src/Library/LibVulkan.cpp"
+        );
+    }
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
 
@@ -343,7 +351,6 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         );
 
         CUBE_CProject_AppendReference(&project, "gdi32");
-        // CUBE_CProject_AppendReference(&project, "vulkan-1");
         CUBE_CProject_AppendReference(&project, "wsock32");
         CUBE_CProject_AppendReference(&project, "ws2_32");
         CUBE_CProject_AppendReference(&project, "winmm");
@@ -386,10 +393,10 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "./lib/openal-soft/build/libOpenALSoft.a"
         );
 
-        // CUBE_CProject_AppendReference(&project, "vulkan");
         CUBE_CProject_AppendReference(&project, "stdc++");
         CUBE_CProject_AppendReference(&project, "atomic");
         CUBE_CProject_AppendReference(&project, "m");
+
         break;
     }
     }

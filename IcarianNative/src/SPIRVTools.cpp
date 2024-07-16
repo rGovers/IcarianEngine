@@ -1,9 +1,12 @@
 #include "Rendering/SPIRVTools.h"
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
+#endif
 
 #include <SPIRV/SpvTools.h>
 
+#include "IcarianError.h"
 #include "Trace.h"
 
 void spirv_init()

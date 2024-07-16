@@ -178,8 +178,6 @@ namespace H264
 		uint32_t MaxBitsPerMBDenom;
 		uint32_t Log2MaxMvLengthHorizontal;
 		uint32_t Log2MaxMvLengthVertical;
-		uint32_t NumReorderFrames;
-		uint32_t MaxDecFrameBuffering;
 
 		VUIHRD NALHRD;
 		VUIHRD VCLHRD;
@@ -194,6 +192,8 @@ namespace H264
 		uint8_t ColourPrimaries;
 		uint8_t TransferCharacteristics;
 		uint8_t MatrixCoefficients;
+		uint8_t NumReorderFrames;
+		uint8_t MaxDecFrameBuffering;
 	};
 
 	enum e_SPSFlags : uint16_t
@@ -213,7 +213,6 @@ namespace H264
     struct SPS
     {
 		uint32_t PICOrderCNTType;
-		uint32_t Log2MaxPicOrderCNTLSBMinus4;
 		int32_t OffsetForNonRefPic;
 		int32_t OffsetForTopToBottomField;
 		int32_t OffsetForRefFrame[256];
@@ -235,6 +234,7 @@ namespace H264
 		uint8_t SeqParameterSetID;
 		uint8_t BitDepthLumaMinus8;
 		uint8_t BitDepthChromaMinus8;
+		uint8_t Log2MaxPicOrderCNTLSBMinus4;
 		int8_t ScalingList4x4[6][16];
 		int8_t ScalingList8x8[2][64];
 		uint8_t Log2MaxFrameNumMinus4;

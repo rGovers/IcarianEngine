@@ -19,8 +19,10 @@ private:
 
     glm::dvec2     m_lastCursorPos;
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
     vk::SurfaceKHR m_surface;
-    
+#endif
+
 protected:
 
 public:

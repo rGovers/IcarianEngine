@@ -190,6 +190,8 @@ constexpr StdVideoH264LevelIdc ConvertLevelIDCVulkan(uint32_t a_levelIDC)
     default:
     {
         IERROR("Invalid level IDC");
+
+        break;
     }
     }
 
@@ -241,12 +243,51 @@ VulkanVideoTexture::VulkanVideoTexture(VulkanRenderEngineBackend* a_engine, uint
 
     StdVideoH264SequenceParameterSet* vulkanSPS = new StdVideoH264SequenceParameterSet[spsCount];
     IDEFER(delete[] vulkanSPS);
+    StdVideoH264SequenceParameterSetVui* vulkanVUISet = (StdVideoH264SequenceParameterSetVui*)calloc(spsCount, sizeof(StdVideoH264SequenceParameterSetVui));
+    IDEFER(free(vulkanVUISet));
 
     for (uint32_t i = 0; i < spsCount; ++i)
     {
         const H264::SPS& sps = spsData[i];
 
         refFrames = glm::max(refFrames, (uint32_t)sps.NumRefFrames);
+
+        if (sps.Flags & H264::SPSFlags_VUIParametersPresent)
+        {
+            const StdVideoH264SpsVuiFlags vVUIFlags = 
+            {
+                .aspect_ratio_info_present_flag = (sps.VUI.Flags & H264::SPSVUIFlags_AspectRatioInfoPresent) != 0,
+                .overscan_info_present_flag = (sps.VUI.Flags & H264::SPSVUIFlags_OverscanInfoPresent) != 0,
+                .overscan_appropriate_flag = (sps.VUI.Flags & H264::SPSVUIFlags_OverscanAppropriate) != 0,
+                .video_signal_type_present_flag = (sps.VUI.Flags & H264::SPSVUIFlags_VideoSignalTypePresent) != 0,
+                .video_full_range_flag = (sps.VUI.Flags & H264::SPSVUIFlags_VideoFullRange) != 0,
+                .color_description_present_flag = (sps.VUI.Flags & H264::SPSVUIFlags_ColourDescriptionPresent) != 0,
+                .chroma_loc_info_present_flag = (sps.VUI.Flags & H264::SPSVUIFlags_ChromaLOCInfoPresent) != 0,
+                .timing_info_present_flag = (sps.VUI.Flags & H264::SPSVUIFlags_TimingInfoPresent) != 0,
+                .fixed_frame_rate_flag = (sps.VUI.Flags & H264::SPSVUIFlags_FixedFrameRate) != 0,
+                .bitstream_restriction_flag = (sps.VUI.Flags & H264::SPSVUIFlags_BitstreamRestriction) != 0,
+                .nal_hrd_parameters_present_flag = (sps.VUI.Flags & H264::SPSVUIFlags_NALHRDParametersPresent) != 0,
+                .vcl_hrd_parameters_present_flag = (sps.VUI.Flags & H264::SPSVUIFlags_VCLHRDParametersPresent) != 0 
+            };
+
+            const StdVideoH264SequenceParameterSetVui vVUI =
+            {
+                .flags = vVUIFlags,
+                .aspect_ratio_idc = (StdVideoH264AspectRatioIdc)sps.VUI.AspectRatioIDC,
+                .sar_width = sps.VUI.SARWidth,
+                .sar_height = sps.VUI.SARHeight,
+                .video_format = sps.VUI.VideoFormat,
+                .colour_primaries = sps.VUI.ColourPrimaries,
+                .transfer_characteristics = sps.VUI.TransferCharacteristics,
+                .matrix_coefficients = sps.VUI.MatrixCoefficients,
+                .num_units_in_tick = sps.VUI.NumUnitsInTick,
+                .time_scale = sps.VUI.TimeScale,
+                .max_num_reorder_frames = sps.VUI.NumReorderFrames,
+                .max_dec_frame_buffering = sps.VUI.MaxDecFrameBuffering,
+            };
+
+            vulkanVUISet[i] = vVUI;
+        }
 
         const StdVideoH264SpsFlags vSPSFlags = 
         {
@@ -268,7 +309,7 @@ VulkanVideoTexture::VulkanVideoTexture(VulkanRenderEngineBackend* a_engine, uint
             .vui_parameters_present_flag = (sps.Flags & H264::SPSFlags_VUIParametersPresent) != 0
         };
 
-        StdVideoH264SequenceParameterSet vSPS =
+        const StdVideoH264SequenceParameterSet vSPS =
         {
             .flags = vSPSFlags,
             .profile_idc = (StdVideoH264ProfileIdc)sps.ProfileIDC,
@@ -279,6 +320,19 @@ VulkanVideoTexture::VulkanVideoTexture(VulkanRenderEngineBackend* a_engine, uint
             .bit_depth_chroma_minus8 = sps.BitDepthChromaMinus8,
             .log2_max_frame_num_minus4 = sps.Log2MaxFrameNumMinus4,
             .pic_order_cnt_type = (StdVideoH264PocType)sps.PICOrderCNTType,
+            .offset_for_non_ref_pic = sps.OffsetForNonRefPic,
+            .offset_for_top_to_bottom_field = sps.OffsetForTopToBottomField,
+            .log2_max_pic_order_cnt_lsb_minus4 = sps.Log2MaxPicOrderCNTLSBMinus4,
+            .num_ref_frames_in_pic_order_cnt_cycle = sps.NumRefFramesInPICOrderCNTCycle,
+            .max_num_ref_frames = sps.NumRefFrames,
+            .pic_width_in_mbs_minus1 = sps.PICWidthInMBSMinus1,
+            .pic_height_in_map_units_minus1 = sps.PICHeightInMapUnitsMinus1,
+            .frame_crop_left_offset = sps.FrameCropLeftOffset,
+            .frame_crop_right_offset = sps.FrameCropRightOffset,
+            .frame_crop_top_offset = sps.FrameCropTopOffset,
+            .frame_crop_bottom_offset = sps.FrameCropBottomOffset,
+            .pOffsetForRefFrame = sps.OffsetForRefFrame,
+            .pSequenceParameterSetVui = &(vulkanVUISet[i])
         };
 
         vulkanSPS[i] = vSPS;
