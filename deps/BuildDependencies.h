@@ -28,38 +28,49 @@ static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfigu
         CUBE_CProject_AppendDefine(&project, "NDEBUG");
     }
 
-    CUBE_CProject_AppendIncludePath(&project, "include");
-    CUBE_CProject_AppendIncludePath(&project, "src");
+    CUBE_CProject_AppendIncludePaths(&project, 
+        "../gen/glfw",
 
-    CUBE_CProject_AppendSource(&project, "src/context.c");
-    CUBE_CProject_AppendSource(&project, "src/init.c");
-    CUBE_CProject_AppendSource(&project, "src/input.c");
-    CUBE_CProject_AppendSource(&project, "src/monitor.c");
-    CUBE_CProject_AppendSource(&project, "src/platform.c");
-    CUBE_CProject_AppendSource(&project, "src/vulkan.c");
-    CUBE_CProject_AppendSource(&project, "src/window.c");
-    CUBE_CProject_AppendSource(&project, "src/egl_context.c");
-    CUBE_CProject_AppendSource(&project, "src/osmesa_context.c");
-    CUBE_CProject_AppendSource(&project, "src/null_init.c");
-    CUBE_CProject_AppendSource(&project, "src/null_monitor.c");
-    CUBE_CProject_AppendSource(&project, "src/null_window.c");
-    CUBE_CProject_AppendSource(&project, "src/null_joystick.c");
+        "./include",
+        "./src"
+    );
+
+    CUBE_CProject_AppendSources(&project, 
+        "./src/context.c",
+        "./src/init.c",
+        "./src/input.c",
+        "./src/monitor.c",
+        "./src/platform.c",
+        "./src/vulkan.c",
+        "./src/window.c",
+        "./src/egl_context.c",
+        "./src/osmesa_context.c",
+        "./src/null_init.c",
+        "./src/null_monitor.c",
+        "./src/null_window.c",
+        "./src/null_joystick.c"
+    );
 
     switch (a_targetPlatform)
     {
     case TargetPlatform_Windows:
     {
-        CUBE_CProject_AppendDefine(&project, "WIN32");
-        CUBE_CProject_AppendDefine(&project, "_GLFW_WIN32");
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32",
+            "_GLFW_WIN32"
+        );
 
-        CUBE_CProject_AppendSource(&project, "src/wgl_context.c");
-        CUBE_CProject_AppendSource(&project, "src/win32_init.c");
-        CUBE_CProject_AppendSource(&project, "src/win32_joystick.c");
-        CUBE_CProject_AppendSource(&project, "src/win32_module.c");
-        CUBE_CProject_AppendSource(&project, "src/win32_monitor.c");
-        CUBE_CProject_AppendSource(&project, "src/win32_thread.c");
-        CUBE_CProject_AppendSource(&project, "src/win32_time.c");
-        CUBE_CProject_AppendSource(&project, "src/win32_window.c");
+        CUBE_CProject_AppendSources(&project, 
+            "./src/wgl_context.c",
+            "./src/win32_init.c",
+            "./src/win32_joystick.c",
+            "./src/win32_module.c",
+            "./src/win32_monitor.c",
+            "./src/win32_thread.c",
+            "./src/win32_time.c",
+            "./src/win32_window.c"
+        );
 
         break;
     }
@@ -67,18 +78,28 @@ static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     case TargetPlatform_LinuxClang:
     case TargetPlatform_LinuxZig:
     {
-        CUBE_CProject_AppendDefine(&project, "_GLFW_X11");
+        CUBE_CProject_AppendDefines(&project, 
+            "_GLFW_X11",
+            "_GLFW_WAYLAND"
+        );
         
-        CUBE_CProject_AppendSource(&project, "src/glx_context.c");
-        CUBE_CProject_AppendSource(&project, "src/linux_joystick.c");
-        CUBE_CProject_AppendSource(&project, "src/posix_poll.c");
-        CUBE_CProject_AppendSource(&project, "src/posix_module.c");
-        CUBE_CProject_AppendSource(&project, "src/posix_time.c");
-        CUBE_CProject_AppendSource(&project, "src/posix_thread.c");
-        CUBE_CProject_AppendSource(&project, "src/x11_init.c");
-        CUBE_CProject_AppendSource(&project, "src/x11_monitor.c");
-        CUBE_CProject_AppendSource(&project, "src/x11_window.c");
-        CUBE_CProject_AppendSource(&project, "src/xkb_unicode.c");
+        CUBE_CProject_AppendSources(&project, 
+            "./src/glx_context.c",
+            "./src/linux_joystick.c",
+            "./src/posix_poll.c",
+            "./src/posix_module.c",
+            "./src/posix_time.c",
+            "./src/posix_thread.c",
+
+            "./src/wl_init.c",
+            "./src/wl_monitor.c",
+            "./src/wl_window.c",
+
+            "./src/x11_init.c",
+            "./src/x11_monitor.c",
+            "./src/x11_window.c",
+            "./src/xkb_unicode.c"
+        );
 
         break;
     }
@@ -896,7 +917,7 @@ DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targe
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * (*a_count));
 
     projects[0].Project = BuildGLFW(a_targetPlatform, a_configuration);
-    projects[0].WorkingDirectory = "deps/flare-glfw";
+    projects[0].WorkingDirectory = "deps/glfw";
     projects[0].Export = CBTRUE;
 
     // I am glad the seperated the OpenGL code from the rest of the library but the Vulkan code is tied in deeply and they use a mix of C and C++ ahhhhhhh................

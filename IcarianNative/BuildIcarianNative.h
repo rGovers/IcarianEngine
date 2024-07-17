@@ -332,7 +332,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         CUBE_CProject_AppendLibraries(&project,
             "../IcarianCore/build/IcarianCore.lib",
 
-            "../deps/flare-glfw/build/GLFW.lib",
+            "../deps/glfw/build/GLFW.lib",
             "../deps/miniz/build/miniz.lib",
             "../deps/KTX-Software/build/ktxc.lib",
             "../deps/KTX-Software/build/ktxcpp.lib",
@@ -376,7 +376,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         CUBE_CProject_AppendLibraries(&project,
             "../IcarianCore/build/libIcarianCore.a",
 
-            "../deps/flare-glfw/build/libGLFW.a",
+            "../deps/glfw/build/libGLFW.a",
             "../deps/miniz/build/libminiz.a",
             "../deps/KTX-Software/build/libktxc.a",
             "../deps/KTX-Software/build/libktxcpp.a",

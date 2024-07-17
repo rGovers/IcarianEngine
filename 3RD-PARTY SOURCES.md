@@ -63,7 +63,7 @@ https://www.mono-project.com/
 
 https://github.com/mono/mono
 
-### GLFW Fork
+### GLFW
 Original Project:
 
 https://www.glfw.org/
