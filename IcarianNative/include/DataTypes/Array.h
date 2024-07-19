@@ -165,6 +165,29 @@ public:
 
         m_data[m_size] = a_data;
     }
+    void Insert(uint32_t a_index, const T& a_data)
+    {
+        const uint32_t aSize = m_size + 1;
+        IDEFER(m_size = aSize);
+
+        if (aSize > m_capacity)
+        {
+            const uint32_t cap = m_capacity << 1;
+            const uint32_t diff = cap - m_capacity;
+            IDEFER(m_capacity = cap);
+
+            m_data = (T*)realloc(m_data, sizeof(T) * cap);
+            memset(m_data, 0, diff * sizeof(T));
+        }
+
+        for (uint32_t i = m_size; i >= a_index; --i)
+        {
+            m_data[i] = m_data[i - 1];
+        }
+
+        m_data[a_index] = a_data;
+    }
+
     void Erase(uint32_t a_index)
     {
         const uint32_t aSize = m_size - 1;

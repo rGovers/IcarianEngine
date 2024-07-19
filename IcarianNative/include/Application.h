@@ -7,6 +7,7 @@
 class AudioEngine;
 class Config;
 class InputManager;
+class Navigation;
 class NetworkManager;
 class ObjectManager;
 class PhysicsEngine;
@@ -24,6 +25,7 @@ private:
     Config*         m_config;
     InputManager*   m_inputManager;
 
+    Navigation*     m_navigation;
     AudioEngine*    m_audioEngine;
     PhysicsEngine*  m_physicsEngine;
     RenderEngine*   m_renderEngine;

@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include "AI/Navigation.h"
 #include "AppWindow/GLFWAppWindow.h"
 #include "AppWindow/HeadlessAppWindow.h"
 #include "Audio/AudioEngine.h"
@@ -135,6 +136,7 @@ Application::Application(Config* a_config)
     ObjectManager::Init();
     VideoManager::Init();
 
+    m_navigation = new Navigation();
     m_audioEngine = new AudioEngine();
     m_physicsEngine = new PhysicsEngine(m_config);
     m_renderEngine = new RenderEngine(m_appWindow, m_config);
@@ -166,6 +168,7 @@ Application::~Application()
     AnimationController::Destroy();
     UIControl::Destroy();
 
+    delete m_navigation;
     delete m_audioEngine;
     delete m_physicsEngine;
     delete m_renderEngine;

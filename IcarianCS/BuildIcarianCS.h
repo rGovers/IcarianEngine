@@ -43,6 +43,9 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
         "./src/Time.cs",
         "./src/Transform.cs",
 
+        "./src/AI/NavigationMesh.cs",
+        "./src/AI/Navigation.cs",
+
         "./src/Audio/AudioClip.cs",
         "./src/Audio/AudioListener.cs",
         "./src/Audio/AudioMixer.cs",
@@ -68,6 +71,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
         "./src/Definitions/MaterialDef.cs",
         "./src/Definitions/MeshCollisionShapeDef.cs",
         "./src/Definitions/MeshRendererDef.cs",
+        "./src/Definitions/NavigationMeshDef.cs",
         "./src/Definitions/ParticleSystem2DDef.cs",
         "./src/Definitions/ParticleSystemDef.cs",
         "./src/Definitions/PhysicsBodyDef.cs",
