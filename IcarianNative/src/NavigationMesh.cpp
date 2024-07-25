@@ -285,11 +285,11 @@ static void PushPathValue(uint32_t a_index, const NavigationFace* a_faces, const
         };
 
         const uint32_t queueSize = a_queue->Size();
-        for (uint32_t j = queueSize - 1; j >= 0; --i)
+        for (int32_t j = queueSize - 1; j >= 0; --j)
         {
-            if (d < a_queue->Get(i).Weight)
+            if (d < a_queue->Get(j).Weight)
             {
-                a_queue->Insert(i, value);
+                a_queue->Insert(j, value);
 
                 goto NextIter;
             }
@@ -311,7 +311,7 @@ static float TriToAreaSqr(const glm::vec3& a_vertA, const glm::vec3& a_vertB, co
     return b.x * a.y - a.x * b.y;
 }
 
-Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint) const
+Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const
 {
     const uint32_t indexA = GetIndex(a_startPoint);
     if (indexA == -1)
@@ -324,10 +324,10 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
         return Array<glm::vec3>();
     }
 
-    return GeneratePath(a_startPoint, a_endPoint, indexA, indexB);
+    return GeneratePath(a_startPoint, a_endPoint, indexA, indexB, a_agentRadius);
 }
 // 2.5D Pathfinding
-Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, uint32_t a_startIndex, uint32_t a_endIndex) const
+Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, uint32_t a_startIndex, uint32_t a_endIndex, float a_agentRadius) const
 {
     if (a_startIndex == -1 || a_endIndex == -1)
     {
@@ -415,7 +415,7 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
                 const glm::vec2 diff = centerB - centerA;
                 const glm::vec2 right = glm::vec2(diff.y, -diff.x);
 
-                const glm::vec2 vertPos = m_vertices[pastFace.Indicies[indexA]].xz();
+                const glm::vec2 vertPos = m_vertices[indexA].xz();
                 const glm::vec2 vertDiff = vertPos - centerA;
                 // Non normalized but should not matter as only after the direction of the vector
                 if (glm::dot(vertDiff, right) > 0)
@@ -451,75 +451,76 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
     path.Reserve(portalCount + 1);
     path.Push(a_startPoint);
 
-    if (portalCount > 1)
+    uint32_t portalLeftIndex = 0;
+    uint32_t portalRightIndex = 0;
+    uint32_t portalApexIndex = 0;
+    glm::vec3 portalApex = a_startPoint;
+    glm::vec3 portalLeft = a_startPoint;
+    glm::vec3 portalRight = a_startPoint;
+
+    constexpr float Epsilon = 0.001f * 0.001f;
+    // Credit: http://digestingduck.blogspot.com/2010/03/simple-stupid-funnel-algorithm.html
+    // Made some adjustments but pretty much the same as what is linked
+    for (uint32_t i = 0; i < portalCount; ++i)
     {
-        uint32_t portalLeftIndex = 0;
-        uint32_t portalRightIndex = 0;
-        uint32_t portalApexIndex = 0;
-        glm::vec3 portalApex = a_startPoint;
-        glm::vec3 portalLeft = m_vertices[portals[0].LeftIndex];
-        glm::vec3 portalRight = m_vertices[portals[0].RightIndex];
+        const Portal port = portals[i];
 
-        constexpr float Epsilon = 0.001f * 0.001f;
-        // Credit: http://digestingduck.blogspot.com/2010/03/simple-stupid-funnel-algorithm.html
-        for (uint32_t i = 1; i < portalCount; ++i)
+        const uint32_t leftIndex = port.LeftIndex;
+        const uint32_t rightIndex = port.RightIndex;
+
+        const glm::vec3& leftVertex = m_vertices[leftIndex];
+        const glm::vec3& rightVertex = m_vertices[rightIndex];
+
+        const glm::vec3 offset = glm::normalize(rightVertex - leftVertex) * a_agentRadius;
+
+        const glm::vec3 leftP = leftVertex + offset;
+        const glm::vec3 rightP = rightVertex - offset;
+
+        // NOTE: Technically not correct to do in 2 dimensions but should be fine as we do not need to follow the path exactly and only need waypoints
+        // If we need to follow the path exactly may need to change down the line
+        if (TriToAreaSqr(portalApex, portalRight, rightP) <= 0.0f)
         {
-            const Portal port = portals[i];
-
-            const uint32_t leftIndex = port.LeftIndex;
-            const uint32_t rightIndex = port.RightIndex;
-
-            const glm::vec3& leftVertex = m_vertices[leftIndex];
-            const glm::vec3& rightVertex = m_vertices[rightIndex];
-
-            // NOTE: Technically not correct to do in 2 dimensions but should be fine as we do not need to follow the path exactly and only need waypoints
-            // If we need to follow the path exactly may need to change down the line
-            if (TriToAreaSqr(portalApex, portalRight, rightVertex) <= 0.0f)
+            const float eq = glm::length2(portalApex - portalRight);
+            if (eq <= Epsilon || TriToAreaSqr(portalApex, portalLeft, rightP) > 0.0f)
             {
-                const float eq = glm::length2(portalApex - portalRight);
-                if (eq <= Epsilon || TriToAreaSqr(portalApex, portalLeft, rightVertex) > 0.0f)
-                {
-                    portalRight = rightVertex;
-                    portalRightIndex = i;
-                }
-                else
-                {
-                    path.Push(portalLeft);
-
-                    portalApex = portalLeft;
-                    portalApexIndex = portalLeftIndex;
-
-                    portalRight = portalApex;
-                    portalRightIndex = portalApexIndex;
-
-                    i = portalApexIndex;
-
-                    continue;
-                }
+                portalRight = rightP;
+                portalRightIndex = i;
             }
-
-            if (TriToAreaSqr(portalApex, portalLeft, leftVertex) >= 0.0f)
+            else
             {
-                const float eq = glm::length2(portalApex - portalLeft);
-                if (eq <= Epsilon || TriToAreaSqr(portalApex, portalRight, leftVertex) < 0.0f)
-                {
-                    portalLeft = leftVertex;
-                    portalLeftIndex = i;
-                }
-                else
-                {
-                    path.Push(portalRight);
+                path.Push(portalLeft);
 
-                    portalApex = portalRight;
-                    portalApexIndex = portalRightIndex;
+                portalApex = portalLeft;
+                portalApexIndex = portalLeftIndex;
+                portalRight = portalApex;
+                portalRightIndex = portalApexIndex;
 
-                    portalLeft = portalApex;
-                    portalLeftIndex = portalApexIndex;
+                i = portalApexIndex;
 
-                    i = portalApexIndex;
+                continue;
+            }
+        }
 
-                    continue;
-                }
+        if (TriToAreaSqr(portalApex, portalLeft, leftP) >= 0.0f)
+        {
+            const float eq = glm::length2(portalApex - portalLeft);
+            if (eq <= Epsilon || TriToAreaSqr(portalApex, portalRight, leftP) < 0.0f)
+            {
+                portalLeft = leftP;
+                portalLeftIndex = i;
+            }
+            else
+            {
+                path.Push(portalRight);
+
+                portalApex = portalRight;
+                portalApexIndex = portalRightIndex;
+                portalLeft = portalApex;
+                portalLeftIndex = portalApexIndex;
+
+                i = portalApexIndex;
+
+                continue;
             }
         }
     }

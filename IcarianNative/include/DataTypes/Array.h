@@ -177,13 +177,10 @@ public:
             IDEFER(m_capacity = cap);
 
             m_data = (T*)realloc(m_data, sizeof(T) * cap);
-            memset(m_data, 0, diff * sizeof(T));
+            memset(m_data + m_capacity, 0, diff * sizeof(T));
         }
 
-        for (uint32_t i = m_size; i >= a_index; --i)
-        {
-            m_data[i] = m_data[i - 1];
-        }
+        memmove(m_data + a_index + 1, m_data + a_index, (m_size - a_index) * sizeof(T));
 
         m_data[a_index] = a_data;
     }
@@ -198,8 +195,8 @@ public:
             (&(m_data[a_index]))->~T();
         }
 
-        memcpy(m_data + a_index, m_data + a_index + 1, (aSize - a_index) * sizeof(T));
-        memset(m_data + m_size, 0, sizeof(T));
+        memmove(m_data + a_index, m_data + a_index + 1, (aSize - a_index) * sizeof(T));
+        memset(m_data + aSize, 0, sizeof(T));
     }
 
     void Resize(uint32_t a_size)

@@ -8,9 +8,9 @@ namespace IcarianEngine.Rendering
     internal static class RenderTextureCmd
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        internal static extern uint GenerateRenderTexture(uint a_count, uint a_width, uint a_height, uint a_depth, uint a_hdr);
+        internal static extern uint GenerateRenderTexture(uint a_count, uint a_width, uint a_height, uint a_depth, uint a_hdr, uint a_channelCount);
         [MethodImpl(MethodImplOptions.InternalCall)]
-        internal static extern uint GenerateRenderTextureD(uint a_count, uint a_width, uint a_height, uint a_depthHandle, uint a_hdr);
+        internal static extern uint GenerateRenderTextureD(uint a_count, uint a_width, uint a_height, uint a_depthHandle, uint a_hdr, uint a_channelCount);
         [MethodImpl(MethodImplOptions.InternalCall)]
         internal static extern void DestroyRenderTexture(uint a_addr);
 

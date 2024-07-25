@@ -108,12 +108,49 @@ constexpr vk::Format DepthFormats[] =
     vk::Format::eD24UnormS8Uint
 };
 
-static constexpr vk::Format GetFormat(bool a_hdr)
+static constexpr vk::Format GetFormat(bool a_hdr, uint32_t a_channelCount)
 {
-    if (a_hdr)
+    switch (a_channelCount) 
     {
-        return vk::Format::eR16G16B16A16Sfloat;
+    case 1:
+    {
+        if (a_hdr)
+        {
+            return vk::Format::eR16Sfloat;
+        }
+
+        return vk::Format::eR8Unorm;
     }
+    case 2:
+    {
+        if (a_hdr)
+        {
+            return vk::Format::eR16G16Sfloat;
+        }
+
+        return vk::Format::eR8G8Unorm;
+    }
+    case 3:
+    {
+        if (a_hdr)
+        {
+            return vk::Format::eR16G16B16Sfloat;
+        }
+
+        return vk::Format::eR8G8B8Unorm;
+    }
+    case 4:
+    {
+        if (a_hdr)
+        {
+            return vk::Format::eR16G16B16A16Sfloat;
+        }
+
+        return vk::Format::eR8G8B8A8Unorm;
+    }
+    }
+
+    IERROR("No valid texture format");
 
     return vk::Format::eR8G8B8A8Unorm;
 }
@@ -161,7 +198,7 @@ void VulkanRenderTexture::Setup()
 
     const uint32_t totalTextureCount = GetTotalTextureCount();
 
-    const vk::Format format = GetFormat(hdr);
+    const vk::Format format = GetFormat(hdr, m_channelCount);
     const vk::Format depthFormat = GetValidDepthFormat(physicalDevice);
 
     TRACE("Creating Attachments");
@@ -333,12 +370,13 @@ void VulkanRenderTexture::Setup()
     Init(m_width, m_height);
 }
 
-VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr)
+VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr, uint32_t a_channelCount)
 {
     m_engine = a_engine;
     m_gEngine = a_gEngine;
 
     m_textureCount = a_textureCount;
+    m_channelCount = a_channelCount;
 
     m_width = a_width;
     m_height = a_height;
@@ -359,12 +397,13 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, Vu
 
     Setup();
 }
-VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, uint32_t a_depthHandle, bool a_hdr)
+VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, uint32_t a_depthHandle, bool a_hdr, uint32_t a_channelCount)
 {
     m_engine = a_engine;
     m_gEngine = a_gEngine;
 
     m_textureCount = a_textureCount;
+    m_channelCount = a_channelCount;
 
     m_width = a_width;
     m_height = a_height;
@@ -404,7 +443,7 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 
     const bool isHDR = IsHDR();
 
-    const vk::Format format = GetFormat(isHDR);
+    const vk::Format format = GetFormat(isHDR, m_channelCount);
     const vk::Format depthFormat = GetValidDepthFormat(physicalDevice);
 
     const uint32_t totalTextureCount = GetTotalTextureCount();
@@ -412,22 +451,24 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
     m_width = a_width;
     m_height = a_height;
 
-    TRACE("Creating Textures");
-    VkImageCreateInfo textureCreateInfo = { };
-    textureCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    textureCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-    textureCreateInfo.format = (VkFormat)format;
-    textureCreateInfo.extent.width = m_width;
-    textureCreateInfo.extent.height = m_height;
-    textureCreateInfo.extent.depth = 1;
-    textureCreateInfo.mipLevels = 1;
-    textureCreateInfo.arrayLayers = 1;
-    textureCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    textureCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    textureCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    textureCreateInfo.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    const vk::Extent3D extent = vk::Extent3D(m_width, m_height, 1);
 
-    VmaAllocationCreateInfo allocInfo = 
+    TRACE("Creating Textures");
+    const VkImageCreateInfo textureCreateInfo = VkImageCreateInfo
+    {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = (VkFormat)format,
+        .extent = extent,
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+
+    const VmaAllocationCreateInfo allocInfo = 
     { 
         .usage = VMA_MEMORY_USAGE_AUTO,
         .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT

@@ -48,7 +48,7 @@ static CUBE_CProject BuildIcarianModManagerProject(e_TargetPlatform a_targetPlat
         "../IcarianCore/include",
 
         "../deps/imgui",
-        "../deps/flare-glfw/include",
+        "../deps/glfw/include",
         "../deps/flare-tinyxml2",
         "../deps/glad/include"
     );
@@ -128,7 +128,7 @@ static CUBE_CProject BuildIcarianModManagerProject(e_TargetPlatform a_targetPlat
         CUBE_CProject_AppendLibraries(&project, 
             "../IcarianCore/build/IcarianCore.lib",
 
-            "../deps/flare-glfw/build/GLFW.lib"
+            "../deps/glfw/build/GLFW.lib"
         );
 
         CUBE_CProject_AppendReference(&project, "gdi32");
@@ -144,7 +144,7 @@ static CUBE_CProject BuildIcarianModManagerProject(e_TargetPlatform a_targetPlat
         CUBE_CProject_AppendLibraries(&project, 
             "../IcarianCore/build/libIcarianCore.a",
 
-            "../deps/flare-glfw/build/libGLFW.a"
+            "../deps/glfw/build/libGLFW.a"
         );
 
         CUBE_CProject_AppendReference(&project, "stdc++");

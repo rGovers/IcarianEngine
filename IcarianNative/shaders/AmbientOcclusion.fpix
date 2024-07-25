@@ -7,7 +7,7 @@ layout(location = 0) in vec2 vUV;
 
 #!structure(CameraBuffer, 2, camBuffer)
 
-layout(location = 0) out vec4 fragColor;
+layout(location = 0) out float fragColor;
 
 const int samples = 6;
 const float radius = 0.25;
@@ -77,5 +77,5 @@ void main()
     })
     o /= samples;
 
-    fragColor = vec4(o.xxx, 1.0);
+    fragColor = o;
 }

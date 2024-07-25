@@ -13,6 +13,7 @@ extern "C" {
 const static char* IcarianNativeShaderBasePaths[] =
 {
     "shaders/AmbientOcclusion.fpix",
+    "shaders/AmbientOcclusionFilter.fpix",
     "shaders/AmbientLight.fpix",
     "shaders/Blend.fpix",
     "shaders/DirectionalLight.fpix",
@@ -120,7 +121,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "../IcarianCore/include",
         "../deps/assimp/include",
         "../deps/gen/assimp",
-        "../deps/flare-glfw/include",
+        "../deps/glfw/include",
         "../deps/flare-glm",
         "../deps/flare-stb",
         "../deps/KTX-Software/include",

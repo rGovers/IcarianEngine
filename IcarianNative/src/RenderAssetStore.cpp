@@ -152,6 +152,12 @@ void RenderAssetStore::Flush()
 
 static void LoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_rSqr)
 {
+    const uint32_t startIndex = a_vertices->Size();
+
+    const bool hasNormals = a_mesh->HasNormals();
+    const bool hasTexCoord = a_mesh->HasTextureCoords(0);
+    const bool hasColour = a_mesh->HasVertexColors(0);
+
     for (uint32_t i = 0; i < a_mesh->mNumVertices; ++i) 
     {
         Vertex v;
@@ -161,19 +167,19 @@ static void LoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint
 
         *a_rSqr = glm::max(pos.SquareLength(), *a_rSqr);
 
-        if (a_mesh->HasNormals()) 
+        if (hasNormals) 
         {
             const aiVector3D& norm = a_mesh->mNormals[i];
             v.Normal = glm::vec3(norm.x, -norm.y, norm.z);
         }
 
-        if (a_mesh->HasTextureCoords(0)) 
+        if (hasTexCoord) 
         {
             const aiVector3D& uv = a_mesh->mTextureCoords[0][i];
             v.TexCoords = glm::vec2(uv.x, uv.y);
         }
 
-        if (a_mesh->HasVertexColors(0)) 
+        if (hasColour) 
         {
             const aiColor4D& colour = a_mesh->mColors[0][i];
             v.Color = glm::vec4(colour.r, colour.g, colour.b, colour.a);
@@ -186,9 +192,44 @@ static void LoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint
     {
         const aiFace& face = a_mesh->mFaces[i];
 
-        a_indices->Push(face.mIndices[0]);
-        a_indices->Push(face.mIndices[2]);
-        a_indices->Push(face.mIndices[1]);
+        const uint32_t indexA = face.mIndices[0];
+        const uint32_t indexB = face.mIndices[2];
+        const uint32_t indexC = face.mIndices[1];
+
+        if (!hasNormals)
+        {
+            const aiVector3D& posA = a_mesh->mVertices[indexA];
+            const aiVector3D& posB = a_mesh->mVertices[indexB];
+            const aiVector3D& posC = a_mesh->mVertices[indexC];
+
+            const glm::vec3 pA = glm::vec3(posA.x, -posA.y, posA.z);
+            const glm::vec3 pB = glm::vec3(posB.x, -posB.y, posB.z);
+            const glm::vec3 pC = glm::vec3(posC.x, -posC.y, posC.z);
+
+            const glm::vec3 diffA = pB - pA;
+            const glm::vec3 diffB = pC - pA;
+
+            const glm::vec3 norm = glm::cross(diffA, diffB);
+
+            a_vertices->Ref(startIndex + indexA).Normal += norm;
+            a_vertices->Ref(startIndex + indexB).Normal += norm;
+            a_vertices->Ref(startIndex + indexC).Normal += norm;
+        }
+
+        a_indices->Push(indexA);
+        a_indices->Push(indexB);
+        a_indices->Push(indexC);
+    }
+
+    if (!hasNormals)
+    {
+        const uint32_t count = a_vertices->Size();
+        for (uint32_t i = startIndex; i < count; ++i)
+        {
+            glm::vec3& norm = a_vertices->Ref(i).Normal;
+
+            norm = glm::normalize(norm);
+        }
     }
 }
 

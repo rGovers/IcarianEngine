@@ -25,35 +25,7 @@ void main()
 
     vec4 color = texture(colorSampler, vUV);
 
-    int b[maxKernelSize];
-
-    #!preloop(iter, 0, 9, 
-    {
-        b[iter] = 0;
-    })
-
-    #!preloop(iterY, -1, 2,
-    {
-        #!preloop(iterX, -1, 2,
-        {
-            float c = texture(aoSampler, vUV + vec2(iterX, iterY) * stepValue).x;
-            int bIn = clamp(int(c * maxKernelSize), 0, maxKernelSize - 1);
-            b[bIn] += 1;
-        })
-    })
-
-    float ao = 0.0;
-    float t = 0.0;
-    for (int i = 0; i < maxKernelSize; i++)
-    {
-        t += b[i];
-        if (t >= limit)
-        {
-            ao = float(i) / maxKernelSize;
-
-            break;
-        }
-    }
+    float ao = texture(aoSampler, vUV).x;
 
     vec4 lCr = ambientLightBuffer.LightColor;
 

@@ -18,7 +18,8 @@ private:
     VulkanGraphicsEngine*      m_gEngine;
 
     uint32_t                   m_textureCount;
-                    
+    uint32_t                   m_channelCount;
+
     uint32_t                   m_width;
     uint32_t                   m_height;
 
@@ -43,8 +44,8 @@ private:
 protected:
 
 public:
-    VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr);
-    VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, uint32_t a_depthHandle, bool a_hdr);
+    VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr, uint32_t a_channelCount);
+    VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_textureCount, uint32_t a_width, uint32_t a_height, uint32_t a_depthHandle, bool a_hdr, uint32_t a_channelCount);
     ~VulkanRenderTexture();
 
     inline uint32_t GetWidth() const

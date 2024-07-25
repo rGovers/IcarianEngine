@@ -26,7 +26,7 @@
     }, IOP_UINT32 a_addr) \
     F(IOP_ARRAY(IOP_VEC3[]), IcarianEngine.AI, NavigationMeshInterop, GetPath, \
     { \
-        const Array<glm::vec3> path = Instance->GetNavMeshPath(a_addr, a_startPoint, a_endPoint); \
+        const Array<glm::vec3> path = Instance->GetNavMeshPath(a_addr, a_startPoint, a_endPoint, a_agentRadius); \
         const uint32_t count = path.Size(); \
         MonoClass* klass = RuntimeManager::GetClass("IcarianEngine.Maths", "Vector3"); \
         MonoArray* arr = mono_array_new(mono_domain_get(), klass, count); \
@@ -35,6 +35,6 @@
             mono_array_set(arr, IOP_VEC3, i, path[i]); \
         } \
         return arr; \
-    }, IOP_UINT32 a_addr, IOP_VEC3 a_startPoint, IOP_VEC3 a_endPoint) \
+    }, IOP_UINT32 a_addr, IOP_VEC3 a_startPoint, IOP_VEC3 a_endPoint, float a_agentRadius) \
 
 /// @endcond

@@ -72,7 +72,7 @@ namespace IcarianEngine.Rendering
             }
         }
 
-        public MultiRenderTexture(uint a_count, uint a_width, uint a_height, bool a_depth = false, bool a_hdr = false)
+        public MultiRenderTexture(uint a_count, uint a_width, uint a_height, bool a_depth = false, bool a_hdr = false, uint a_channelCount = 4)
         {
             uint hdrVal = 0;
             if (a_hdr)
@@ -86,19 +86,19 @@ namespace IcarianEngine.Rendering
                 depthVal = 1;
             }
 
-            m_bufferAddr = RenderTextureCmd.GenerateRenderTexture(a_count, a_width, a_height, depthVal, hdrVal);
+            m_bufferAddr = RenderTextureCmd.GenerateRenderTexture(a_count, a_width, a_height, depthVal, hdrVal, a_channelCount);
 
             RenderTextureCmd.PushRenderTexture(m_bufferAddr, this);
         }
-        public MultiRenderTexture(uint a_count, uint a_width, uint a_height, DepthRenderTexture a_depthTexture, bool a_hdr = false)
+        public MultiRenderTexture(uint a_count, uint a_width, uint a_height, DepthRenderTexture a_depthTexture, bool a_hdr = false, uint a_channelCount = 4)
         {
             if (a_hdr)
             {
-                m_bufferAddr = RenderTextureCmd.GenerateRenderTextureD(a_count, a_width, a_height, a_depthTexture.BufferAddr, 1);
+                m_bufferAddr = RenderTextureCmd.GenerateRenderTextureD(a_count, a_width, a_height, a_depthTexture.BufferAddr, 1, a_channelCount);
             }
             else
             {
-                m_bufferAddr = RenderTextureCmd.GenerateRenderTextureD(a_count, a_width, a_height, a_depthTexture.BufferAddr, 0);
+                m_bufferAddr = RenderTextureCmd.GenerateRenderTextureD(a_count, a_width, a_height, a_depthTexture.BufferAddr, 0, a_channelCount);
             }
 
             RenderTextureCmd.PushRenderTexture(m_bufferAddr, this);

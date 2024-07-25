@@ -1,0 +1,47 @@
+#version 450
+
+layout(location = 0) in vec2 vUV;
+
+#!texture(0, aoSampler)
+
+layout(location = 0) out float fragColor;
+
+const int kernelSize = 2;
+const int limit = kernelSize * 2 + 1;
+const int maxKernelSize = limit * limit;
+
+void main()
+{
+    // Note this limits the color bands to maxKernelSize colours but should get it back(Still maxKernelSize colours) when the gpu blends neighbouring colors
+    int b[maxKernelSize];
+
+    #!preloop(iter, 0, 25, 
+    {
+        b[iter] = 0;
+    })
+
+    #!preloop(iterY, -2, 3,
+    {
+        #!preloop(iterX, -2, 3,
+        {
+            float c = textureOffset(aoSampler, vUV, ivec2(iterX, iterY)).x;
+            int bIn = clamp(int(c * maxKernelSize), 0, maxKernelSize - 1);
+            b[bIn] += 1;
+        })
+    })
+
+    float ao = 0.0;
+    float t = 0.0;
+    #!preloop(iter, 0, 25,
+    {
+        t += b[iter];
+        if (t >= limit)
+        {
+            ao = float(iter) / maxKernelSize;
+
+            break;
+        }
+    })
+    
+    fragColor = ao;
+}

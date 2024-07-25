@@ -33,6 +33,6 @@ public:
 
     uint32_t GetIndex(const glm::vec3& a_point) const;
 
-    Array<glm::vec3> GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint) const;
-    Array<glm::vec3> GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, uint32_t a_startIndex, uint32_t a_endIndex) const;
+    Array<glm::vec3> GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const;
+    Array<glm::vec3> GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, uint32_t a_startIndex, uint32_t a_endIndex, float a_agentRadius) const;
 };

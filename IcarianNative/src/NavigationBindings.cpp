@@ -13,7 +13,7 @@ ENGINE_NAVIGATIONMESH_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 RUNTIME_FUNCTION(MonoArray*, Navigation, GetPath, 
 {
-    const Array<glm::vec3> path = Instance->GetNavigationPath(a_startPoint, a_endPoint);
+    const Array<glm::vec3> path = Instance->GetNavigationPath(a_startPoint, a_endPoint, a_agentRadius);
     const uint32_t count = path.Size();
     MonoClass* klass = RuntimeManager::GetClass("IcarianEngine.Maths", "Vector3");
     MonoArray* arr = mono_array_new(mono_domain_get(), klass, count);
@@ -22,7 +22,7 @@ RUNTIME_FUNCTION(MonoArray*, Navigation, GetPath,
         mono_array_set(arr, glm::vec3, i, path[i]);
     }
     return arr;
-}, glm::vec3 a_startPoint, glm::vec3 a_endPoint)
+}, glm::vec3 a_startPoint, glm::vec3 a_endPoint, float a_agentRadius)
 
 NavigationBindings::NavigationBindings(Navigation* a_navigation)
 {
@@ -54,7 +54,7 @@ void NavigationBindings::DestroyNavMesh(uint32_t a_addr) const
     IDEFER(delete mesh);
     m_navigation->m_meshes.Erase(a_addr);
 }
-Array<glm::vec3> NavigationBindings::GetNavMeshPath(uint32_t a_addr, const glm::vec3& a_startPoint, const glm::vec3& a_endPoint) const
+Array<glm::vec3> NavigationBindings::GetNavMeshPath(uint32_t a_addr, const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const
 {
     IVERIFY(a_addr < m_navigation->m_meshes.Size());
     IVERIFY(m_navigation->m_meshes.Exists(a_addr));
@@ -63,10 +63,10 @@ Array<glm::vec3> NavigationBindings::GetNavMeshPath(uint32_t a_addr, const glm::
 
     const NavigationMesh* mesh = a[a_addr];
 
-    return mesh->GeneratePath(a_startPoint, a_endPoint);
+    return mesh->GeneratePath(a_startPoint, a_endPoint, a_agentRadius);
 }
 
-Array<glm::vec3> NavigationBindings::GetNavigationPath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint) const
+Array<glm::vec3> NavigationBindings::GetNavigationPath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const
 {
     const TReadLockArray<NavigationMesh*> a = m_navigation->m_meshes.ToReadLockArray();
     const Array<bool> state = m_navigation->m_meshes.ToStateArray();
@@ -87,7 +87,7 @@ Array<glm::vec3> NavigationBindings::GetNavigationPath(const glm::vec3& a_startP
 
         if (startIndex != -1 && endIndex != -1)
         {
-            return mesh->GeneratePath(a_startPoint, a_endPoint, startIndex, endIndex);
+            return mesh->GeneratePath(a_startPoint, a_endPoint, startIndex, endIndex, a_agentRadius);
         }
     }
     

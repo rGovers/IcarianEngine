@@ -67,9 +67,9 @@ namespace IcarianEngine.AI
         /// <param name="a_startPoint">The starting point of the path</param>
         /// <param name="a_endPoint">The ending point of the path</param>
         /// <returns>The points that make up the path</returns>
-        public Vector3[] GetPath(Vector3 a_startPoint, Vector3 a_endPoint)
+        public Vector3[] GetPath(Vector3 a_startPoint, Vector3 a_endPoint, float a_agentRadius = 1.0f)
         {
-            return NavigationMeshInterop.GetPath(m_bufferAddr, a_startPoint, a_endPoint);
+            return NavigationMeshInterop.GetPath(m_bufferAddr, a_startPoint, a_endPoint, a_agentRadius);
         }
 
         /// <summary>

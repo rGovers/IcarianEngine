@@ -16,6 +16,7 @@ namespace IcarianEngine.Rendering
 
         VertexShader       m_quadVert;
         PixelShader        m_aoPixel;
+        PixelShader        m_aoFilterPixel;
         PixelShader        m_ambientLightPixel;
         PixelShader        m_directionalLightPixel;
         PixelShader        m_pointLightPixel;
@@ -26,6 +27,7 @@ namespace IcarianEngine.Rendering
         PixelShader        m_blendPixel;
 
         Material           m_aoMaterial;
+        Material           m_aoFilterMaterial;
         Material           m_ambientLightMaterial;
         Material           m_directionalLightMaterial;
         Material           m_pointLightMaterial;
@@ -40,6 +42,7 @@ namespace IcarianEngine.Rendering
         MultiRenderTexture m_drawRenderTexture;
 
         RenderTexture      m_aoRenderTexture;
+        RenderTexture      m_aoFilterRenderTexture;
         RenderTexture      m_lightRenderTexture;
         RenderTexture      m_forwardRenderTexture;
         RenderTexture      m_colorRenderTexture;
@@ -56,6 +59,7 @@ namespace IcarianEngine.Rendering
         TextureSampler     m_depthSampler;
 
         TextureSampler     m_aoSampler;
+        TextureSampler     m_aoFilterSampler;
         TextureSampler     m_lightColorSampler;
         TextureSampler     m_forwardSampler;
 
@@ -130,8 +134,25 @@ namespace IcarianEngine.Rendering
             a_mat.SetTexture(4, m_depthSampler);
         }
 
-        void SetBlendTextures()
+        void SetSamplers()
         {
+            SetLightTextures(m_directionalLightMaterial);
+            SetLightTextures(m_pointLightMaterial);
+            SetLightTextures(m_spotLightMaterial);
+
+            SetLightTextures(m_directionalLightShadowMaterial);
+            SetLightTextures(m_pointLightShadowMaterial);
+            SetLightTextures(m_spotLightShadowMaterial);
+
+            m_aoMaterial.SetTexture(0, m_normalSampler);
+            m_aoMaterial.SetTexture(1, m_depthSampler);
+
+            m_aoFilterMaterial.SetTexture(0, m_aoSampler);
+
+            m_ambientLightMaterial.SetTexture(0, m_defferedColorSampler);
+            m_ambientLightMaterial.SetTexture(1, m_normalSampler);
+            m_ambientLightMaterial.SetTexture(2, m_aoFilterSampler);
+
             m_blendMaterial.SetTexture(0, m_lightColorSampler);
             m_blendMaterial.SetTexture(1, m_forwardSampler);
         }
@@ -151,7 +172,8 @@ namespace IcarianEngine.Rendering
 
             m_drawRenderTexture = new MultiRenderTexture(4, m_width, m_height, m_depthRenderTexture, true);
 
-            m_aoRenderTexture = new RenderTexture(m_width, m_height, false, false);
+            m_aoRenderTexture = new RenderTexture(m_width, m_height, false, false, 1);
+            m_aoFilterRenderTexture = new RenderTexture(m_width, m_height, false, false, 1);
 
             m_lightRenderTexture = new RenderTexture(m_width, m_height, false, true);
             m_forwardRenderTexture = new RenderTexture(m_width, m_height, m_depthRenderTexture, true);
@@ -165,6 +187,7 @@ namespace IcarianEngine.Rendering
             m_depthSampler = TextureSampler.GenerateRenderTextureDepthSampler(m_drawRenderTexture);
 
             m_aoSampler = TextureSampler.GenerateRenderTextureSampler(m_aoRenderTexture, TextureFilter.Nearest);
+            m_aoFilterSampler = TextureSampler.GenerateRenderTextureSampler(m_aoFilterRenderTexture);
             m_lightColorSampler = TextureSampler.GenerateRenderTextureSampler(m_lightRenderTexture);
             m_forwardSampler = TextureSampler.GenerateRenderTextureSampler(m_forwardRenderTexture);
 
@@ -181,6 +204,7 @@ namespace IcarianEngine.Rendering
             m_quadVert = VertexShader.LoadVertexShader("[INTERNAL]Quad");
 
             m_aoPixel = PixelShader.LoadPixelShader("[INTERNAL]AmbientOcclusion");
+            m_aoFilterPixel = PixelShader.LoadPixelShader("[INTERNAL]AmbientOcclusionFilter");
             m_ambientLightPixel = PixelShader.LoadPixelShader("[INTERNAL]AmbientLight");
             m_directionalLightPixel = PixelShader.LoadPixelShader("[INTERNAL]DirectionalLight");
             m_pointLightPixel = PixelShader.LoadPixelShader("[INTERNAL]PointLight");
@@ -197,6 +221,16 @@ namespace IcarianEngine.Rendering
                 PrimitiveMode = PrimitiveMode.TriangleStrip,
                 ColorBlendMode = MaterialBlendMode.None
             };
+            MaterialBuilder aoFilterBuilder = new MaterialBuilder()
+            {
+                VertexShader = m_quadVert,
+                PixelShader = m_aoFilterPixel,
+                PrimitiveMode = PrimitiveMode.TriangleStrip,
+                ColorBlendMode = MaterialBlendMode.None
+            };
+
+            m_aoMaterial = Material.CreateMaterial(aoBuilder);
+            m_aoFilterMaterial = Material.CreateMaterial(aoFilterBuilder);
 
             MaterialBuilder ambientLightBuilder = new MaterialBuilder()
             {
@@ -227,22 +261,10 @@ namespace IcarianEngine.Rendering
                 ColorBlendMode = MaterialBlendMode.One
             };
 
-            m_aoMaterial = Material.CreateMaterial(aoBuilder);
             m_ambientLightMaterial = Material.CreateMaterial(ambientLightBuilder);
             m_directionalLightMaterial = Material.CreateMaterial(directionalLightBuilder);
             m_pointLightMaterial = Material.CreateMaterial(pointLightBuilder);
             m_spotLightMaterial = Material.CreateMaterial(spotLightBuilder);
-
-            SetLightTextures(m_directionalLightMaterial);
-            SetLightTextures(m_pointLightMaterial);
-            SetLightTextures(m_spotLightMaterial);
-
-            m_aoMaterial.SetTexture(0, m_normalSampler);
-            m_aoMaterial.SetTexture(1, m_depthSampler);
-
-            m_ambientLightMaterial.SetTexture(0, m_defferedColorSampler);
-            m_ambientLightMaterial.SetTexture(1, m_normalSampler);
-            m_ambientLightMaterial.SetTexture(2, m_aoSampler);
 
             MaterialBuilder directionalLightShadowMaterial = new MaterialBuilder()
             {
@@ -272,10 +294,6 @@ namespace IcarianEngine.Rendering
             m_pointLightShadowMaterial = Material.CreateMaterial(pointLightShadowMaterial);
             m_spotLightShadowMaterial = Material.CreateMaterial(spotLightShadowMaterial);
 
-            SetLightTextures(m_directionalLightShadowMaterial);
-            SetLightTextures(m_pointLightShadowMaterial);
-            SetLightTextures(m_spotLightShadowMaterial);
-
             MaterialBuilder blendMaterial = new MaterialBuilder()
             {
                 VertexShader = m_quadVert,
@@ -286,7 +304,7 @@ namespace IcarianEngine.Rendering
 
             m_blendMaterial = Material.CreateMaterial(blendMaterial);
 
-            SetBlendTextures();
+            SetSamplers();
 
             m_postEffects.AddRange(a_effects);
         }
@@ -346,29 +364,15 @@ namespace IcarianEngine.Rendering
             m_lightRenderTexture.Resize(scaledWidth, scaledHeight);
             m_forwardRenderTexture.Resize(scaledWidth, scaledHeight);
             m_aoRenderTexture.Resize(minWidth, minHeight);
+            m_aoFilterRenderTexture.Resize(minWidth, minHeight);
             m_colorRenderTexture.Resize(minWidth, minHeight);
+
+            SetSamplers();
 
             for (uint i = 0; i < PostTextureStackSize; ++i)
             {
                 m_postRenderTextures[i].Resize(m_width, m_height);
             }
-
-            SetLightTextures(m_directionalLightMaterial);
-            SetLightTextures(m_pointLightMaterial);
-            SetLightTextures(m_spotLightMaterial);
-
-            SetLightTextures(m_directionalLightShadowMaterial);
-            SetLightTextures(m_pointLightShadowMaterial);
-            SetLightTextures(m_spotLightShadowMaterial);
-
-            m_aoMaterial.SetTexture(0, m_normalSampler);
-            m_aoMaterial.SetTexture(1, m_depthSampler);
-
-            m_ambientLightMaterial.SetTexture(0, m_defferedColorSampler);
-            m_ambientLightMaterial.SetTexture(1, m_normalSampler);
-            m_ambientLightMaterial.SetTexture(2, m_aoSampler);
-
-            SetBlendTextures();
 
             foreach (PostEffect effect in m_postEffects)
             {
@@ -460,7 +464,7 @@ namespace IcarianEngine.Rendering
             Vector3 extents = max - min;
 
             // Ensure stuff behind the light in camera frustum is rendered
-            Matrix4 lightProj = Matrix4.CreateOrthographic(extents.X, extents.Y, -extents.Z * 2, extents.Z);
+            Matrix4 lightProj = Matrix4.CreateOrthographic(extents.X, extents.Y, -extents.Z * 4, extents.Z);
 
             return lightView * lightProj;   
         }
@@ -564,6 +568,11 @@ namespace IcarianEngine.Rendering
             RenderCommand.BindRenderTexture(m_aoRenderTexture);
 
             RenderCommand.BindMaterial(m_aoMaterial);
+            RenderCommand.DrawMaterial();
+
+            RenderCommand.BindRenderTexture(m_aoFilterRenderTexture);
+
+            RenderCommand.BindMaterial(m_aoFilterMaterial);
             RenderCommand.DrawMaterial();
 
             RenderCommand.BindRenderTexture(m_lightRenderTexture);
@@ -763,6 +772,7 @@ namespace IcarianEngine.Rendering
             m_forwardRenderTexture.Dispose();
             m_colorRenderTexture.Dispose();
             m_aoRenderTexture.Dispose();
+            m_aoFilterRenderTexture.Dispose();
 
             m_depthRenderTexture.Dispose();
 
@@ -796,9 +806,11 @@ namespace IcarianEngine.Rendering
             m_colorSampler.Dispose();
 
             m_aoSampler.Dispose();
+            m_aoFilterSampler.Dispose();
             m_lightColorSampler.Dispose();
 
             m_aoMaterial.Dispose();
+            m_aoFilterMaterial.Dispose();
             m_directionalLightMaterial.Dispose();
             m_ambientLightMaterial.Dispose();
             m_pointLightMaterial.Dispose();
@@ -811,6 +823,7 @@ namespace IcarianEngine.Rendering
             m_quadVert.Dispose();
 
             m_aoPixel.Dispose();
+            m_aoFilterPixel.Dispose();
             m_ambientLightPixel.Dispose();
             m_directionalLightPixel.Dispose();
             m_pointLightPixel.Dispose();

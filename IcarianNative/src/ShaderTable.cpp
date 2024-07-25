@@ -23,11 +23,15 @@ const char* GetPixelShaderString(const std::string_view& a_str)
 {
     // Never optimised string comparisions as building jump tables is a pain in the ass then realised already have one just use switch statements
     // We have constexpr in this day and age
-    switch (StringHash(a_str.data()) )
+    switch (StringHash(a_str.data()))
     {
     case StringHash("AmbientOcclusion"):
     {
         return AmbientOcclusionPixelShader;
+    }
+    case StringHash("AmbientOcclusionFilter"):
+    {
+        return AmbientOcclusionFilterPixelShader;
     }
     case StringHash("AmbientLight"):
     {

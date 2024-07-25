@@ -278,8 +278,13 @@ uint32_t PhysicsEngineBindings::CreateMeshShape(const std::filesystem::path& a_p
 
         const JPH::MeshShapeSettings meshSettings = JPH::MeshShapeSettings(vertices, faces);
         const JPH::ShapeSettings::ShapeResult result = meshSettings.Create();
+        if (result.HasError())
+        {
+            IERROR(std::string("Jolt: ") + result.GetError().c_str());
+
+            return -1;
+        }
         IVERIFY(result.IsValid());
-        IVERIFY(!result.HasError());
 
         return m_engine->m_collisionShapes.PushVal(result);
     }
@@ -741,7 +746,7 @@ uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint
         m_engine->m_collisionShapes[a_colliderAddr].Get(),
         JPH::RVec3(translation.x, translation.y, translation.z),
         JPH::Quat(rotation.x, rotation.y, rotation.z, rotation.w),
-        JPH::EMotionType::Kinematic,
+        JPH::EMotionType::Static,
         PhysicsEngine::LayerTrigger
     );
     bodySettings.mIsSensor = true;
