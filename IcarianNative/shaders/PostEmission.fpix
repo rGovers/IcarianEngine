@@ -7,9 +7,9 @@ layout(location = 0) in vec2 vUV;
 
 layout(location = 0) out vec4 fragColor;
 
-const int directions = 8;
-const float emissionRadius = 0.005;
-const int quality = 4;
+const int directions = 5;
+const float emissionRadius = 0.001;
+const int quality = 3;
 const float pi2 = 6.2831850718;
 
 void main()
@@ -17,11 +17,11 @@ void main()
     vec4 color = texture(colorSampler, vUV);
     vec4 emissive = texture(emissionSampler, vUV);
 
-    #!preloop(dirIter, 0, 8,
+    #!preloop(dirIter, 0, 5,
     {
         float d = (dirIter / float(directions)) * pi2;
         vec2 dr = vec2(cos(d), sin(d)) * emissionRadius;
-        #!preloop(qualIter, 0, 4, 
+        #!preloop(qualIter, 0, 3, 
         {
             // Constants so only the samples remain after optimization
             // Compiler fails to realise that if it unrolls the values become constants therefore operations can be removed from the loop

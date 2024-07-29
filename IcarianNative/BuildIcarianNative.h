@@ -333,6 +333,8 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
         CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Windows/include");
 
+        CUBE_CProject_AppendSource(&project, "./src/Library/LibXInput.cpp");
+
         CUBE_CProject_AppendLibraries(&project,
             "../IcarianCore/build/IcarianCore.lib",
 
@@ -359,7 +361,6 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         CUBE_CProject_AppendReference(&project, "ws2_32");
         CUBE_CProject_AppendReference(&project, "winmm");
         CUBE_CProject_AppendReference(&project, "ole32");
-        CUBE_CProject_AppendReference(&project, "xinput");
 
         // Magic string to get std library to link with MinGW
         CUBE_CProject_AppendCFlag(&project, "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic");

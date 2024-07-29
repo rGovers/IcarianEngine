@@ -172,8 +172,8 @@ namespace IcarianEngine.Rendering
 
             m_drawRenderTexture = new MultiRenderTexture(4, m_width, m_height, m_depthRenderTexture, true);
 
-            m_aoRenderTexture = new RenderTexture(m_width, m_height, false, false, 1);
-            m_aoFilterRenderTexture = new RenderTexture(m_width, m_height, false, false, 1);
+            m_aoRenderTexture = new RenderTexture(m_width / 2, m_height / 2, false, false, 1);
+            m_aoFilterRenderTexture = new RenderTexture(m_width / 2, m_height / 2, false, false, 1);
 
             m_lightRenderTexture = new RenderTexture(m_width, m_height, false, true);
             m_forwardRenderTexture = new RenderTexture(m_width, m_height, m_depthRenderTexture, true);
@@ -363,8 +363,8 @@ namespace IcarianEngine.Rendering
             m_drawRenderTexture.Resize(scaledWidth, scaledHeight);
             m_lightRenderTexture.Resize(scaledWidth, scaledHeight);
             m_forwardRenderTexture.Resize(scaledWidth, scaledHeight);
-            m_aoRenderTexture.Resize(minWidth, minHeight);
-            m_aoFilterRenderTexture.Resize(minWidth, minHeight);
+            m_aoRenderTexture.Resize(minWidth / 2, minHeight / 2);
+            m_aoFilterRenderTexture.Resize(minWidth / 2, minHeight / 2);
             m_colorRenderTexture.Resize(minWidth, minHeight);
 
             SetSamplers();

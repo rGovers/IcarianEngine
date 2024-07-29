@@ -5,6 +5,10 @@
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
+#ifdef WIN32
+#include "LibXInput.h"
+#endif
+
 #include "EngineInputInterop.h"
 #include "EngineInputInteropStructures.h"
 
@@ -17,6 +21,10 @@ InputManager::InputManager()
     Instance = this;
 
     TRACE("Initializing Input Manager");
+
+#ifdef WIN32
+    LibXInput::Init();
+#endif
 
     m_mouseButton = 0;
     m_curPos = glm::vec2(0.0f);
@@ -45,6 +53,10 @@ InputManager::~InputManager()
             m_gamePads[i] = nullptr;
         }
     }
+
+#ifdef WIN32
+    LibXInput::Destroy();
+#endif
 
     delete m_mousePressedFunc;
     delete m_mouseReleasedFunc;

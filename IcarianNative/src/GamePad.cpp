@@ -1,8 +1,7 @@
 #include "GamePad.h"
 
 #ifdef WIN32
-#include <windows.h>
-#include <xinput.h>
+#include "LibXInput.h"
 #else
 #include <fcntl.h>
 #include <linux/joystick.h>
@@ -149,7 +148,9 @@ GamePad* GamePad::GetGamePad(uint32_t a_index)
     XINPUT_STATE state;
     ZeroMemory(&state, sizeof(XINPUT_STATE));
 
-    if (XInputGetState((DWORD)a_index, &state) == ERROR_SUCCESS)
+    PFN_XInputGetState XInputGetState = (PFN_XInputGetState)LibXInput::XInputGetState;
+
+    if (XInputGetState != nullptr && XInputGetState((DWORD)a_index, &state) == ERROR_SUCCESS)
     {
         GamePad* gamePad = new GamePad();
 
@@ -192,7 +193,9 @@ void GamePad::Update()
     XINPUT_STATE state;
     ZeroMemory(&state, sizeof(XINPUT_STATE));
 
-    if (XInputGetState((DWORD)m_index, &state) == ERROR_SUCCESS)
+    PFN_XInputGetState XInputGetState = (PFN_XInputGetState)LibXInput::XInputGetState;
+
+    if (XInputGetState != nullptr && XInputGetState((DWORD)m_index, &state) == ERROR_SUCCESS)
     {
         m_connected = true;
 
