@@ -91,83 +91,164 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     const uint32_t vbSize = a_vertexCount * a_vertexSize;
     const uint32_t ibSize = a_indexCount * sizeof(uint32_t);
 
-    TRACE("Creating Staging Vertex Buffer");
-    VkBufferCreateInfo vBInfo = { };
-    vBInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    vBInfo.size = (VkDeviceSize)vbSize;
-    vBInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    vBInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocationCreateInfo vBAInfo = { 0 };
-    vBAInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    vBAInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-    VkBuffer stagingVBuffer = VK_NULL_HANDLE;
-    VmaAllocation stagingVBAlloc = VK_NULL_HANDLE;
-    VmaAllocationInfo stagingVBInfo = { 0 };
-    VKRESERRMSG(vmaCreateBuffer(allocator, &vBInfo, &vBAInfo, &stagingVBuffer, &stagingVBAlloc, &stagingVBInfo), "Failed to create vertex staging buffer");
-    IDEFER(m_engine->PushDeletionObject(new VulkanModelBufferDeletionObject(m_engine, stagingVBuffer, stagingVBAlloc)));
-#ifdef DEBUG
-    vmaSetAllocationName(allocator, stagingVBAlloc, "Staging Vertex Buffer");
-#endif
-
-    memcpy(stagingVBInfo.pMappedData, a_vertices, vbSize);
-
-    TRACE("Creating Vertex Buffer");
-    vBInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    vBAInfo.flags = 0;
-
-    VkBuffer tVertexBuffer;
-    VKRESERRMSG(vmaCreateBuffer(allocator, &vBInfo, &vBAInfo, &tVertexBuffer, &m_vbAlloc, nullptr), "Failed to create vertex buffer");
-    m_vertexBuffer = tVertexBuffer;
-#ifdef DEBUG
-    vmaSetAllocationName(allocator, m_vbAlloc, "Model Vertex Buffer");
-#endif
-
-    TRACE("Creating Staging Index Buffers");
-    VkBufferCreateInfo iBInfo = { };
-    iBInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    iBInfo.size = (VkDeviceSize)ibSize;
-    iBInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    iBInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocationCreateInfo iBAInfo = { 0 };
-    iBAInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    iBAInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
-
-    VkBuffer stagingIBuffer = VK_NULL_HANDLE;
-    VmaAllocation stagingIBAlloc = VK_NULL_HANDLE;
-    VmaAllocationInfo stagingIBInfo = { 0 };
-    VKRESERRMSG(vmaCreateBuffer(allocator, &iBInfo, &iBAInfo, &stagingIBuffer, &stagingIBAlloc, &stagingIBInfo), "Failed to create index staging buffer");
-    IDEFER(m_engine->PushDeletionObject(new VulkanModelBufferDeletionObject(m_engine, stagingIBuffer, stagingIBAlloc)));
-#ifdef DEBUG
-    vmaSetAllocationName(allocator, stagingIBAlloc, "Staging Index Buffer");
-#endif
-
-    memcpy(stagingIBInfo.pMappedData, a_indices, ibSize);
-
-    TRACE("Creating Index Buffer");
-    iBInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
-    iBAInfo.flags = 0;
-
-    VkBuffer tIndexBuffer;
-    VKRESERRMSG(vmaCreateBuffer(allocator, &iBInfo, &iBAInfo, &tIndexBuffer, &m_ibAlloc, nullptr), "Failed to create index buffer");
-    m_indexBuffer = tIndexBuffer;
-#ifdef DEBUG
-    vmaSetAllocationName(allocator, m_ibAlloc, "Model Index Buffer");
-#endif
-
-    TRACE("Copying buffers");
     TLockObj<vk::CommandBuffer, SpinLock>* buffer = m_engine->BeginSingleCommand();
     IDEFER(m_engine->EndSingleCommand(buffer));
 
     const vk::CommandBuffer cmdBuffer = buffer->Get();
 
-    const vk::BufferCopy vBCopy = vk::BufferCopy(0, 0, (vk::DeviceSize)vbSize);
-    cmdBuffer.copyBuffer(stagingVBuffer, m_vertexBuffer, 1, &vBCopy);
+    TRACE("Creating Vertex Buffer");
+    const VkBufferCreateInfo vBCreateInfo = 
+    {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = (VkDeviceSize)vbSize,
+        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
 
-    const vk::BufferCopy iBCopy = vk::BufferCopy(0, 0, (vk::DeviceSize)ibSize);
-    cmdBuffer.copyBuffer(stagingIBuffer, m_indexBuffer, 1, &iBCopy);
+    const VmaAllocationCreateInfo vBAllocInfo = 
+    { 
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+    };
+
+    VkBuffer tVertexBuffer;
+    VmaAllocationInfo vBInfo;
+    VKRESERRMSG(vmaCreateBuffer(allocator, &vBCreateInfo, &vBAllocInfo, &tVertexBuffer, &m_vbAlloc, &vBInfo), "Failed to create vertex buffer");
+    m_vertexBuffer = tVertexBuffer;
+#ifdef DEBUG
+    vmaSetAllocationName(allocator, m_vbAlloc, "Model Vertex Buffer");
+#endif
+
+    VkMemoryPropertyFlags flags;
+    vmaGetAllocationMemoryProperties(allocator, m_vbAlloc, &flags);
+
+    if (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+    {
+        IDEFER(vmaFlushAllocation(allocator, m_vbAlloc, 0, (VkDeviceSize)vbSize));
+
+        memcpy(vBInfo.pMappedData, a_vertices, vbSize);
+
+        const vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier
+        (
+            vk::AccessFlagBits::eHostWrite,
+            vk::AccessFlagBits::eVertexAttributeRead,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            m_vertexBuffer,
+            0,
+            VK_WHOLE_SIZE
+        );
+
+        cmdBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eVertexInput, { }, 0, nullptr, 1, &barrier, 0, nullptr);
+    }
+    else
+    {
+        const VkBufferCreateInfo vBSInfo = 
+        { 
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size = (VkDeviceSize)vbSize,
+            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        };
+
+        const VmaAllocationCreateInfo vBSAInfo = 
+        { 
+            .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .usage = VMA_MEMORY_USAGE_AUTO,
+        };
+
+        VkBuffer stagingVBuffer;
+        VmaAllocation stagingVBAlloc;
+        VmaAllocationInfo stagingVBInfo;
+        VKRESERRMSG(vmaCreateBuffer(allocator, &vBSInfo, &vBSAInfo, &stagingVBuffer, &stagingVBAlloc, &stagingVBInfo), "Failed to create vertex staging buffer");
+        IDEFER(m_engine->PushDeletionObject(new VulkanModelBufferDeletionObject(m_engine, stagingVBuffer, stagingVBAlloc)));
+        IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingVBAlloc, 0, (VkDeviceSize)vbSize)));
+
+#ifdef DEBUG
+        vmaSetAllocationName(allocator, stagingVBAlloc, "Staging Vertex Buffer");
+#endif
+
+        memcpy(stagingVBInfo.pMappedData, a_vertices, vbSize);
+
+        const vk::BufferCopy vBCopy = vk::BufferCopy(0, 0, (vk::DeviceSize)vbSize);
+        cmdBuffer.copyBuffer(stagingVBuffer, m_vertexBuffer, 1, &vBCopy);
+    }
+
+    TRACE("Creating Index Buffer");
+    const VkBufferCreateInfo iBCreateInfo = 
+    { 
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = (VkDeviceSize)ibSize,
+        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
+
+    const VmaAllocationCreateInfo iBAllocInfo = 
+    { 
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+    };
+
+    VkBuffer tIndexBuffer;
+    VmaAllocationInfo iBInfo;
+    VKRESERRMSG(vmaCreateBuffer(allocator, &iBCreateInfo, &iBAllocInfo, &tIndexBuffer, &m_ibAlloc, &iBInfo), "Failed to create index buffer");
+    m_indexBuffer = tIndexBuffer;
+#ifdef DEBUG
+    vmaSetAllocationName(allocator, m_ibAlloc, "Model Index Buffer");
+#endif
+
+    vmaGetAllocationMemoryProperties(allocator, m_ibAlloc, &flags);
+
+    if (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+    {
+        IDEFER(vmaFlushAllocation(allocator, m_ibAlloc, 0, (VkDeviceSize)ibSize));
+
+        memcpy(iBInfo.pMappedData, a_indices, ibSize);
+
+        const vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier
+        (
+            vk::AccessFlagBits::eHostWrite,
+            vk::AccessFlagBits::eIndexRead,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            m_indexBuffer,
+            0,
+            VK_WHOLE_SIZE
+        );
+
+        cmdBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eVertexInput, { }, 0, nullptr, 1, &barrier, 0, nullptr);
+    }
+    else
+    {
+        const VkBufferCreateInfo iBSInfo = 
+        { 
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size = (VkDeviceSize)ibSize,
+            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        };
+
+        const VmaAllocationCreateInfo iBSAInfo = 
+        { 
+            .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .usage = VMA_MEMORY_USAGE_AUTO,
+        };
+
+        VkBuffer stagingIBuffer;
+        VmaAllocation stagingIBAlloc;
+        VmaAllocationInfo stagingIBInfo;
+        VKRESERRMSG(vmaCreateBuffer(allocator, &iBSInfo, &iBSAInfo, &stagingIBuffer, &stagingIBAlloc, &stagingIBInfo), "Failed to create index staging buffer");
+        IDEFER(m_engine->PushDeletionObject(new VulkanModelBufferDeletionObject(m_engine, stagingIBuffer, stagingIBAlloc)));
+        IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingIBAlloc, 0, (VkDeviceSize)ibSize)));
+#ifdef DEBUG
+        vmaSetAllocationName(allocator, stagingIBAlloc, "Staging Index Buffer");
+#endif
+
+        memcpy(stagingIBInfo.pMappedData, a_indices, ibSize);
+
+        const vk::BufferCopy iBCopy = vk::BufferCopy(0, 0, (vk::DeviceSize)ibSize);
+        cmdBuffer.copyBuffer(stagingIBuffer, m_indexBuffer, 1, &iBCopy);
+    }
 }   
 VulkanModel::~VulkanModel()
 {

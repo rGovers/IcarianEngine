@@ -78,6 +78,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
         "./src/Definitions/PointLightDef.cs",
         "./src/Definitions/RendererDef.cs",
         "./src/Definitions/RigidBodyDef.cs",
+        "./src/Definitions/ShadowLightDef.cs",
         "./src/Definitions/SkeletonAnimatorDef.cs",
         "./src/Definitions/SkeletonClipAnimationControllerDef.cs",
         "./src/Definitions/SkinnedMeshRendererDef.cs",

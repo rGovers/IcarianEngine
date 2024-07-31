@@ -15,6 +15,11 @@ static constexpr uint32_t VulkanMaxFlightFrames = 2;
 static constexpr uint32_t VulkanFlightPoolSize = VulkanMaxFlightFrames + 1;
 static constexpr uint32_t VulkanDeletionQueueSize = VulkanFlightPoolSize + 1;
 
+// AMD debuggers do not support multi queue so switch this to true when you need to do graphics debugging with AMD tools
+// AMD GPUs run just fine it is just their debuggers
+// There is an active issue that has not been fixed yet
+static constexpr bool AMDDebuggerFix = false;
+
 #ifdef NDEBUG
 static constexpr bool VulkanEnableValidationLayers = false;
 #else

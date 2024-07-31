@@ -438,7 +438,7 @@ namespace IcarianEngine.Rendering
 
             mid *= 0.125f;
 
-            Quaternion rot = a_light.Transform.Rotation * Quaternion.FromAxisAngle(Vector3.UnitX, Mathf.PI);
+            Quaternion rot = a_light.Transform.Rotation;
 
             Matrix4 lightTrans = rot.ToMatrix();
             lightTrans[3] = new Vector4(mid, 1.0f);
@@ -464,7 +464,7 @@ namespace IcarianEngine.Rendering
             Vector3 extents = max - min;
 
             // Ensure stuff behind the light in camera frustum is rendered
-            Matrix4 lightProj = Matrix4.CreateOrthographic(extents.X, extents.Y, -extents.Z * 4, extents.Z);
+            Matrix4 lightProj = Matrix4.CreateOrthographic(extents.X * 2, extents.Y * 2, -extents.Z * 4, extents.Z);
 
             return lightView * lightProj;   
         }

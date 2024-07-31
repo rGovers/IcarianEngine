@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "Rendering/TextureData.h"
+#include "Rendering/RenderDeviceInfo.h"
 
 class Font;
 class RenderEngine;
@@ -26,6 +27,20 @@ public:
     inline RenderEngine* GetRenderEngine() const
     {
         return m_renderEngine;
+    }
+
+    virtual e_RenderDeviceType GetDeviceType() const 
+    { 
+        return RenderDeviceType_Unknown;
+    }
+
+    virtual uint64_t GetUsedDeviceMemory() const
+    {
+        return -1;
+    }
+    virtual uint64_t GetTotalDeviceMemory() const
+    {
+        return -1;
     }
 
     virtual uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius) = 0;

@@ -27,6 +27,17 @@ namespace IcarianEngine
         public extern static Monitor[] GetMonitors();
 
         /// <summary>
+        /// The primary monitor
+        /// </summary>
+        public static Monitor PrimaryMonitor
+        {
+            get
+            {
+                return GetMonitors()[0];
+            }
+        }
+
+        /// <summary>
         /// The current working directory of the Application
         /// </summary>
         public static string WorkingDirectory
@@ -81,10 +92,10 @@ namespace IcarianEngine
         /// <summary>
         /// Sets the fullscreen state of the Application
         /// </summary>
-        /// <param name="a_monitor">The <see cref="IcarianEngine.Monitor" /> for the Application to be on</param>
+        /// <param name="a_monitor">The <see cref="IcarianEngine.Monitor" /> for the Application to be on when fullscreen</param>
         /// <param name="a_state">The fullscreen state to set the Application to</param>
-        /// <param name="a_width">The target screen resolution width for the Application</param>
-        /// <param name="a_height">The target screen resolution height for the Application</param>
+        /// <param name="a_width">The target screen resolution width for the Application when not fullscreen</param>
+        /// <param name="a_height">The target screen resolution height for the Application when not fullscreen</param>
         public static void SetFullscreen(Monitor a_monitor, bool a_state, uint a_width, uint a_height)
         {
             if (a_state)

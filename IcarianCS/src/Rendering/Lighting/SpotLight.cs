@@ -314,34 +314,31 @@ namespace IcarianEngine.Rendering.Lighting
 
             m_bufferAddr = GenerateBuffer(Transform.InternalAddr);
 
-            SpotLightDef spotDef = SpotLightDef;
-            if (spotDef != null)
+            LightDef lightDef = LightDef;
+            if (lightDef != null)
             {
                 SpotLightBuffer buffer = GetBuffer(m_bufferAddr);
 
-                buffer.RenderLayer = spotDef.RenderLayer;
-                buffer.Color = spotDef.Color.ToVector4();
-                buffer.Intensity = spotDef.Intensity;
-                buffer.CutoffAngle = new Vector2(Mathf.Cos(spotDef.InnerCutoffAngle), Mathf.Cos(spotDef.OuterCutoffAngle));
-                buffer.Radius = spotDef.Radius;
+                buffer.RenderLayer = lightDef.RenderLayer;
+                buffer.Color = lightDef.Color.ToVector4();
+                buffer.Intensity = lightDef.Intensity;
+                buffer.CutoffAngle = new Vector2(Mathf.Cos(1.0f), Mathf.Cos(1.5f));
+                buffer.Radius = 10.0f;
+
+                ShadowLightDef shadowDef = ShadowLightDef;
+                if (shadowDef != null)
+                {
+                    buffer.ShadowBias = new Vector2(shadowDef.ShadowBiasConstant, shadowDef.ShadowBiasSlope);
+
+                    SpotLightDef spotDef = SpotLightDef;
+                    if (spotDef != null)
+                    {
+                        buffer.CutoffAngle = new Vector2(Mathf.Cos(spotDef.InnerCutoffAngle), Mathf.Cos(spotDef.OuterCutoffAngle));
+                        buffer.Radius = spotDef.Radius;
+                    }
+                }
 
                 SetBuffer(m_bufferAddr, buffer);
-            }
-            else
-            {
-                LightDef lightDef = LightDef;
-                if (lightDef != null)
-                {
-                    SpotLightBuffer buffer = GetBuffer(m_bufferAddr);
-
-                    buffer.RenderLayer = lightDef.RenderLayer;
-                    buffer.Color = lightDef.Color.ToVector4();
-                    buffer.Intensity = lightDef.Intensity;
-                    buffer.CutoffAngle = new Vector2(Mathf.Cos(1.0f), Mathf.Cos(1.5f));
-                    buffer.Radius = 10.0f;
-
-                    SetBuffer(m_bufferAddr, buffer);
-                }
             }
 
             s_lightMap.TryAdd(m_bufferAddr, this);

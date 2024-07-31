@@ -1,3 +1,4 @@
+using IcarianEngine.Definitions;
 using IcarianEngine.Maths;
 using System.Collections.Generic;
 
@@ -5,6 +6,17 @@ namespace IcarianEngine.Rendering.Lighting
 {
     public abstract class ShadowLight : Light
     {
+        /// <summary>
+        /// The Definition used to create the ShadowLight
+        /// </summary>
+        public ShadowLightDef ShadowLightDef
+        {
+            get
+            {
+                return Def as ShadowLightDef;
+            }
+        }
+
         /// <summary>
         /// Shadow Map of the ShadowLight
         /// </summary>
@@ -14,7 +26,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Shadow Bias of the ShadowLight
+        /// Shadow bias of the ShadowLight
         /// </summary>
         public abstract Vector2 ShadowBias
         {

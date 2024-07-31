@@ -242,31 +242,28 @@ namespace IcarianEngine.Rendering.Lighting
 
             m_bufferAddr = GenerateBuffer(Transform.InternalAddr);
 
-            PointLightDef pointDef = PointLightDef;
-            if (pointDef != null)
+            LightDef lightDef = LightDef;
+            if (lightDef != null)
             {
                 PointLightBuffer buffer = GetBuffer(m_bufferAddr);
+                
+                buffer.RenderLayer = lightDef.RenderLayer;
+                buffer.Color = lightDef.Color.ToVector4();
+                buffer.Intensity = lightDef.Intensity;
 
-                buffer.RenderLayer = pointDef.RenderLayer;
-                buffer.Color = pointDef.Color.ToVector4();
-                buffer.Intensity = pointDef.Intensity;
-                buffer.Radius = pointDef.Radius;
-
-                SetBuffer(m_bufferAddr, buffer);
-            }
-            else
-            {
-                LightDef lightDef = LightDef;
-                if (lightDef != null)
+                ShadowLightDef shadowDef = ShadowLightDef;
+                if (shadowDef != null)
                 {
-                    PointLightBuffer buffer = GetBuffer(m_bufferAddr);
+                    buffer.ShadowBias = new Vector2(shadowDef.ShadowBiasConstant, shadowDef.ShadowBiasSlope);
 
-                    buffer.RenderLayer = lightDef.RenderLayer;
-                    buffer.Color = lightDef.Color.ToVector4();
-                    buffer.Intensity = lightDef.Intensity;
-
-                    SetBuffer(m_bufferAddr, buffer);
+                    PointLightDef pointDef = PointLightDef;
+                    if (pointDef != null)
+                    {
+                        buffer.Radius = pointDef.Radius;
+                    }
                 }
+                
+                SetBuffer(m_bufferAddr, buffer);
             }
 
             s_lightMap.TryAdd(m_bufferAddr, this);

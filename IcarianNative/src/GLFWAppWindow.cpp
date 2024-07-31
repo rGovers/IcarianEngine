@@ -1,5 +1,14 @@
 #include "AppWindow/GLFWAppWindow.h"
 
+#ifdef WIN32
+#include "Core/WindowsHeaders.h"
+
+#define GLFW_EXPOSE_NATIVE_WIN32
+#define GLFW_EXPOSE_NATIVE_WGL
+#define GLFW_NATIVE_INCLUDE_NONE
+#include <GLFW/glfw3native.h>
+#endif
+
 #include "Application.h"
 #include "Config.h"
 #include "InputManager.h"
@@ -144,6 +153,8 @@ GLFWAppWindow::GLFWAppWindow(Application* a_app, Config* a_config) : AppWindow(a
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     m_window = glfwCreateWindow(1280, 720, a_config->GetApplicationName().data(), NULL, NULL);
+
+    glfwSetWindowSizeLimits(m_window, 640, 480, GLFW_DONT_CARE, GLFW_DONT_CARE);
 
     glfwMakeContextCurrent(m_window);
 

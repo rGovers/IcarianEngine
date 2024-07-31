@@ -37,4 +37,5 @@ public:
 
     void Bind(const vk::CommandBuffer& a_cmdBuffer) const;
 };
+
 #endif

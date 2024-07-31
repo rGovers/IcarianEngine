@@ -64,12 +64,14 @@ RUNTIME_FUNCTION(MonoArray*, Application, GetMonitors,
         arr = mono_array_new(domain, monitorClass, (uintptr_t)monitorCount);
         for (int i = 0; i < monitorCount; ++i)
         {
+            const AppMonitor& aM = appMonitors[i];
+
             Monitor monitor;
             monitor.Index = i;
             monitor.Name = mono_string_new(domain, appMonitors[i].Name.c_str());
-            monitor.Width = appMonitors[i].Width;
-            monitor.Height = appMonitors[i].Height;
-            monitor.Handle = appMonitors[i].Handle;
+            monitor.Width = aM.Width;
+            monitor.Height = aM.Height;
+            monitor.Handle = aM.Handle;
 
             mono_array_set(arr, Monitor, i, monitor);
         }

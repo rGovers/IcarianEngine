@@ -316,7 +316,7 @@ namespace IcarianEngine.Maths
             (
                 2.0f / a_x, 0.0f,       0.0f,                       0.0f,
                 0.0f,       2.0f / a_y, 0.0f,                       0.0f,
-                0.0f,       0.0f,       1.0f / (a_far - a_near),    0.0f,
+                0.0f,       0.0f,       -1.0f / (a_far - a_near),   0.0f,
                 0.0f,       0.0f,       -a_near / (a_far - a_near), 1.0f
             );
         }

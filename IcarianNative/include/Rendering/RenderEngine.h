@@ -4,6 +4,7 @@
 
 #include "EngineTextureSamplerInteropStructures.h"
 
+#include "Rendering/RenderDeviceInfo.h"
 #include "Rendering/TextureData.h"
 
 enum e_RenderingEngine
@@ -27,6 +28,7 @@ private:
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
     friend class VulkanRenderEngineBackend;
 #endif
+
     std::thread          m_thread;
 
     Config*              m_config;
@@ -58,6 +60,11 @@ public:
     {
         return m_assets;
     }
+
+    e_RenderDeviceType GetDeviceType() const;
+
+    uint64_t GetUsedDeviceMemory() const;
+    uint64_t GetTotalDeviceMemory() const;
 
     uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius) const;
     void DestroyModel(uint32_t a_addr) const;

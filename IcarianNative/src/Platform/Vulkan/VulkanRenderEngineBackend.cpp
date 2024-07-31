@@ -56,6 +56,11 @@ constexpr const char* OptionalDeviceExtensions[] =
 };
 constexpr uint32_t OptionalDeviceExtensionCount = sizeof(OptionalDeviceExtensions) / sizeof(*OptionalDeviceExtensions);
 
+constexpr static uint64_t MakeDeviceID(uint32_t a_vendorID, uint32_t a_deviceID)
+{
+    return (uint64_t)a_vendorID | (uint64_t)a_deviceID << 31;
+}
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT a_msgSeverity, VkDebugUtilsMessageTypeFlagsEXT a_msgType, const VkDebugUtilsMessengerCallbackDataEXT* a_callbackData, void* a_userData)
 {
     constexpr static const char* ValidationPrefix = "Vulkan Validation Layer: ";
@@ -173,7 +178,7 @@ static bool IsDeviceSuitable(const vk::Instance& a_instance, const vk::PhysicalD
 
     uint64_t memTotal = 0;
 
-    // Ignore devices with less then 1/2 GiB of memory
+    // Ignore devices with less then 1/4 GiB of memory
     // TODO: Have to change down the line but for now too much of a headache to deal with
     const vk::PhysicalDeviceMemoryProperties memProp = a_device.getMemoryProperties();
     for (uint32_t i = 0; i < memProp.memoryHeapCount; ++i)
@@ -186,7 +191,7 @@ static bool IsDeviceSuitable(const vk::Instance& a_instance, const vk::PhysicalD
         }
     }
     
-    if (memTotal <= (0b1 << 29))
+    if (memTotal <= (0b1 << 28))
     {
         return false;
     }
@@ -432,7 +437,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         (
 "No suitable GPU found to run. \
 \
-Please ensure you have a Vulkan 1.1 capable GPU with greater then 512MB of VRAM"
+Please ensure you have a Vulkan 1.1 capable GPU with greater then 256MB of VRAM"
         );
     }
 
@@ -447,62 +452,105 @@ Please ensure you have a Vulkan 1.1 capable GPU with greater then 512MB of VRAM"
         }
     }
 
-    uint32_t queueFamilyCount = 0;
-    m_pDevice.getQueueFamilyProperties(&queueFamilyCount, nullptr);
+    vk::PhysicalDeviceProperties props;
+    m_pDevice.getProperties(&props);
 
-    vk::QueueFamilyProperties* queueFamilies = new vk::QueueFamilyProperties[queueFamilyCount];
-    IDEFER(delete[] queueFamilies);
-    m_pDevice.getQueueFamilyProperties(&queueFamilyCount, queueFamilies);
-    
-    for (uint32_t i = 0; i < queueFamilyCount; ++i)
+    const uint64_t id = MakeDeviceID(props.vendorID, props.deviceID);
+
+    constexpr uint32_t AMDVendorID = 0x1002;
+
+    if constexpr (AMDDebuggerFix)
     {
-        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)
+        m_graphicsQueueIndex = 0;
+        m_computeQueueIndex = 0;
+        m_presentQueueIndex = 0;
+    }
+    else
+    {
+        switch (id) 
         {
-            m_graphicsQueueIndex = i;
-        }
-        
-        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eVideoDecodeKHR)
+        // Bug specifically with AMD Polaris cards that we are working around
+        // Checking specifically if we are running on a Polaris GPU
+        // If we do not do this get black lines running down the screen when we go fullscreen
+        // They take a performance hit but it is better then the alternative
+        // RX 460/ Pro 560X 
+        case MakeDeviceID(AMDVendorID, 0x67EF):
+        // RX 550/550X
+        case MakeDeviceID(AMDVendorID, 0x699F):
+        // RX 560
+        case MakeDeviceID(AMDVendorID, 0x67FF):
+        // RX 470/480/570/580/590/590GME/ Pro 580
+        case MakeDeviceID(AMDVendorID, 0x67DF):
         {
-            m_videoDecodeQueueIndex = i;
-        }
+            m_graphicsQueueIndex = 0;
+            m_computeQueueIndex = 0;
+            m_presentQueueIndex = 0;
 
-        if (!headless)
+            break;
+        }
+        default:
         {
-            vk::Bool32 presentSupport = VK_FALSE;
-            VKRESERR(m_pDevice.getSurfaceSupportKHR(i, window->GetSurface(m_instance), &presentSupport));
+            uint32_t queueFamilyCount = 0;
+            m_pDevice.getQueueFamilyProperties(&queueFamilyCount, nullptr);
 
-            if (presentSupport)
+            vk::QueueFamilyProperties* queueFamilies = new vk::QueueFamilyProperties[queueFamilyCount];
+            IDEFER(delete[] queueFamilies);
+            m_pDevice.getQueueFamilyProperties(&queueFamilyCount, queueFamilies);
+
+            for (uint32_t i = 0; i < queueFamilyCount; ++i)
             {
-                // Want graphics queue to be last resort
-                if (i == m_graphicsQueueIndex)
+                if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)
                 {
-                    if (m_presentQueueIndex == -1)
+                    m_graphicsQueueIndex = i;
+                }
+
+                if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eVideoDecodeKHR)
+                {
+                    m_videoDecodeQueueIndex = i;
+                }
+
+                if (!headless)
+                {
+                    vk::Bool32 presentSupport = VK_FALSE;
+                    VKRESERR(m_pDevice.getSurfaceSupportKHR(i, window->GetSurface(m_instance), &presentSupport));
+
+                    if (presentSupport)
                     {
-                        m_presentQueueIndex = i;
+                        // Want graphics queue to be last resort
+                        if (i == m_graphicsQueueIndex)
+                        {
+                            if (m_presentQueueIndex == -1)
+                            {
+                                m_presentQueueIndex = i;
+                            }
+                        }
+                        else
+                        {
+                            m_presentQueueIndex = i;
+                        }
                     }
                 }
-                else
-                {
-                    m_presentQueueIndex = i;
-                }
-            }
-        }
 
-        if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
-        {
-            // Want present queue to be last resort
-            // Have it wanting to use the present queue on NVIDIA cards so this is needed
-            if (i == m_presentQueueIndex)
-            {
-                if (m_computeQueueIndex == -1)
+                if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
                 {
-                    m_computeQueueIndex = i;
+                    // Want present queue to be last resort
+                    // Have it wanting to use the present queue on NVIDIA cards so this is needed
+                    if (i == m_presentQueueIndex)
+                    {
+                        if (m_computeQueueIndex == -1)
+                        {
+                            m_computeQueueIndex = i;
+                        }
+                    }
+                    else
+                    {
+                        m_computeQueueIndex = i;
+                    }
                 }
             }
-            else
-            {
-                m_computeQueueIndex = i;
-            }
+
+            break;
+        }
         }
     }
 
@@ -1040,6 +1088,78 @@ void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, Spi
     );
 
     VKRESERRMSG(m_graphicsQueue.submit(1, &submitInfo, nullptr), "Failed to Submit Command");
+}
+
+e_RenderDeviceType VulkanRenderEngineBackend::GetDeviceType() const
+{
+    vk::PhysicalDeviceProperties props;
+    m_pDevice.getProperties(&props);
+
+    switch (props.deviceType) 
+    {
+    case vk::PhysicalDeviceType::eDiscreteGpu:
+    {
+        return RenderDeviceType_DiscreteGPU;
+    }
+    case vk::PhysicalDeviceType::eIntegratedGpu:
+    {
+        return RenderDeviceType_IntergratedGPU;
+    }
+    case vk::PhysicalDeviceType::eCpu:
+    case vk::PhysicalDeviceType::eVirtualGpu:
+    {
+        return RenderDeviceType_Software;
+    }
+    default:
+    {
+        break;
+    }
+    }
+
+    return RenderDeviceType_Unknown;
+}
+
+uint64_t VulkanRenderEngineBackend::GetUsedDeviceMemory() const
+{
+    VmaBudget bugets[VK_MAX_MEMORY_HEAPS];
+    vmaGetHeapBudgets(m_allocator, bugets);
+    const VkPhysicalDeviceMemoryProperties* properties;
+    vmaGetMemoryProperties(m_allocator, &properties);
+
+    uint64_t used = 0;
+    for (uint32_t i = 0; i < properties->memoryTypeCount; ++i)
+    {
+        const vk::MemoryType type = properties->memoryTypes[i];
+
+        if (type.propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal)
+        {
+            const VmaBudget& b = bugets[type.heapIndex];
+            used += b.usage;
+        }
+    }
+
+    return used;
+}
+uint64_t VulkanRenderEngineBackend::GetTotalDeviceMemory() const
+{
+    VmaBudget bugets[VK_MAX_MEMORY_HEAPS];
+    vmaGetHeapBudgets(m_allocator, bugets);
+    const VkPhysicalDeviceMemoryProperties* properties;
+    vmaGetMemoryProperties(m_allocator, &properties);
+
+    uint64_t used = 0;
+    for (uint32_t i = 0; i < properties->memoryTypeCount; ++i)
+    {
+        const vk::MemoryType type = properties->memoryTypes[i];
+
+        if (type.propertyFlags & vk::MemoryPropertyFlagBits::eDeviceLocal)
+        {
+            const VmaBudget& b = bugets[type.heapIndex];
+            used += b.budget;
+        }
+    }
+
+    return used;
 }
 
 uint32_t VulkanRenderEngineBackend::GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius)

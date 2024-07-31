@@ -200,6 +200,12 @@ namespace IcarianEngine.Rendering.Lighting
                 buffer.RenderLayer = def.RenderLayer;
                 buffer.Color = def.Color.ToVector4();
                 buffer.Intensity = def.Intensity;
+                
+                ShadowLightDef shadowDef = ShadowLightDef;
+                if (shadowDef != null)
+                {
+                    buffer.ShadowBias = new Vector2(shadowDef.ShadowBiasConstant, shadowDef.ShadowBiasSlope);
+                }
 
                 SetBuffer(m_bufferAddr, buffer);
             }

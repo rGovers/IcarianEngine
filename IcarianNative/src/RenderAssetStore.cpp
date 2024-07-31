@@ -29,6 +29,21 @@ RenderAssetStore::~RenderAssetStore()
 
 void RenderAssetStore::Update()
 {
+    const e_RenderDeviceType device = m_renderEngine->GetDeviceType();
+
+    if (device == RenderDeviceType_DiscreteGPU)
+    {
+        const uint64_t totalMemory = m_renderEngine->GetTotalDeviceMemory();
+        const uint64_t usedMemory = m_renderEngine->GetUsedDeviceMemory();
+
+        // Over half of the VRAM is left so we are wasting out time
+        // Better to leave it then trying to reclaim it
+        if (totalMemory >> 1 > usedMemory)
+        {
+            return;
+        }
+    }
+
     {
         const Array<bool> state = m_models.ToStateArray();
         TLockArray<RenderAsset> a = m_models.ToLockArray();
@@ -233,39 +248,6 @@ static void LoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint
     }
 }
 
-static void WalkTreeMesh(const aiScene* a_scene, const aiNode* a_node, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radSqr, uint8_t* a_index)
-{
-    if (a_data == std::numeric_limits<uint8_t>::max())
-    {
-        for (uint32_t i = 0; i < a_node->mNumMeshes; ++i)
-        {
-            LoadMesh(a_scene->mMeshes[a_node->mMeshes[i]], a_vertices, a_indices, a_radSqr);
-        }
-    }
-    else
-    {
-        if (*a_index > a_data)
-        {
-            return;
-        }
-
-        if (a_data < *a_index + a_node->mNumMeshes)
-        {
-            LoadMesh(a_scene->mMeshes[a_node->mMeshes[a_data - *a_index]], a_vertices, a_indices, a_radSqr);
-            *a_index = std::numeric_limits<uint8_t>::max();
-
-            return;
-        }
-
-        *a_index += a_node->mNumMeshes;
-    }
-
-    for (uint32_t i = 0; i < a_node->mNumChildren; ++i)
-    {
-        WalkTreeMesh(a_scene, a_node->mChildren[i], a_data, a_vertices, a_indices, a_radSqr, a_index);
-    }
-}
-
 static uint32_t LoadBaseModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::filesystem::path& a_path)
 {
     const std::filesystem::path ext = a_path.extension();
@@ -299,13 +281,24 @@ static uint32_t LoadBaseModelFile(RenderEngine* a_renderEngine, uint8_t a_data, 
 
         const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, aiProcess_Triangulate | aiProcess_PreTransformVertices, extStr.c_str() + 1);
         IVERIFY(scene != nullptr);
-        const aiNode* root = scene->mRootNode;
-
+        
         Array<Vertex> vertices;
         Array<uint32_t> indices;
         float radSqr = 0.0f;
-        uint8_t index = 0;
-        WalkTreeMesh(scene, root, a_data, &vertices, &indices, &radSqr, &index);
+
+        if (a_data != std::numeric_limits<uint8_t>::max())
+        {
+            IVERIFY(a_data < scene->mNumMeshes);
+
+            LoadMesh(scene->mMeshes[a_data], &vertices, &indices, &radSqr);
+        }
+        else
+        {
+            for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
+            {
+                LoadMesh(scene->mMeshes[i], &vertices, &indices, &radSqr);
+            }
+        }
 
         if (vertices.Empty() || indices.Empty() || radSqr <= 0)
         {
@@ -397,39 +390,6 @@ static void LoadSkinnedMesh(const aiMesh* a_mesh, Array<SkinnedVertex>* a_vertic
     }
 }
 
-static void WalkTreeSkinned(const aiScene* a_scene, const aiNode* a_node, uint8_t a_data, Array<SkinnedVertex>* a_vertices, Array<uint32_t>* a_indices, const std::unordered_map<std::string, int>& a_boneMap, float* a_radSqr, uint8_t* a_index)
-{
-    if (a_data == std::numeric_limits<uint8_t>::max())
-    {
-        for (uint32_t i = 0; i < a_node->mNumMeshes; ++i)
-        {
-            LoadSkinnedMesh(a_scene->mMeshes[a_node->mMeshes[i]], a_vertices, a_indices, a_boneMap, a_radSqr);
-        }
-    }
-    else
-    {
-        if (*a_index > a_data)
-        {
-            return;
-        }
-
-        if (a_data < *a_index + a_node->mNumMeshes)
-        {
-            LoadSkinnedMesh(a_scene->mMeshes[a_node->mMeshes[a_data - *a_index]], a_vertices, a_indices, a_boneMap, a_radSqr);
-            *a_index = std::numeric_limits<uint8_t>::max();
-
-            return;
-        }
-
-        *a_index += a_node->mNumMeshes;
-    }
-
-    for (uint32_t i = 0; i < a_node->mNumChildren; ++i)
-    {
-        WalkTreeSkinned(a_scene, a_node->mChildren[i], a_data, a_vertices, a_indices, a_boneMap, a_radSqr, a_index);
-    }
-}
-
 static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::filesystem::path& a_path)
 {
     const std::filesystem::path ext = a_path.extension();
@@ -480,8 +440,19 @@ static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_dat
         Array<SkinnedVertex> vertices;
         Array<uint32_t> indices;
         float radSqr = 0.0f;
-        uint8_t index = 0;
-        WalkTreeSkinned(scene, root, a_data, &vertices, &indices, boneMap, &radSqr, &index);
+        if (a_data != std::numeric_limits<uint8_t>::max())
+        {
+            IVERIFY(a_data < scene->mNumMeshes);
+
+            LoadSkinnedMesh(scene->mMeshes[a_data], &vertices, &indices, boneMap, &radSqr);
+        }
+        else
+        {
+            for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
+            {
+                LoadSkinnedMesh(scene->mMeshes[i], &vertices, &indices, boneMap, &radSqr);
+            }
+        }
 
         if (vertices.Empty() || indices.Empty() || radSqr <= 0)
         {

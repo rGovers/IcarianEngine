@@ -167,6 +167,20 @@ void RenderEngine::Update(double a_delta, double a_time)
     m_backend->Update(a_delta, a_time);
 }
 
+e_RenderDeviceType RenderEngine::GetDeviceType() const
+{
+    return m_backend->GetDeviceType();
+}
+
+uint64_t RenderEngine::GetUsedDeviceMemory() const
+{
+    return m_backend->GetUsedDeviceMemory();
+}
+uint64_t RenderEngine::GetTotalDeviceMemory() const
+{
+    return m_backend->GetTotalDeviceMemory();
+}
+
 uint32_t RenderEngine::GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius) const
 {
     return m_backend->GenerateModel(a_vertices, a_vertexCount, a_vertexStride, a_indices, a_indexCount, a_radius);
