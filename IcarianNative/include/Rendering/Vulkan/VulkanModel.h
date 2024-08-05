@@ -1,6 +1,7 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 class VulkanRenderEngineBackend;
@@ -12,12 +13,10 @@ private:
 
     float                      m_radius;
 
-    VmaAllocation              m_vbAlloc;
-    VmaAllocation              m_ibAlloc;
+    VmaAllocation              m_allocation;
+    vk::Buffer                 m_buffer;
 
-    vk::Buffer                 m_vertexBuffer;
-    vk::Buffer                 m_indexBuffer;
-
+    uint32_t                   m_offset;
     uint32_t                   m_indexCount;
 
 protected:

@@ -450,7 +450,8 @@ namespace IcarianEngine.Rendering
 
             for (int i = 0; i < 8; ++i)
             {
-                Vector4 c = lightView * corners[i];
+                Vector4 c = corners[i] * lightView;
+                c /= c.W;
 
                 min.X = Mathf.Min(min.X, c.X);
                 min.Y = Mathf.Min(min.Y, c.Y);
@@ -464,7 +465,7 @@ namespace IcarianEngine.Rendering
             Vector3 extents = max - min;
 
             // Ensure stuff behind the light in camera frustum is rendered
-            Matrix4 lightProj = Matrix4.CreateOrthographic(extents.X * 2, extents.Y * 2, -extents.Z * 4, extents.Z);
+            Matrix4 lightProj = Matrix4.CreateOrthographic(extents.X, extents.Y, -extents.Z * 10.0f, extents.Z);
 
             return lightView * lightProj;   
         }

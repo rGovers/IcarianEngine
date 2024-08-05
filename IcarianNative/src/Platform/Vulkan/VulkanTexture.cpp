@@ -157,7 +157,6 @@ void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a
 
     const VmaAllocationCreateInfo allocInfo = 
     { 
-        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT,
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
     };
 
@@ -364,114 +363,87 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
 
     constexpr vk::ImageSubresourceRange SubresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
 
-    VkMemoryPropertyFlags flags;
-    vmaGetAllocationMemoryProperties(allocator, m_allocation, &flags);
-    if (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+    const VkBufferCreateInfo stagingBufferInfo = 
     {
-        void* dat;
-        VKRESERR(vmaMapMemory(allocator, m_allocation, &dat));
-        IDEFER(vmaUnmapMemory(allocator, m_allocation));
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = imageSize,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT
+    };
 
-        memcpy(dat, a_data, imageSize);
-
-        const vk::ImageMemoryBarrier startImageBarrier = vk::ImageMemoryBarrier
-        (
-            vk::AccessFlagBits::eHostWrite,
-            vk::AccessFlagBits::eShaderRead, 
-            vk::ImageLayout::eUndefined, 
-            vk::ImageLayout::eShaderReadOnlyOptimal, 
-            VK_QUEUE_FAMILY_IGNORED, 
-            VK_QUEUE_FAMILY_IGNORED, 
-            m_image, 
-            SubresourceRange
-        );
-
-        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eFragmentShader, { }, 0, nullptr, 0, nullptr, 1, &startImageBarrier);
-    }
-    else
-    {
-        const VkBufferCreateInfo stagingBufferInfo = 
-        {
-            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-            .size = imageSize,
-            .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT
-        };
-
-        const VmaAllocationCreateInfo stagingBufferAllocInfo = 
-        { 
-            .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-            .usage = VMA_MEMORY_USAGE_AUTO,
-        };
+    const VmaAllocationCreateInfo stagingBufferAllocInfo = 
+    { 
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO,
+    };
     
-        VkBuffer stagingBuffer;
-        VmaAllocation stagingAllocation;
-
-        VmaAllocationInfo stagingAllocationInfo;
-        VKRESERRMSG(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo), "Failed to create staging texture");
-        IDEFER(m_engine->PushDeletionObject(new VulkanTextureBufferDeletionObject(m_engine, stagingBuffer, stagingAllocation)));
+    VkBuffer stagingBuffer;
+    VmaAllocation stagingAllocation;
+    VmaAllocationInfo stagingAllocationInfo;
+    VKRESERRMSG(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo), "Failed to create staging texture");
+    IDEFER(m_engine->PushDeletionObject(new VulkanTextureBufferDeletionObject(m_engine, stagingBuffer, stagingAllocation)));
 #ifdef DEBUG
-        vmaSetAllocationName(allocator, stagingAllocation, "StagingTexture");
+    vmaSetAllocationName(allocator, stagingAllocation, "StagingTexture");
 #endif
 
-        if (a_data != nullptr)
-        {
-            IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)imageSize)));
-            memcpy(stagingAllocationInfo.pMappedData, a_data, (size_t)imageSize);
-        }
+    if (a_data != nullptr)
+    {
+        IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)imageSize)));
+        memcpy(stagingAllocationInfo.pMappedData, a_data, (size_t)imageSize);
+    }
 
-        constexpr vk::ImageSubresourceLayers SubresourceLayers = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1);
+    constexpr vk::ImageSubresourceLayers SubresourceLayers = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1);
 
-        if (a_init)
-        {
-            const vk::ImageMemoryBarrier startImageBarrier = vk::ImageMemoryBarrier
-            (
-                { },
-                vk::AccessFlagBits::eTransferWrite, 
-                vk::ImageLayout::eUndefined, 
-                vk::ImageLayout::eTransferDstOptimal, 
-                VK_QUEUE_FAMILY_IGNORED, 
-                VK_QUEUE_FAMILY_IGNORED, 
-                m_image, 
-                SubresourceRange
-            );
-
-            cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, { }, 0, nullptr, 0, nullptr, 1, &startImageBarrier);
-        }
-        else 
-        {
-            const vk::ImageMemoryBarrier startImageBarrier = vk::ImageMemoryBarrier
-            (
-                vk::AccessFlagBits::eShaderRead,
-                vk::AccessFlagBits::eTransferWrite, 
-                vk::ImageLayout::eShaderReadOnlyOptimal, 
-                vk::ImageLayout::eTransferDstOptimal, 
-                VK_QUEUE_FAMILY_IGNORED, 
-                VK_QUEUE_FAMILY_IGNORED, 
-                m_image, 
-                SubresourceRange
-            );
-
-            cmd.pipelineBarrier(vk::PipelineStageFlagBits::eFragmentShader, vk::PipelineStageFlagBits::eTransfer, { }, 0, nullptr, 0, nullptr, 1, &startImageBarrier);
-        }
-
-        const vk::BufferImageCopy copyRegion = vk::BufferImageCopy(0, 0, 0, SubresourceLayers, { 0, 0, 0 }, { m_width, m_height, 1 });
-
-        cmd.copyBufferToImage(stagingBuffer, m_image, vk::ImageLayout::eTransferDstOptimal, 1, &copyRegion);
-
-        const vk::ImageMemoryBarrier endImageBarrier = vk::ImageMemoryBarrier
+    if (a_init)
+    {
+        const vk::ImageMemoryBarrier startImageBarrier = vk::ImageMemoryBarrier
         (
-            vk::AccessFlagBits::eTransferWrite,
-            vk::AccessFlagBits::eShaderRead, 
+            { },
+            vk::AccessFlagBits::eTransferWrite, 
+            vk::ImageLayout::eUndefined, 
             vk::ImageLayout::eTransferDstOptimal, 
-            vk::ImageLayout::eShaderReadOnlyOptimal, 
             VK_QUEUE_FAMILY_IGNORED, 
             VK_QUEUE_FAMILY_IGNORED, 
             m_image, 
             SubresourceRange
         );
 
-        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, { }, 0, nullptr, 0, nullptr, 1, &endImageBarrier);
+        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, { }, 0, nullptr, 0, nullptr, 1, &startImageBarrier);
     }
+    else 
+    {
+        const vk::ImageMemoryBarrier startImageBarrier = vk::ImageMemoryBarrier
+        (
+            vk::AccessFlagBits::eShaderRead,
+            vk::AccessFlagBits::eTransferWrite, 
+            vk::ImageLayout::eShaderReadOnlyOptimal, 
+            vk::ImageLayout::eTransferDstOptimal, 
+            VK_QUEUE_FAMILY_IGNORED, 
+            VK_QUEUE_FAMILY_IGNORED, 
+            m_image, 
+            SubresourceRange
+        );
+
+        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eFragmentShader, vk::PipelineStageFlagBits::eTransfer, { }, 0, nullptr, 0, nullptr, 1, &startImageBarrier);
+    }
+
+    const vk::BufferImageCopy copyRegion = vk::BufferImageCopy(0, 0, 0, SubresourceLayers, { 0, 0, 0 }, { m_width, m_height, 1 });
+
+    // Forgot about tiling and is driver specific so had to revert to using staging buffers only
+    cmd.copyBufferToImage(stagingBuffer, m_image, vk::ImageLayout::eTransferDstOptimal, 1, &copyRegion);
+
+    const vk::ImageMemoryBarrier endImageBarrier = vk::ImageMemoryBarrier
+    (
+        vk::AccessFlagBits::eTransferWrite,
+        vk::AccessFlagBits::eShaderRead, 
+        vk::ImageLayout::eTransferDstOptimal, 
+        vk::ImageLayout::eShaderReadOnlyOptimal, 
+        VK_QUEUE_FAMILY_IGNORED, 
+        VK_QUEUE_FAMILY_IGNORED, 
+        m_image, 
+        SubresourceRange
+    );
+
+    cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, { }, 0, nullptr, 0, nullptr, 1, &endImageBarrier);
 }
 
 #endif
