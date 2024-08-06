@@ -58,19 +58,12 @@ void Random::FillBuffer()
 
     const uint32_t size = BufferSize - offset;
 
-    const uint32_t intSize = size / sizeof(int32_t);
-    const uint32_t remainder = size % sizeof(int32_t);
-
-    int32_t* intBuffer = (int32_t*)(m_buffer + offset);
-    for (uint32_t i = 0; i < intSize; ++i)
+    // TODO: Use better RNG as rand seems to be bias 
+    // rand does not seem to be very good so have to do it at the byte level to increase the noise
+    uint8_t* writeBuffer = (uint8_t*)(m_buffer + offset);
+    for (uint32_t i = 0; i < size; ++i)
     {
-        intBuffer[i] = (int32_t)rand();
-    }
-
-    uint8_t* remainderBuffer = (uint8_t*)(intBuffer + intSize);
-    for (uint32_t i = 0; i < remainder; ++i)
-    {
-        remainderBuffer[i] = (uint8_t)((double)rand() / RAND_MAX * UINT8_MAX);
+        writeBuffer[i] = (uint8_t)((double)rand() / RAND_MAX * UINT8_MAX);
     }
 
     m_index = 0;

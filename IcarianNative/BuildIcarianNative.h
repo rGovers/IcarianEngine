@@ -117,8 +117,11 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
     CUBE_CProject_AppendIncludePaths(&project, 
         "./include",
+
         "../EngineInterop",
+
         "../IcarianCore/include",
+        
         "../deps/assimp/include",
         "../deps/gen/assimp",
         "../deps/glfw/include",
@@ -126,6 +129,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "../deps/flare-stb",
         "../deps/KTX-Software/include",
         "../deps/flare-tinyxml2",
+
         "./lib/enet/include",
         "./lib/glslang",
         "./lib/glslang/External/spirv-tools/include",

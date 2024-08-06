@@ -39,7 +39,7 @@ namespace IcarianCore
     
         static KeyboardState FromData(const uint8_t* a_data);
     
-        inline uint8_t* ToData()
+        inline const uint8_t* ToData() const
         {
             return m_state;
         }

@@ -4,6 +4,12 @@
 
 /// @file EngineInputInterop.h
 
+/// @cond INTERNAL
+
+#ifdef CUBE_LANGUAGE_CPP
+#include "DeletionQueue.h"
+#endif
+
 #define ENGINEINPUT_EXPORT_TABLE(F) \
     F(IOP_VEC2, IcarianEngine, InputInterop, GetCursorPos, \
     { \
@@ -64,5 +70,10 @@
     }) \
     F(void, IcarianEngine, InputInterop, SetCursorState, \
     { \
-        Instance->SetCursorState((e_CursorState)a_state); \
+        IPUSHDELETIONFUNC( \
+        { \
+            Instance->SetCursorState((e_CursorState)a_state); \
+        }, DeletionIndex_Update); \
     }, IOP_UINT32 a_state) 
+
+/// @endcond

@@ -719,6 +719,7 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
         "RAPIDJSON_HAS_STDSTRING",
 
         "ASSIMP_BUILD_NO_EXPORT",
+        "ASSIMP_BUILD_NO_OWN_ZLIB",
 
         "ASSIMP_BUILD_NO_X_IMPORTER",
         "ASSIMP_BUILD_NO_3D_IMPORTER",
