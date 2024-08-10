@@ -26,17 +26,19 @@ JPH::ValidateResult IcContactListener::OnContactValidate(const JPH::Body &a_lhs,
 
 void IcContactListener::OnContactAdded(const JPH::Body& a_lhs, const JPH::Body& a_rhs, const JPH::ContactManifold& a_manifold, JPH::ContactSettings& a_ioSettings)
 {
-    CollisionDataBuffer data;
-
-    data.IsTrigger = (uint32_t)a_ioSettings.mIsSensor;
-
-    data.BodyAddrA = (uint32_t)m_engine->GetBodyAddr(a_lhs.GetID().GetIndex());
-    data.BodyAddrB = (uint32_t)m_engine->GetBodyAddr(a_rhs.GetID().GetIndex());
-
+    // Not the correct way but should work
+    const JPH::RVec3 pos = a_manifold.mBaseOffset;
     const JPH::RVec3 normalV = a_manifold.mWorldSpaceNormal;
 
-    data.Normal = glm::vec3(normalV.GetX(), normalV.GetY(), normalV.GetZ());
-    data.Depth = (float)a_manifold.mPenetrationDepth;
+    CollisionDataBuffer data = 
+    {
+        .IsTrigger = (uint32_t)a_ioSettings.mIsSensor,
+        .BodyAddrA = (uint32_t)m_engine->GetBodyAddr(a_lhs.GetID().GetIndex()),
+        .BodyAddrB = (uint32_t)m_engine->GetBodyAddr(a_rhs.GetID().GetIndex()),
+        .Position = glm::vec3(pos.GetX(), pos.GetY(), pos.GetZ()),
+        .Normal = glm::vec3(normalV.GetX(), normalV.GetY(), normalV.GetZ()),
+        .Depth = (float)a_manifold.mPenetrationDepth
+    };
 
     void* args[] =
     {
@@ -47,17 +49,18 @@ void IcContactListener::OnContactAdded(const JPH::Body& a_lhs, const JPH::Body& 
 }
 void IcContactListener::OnContactPersisted(const JPH::Body& a_lhs, const JPH::Body& a_rhs, const JPH::ContactManifold& a_manifold, JPH::ContactSettings& a_ioSettings)
 {
-    CollisionDataBuffer data;
-
-    data.IsTrigger = (uint32_t)a_ioSettings.mIsSensor;
-
-    data.BodyAddrA = (uint32_t)m_engine->GetBodyAddr(a_lhs.GetID().GetIndex());
-    data.BodyAddrB = (uint32_t)m_engine->GetBodyAddr(a_rhs.GetID().GetIndex());
-
+    const JPH::RVec3 pos = a_manifold.mBaseOffset;
     const JPH::RVec3 normalV = a_manifold.mWorldSpaceNormal;
 
-    data.Normal = glm::vec3(normalV.GetX(), normalV.GetY(), normalV.GetZ());
-    data.Depth = (float)a_manifold.mPenetrationDepth;
+    CollisionDataBuffer data = 
+    {
+        .IsTrigger = (uint32_t)a_ioSettings.mIsSensor,
+        .BodyAddrA = (uint32_t)m_engine->GetBodyAddr(a_lhs.GetID().GetIndex()),
+        .BodyAddrB = (uint32_t)m_engine->GetBodyAddr(a_rhs.GetID().GetIndex()),
+        .Position = glm::vec3(pos.GetX(), pos.GetY(), pos.GetZ()),
+        .Normal = glm::vec3(normalV.GetX(), normalV.GetY(), normalV.GetZ()),
+        .Depth = (float)a_manifold.mPenetrationDepth
+    };
 
     void* args[] =
     {

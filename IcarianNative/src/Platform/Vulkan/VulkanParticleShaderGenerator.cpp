@@ -29,26 +29,27 @@ static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_param
     }
     else
     {
-        code += "const float emitterRatio = " + std::to_string(a_parameters.EmitterRatio) + "; \n";
+        code += "const vec3 gravity = vec3(" + std::to_string(a_parameters.Gravity.x) + ", " + std::to_string(a_parameters.Gravity.y) + ", " + std::to_string(a_parameters.Gravity.z) + "); \n";
+        code += "const vec4 colour = vec4(" + std::to_string(a_parameters.Colour.x) + ", " + std::to_string(a_parameters.Colour.y) + ", " + std::to_string(a_parameters.Colour.z) + ", " + std::to_string(a_parameters.Colour.w) + "); \n";
 
-        switch (a_parameters.EmitterType)
+        const bool isBurst = IISBITSET(a_parameters.Flags, ComputeParticleBuffer::BurstBit);
+        if (!isBurst)
         {
-        case ParticleEmitterType_Point:
-        {
-            break;
-        }
-        // case ParticleEmitterType_Sphere:
-        // {
-        //     code += "const float emitterRadius = " + std::to_string(glm::max(0.0f, a_parameters.EmitterRadius)) + "; \n";
+            code += "const float emitterRatio = " + std::to_string(a_parameters.EmitterRatio) + "; \n";
 
-        //     break;
-        // }
-        default:
-        {
-            IERROR("Invalid particle emitter type");
+            switch (a_parameters.EmitterType)
+            {
+            case ParticleEmitterType_Point:
+            {
+                break;
+            }
+            default:
+            {
+                IERROR("Invalid particle emitter type");
 
-            break;
-        }
+                break;
+            }
+            }
         }
     }
 
@@ -134,34 +135,41 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
     code += "   ParticleBufferData particle = inParticleBuffer.objects[index]; \n";
     code += "   if (particle.Position.w <= 0.0) \n";
     code += "   { \n";
-    code += "       if (rand(seed) < emitterRatio) \n";
-    code += "       { \n";
+    code += "       outParticleBuffer.objects[index].Position = vec4(0.0); \n";
 
-    switch (a_parameters.EmitterType)
+    const bool isBurst = IISBITSET(a_parameters.Flags, ComputeParticleBuffer::BurstBit);
+    if (!isBurst)
     {
-    case ParticleEmitterType_Point:
-    {
-        code += "       outParticleBuffer.objects[index].Position = vec4(0.0, 0.0, 0.0, 5.0); \n";
-        code += "       outParticleBuffer.objects[index].Velocity = vec3(rand(seed) * 2 - 1, rand(seed) * 2 - 1, rand(seed) * 2 - 1); \n";
-        code += "       outParticleBuffer.objects[index].Color = vec4(1.0); \n";
+        code += "       if (rand(seed) < emitterRatio) \n";
+        code += "       { \n";
 
-        break;
-    }
-    default:
-    {
-        IERROR("Invalid particle emitter type");
+        switch (a_parameters.EmitterType)
+        {
+        case ParticleEmitterType_Point:
+        {
+            code += "       outParticleBuffer.objects[index].Position = vec4(0.0, 0.0, 0.0, 5.0); \n";
+            code += "       outParticleBuffer.objects[index].Velocity = vec3(rand(seed) * 2 - 1, rand(seed) * 2 - 1, rand(seed) * 2 - 1); \n";
+            code += "       outParticleBuffer.objects[index].Color = colour; \n";
 
-        break;
-    }
+            break;
+        }
+        default:
+        {
+            IERROR("Invalid particle emitter type");
+
+            break;
+        }
+        }
+
+        code += "       } \n";
     }
 
-    code += "       } \n";
     code += "   } \n";
     code += "   else \n";
     code += "   { \n";
     code += "       outParticleBuffer.objects[index].Position = vec4(particle.Position.xyz + particle.Velocity * delta, particle.Position.w - delta); \n";
-    code += "       outParticleBuffer.objects[index].Velocity = particle.Velocity; \n";
-    code += "       outParticleBuffer.objects[index].Color = vec4(1.0); \n";
+    code += "       outParticleBuffer.objects[index].Velocity = particle.Velocity + gravity * delta; \n";
+    code += "       outParticleBuffer.objects[index].Color = particle.Color; \n";
     code += "   } \n";
     code += "} \n";
 
@@ -223,6 +231,10 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
     a_inputs->Push(input);
     code += "#!structure(CameraBuffer," + std::to_string((*a_slot)++) + ",camBuffer) \n";
 
+    input.BufferType = ShaderBufferType_PModelBuffer;
+    a_inputs->Push(input);
+    code += "#!pushbuffer(PModelBuffer, modelBuffer)";
+
     code += "layout(location=0) out vec4 fragColor; \n";
 
     code += "void main() \n";
@@ -240,8 +252,8 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
         code += "   fragColor = particle.Color; \n";
         code += "   mat3 camBill = mat3(camBuffer.InvView); \n";
         code += "   vec3 billPos = camBill * vec3(positions[vertexIndex], 0.0); \n";
-        code += "   float scale = 0.01 / alive; \n";
-        code += "   gl_Position = camBuffer.ViewProj * vec4(particle.Position.xyz + billPos * scale, 1.0); \n";
+        code += "   vec4 pos = camBuffer.ViewProj * modelBuffer.Model * vec4(particle.Position.xyz + billPos * 0.01, 1.0); \n";
+        code += "   gl_Position = pos * alive; \n";
 
         break;
     }

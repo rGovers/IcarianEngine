@@ -1,6 +1,6 @@
 #include "Random.h"
 
-#include "Core/IcarianAssert.h"
+#include "IcarianError.h"
 #include "Runtime/RuntimeManager.h"
 
 static Random* Instance = nullptr;
@@ -71,7 +71,7 @@ void Random::FillBuffer()
 
 uint8_t* Random::GetBytes(uint32_t a_size)
 {
-    ICARIAN_ASSERT_MSG(a_size < BufferSize, "GetBytes a_size is too large");
+    IVERIFY(a_size < BufferSize);
 
     if (Instance->m_index + a_size > BufferSize)
     {
@@ -86,7 +86,7 @@ uint8_t* Random::GetBytes(uint32_t a_size)
 
 uint32_t Random::Range(uint32_t a_min, uint32_t a_max)
 {
-    if (Instance->m_index + sizeof(uint32_t) > BufferSize)
+    if (Instance->m_index + sizeof(uint32_t) >= BufferSize)
     {
         Instance->FillBuffer();
     }
@@ -98,7 +98,7 @@ uint32_t Random::Range(uint32_t a_min, uint32_t a_max)
 }
 float Random::Range(float a_min, float a_max)
 {
-    if (Instance->m_index + sizeof(float) > BufferSize)
+    if (Instance->m_index + sizeof(float) >= BufferSize)
     {
         Instance->FillBuffer();
     }
@@ -110,7 +110,7 @@ float Random::Range(float a_min, float a_max)
 }
 int32_t Random::Range(int32_t a_min, int32_t a_max)
 {
-    if (Instance->m_index + sizeof(int32_t) > BufferSize)
+    if (Instance->m_index + sizeof(int32_t) >= BufferSize)
     {
         Instance->FillBuffer();
     }

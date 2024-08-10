@@ -7,8 +7,7 @@ namespace IcarianEngine.Definitions
         /// <summary>
         /// The ObjectLayer the <see cref="IcarianEngine.Physics.RigidBody" /> is on
         /// </summary>
-        /// Ranges from 0-6
-        [EditorTooltip("The ObjectLayer the Rigidbody is on")]
+        [EditorRange(0, 6), EditorTooltip("The ObjectLayer the Rigidbody is on")]
         public uint ObjectLayer = 0;
         /// <summary>
         /// The mass of the <see cref="IcarianEngine.Physics.RigidBody" />

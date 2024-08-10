@@ -12,16 +12,15 @@
 static VulkanComputeEngineBindings* Instance = nullptr;
 
 #define VULKANCOMPUTE_BINDING_FUNCTION_TABLE(F) \
-    F(uint32_t, IcarianEngine.Rendering, ParticleSystem, GenerateComputeBuffer, { return Instance->GenerateParticleSystemBuffer(); }) \
-    F(void, IcarianEngine.Rendering, ParticleSystem, DestroyComputeBuffer, { Instance->DestroyParticleSystemBuffer(a_addr); }, uint32_t a_addr) \
+    F(uint32_t, IcarianEngine.Rendering, ParticleSystem, GenerateComputeBuffer, { return Instance->GenerateParticleSystemBuffer(a_tranformAddr); }, uint32_t a_tranformAddr) \
+    F(void, IcarianEngine.Rendering, ParticleSystem, DestroyComputeBuffer, { IPUSHDELETIONFUNC(Instance->DestroyParticleSystemBuffer(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     F(ComputeParticleBuffer, IcarianEngine.Rendering, ParticleSystem, GetComputeBuffer, { return Instance->GetParticleSystemBuffer(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, ParticleSystem, SetComputeBuffer, { Instance->SetParticleSystemBuffer(a_addr, a_buffer); }, uint32_t a_addr, ComputeParticleBuffer a_buffer) \
     \
     F(uint32_t, IcarianEngine.Rendering, ParticleSystem2D, GenerateComputeParticleSystem, { return Instance->GenerateParticleSystem(a_particleBufferAddr); }, uint32_t a_particleBufferAddr) \
-    F(void, IcarianEngine.Rendering, ParticleSystem2D, DestroyComputeParticleSystem, { Instance->DestroyParticleSystem(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, ParticleSystem2D, DestroyComputeParticleSystem, { IPUSHDELETIONFUNC(Instance->DestroyParticleSystem(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
 
-
-VULKANCOMPUTE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
+VULKANCOMPUTE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 VulkanComputeEngineBindings::VulkanComputeEngineBindings(VulkanComputeEngine* a_engine)
 {
@@ -29,70 +28,58 @@ VulkanComputeEngineBindings::VulkanComputeEngineBindings(VulkanComputeEngine* a_
 
     m_engine = a_engine;
 
-    VULKANCOMPUTE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH)
+    VULKANCOMPUTE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 }
 VulkanComputeEngineBindings::~VulkanComputeEngineBindings()
 {
     
 }
 
-uint32_t VulkanComputeEngineBindings::GenerateParticleSystemBuffer() const
+uint32_t VulkanComputeEngineBindings::GenerateParticleSystemBuffer(uint32_t a_transformAddr) const
 {
-    ComputeParticleBuffer buffer;
-    memset(&buffer, 0, sizeof(ComputeParticleBuffer));
+    const ComputeParticleBuffer buffer = 
+    { 
+        .TransformAddr = a_transformAddr,
+        .RenderLayer = 1,
+        .Gravity = glm::vec3(0.0f, 9.807f, 0.0f),
+        .Colour = glm::vec4(1.0),
+    };
 
     return m_engine->m_particleBuffers.PushVal(buffer);
 }
 void VulkanComputeEngineBindings::DestroyParticleSystemBuffer(uint32_t a_addr) const
 {
-    class ParticleSystemBufferDeletionObject : public DeletionObject
-    {
-    private:
-        uint32_t m_addr;
+    IVERIFY(a_addr < m_engine->m_particleBuffers.Size());
+    IVERIFY(m_engine->m_particleBuffers.Exists(a_addr));
 
-    protected:
-
-    public:
-        ParticleSystemBufferDeletionObject(uint32_t a_addr) : m_addr(a_addr) { }
-        ~ParticleSystemBufferDeletionObject() { }
-
-        virtual void Destroy()
-        {
-            ICARIAN_ASSERT_MSG(m_addr < Instance->m_engine->m_particleBuffers.Size(), "DestroyParticleSystemBuffer out of bounds");
-            ICARIAN_ASSERT_MSG(Instance->m_engine->m_particleBuffers.Exists(m_addr), "DestroyParticleSystemBuffer already destroyed");
-
-            Instance->m_engine->m_particleBuffers.Erase(m_addr);
-        }
-    };
-
-    DeletionQueue::Push(new ParticleSystemBufferDeletionObject(a_addr), DeletionIndex_Render);
+    m_engine->m_particleBuffers.Erase(a_addr);
 }
 ComputeParticleBuffer VulkanComputeEngineBindings::GetParticleSystemBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_particleBuffers.Size(), "GetParticleSystemBuffer out of bounds");
-    ICARIAN_ASSERT_MSG(m_engine->m_particleBuffers.Exists(a_addr), "GetParticleSystemBuffer already destroyed");
+    IVERIFY(a_addr < m_engine->m_particleBuffers.Size());
+    IVERIFY(m_engine->m_particleBuffers.Exists(a_addr));
 
     return m_engine->m_particleBuffers[a_addr];
 }
 void VulkanComputeEngineBindings::SetParticleSystemBuffer(uint32_t a_addr, const ComputeParticleBuffer& a_buffer) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_engine->m_particleBuffers.Size(), "SetParticleSystemBuffer out of bounds");
-    ICARIAN_ASSERT_MSG(m_engine->m_particleBuffers.Exists(a_addr), "SetParticleSystemBuffer already destroyed");
+    IVERIFY(a_addr < m_engine->m_particleBuffers.Size());
+    IVERIFY(m_engine->m_particleBuffers.Exists(a_addr));
 
     m_engine->m_particleBuffers.LockSet(a_addr, a_buffer);
 }
 
 uint32_t VulkanComputeEngineBindings::GenerateParticleSystem(uint32_t a_particleBufferAddr) const
 {
-    ICARIAN_ASSERT_MSG(a_particleBufferAddr < Instance->m_engine->m_particleBuffers.Size(), "GenerateParticleSystem out of bounds");
-    ICARIAN_ASSERT_MSG(Instance->m_engine->m_particleBuffers.Exists(a_particleBufferAddr), "GenerateParticleSystem already destroyed");
+    IVERIFY(a_particleBufferAddr < Instance->m_engine->m_particleBuffers.Size());
+    IVERIFY(Instance->m_engine->m_particleBuffers.Exists(a_particleBufferAddr));
 
     VulkanComputeParticle* system = new VulkanComputeParticle(m_engine, a_particleBufferAddr);
 
     TLockArray<ComputeParticleBuffer> a = Instance->m_engine->m_particleBuffers.ToLockArray();
 
     ComputeParticleBuffer& buffer = a[a_particleBufferAddr];
-    ICARIAN_ASSERT_MSG(buffer.Data == nullptr, "DestroyParticleSystemBuffer compute data already exists");
+    IVERIFY(buffer.Data == nullptr);
 
     buffer.Data = system;
 
@@ -100,34 +87,17 @@ uint32_t VulkanComputeEngineBindings::GenerateParticleSystem(uint32_t a_particle
 }
 void VulkanComputeEngineBindings::DestroyParticleSystem(uint32_t a_addr) const
 {
-    class ParticleSystemDeletionObject : public DeletionObject
-    {
-    private:
-        uint32_t m_addr;
+    IVERIFY(a_addr < m_engine->m_particleBuffers.Size());
+    IVERIFY(m_engine->m_particleBuffers.Exists(a_addr));
 
-    protected:
+    TLockArray<ComputeParticleBuffer> a = Instance->m_engine->m_particleBuffers.ToLockArray();
 
-    public:
-        ParticleSystemDeletionObject(uint32_t a_addr) : m_addr(a_addr) { }
-        ~ParticleSystemDeletionObject() { }
+    ComputeParticleBuffer& buffer = a[a_addr];
+    IVERIFY(buffer.Data != nullptr);
 
-        virtual void Destroy()
-        {
-            ICARIAN_ASSERT_MSG(m_addr < Instance->m_engine->m_particleBuffers.Size(), "DestroyParticleSystemBuffer out of bounds");
-            ICARIAN_ASSERT_MSG(Instance->m_engine->m_particleBuffers.Exists(m_addr), "DestroyParticleSystemBuffer already destroyed");
-
-            TLockArray<ComputeParticleBuffer> a = Instance->m_engine->m_particleBuffers.ToLockArray();
-
-            ComputeParticleBuffer& buffer = a[m_addr];
-            ICARIAN_ASSERT_MSG(buffer.Data != nullptr, "DestroyParticleSystemBuffer compute data already destroyed");
-
-            const VulkanComputeParticle* data = (VulkanComputeParticle*)buffer.Data;
-            buffer.Data = nullptr;
-            delete data;
-        }
-    };
-
-    DeletionQueue::Push(new ParticleSystemDeletionObject(a_addr), DeletionIndex_Render);
+    const VulkanComputeParticle* data = (VulkanComputeParticle*)buffer.Data;
+    IDEFER(delete data);
+    buffer.Data = nullptr;
 }
 
 #endif

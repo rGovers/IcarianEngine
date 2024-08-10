@@ -28,7 +28,7 @@ private:
 
     inline void DestroyData()
     {
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
             for (uint32_t i = 0; i < m_size; ++i)
             {
@@ -459,7 +459,7 @@ public:
         {
             m_state[stateIndex] &= ~(0b1 << stateOffset);
 
-            if constexpr (std::is_destructible<T>())
+            if constexpr (!std::is_trivially_destructible<T>())
             {
                 (&(m_data[a_index]))->~T();
             }
@@ -480,7 +480,7 @@ public:
             {
                 m_state[stateIndex] &= ~(0b1 << stateOffset);
 
-                if constexpr (std::is_destructible<T>())
+                if constexpr (!std::is_trivially_destructible<T>())
                 {
                     (&(m_data[i]))->~T();
                 }

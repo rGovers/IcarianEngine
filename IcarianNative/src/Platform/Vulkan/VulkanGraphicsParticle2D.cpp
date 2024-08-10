@@ -1,8 +1,8 @@
-#include "Core/Bitfield.h"
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
 #include "Rendering/Vulkan/VulkanGraphicsParticle2D.h"
 
+#include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
 #include "Core/ShaderBuffers.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
@@ -13,20 +13,18 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanShaderData.h"
 
-void VulkanGraphicsParticle2D::Build()
+void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer)
 {
     m_inputs.Clear();
 
-    const ComputeParticleBuffer buffer = m_cEngine->GetParticleBuffer(m_computeBufferAddr);
-
-    uint16_t slot;
+    uint16_t slot = 0;
 
     Array<VertexInputAttribute> vertexInputs;
 
-    const std::string vShaderStr = VulkanParticleShaderGenerator::GenerateVertexShader(buffer, &slot, &m_inputs, &vertexInputs);
+    const std::string vShaderStr = VulkanParticleShaderGenerator::GenerateVertexShader(a_buffer, &slot, &m_inputs, &vertexInputs);
     const uint32_t vertexShader = m_gEngine->GenerateFVertexShader(vShaderStr);
 
-    const std::string pShaderStr = VulkanParticleShaderGenerator::GeneratePixelShader(buffer, &slot, &m_inputs);
+    const std::string pShaderStr = VulkanParticleShaderGenerator::GeneratePixelShader(a_buffer, &slot, &m_inputs);
     const uint32_t pixelShader = m_gEngine->GenerateFPixelShader(pShaderStr);
 
     const uint32_t inputCount = m_inputs.Size();
@@ -46,6 +44,7 @@ void VulkanGraphicsParticle2D::Build()
         program.VertexStride = sizeof(IcarianCore::ShaderParticleBuffer);
         program.VertexInputCount = vertexInputCount;
         program.VertexAttributes = new VertexInputAttribute[vertexInputCount];
+
         for (uint32_t i = 0; i < vertexInputCount; ++i)
         {
             program.VertexAttributes[i] = vertexInputs[i];
@@ -82,16 +81,27 @@ VulkanGraphicsParticle2D::VulkanGraphicsParticle2D(VulkanRenderEngineBackend* a_
 }
 VulkanGraphicsParticle2D::~VulkanGraphicsParticle2D()
 {
+    const ThreadGuard g = ThreadGuard(m_lock);
+
     Destroy();
 }
 
-void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, vk::CommandBuffer a_commandBuffer, uint32_t a_renderTextureAddr)
+void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, uint32_t a_renderLayer, vk::CommandBuffer a_commandBuffer, uint32_t a_renderTextureAddr)
 {
     ComputeParticleBuffer buffer = m_cEngine->GetParticleBuffer(m_computeBufferAddr);
+    IVERIFY(buffer.DisplayMode == ParticleDisplayMode_Quad);
+
+    if ((a_renderLayer & buffer.RenderLayer) == 0)
+    {
+        return;
+    }
+    
     if (!IISBITSET(buffer.Flags, ComputeParticleBuffer::PlayingBit))
     {
         return;
     }
+
+    const ThreadGuard g = ThreadGuard(m_lock);
 
     if (IISBITSET(buffer.Flags, ComputeParticleBuffer::GraphicsRefreshBit))
     {
@@ -105,10 +115,8 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
     const bool valid = m_renderProgramAddr != -1;
     if (!valid)
     {
-        Build();
+        Build(buffer);
     }
-
-    IVERIFY(buffer.DisplayMode == ParticleDisplayMode_Quad);
 
     vk::Buffer computeParticleBuffer = m_cEngine->GetParticleBufferData(m_computeBufferAddr);
 
@@ -119,6 +127,14 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
     {
         switch (input.BufferType)
         {
+        case ShaderBufferType_PModelBuffer:
+        {
+            const glm::mat4 transform = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
+
+            data->UpdateTransformBuffer(a_commandBuffer, transform);
+
+            break;
+        }
         case ShaderBufferType_CameraBuffer:
         {
             const VulkanUniformBuffer* camBuffer = m_gEngine->GetCameraUniformBuffer(a_bufferIndex);

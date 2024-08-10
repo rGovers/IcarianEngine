@@ -17,6 +17,10 @@ namespace IcarianEngine.Physics
     public struct CollisionData
     {
         /// <summary>
+        /// The position of the contact
+        /// </summary>
+        public Vector3 Position;
+        /// <summary>
         /// The normal of the collision
         /// </summary>
         public Vector3 Normal;
@@ -185,6 +189,7 @@ namespace IcarianEngine.Physics
                 {
                     CollisionData data = new CollisionData()
                     {
+                        Position = a_data.Position,
                         Normal = a_data.Normal,
                         Depth = a_data.Depth  
                     };
@@ -196,6 +201,7 @@ namespace IcarianEngine.Physics
                 {
                     CollisionData data = new CollisionData()
                     {
+                        Position = a_data.Position,
                         Normal = -a_data.Normal,
                         Depth = a_data.Depth
                     };

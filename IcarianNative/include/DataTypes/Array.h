@@ -19,7 +19,7 @@ private:
 
     inline void DestroyData()
     {
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
             for (uint32_t i = 0; i < m_size; ++i)
             {
@@ -190,8 +190,15 @@ public:
         const uint32_t aSize = m_size - 1;
         IDEFER(m_size = aSize);
 
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
+            // Today I learned that not just pointer values but pointers can be deconstructed 
+            // Thank you for this knowledge debugger now I live in horror
+            // What vodoo is happening that I can deconstruct a address what is there to deconstruct?!
+            // TF it is a NOP what the actual fuck
+            // Pointer deconstructors are NOP I want to cry it should not have even reached here
+            // I dodged a bullet and am lucky this did not cause any issues I now have to account for this when using std::is_destructible
+            // Should be fixed now with is_trivially_destructible
             (&(m_data[a_index]))->~T();
         }
 

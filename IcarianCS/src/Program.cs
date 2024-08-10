@@ -14,6 +14,7 @@ namespace IcarianEngine
         static void Init(string[] a_args)
         {
             ThreadPool.Init();
+            JobScheduler.Init();
 
             Logger.IcarianMessage("Started");
 
@@ -61,6 +62,7 @@ namespace IcarianEngine
             Logger.IcarianMessage("Shutdown");
 
             ThreadPool.Destroy();
+            JobScheduler.Destroy();
         }
 
         static void Update(double a_delta, double a_time)
@@ -72,6 +74,8 @@ namespace IcarianEngine
 
             GameObject.UpdateObjects();
             GameObject.UpdateScripts();
+
+            JobScheduler.Update();
         }
 
         static void LateUpdate()

@@ -201,7 +201,7 @@ uint32_t ThreadPool::GetQueueSize()
 void ThreadPool::PushJob(ThreadJob* a_job)
 {
     {
-        const std::lock_guard l = std::lock_guard(Instance->m_lock);
+        const std::unique_lock l = std::unique_lock(Instance->m_lock);
 
         Instance->m_jobQueue.push(a_job);
     }

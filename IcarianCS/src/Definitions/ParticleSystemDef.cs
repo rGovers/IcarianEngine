@@ -26,6 +26,32 @@ namespace IcarianEngine.Definitions
         public Vector3 EmitterBounds;
 
         /// <summary>
+        /// The maximum particles of the system
+        /// </summary>
+        public uint MaxParticles;
+
+        /// <summary>
+        /// The RenderLayer of the system
+        /// </summary>
+        [EditorBitfield]
+        public uint RenderLayer;
+
+        /// <summary>
+        /// The gravity to apply to the particles
+        /// </summary>
+        public Vector3 Gravity = new Vector3(0.0f, 9.807f, 0.0f);
+
+        /// <summary>
+        /// The color of the particles
+        /// </summary>
+        public Color Color;
+
+        /// <summary>
+        /// Is a burst particle system
+        /// </summary>
+        public bool Burst;
+
+        /// <summary>
         /// Constructor for <cref="IcarianEngine.Definitions.ParticleSystemDef"/>
         /// <summary>
         public ParticleSystemDef()

@@ -66,6 +66,7 @@ namespace IcarianEngine.Rendering
                 }
 
                 m_particleSystemAddr = uint.MaxValue;
+                m_graphicsSystemAddr = uint.MaxValue;
             }
             else
             {

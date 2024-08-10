@@ -65,9 +65,9 @@ namespace IcarianEngine.Definitions
         [EditorTooltip("Path relative to the project for the pixel shader file to be used"), EditorPathString(new string[] { ".fpix", ".ffrag" })]
         public string PixelShaderPath;
         /// <summary>
-        /// Used to determine if it will be rendered by a camera in a matching layer. Bitfield based.
+        /// Used to determine if it will be rendered by a camera in a matching layer.
         /// </summary>
-        [EditorTooltip("Used to determine if it will be rendered by a camera in a matching layer. Bitfield based")]
+        [EditorBitfield, EditorTooltip("Used to determine if it will be rendered by a camera in a matching layer.")]
         public uint RenderLayer = 0b1;
 
         /// <summary>

@@ -8,6 +8,7 @@
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "Core/ShaderBuffers.h"
+#include "Random.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanComputeLayout.h"
 #include "Rendering/Vulkan/VulkanComputePipeline.h"
@@ -22,21 +23,18 @@ class VulkanParticleBufferDeletionObject : public VulkanDeletionObject
 private:
     VulkanRenderEngineBackend* m_engine;
 
-    VmaAllocation              m_allocations[VulkanComputeParticle::MaxParticleBuffers];
-    vk::Buffer                 m_buffers[VulkanComputeParticle::MaxParticleBuffers];
+    VmaAllocation              m_allocation;
+    vk::Buffer                 m_buffer;
 
 protected:
 
 public:
-    VulkanParticleBufferDeletionObject(VulkanRenderEngineBackend* a_engine, const vk::Buffer* a_buffers, const VmaAllocation* a_allocations)
+    VulkanParticleBufferDeletionObject(VulkanRenderEngineBackend* a_engine, vk::Buffer a_buffer, VmaAllocation a_allocation)
     {
         m_engine = a_engine;
-        
-        for (uint32_t i = 0; i < VulkanComputeParticle::MaxParticleBuffers; ++i)
-        {
-            m_buffers[i] = a_buffers[i];
-            m_allocations[i] = a_allocations[i];
-        }
+
+        m_buffer = a_buffer;
+        m_allocation = a_allocation;
     }
     virtual ~VulkanParticleBufferDeletionObject()
     {
@@ -45,13 +43,9 @@ public:
 
     virtual void Destroy()
     {
-        TRACE("Destroying Particle Buffers");
         const VmaAllocator allocator = m_engine->GetAllocator();
 
-        for (uint32_t i = 0; i < VulkanComputeParticle::MaxParticleBuffers; ++i)
-        {
-            vmaDestroyBuffer(allocator, m_buffers[i], m_allocations[i]);
-        }
+        vmaDestroyBuffer(allocator, m_buffer, m_allocation);
     }
 };
 
@@ -84,10 +78,10 @@ void VulkanComputeParticle::Clear()
         VulkanRenderEngineBackend* backend = m_engine->GetRenderEngineBackend();
 
         TRACE("Queueing Particle Buffers for deletion");
-        backend->PushDeletionObject(new VulkanParticleBufferDeletionObject(backend, m_particleBuffers, m_allocations));
-
         for (uint32_t i = 0; i < MaxParticleBuffers; ++i)
         {
+            backend->PushDeletionObject(new VulkanParticleBufferDeletionObject(backend, m_particleBuffers[i], m_allocations[i]));
+
             m_particleBuffers[i] = nullptr;
             m_allocations[i] = NULL;
         }
@@ -117,6 +111,8 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
 {
     Clear();
 
+    IDEFER(ICLEARBIT(a_buffer->Flags, ComputeParticleBuffer::RefreshBit));
+
     Array<ShaderBufferInput> inputs;
     const std::string shaderStr = VulkanParticleShaderGenerator::GenerateComputeShader(*a_buffer, &inputs);
 
@@ -127,39 +123,164 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
     VulkanRenderEngineBackend* backend = m_engine->GetRenderEngineBackend();
     const VmaAllocator allocator = backend->GetAllocator();
 
-    const uint32_t particleBufferSize = sizeof(IcarianCore::ShaderParticleBuffer) * a_buffer->MaxParticles + 16;
+    const uint64_t particleBufferSize = sizeof(IcarianCore::ShaderParticleBuffer) * a_buffer->MaxParticles + 16;
 
-    VkBufferCreateInfo createInfo = { };
-    createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    createInfo.size = particleBufferSize;
-    createInfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    VmaAllocationCreateInfo allocCreateInfo = { 0 };
-    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    const VkBufferCreateInfo createInfo = 
+    { 
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = particleBufferSize,
+        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
 
     TLockObj<vk::CommandBuffer, SpinLock>* buffer = backend->BeginSingleCommand();
     IDEFER(backend->EndSingleCommand(buffer));
     const vk::CommandBuffer cmdBuffer = buffer->Get();
 
-    for (uint32_t i = 0; i < MaxParticleBuffers; ++i)
+    const int32_t value = (int32_t)a_buffer->MaxParticles;
+    constexpr vk::DeviceSize CountSize = sizeof(value);
+    constexpr vk::DeviceSize ValueSize = 16 - CountSize;
+
+    uint32_t startIndex = 0;
+
+    if (IISBITSET(a_buffer->Flags, ComputeParticleBuffer::BurstBit))
+    {
+        IDEFER(++startIndex);
+
+        IcarianCore::ShaderParticleBuffer* particles = new IcarianCore::ShaderParticleBuffer[a_buffer->MaxParticles];
+        IDEFER(delete[] particles);
+
+        const glm::vec4& colour = a_buffer->Colour;
+
+        switch (a_buffer->EmitterType) 
+        {
+        case ParticleEmitterType_Point:
+        {
+            for (uint32_t i = 0; i < a_buffer->MaxParticles; ++i)
+            {
+                const glm::vec3 vel = glm::vec3
+                (
+                    Random::Range(-1.0f, 1.0f),
+                    Random::Range(-1.0f, 1.0f),
+                    Random::Range(-1.0f, 1.0f)
+                );
+
+                particles[i] = 
+                {
+                    .Position = glm::vec4(0.0f, 0.0f, 0.0f, 5.0f),
+                    .Velocity = vel,
+                    .Color = colour,
+                };
+            }
+
+            break;
+        }
+        default:
+        {
+            IERROR("Invalid emitter type");
+
+            break;
+        }
+        }
+
+        const VmaAllocationCreateInfo allocCreateInfo = 
+        { 
+            .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
+        };
+
+        VkBuffer buffer;
+        VmaAllocationInfo bufferInfo;
+        VKRESERRMSG(vmaCreateBuffer(allocator, &createInfo, &allocCreateInfo, &buffer, &m_allocations[0], &bufferInfo), "Failed to create particle buffer");
+#ifdef DEBUG
+        vmaSetAllocationName(allocator, m_allocations[0], "Particle Buffer");
+#endif
+        m_particleBuffers[0] = buffer;
+
+        VkMemoryPropertyFlags flags;
+        vmaGetAllocationMemoryProperties(allocator, m_allocations[0], &flags);
+
+        const bool cpuCanWrite = (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
+        if (cpuCanWrite)
+        {
+            IDEFER(VKRESERR(vmaFlushAllocation(allocator, m_allocations[0], 0, (VkDeviceSize)particleBufferSize)));
+
+            memcpy(bufferInfo.pMappedData, &value, (size_t)CountSize);
+            memset((uint8_t*)bufferInfo.pMappedData + CountSize, 0, ValueSize);
+            memcpy((uint8_t*)bufferInfo.pMappedData + 16, particles, (size_t)particleBufferSize - 16);
+
+            const vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier
+            (
+                vk::AccessFlagBits::eHostWrite,
+                vk::AccessFlagBits::eShaderRead,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                m_particleBuffers[0],
+                0,
+                VK_WHOLE_SIZE
+            );
+
+            cmdBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eComputeShader, { }, 0, nullptr, 1, &barrier, 0, nullptr);
+        }
+        else
+        {
+            const VkBufferCreateInfo sCreateInfo = 
+            {
+                .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                .size = particleBufferSize,
+                .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+            };
+
+            const VmaAllocationCreateInfo sAllocInfo = 
+            {
+                .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+                .usage = VMA_MEMORY_USAGE_AUTO
+            };
+
+            VulkanRenderEngineBackend* backend = m_engine->GetRenderEngineBackend();
+
+            VkBuffer stagingBuffer;
+            VmaAllocation stagingAlloc;
+            VmaAllocationInfo stagingInfo;
+            VKRESERRMSG(vmaCreateBuffer(allocator, &sCreateInfo, &sAllocInfo, &stagingBuffer, &stagingAlloc, &stagingInfo), "Failed to create particle staging buffer");
+            IDEFER(backend->PushDeletionObject(new VulkanParticleBufferDeletionObject(backend, stagingBuffer, stagingAlloc)));
+            IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAlloc, 0, (VkDeviceSize)particleBufferSize)));
+
+#ifdef DEBUG
+            vmaSetAllocationName(allocator, stagingAlloc, "Staging Particle Buffer");
+#endif
+
+            memcpy(stagingInfo.pMappedData, &value, (size_t)CountSize);
+            memset((uint8_t*)stagingInfo.pMappedData + CountSize, 0, ValueSize);
+            memcpy((uint8_t*)stagingInfo.pMappedData + 16, particles, (size_t)particleBufferSize - 16);
+
+            const vk::BufferCopy copy = vk::BufferCopy(0, 0, particleBufferSize - ValueSize);
+            cmdBuffer.copyBuffer(stagingBuffer, m_particleBuffers[0], 1, &copy);
+        }
+    }
+
+    const VmaAllocationCreateInfo allocCreateInfo = 
+    { 
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
+    };
+
+    for (uint32_t i = startIndex; i < MaxParticleBuffers; ++i)
     {
         VkBuffer buffer;
-        ICARIAN_ASSERT_MSG_R(vmaCreateBuffer(allocator, &createInfo, &allocCreateInfo, &buffer, &m_allocations[i], nullptr) == VK_SUCCESS, "Failed to create particle buffer");
+        VKRESERRMSG(vmaCreateBuffer(allocator, &createInfo, &allocCreateInfo, &buffer, &m_allocations[i], nullptr), "Failed to create particle buffer");
+#ifdef DEBUG
+        vmaSetAllocationName(allocator, m_allocations[i], "Particle Buffer");
+#endif
 
         m_particleBuffers[i] = buffer;
-
-        int32_t value = (int32_t)a_buffer->MaxParticles;
-        constexpr vk::DeviceSize countSize = sizeof(value);
 
         // Turns out I do not need to fuck around with a staging buffer to set the size and zero initialize the data
         // Note that it needs to be 16 byte aligned so have 12 wasted bytes cause GPUs are annoying like that
         // Eh just means have 12 bytes if I need em for extra data I guess
-        cmdBuffer.fillBuffer(m_particleBuffers[i], 0, countSize, value);
-        cmdBuffer.fillBuffer(m_particleBuffers[i], countSize, (vk::DeviceSize)particleBufferSize - countSize, 0);
+        cmdBuffer.fillBuffer(m_particleBuffers[i], 0, CountSize, value);
+        cmdBuffer.fillBuffer(m_particleBuffers[i], 16, (vk::DeviceSize)particleBufferSize - 16, 0);
     }
-
-    a_buffer->Flags &= ~(0b1 << ComputeParticleBuffer::RefreshBit);
 }
 
 void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_index)

@@ -95,7 +95,7 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     F(void, IcarianEngine.Rendering, Model, DestroyModel, { IPUSHDELETIONFUNC({ Instance->DestroyModel(a_addr); }, DeletionIndex_Render); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, ParticleSystem2D, GenerateGraphicsParticleSystem, { return Instance->GenerateGraphicsParticle2D(a_computeBuffer); }, uint32_t a_computeBuffer) \
-    F(void, IcarianEngine.Rendering, ParticleSystem2D, DestroyGraphicsParticleSystem, { Instance->DestroyGraphicsParticle2D(a_bufferAddr); }, uint32_t a_bufferAddr) \
+    F(void, IcarianEngine.Rendering, ParticleSystem2D, DestroyGraphicsParticleSystem, { IPUSHDELETIONFUNC(Instance->DestroyGraphicsParticle2D(a_bufferAddr), DeletionIndex_Render); }, uint32_t a_bufferAddr) \
     \
     F(uint32_t, IcarianEngine.Rendering.Lighting, AmbientLight, GenerateBuffer, { return Instance->GenerateAmbientLightBuffer(); }) \
     F(void, IcarianEngine.Rendering.Lighting, AmbientLight, DestroyBuffer, { Instance->DestroyAmbientLightBuffer(a_addr); }, uint32_t a_addr) \
@@ -786,15 +786,12 @@ uint32_t VulkanGraphicsEngineBindings::GenerateGraphicsParticle2D(uint32_t a_com
 }
 void VulkanGraphicsEngineBindings::DestroyGraphicsParticle2D(uint32_t a_addr) const
 {
-    IPUSHDELETIONFUNC(
-    {
-        ICARIAN_ASSERT_MSG(a_addr < m_graphicsEngine->m_particleEmitters.Size(), "DestroyGraphicsParticle2D out of bounds");
-        ICARIAN_ASSERT_MSG(m_graphicsEngine->m_particleEmitters.Exists(a_addr), "DestroyGraphicsParticle2D already destroyed");
+    IVERIFY(a_addr < m_graphicsEngine->m_particleEmitters.Size());
+    IVERIFY(m_graphicsEngine->m_particleEmitters.Exists(a_addr));
 
-        const VulkanGraphicsParticle2D* particleSystem = m_graphicsEngine->m_particleEmitters[a_addr];
-        IDEFER(delete particleSystem);
-        m_graphicsEngine->m_particleEmitters.Erase(a_addr);
-    }, DeletionIndex_Render);
+    const VulkanGraphicsParticle2D* particleSystem = m_graphicsEngine->m_particleEmitters[a_addr];
+    IDEFER(delete particleSystem);
+    m_graphicsEngine->m_particleEmitters.Erase(a_addr);
 }
 
 void VulkanGraphicsEngineBindings::DestroyTexture(uint32_t a_addr) const

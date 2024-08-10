@@ -8,8 +8,7 @@ namespace IcarianEngine.Definitions
         /// <summary>
         /// Used to determine if it will be rendered by a camera in a matching layer
         /// </summary>
-        /// Bitfield based
-        [EditorTooltip("Used to determine if it will be rendered by a camera in a matching layer. Bitfield based.")]
+        [EditorBitfield, EditorTooltip("Used to determine if it will be rendered by a camera in a matching layer.")]
         public uint RenderLayer = 0b1;
         /// <summary>
         /// Used to determine light color

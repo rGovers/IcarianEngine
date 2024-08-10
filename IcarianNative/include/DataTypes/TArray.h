@@ -20,7 +20,7 @@ private:
 
     inline void DestroyData()
     {
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
             for (uint32_t i = 0; i < m_size; ++i)
             {
@@ -239,7 +239,7 @@ public:
         
         T dat = m_data[--m_size];
 
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
             (&(m_data[m_size]))->~T();
         }
@@ -256,7 +256,7 @@ public:
     {
         const uint32_t newSize = m_size - 1;
 
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
             (&(m_data[a_index]))->~T();
         }
@@ -281,7 +281,7 @@ public:
 
         const uint32_t newSize = m_size - diff;
 
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
             for (uint32_t i = a_start; i < a_end; ++i)
             {

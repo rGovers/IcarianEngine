@@ -11,7 +11,7 @@ namespace IcarianEngine.Rendering
     public abstract class ParticleSystem : Component, IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateComputeBuffer();
+        extern static uint GenerateComputeBuffer(uint a_transformAddr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyComputeBuffer(uint a_bufferAddr);
 
@@ -151,6 +151,30 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
+        /// The Render Layer for the particle system
+        /// </summary>
+        public uint RenderLayer
+        {
+            get
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                return buffer.RenderLayer;
+            }
+            set
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                if (buffer.RenderLayer != value)
+                {
+                    buffer.RenderLayer = value;
+
+                    SetComputeBuffer(m_particleBufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
         /// The odds of creating a particle
         /// </summary>
         public float EmitterRatio
@@ -180,25 +204,132 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
+        /// The gravity to apply to particles
+        /// </summary>
+        public Vector3 Gravity
+        {
+            get
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                return buffer.Gravity;
+            }
+            set
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                if (buffer.Gravity != value)
+                {
+                    unchecked
+                    {
+                        buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.RefreshBit);
+                    }
+
+                    buffer.Gravity = value;
+
+                    SetComputeBuffer(m_particleBufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The color of the particles
+        /// </summary>
+        public Color Color
+        {
+            get
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                return buffer.Colour.ToColor();
+            }
+            set
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                Vector4 colour = value.ToVector4();
+
+                if (buffer.Colour != colour)
+                {
+                    unchecked
+                    {
+                        buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.RefreshBit);
+                    }
+
+                    buffer.Colour = colour;
+
+                    SetComputeBuffer(m_particleBufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Determine if the particle system is in burst mode
+        /// </summary>
+        public bool IsBurst
+        {
+            get
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                return (buffer.Flags & (int)ComputeParticleBuffer.BurstBit) != 0;
+            }
+            set
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                bool curValue = (buffer.Flags & 0b1 << (int)ComputeParticleBuffer.BurstBit) != 0;
+
+                if (curValue != value)
+                {
+                    unchecked
+                    {
+                        if (value)
+                        {
+                            buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.BurstBit);
+                        }
+                        else
+                        {
+                            buffer.Flags &= (byte)~(0b1 << (int)ComputeParticleBuffer.BurstBit);
+                        }
+
+                        buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.RefreshBit);
+                    }
+
+                    SetComputeBuffer(m_particleBufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
         /// Called when the ParticleSystem is created
         /// </summary>
         public override void Init()
         {
             base.Init();
 
-            m_particleBufferAddr = GenerateComputeBuffer();
+            m_particleBufferAddr = GenerateComputeBuffer(Transform.InternalAddr);
 
             ParticleSystemDef def = ParticleSystemDef;
             if (def != null)
             {
                 ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
 
+                buffer.MaxParticles = def.MaxParticles;
+                buffer.RenderLayer = def.RenderLayer;
                 buffer.EmitterType = def.EmitterType;
                 buffer.EmitterRadius = def.EmitterRadius;
+                buffer.Gravity = def.Gravity;
+                buffer.Colour = def.Color.ToVector4();
                 buffer.Flags = 0;
-
+                
                 unchecked
                 {
+                    if (def.Burst)
+                    {
+                        buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.BurstBit);
+                    }
+
                     if (def.AutoPlay)
                     {
                         buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.PlayBit);

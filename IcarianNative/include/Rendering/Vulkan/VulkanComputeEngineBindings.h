@@ -19,7 +19,7 @@ public:
     VulkanComputeEngineBindings(VulkanComputeEngine* a_engine);
     ~VulkanComputeEngineBindings();
 
-    uint32_t GenerateParticleSystemBuffer() const;
+    uint32_t GenerateParticleSystemBuffer(uint32_t a_transformAddr) const;
     void DestroyParticleSystemBuffer(uint32_t a_addr) const;
     ComputeParticleBuffer GetParticleSystemBuffer(uint32_t a_addr) const;
     void SetParticleSystemBuffer(uint32_t a_addr, const ComputeParticleBuffer& a_buffer) const;
