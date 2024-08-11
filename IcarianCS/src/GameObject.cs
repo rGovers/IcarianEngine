@@ -160,13 +160,13 @@ namespace IcarianEngine
 
                 s_scriptableRemoveQueue.TryDequeue(out script);
 
-                if (script != null)
+                if (!(script is null))
                 {
                     s_scriptableComps.Remove(script);
                 }
                 else
                 {
-                    Logger.IcarianWarning("Scriptable failed to Destroy");
+                    Logger.IcarianWarning($"Scriptable {script.GetType()} failed to Destroy");
                 }
             }
         }
@@ -179,13 +179,13 @@ namespace IcarianEngine
 
                 s_objRemoveQueue.TryDequeue(out obj);
 
-                if (obj != null)
+                if (!(obj is null))
                 {
                     if (obj.m_components != null)
                     {
                         foreach (Component comp in obj.m_components)
                         {
-                            if (comp == null)
+                            if (comp is null)
                             {
                                 continue;
                             }
@@ -340,7 +340,7 @@ namespace IcarianEngine
 
             foreach (GameObject obj in objs)
             {
-                if (obj == null || obj.IsDisposed)
+                if (obj == null)
                 {
                     continue;
                 }
@@ -372,14 +372,10 @@ namespace IcarianEngine
         internal Component AddComponentN(ComponentDef a_def)
         {
             Component comp = Component.FromDef(a_def);
-            if (comp != null)
+            if (!(comp is null))
             {
                 comp.GameObject = this;
-
-                if (comp != null)
-                {
-                    m_components.Add(comp);
-                }
+                m_components.Add(comp);
             }
             
             return comp;
@@ -800,7 +796,7 @@ namespace IcarianEngine
         static GameObject ChildDef(GameObjectDef a_def, ref List<Component> a_comps, ref List<GameObject> a_objs)
         {
             GameObject obj = Activator.CreateInstance(a_def.ObjectType, true) as GameObject;
-            if (obj != null)
+            if (!(obj is null))
             {
                 obj.m_transform = new Transform(obj);
 
@@ -885,7 +881,7 @@ namespace IcarianEngine
         }
 
         /// <summary>
-        /// Destroys the GameObject
+        /// Disposes of the GameObject
         /// </summary>
         public void Dispose()
         {
@@ -907,7 +903,7 @@ namespace IcarianEngine
                     foreach (Transform t in children)
                     {
                         GameObject obj = t.Object;
-                        if (obj != null && !obj.IsDisposed)
+                        if (obj != null)
                         {
                             obj.Dispose();
                         }
@@ -930,6 +926,43 @@ namespace IcarianEngine
         ~GameObject()
         {
             Dispose(false);
+        }
+
+        public override bool Equals(object a_obj)
+        {
+            if (base.Equals(a_obj))
+            {
+                return true;
+            }
+
+            if (a_obj == null)
+            {
+                if (IsDisposed)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
+        }
+
+        public static bool operator ==(GameObject a_lhs, GameObject a_rhs)
+        {
+            if (a_lhs is null)
+            {
+                return a_rhs is null;
+            }
+
+            return a_lhs.Equals(a_rhs);
+        }
+        public static bool operator !=(GameObject a_lhs, GameObject a_rhs)
+        {
+            return !(a_lhs == a_rhs);
         }
     }
 }

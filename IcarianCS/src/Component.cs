@@ -59,7 +59,7 @@ namespace IcarianEngine
         {
             Component comp = Activator.CreateInstance(a_def.ComponentType) as Component;
 
-            if (comp != null)
+            if (!(comp is null))
             {
                 comp.m_def = a_def;
             }
@@ -122,6 +122,50 @@ namespace IcarianEngine
         public Component GetComponent(ComponentDef a_def)
         {
             return m_object.GetComponent(a_def);
+        }
+
+        // Had a nasty bug in a game and while techincally a game bug decided that nipping it in the bud so it cannot happen again was better
+        // So now have comparison operators that will check the state of Components and GameObjects and will just equal null if they are invalidated
+        public override bool Equals(object a_obj)
+        {
+            if (base.Equals(a_obj))
+            {
+                return true;
+            }
+
+            if (a_obj == null)
+            {
+                if (m_object == null)
+                {
+                    return true;
+                }
+
+                if (this is IDestroy dest && dest.IsDisposed)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
+        }
+
+        public static bool operator ==(Component a_lhs, Component a_rhs)
+        {
+            if (a_lhs is null)
+            {
+                return a_rhs is null;
+            }
+
+            return a_lhs.Equals(a_rhs);
+        }
+        public static bool operator !=(Component a_lhs, Component a_rhs)
+        {
+            return !(a_lhs == a_rhs);
         }
     }
 }
