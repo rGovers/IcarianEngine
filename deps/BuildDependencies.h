@@ -224,7 +224,7 @@ static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfigu
         "./include/",
         "./utils/",
         "./external/",
-        "./extenal/zstd/",
+        "./extenal/basisu/zstd/",
         "./other_include/"
     );
 
@@ -320,7 +320,7 @@ static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfi
         "./include/",
         "./utils/",
         "./external/",
-        "./extenal/zstd/",
+        "./extenal/basisu/zstd/",
         "./other_include/"
     );
 
@@ -402,7 +402,7 @@ static CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildCo
         "./include/",
         "./utils/",
         "./external/",
-        "./extenal/zstd/",
+        "./extenal/basisu/zstd/",
         "./other_include/"
     );
 
@@ -500,7 +500,7 @@ static CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_Build
         "./include/",
         "./utils/",
         "./external/",
-        "./extenal/zstd/",
+        "./extenal/basisu/zstd/",
         "./other_include/"
     );
 
