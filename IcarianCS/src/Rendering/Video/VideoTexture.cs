@@ -1,6 +1,8 @@
 using System;
 using System.Runtime.CompilerServices;
 
+#ifdef ENABLE_EXPERIMENTAL
+
 namespace IcarianEngine.Rendering.Video
 {
     public class VideoTexture
@@ -46,3 +48,5 @@ namespace IcarianEngine.Rendering.Video
         }
     }
 }
+
+#endif

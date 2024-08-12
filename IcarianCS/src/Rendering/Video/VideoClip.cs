@@ -2,6 +2,8 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#ifdef ENABLE_EXPERIMENTAL
+
 #include "InteropBinding.h"
 #include "EngineVideoClipInterop.h"
 
@@ -79,3 +81,5 @@ namespace IcarianEngine.Rendering.Video
         }
     }
 }
+
+#endif

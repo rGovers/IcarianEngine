@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
+static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableExperiments)
 {
     CUBE_CSProject project = { 0 };
 
@@ -17,6 +17,11 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise)
     project.Optimise = a_optimise;
 
     CUBE_CSProject_AppendIncludePath(&project, "../EngineInterop");
+
+    if (a_enableExperiments)
+    {
+        CUBE_CSProject_AppendDefine(&project, "ENABLE_EXPERIMENTAL");
+    }
 
     CUBE_CSProject_AppendSources(&project, 
         "./src/Application.cs",

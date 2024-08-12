@@ -5,7 +5,9 @@ using IcarianEngine.Physics.Shapes;
 using IcarianEngine.Rendering;
 using IcarianEngine.Rendering.Animation;
 using IcarianEngine.Rendering.UI;
+#ifdef ENABLE_EXPERIMENTAL
 using IcarianEngine.Rendering.Video;
+#endif
 using System;
 using System.Collections.Concurrent;
 
@@ -25,8 +27,10 @@ namespace IcarianEngine
     public static class AssetLibrary
     {
         static ConcurrentDictionary<string, AudioClipContainer>      s_audioClips;
+#ifdef ENABLE_EXPERIMENTAL
         static ConcurrentDictionary<string, VideoClipContainer>      s_videoClips;
- 
+ #endif
+
         static ConcurrentDictionary<string, MaterialContainer>       s_materials;
         static ConcurrentDictionary<string, VertexShaderContainer>   s_vertexShaders;
         static ConcurrentDictionary<string, PixelShaderContainer>    s_pixelShaders;
@@ -94,7 +98,9 @@ namespace IcarianEngine
         internal static void Init()
         {
             s_audioClips = new ConcurrentDictionary<string, AudioClipContainer>();
+#ifdef ENABLE_EXPERIMENTAL
             s_videoClips = new ConcurrentDictionary<string, VideoClipContainer>();
+#endif
 
             s_materials = new ConcurrentDictionary<string, MaterialContainer>();
 
@@ -148,6 +154,7 @@ namespace IcarianEngine
                     clip.Clip.Dispose();
                 }
             }
+#ifdef ENABLE_EXPERIMENTAL
             foreach (VideoClipContainer clip in s_videoClips.Values)
             {
                 if (clip.Status == LoadStatus.Failed)
@@ -165,6 +172,7 @@ namespace IcarianEngine
                     clip.Clip.Dispose();
                 }
             }
+#endif
 
             foreach (VertexShaderContainer vShader in s_vertexShaders.Values)
             {
@@ -442,7 +450,9 @@ namespace IcarianEngine
 
             return LoadInternalData<T, C>(a_path, a_data, out LoadStatus _);
         }
-        internal static T LoadInternalData<T, C>(string a_path, ConcurrentDictionary<string, C> a_data, out LoadStatus a_status) where T : class where C : IAssetContainer
+        internal static T LoadInternalData<T, C>(string a_path, ConcurrentDictionary<string, C> a_data, out LoadStatus a_status) 
+            where T : class 
+            where C : IAssetContainer
         {
             a_status = LoadStatus.Failed;
 
@@ -541,10 +551,12 @@ namespace IcarianEngine
             }, a_priority);
         }
 
+#ifdef ENABLE_EXPERIMENTAL
         public static VideoClip LoadVideoClip(string a_path)
         {
             return LoadData<VideoClip, VideoClipContainer>(a_path, s_videoClips);
         }
+#endif
 
         /// <summary>
         /// Loads a <see cref="IcarianEngine.Rendering.VertexShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />

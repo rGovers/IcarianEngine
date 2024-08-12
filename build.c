@@ -312,7 +312,7 @@ int main(int a_argc, char** a_argv)
     PrintHeader("Building IcarianCS");
 
     printf("Creating IcarianCS project...\n");
-    icarianCSProject = BuildIcarianCSProject(CBTRUE);
+    icarianCSProject = BuildIcarianCSProject(CBTRUE, CBFALSE);
 
     printf("Compiling IcarianCS...\n");
     ret = CUBE_CSProject_PreProcessCompile(&icarianCSProject, "IcarianCS", "../deps/Mono/Linux/bin/csc", compiler, CBNULL, &lines, &lineCount);

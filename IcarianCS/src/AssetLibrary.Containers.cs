@@ -3,7 +3,9 @@ using IcarianEngine.Physics.Shapes;
 using IcarianEngine.Rendering;
 using IcarianEngine.Rendering.Animation;
 using IcarianEngine.Rendering.UI;
+#ifdef ENABLE_EXPERIMENTAL
 using IcarianEngine.Rendering.Video;
+#endif
 using System.Threading;
 
 namespace IcarianEngine
@@ -74,6 +76,7 @@ namespace IcarianEngine
         }
     }
 
+#ifdef ENABLE_EXPERIMENTS
     class VideoClipContainer : IAssetContainer
     {
         public LoadStatus Status
@@ -116,6 +119,7 @@ namespace IcarianEngine
             return VideoClip.LoadVideoClip(a_input);
         }
     }
+#endif
 
     class VertexShaderContainer : IAssetContainer
     {
