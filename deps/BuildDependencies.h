@@ -219,11 +219,13 @@ static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     );
 
     CUBE_CProject_AppendIncludePaths(&project, 
-        ".",
         "../gen/KTX-Software/",
+
         "./include/",
         "./utils/",
-        "./external"
+        "./external/",
+        "./extenal/zstd/",
+        "./other_include/"
     );
 
     CUBE_CProject_AppendSources(&project, 
@@ -313,11 +315,13 @@ static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfi
     );
 
     CUBE_CProject_AppendIncludePaths(&project, 
-        ".",
         "../gen/KTX-Software/",
+
         "./include/",
         "./utils/",
-        "./external"
+        "./external/",
+        "./extenal/zstd/",
+        "./other_include/"
     );
 
     CUBE_CProject_AppendSources(&project, 
@@ -393,11 +397,13 @@ static CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildCo
     );
 
     CUBE_CProject_AppendIncludePaths(&project, 
-        ".",
         "../gen/KTX-Software/",
+
         "./include/",
         "./utils/",
-        "./external"
+        "./external/",
+        "./extenal/zstd/",
+        "./other_include/"
     );
 
     CUBE_CProject_AppendSources(&project, 
@@ -489,11 +495,13 @@ static CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_Build
     );
 
     CUBE_CProject_AppendIncludePaths(&project, 
-        ".",
         "../gen/KTX-Software/",
+
         "./include/",
         "./utils/",
-        "./external/"
+        "./external/",
+        "./extenal/zstd/",
+        "./other_include/"
     );
 
     CUBE_CProject_AppendSources(&project, 
