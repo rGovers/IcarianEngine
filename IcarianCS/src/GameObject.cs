@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 using IcarianEngine.Definitions;
 using System;
 using System.Collections.Concurrent;
@@ -31,7 +35,7 @@ namespace IcarianEngine
         Transform       m_transform;
 
         /// <summary>
-        /// Gets the number of GameObjects in existance
+        /// Gets the number of GameObjects in existence
         /// </summary>
         public static uint GameObjectCount
         {
@@ -160,13 +164,13 @@ namespace IcarianEngine
 
                 s_scriptableRemoveQueue.TryDequeue(out script);
 
-                if (script != null)
+                if (!(script is null))
                 {
                     s_scriptableComps.Remove(script);
                 }
                 else
                 {
-                    Logger.IcarianWarning("Scriptable failed to Destroy");
+                    Logger.IcarianWarning($"Scriptable {script.GetType()} failed to Destroy");
                 }
             }
         }
@@ -179,29 +183,43 @@ namespace IcarianEngine
 
                 s_objRemoveQueue.TryDequeue(out obj);
 
-                if (obj != null)
+                if (!(obj is null))
                 {
-                    foreach (Component comp in obj.m_components)
+                    if (obj.m_components != null)
                     {
-                        if (comp is Scriptable script)
+                        foreach (Component comp in obj.m_components)
                         {
-                            s_scriptableComps.Remove(script);
-                        }
-
-                        if (comp is IDestroy dest)
-                        {
-                            if (!dest.IsDisposed)
+                            if (comp is null)
                             {
-                                dest.Dispose();
+                                continue;
+                            }
+
+                            if (comp is Scriptable script)
+                            {
+                                // Cannot ensure the script exists yet if destroyed while initialising
+                                // Use the queue to ensure proper deletion
+                                s_scriptableRemoveQueue.Enqueue(script);
+                            }
+
+                            if (comp is IDestroy dest)
+                            {
+                                if (!dest.IsDisposed)
+                                {
+                                    dest.Dispose();
+                                }
+                            }
+                            else if (comp is IDisposable disp)
+                            {
+                                disp.Dispose();
                             }
                         }
-                        else if (comp is IDisposable disp)
-                        {
-                            disp.Dispose();
-                        }
+
+                        obj.m_components.Clear();
                     }
-                    
-                    obj.m_components.Clear();
+                    else
+                    {
+                        Logger.IcarianWarning("GameObject null Components");
+                    }
 
                     s_objs.Remove(obj);
 
@@ -210,8 +228,19 @@ namespace IcarianEngine
                         s_objDictionary.Remove(obj.m_tag);
                     }
 
-                    obj.m_transform.Dispose();
-                    obj.m_transform = null;
+                    if (obj.m_transform != null)
+                    {
+                        obj.m_transform.Dispose();
+                        obj.m_transform = null;
+                    }
+                    else
+                    {
+                        // TODO: Getting a null Transform rarely on GameObjects created at runtime 
+                        // Put a guard in as should not crash the app but need to figure out why it is happening in the first place
+                        // The part that makes it fucking weird is I know it exists because it should crash somewhere else when setting the Transform
+                        // Losing the reference somehow and need to find where
+                        Logger.IcarianWarning("GameObject null Transform");
+                    }
                 }
                 else
                 {
@@ -224,8 +253,6 @@ namespace IcarianEngine
         {
             Profiler.StartFrame("Object Update");
 
-            RemoveObjects();
-            
             while (!s_objAddQueue.IsEmpty)
             {
                 GameObject obj = null;
@@ -246,13 +273,13 @@ namespace IcarianEngine
                 }
             }
             
+            RemoveObjects();
+
             Profiler.StopFrame();
         }
         internal static void UpdateScripts()
         {
             Profiler.StartFrame("Script Update");
-
-            RemoveScripts();
 
             while (!s_scriptableAddQueue.IsEmpty)
             {
@@ -269,6 +296,8 @@ namespace IcarianEngine
                     Logger.IcarianWarning("Scriptable failed to Instantiate");
                 }
             }
+
+            RemoveScripts();
 
             foreach (Scriptable script in s_scriptableComps)
             {
@@ -315,7 +344,7 @@ namespace IcarianEngine
 
             foreach (GameObject obj in objs)
             {
-                if (obj == null || obj.IsDisposed)
+                if (obj == null)
                 {
                     continue;
                 }
@@ -339,17 +368,18 @@ namespace IcarianEngine
         /// </summary>
         public virtual void Init() { }
 
-        Component AddComponentN(ComponentDef a_def)
+        internal static void AddScriptable(Scriptable a_script)
+        {
+            s_scriptableAddQueue.Enqueue(a_script);
+        }
+
+        internal Component AddComponentN(ComponentDef a_def)
         {
             Component comp = Component.FromDef(a_def);
-            if (comp != null)
+            if (!(comp is null))
             {
                 comp.GameObject = this;
-
-                if (comp != null)
-                {
-                    m_components.Add(comp);
-                }
+                m_components.Add(comp);
             }
             
             return comp;
@@ -437,20 +467,20 @@ namespace IcarianEngine
             }
         }
         /// <summary>
-        /// Gets a <see cref="IcarianEngine.Component" /> from a ComponentDef from the GameObject
+        /// Gets a <see cref="IcarianEngine.Component" /> with <see cref="IcarianEngine.Definitions.ComponentDef "/> from the GameObject
         /// </summary>
         /// <param name="a_def">The <see cref="IcarianEngine.Definitions.ComponentDef" /> to get</param>
-        /// <returns>The <see cref="IcarianEngine.Component" /> from the <see cref="IcarianEngine.Definitions.ComponentDef" />. Null on failure.</returns>
+        /// <returns>The <see cref="IcarianEngine.Component" /> with <see cref="IcarianEngine.Definitions.ComponentDef" />. Null on failure.</returns>
         public Component GetComponent(ComponentDef a_def)
         {
             return GetComponent<Component>(a_def);
         }
 
         /// <summary>
-        /// Gets a <see cref="IcarianEngine.Component" /> of type T from a ComponentDef from the GameObject
+        /// Gets a <see cref="IcarianEngine.Component" /> of type T with <see cref="IcarianEngine.Definitions.ComponentDef "/> from the GameObject
         /// </summary>
         /// <param name="a_def">The <see cref="IcarianEngine.Definitions.ComponentDef "/> to get</param>
-        /// <returns>The <see cref="IcarianEngine.Component" /> of type T from the <see cref="IcarianEngine.Definitions.ComponentDef" />. Null on failure.</returns>
+        /// <returns>The <see cref="IcarianEngine.Component" /> of type T with <see cref="IcarianEngine.Definitions.ComponentDef" />. Null on failure.</returns>
         public T GetComponent<T>(ComponentDef a_def) where T : Component
         {
             foreach (Component comp in m_components)
@@ -770,7 +800,7 @@ namespace IcarianEngine
         static GameObject ChildDef(GameObjectDef a_def, ref List<Component> a_comps, ref List<GameObject> a_objs)
         {
             GameObject obj = Activator.CreateInstance(a_def.ObjectType, true) as GameObject;
-            if (obj != null)
+            if (!(obj is null))
             {
                 obj.m_transform = new Transform(obj);
 
@@ -838,11 +868,6 @@ namespace IcarianEngine
 
             if (obj != null)
             {
-                if (!string.IsNullOrEmpty(a_tag))
-                {
-                    s_objDictionary.Add(a_tag, obj);
-                }
-
                 return obj;
             }
             
@@ -860,7 +885,7 @@ namespace IcarianEngine
         }
 
         /// <summary>
-        /// Destroys the GameObject
+        /// Disposes of the GameObject
         /// </summary>
         public void Dispose()
         {
@@ -882,7 +907,7 @@ namespace IcarianEngine
                     foreach (Transform t in children)
                     {
                         GameObject obj = t.Object;
-                        if (obj != null && !obj.IsDisposed)
+                        if (obj != null)
                         {
                             obj.Dispose();
                         }
@@ -906,5 +931,64 @@ namespace IcarianEngine
         {
             Dispose(false);
         }
+
+        public override bool Equals(object a_obj)
+        {
+            if (base.Equals(a_obj))
+            {
+                return true;
+            }
+
+            if (a_obj == null)
+            {
+                if (IsDisposed)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
+        }
+
+        public static bool operator ==(GameObject a_lhs, GameObject a_rhs)
+        {
+            if (a_lhs is null)
+            {
+                return a_rhs is null;
+            }
+
+            return a_lhs.Equals(a_rhs);
+        }
+        public static bool operator !=(GameObject a_lhs, GameObject a_rhs)
+        {
+            return !(a_lhs == a_rhs);
+        }
     }
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

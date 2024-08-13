@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #include "Runtime/RuntimeManager.h"
 
 #include <cstring>
@@ -6,8 +10,8 @@
 #include <mono/metadata/mono-config.h>
 #include <mono/utils/mono-dl-fallback.h>
 
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "IcarianError.h"
 #include "Profiler.h"
 #include "Rendering/RenderEngine.h"
 #include "Runtime/RuntimeFunction.h"
@@ -60,7 +64,10 @@ static void* RuntimeDLOpen(const char* a_name, int a_flags, char** a_error, void
             const std::string str = p.string();
 
             void* handle = dlopen(str.c_str(), a_flags);
-            ICARIAN_ASSERT_MSG(handle != NULL, std::string("Failed to open DLL: ") + dlerror());
+            if (handle == NULL)
+            {
+                IERROR(std::string("Failed to open DLL: ") + dlerror());
+            }
 
             return handle; 
         }
@@ -120,22 +127,36 @@ RuntimeManager::RuntimeManager()
 
     m_domain = mono_jit_init_version("Core", "v4.0");
     m_assembly = mono_domain_assembly_open(m_domain, "IcarianCS.dll");
-    ICARIAN_ASSERT(m_assembly != NULL);
+    IVERIFY(m_assembly != NULL);
 
     m_image = mono_assembly_get_image(m_assembly);
-    ICARIAN_ASSERT(m_image != NULL);
+    IVERIFY(m_image != NULL);
     m_programClass = mono_class_from_name(m_image, "IcarianEngine", "Program");
-    ICARIAN_ASSERT(m_programClass != NULL);
+    IVERIFY(m_programClass != NULL);
+
+    MonoMethodDesc* initDesc = mono_method_desc_new(":Init(string[])", 0);
+    IVERIFY(initDesc != NULL);
+    IDEFER(mono_method_desc_free(initDesc));
+    m_initMethod = mono_method_desc_search_in_class(initDesc, m_programClass);
+    IVERIFY(m_initMethod != NULL);
 
     MonoMethodDesc* updateDesc = mono_method_desc_new(":Update(double,double)", 0);
-    m_updateMethod = mono_method_desc_search_in_class(updateDesc, m_programClass);
+    IVERIFY(updateDesc != NULL);
     IDEFER(mono_method_desc_free(updateDesc));
-    ICARIAN_ASSERT(m_updateMethod != NULL);
+    m_updateMethod = mono_method_desc_search_in_class(updateDesc, m_programClass);
+    IVERIFY(m_updateMethod != NULL);
+
+    MonoMethodDesc* lateUpdateDesc = mono_method_desc_new(":LateUpdate()", 0);
+    IVERIFY(lateUpdateDesc != NULL);
+    IDEFER(mono_method_desc_free(lateUpdateDesc));
+    m_lateUpdateMethod = mono_method_desc_search_in_class(lateUpdateDesc, m_programClass);
+    IVERIFY(m_lateUpdateMethod != NULL);
 
     MonoMethodDesc* shutdownDesc = mono_method_desc_new(":Shutdown()", 0);
-    m_shutdownMethod = mono_method_desc_search_in_class(shutdownDesc, m_programClass);
+    IVERIFY(shutdownDesc != NULL);
     IDEFER(mono_method_desc_free(shutdownDesc));
-    ICARIAN_ASSERT(m_shutdownMethod != NULL);
+    m_shutdownMethod = mono_method_desc_search_in_class(shutdownDesc, m_programClass);
+    IVERIFY(m_shutdownMethod != NULL);
 
     ENGINE_ICARIANASSEMBLY_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 }
@@ -143,7 +164,9 @@ RuntimeManager::~RuntimeManager()
 {
     mono_runtime_invoke(m_shutdownMethod, NULL, NULL, NULL);
 
+    mono_free_method(m_initMethod);
     mono_free_method(m_updateMethod);
+    mono_free_method(m_lateUpdateMethod);
     mono_free_method(m_shutdownMethod);
 
     mono_jit_cleanup(m_domain);
@@ -173,8 +196,20 @@ void RuntimeManager::Destroy()
 
 void RuntimeManager::Exec(int a_argc, char* a_argv[])
 {
-    const int retVal = mono_jit_exec(Instance->m_domain, Instance->m_assembly, a_argc, a_argv);
-    ICARIAN_ASSERT(retVal == 0);
+    MonoClass* stringClass = mono_get_string_class();
+
+    MonoArray* argsArr = mono_array_new(Instance->m_domain, stringClass, (uintptr_t)a_argc);
+    for (int i = 0; i < a_argc; ++i)
+    {
+        mono_array_set(argsArr, MonoString*, i, mono_string_new(Instance->m_domain, a_argv[i]));
+    }
+
+    void* args[] =
+    {
+        argsArr
+    };
+
+    mono_runtime_invoke(Instance->m_initMethod, NULL, args, NULL);
 }
 void RuntimeManager::Update(double a_delta, double a_time)
 {
@@ -187,6 +222,12 @@ void RuntimeManager::Update(double a_delta, double a_time)
     };
 
     mono_runtime_invoke(Instance->m_updateMethod, NULL, args, NULL);
+}
+void RuntimeManager::LateUpdate()
+{
+    PROFILESTACK("Runtime Late Update");
+
+    mono_runtime_invoke(Instance->m_lateUpdateMethod, NULL, NULL, NULL);
 }
 
 void RuntimeManager::BindFunction(const std::string_view& a_location, void* a_function)
@@ -264,12 +305,35 @@ MonoClass* RuntimeManager::GetClass(const std::string_view& a_namespace, const s
 RuntimeFunction* RuntimeManager::GetFunction(const std::string_view& a_namespace, const std::string_view& a_class, const std::string_view& a_method)
 {
     MonoClass* cls = mono_class_from_name(Instance->m_image, a_namespace.data(), a_class.data());
-    ICARIAN_ASSERT(cls != NULL);
+    IVERIFY(cls != NULL);
 
     MonoMethodDesc* desc = mono_method_desc_new(a_method.data(), 0);
+    IVERIFY(desc != NULL);
     IDEFER(mono_method_desc_free(desc));
     MonoMethod* method = mono_method_desc_search_in_class(desc, cls);
-    ICARIAN_ASSERT(method != NULL);
+    IVERIFY(method != NULL);
 
     return new RuntimeFunction(method);
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

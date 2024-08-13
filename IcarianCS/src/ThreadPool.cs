@@ -1,6 +1,12 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+
+#include "InteropTypes.h"
 
 // Quick 20min adventure I thought as the legwork was done in C++
 // 1 week of debugging later...
@@ -21,6 +27,9 @@ using System.Runtime.CompilerServices;
 
 namespace IcarianEngine
 {
+    /// <summary>
+    /// JobPriority enumeration
+    /// </summary>
     public enum JobPriority : uint
     {
         High = 4,
@@ -30,6 +39,9 @@ namespace IcarianEngine
 
     public interface IThreadJob
     {
+        /// <summary>
+        /// Called when the job is being executed
+        /// </summary>
         void Execute();
     }
 
@@ -60,13 +72,19 @@ namespace IcarianEngine
         static List<IThreadJob> s_jobs;
         static NativeLock s_lock;
 
+        /// <summary>
+        /// The number of threads in the ThreadPool
+        /// </summary>
         public static uint ThreadCount
         {
             get
             {
                 return GetThreadCount();
             }
-        }        
+        }
+        /// <summary>
+        /// The number of queued jobs in the ThreadPool
+        /// </summary>
         public static uint QueuedJobCount
         {
             get
@@ -86,6 +104,9 @@ namespace IcarianEngine
             s_lock.Dispose();
         }
 
+        /// <summary>
+        /// Delegate for ThreadPool jobs
+        /// </summary>
         public delegate void ThreadJobCallback();
 
         static void Dispatch(uint a_addr)
@@ -142,18 +163,57 @@ namespace IcarianEngine
                 s_lock.WriteUnlock();
             }
 
+            // Warnings where pissing me off as it is harmless 
+            // The warning itself is harmful as if the block above was wrapped in a conditional block can throw a compiler error
+            // Need to use macro to pass the macro through to the C# preprocessor as currently in the C preprocessor
+IOP_CSMACRO(pragma warning disable CS0162)
+
             return 0;
+
+IOP_CSMACRO(pragma warning restore CS0162)
         }
 
+        /// <summary>
+        /// Pushes a job to the ThreadPool
+        /// </summary>
+        /// <param name="a_job">The job to execute</param>
+        /// <param name="a_priority">The priority in which to execute the job</param>
         public static void PushJob(IThreadJob a_job, JobPriority a_priority = JobPriority.Medium)
         {
             uint index = PushJobList(a_job);
 
             AddJob(index, (uint)a_priority);
         }
+        /// <summary>
+        /// Pushes a job to the ThreadPool
+        /// </summary>
+        /// <param name="a_callback">Job to execute as a delegate</param>
+        /// <param name="a_priority">The priority in which to execute the job</param>
         public static void PushJob(ThreadJobCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             PushJob(new ThreadJobFunc(a_callback), a_priority);
         }
     }
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

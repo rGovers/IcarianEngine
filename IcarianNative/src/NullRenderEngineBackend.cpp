@@ -1,10 +1,13 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #include "Rendering/Null/NullRenderEngineBackend.h"
 
 #define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
 #include "Rendering/CameraBuffer.h"
-#include "Rendering/UI/Font.h"
 #include "Runtime/RuntimeManager.h"
 
 #include "EngineAmbientLightInteropStructures.h"
@@ -52,6 +55,7 @@
     F(void, IcarianEngine.Rendering, TextureSampler, DestroySampler, { }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GenerateRenderTexture, { return 0; }, uint32_t a_count, uint32_t a_width, uint32_t a_height, uint32_t a_depthTexture, uint32_t a_hdr) \
+    F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GenerateRenderTextureD, { return 0; }, uint32_t a_count, uint32_t a_width, uint32_t a_height, uint32_t a_depthHandle, uint32_t a_hdr) \
     F(void, IcarianEngine.Rendering, RenderTextureCmd, DestroyRenderTexture, { }, uint32_t a_addr) \
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, HasDepth, { return 0; }, uint32_t a_addr) \
     F(uint32_t, IcarianEngine.Rendering, RenderTextureCmd, GetWidth, { return 0; }, uint32_t a_addr) \
@@ -102,9 +106,6 @@
     F(uint32_t, IcarianEngine.Rendering.Lighting, SpotLight, GetShadowMap, { return 0; }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Lighting, SpotLight, SetShadowMap, { }, uint32_t a_addr, uint32_t a_shadowMapAddr) \
     \
-    F(uint32_t, IcarianEngine.Rendering.UI, Font, GenerateFont, { return 0; }, MonoString* a_path) \
-    F(void, IcarianEngine.Rendering.UI, Font, DestroyFont, { }, uint32_t a_addr) \
-    \
     F(uint32_t, IcarianEngine.Rendering.UI, CanvasRenderer, GenerateBuffer, { return 0; }) \
     F(void, IcarianEngine.Rendering.UI, CanvasRenderer, DestroyBuffer, { }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.UI, CanvasRenderer, SetCanvas, { }, uint32_t a_addr, uint32_t a_canvasAddr) \
@@ -114,12 +115,13 @@
     \
     F(void, IcarianEngine.Rendering, RenderCommand, BindMaterial, { }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, RenderCommand, PushTexture, { }, uint32_t a_slot, uint32_t a_samplerAddr) \
-    F(void, IcarianEngine.Rendering, RenderCommand, BindRenderTexture, { }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, RenderCommand, PushLight, { }, uint32_t a_slot, uint32_t a_lightType, uint32_t a_lightAddr) \
+    F(void, IcarianEngine.Rendering, RenderCommand, PushShadowSplits, { }, uint32_t alot, MonoArray* a_splits) \
+    F(void, IcarianEngine.Rendering, RenderCommand, BindRenderTexture, { }, uint32_t a_addr, uint32_t a_bindMode) \
     F(void, IcarianEngine.Rendering, RenderCommand, RTRTBlit, { }, uint32_t a_srcAddr, uint32_t a_dstAddr) \
     F(void, IcarianEngine.Rendering, RenderCommand, DrawMaterial, { }) \
-    F(void, IcarianEngine.Rendering, RenderCommand, DrawModel, { }, MonoArray* a_transform, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, RenderCommand, DrawModel, { }, glm::mat4 a_transform, uint32_t a_addr) \
     \
-    F(void, IcarianEngine.Rendering, RenderPipeline, SetLightLVP, { }, MonoArray* a_lvp) \
     F(void, IcarianEngine.Rendering, RenderPipeline, SetLightSplits, { }, MonoArray* a_splits) \
     \
     F(void, IcarianEngine.Rendering.Animation, SkeletonAnimator, PushTransform, { }, uint32_t a_addr, MonoString* a_object, MonoArray* a_transform) \
@@ -166,12 +168,29 @@ void NullRenderEngineBackend::DestroyTextureSampler(uint32_t a_sampler)
 
 }
 
-Font* NullRenderEngineBackend::GetFont(uint32_t a_addr)
-{
-    return nullptr;
-}
-
 void NullRenderEngineBackend::Update(double a_delta, double a_time)
 {
 
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

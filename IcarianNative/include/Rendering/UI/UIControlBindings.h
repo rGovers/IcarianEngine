@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #pragma once
 
 #define GLM_FORCE_SWIZZLE 
@@ -7,6 +11,8 @@
 
 class RuntimeManager;
 class UIControl;
+
+#include "EngineUIElementInteropStuctures.h"
 
 class UIControlBindings
 {
@@ -25,6 +31,8 @@ public:
     void RemoveCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr) const;
     uint32_t* GetCanvasChildren(uint32_t a_addr, uint32_t* a_count) const;
 
+    uint32_t CreateUIElement() const;
+    void DestroyUIElement(uint32_t a_addr) const;
     void AddElementChild(uint32_t a_addr, uint32_t a_childAddr) const;
     void RemoveElementChild(uint32_t a_addr, uint32_t a_childAddr) const;
     uint32_t* GetElementChildren(uint32_t a_addr, uint32_t* a_count) const;
@@ -34,10 +42,13 @@ public:
     void SetElementSize(uint32_t a_addr, const glm::vec2& a_size) const;
     glm::vec4 GetElementColor(uint32_t a_addr) const;
     void SetElementColor(uint32_t a_addr, const glm::vec4& a_color) const;
-    uint32_t GetElementState(uint32_t a_addr) const;
+    e_UIXAnchor GetElementXAnchor(uint32_t a_addr) const;
+    void SetElementXAnchor(uint32_t a_addr, e_UIXAnchor a_anchor) const;
+    e_UIYAnchor GetElementYAnchor(uint32_t a_addr) const;
+    void SetElementYAnchor(uint32_t a_addr, e_UIYAnchor a_anchor) const;
+    e_ElementState GetElementState(uint32_t a_addr) const;
 
     uint32_t CreateTextElement() const;
-    void DestroyTextElement(uint32_t a_addr) const;
     std::u32string GetTextElementText(uint32_t a_addr) const;
     void SetTextElementText(uint32_t a_addr, const std::u32string_view& a_text) const;
     uint32_t GetTextElementFont(uint32_t a_addr) const;
@@ -46,7 +57,28 @@ public:
     void SetTextElementFontSize(uint32_t a_addr, float a_size) const;
 
     uint32_t CreateImageElement() const;
-    void DestroyImageElement(uint32_t a_addr) const;
     uint32_t GetImageElementSampler(uint32_t a_addr) const;
     void SetImageElementSampler(uint32_t a_addr, uint32_t a_samplerAddr) const;
 };
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

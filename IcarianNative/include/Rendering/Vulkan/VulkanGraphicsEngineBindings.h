@@ -1,6 +1,11 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include <string_view>
 
 class VulkanGraphicsEngine;
@@ -8,12 +13,13 @@ class VulkanPixelShader;
 class VulkanVertexShader;
 
 #include "Rendering/CameraBuffer.h"
-#include "Rendering/TextureData.h"
 
 #include "EngineAmbientLightInteropStructures.h"
 #include "EngineDirectionalLightInteropStructures.h"
+#include "EngineLightInteropStructures.h"
 #include "EngineMaterialInteropStructures.h"
 #include "EnginePointLightInteropStructures.h"
+#include "EngineRenderCommandInteropStructures.h"
 #include "EngineSpotLightInteropStructures.h"
 #include "EngineTextureSamplerInteropStructures.h"
 
@@ -70,13 +76,17 @@ public:
 
     void DestroyTexture(uint32_t a_addr) const;
 
+    uint32_t GenerateVideoTexture(uint32_t a_videoAddr) const;
+    void DestroyVideoTexture(uint32_t a_addr) const;
+
     uint32_t GenerateTextureSampler(uint32_t a_texture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;
     uint32_t GenerateRenderTextureSampler(uint32_t a_renderTexture, uint32_t a_textureIndex, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;
     uint32_t GenerateRenderTextureDepthSampler(uint32_t a_renderTexture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;
     uint32_t GenerateRenderTextureDepthSamplerDepth(uint32_t a_renderTexture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const;
     void DestroyTextureSampler(uint32_t a_addr) const;
 
-    uint32_t GenerateRenderTexture(uint32_t a_count, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr) const;
+    uint32_t GenerateRenderTexture(uint32_t a_count, uint32_t a_width, uint32_t a_height, bool a_depthTexture, bool a_hdr, uint32_t a_channelCount) const;
+    uint32_t GenerateRenderTextureD(uint32_t a_count, uint32_t a_width, uint32_t a_height, uint32_t a_depthHandle, bool a_hdr, uint32_t a_channelCount) const;
     void DestroyRenderTexture(uint32_t a_addr) const;
     uint32_t GetRenderTextureTextureCount(uint32_t a_addr) const;
     bool RenderTextureHasDepth(uint32_t a_addr) const;
@@ -134,12 +144,37 @@ public:
 
     void BindMaterial(uint32_t a_addr) const;
     void PushTexture(uint32_t a_slot, uint32_t a_samplerAddr) const;
-    void BindRenderTexture(uint32_t a_addr) const;
+    void PushLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr) const;
+    void PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount) const;
+    void PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr) const;
+    void BindRenderTexture(uint32_t a_addr, e_RenderTextureBindMode a_bindMode) const;
     void BlitRTRT(uint32_t a_srcAddr, uint32_t a_dstAddr) const;
     void DrawMaterial();
     void DrawModel(const glm::mat4& a_transform, uint32_t a_addr);
 
-    void SetLightLVP(const glm::mat4* a_lvp, uint32_t a_lvpCount) const;
-    void SetLightSplits(const float* a_splits, uint32_t a_splitCount) const;
+    void SetLightSplits(const LightShadowSplit* a_splits, uint32_t a_splitCount) const;
 };
+
 #endif
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

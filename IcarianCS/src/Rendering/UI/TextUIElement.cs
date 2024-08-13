@@ -1,98 +1,95 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 using System.Runtime.CompilerServices;
+
+#include "EngineTextUIElementInterop.h"
+#include "InteropBinding.h"
+
+ENGINE_TEXTUIELEMENT_EXPORT_TABLE(IOP_BIND_FUNCTION);
 
 namespace IcarianEngine.Rendering.UI
 {
     public class TextUIElement : UIElement
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint CreateTextElement();
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void DestroyTextElement(uint a_addr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static string GetText(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetText(uint a_addr, string a_text);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GetFont(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetFont(uint a_addr, uint a_fontAddr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static float GetFontSize(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetFontSize(uint a_addr, float a_size);
-
+        /// <summary>
+        /// The text of the TextUIElement
+        /// </summary>
         public string Text
         {
             get
             {
-                return GetText(BufferAddr);
+                return TextUIElementInterop.GetText(BufferAddr);
             }
             set
             {
-                SetText(BufferAddr, value);
+                TextUIElementInterop.SetText(BufferAddr, value);
             }
         }
 
+        /// <summary>
+        /// The <see cref="IcarianEngine.Rendering.UI.Font" /> of the TextUIElement
+        /// </summary>
         public Font Font
         {
             get
             {
-                return Font.GetFont(GetFont(BufferAddr));
+                return Font.GetFont(TextUIElementInterop.GetFont(BufferAddr));
             }
             set
             {
                 if (value != null)
                 {
-                    SetFont(BufferAddr, value.BufferAddr);
+                    TextUIElementInterop.SetFont(BufferAddr, value.BufferAddr);
                 }
                 else
                 {
-                    SetFont(BufferAddr, uint.MaxValue);
+                    TextUIElementInterop.SetFont(BufferAddr, uint.MaxValue);
                 }
             }
         }
 
+        /// <summary>
+        /// The font size of the TextUIElement
+        /// </summary>
         public float FontSize
         {
             get
             {
-                return GetFontSize(BufferAddr);
+                return TextUIElementInterop.GetFontSize(BufferAddr);
             }
             set
             {
-                SetFontSize(BufferAddr, value);
+                TextUIElementInterop.SetFontSize(BufferAddr, value);
             }
         }
 
-        public TextUIElement()
+        public TextUIElement() : base(TextUIElementInterop.CreateTextElement())
         {
-            BufferAddr = CreateTextElement();
-
-            AddLookup(BufferAddr, this);
-        }
-
-        protected override void Dispose(bool a_disposing)
-        {
-            bool dispose = !IsDisposed;
-
-            base.Dispose(a_disposing);
-
-            if(dispose)
-            {
-                if(a_disposing)
-                {
-                    DestroyTextElement(BufferAddr);
-                }
-                else
-                {
-                    Logger.IcarianWarning("TextUIElement Failed to Dispose");
-                }
-            }
-            else
-            {
-                Logger.IcarianError("Multiple TextUIElement Dispose");
-            }
+            
         }
     }
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

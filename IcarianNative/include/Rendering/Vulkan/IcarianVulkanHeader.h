@@ -1,12 +1,14 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include <vulkan/vulkan.hpp>
 
-#include <spirv-tools/libspirv.hpp>
-
-#define ICARIAN_VMA_VULKAN_VERSION 1000000
-#define ICARIAN_VULKAN_VERSION VK_API_VERSION_1_0
+#define ICARIAN_VMA_VULKAN_VERSION 1001000
+#define ICARIAN_VULKAN_VERSION VK_API_VERSION_1_1
 
 #define VMA_VULKAN_VERSION ICARIAN_VMA_VULKAN_VERSION
 #include <vk_mem_alloc.h>
@@ -17,7 +19,10 @@ static constexpr uint32_t VulkanMaxFlightFrames = 2;
 static constexpr uint32_t VulkanFlightPoolSize = VulkanMaxFlightFrames + 1;
 static constexpr uint32_t VulkanDeletionQueueSize = VulkanFlightPoolSize + 1;
 
-static constexpr spv_target_env VulkanShaderTarget = SPV_ENV_VULKAN_1_0;
+// AMD debuggers do not support multi queue so switch this to true when you need to do graphics debugging with AMD tools
+// AMD GPUs run just fine it is just their debuggers
+// There is an active issue that has not been fixed yet
+static constexpr bool AMDDebuggerFix = false;
 
 #ifdef NDEBUG
 static constexpr bool VulkanEnableValidationLayers = false;
@@ -257,3 +262,25 @@ static void VulkanResultError(vk::Result a_result, const std::string_view& a_msg
 }
 
 #endif
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

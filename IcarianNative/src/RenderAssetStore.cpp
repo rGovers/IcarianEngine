@@ -1,19 +1,24 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #include "Rendering/RenderAssetStore.h"
 
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
 #include <ktx.h>
 #include <stb_image.h>
 
-#include "Core/ColladaLoader.h"
-#include "Core/FBXLoader.h"
-#include "Core/GLTFLoader.h"
-#include "Core/IcarianAssert.h"
+#include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
-#include "Core/OBJLoader.h"
+#include "Core/StringUtils.h"
 #include "FileCache.h"
 #include "IcarianError.h"
-#include "Profiler.h"
 #include "Rendering/RenderAssetStoreBindings.h"
 #include "Rendering/RenderEngine.h"
+
+#include "EngineModelInteropStructures.h"
 
 RenderAssetStore::RenderAssetStore(RenderEngine* a_renderEngine)
 {
@@ -28,9 +33,22 @@ RenderAssetStore::~RenderAssetStore()
 
 void RenderAssetStore::Update()
 {
-    {
-        PROFILESTACK("Models");
+    const e_RenderDeviceType device = m_renderEngine->GetDeviceType();
 
+    if (device == RenderDeviceType_DiscreteGPU)
+    {
+        const uint64_t totalMemory = m_renderEngine->GetTotalDeviceMemory();
+        const uint64_t usedMemory = m_renderEngine->GetUsedDeviceMemory();
+
+        // Over half of the VRAM is left so we are wasting out time
+        // Better to leave it then trying to reclaim it
+        if (totalMemory >> 1 > usedMemory)
+        {
+            return;
+        }
+    }
+
+    {
         const Array<bool> state = m_models.ToStateArray();
         TLockArray<RenderAsset> a = m_models.ToLockArray();
         const uint32_t size = state.Size();
@@ -48,10 +66,10 @@ void RenderAssetStore::Update()
                 continue;
             }
 
-            if (asset.Flags & 0b1 << RenderAsset::MarkBit)
+            if (IISBITSET(asset.Flags, RenderAsset::MarkBit))
             {
                 asset.DeReq = 0;
-                asset.Flags &= ~(0b1 << RenderAsset::MarkBit);
+                ICLEARBIT(asset.Flags, RenderAsset::MarkBit);
             }
             else
             {
@@ -67,8 +85,6 @@ void RenderAssetStore::Update()
     }
     
     {
-        PROFILESTACK("Textures");
-
         const Array<bool> state = m_textures.ToStateArray();
         TLockArray<RenderAsset> a = m_textures.ToLockArray();
         const uint32_t size = state.Size();
@@ -86,10 +102,10 @@ void RenderAssetStore::Update()
                 continue;
             }
 
-            if (asset.Flags & 0b1 << RenderAsset::MarkBit)
+            if (IISBITSET(asset.Flags, RenderAsset::MarkBit))
             {
                 asset.DeReq = 0;
-                asset.Flags &= ~(0b1 << RenderAsset::MarkBit);
+                ICLEARBIT(asset.Flags, RenderAsset::MarkBit);
             }
             else 
             {
@@ -153,26 +169,321 @@ void RenderAssetStore::Flush()
     }
 }
 
-uint32_t RenderAssetStore::LoadModel(const std::filesystem::path& a_path)
+static void LoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_rSqr)
 {
-    FileCache::PreLoad(a_path);
+    const uint32_t startIndex = a_vertices->Size();
 
+    const bool hasNormals = a_mesh->HasNormals();
+    const bool hasTexCoord = a_mesh->HasTextureCoords(0);
+    const bool hasColour = a_mesh->HasVertexColors(0);
+
+    for (uint32_t i = 0; i < a_mesh->mNumVertices; ++i) 
+    {
+        Vertex v;
+
+        const aiVector3D& pos = a_mesh->mVertices[i];
+        v.Position = glm::vec4(pos.x, -pos.y, pos.z, 1.0f);
+
+        *a_rSqr = glm::max(pos.SquareLength(), *a_rSqr);
+
+        if (hasNormals) 
+        {
+            const aiVector3D& norm = a_mesh->mNormals[i];
+            v.Normal = glm::vec3(norm.x, -norm.y, norm.z);
+        }
+
+        if (hasTexCoord) 
+        {
+            const aiVector3D& uv = a_mesh->mTextureCoords[0][i];
+            v.TexCoords = glm::vec2(uv.x, uv.y);
+        }
+
+        if (hasColour) 
+        {
+            const aiColor4D& colour = a_mesh->mColors[0][i];
+            v.Color = glm::vec4(colour.r, colour.g, colour.b, colour.a);
+        }
+
+        a_vertices->Push(v);
+    }
+
+    for (uint32_t i = 0; i < a_mesh->mNumFaces; ++i) 
+    {
+        const aiFace& face = a_mesh->mFaces[i];
+
+        const uint32_t indexA = face.mIndices[0];
+        const uint32_t indexB = face.mIndices[2];
+        const uint32_t indexC = face.mIndices[1];
+
+        if (!hasNormals)
+        {
+            const aiVector3D& posA = a_mesh->mVertices[indexA];
+            const aiVector3D& posB = a_mesh->mVertices[indexB];
+            const aiVector3D& posC = a_mesh->mVertices[indexC];
+
+            const glm::vec3 pA = glm::vec3(posA.x, -posA.y, posA.z);
+            const glm::vec3 pB = glm::vec3(posB.x, -posB.y, posB.z);
+            const glm::vec3 pC = glm::vec3(posC.x, -posC.y, posC.z);
+
+            const glm::vec3 diffA = pB - pA;
+            const glm::vec3 diffB = pC - pA;
+
+            const glm::vec3 norm = glm::cross(diffA, diffB);
+
+            a_vertices->Ref(startIndex + indexA).Normal += norm;
+            a_vertices->Ref(startIndex + indexB).Normal += norm;
+            a_vertices->Ref(startIndex + indexC).Normal += norm;
+        }
+
+        a_indices->Push(indexA);
+        a_indices->Push(indexB);
+        a_indices->Push(indexC);
+    }
+
+    if (!hasNormals)
+    {
+        const uint32_t count = a_vertices->Size();
+        for (uint32_t i = startIndex; i < count; ++i)
+        {
+            glm::vec3& norm = a_vertices->Ref(i).Normal;
+
+            norm = glm::normalize(norm);
+        }
+    }
+}
+
+static uint32_t LoadBaseModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::filesystem::path& a_path)
+{
+    const std::filesystem::path ext = a_path.extension();
+    const std::string extStr = ext.string();
+
+    constexpr uint16_t VertexStride = sizeof(Vertex);
+
+    switch (StringHash<uint32_t>(extStr.c_str())) 
+    {
+    case StringHash<uint32_t>(".obj"):
+    case StringHash<uint32_t>(".dae"):
+    case StringHash<uint32_t>(".fbx"):
+    case StringHash<uint32_t>(".glb"):
+    case StringHash<uint32_t>(".gltf"):
+    {
+        FileHandle* handle = FileCache::LoadFile(a_path);
+        IVERIFY(handle != nullptr);
+        IDEFER(delete handle);
+
+        const uint64_t size = handle->GetSize();
+        uint8_t* dat = new uint8_t[size];
+        IDEFER(delete[] dat);
+        if (handle->Read(dat, size) != size)
+        {
+            IERROR("Failed reading model data: " + a_path.string());
+
+            break;
+        }
+
+        Assimp::Importer importer;
+
+        const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, aiProcess_Triangulate | aiProcess_PreTransformVertices, extStr.c_str() + 1);
+        IVERIFY(scene != nullptr);
+        
+        Array<Vertex> vertices;
+        Array<uint32_t> indices;
+        float radSqr = 0.0f;
+
+        if (a_data != std::numeric_limits<uint8_t>::max())
+        {
+            IVERIFY(a_data < scene->mNumMeshes);
+
+            LoadMesh(scene->mMeshes[a_data], &vertices, &indices, &radSqr);
+        }
+        else
+        {
+            for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
+            {
+                LoadMesh(scene->mMeshes[i], &vertices, &indices, &radSqr);
+            }
+        }
+
+        if (vertices.Empty() || indices.Empty() || radSqr <= 0)
+        {
+            break;
+        }
+
+        return a_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), VertexStride, indices.Data(), indices.Size(), glm::sqrt(radSqr));
+    }
+    default:
+    {
+        IERROR("Invalid model file extension: " + a_path.string());
+
+        break;
+    }
+    }
+
+    return -1;
+}
+
+uint32_t RenderAssetStore::LoadModel(const std::filesystem::path& a_path, uint32_t a_index)
+{
     const RenderAsset asset =
     {
         .Path = a_path.string(),
-        .InternalAddress = uint32_t(-1),
+        .InternalAddress = LoadBaseModelFile(m_renderEngine, (uint8_t)a_index, a_path),
+        .Data = (uint8_t)a_index,
     };
 
     return m_models.PushVal(asset);
 }
-uint32_t RenderAssetStore::LoadSkinnedModel(const std::filesystem::path& a_path)
-{
-    FileCache::PreLoad(a_path);
 
+static void LoadSkinnedMesh(const aiMesh* a_mesh, Array<SkinnedVertex>* a_vertices, Array<uint32_t>* a_indices, const std::unordered_map<std::string, int>& a_boneMap, float* a_rSqr)
+{
+    for (uint32_t i = 0; i < a_mesh->mNumVertices; ++i) 
+    {
+        SkinnedVertex v;
+
+        const aiVector3D& pos = a_mesh->mVertices[i];
+        v.Position = glm::vec4(pos.x, -pos.y, pos.z, 1.0f);
+
+        *a_rSqr = glm::max(pos.SquareLength(), *a_rSqr);
+
+        if (a_mesh->HasNormals()) 
+        {
+            const aiVector3D& norm = a_mesh->mNormals[i];
+            v.Normal = glm::vec3(norm.x, -norm.y, norm.z);
+        }
+
+        if (a_mesh->HasTextureCoords(0)) 
+        {
+            const aiVector3D& uv = a_mesh->mTextureCoords[0][i];
+            v.TexCoords = glm::vec2(uv.x, uv.y);
+        }
+
+        if (a_mesh->HasVertexColors(0)) 
+        {
+            const aiColor4D& colour = a_mesh->mColors[0][i];
+            v.Color = glm::vec4(colour.r, colour.g, colour.b, colour.a);
+        }
+
+        if (a_mesh->HasBones())
+        {
+            const aiBone* bone = a_mesh->mBones[i];
+
+            const uint32_t weights = glm::min(uint32_t(4), (uint32_t)bone->mNumWeights);
+            for (uint32_t j = 0; j < weights; ++j)
+            {
+                const auto iter = a_boneMap.find(bone->mName.C_Str());
+                if (iter == a_boneMap.end())
+                {
+                    continue;
+                }
+
+                v.BoneIndices[j] = iter->second;
+                v.BoneWeights[j] = bone->mWeights[j].mWeight;
+            }
+        }
+
+        a_vertices->Push(v);
+    }
+
+    for (uint32_t i = 0; i < a_mesh->mNumFaces; ++i) 
+    {
+        const aiFace& face = a_mesh->mFaces[i];
+
+        a_indices->Push(face.mIndices[0]);
+        a_indices->Push(face.mIndices[2]);
+        a_indices->Push(face.mIndices[1]);
+    }
+}
+
+static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::filesystem::path& a_path)
+{
+    const std::filesystem::path ext = a_path.extension();
+    const std::string extStr = ext.string();
+
+    constexpr uint16_t VertexStride = sizeof(SkinnedVertex);
+
+    switch (StringHash<uint32_t>(extStr.c_str())) 
+    {
+    case StringHash<uint32_t>(".dae"):
+    case StringHash<uint32_t>(".fbx"):
+    case StringHash<uint32_t>(".glb"):
+    case StringHash<uint32_t>(".gltf"):
+    {
+        FileHandle* handle = FileCache::LoadFile(a_path);
+        IVERIFY(handle != nullptr);
+        IDEFER(delete handle);
+
+        const uint64_t size = handle->GetSize();
+        uint8_t* dat = new uint8_t[size];
+        IDEFER(delete[] dat);
+        if (handle->Read(dat, size) != size)
+        {
+            IERROR("Failed reading skinned model data: " + a_path.string());
+
+            break;
+        }
+
+        Assimp::Importer importer;
+
+        const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, aiProcess_Triangulate | aiProcess_PreTransformVertices, extStr.c_str() + 1);
+        IVERIFY(scene != nullptr);
+        IVERIFY(scene->mNumSkeletons > 0);
+
+        std::unordered_map<std::string, int> boneMap;
+
+        const aiSkeleton* skeleton = scene->mSkeletons[0];
+        for (int i = 0; i < skeleton->mNumBones; ++i)
+        {
+            const aiSkeletonBone* bone = skeleton->mBones[i];
+            const std::string name = bone->mNode->mName.C_Str();
+
+            boneMap.emplace(name, i);
+        }
+
+        const aiNode* root = scene->mRootNode;
+
+        Array<SkinnedVertex> vertices;
+        Array<uint32_t> indices;
+        float radSqr = 0.0f;
+        if (a_data != std::numeric_limits<uint8_t>::max())
+        {
+            IVERIFY(a_data < scene->mNumMeshes);
+
+            LoadSkinnedMesh(scene->mMeshes[a_data], &vertices, &indices, boneMap, &radSqr);
+        }
+        else
+        {
+            for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
+            {
+                LoadSkinnedMesh(scene->mMeshes[i], &vertices, &indices, boneMap, &radSqr);
+            }
+        }
+
+        if (vertices.Empty() || indices.Empty() || radSqr <= 0)
+        {
+            IWARN("Empty Model: " + a_path.string());
+
+            break;
+        }
+
+        return a_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), VertexStride, indices.Data(), indices.Size(), glm::sqrt(radSqr));
+    }
+    default:
+    {
+        IERROR("Invalid skinned model file extension: " + a_path.string());
+
+        break;
+    }
+    }
+
+    return -1;
+}
+uint32_t RenderAssetStore::LoadSkinnedModel(const std::filesystem::path& a_path, uint32_t a_index)
+{
     const RenderAsset asset =
     {
         .Path = a_path.string(),
-        .InternalAddress = uint32_t(-1),
+        .InternalAddress = LoadSkinnedModelFile(m_renderEngine, (uint8_t)a_index, a_path),
+        .Data = (uint8_t)a_index,
         .Flags = 0b1 << RenderAsset::SkinnedBit
     };
 
@@ -181,8 +492,8 @@ uint32_t RenderAssetStore::LoadSkinnedModel(const std::filesystem::path& a_path)
 
 void RenderAssetStore::DestroyModel(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_models.Size(), "DestroyModel out of bounds");
-    ICARIAN_ASSERT_MSG(m_models.Exists(a_addr), "DestroyModel already destroyed");
+    IVERIFY(a_addr < m_models.Size());
+    IVERIFY(m_models.Exists(a_addr));
 
     const RenderAsset asset = m_models[a_addr];
     IDEFER(
@@ -193,10 +504,11 @@ void RenderAssetStore::DestroyModel(uint32_t a_addr)
     
     m_models.Erase(a_addr);
 }
+
 uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_models.Size(), "GetModel out of bounds");
-    ICARIAN_ASSERT_MSG(m_models.Exists(a_addr), "GetModel already destroyed");
+    IVERIFY(a_addr < m_models.Size());
+    IVERIFY(m_models.Exists(a_addr));
 
     TLockArray<RenderAsset> a = m_models.ToLockArray();
 
@@ -204,214 +516,19 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
     if (asset.InternalAddress == -1)
     {
         const std::filesystem::path path = asset.Path;
-        const std::filesystem::path ext = path.extension();
 
-        const bool isSkinned = asset.Flags & 0b1 << RenderAsset::SkinnedBit;
-        if (isSkinned)
+        if (IISBITSET(asset.Flags, RenderAsset::SkinnedBit))
         {
-            constexpr uint16_t VertexStride = sizeof(SkinnedVertex);
-
-            std::vector<SkinnedVertex> vertices;
-            std::vector<uint32_t> indices;
-            float radius;
-
-            if (ext == ".dae")
-            {
-                FileHandle* handle = FileCache::LoadFile(path);
-                if (handle == nullptr)
-                {
-                    IERROR("GetModel failed to load skinned file: " + path.string());
-                }
-
-                IDEFER(delete handle);
-
-                const uint64_t size = handle->GetSize();
-                char* data = new char[size];
-                IDEFER(delete[] data);
-
-                handle->Read(data, size);
-
-                if (IcarianCore::ColladaLoader_LoadSkinnedData(data, (uint32_t)size, &vertices, &indices, &radius))
-                {
-                    asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
-                }
-                else
-                {
-                    IERROR("GetModel failed to parse skinned file: " + path.string());
-                }
-            }
-            else if (ext == ".fbx")
-            {
-                FileHandle* handle = FileCache::LoadFile(path);
-                if (handle == nullptr)
-                {
-                    IERROR("GetModel failed to load skinned file: " + path.string());
-                }
-
-                IDEFER(delete handle);
-
-                const uint64_t size = handle->GetSize();
-                char* data = new char[size];
-                IDEFER(delete[] data);
-
-                handle->Read(data, size);
-
-                if (IcarianCore::FBXLoader_LoadSkinnedData(data, (uint32_t)size, &vertices, &indices, &radius))
-                {
-                    asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
-                }
-                else
-                {
-                    IERROR("GetModel failed to parse skinned file: " + path.string());
-                }
-            }
-            else if (ext == ".glb" || ext == ".gltf")
-            {
-                FileHandle* handle = FileCache::LoadFile(path);
-                if (handle == nullptr)
-                {
-                    IERROR("GetModel failed to load skinned file: " + path.string());
-                }
-
-                IDEFER(delete handle);
-
-                const uint64_t size = handle->GetSize();
-                char* data = new char[size];
-                IDEFER(delete[] data);
-
-                handle->Read(data, size);
-
-                if (IcarianCore::GLTFLoader_LoadSkinnedData(data, (uint32_t)size, &vertices, &indices, &radius))
-                {
-                    asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
-                }
-                else
-                {
-                    IERROR("GetModel failed to parse skinned file: " + path.string());
-                }
-            }
-            else 
-            {
-                IERROR("GetModel invalid file extension: " + path.string());
-            }
+            asset.InternalAddress = LoadSkinnedModelFile(m_renderEngine, asset.Data, path);
         }
         else
         {
-            constexpr uint16_t VertexStride = sizeof(Vertex);
-
-            std::vector<Vertex> vertices;
-            std::vector<uint32_t> indices;
-            float radius;
-
-            if (ext == ".obj")
-            {
-                FileHandle* handle = FileCache::LoadFile(path);
-                if (handle == nullptr)
-                {
-                    IERROR("GetModel failed to load file: " + path.string());
-                }
-
-                IDEFER(delete handle);
-
-                const uint64_t size = handle->GetSize();
-                char* data = new char[size];
-                IDEFER(delete[] data);
-
-                handle->Read(data, size);
-
-                if (IcarianCore::OBJLoader_LoadData(data, (uint32_t)size, &vertices, &indices, &radius))
-                {
-                    asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
-                }
-                else
-                {
-                    IERROR("GetModel failed to load file: " + path.string());
-                }
-            }
-            else if (ext == ".dae")
-            {
-                FileHandle* handle = FileCache::LoadFile(path);
-                if (handle == nullptr)
-                {
-                    IERROR("GetModel failed to load file: " + path.string());
-                }
-
-                IDEFER(delete handle);
-
-                const uint64_t size = handle->GetSize();
-                char* data = new char[size];
-                IDEFER(delete[] data);
-
-                handle->Read(data, size);
-
-                if (IcarianCore::ColladaLoader_LoadData(data, (uint32_t)size, &vertices, &indices, &radius))
-                {
-                    asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
-                }
-                else
-                {
-                    IERROR("GetModel failed to load file: " + path.string());
-                }
-            }
-            else if (ext == ".fbx")
-            {
-                FileHandle* handle = FileCache::LoadFile(path);
-                if (handle == nullptr)
-                {
-                    IERROR("GetModel failed to load file: " + path.string());
-                }
-
-                IDEFER(delete handle);
-
-                const uint64_t size = handle->GetSize();
-                char* data = new char[size];
-                IDEFER(delete[] data);
-
-                handle->Read(data, size);
-
-                if (IcarianCore::FBXLoader_LoadData(data, (uint32_t)size, &vertices, &indices, &radius))
-                {
-                    asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
-                }
-                else
-                {
-                    IERROR("GetModel failed to load file: " + path.string());
-                }
-            }
-            else if (ext == ".glb" || ext == ".gltf")
-            {
-                FileHandle* handle = FileCache::LoadFile(path);
-                if (handle == nullptr)
-                {
-                    IERROR("GetModel failed to load file: " + path.string());
-                }
-
-                IDEFER(delete handle);
-
-                const uint64_t size = handle->GetSize();
-                char* data = new char[size];
-                IDEFER(delete[] data);
-
-                handle->Read(data, size);
-
-                if (IcarianCore::GLTFLoader_LoadData(data, (uint32_t)size, &vertices, &indices, &radius))
-                {
-                    asset.InternalAddress = m_renderEngine->GenerateModel(vertices.data(), (uint32_t)vertices.size(), VertexStride, indices.data(), (uint32_t)indices.size(), radius);
-                }
-                else
-                {
-                    IERROR("GetModel failed to load file: " + path.string());
-                }
-            }
-            else
-            {
-                IERROR("GetModel invalid file extension: " + path.string());
-            }
+            asset.InternalAddress = LoadBaseModelFile(m_renderEngine, asset.Data, path);
         }
     }
 
     asset.DeReq = 0;
-    asset.Flags |= 0b1 << RenderAsset::MarkBit;
+    ISETBIT(asset.Flags, RenderAsset::MarkBit);
 
     return asset.InternalAddress;
 }
@@ -430,8 +547,8 @@ uint32_t RenderAssetStore::LoadTexture(const std::filesystem::path& a_path)
 }
 void RenderAssetStore::DestroyTexture(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_textures.Size(), "DestroyTexture out of bounds");
-    ICARIAN_ASSERT_MSG(m_textures.Exists(a_addr), "DestroyTexture already destroyed");
+    IVERIFY(a_addr < m_textures.Size());
+    IVERIFY(m_textures.Exists(a_addr));
 
     const RenderAsset asset = m_textures[a_addr];
     IDEFER(
@@ -519,8 +636,8 @@ static void KTX_FileHandle_Destruct(ktxStream* a_stream)
 
 uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_textures.Size(), "GetTexture out of bounds");
-    ICARIAN_ASSERT_MSG(m_textures.Exists(a_addr), "GetTexture already destroyed");
+    IVERIFY(a_addr < m_textures.Size());
+    IVERIFY(m_textures.Exists(a_addr));
 
     TLockArray<RenderAsset> a = m_textures.ToLockArray();
 
@@ -529,13 +646,18 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
     {
         const std::filesystem::path path = asset.Path;
         const std::filesystem::path ext = path.extension();
+        const std::string extStr = ext.string();
 
-        if (ext == ".png")
+        switch (StringHash<uint32_t>(extStr.c_str())) 
+        {
+        case StringHash<uint32_t>(".png"):
         {
             FileHandle* handle = FileCache::LoadFile(path);
             if (handle == nullptr)
             {
                 IERROR("GetTexture failed to load file: " + path.string());
+
+                break;
             }
 
             IDEFER(delete handle);
@@ -561,13 +683,17 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
             {
                 IERROR("GetTexture failed to parse file: " + path.string());
             }
+
+            break;
         }
-        else if (ext == ".ktx2")
+        case StringHash<uint32_t>(".ktx2"):
         {
             FileHandle* handle = FileCache::LoadFile(path);
             if (handle == nullptr)
             {
                 IERROR("GetTexture failed to load file: " + path.string());
+
+                break;
             }
 
             IDEFER(delete handle);
@@ -626,15 +752,42 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
             {
                 IERROR("GetTexture failed to parse file: " + path.string());
             }
+
+            break;
         }
-        else 
+        default:
         {
             IERROR("GetTexture invalid file extension: " + path.string());
+
+            break;
+        }
         }
     }
 
     asset.DeReq = 0;
-    asset.Flags |= 0b1 << RenderAsset::MarkBit;
+    ISETBIT(asset.Flags, RenderAsset::MarkBit);
 
     return asset.InternalAddress;
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

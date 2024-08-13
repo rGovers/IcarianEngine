@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 using IcarianEngine.Definitions;
 using IcarianEngine.Maths;
 using System;
@@ -23,7 +27,7 @@ namespace IcarianEngine.Rendering.Lighting
         uint m_bufferAddr = uint.MaxValue;
 
         /// <summary>
-        /// Returns true if the object has been disposed
+        /// Determines if the AmbientLight has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -33,8 +37,16 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
+        internal uint InternalAddr
+        {
+            get
+            {
+                return m_bufferAddr;
+            }
+        }
+
         /// <summary>
-        /// Returns the type of light
+        /// The <see cref="IcarianEngine.Rendering.Lighting.LightType" /> of the AmbientLight
         /// </summary>
         public override LightType LightType
         {
@@ -45,7 +57,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Returns the light definition used to create the light
+        /// The Definition used to create the AmbientLight
         /// </summary>
         public AmbientLightDef AmbientLightDef
         {
@@ -56,7 +68,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Render layer the ambient light is on
+        /// Render layer the AmbientLight is on
         /// </summary>
         /// Bitmask of render layers
         public override uint RenderLayer
@@ -78,7 +90,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Color of the ambient light
+        /// Color of the AmbientLight
         /// </summary>
         public override Color Color
         {
@@ -99,7 +111,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Intensity of the ambient light
+        /// Intensity of the AmbientLight
         /// </summary>
         public override float Intensity
         {
@@ -120,18 +132,6 @@ namespace IcarianEngine.Rendering.Lighting
 
                     SetBuffer(m_bufferAddr, buffer);
                 }
-            }
-        }
-
-        /// <summary>
-        /// Returns the shadow maps used by the light
-        /// </summary>
-        /// Unused for ambient lights
-        public override IEnumerable<IRenderTexture> ShadowMaps
-        {
-            get
-            {
-                return null;
             }
         }
 
@@ -158,10 +158,6 @@ namespace IcarianEngine.Rendering.Lighting
             }
         }
 
-        ~AmbientLight()
-        {
-            Dispose(false);
-        }
         /// <summary>
         /// Disposes of the object
         /// </summary>
@@ -172,9 +168,9 @@ namespace IcarianEngine.Rendering.Lighting
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// Called when the object is disposed
+        /// Called when the object is Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">True if the object is being disposed, false if it is being finalized</param>
+        /// <param name="a_disposing">Determines if the AmibentLight is being Disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_bufferAddr != uint.MaxValue)
@@ -195,5 +191,31 @@ namespace IcarianEngine.Rendering.Lighting
                 Logger.IcarianError("Multiple AmbientLight Dispose");
             }
         }
+        ~AmbientLight()
+        {
+            Dispose(false);
+        }
     }
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

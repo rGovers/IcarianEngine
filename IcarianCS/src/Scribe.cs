@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Xml;
@@ -52,15 +56,15 @@ namespace IcarianEngine
                 string fontpath = null;
                 foreach (XmlAttribute att in root.Attributes)
                 {
-                    switch (att.Name)
+                    switch (att.Name.ToLower())
                     {
-                    case "Language":
+                    case "language":
                     {
                         language = att.Value;
 
                         break;
                     }
-                    case "Font":
+                    case "font":
                     {
                         fontpath = att.Value;
 
@@ -83,20 +87,27 @@ namespace IcarianEngine
 
                 if (language.ToLower() == "default")
                 {
-                    foreach (XmlElement e in root.ChildNodes)
+                    foreach (XmlNode node in root.ChildNodes)
                     {
-                        string name = e.Name;
+                        XmlElement element = node as XmlElement;
+                        if (element == null)
+                        {
+                            continue;
+                        }
+
+                        string name = element.Name;
                         if (!string.IsNullOrWhiteSpace(name))
                         {
                             if (Exists(name) == 0)
                             {
-                                string text = e.InnerText;
+                                string text = element.InnerText;
                                 if (text == null)
                                 {
                                     text = string.Empty;
                                 }
 
-                                SetString(name, e.InnerText);
+                                SetString(name, element.InnerText);
+
                                 if (font != null)
                                 {
                                     SetFont(name, font.BufferAddr);
@@ -105,24 +116,31 @@ namespace IcarianEngine
                         }
                         else
                         {
-                            Logger.IcarianWarning($"Invalid key name in scribe file at {a_path}");
+                            Logger.IcarianWarning($"Invalid key name in Scribe file at {a_path}");
                         }
                     }
                 }
                 else if (language.ToLower() == GetInternalLanguage().ToLower())
                 {
-                    foreach (XmlElement e in root.ChildNodes)
+                    foreach (XmlNode node in root.ChildNodes)
                     {
-                        string name = e.Name;
+                        XmlElement element = node as XmlElement;
+                        if (element == null)
+                        {
+                            continue;
+                        }
+
+                        string name = element.Name;
                         if (!string.IsNullOrWhiteSpace(name))
                         {
-                            string text = e.InnerText;
+                            string text = element.InnerText;
                             if (text == null)
                             {
                                 text = string.Empty;
                             }
 
                             SetString(name, text);
+
                             if (font != null)
                             {
                                 SetFont(name, font.BufferAddr);
@@ -130,7 +148,7 @@ namespace IcarianEngine
                         }
                         else
                         {
-                            Logger.IcarianWarning($"Invalid key name in scribe file at {a_path}");
+                            Logger.IcarianWarning($"Invalid key name in Scribe file at {a_path}");
                         }
                     }
                 }
@@ -182,3 +200,25 @@ namespace IcarianEngine
         }
     }
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

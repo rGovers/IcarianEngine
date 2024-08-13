@@ -1,14 +1,17 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #pragma once
 
 #include "DataTypes/TLockArray.h"
 
 #include <cstdlib>
 #include <cstring>
-#include <mutex>
-#include <shared_mutex>
 #include <vector>
 
 #include "DataTypes/Array.h"
+#include "DataTypes/ThreadGuard.h"
 
 // Something bout this class causes debuggers to freak out and break on phantom bits of code and language servers to show errors when it works fine?
 // Hopefully it is just a bug in the tools or my particular configuration and not the code
@@ -21,15 +24,15 @@ class TNCArrayBase
 private:
     constexpr static uint32_t StateValBitSize = sizeof(StateVal) * 8;
 
-    uint32_t  m_size;
-    StateVal* m_state;
-    T*        m_data;
+    StateVal*      m_state;
+    T*             m_data;
+    uint32_t       m_size;
 
-    std::shared_mutex m_mutex;
+    SharedSpinLock m_lock;
 
     inline void DestroyData()
     {
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
             for (uint32_t i = 0; i < m_size; ++i)
             {
@@ -55,17 +58,14 @@ public:
         m_data(nullptr) { }
     TNCArrayBase(const TNCArrayBase& a_other)
     {
-        const std::unique_lock<std::shared_mutex> otherG = std::unique_lock<std::shared_mutex>(a_other.m_mutex);
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         m_size = a_other.m_size;
         const uint32_t stateSize = m_size / StateValBitSize + 1;
 
-        m_data = (T*)malloc(sizeof(T) * m_size);
-        m_state = (StateVal*)malloc(sizeof(StateVal) * stateSize);
-
-        memset(m_data, 0, sizeof(T) * m_size);
-        memset(m_state, 0, sizeof(StateVal) * stateSize);
+        m_data = (T*)calloc(m_size, sizeof(T));
+        m_state = (StateVal*)calloc(stateSize, sizeof(StateVal));
 
         for (uint32_t i = 0; i < stateSize; ++i)
         {
@@ -85,28 +85,26 @@ public:
     }
     TNCArrayBase(TNCArrayBase&& a_other)
     {
-        const std::unique_lock<std::shared_mutex> otherG = std::unique_lock<std::shared_mutex>(a_other.m_mutex);
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
-
+        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
+        const ThreadGuard g = ThreadGuard(m_lock);
+        
         m_size = a_other.m_size;
         m_state = a_other.m_state;
         m_data = a_other.m_data;
+
         a_other.m_size = 0;
         a_other.m_state = nullptr;
         a_other.m_data = nullptr;
     }
     TNCArrayBase(const T* a_data, uint32_t a_size)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         m_size = a_size;
         const uint32_t stateSize = m_size / StateValBitSize + 1;
 
-        m_data = (T*)malloc(sizeof(T) * m_size);
-        m_state = (StateVal*)malloc(sizeof(StateVal) * stateSize);
-
-        memset(m_data, 0, sizeof(T) * m_size);
-        memset(m_state, 0, sizeof(StateVal) * stateSize); 
+        m_data = (T*)calloc(m_size, sizeof(T));
+        m_state = (StateVal*)calloc(stateSize, sizeof(StateVal));
 
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -119,16 +117,14 @@ public:
     }
     TNCArrayBase(const T* a_start, const T* a_end)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         m_size = a_end - a_start;
         const uint32_t stateSize = m_size / StateValBitSize + 1;
 
-        m_data = (T*)malloc(sizeof(T) * m_size);
-        m_state = (StateVal*)malloc(sizeof(StateVal) * stateSize);
+        m_data = (T*)calloc(m_size, sizeof(T));
+        m_state = (StateVal*)calloc(stateSize, sizeof(StateVal));
 
-        memset(m_data, 0, sizeof(T) * m_size);
-        memset(m_state, 0, sizeof(StateVal) * stateSize);
 
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -141,16 +137,13 @@ public:
     }
     explicit TNCArrayBase(const std::vector<T>& a_vec)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         m_size = (uint32_t)a_vec.size();
         const uint32_t stateSize = m_size / StateValBitSize + 1;
 
-        m_data = (T*)malloc(sizeof(T) * m_size);
-        m_state = (StateVal*)malloc(sizeof(StateVal) * stateSize);
-
-        memset(m_data, 0, sizeof(T) * m_size);
-        memset(m_state, 0, sizeof(StateVal) * stateSize);
+        m_data = (T*)calloc(m_size, sizeof(T));
+        m_state = (StateVal*)calloc(stateSize, sizeof(StateVal));
 
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -163,7 +156,7 @@ public:
     }
     ~TNCArrayBase()
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         if (m_data != nullptr)
         {
@@ -176,8 +169,8 @@ public:
 
     TNCArrayBase& operator =(const TNCArrayBase& a_other)
     {
-        const std::unique_lock<std::shared_mutex> otherG = std::unique_lock<std::shared_mutex>(a_other.m_mutex);
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         if (m_data != nullptr)
         {
@@ -190,11 +183,8 @@ public:
         m_size = a_other.m_size;
         const uint32_t stateSize = m_size / StateValBitSize + 1;
         
-        m_data = (T*)malloc(sizeof(T) * m_size);
-        m_state = (StateVal*)malloc(sizeof(StateVal) * stateSize);
-
-        memset(m_data, 0, sizeof(T) * m_size);
-        memset(m_state, 0, sizeof(StateVal) * stateSize);
+        m_data = (T*)calloc(m_size, sizeof(T));
+        m_state = (StateVal*)calloc(stateSize, sizeof(StateVal));
 
         for (uint32_t i = 0; i < stateSize; ++i)
         {
@@ -217,13 +207,13 @@ public:
 
     Array<T> ToArray()
     {
-        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         return Array<T>(m_data, m_size);
     }
     Array<bool> ToStateArray()
     {
-        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         Array<bool> a;
         a.Reserve(m_size);
@@ -239,7 +229,7 @@ public:
     }
     Array<T> ToActiveArray()
     {
-        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         Array<T> a;
         a.Reserve(m_size);
@@ -259,13 +249,13 @@ public:
 
     std::vector<T> ToVector()
     {
-        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         return std::vector<T>(m_data, m_data + m_size);
     }
     std::vector<bool> ToStateVector()
     {
-        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         std::vector<bool> vec;
         vec.reserve(m_size);
@@ -281,7 +271,7 @@ public:
     }
     std::vector<T> ToActiveVector()
     {
-        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         std::vector<T> vec;
         vec.reserve(m_size);
@@ -301,7 +291,7 @@ public:
 
     TLockArray<T> ToLockArray() 
     {
-        TLockArray<T> a = TLockArray<T>(m_mutex);
+        TLockArray<T> a = TLockArray<T>(m_lock);
         
         a.SetData(m_data, m_size);
 
@@ -309,17 +299,13 @@ public:
     }
     TReadLockArray<T> ToReadLockArray()
     {
-        TReadLockArray<T> a = TReadLockArray<T>(m_mutex);
+        TReadLockArray<T> a = TReadLockArray<T>(m_lock);
 
         a.SetData(m_data, m_size);
 
         return a;
     }
 
-    inline std::shared_mutex& Lock()
-    {
-        return m_mutex;
-    }
     constexpr uint32_t Size() const
     {
         return m_size;
@@ -331,7 +317,15 @@ public:
 
     inline bool Exists(uint32_t a_addr)
     {
-        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+
+        if constexpr (std::is_pointer<T>())
+        {
+            if (m_data[a_addr] == nullptr)
+            {
+                return false;
+            }
+        }
 
         const uint32_t stateIndex = a_addr / StateValBitSize;
         const uint32_t stateOffset = a_addr % StateValBitSize;
@@ -343,13 +337,13 @@ public:
 
     inline T& operator [](uint32_t a_index)
     {
-        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         return m_data[a_index];
     }
     void LockSet(uint32_t a_index, const T& a_value)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         const uint32_t stateIndex = a_index / StateValBitSize;
         const uint32_t stateOffset = a_index % StateValBitSize;
@@ -360,7 +354,7 @@ public:
 
     void Push(const T& a_data)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -384,17 +378,16 @@ public:
         if (oldStateSize != newStateSize)
         {
             m_state = (StateVal*)realloc(m_state, sizeof(StateVal) * newStateSize);
-            memset((char*)m_state + oldStateSize * sizeof(StateVal), 0, sizeof(StateVal));
+            memset(m_state + oldStateSize, 0, sizeof(StateVal));
         }
         else if (m_state == nullptr)
         {
-            m_state = (StateVal*)malloc(sizeof(StateVal) * newStateSize);
-            memset(m_state, 0, sizeof(StateVal) * newStateSize);
+            m_state = (StateVal*)calloc(newStateSize, sizeof(StateVal));
         }
 
         // Huh sometimes pays to read the docs apparenty realloc is fine with null pointers
         m_data = (T*)realloc(m_data, sizeof(T) * newSize);
-        memset((char*)m_data + m_size * sizeof(T), 0, sizeof(T));
+        memset(m_data + m_size, 0, sizeof(T));
 
         const uint32_t stateIndex = m_size / StateValBitSize;
         const uint32_t stateOffset = m_size % StateValBitSize;
@@ -404,7 +397,7 @@ public:
     }
     uint32_t PushVal(const T& a_data)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -428,17 +421,16 @@ public:
         if (oldStateSize != newStateSize)
         {
             m_state = (StateVal*)realloc(m_state, sizeof(StateVal) * newStateSize);
-            memset(((char*)m_state) + oldStateSize * sizeof(StateVal), 0, sizeof(StateVal));
+            memset(m_state + oldStateSize, 0, sizeof(StateVal));
         }
         else if (m_state == nullptr) 
         {
-            m_state = (StateVal*)malloc(sizeof(StateVal) * newStateSize);
-            memset(m_state, 0, sizeof(StateVal) * newStateSize);
+            m_state = (StateVal*)calloc(newStateSize, sizeof(StateVal));
         }
 
         // Huh sometimes pays to read the docs apparenty realloc is fine with null pointers
         m_data = (T*)realloc(m_data, sizeof(T) * newSize);
-        memset((char*)m_data + m_size * sizeof(T), 0, sizeof(T));
+        memset(m_data + m_size, 0, sizeof(T));
 
         const uint32_t stateIndex = m_size / StateValBitSize;
         const uint32_t stateOffset = m_size % StateValBitSize;
@@ -462,7 +454,7 @@ public:
 
     void Erase(uint32_t a_index)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         const uint32_t stateIndex = a_index / StateValBitSize;
         const uint32_t stateOffset = a_index % StateValBitSize;
@@ -471,7 +463,7 @@ public:
         {
             m_state[stateIndex] &= ~(0b1 << stateOffset);
 
-            if constexpr (std::is_destructible<T>())
+            if constexpr (!std::is_trivially_destructible<T>())
             {
                 (&(m_data[a_index]))->~T();
             }
@@ -481,7 +473,7 @@ public:
     }
     void Erase(uint32_t a_start, uint32_t a_end)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         for (uint32_t i = a_start; i < a_end; ++i)
         {
@@ -492,7 +484,7 @@ public:
             {
                 m_state[stateIndex] &= ~(0b1 << stateOffset);
 
-                if constexpr (std::is_destructible<T>())
+                if constexpr (!std::is_trivially_destructible<T>())
                 {
                     (&(m_data[i]))->~T();
                 }
@@ -504,7 +496,7 @@ public:
 
     inline void Clear()
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         DestroyData();
 
@@ -515,3 +507,25 @@ public:
 
 template<typename T>
 using TNCArray = TNCArrayBase<T, uint8_t>;
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

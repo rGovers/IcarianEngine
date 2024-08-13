@@ -1,9 +1,11 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #pragma once
 
 #include <cstring>
 #include <cstdlib>
-#include <mutex>
-#include <shared_mutex>
 #include <vector>
 
 #include "DataTypes/Array.h"
@@ -16,13 +18,13 @@ template<typename T>
 class TArray
 {
 private:
-    std::shared_mutex m_mutex;
-    uint32_t          m_size;
-    T*                m_data;
+    T*             m_data;
+    uint32_t       m_size;
+    SharedSpinLock m_lock;
 
     inline void DestroyData()
     {
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
             for (uint32_t i = 0; i < m_size; ++i)
             {
@@ -39,8 +41,8 @@ public:
         m_data(nullptr) { }
     TArray(const TArray& a_other)
     {
-        const std::unique_lock<std::shared_mutex> otherG = std::unique_lock<std::shared_mutex>(a_other.m_mutex);
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         m_size = a_other.m_size;
         const uint32_t aSize = sizeof(T) * m_size;
@@ -49,22 +51,21 @@ public:
     }
     TArray(TArray&& a_other)
     {
-        const std::unique_lock<std::shared_mutex> otherG = std::unique_lock<std::shared_mutex>(a_other.m_mutex);
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         m_size = a_other.m_size;
         m_data = a_other.m_data;
+
         a_other.m_size = 0;
         a_other.m_data = nullptr;
     }
     TArray(const T* a_data, uint32_t a_size)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         m_size = a_size;
-        const uint32_t aSize = sizeof(T) * m_size;
-        m_data = (T*)malloc(aSize);
-        memset(m_data, 0, aSize);
+        m_data = (T*)calloc(m_size, sizeof(T));
         for (uint32_t i = 0; i < m_size; ++i)
         {
             m_data[i] = a_data[i];
@@ -72,12 +73,12 @@ public:
     }
     TArray(const T* a_start, const T* a_end)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
         
         const uint32_t aSize = a_end - a_start;
+
         m_size = aSize / sizeof(T);
-        m_data = (T*)malloc(aSize);
-        memset(m_data, 0, aSize);
+        m_data = (T*)calloc(m_size, sizeof(T));
         for (uint32_t i = 0; i < m_size; ++i)
         {
             m_data[i] = a_start[i];
@@ -85,7 +86,7 @@ public:
     }
     explicit TArray(const std::vector<T>& a_vec)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         m_size = (uint32_t)a_vec.size();
         const uint32_t aSize = sizeof(T) * m_size;
@@ -98,7 +99,7 @@ public:
     }
     ~TArray()
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         if (m_data != nullptr)
         {
@@ -110,8 +111,8 @@ public:
 
     TArray& operator =(const TArray& a_other) 
     {
-        const std::unique_lock<std::shared_mutex> otherG = std::unique_lock<std::shared_mutex>(a_other.m_mutex);
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         if (m_data != nullptr)
         {
@@ -121,9 +122,7 @@ public:
         }
 
         m_size = a_other.m_size;
-        const uint32_t aSize = m_size * sizeof(T);
-        m_data = (T*)malloc(aSize);
-        memset(m_data, 0, aSize);
+        m_data = (T*)calloc(m_size, sizeof(T));
         for (uint32_t i = 0; i < m_size; ++i)
         {
             m_data[i] = a_other.m_data[i];
@@ -134,20 +133,20 @@ public:
 
     Array<T> ToArray()
     {
-        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         return Array<T>(m_data, m_size);
     }
     std::vector<T> ToVector() 
     {
-        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         return std::vector<T>(m_data, m_data + m_size);
     }
 
     TLockArray<T> ToLockArray()
     {
-        TLockArray<T> a = TLockArray<T>(m_mutex);
+        TLockArray<T> a = TLockArray<T>(m_lock);
 
         a.SetData(m_data, m_size);
 
@@ -155,17 +154,18 @@ public:
     }
     TReadLockArray<T> ToReadLockArray()
     {
-        TReadLockArray<T> a = TReadLockArray<T>(m_mutex);
+        TReadLockArray<T> a = TReadLockArray<T>(m_lock);
 
         a.SetData(m_data, m_size);
 
         return a;
     }
 
-    inline std::shared_mutex& Lock()
+    SharedSpinLock& SpinLock()
     {
-        return m_mutex;
+        return m_lock;
     }
+
     constexpr uint32_t Size() const
     {
         return m_size;
@@ -181,98 +181,69 @@ public:
 
     inline T& operator [](uint32_t a_index)
     {
-        const std::shared_lock<std::shared_mutex> g = std::shared_lock<std::shared_mutex>(m_mutex);
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         return m_data[a_index];
     }
     inline void LockSet(uint32_t a_index, const T& a_value)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         m_data[a_index] = a_value;
     }
 
     inline void Push(const T& a_data)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         UPush(a_data);
     }
     void UPush(const T& a_data)
     {
-        const uint32_t aSize = (m_size + 1) * sizeof(T);
-        T* dat = (T*)malloc(aSize);
-        memset(dat, 0, aSize);
-        if (m_data != nullptr)
-        {   
-            memcpy(dat, m_data, m_size * sizeof(T));
+        const uint32_t newSize = m_size + 1;
+        m_data = (T*)realloc(m_data, newSize * sizeof(T));
+        memset(m_data + m_size, 0, sizeof(T));
 
-            free(m_data);
-        }
-
-        dat[m_size++] = a_data;
-        
-        m_data = dat;
+        m_data[m_size++] = a_data;
     }
 
     inline uint32_t PushVal(const T& a_data)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         return UPushVal(a_data);
     }
     uint32_t UPushVal(const T& a_data)
     {
-        const uint32_t aSize = (m_size + 1) * sizeof(T);
-        T* dat = (T*)malloc(aSize);
-        memset(dat, 0, aSize);
-        if (m_data != nullptr)
-        {
-            memcpy(dat, m_data, m_size * sizeof(T));
-
-            free(m_data);
-        }
-
-        dat[m_size] = a_data;
-
-        m_data = dat;
+        const uint32_t newSize = m_size + 1;
+        m_data = (T*)realloc(m_data, newSize * sizeof(T));
+        memset(m_data + m_size, 0, sizeof(T));
+        m_data[m_size] = a_data;
 
         return m_size++;
     }
     inline void PushVals(const T& a_data, uint32_t a_count)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         return UPushVals(a_data, a_count);
     }
     void UPushVals(const T& a_data, uint32_t a_count)
     {
-        const uint32_t aSize = (m_size + a_count) * sizeof(T);
-        T* dat = (T*)malloc(aSize);
-        memset(dat, 0, aSize);
-        if (m_data != nullptr)
-        {
-            memcpy(dat, m_data, m_size * sizeof(T));
+        const uint32_t newSize = m_size + a_count;
+        m_data = (T*)realloc(m_data, newSize);
+        memset(m_data + m_size, 0, a_count * sizeof(T));
 
-            free(m_data);
-        }
-
-        for (uint32_t i = 0; i < a_count; ++i)
-        {
-            dat[m_size + i] = a_data;
-        }
-
-        m_data = dat;
         m_size += a_count;
     }
 
     T Pop()
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
         
         T dat = m_data[--m_size];
 
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
             (&(m_data[m_size]))->~T();
         }
@@ -281,29 +252,24 @@ public:
     }
     inline void Erase(uint32_t a_index)
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         UErase(a_index);
     }
     void UErase(uint32_t a_index)
     {
-        constexpr uint32_t Stride = sizeof(T);
+        const uint32_t newSize = m_size - 1;
 
-        const uint32_t aSize = (m_size - 1) * Stride;
-
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
             (&(m_data[a_index]))->~T();
         }
 
-        const uint32_t offset = a_index * Stride;
-
-        T* dat = (T*)malloc(aSize);
-        memset(dat, 0, aSize);
+        T* dat = (T*)calloc(m_size, sizeof(T));
         if (m_data != nullptr)
         {
-            memcpy(dat, m_data, offset);
-            memcpy(((char*)dat) + offset, ((char*)m_data) + ((a_index + 1) * Stride), (m_size - a_index - 1) * Stride);
+            memcpy(dat, m_data, a_index * sizeof(T));
+            memcpy(dat + a_index, m_data + (a_index + 1), (m_size - a_index - 1) * sizeof(T));
 
             free(m_data);
         }
@@ -313,15 +279,13 @@ public:
     }
     void Erase(uint32_t a_start, uint32_t a_end)
     {
-        constexpr uint32_t Stride = sizeof(T);
-
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         const uint32_t diff = a_end - a_start;
 
-        const uint32_t aSize = (m_size - diff) * Stride;
+        const uint32_t newSize = m_size - diff;
 
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
             for (uint32_t i = a_start; i < a_end; ++i)
             {
@@ -329,14 +293,11 @@ public:
             }
         }
 
-        const uint32_t offset = a_start * Stride;
-
-        T* dat = (T*)malloc(aSize);
-        memset(dat, 0, aSize);
+        T* dat = (T*)calloc(newSize, sizeof(T));
         if (m_data != nullptr)
         {
-            memcpy(dat, m_data, offset);
-            memcpy(((char*)dat) + offset, ((char*)m_data) + ((a_end + 1) * Stride), (m_size - a_start - diff) * Stride);
+            memcpy(dat, m_data, a_start * sizeof(T));
+            memcpy(dat + a_start, m_data + (a_end + 1), (m_size - a_start - diff) * sizeof(T));
 
             free(m_data);
         }
@@ -347,7 +308,7 @@ public:
 
     inline void Clear()
     {
-        const std::unique_lock<std::shared_mutex> g = std::unique_lock<std::shared_mutex>(m_mutex);
+        const ThreadGuard g = ThreadGuard(m_lock);
 
         UClear();
     }
@@ -361,3 +322,25 @@ public:
         m_data = nullptr;
     }
 };
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

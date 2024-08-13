@@ -1,0 +1,22 @@
+#version 450
+
+layout(location = 0) in vec2 vUV;
+
+#!pushtexture(0, colorSampler)
+
+#!userbuffer(1, 
+{
+    vec4 Data;
+}, userBuffer)
+
+layout(location = 0) out vec4 fragColor;
+
+void main()
+{
+    vec4 color = texture(colorSampler, vUV);
+
+    vec3 m = vec3(1.0) - exp(-color.xyz * userBuffer.Data.x);
+    vec3 g = pow(m, vec3(1.0 / userBuffer.Data.y));
+
+    fragColor = vec4(g.xyz, 1.0);
+}

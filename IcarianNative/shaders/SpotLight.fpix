@@ -13,6 +13,44 @@ layout(location = 0) in vec2 vUV;
 
 layout(location = 0) out vec4 fragColor;
 
+const float pi = 3.14159265359;
+
+vec3 FreS(float a_cos, vec3 a_f0)
+{
+    return a_f0 + (1.0 - a_f0) * pow(clamp(1.0 - a_cos, 0.0, 1.0), 5.0);
+}
+
+float DistGGX(vec3 a_n, vec3 a_h, float a_rough)
+{
+    float r2 = a_rough * a_rough;
+    float r4 = r2 * r2;
+    float d = max(dot(a_n, a_h), 0.0);
+    float d2 = d * d;
+
+    float de = (d2 * (r4 - 1.0) + 1.0);
+    float s = pi * de * de;
+
+    return r4 / s;
+}
+float SchGGX(float a_d, float a_rough)
+{
+    float r = a_rough + 1.0;
+    float k = (r * r) / 8.0;
+
+    float de = a_d * (1.0 - k) + k;
+
+    return a_d / de;
+}
+float Smi(vec3 a_n, vec3 a_v, vec3 a_l, float a_rough)
+{
+    float dV = max(dot(a_n, a_v), 0.0);
+    float dL = max(dot(a_n, a_l), 0.0);
+    float gxA = SchGGX(dV, a_rough);
+    float gxB = SchGGX(dL, a_rough);
+
+    return gxA * gxB;
+}
+
 void main()
 {
     vec4 normal = texture(normalSampler, vUV);
@@ -23,17 +61,21 @@ void main()
     
     vec4 color = texture(colorSampler, vUV);
     vec4 spec = texture(specSampler, vUV);
-    float d = texture(depthSampler, vUV).x;
+    float depth = texture(depthSampler, vUV).x;
 
-    vec4 cP = vec4(vUV * 2.0 + -1.0, d, 1.0);
+    vec4 cP = vec4(vUV * 2.0 + -1.0, depth, 1.0);
     vec4 vP = camBuffer.InvProj * cP;
     vP /= vP.w;
     vec4 mP = camBuffer.InvView * vP;
 
-    vec3 cF = camBuffer.View[2].xyz;
+    vec3 p = camBuffer.InvView[3].xyz;
+    vec3 cV = normalize(p - mP.xyz);
+
+    float rough = spec.x;
+    float metal = spec.y;
+    float invMetal = 1.0 - metal;
 
     vec4 finalColor = vec4(0.0, 0.0, 0.0, 0.0);
-
     for (int i = 0; i < spotLightBuffer.Count; i++)
     {
         vec3 lP = spotLightBuffer.objects[i].LightPos.xyz;
@@ -41,27 +83,41 @@ void main()
         vec4 lCr = spotLightBuffer.objects[i].LightColor.xyzw;
         vec3 lCa = spotLightBuffer.objects[i].CutoffAngle.xyz;
 
-        vec3 lDir = lP - mP.xyz;
-        float dL = length(lDir);
-        lDir /= dL;
+        vec3 vD = lP - mP.xyz;
+        float lDL = length(vD);
+        vD /= lDL;
 
-        float t = dot(lD.xyz, lDir);
+        vec3 h = normalize(lD.xyz + cV);
+        float dV = max(dot(h, cV), 0.0);
+        float dS = max(dot(normal.xyz, cV), 0.0);
+        float dL = max(dot(normal.xyz, lD.xyz), 0.0);
 
         float e = lCa.x - lCa.y;
-        float iV = clamp((t - lCa.y) / e, 0.0, 1.0);
+        float sDV = dot(lD.xyz, vD);
+        float iV = clamp((sDV - lCa.y) / e, 0.0, 1.0);
+        float dI = max((lCa.z - lDL) / lCa.z, 0.0);
+        float dI2 = dI * dI;
 
-        float l = max(dot(lDir, normal.xyz), 0.0);
+        // Light
+        vec3 lC = color.xyz * dL * lCr.xyz * lD.w;
 
-        vec3 hD = normalize(lDir + cF);
-        float sA = max(dot(hD, normal.xyz), 0.0);
-        float s = max(pow(sA, spec.w), 0.0);
+        // Metal
+        vec3 f0 = mix(vec3(0.04), color.xyz, metal);
+        vec3 f = FreS(dV, f0);
 
-        float dI = max((lCa.z - dL) / lCa.z, 0.0);
+        // Rough
+        float ndf = DistGGX(normal.xyz, h, rough);
+        float g = Smi(normal.xyz, cV, lD.xyz, rough);
+        vec3 nu = ndf * g * f;
+        float de = 4.0 * dS * dL + 0.0001;
+        vec3 s = nu / de;
 
-        vec3 lC = color.xyz * l * lCr.xyz * lD.w * iV * dI;
-        vec3 sC = spec.xyz * s * lCr.xyz * lD.w * iV * dI;
+        // Reflectance
+        vec3 kD = (vec3(1.0) - f) * invMetal;
 
-        finalColor += vec4(lC + sC, 1.0);
+        vec3 lo = kD * color.xyz / pi + s;
+
+        finalColor += vec4(lC * lo * iV * dI2, 1.0);
     }
 
     fragColor = vec4(finalColor.xyz, 1.0);

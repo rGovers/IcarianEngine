@@ -1,14 +1,36 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 #include <unordered_map>
-#include <vector>
+
+#include "DataTypes/Array.h"
+#include "DataTypes/TArray.h"
+#include "DataTypes/TNCArray.h"
+#include "DataTypes/TStatic.h"
+#include "Rendering/CameraBuffer.h"
+#include "Rendering/MaterialRenderStack.h"
+#include "Rendering/MeshRenderBuffer.h"
+#include "Rendering/SkinnedMeshRenderBuffer.h"
+#include "Rendering/TextureData.h"
+#include "Rendering/UI/CanvasRendererBuffer.h"
+#include "Rendering/Vulkan/VulkanCommandBuffer.h"
+
+#include "EngineAmbientLightInteropStructures.h"
+#include "EngineDirectionalLightInteropStructures.h"
+#include "EngineMaterialInteropStructures.h"
+#include "EnginePointLightInteropStructures.h"
+#include "EngineSpotLightInteropStructures.h"
+#include "EngineTextureSamplerInteropStructures.h"
 
 struct CanvasBuffer;
 
-class Font;
 class RuntimeFunction;
 class VulkanDepthCubeRenderTexture;
 class VulkanDepthRenderTexture;
@@ -25,31 +47,14 @@ class VulkanSwapchain;
 class VulkanTexture;
 class VulkanUniformBuffer;
 class VulkanVertexShader;
-
-#include "DataTypes/Array.h"
-#include "DataTypes/TArray.h"
-#include "DataTypes/TNCArray.h"
-#include "DataTypes/TStatic.h"
-#include "Rendering/CameraBuffer.h"
-#include "Rendering/MaterialRenderStack.h"
-#include "Rendering/MeshRenderBuffer.h"
-#include "Rendering/SkinnedMeshRenderBuffer.h"
-#include "Rendering/TextureData.h"
-#include "Rendering/UI/CanvasRendererBuffer.h"
-
-#include "EngineAmbientLightInteropStructures.h"
-#include "EngineDirectionalLightInteropStructures.h"
-#include "EngineMaterialInteropStructures.h"
-#include "EnginePointLightInteropStructures.h"
-#include "EngineSpotLightInteropStructures.h"
-#include "EngineTextureSamplerInteropStructures.h"
+class VulkanVideoTexture;
 
 class VulkanGraphicsEngine
 {
 private:
     friend class VulkanGraphicsEngineBindings;
 
-    static constexpr uint32_t DrawingPassCount = 6;
+    static constexpr uint32_t DrawingPassCount = 7;
 
     VulkanGraphicsEngineBindings*                 m_runtimeBindings;
     VulkanSwapchain*                              m_swapchain;
@@ -64,17 +69,19 @@ private:
     RuntimeFunction*                              m_postShadowLightFunc;
     RuntimeFunction*                              m_preLightFunc;
     RuntimeFunction*                              m_postLightFunc;
+    RuntimeFunction*                              m_preForwardFunc;
+    RuntimeFunction*                              m_postForwardFunc;
     RuntimeFunction*                              m_postProcessFunc;
 
     VulkanRenderEngineBackend*                    m_vulkanEngine;
 
-    std::shared_mutex                             m_pipeLock;
+    SharedSpinLock                                m_pipeLock;
     std::unordered_map<uint64_t, VulkanPipeline*> m_pipelines;
 
-    std::shared_mutex                             m_shadowPipeLock;
+    SharedSpinLock                                m_shadowPipeLock;
     std::unordered_map<uint64_t, VulkanPipeline*> m_shadowPipelines;
 
-    std::shared_mutex                             m_cubeShadowPipeLock;
+    SharedSpinLock                                m_cubeShadowPipeLock;
     std::unordered_map<uint64_t, VulkanPipeline*> m_cubeShadowPipelines;
 
     TStatic<VulkanRenderCommand>                  m_renderCommands;
@@ -89,6 +96,7 @@ private:
 
     TNCArray<VulkanModel*>                        m_models;
     TNCArray<VulkanTexture*>                      m_textures;
+    TNCArray<VulkanVideoTexture*>                 m_videoTextures;
 
     TNCArray<VulkanRenderTexture*>                m_renderTextures;
     TNCArray<VulkanDepthCubeRenderTexture*>       m_depthCubeRenderTextures;
@@ -105,31 +113,34 @@ private:
     TNCArray<PointLightBuffer>                    m_pointLights;
     TNCArray<SpotLightBuffer>                     m_spotLights;
 
-    TArray<Font*>                                 m_fonts;
-
     TArray<CameraBuffer>                          m_cameraBuffers;
     Array<VulkanUniformBuffer*>                   m_cameraUniforms;
 
     VulkanUniformBuffer*                          m_timeUniform;
 
+    vk::CommandPool                               m_decodePool[VulkanFlightPoolSize];
+    vk::CommandBuffer                             m_decodeBuffer[VulkanFlightPoolSize];
+
     Array<vk::CommandPool>                        m_commandPool[VulkanFlightPoolSize];
     Array<vk::CommandBuffer>                      m_commandBuffers[VulkanFlightPoolSize];
     
-    TArray<CanvasRendererBuffer>                  m_canvasRenderers;
+    TNCArray<CanvasRendererBuffer>                m_canvasRenderers;
 
     uint32_t                                      m_textUIPipelineAddr;
     uint32_t                                      m_imageUIPipelineAddr;
 
     vk::CommandBuffer StartCommandBuffer(uint32_t a_bufferIndex, uint32_t a_index) const;
 
-    void DrawShadow(const glm::mat4& a_lvp, float a_split, uint32_t a_renderLayer, uint32_t a_renderTexture, bool a_cube, vk::CommandBuffer a_commandBuffer, uint32_t a_index);
+    void Draw(bool a_forward, const CameraBuffer& a_camBuffer, const Frustum& a_frustum, VulkanRenderCommand* a_renderCommand, uint32_t a_frameIndex);
+    void DrawShadow(const glm::mat4& a_lvp, float a_split, const glm::vec2& a_bias, uint32_t a_renderLayer, uint32_t a_renderTexture, bool a_cube, vk::CommandBuffer a_commandBuffer, uint32_t a_index);
 
-    vk::CommandBuffer DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
-    vk::CommandBuffer PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
-    vk::CommandBuffer SpotShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
-    vk::CommandBuffer DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
-    vk::CommandBuffer LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
-    vk::CommandBuffer PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_index);
+    VulkanCommandBuffer DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer SpotShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer DrawPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer LightPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer ForwardPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
+    VulkanCommandBuffer PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
 
     void DrawUIElement(vk::CommandBuffer a_commandBuffer, uint32_t a_addr, const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize, uint32_t a_index);
     
@@ -143,12 +154,12 @@ public:
     // Later me problem
     void Cleanup();
 
-    inline void SetSwapchain(VulkanSwapchain* a_swapchaing)
+    inline void SetSwapchain(VulkanSwapchain* a_swapchain)
     {
-        m_swapchain = a_swapchaing;
+        m_swapchain = a_swapchain;
     }
 
-    std::vector<vk::CommandBuffer> Update(double a_delta, double a_time, uint32_t a_index);
+    Array<VulkanCommandBuffer> Update(double a_delta, double a_time, uint32_t a_index);
 
     uint32_t GenerateFVertexShader(const std::string_view& a_source);
     void DestroyVertexShader(uint32_t a_addr);
@@ -186,14 +197,43 @@ public:
     void DestroyTexture(uint32_t a_addr);
     VulkanTexture* GetTexture(uint32_t a_addr);
 
+    uint32_t GenerateDepthRenderTexture(uint32_t a_width, uint32_t a_height);
+    void DestroyDepthRenderTexture(uint32_t a_addr);
+
     VulkanRenderTexture* GetRenderTexture(uint32_t a_addr);
     VulkanDepthRenderTexture* GetDepthRenderTexture(uint32_t a_addr);
     VulkanDepthCubeRenderTexture* GetDepthCubeRenderTexture(uint32_t a_addr);
 
+    AmbientLightBuffer GetAmbientLight(uint32_t a_addr);
+    DirectionalLightBuffer GetDirectionalLight(uint32_t a_addr);
+    PointLightBuffer GetPointLight(uint32_t a_addr);
+    SpotLightBuffer GetSpotLight(uint32_t a_addr);
+
     uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     void DestroyTextureSampler(uint32_t a_addr);
     TextureSamplerBuffer GetTextureSampler(uint32_t a_addr);
-
-    Font* GetFont(uint32_t a_addr);
 };
+
 #endif
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

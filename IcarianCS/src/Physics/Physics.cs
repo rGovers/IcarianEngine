@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 using IcarianEngine.Maths;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -13,9 +17,17 @@ namespace IcarianEngine.Physics
     public struct RaycastResult
     {
         /// <summary>
+        /// The fraction along the ray
+        /// </summary>
+        public float Fraction;
+        /// <summary>
         /// The position of the hit
         /// </summary>
         public Vector3 Position;
+        /// <summary>
+        /// The normal of the hit
+        /// </summary>
+        public Vector3 Normal;
         /// <summary>
         /// The body that was hit
         /// </summary>
@@ -40,6 +52,34 @@ namespace IcarianEngine.Physics
         }
 
         /// <summary>
+        /// Checks if 2 ObjectLayers can collide
+        /// </summary>
+        /// <param name="a_layerA">The LHS layer. 0-8 range</param>
+        /// <param name="a_layerB">The RHS layer. 0-8 range</param>
+        /// <returns>If the layers can collide</returns>
+        public static bool CanObjectLayersCollide(uint a_layerA, uint a_layerB)
+        {
+            return PhysicsInterop.GetObjectLayerCollision(a_layerA, a_layerB) != 0;
+        }
+        /// <summary>
+        /// Sets if 2 ObjectLayers can collide
+        /// </summary>
+        /// <param name="a_layerA">The LHS layer. 0-8 range</param>
+        /// <param name="a_layerB">The RHS layer. 0-8 range</param>
+        /// <param name="a_state">If the layers can collide or not</param>
+        public static void SetObjectLayerCollision(uint a_layerA, uint a_layerB, bool a_state)
+        {
+            if (a_state)
+            {
+                PhysicsInterop.SetObjectLayerCollision(a_layerA, a_layerB, 1);
+            }
+            else
+            {
+                PhysicsInterop.SetObjectLayerCollision(a_layerA, a_layerB, 0);
+            }
+        }
+
+        /// <summary>
         /// Does a raycast in the physics simulation
         /// </summary>
         /// <param name="a_pos">The starting postion of the ray cast</param>
@@ -60,7 +100,9 @@ namespace IcarianEngine.Physics
 
                 for (int i = 0; i < count; ++i)
                 {
+                    a_hits[i].Fraction = result[i].Fraction;
                     a_hits[i].Position = result[i].Position;
+                    a_hits[i].Normal = result[i].Normal;
                     a_hits[i].Body = PhysicsBody.GetBody(result[i].BodyAddr);
                 }
 
@@ -85,34 +127,27 @@ namespace IcarianEngine.Physics
             if (Raycast(a_pos, a_dir, a_distance, out results))
             {
                 uint count = (uint)results.LongLength;
-                float[] distances = new float[count];
                 a_hits = new RaycastResult[count];
 
                 for (uint i = 0; i < count; ++i)
                 {
-                    Vector3 hitPos = results[i].Position;
-
-                    Vector3 vecTo = hitPos - a_pos;
-                    float dist = vecTo.Magnitude;
+                    float frac = results[i].Fraction;
 
                     for (uint j = 0; j < i; ++j)
                     {
-                        if (dist < distances[j])
+                        if (frac < a_hits[j].Fraction)
                         {
-                            for (uint k = j; k < i; ++k)
+                            for (uint k = i; k > j; --k)
                             {
-                                distances[k + 1] = distances[k];
-                                a_hits[k + 1] = a_hits[k];
+                                a_hits[k] = a_hits[k - 1];
                             }
 
-                            distances[j] = dist;
                             a_hits[j] = results[i];
 
                             goto NextIter;
                         }
                     }
 
-                    distances[i] = dist;
                     a_hits[i] = results[i];
 
                     NextIter:;
@@ -224,3 +259,25 @@ namespace IcarianEngine.Physics
         }
     }
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

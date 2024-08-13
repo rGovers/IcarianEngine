@@ -1,4 +1,9 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Xml;
 
@@ -122,6 +127,7 @@ namespace IcarianEngine.Maths
         /// </summary>
         public float MagnitudeSqr
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
                 return X * X + Y * Y + Z * Z + W * W;
@@ -132,19 +138,14 @@ namespace IcarianEngine.Maths
         /// </summary>
         public float Magnitude
         {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             get
             {
-                return (float)Math.Sqrt(MagnitudeSqr);
+                return Mathf.Sqrt(MagnitudeSqr);
             }
         }
 
-        /// <summary>
-        /// Constructor
-        /// </summary>
-        /// <param name="a_x">X component</param>
-        /// <param name="a_y">Y component</param>
-        /// <param name="a_z">Z component</param>
-        /// <param name="a_w">W component</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Quaternion(float a_x, float a_y, float a_z, float a_w)
         {
             X = a_x;
@@ -152,10 +153,7 @@ namespace IcarianEngine.Maths
             Z = a_z;
             W = a_w;
         }
-        /// <summary>
-        /// Constructor
-        /// </summary>
-        /// <param name="a_vec">Vector to copy</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Quaternion(Quaternion a_other)
         {
             X = a_other.X;
@@ -165,98 +163,142 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Creates a quaternion from direction vectors
+        /// Creates a Quaternion from direction vectors
         /// </summary>
         /// <param name="a_right">Right vector</param>
         /// <param name="a_up">Up vector</param>
         /// <param name="a_forward">Forward vector</param>
         /// <returns>The Quaternion</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion FromDirectionVectors(Vector3 a_right, Vector3 a_up, Vector3 a_forward)
         {
-            float tr = a_right.X + a_up.Y + a_forward.Z;
+            // Credit to glm quaternion
+            // 3 direction vectors are basically a mat3
+            // Someone is gonna throw semantics
+            float xSqrInv = a_right.X - a_up.Y - a_forward.Z;
+            float ySqrInv = a_up.Y - a_right.X - a_forward.Z;
+            float zSqrInv = a_forward.Z - a_right.X - a_up.Y;
+            float wSqrInv = a_right.X + a_up.Y + a_forward.Z;
 
-            if (tr > 0)
+            uint maxIndex = 0;
+            float maxValSqr = wSqrInv;
+            
+            if (xSqrInv > maxValSqr)
             {
-                float s = Mathf.Sqrt(1 + tr) * 2;
-
-                return new Quaternion
-                (
-                    (a_forward.Y - a_up.Z) / s,
-                    (a_right.Z - a_forward.X) / s,
-                    (a_up.X - a_right.Y) / s,
-                    s * 0.25f
-                );
+                maxValSqr = xSqrInv;
+                maxIndex = 1;
             }
-            else if (a_right.X > a_up.Y && a_forward.X > a_forward.Z)
+            if (ySqrInv > maxValSqr)
             {
-                float s = Mathf.Sqrt(1 + a_right.X - a_up.Y - a_forward.Z) * 2;
-
-                return new Quaternion
-                (
-                    s * 0.25f,
-                    (a_right.Y + a_up.X) / s,
-                    (a_right.Z + a_forward.X) / s,
-                    (a_forward.Y - a_up.Z) / s
-                );
+                maxValSqr = ySqrInv;
+                maxIndex = 2;
             }
-            else if (a_up.Y > a_forward.Z)
+            if (zSqrInv > maxValSqr)
             {
-                float s = Mathf.Sqrt(1 + a_up.Y - a_right.X - a_forward.Z) * 2;
-
-                return new Quaternion
-                (
-                    (a_right.Y + a_up.X) / s,
-                    s * 0.25f,
-                    (a_up.Z + a_forward.Y) / s,
-                    (a_right.Z - a_forward.X) / s
-                );
+                maxValSqr = zSqrInv;
+                maxIndex = 3;
             }
 
-            float sV = Mathf.Sqrt(1 + a_forward.Z - a_right.X - a_up.Y) * 2;
+            float val = Mathf.Sqrt(maxValSqr + 1.0f) * 0.5f;
+            float mul = 0.25f / val;
 
-            return new Quaternion
-            (
-                (a_right.Z + a_forward.X) / sV,
-                (a_up.Z + a_forward.Y) / sV,
-                sV * 0.25f,
-                (a_up.X - a_right.Y) / sV
-            );
+            switch (maxIndex)
+            {
+            case 0:
+            {
+                return new Quaternion
+                (
+                    (a_up.Z - a_forward.Y) * mul,
+                    (a_forward.X - a_right.Z) * mul,
+                    (a_right.Y - a_up.X) * mul,
+                    val
+                );
+            }
+            case 1:
+            {
+                return new Quaternion
+                (
+                    val,
+                    (a_right.Y + a_up.X) * mul,
+                    (a_forward.X + a_right.Z) * mul,
+                    (a_up.Z - a_forward.Y) * mul
+                );
+            }
+            case 2:
+            {
+                return new Quaternion
+                (
+                    (a_right.Y + a_up.X) * mul,
+                    val,
+                    (a_up.Z + a_forward.Y) * mul,
+                    (a_forward.X - a_right.Z) * mul
+                );
+            }
+            case 3:
+            {
+                return new Quaternion
+                (
+                    (a_forward.X + a_right.Z) * mul,
+                    (a_up.Z + a_forward.Y) * mul,
+                    val,
+                    (a_right.Y - a_up.X) * mul
+                );
+            }
+            }
+
+            Logger.IcarianError("Invalid direction vector quaternion");
+
+            return Quaternion.Identity;
         }
         /// <summary>
-        /// Creates a quaternion from a rotation matrix
+        /// Creates a Quaternion from a rotation matrix
         /// </summary>
-        /// <param name="a_mat">The rotation matrix</param>
+        /// <param name="a_mat">The rotation matrix to use</param>
         /// <returns>The Quaternion</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion FromMatrix(Matrix4 a_mat)
         {
             return FromDirectionVectors(a_mat[0].XYZ, a_mat[1].XYZ, a_mat[2].XYZ);
         }
         /// <summary>
-        /// Creates a quaternion from an axis and angle
+        /// Creates a Quaternion from an axis and angle
         /// </summary>
+        /// <param name="a_axis">The axis to use</param>
+        /// <param name="a_angle">The angle to use</param>
+        /// <returns>The Quaternion</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion FromAxisAngle(Vector3 a_axis, float a_angle)
         {
             float halfAngle = a_angle * 0.5f;
 
-            float sin = (float)Math.Sin(halfAngle);
+            float sin = Mathf.Sin(halfAngle);
 
-            return new Quaternion(a_axis.X * sin, a_axis.Y * sin, a_axis.Z * sin, (float)Math.Cos(halfAngle));
+            return new Quaternion(a_axis.X * sin, a_axis.Y * sin, a_axis.Z * sin, Mathf.Cos(halfAngle));
         }
+        /// <summary>
+        /// Creates a Quaternion from euler angles
+        /// </summary>
+        /// <param name="a_euler">The euler angles to use</param>
+        /// <returns>The Quaternion</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion FromEuler(Vector3 a_euler)
         {
             // Not the most efficent but it works and less hair pulling
             return FromAxisAngle(Vector3.UnitX, a_euler.X) * FromAxisAngle(Vector3.UnitY, a_euler.Y) * FromAxisAngle(Vector3.UnitZ, a_euler.Z);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion operator +(Quaternion a_lhs, Quaternion a_rhs)
         {
             return new Quaternion(a_lhs.X + a_rhs.X, a_lhs.Y + a_rhs.Y, a_lhs.Z + a_rhs.Z, a_lhs.W + a_rhs.W);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion operator -(Quaternion a_lhs, Quaternion a_rhs)
         {
             return new Quaternion(a_lhs.X - a_rhs.X, a_lhs.Y - a_rhs.Y, a_lhs.Z - a_rhs.Z, a_lhs.W - a_rhs.W);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion operator *(Quaternion a_lhs, Quaternion a_rhs)
         {
             return new Quaternion
@@ -267,10 +309,18 @@ namespace IcarianEngine.Maths
                 a_lhs.W * a_rhs.W - a_lhs.X * a_rhs.X - a_lhs.Y * a_rhs.Y - a_lhs.Z * a_rhs.Z
             );
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion operator *(Quaternion a_lhs, float a_rhs)
         {
             return new Quaternion(a_lhs.X * a_rhs, a_lhs.Y * a_rhs, a_lhs.Z * a_rhs, a_lhs.W * a_rhs);
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static Quaternion operator /(Quaternion a_lhs, float a_rhs)
+        {
+            return new Quaternion(a_lhs.X / a_rhs, a_lhs.Y / a_rhs, a_lhs.Z / a_rhs, a_lhs.W / a_rhs);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector3 operator *(Quaternion a_lhs, Vector3 a_rhs)
         {
             Vector3 qVec = new Vector3(a_lhs.X, a_lhs.Y, a_lhs.Z);
@@ -279,20 +329,24 @@ namespace IcarianEngine.Maths
 
             return a_rhs + ((c * a_lhs.W) + cc) * 2.0f;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Vector4 operator *(Quaternion a_lhs, Vector4 a_rhs)
         {
             return new Vector4(a_lhs * a_rhs.XYZ, a_rhs.W);
         }
-    
+        
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion operator -(Quaternion a_quat)
         {
             return new Quaternion(-a_quat.X, -a_quat.Y, -a_quat.Z, -a_quat.W);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator ==(Quaternion a_lhs, Quaternion a_rhs)
         {
             return a_lhs.X == a_rhs.X && a_lhs.Y == a_rhs.Y && a_lhs.Z == a_rhs.Z && a_lhs.W == a_rhs.W;
         }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static bool operator !=(Quaternion a_lhs, Quaternion a_rhs)
         {
             return a_lhs.X != a_rhs.X || a_lhs.Y != a_rhs.Y || a_lhs.Z != a_rhs.Z || a_lhs.W != a_rhs.W;
@@ -329,8 +383,9 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Normalizes the quaternion
+        /// Normalizes the Quaternion
         /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Normalize()
         {
             float mag = Magnitude;
@@ -341,10 +396,11 @@ namespace IcarianEngine.Maths
             W /= mag;
         }
         /// <summary>
-        /// Returns a normalized quaternion
+        /// Returns a normalized Quaternion
         /// </summary>
-        /// <param name="a_quat">The quaternion to normalize</param>
-        /// <returns>The normalized quaternion</returns>
+        /// <param name="a_quat">The Quaternion to normalize</param>
+        /// <returns>The normalized Quaternion</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion Normalized(Quaternion a_quat)
         {
             float mag = a_quat.Magnitude;
@@ -356,46 +412,44 @@ namespace IcarianEngine.Maths
         /// Converts the quaternion to a Vector4
         /// </summary>
         /// <returns>The Vector4</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector4 ToVector4()
         {
             return new Vector4(X, Y, Z, W);
         }
 
         /// <summary>
-        /// Converts the quaternion to a rotation matrix
+        /// Converts the Quaternion to a rotation matrix
         /// </summary>
         /// <returns>The rotation matrix</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Matrix4 ToMatrix()
         {
             float sqX = X * X;
             float sqY = Y * Y;
             float sqZ = Z * Z;
-            float sqW = W * W;
 
-            float inv = 1.0f / (sqX + sqY + sqZ + sqW);
+            float qXZ = X * Z;
+            float qXY = X * Y;
+            float qYZ = Y * Z;
+            float qWX = W * X;
+            float qWY = W * Y;
+            float qWZ = W * Z;
 
-            float v1 = X * Y;
-            float v2 = Z * W;
-            float v3 = X * Z;
-            float v4 = Y * W;
-            float v5 = Y * Z;
-            float v6 = X * W;
-
-            Matrix4 mat = new Matrix4
+            return new Matrix4
             (
-                (sqX - sqY - sqZ + sqW) * inv, 2.0f * (v1 - v2) * inv,         2.0f * (v3 + v4) * inv,         0.0f,
-                2.0f * (v1 + v2) * inv,        (-sqX + sqY - sqZ + sqW) * inv, 2.0f * (v5 - v6) * inv,         0.0f,
-                2.0f * (v3 - v4) * inv,        2.0f * (v5 + v6) * inv,         (-sqX - sqY + sqZ + sqW) * inv, 0.0f,
-                0.0f,                          0.0f,                           0.0f,                           1.0f
+                1.0f - 2.0f * (sqY + sqZ), 2.0f * (qXY + qWZ),        2.0f * (qXZ - qWY),        0.0f,
+                2.0f * (qXY - qWZ),        1.0f - 2.0f * (sqX + sqZ), 2.0f * (qYZ + qWX),        0.0f,
+                2.0f * (qXZ + qWY),        2.0f * (qYZ - qWX),        1.0f - 2.0f * (sqX + sqY), 0.0f,
+                0.0f,                      0.0f,                      0.0f,                      1.0f
             );
-
-            return mat;
         }
 
         /// <summary>
-        /// Converts the quaternion to euler angles
+        /// Converts the Quaternion to euler angles
         /// </summary>
         /// <returns>The euler angles</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector3 ToEuler()
         {
             float np = X * Y + Z * W;
@@ -435,11 +489,12 @@ namespace IcarianEngine.Maths
         }
         
         /// <summary>
-        /// Converts the quaternion to an axis angle
+        /// Converts the Quaternion to an axis angle
         /// </summary>
         /// XYZ = Axis
         /// W = Angle
         /// <returns>The axis angle</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public Vector4 ToAxisAngle()
         {
             if (W >= 1)
@@ -460,10 +515,11 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Inverts the quaternion
+        /// Inverts the Quaternion
         /// </summary>
-        /// <param name="a_quat">The quaternion to invert</param>
-        /// <returns>The inverted quaternion</returns>
+        /// <param name="a_quat">The Quaternion to invert</param>
+        /// <returns>The inverted Quaternion</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion Inverse(Quaternion a_quat)
         {
             float mag = a_quat.MagnitudeSqr;
@@ -472,40 +528,88 @@ namespace IcarianEngine.Maths
         }
 
         /// <summary>
-        /// Spherical linear interpolation between two quaternions
+        /// Gets the dot product of two Quaterions
         /// </summary>
-        /// <param name="a_lhs">From quaternion</param>
-        /// <param name="a_rhs">To quaternion</param>
+        /// <param name="a_lhs">Left hand side of the dot product</param>
+        /// <param name="a_rhs">Right hand side of the dot product</param>
+        /// <returns>Dot product of the two Quaterions</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float Dot(Quaternion a_lhs, Quaternion a_rhs)
+        {
+            return a_lhs.X * a_rhs.X + a_lhs.Y * a_rhs.Y + a_lhs.Z * a_rhs.Z + a_lhs.W * a_rhs.W;
+        }
+
+        /// <summary>
+        /// Spherical linear interpolation between two Quaternions
+        /// </summary>
+        /// <param name="a_lhs">From Quaternion</param>
+        /// <param name="a_rhs">To Quaternion</param>
         /// <param name="a_t">The interpolation value</param>
-        /// <returns>The interpolated quaternion</returns>
+        /// <returns>The interpolated Quaternion</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion Slerp(Quaternion a_lhs, Quaternion a_rhs, float a_t)
         {
-            // TODO: Need to fix this
-            // Cant remember off the top of my head so just assuming this works
-            // Seems correct as using the inverse to do a local translation but memory is hazy
-            // Credit: https://en.wikipedia.org/wiki/Slerp
-            Quaternion invQ = Inverse(a_rhs);
+            Quaternion z = a_rhs;
 
-            Quaternion q = a_lhs * invQ;
-            Vector4 sign = new Vector4(Math.Sign(q.X), Math.Sign(q.Y), Math.Sign(q.Z), Math.Sign(q.W));
-            Vector4 abs = new Vector4(Math.Abs(q.X), Math.Abs(q.Y), Math.Abs(q.Z), Math.Abs(q.W));
-            Quaternion powQ = new Quaternion(Mathf.Pow(abs.X, a_t) * sign.X, Mathf.Pow(abs.Y, a_t) * sign.Y, Mathf.Pow(abs.Z, a_t) * sign.Z, Mathf.Pow(abs.W, a_t) * sign.W);
+            float dot = Dot(a_lhs, a_rhs);
+            if (dot < 0.0f)
+            {
+                z = -a_rhs;
+                dot = -dot;
+            }
 
-            return powQ * a_rhs;
+            // Dont mind me screaming in the corner because 1 - float.Epsilon == 1, fuck floating point numbers
+            // NaN are you okay?~ Are you okay, NaN?~
+            // You've been hit by~, You've been struck by~. Float!~ Awo~
+            if (dot > 0.99f)
+            {
+                return Quaternion.Lerp(a_lhs, z, a_t);
+            }
+
+            float a = Mathf.Acos(dot);
+            return (a_lhs * Mathf.Sin((1 - a_t) * a) + z * Mathf.Sin(a_t * a)) / Mathf.Sin(a);
         }
         /// <summary>
-        /// Linear interpolation between two quaternions
+        /// Linear interpolation between two Quaternions
         /// </summary>
-        /// <param name="a_lhs">From quaternion</param>
-        /// <param name="a_rhs">To quaternion</param>
+        /// <param name="a_lhs">From Quaternion</param>
+        /// <param name="a_rhs">To Quaternion</param>
         /// <param name="a_t">The interpolation value</param>
+        /// <returns>The interpolated Quaternion</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static Quaternion Lerp(Quaternion a_lhs, Quaternion a_rhs, float a_t)
         {
             return a_lhs * (1.0f - a_t) + a_rhs * a_t;
         }
 
+        /// @cond SWIZZLE
+
         VEC_SWIZZLE_QUAT_FULL_VEC2
         VEC_SWIZZLE_QUAT_FULL_VEC3
         VEC_SWIZZLE_QUAT_FULL_VEC4
+
+        /// @endcond
     }
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

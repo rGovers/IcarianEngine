@@ -180,51 +180,6 @@ CUBE_CProject BuildGLSLangProject(e_TargetPlatform a_targetPlatform, e_BuildConf
     return project;
 }
 
-CUBE_CProject BuildOGLCompilersProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
-{
-    CUBE_CProject project = { 0 };
-
-    project.Name = CUBE_StackString_CreateC("OGLCompiler");
-    project.Target = CUBE_CProjectTarget_StaticLibrary;
-    project.Language = CUBE_CProjectLanguage_CPP;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
-
-    if (a_configuration == BuildConfiguration_Debug)
-    {
-        CUBE_CProject_AppendDefine(&project, "DEBUG");
-    }
-    else 
-    {
-        CUBE_CProject_AppendDefine(&project, "NDEBUG");
-    }
-
-    CUBE_CProject_AppendSource(&project, "OGLCompilersDLL/InitializeDll.cpp");
-
-    switch (a_configuration)
-    {
-    case BuildConfiguration_Debug:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-g");
-
-        break;
-    }
-    case BuildConfiguration_ReleaseWithDebug:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-g");
-        CUBE_CProject_AppendCFlag(&project, "-O3");
-
-        break;
-    }
-    case BuildConfiguration_Release:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-O3");
-
-        break;
-    }
-    }
-
-    return project;
-}
 CUBE_CProject BuildSPIRVProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
@@ -243,18 +198,25 @@ CUBE_CProject BuildSPIRVProject(e_TargetPlatform a_targetPlatform, e_BuildConfig
         CUBE_CProject_AppendDefine(&project, "NDEBUG");
     }
 
-    CUBE_CProject_AppendIncludePath(&project, ".");
-    CUBE_CProject_AppendIncludePath(&project, "../gen/glslang/include");
+    CUBE_CProject_AppendDefine(&project, "ENABLE_OPT=1");
 
-    CUBE_CProject_AppendSource(&project, "SPIRV/GlslangToSpv.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/InReadableOrder.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/Logger.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/SpvBuilder.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/SpvPostProcess.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/doc.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/SpvTools.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/disassemble.cpp");
-    CUBE_CProject_AppendSource(&project, "SPIRV/CInterface/spirv_c_interface.cpp");
+    CUBE_CProject_AppendIncludePaths(&project, 
+        ".",
+        "External/spirv-tools/include",
+        "../gen/glslang/include"
+    );
+
+    CUBE_CProject_AppendSources(&project, 
+        "SPIRV/GlslangToSpv.cpp",
+        "SPIRV/InReadableOrder.cpp",
+        "SPIRV/Logger.cpp",
+        "SPIRV/SpvBuilder.cpp",
+        "SPIRV/SpvPostProcess.cpp",
+        "SPIRV/doc.cpp",
+        "SPIRV/SpvTools.cpp",
+        "SPIRV/disassemble.cpp",
+        "SPIRV/CInterface/spirv_c_interface.cpp"
+    );
 
     switch (a_configuration)
     {
@@ -303,7 +265,7 @@ CUBE_CProject BuildSPIRVToolsProject(e_TargetPlatform a_targetPlatform, e_BuildC
     CUBE_CProject_AppendIncludePath(&project, ".");
     CUBE_CProject_AppendIncludePath(&project, "./include");
     CUBE_CProject_AppendIncludePath(&project, "external/spirv-headers/include");
-    CUBE_CProject_AppendIncludePath(&project, "../gen/SPIRV-Tools/include");
+    CUBE_CProject_AppendIncludePath(&project, "../../../gen/glslang/SPIRV-Tools");
 
     CUBE_CProject_AppendSource(&project, "source/assembly_grammar.cpp");
     CUBE_CProject_AppendSource(&project, "source/binary.cpp");
@@ -432,7 +394,7 @@ CUBE_CProject BuildSPIRVToolsProject(e_TargetPlatform a_targetPlatform, e_BuildC
     CUBE_CProject_AppendSource(&project, "source/opt/instruction_list.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/instrument_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/interface_var_sroa.cpp");
-    // CUBE_CProject_AppendSource(&project, "source/opt/invocation_interlock_placement_pass.cpp");
+    CUBE_CProject_AppendSource(&project, "source/opt/invocation_interlock_placement_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/interp_fixup_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/ir_context.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/ir_loader.cpp");
@@ -480,8 +442,8 @@ CUBE_CProject BuildSPIRVToolsProject(e_TargetPlatform a_targetPlatform, e_BuildC
     CUBE_CProject_AppendSource(&project, "source/opt/strip_debug_info_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/strip_nonsemantic_info_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/struct_cfg_analysis.cpp");
-    // CUBE_CProject_AppendSource(&project, "source/opt/switch_descriptorset_pass.cpp");
-    // CUBE_CProject_AppendSource(&project, "source/opt/trim_capabilities_pass.cpp");
+    CUBE_CProject_AppendSource(&project, "source/opt/switch_descriptorset_pass.cpp");
+    CUBE_CProject_AppendSource(&project, "source/opt/trim_capabilities_pass.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/type_manager.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/types.cpp");
     CUBE_CProject_AppendSource(&project, "source/opt/unify_const_pass.cpp");
@@ -539,141 +501,169 @@ CUBE_CProject BuildJoltPhysicsProject(e_TargetPlatform a_targetPlatform, e_Build
         CUBE_CProject_AppendDefine(&project, "NDEBUG");
     }
 
-    CUBE_CProject_AppendDefine(&project, "JPH_CROSS_PLATFORM_DETERMINISTIC");
+    // CUBE_CProject_AppendDefine(&project, "JPH_CROSS_PLATFORM_DETERMINISTIC");
     CUBE_CProject_AppendDefine(&project, "JPH_OBJECT_LAYER_BITS=16");
 
     CUBE_CProject_AppendSystemIncludePath(&project, ".");
 
-    CUBE_CProject_AppendSource(&project, "Jolt/AABBTree/AABBTreeBuilder.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Core/Color.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Core/Factory.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Core/IssueReporting.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Core/JobSystemThreadPool.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Core/JobSystemWithBarrier.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Core/LinearCurve.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Core/Memory.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Core/Profiler.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Core/RTTI.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Core/Semaphore.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Core/StringTools.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Core/TickCounter.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Geometry/ConvexHullBuilder.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Geometry/ConvexHullBuilder2D.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Geometry/Indexify.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Geometry/OrientedBox.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Math/Vec3.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/ObjectStream/ObjectStream.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/ObjectStream/ObjectStreamBinaryIn.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/ObjectStream/ObjectStreamBinaryOut.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/ObjectStream/ObjectStreamIn.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/ObjectStream/ObjectStreamOut.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/ObjectStream/ObjectStreamTextIn.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/ObjectStream/ObjectStreamTextOut.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/ObjectStream/SerializableObject.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/ObjectStream/TypeDeclarations.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Body/Body.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Body/BodyAccess.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Body/BodyCreationSettings.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Body/BodyInterface.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Body/BodyManager.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Body/MassProperties.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Body/MotionProperties.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Character/Character.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Character/CharacterBase.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Character/CharacterVirtual.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/BroadPhase/BroadPhase.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/BroadPhase/BroadPhaseBruteForce.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/BroadPhase/BroadPhaseQuadTree.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/BroadPhase/QuadTree.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/CastConvexVsTriangles.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/CastSphereVsTriangles.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/CollideConvexVsTriangles.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/CollideSphereVsTriangles.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/CollisionDispatch.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/CollisionGroup.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/EstimateCollisionResponse.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/GroupFilter.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/GroupFilterTable.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/ManifoldBetweenTwoFaces.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/NarrowPhaseQuery.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/NarrowPhaseStats.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/PhysicsMaterial.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/PhysicsMaterialSimple.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/BoxShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/CapsuleShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/CompoundShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/ConvexHullShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/ConvexShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/CylinderShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/DecoratedShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/HeightFieldShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/MeshShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/MutableCompoundShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/OffsetCenterOfMassShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/RotatedTranslatedShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/ScaledShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/Shape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/SphereShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/StaticCompoundShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/TaperedCapsuleShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/Shape/TriangleShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Collision/TransformedShape.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/ConeConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/Constraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/ConstraintManager.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/ContactConstraintManager.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/DistanceConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/FixedConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/GearConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/HingeConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/MotorSettings.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/PathConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/PathConstraintPath.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/PathConstraintPathHermite.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/PointConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/PulleyConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/RackAndPinionConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/SixDOFConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/SliderConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/SwingTwistConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Constraints/TwoBodyConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/DeterminismLog.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/IslandBuilder.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/LargeIslandSplitter.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/PhysicsLock.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/PhysicsScene.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/PhysicsSystem.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/PhysicsUpdateContext.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Ragdoll/Ragdoll.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/StateRecorderImpl.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Vehicle/MotorcycleController.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Vehicle/TrackedVehicleController.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Vehicle/VehicleAntiRollBar.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Vehicle/VehicleCollisionTester.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Vehicle/VehicleConstraint.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Vehicle/VehicleController.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Vehicle/VehicleDifferential.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Vehicle/VehicleEngine.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Vehicle/VehicleTrack.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Vehicle/VehicleTransmission.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Vehicle/Wheel.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Physics/Vehicle/WheeledVehicleController.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/RegisterTypes.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Renderer/DebugRenderer.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Renderer/DebugRendererPlayback.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Renderer/DebugRendererRecorder.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Skeleton/SkeletalAnimation.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Skeleton/Skeleton.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Skeleton/SkeletonMapper.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/Skeleton/SkeletonPose.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/TriangleGrouper/TriangleGrouperClosestCentroid.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/TriangleGrouper/TriangleGrouperMorton.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/TriangleSplitter/TriangleSplitter.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/TriangleSplitter/TriangleSplitterBinning.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/TriangleSplitter/TriangleSplitterFixedLeafSize.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/TriangleSplitter/TriangleSplitterLongestAxis.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/TriangleSplitter/TriangleSplitterMean.cpp");
-    CUBE_CProject_AppendSource(&project, "Jolt/TriangleSplitter/TriangleSplitterMorton.cpp");
+    CUBE_CProject_AppendSources(&project, 
+        "Jolt/AABBTree/AABBTreeBuilder.cpp",
+
+        "Jolt/Core/Color.cpp",
+        "Jolt/Core/Factory.cpp",
+        "Jolt/Core/IssueReporting.cpp",
+        "Jolt/Core/JobSystemThreadPool.cpp",
+        "Jolt/Core/JobSystemWithBarrier.cpp",
+        "Jolt/Core/LinearCurve.cpp",
+        "Jolt/Core/Memory.cpp",
+        "Jolt/Core/Profiler.cpp",
+        "Jolt/Core/RTTI.cpp",
+        "Jolt/Core/Semaphore.cpp",
+        "Jolt/Core/StringTools.cpp",
+        "Jolt/Core/TickCounter.cpp",
+
+        "Jolt/Geometry/ConvexHullBuilder.cpp",
+        "Jolt/Geometry/ConvexHullBuilder2D.cpp",
+        "Jolt/Geometry/Indexify.cpp",
+        "Jolt/Geometry/OrientedBox.cpp",
+
+        "Jolt/Math/Vec3.cpp",
+
+        "Jolt/ObjectStream/ObjectStream.cpp",
+        "Jolt/ObjectStream/ObjectStreamBinaryIn.cpp",
+        "Jolt/ObjectStream/ObjectStreamBinaryOut.cpp",
+        "Jolt/ObjectStream/ObjectStreamIn.cpp",
+        "Jolt/ObjectStream/ObjectStreamOut.cpp",
+        "Jolt/ObjectStream/ObjectStreamTextIn.cpp",
+        "Jolt/ObjectStream/ObjectStreamTextOut.cpp",
+        "Jolt/ObjectStream/SerializableObject.cpp",
+        "Jolt/ObjectStream/TypeDeclarations.cpp",
+
+        "Jolt/Physics/Body/Body.cpp",
+        "Jolt/Physics/Body/BodyAccess.cpp",
+        "Jolt/Physics/Body/BodyCreationSettings.cpp",
+        "Jolt/Physics/Body/BodyInterface.cpp",
+        "Jolt/Physics/Body/BodyManager.cpp",
+        "Jolt/Physics/Body/MassProperties.cpp",
+        "Jolt/Physics/Body/MotionProperties.cpp",
+
+        "Jolt/Physics/Character/Character.cpp",
+        "Jolt/Physics/Character/CharacterBase.cpp",
+        "Jolt/Physics/Character/CharacterVirtual.cpp",
+
+        "Jolt/Physics/Collision/BroadPhase/BroadPhase.cpp",
+        "Jolt/Physics/Collision/BroadPhase/BroadPhaseBruteForce.cpp",
+        "Jolt/Physics/Collision/BroadPhase/BroadPhaseQuadTree.cpp",
+        "Jolt/Physics/Collision/BroadPhase/QuadTree.cpp",
+
+        "Jolt/Physics/Collision/CastConvexVsTriangles.cpp",
+        "Jolt/Physics/Collision/CastSphereVsTriangles.cpp",
+        "Jolt/Physics/Collision/CollideConvexVsTriangles.cpp",
+        "Jolt/Physics/Collision/CollideSphereVsTriangles.cpp",
+        "Jolt/Physics/Collision/CollisionDispatch.cpp",
+        "Jolt/Physics/Collision/CollisionGroup.cpp",
+        "Jolt/Physics/Collision/EstimateCollisionResponse.cpp",
+        "Jolt/Physics/Collision/GroupFilter.cpp",
+        "Jolt/Physics/Collision/GroupFilterTable.cpp",
+        "Jolt/Physics/Collision/ManifoldBetweenTwoFaces.cpp",
+        "Jolt/Physics/Collision/NarrowPhaseQuery.cpp",
+        "Jolt/Physics/Collision/NarrowPhaseStats.cpp",
+        "Jolt/Physics/Collision/PhysicsMaterial.cpp",
+        "Jolt/Physics/Collision/PhysicsMaterialSimple.cpp",
+
+        "Jolt/Physics/Collision/Shape/BoxShape.cpp",
+        "Jolt/Physics/Collision/Shape/CapsuleShape.cpp",
+        "Jolt/Physics/Collision/Shape/CompoundShape.cpp",
+        "Jolt/Physics/Collision/Shape/ConvexHullShape.cpp",
+        "Jolt/Physics/Collision/Shape/ConvexShape.cpp",
+        "Jolt/Physics/Collision/Shape/CylinderShape.cpp",
+        "Jolt/Physics/Collision/Shape/DecoratedShape.cpp",
+        "Jolt/Physics/Collision/Shape/HeightFieldShape.cpp",
+        "Jolt/Physics/Collision/Shape/MeshShape.cpp",
+        "Jolt/Physics/Collision/Shape/MutableCompoundShape.cpp",
+        "Jolt/Physics/Collision/Shape/OffsetCenterOfMassShape.cpp",
+        "Jolt/Physics/Collision/Shape/RotatedTranslatedShape.cpp",
+        "Jolt/Physics/Collision/Shape/ScaledShape.cpp",
+        "Jolt/Physics/Collision/Shape/Shape.cpp",
+        "Jolt/Physics/Collision/Shape/SphereShape.cpp",
+        "Jolt/Physics/Collision/Shape/StaticCompoundShape.cpp",
+        "Jolt/Physics/Collision/Shape/TaperedCapsuleShape.cpp",
+        "Jolt/Physics/Collision/Shape/TriangleShape.cpp",
+
+        "Jolt/Physics/Collision/TransformedShape.cpp",
+
+        "Jolt/Physics/Constraints/ConeConstraint.cpp",
+        "Jolt/Physics/Constraints/Constraint.cpp",
+        "Jolt/Physics/Constraints/ConstraintManager.cpp",
+        "Jolt/Physics/Constraints/ContactConstraintManager.cpp",
+        "Jolt/Physics/Constraints/DistanceConstraint.cpp",
+        "Jolt/Physics/Constraints/FixedConstraint.cpp",
+        "Jolt/Physics/Constraints/GearConstraint.cpp",
+        "Jolt/Physics/Constraints/HingeConstraint.cpp",
+        "Jolt/Physics/Constraints/MotorSettings.cpp",
+        "Jolt/Physics/Constraints/PathConstraint.cpp",
+        "Jolt/Physics/Constraints/PathConstraintPath.cpp",
+        "Jolt/Physics/Constraints/PathConstraintPathHermite.cpp",
+        "Jolt/Physics/Constraints/PointConstraint.cpp",
+        "Jolt/Physics/Constraints/PulleyConstraint.cpp",
+        "Jolt/Physics/Constraints/RackAndPinionConstraint.cpp",
+        "Jolt/Physics/Constraints/SixDOFConstraint.cpp",
+        "Jolt/Physics/Constraints/SliderConstraint.cpp",
+        "Jolt/Physics/Constraints/SpringSettings.cpp",
+        "Jolt/Physics/Constraints/SwingTwistConstraint.cpp",
+        "Jolt/Physics/Constraints/TwoBodyConstraint.cpp",
+
+        "Jolt/Physics/Ragdoll/Ragdoll.cpp",
+        
+        "Jolt/Physics/SoftBody/SoftBodyCreationSettings.cpp",
+        "Jolt/Physics/SoftBody/SoftBodyMotionProperties.cpp",
+        "Jolt/Physics/SoftBody/SoftBodyShape.cpp",
+        "Jolt/Physics/SoftBody/SoftBodySharedSettings.cpp",
+
+        "Jolt/Physics/DeterminismLog.cpp",
+        "Jolt/Physics/IslandBuilder.cpp",
+        "Jolt/Physics/LargeIslandSplitter.cpp",
+        "Jolt/Physics/PhysicsLock.cpp",
+        "Jolt/Physics/PhysicsScene.cpp",
+        "Jolt/Physics/PhysicsSystem.cpp",
+        "Jolt/Physics/PhysicsUpdateContext.cpp",
+
+        "Jolt/Physics/StateRecorderImpl.cpp",
+
+        "Jolt/Physics/Vehicle/MotorcycleController.cpp",
+        "Jolt/Physics/Vehicle/TrackedVehicleController.cpp",
+        "Jolt/Physics/Vehicle/VehicleAntiRollBar.cpp",
+        "Jolt/Physics/Vehicle/VehicleCollisionTester.cpp",
+        "Jolt/Physics/Vehicle/VehicleConstraint.cpp",
+        "Jolt/Physics/Vehicle/VehicleController.cpp",
+        "Jolt/Physics/Vehicle/VehicleDifferential.cpp",
+        "Jolt/Physics/Vehicle/VehicleEngine.cpp",
+        "Jolt/Physics/Vehicle/VehicleTrack.cpp",
+        "Jolt/Physics/Vehicle/VehicleTransmission.cpp",
+        "Jolt/Physics/Vehicle/Wheel.cpp",
+        "Jolt/Physics/Vehicle/WheeledVehicleController.cpp",
+
+        "Jolt/RegisterTypes.cpp",
+
+        "Jolt/Renderer/DebugRenderer.cpp",
+        "Jolt/Renderer/DebugRendererPlayback.cpp",
+        "Jolt/Renderer/DebugRendererRecorder.cpp",
+
+        "Jolt/Skeleton/SkeletalAnimation.cpp",
+        "Jolt/Skeleton/Skeleton.cpp",
+        "Jolt/Skeleton/SkeletonMapper.cpp",
+        "Jolt/Skeleton/SkeletonPose.cpp",
+
+        "Jolt/TriangleGrouper/TriangleGrouperClosestCentroid.cpp",
+        "Jolt/TriangleGrouper/TriangleGrouperMorton.cpp",
+
+        "Jolt/TriangleSplitter/TriangleSplitter.cpp",
+        "Jolt/TriangleSplitter/TriangleSplitterBinning.cpp",
+        "Jolt/TriangleSplitter/TriangleSplitterFixedLeafSize.cpp",
+        "Jolt/TriangleSplitter/TriangleSplitterLongestAxis.cpp",
+        "Jolt/TriangleSplitter/TriangleSplitterMean.cpp",
+        "Jolt/TriangleSplitter/TriangleSplitterMorton.cpp"
+    );
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
 
@@ -689,6 +679,7 @@ CUBE_CProject BuildJoltPhysicsProject(e_TargetPlatform a_targetPlatform, e_Build
     {
         CUBE_CProject_AppendCFlag(&project, "-mavx");
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
+        CUBE_CProject_AppendCFlag(&project, "-msse4.1");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
 
         CUBE_CProject_AppendCFlag(&project, "-g");
@@ -700,6 +691,7 @@ CUBE_CProject BuildJoltPhysicsProject(e_TargetPlatform a_targetPlatform, e_Build
     {
         CUBE_CProject_AppendCFlag(&project, "-mavx");
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
+        CUBE_CProject_AppendCFlag(&project, "-msse4.1");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
 
         CUBE_CProject_AppendCFlag(&project, "-O3");
@@ -897,7 +889,8 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
         CUBE_CProject_AppendSource(&project, "alc/backends/oss.cpp");
         // CUBE_CProject_AppendSource(&project, "alc/backends/pipewire.cpp");
         // This one is being a prick ^
-        CUBE_CProject_AppendSource(&project, "alc/backends/portaudio.cpp");
+        // Issues with portaudio on Ubuntu
+	// CUBE_CProject_AppendSource(&project, "alc/backends/portaudio.cpp");
         CUBE_CProject_AppendSource(&project, "alc/backends/pulseaudio.cpp");
         CUBE_CProject_AppendSource(&project, "alc/backends/wave.cpp");
 
@@ -955,14 +948,11 @@ DependencyProject* BuildIcarianNativeIDependencies(CBUINT32* a_count, e_TargetPl
     projects[1].Project = BuildGLSLangProject(a_targetPlatform, a_configuration);
     projects[1].WorkingDirectory = "IcarianNative/lib/glslang";
 
-    // projects[2].Project = BuildOGLCompilersProject(a_targetPlatform, a_configuration);
-    // projects[2].WorkingDirectory = "IcarianNative/lib/glslang";
-
     projects[2].Project = BuildSPIRVProject(a_targetPlatform, a_configuration);
     projects[2].WorkingDirectory = "IcarianNative/lib/glslang";
 
     projects[3].Project = BuildSPIRVToolsProject(a_targetPlatform, a_configuration);
-    projects[3].WorkingDirectory = "IcarianNative/lib/SPIRV-Tools";
+    projects[3].WorkingDirectory = "IcarianNative/lib/glslang/External/spirv-tools";
 
     projects[4].Project = BuildJoltPhysicsProject(a_targetPlatform, a_configuration);
     projects[4].WorkingDirectory = "IcarianNative/lib/JoltPhysics";

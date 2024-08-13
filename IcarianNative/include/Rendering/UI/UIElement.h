@@ -1,90 +1,53 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #pragma once
 
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include <glm/gtx/matrix_transform_2d.hpp>
-
-#include "Core/IcarianDefer.h"
 #include "Rendering/UI/UIControl.h"
-#include "Rendering/UI/CanvasBuffer.h"
 
-enum e_UIElementType : uint32_t
+class RenderEngine;
+
+#include "EngineUIElementInteropStuctures.h"
+
+enum e_UIElementType : uint16_t
 {
-    UIElementType_Null,
+    UIElementType_Base,
     UIElementType_Text,
     UIElementType_Image
 };
 
-enum e_ElementState : uint32_t
-{
-    ElementState_Normal = 0,
-    ElementState_Hovered = 1,
-    ElementState_Pressed = 2,
-    ElementState_Released = 3
-};
-
-class RenderEngine;
-
 class UIElement
 {
 private:
-    uint32_t       m_parent;
-     
     uint32_t*      m_children;
     uint32_t       m_childCount;
 
-    e_ElementState m_state;
+    uint32_t       m_parent;
 
     glm::vec2      m_pos;
     glm::vec2      m_size;
-    
     glm::vec4      m_color;
 
-    glm::mat3 GetMatrix(const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize) const
-    {
-        if (m_parent != -1)
-        {
-            const glm::mat3 transform = glm::translate(glm::mat3(1.0f), m_pos / a_canvas.ReferenceResolution);
+    e_UIXAnchor    m_xAnchor;
+    e_UIYAnchor    m_yAnchor;
 
-            UIElement* parent = UIControl::GetUIElement(m_parent);
+    e_ElementState m_state;
 
-            return parent->GetMatrix(a_canvas, a_screenSize) * transform;
-        }
-        else 
-        {
-            const glm::vec2 scale = a_screenSize / a_canvas.ReferenceResolution;
+    float GetXPosition(const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize) const;
+    float GetYPosition(const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize) const;
 
-            return glm::translate(glm::mat3(1.0f), m_pos / a_canvas.ReferenceResolution * scale);
-        }
-
-        return glm::mat3(1.0f);
-    }
+    float GetXSize(const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize) const;
+    float GetYSize(const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize) const;
 
 protected:
 
 public:
-    UIElement()
-    {
-        m_parent = -1;
-        m_childCount = 0;
-        m_children = nullptr;
-
-        m_pos = glm::vec2(0.0f);
-        m_size = glm::vec2(100.0f);
-
-        m_color = glm::vec4(1.0f);
-
-        m_state = ElementState_Normal;
-    }
-    virtual ~UIElement()
-    {
-        if (m_children != nullptr)
-        {
-            delete[] m_children;
-            m_children = nullptr;
-        }
-    }
+    UIElement();
+    virtual ~UIElement();
 
     inline e_ElementState GetState() const
     {
@@ -93,6 +56,23 @@ public:
     inline void SetState(e_ElementState a_state)
     {
         m_state = a_state;
+    }
+
+    inline e_UIXAnchor GetXAnchor() const
+    {
+        return m_xAnchor;
+    }
+    inline void SetXAnchor(e_UIXAnchor a_anchor)
+    {
+        m_xAnchor = a_anchor;
+    }
+    inline e_UIYAnchor GetYAnchor() const
+    {
+        return m_yAnchor;
+    }
+    inline void SetYAnchor(e_UIYAnchor a_anchor) 
+    {
+        m_yAnchor = a_anchor;
     }
 
     inline glm::vec2 GetPosition() const
@@ -132,69 +112,11 @@ public:
         m_parent = a_parent;
     }
 
-    void AddChild(uint32_t a_childAddr)
-    {
-        uint32_t* newBuffer = new uint32_t[m_childCount + 1];
-        const uint32_t* oldBuffer = m_children;
+    void AddChild(uint32_t a_childAddr);
+    void RemoveChild(uint32_t a_childAddr);
 
-        for (uint32_t i = 0; i < m_childCount; ++i)
-        {
-            newBuffer[i] = m_children[i];
-        } 
-
-        newBuffer[m_childCount++] = a_childAddr;
-
-        IDEFER(
-        if (oldBuffer != nullptr) 
-        { 
-            delete[] oldBuffer;
-        });
-        m_children = newBuffer;
-    }
-    void RemoveChild(uint32_t a_childAddr)
-    {
-        for (uint32_t i = 0; i < m_childCount; ++i)
-        {
-            if (m_children[i] == a_childAddr)
-            {
-                --m_childCount;
-
-                for (uint32_t j = i; j < m_childCount; ++j)
-                {
-                    m_children[j] = m_children[j + 1];
-                }
-
-                return;
-            }
-        }
-    }
-
-    glm::vec2 GetCanvasPosition(const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize) const
-    {
-        if (m_parent != -1)
-        {
-            // TODO: I need to parented fix transforms
-            const glm::mat3 transform = glm::translate(glm::mat3(1.0f), m_pos / a_canvas.ReferenceResolution);
-
-            const UIElement* parent = UIControl::GetUIElement(m_parent);
-
-            return (parent->GetMatrix(a_canvas, a_screenSize) * transform)[2].xy();
-        }
-        else 
-        {
-            const glm::vec2 scale = a_screenSize / a_canvas.ReferenceResolution;
-
-            return m_pos / a_canvas.ReferenceResolution * scale;
-        }
-
-        return glm::vec2(0);
-    }
-    glm::vec2 GetCanvasScale(const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize) const
-    {
-        const glm::vec2 scale = a_screenSize / a_canvas.ReferenceResolution;
-
-        return m_size / a_canvas.ReferenceResolution;
-    }
+    glm::vec2 GetCanvasPosition(const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize) const;
+    glm::vec2 GetCanvasScale(const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize) const;
 
     inline uint32_t GetChildCount() const
     {
@@ -207,8 +129,30 @@ public:
 
     virtual e_UIElementType GetType() const
     {
-        return UIElementType_Null;
+        return UIElementType_Base;
     }
 
-    virtual void Update(RenderEngine* a_renderEngine) = 0;
+    virtual void Update(RenderEngine* a_renderEngine);
 };
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

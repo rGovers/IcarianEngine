@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 using IcarianEngine.Maths;
 using System;
 using System.Collections.Generic;
@@ -5,7 +9,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-#include "EngineAnimationDataInteropStructures.h"
+#include "EngineAnimationClipInteropStructures.h"
 
 namespace IcarianEngine.Rendering.Animation
 {
@@ -44,20 +48,15 @@ namespace IcarianEngine.Rendering.Animation
     public class AnimationClip
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static DAERAnimation[] LoadColladaAnimation(string a_path);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static FBXRAnimation[] LoadFBXAnimation(string a_path);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static GLTFRAnimation[] LoadGLTFAnimation(string a_path);
+        extern static AnimationDataExternal[] LoadExternalAnimationData(string a_path);
 
         bool                 m_icarianClip;
-        string               m_name;
         float                m_duration;
 
         List<AnimationField> m_fields;
 
         /// <summary>
-        /// Whether the animation clip is an Engine or Imported clip.
+        /// Whether the AnimationClip is an Engine or Imported clip
         /// </summary>
         public bool IcarianClip
         {
@@ -68,17 +67,7 @@ namespace IcarianEngine.Rendering.Animation
         }
 
         /// <summary>
-        /// The name of the animation clip.
-        /// </summary>
-        public string Name
-        {
-            get
-            {
-                return m_name;
-            }
-        }
-        /// <summary>
-        /// The duration of the animation clip.
+        /// The duration of the AnimationClip
         /// </summary>
         public float Duration
         {
@@ -93,7 +82,7 @@ namespace IcarianEngine.Rendering.Animation
         }
 
         /// <summary>
-        /// The fields in the animation clip.
+        /// The fields in the AnimationClip
         /// </summary>
         public IEnumerable<AnimationField> Fields
         {
@@ -106,30 +95,28 @@ namespace IcarianEngine.Rendering.Animation
         AnimationClip()
         {
             m_icarianClip = false;
-            m_name = "";
             m_duration = 0.0f;
 
             m_fields = new List<AnimationField>();
         }
-        AnimationClip(string a_name, float a_duration)
+        AnimationClip(float a_duration)
         {
             m_icarianClip = true;
-            m_name = a_name;
             m_duration = a_duration;
 
             m_fields = new List<AnimationField>();
         }
 
         /// <summary>
-        /// Loads an animation clip from the specified path.
+        /// Loads an AnimationClip from the specified path
         /// </summary>
         /// Supported file formats:
         ///    .dae
-        ///    .fbx(Broken)
+        ///    .fbx
         ///    .glb
         ///    .gltf
-        /// <param name="a_path">The path to the animation clip.</param>
-        /// <returns>The animation clip.</returns>
+        /// <param name="a_path">The path to the AnimationClip</param>
+        /// <returns>The animation clip. Null on failure</returns>
         public static AnimationClip LoadAnimationClip(string a_path)
         {
             string ext = Path.GetExtension(a_path);
@@ -137,294 +124,54 @@ namespace IcarianEngine.Rendering.Animation
             switch (ext)
             {
             case ".dae":
-            {
-                // Collada is a transform based animation format so we need to convert it to a native field based format
-                DAERAnimation[] data = LoadColladaAnimation(a_path);
-                if (data != null)
-                {
-                    AnimationClip clip = new AnimationClip();
-                    clip.m_icarianClip = false;
-                    clip.m_name = Path.GetFileNameWithoutExtension(a_path);
-
-                    foreach (DAERAnimation animObj in data)
-                    {
-                        string name = animObj.Name;
-
-                        AnimationField translationField = new AnimationField()
-                        {
-                            Object = name,
-                            Component = "Transform",
-                            Field = "Translation",
-                            Keys = new List<AnimationKey>()
-                        };
-
-                        AnimationField rotationField = new AnimationField()
-                        {
-                            Object = name,
-                            Component = "Transform",
-                            Field = "Rotation",
-                            Keys = new List<AnimationKey>()
-                        };
-
-                        AnimationField scaleField = new AnimationField()
-                        {
-                            Object = name,
-                            Component = "Transform",
-                            Field = "Scale",
-                            Keys = new List<AnimationKey>()
-                        };
-
-                        foreach (DAERAnimationFrame frame in animObj.Frames)
-                        {
-                            float time = frame.Time;
-                            float[] transform = frame.Transform;
-
-                            Matrix4 mat = new Matrix4(transform[0],  transform[1],  transform[2],  transform[3],
-                                                      transform[4],  transform[5],  transform[6],  transform[7],
-                                                      transform[8],  transform[9],  transform[10], transform[11],
-                                                      transform[12], transform[13], transform[14], transform[15]);
-
-                            Vector3 translation;
-                            Quaternion rotation;
-                            Vector3 scale;
-                            Matrix4.Decompose(mat, out translation, out rotation, out scale);
-                            
-                            translationField.Keys.Add(new AnimationKey()
-                            {
-                                Time = time,
-                                Value = translation
-                            });
-
-                            rotationField.Keys.Add(new AnimationKey()
-                            {
-                                Time = time,
-                                Value = rotation
-                            });
-
-                            scaleField.Keys.Add(new AnimationKey()
-                            {
-                                Time = time,
-                                Value = scale
-                            });
-
-                            if (time > clip.m_duration)
-                            {
-                                clip.m_duration = time;
-                            }
-                        }
-
-                        clip.m_fields.Add(translationField);
-                        clip.m_fields.Add(rotationField);
-                        clip.m_fields.Add(scaleField);
-                    }
-
-                    return clip;
-                }
-
-                Logger.IcarianError($"Failed to load animation clip: {a_path}");
-
-                break;
-            }
             case ".fbx":
-            {
-                FBXRAnimation[] data = LoadFBXAnimation(a_path);
-                if (data != null)
-                {
-                    AnimationClip clip = new AnimationClip();
-                    clip.m_icarianClip = false;
-                    clip.m_name = Path.GetFileNameWithoutExtension(a_path);
-
-                    foreach (FBXRAnimation animObj in data)
-                    {
-                        string name = animObj.Name;
-                        string field = animObj.Target;
-
-                        // Should probably change to a enum but lazy
-                        switch (field)
-                        {
-                        case "Rotation":
-                        {
-                            AnimationField rotationField = new AnimationField()
-                            {
-                                Object = name,
-                                Component = "Transform",
-                                Field = "Rotation",
-                                Keys = new List<AnimationKey>()
-                            };
-
-                            foreach (FBXRAnimationFrame frame in animObj.Frames)
-                            {
-                                float time = frame.Time;
-                                Quaternion rotation = frame.Data.ToQuaternion();
-
-                                rotationField.Keys.Add(new AnimationKey()
-                                {
-                                    Time = time,
-                                    Value = rotation
-                                });
-
-                                if (time > clip.m_duration)
-                                {
-                                    clip.m_duration = time;
-                                }
-                            }
-
-                            clip.m_fields.Add(rotationField);
-
-                            break;
-                        }
-                        case "Translation":
-                        {
-                            AnimationField translationField = new AnimationField()
-                            {
-                                Object = name,
-                                Component = "Transform",
-                                Field = "Translation",
-                                Keys = new List<AnimationKey>()
-                            };
-
-                            foreach (FBXRAnimationFrame frame in animObj.Frames)
-                            {
-                                float time = frame.Time;
-                                Vector3 translation = frame.Data.XYZ;
-
-                                translationField.Keys.Add(new AnimationKey()
-                                {
-                                    Time = time,
-                                    Value = translation
-                                });
-
-                                if (time > clip.m_duration)
-                                {
-                                    clip.m_duration = time;
-                                }
-                            }
-
-                            clip.m_fields.Add(translationField);
-
-                            break;
-                        }
-                        }
-                    }
-
-                    return clip;
-                }
-
-                Logger.IcarianError($"Failed to load animation clip: {a_path}");
-
-                break;
-            }
             case ".glb":
             case ".gltf":
             {
-                GLTFRAnimation[] data = LoadGLTFAnimation(a_path);
-
+                AnimationDataExternal[] data = LoadExternalAnimationData(a_path);
                 if (data != null)
                 {
                     AnimationClip clip = new AnimationClip();
-                    clip.m_icarianClip = false;
-                    clip.m_name = Path.GetFileNameWithoutExtension(a_path);
 
-                    foreach (GLTFRAnimation animObj in data)
+                    foreach (AnimationDataExternal d in data)
                     {
-                        string name = animObj.Name;
-                        string field = animObj.Target;
+                        AnimationField field = new AnimationField();
+                        field.Object = d.Name;
+                        field.Component = "Transform";
+                        field.Field = d.Target;
+                        field.Keys = new List<AnimationKey>();
 
-                        // Should probably change to a enum but lazy
-                        switch (field)
+                        foreach (AnimationFrameExternal f in d.Frames)
                         {
-                        case "Rotation":
-                        {
-                            AnimationField rotationField = new AnimationField()
-                            {
-                                Object = name,
-                                Component = "Transform",
-                                Field = "Rotation",
-                                Keys = new List<AnimationKey>()
-                            };
+                            clip.m_duration = Mathf.Max(clip.m_duration, f.Time);
 
-                            foreach (GLTFRAnimationFrame frame in animObj.Frames)
+                            switch (d.Target)
                             {
-                                float time = frame.Time;
-                                Quaternion rotation = frame.Data.ToQuaternion();
-
-                                rotationField.Keys.Add(new AnimationKey()
+                            case "Translation":
+                            case "Scale":
+                            {
+                                field.Keys.Add(new AnimationKey()
                                 {
-                                    Time = time,
-                                    Value = rotation
+                                    Time = f.Time,
+                                    Value = new Vector3(f.Data.XYZ)
                                 });
 
-                                if (time > clip.m_duration)
-                                {
-                                    clip.m_duration = time;
-                                }
+                                break;
                             }
-
-                            clip.m_fields.Add(rotationField);
-
-                            break;
-                        }
-                        case "Translation":
-                        {
-                            AnimationField translationField = new AnimationField()
+                            case "Rotation":
                             {
-                                Object = name,
-                                Component = "Transform",
-                                Field = "Translation",
-                                Keys = new List<AnimationKey>()
-                            };
-
-                            foreach (GLTFRAnimationFrame frame in animObj.Frames)
-                            {
-                                float time = frame.Time;
-                                Vector3 translation = frame.Data.XYZ;
-
-                                translationField.Keys.Add(new AnimationKey()
+                                field.Keys.Add(new AnimationKey()
                                 {
-                                    Time = time,
-                                    Value = translation
+                                    Time = f.Time,
+                                    Value = f.Data.ToQuaternion()
                                 });
 
-                                if (time > clip.m_duration)
-                                {
-                                    clip.m_duration = time;
-                                }
+                                break;
                             }
-
-                            clip.m_fields.Add(translationField);
-
-                            break;
-                        }
-                        case "Scale":
-                        {
-                            AnimationField scaleField = new AnimationField()
-                            {
-                                Object = name,
-                                Component = "Transform",
-                                Field = "Scale",
-                                Keys = new List<AnimationKey>()
-                            };
-
-                            foreach (GLTFRAnimationFrame frame in animObj.Frames)
-                            {
-                                float time = frame.Time;
-                                Vector3 scale = frame.Data.XYZ;
-
-                                scaleField.Keys.Add(new AnimationKey()
-                                {
-                                    Time = time,
-                                    Value = scale
-                                });
-
-                                if (time > clip.m_duration)
-                                {
-                                    clip.m_duration = time;
-                                }
                             }
+                        }
 
-                            break;
-                        }
-                        }
+                        clip.m_fields.Add(field);
                     }
 
                     return clip;
@@ -746,3 +493,25 @@ namespace IcarianEngine.Rendering.Animation
         }
     }
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

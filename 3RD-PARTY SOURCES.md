@@ -2,6 +2,11 @@
 
 ## Internal
 
+### minimp4
+Original Project:
+
+https://github.com/lieff/minimp4.git
+
 ### glslang
 Original Project:
 
@@ -36,6 +41,11 @@ https://github.com/lsalzman/enet
 
 ## Shared
 
+### assimp
+Original Project:
+
+https://github.com/assimp/assimp
+
 ### Dear ImGui
 Original Project:
 
@@ -53,7 +63,7 @@ https://www.mono-project.com/
 
 https://github.com/mono/mono
 
-### GLFW Fork
+### GLFW
 Original Project:
 
 https://www.glfw.org/
@@ -80,12 +90,7 @@ Original Project:
 
 https://github.com/richgel999/miniz
 
-### tinygltf
+### zlib
 Original Project:
 
-https://github.com/syoyo/tinygltf
-
-### OpenFBX
-Original Project:
-
-https://github.com/nem0/OpenFBX
+https://github.com/madler/zlib

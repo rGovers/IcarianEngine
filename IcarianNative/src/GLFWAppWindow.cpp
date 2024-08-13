@@ -1,4 +1,17 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #include "AppWindow/GLFWAppWindow.h"
+
+#ifdef WIN32
+#include "Core/WindowsHeaders.h"
+
+#define GLFW_EXPOSE_NATIVE_WIN32
+#define GLFW_EXPOSE_NATIVE_WGL
+#define GLFW_NATIVE_INCLUDE_NONE
+#include <GLFW/glfw3native.h>
+#endif
 
 #include "Application.h"
 #include "Config.h"
@@ -142,8 +155,10 @@ GLFWAppWindow::GLFWAppWindow(Application* a_app, Config* a_config) : AppWindow(a
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     m_window = glfwCreateWindow(1280, 720, a_config->GetApplicationName().data(), NULL, NULL);
+
+    glfwSetWindowSizeLimits(m_window, 640, 480, GLFW_DONT_CARE, GLFW_DONT_CARE);
 
     glfwMakeContextCurrent(m_window);
 
@@ -153,7 +168,9 @@ GLFWAppWindow::GLFWAppWindow(Application* a_app, Config* a_config) : AppWindow(a
 
     glfwGetCursorPos(m_window, &m_lastCursorPos.x, &m_lastCursorPos.y);
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
     m_surface = nullptr;
+#endif
 
     m_shouldClose = false;
 }
@@ -275,6 +292,15 @@ void GLFWAppWindow::Update()
         {
             inputManager->SetKeyboardKey((e_KeyCode)i, glfwGetKey(m_window, GLFWKeyTable[i]) == GLFW_PRESS);
         }
+
+        if (inputManager->IsKeyDown(KeyCode_LeftAlt) || inputManager->IsKeyDown(KeyCode_RightAlt))
+        {
+            if (inputManager->IsKeyDown(KeyCode_F4))
+            {
+                // Alt+F4 is unreliable under XWayland 
+                m_shouldClose = true;
+            }
+        }
     }  
 }
 
@@ -348,12 +374,34 @@ vk::SurfaceKHR GLFWAppWindow::GetSurface(const vk::Instance& a_instance)
     
     return m_surface;
 }
-std::vector<const char*> GLFWAppWindow::GetRequiredVulkanExtenions() const
+Array<const char*> GLFWAppWindow::GetRequiredVulkanExtenions() const
 {
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-    return std::vector<const char*>(glfwExtensions, glfwExtensions + glfwExtensionCount);
+    return Array<const char*>(glfwExtensions, glfwExtensionCount);
 }
 
 #endif
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

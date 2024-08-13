@@ -1,6 +1,10 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #include "Random.h"
 
-#include "Core/IcarianAssert.h"
+#include "IcarianError.h"
 #include "Runtime/RuntimeManager.h"
 
 static Random* Instance = nullptr;
@@ -58,19 +62,12 @@ void Random::FillBuffer()
 
     const uint32_t size = BufferSize - offset;
 
-    const uint32_t intSize = size / sizeof(int32_t);
-    const uint32_t remainder = size % sizeof(int32_t);
-
-    int32_t* intBuffer = (int32_t*)(m_buffer + offset);
-    for (uint32_t i = 0; i < intSize; ++i)
+    // TODO: Use better RNG as rand seems to be bias 
+    // rand does not seem to be very good so have to do it at the byte level to increase the noise
+    uint8_t* writeBuffer = (uint8_t*)(m_buffer + offset);
+    for (uint32_t i = 0; i < size; ++i)
     {
-        intBuffer[i] = (int32_t)rand();
-    }
-
-    uint8_t* remainderBuffer = (uint8_t*)(intBuffer + intSize);
-    for (uint32_t i = 0; i < remainder; ++i)
-    {
-        remainderBuffer[i] = (uint8_t)((double)rand() / RAND_MAX * UINT8_MAX);
+        writeBuffer[i] = (uint8_t)((double)rand() / RAND_MAX * UINT8_MAX);
     }
 
     m_index = 0;
@@ -78,7 +75,7 @@ void Random::FillBuffer()
 
 uint8_t* Random::GetBytes(uint32_t a_size)
 {
-    ICARIAN_ASSERT_MSG(a_size < BufferSize, "GetBytes a_size is too large");
+    IVERIFY(a_size < BufferSize);
 
     if (Instance->m_index + a_size > BufferSize)
     {
@@ -93,7 +90,7 @@ uint8_t* Random::GetBytes(uint32_t a_size)
 
 uint32_t Random::Range(uint32_t a_min, uint32_t a_max)
 {
-    if (Instance->m_index + sizeof(uint32_t) > BufferSize)
+    if (Instance->m_index + sizeof(uint32_t) >= BufferSize)
     {
         Instance->FillBuffer();
     }
@@ -105,7 +102,7 @@ uint32_t Random::Range(uint32_t a_min, uint32_t a_max)
 }
 float Random::Range(float a_min, float a_max)
 {
-    if (Instance->m_index + sizeof(float) > BufferSize)
+    if (Instance->m_index + sizeof(float) >= BufferSize)
     {
         Instance->FillBuffer();
     }
@@ -117,7 +114,7 @@ float Random::Range(float a_min, float a_max)
 }
 int32_t Random::Range(int32_t a_min, int32_t a_max)
 {
-    if (Instance->m_index + sizeof(int32_t) > BufferSize)
+    if (Instance->m_index + sizeof(int32_t) >= BufferSize)
     {
         Instance->FillBuffer();
     }
@@ -127,3 +124,25 @@ int32_t Random::Range(int32_t a_min, int32_t a_max)
 
     return a_min + (*buffer % (a_max - a_min));
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

@@ -1,0 +1,16 @@
+#version 450
+
+layout(location = 0) in vec2 vUV;
+
+#!texture(0, samplerA)
+#!texture(1, samplerB)
+
+layout(location = 0) out vec4 fragColor;
+
+void main()
+{
+    vec4 colorA = texture(samplerA, vUV);
+    vec4 colorB = texture(samplerB, vUV);
+    
+    fragColor = colorA + colorB;
+}

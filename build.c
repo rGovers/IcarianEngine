@@ -241,10 +241,10 @@ int main(int a_argc, char** a_argv)
 
     CUBE_CommandLine commandLine = { 0 };
 
-    CUBE_String_AppendC(&commandLine.Path, "IcarianNative/lib/SPIRV-Tools");
+    CUBE_String_AppendC(&commandLine.Path, "IcarianNative/lib/glslang");
     CUBE_String_AppendC(&commandLine.Command, "python3");
 
-    CUBE_CommandLine_AppendArgumentC(&commandLine, "utils/git-sync-deps");
+    CUBE_CommandLine_AppendArgumentC(&commandLine, "update_glslang_sources.py");
 
     int retCode = CUBE_CommandLine_Execute(&commandLine, &lines, &lineCount);
 
@@ -312,7 +312,7 @@ int main(int a_argc, char** a_argv)
     PrintHeader("Building IcarianCS");
 
     printf("Creating IcarianCS project...\n");
-    icarianCSProject = BuildIcarianCSProject(CBTRUE);
+    icarianCSProject = BuildIcarianCSProject(CBTRUE, CBFALSE);
 
     printf("Compiling IcarianCS...\n");
     ret = CUBE_CSProject_PreProcessCompile(&icarianCSProject, "IcarianCS", "../deps/Mono/Linux/bin/csc", compiler, CBNULL, &lines, &lineCount);
@@ -408,7 +408,7 @@ int main(int a_argc, char** a_argv)
 
     CUBE_IO_CreateDirectoryC("build");
 
-    CUBE_IO_CopyFileC("IcarianCS/build/IcarianCS.exe", "build/IcarianCS.dll");
+    CUBE_IO_CopyFileC("IcarianCS/build/IcarianCS.dll", "build/IcarianCS.dll");
 
     switch (targetPlatform)
     {

@@ -1,7 +1,12 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #include "Core/FlareShader.h"
 
 #include "Core/IcarianAssert.h"
 #include "Core/ShaderBuffers.h"
+#include "Core/StringUtils.h"
 
 #define FSHADER_PLATFORM_UBOSTR(str, platform, argA, argB, structure) \
     switch (platform) \
@@ -18,7 +23,7 @@
     } \
     default: \
     { \
-        ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform"); \
+        ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform"); \
         break; \
     } \
     }
@@ -38,7 +43,7 @@
     } \
     default: \
     { \
-        ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform"); \
+        ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform"); \
         break; \
     } \
     }
@@ -58,7 +63,7 @@
     } \
     default: \
     { \
-        ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform"); \
+        ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform"); \
         break; \
     } \
     }
@@ -78,7 +83,7 @@
     } \
     default: \
     { \
-        ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform"); \
+        ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform"); \
         break; \
     } \
     }
@@ -108,7 +113,7 @@
     F(ShadowLightBuffer, GLSL_SHADOW_LIGHT_SHADER_STRUCTURE) \
 
 #define FSHADER_UBO_DEFINITION(str, structure) \
-    if (args[0] == #str) \
+    case StringHash(#str): \
     { \
         FSHADER_PLATFORM_UBOSTR(rStr, a_platform, args[1], args[2], structure); \
         const ShaderBufferInput input = \
@@ -117,10 +122,11 @@
             .BufferType = ShaderBufferType_##str, \
         }; \
         a_inputs->emplace_back(input); \
+        break; \
     } \
     
 #define FSHADER_SSBO_DEFINITION(str, structure) \
-    if (args[0] == "SS" #str) \
+    case StringHash("SS" #str): \
     { \
         FSHADER_PLATFORM_SSBOSTR(rStr, a_platform, args[1], args[2], structure, #str); \
         const ShaderBufferInput input = \
@@ -129,10 +135,11 @@
             .BufferType = ShaderBufferType_SS##str, \
         }; \
         a_inputs->emplace_back(input); \
+        break; \
     } \
     
 #define FSHADER_PUSHBUFFER_DEFINITION(str, structure) \
-    if (args[0] == "P" #str) \
+    case StringHash("P" #str): \
     { \
         FSHADER_PLATFORM_PUSHSTR(rStr, a_platform, structure, args[1]); \
         const ShaderBufferInput input = \
@@ -141,39 +148,91 @@
             .BufferType = ShaderBufferType_P##str, \
         }; \
         a_inputs->emplace_back(input); \
+        break; \
     } \
 
-#define FSHADER_UBO do { FSHADER_UBO_STRUCTURETABLE(FSHADER_UBO_DEFINITION) } while (0)
-#define FSHADER_SSBO do { FSHADER_SSBO_STRUCTURETABLE(FSHADER_SSBO_DEFINITION) } while (0)
-#define FSHADER_PUSHBUFFER do { FSHADER_PUSHBUFFER_STRUCTURETABLE(FSHADER_PUSHBUFFER_DEFINITION) } while (0)
+#define FSHADER_UBO FSHADER_UBO_STRUCTURETABLE(FSHADER_UBO_DEFINITION)
+#define FSHADER_SSBO FSHADER_SSBO_STRUCTURETABLE(FSHADER_SSBO_DEFINITION)
+#define FSHADER_PUSHBUFFER FSHADER_PUSHBUFFER_STRUCTURETABLE(FSHADER_PUSHBUFFER_DEFINITION)
 
 namespace IcarianCore
 {
-    static std::vector<std::string> SplitArgs(const std::string_view& a_string)
+    static uint32_t SplitArgs(const std::string_view& a_string, std::vector<std::string>* a_args)
     {
-    	std::vector<std::string> args;
+        const char* start = a_string.data();
+        const char* iter = start;
+        const char* prevIter = start;
+
+        const uint32_t len = (uint32_t)a_string.length();
+
+        int32_t block = 0;
+        int32_t scope = 1;
+        while (true)
+        {
+            if (iter - start >= len)
+            {
+                if (*iter == '}')
+                {
+                    --block;
+                }
+
+                a_args->emplace_back(a_string.substr(prevIter - start, iter - prevIter));
+                
+                ICARIAN_ASSERT(block == 0);
+
+                return iter - start + 1;
+            }
+
+            switch (*iter) 
+            {
+            case '(':
+            {
+                ++scope;
+
+                break;
+            }
+            case ')':
+            {
+                if (--scope == 0)
+                {
+                    a_args->emplace_back(a_string.substr(prevIter - start, iter - prevIter));
+
+                    ICARIAN_ASSERT(block == 0);
+
+                    return iter - start + 1;
+                }
+
+                break;
+            }
+            case '{':
+            {
+                ++block;
+
+                break;
+            }
+            case '}':
+            {
+                --block;
+
+                break;
+            }
+            case ',':
+            {
+                if (block == 0)
+                {
+                    a_args->emplace_back(a_string.substr(prevIter - start, iter - prevIter));
+
+                    prevIter = iter + 1;
+                }
+
+                break;
+            }
+            }
+
+            ++iter;
+        }
     
-    	std::size_t pos = 0;
-    	while (true)
-    	{
-    		while (a_string[pos] == ' ')
-    		{
-    			++pos;
-    		}
-    
-    		const std::size_t sPos = a_string.find(',', pos);
-    		if (sPos == std::string_view::npos)
-    		{
-    			args.emplace_back(a_string.substr(pos));
-    
-    			break;
-    		}
-    
-    		args.emplace_back(a_string.substr(pos, sPos - pos));
-    		pos = sPos + 1;
-    	}
-    
-    	return args;
+    	return -1;
     }
 
     std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error)
@@ -182,28 +241,19 @@ namespace IcarianCore
 
         *a_error = std::string();
 
-        std::size_t pos = 0;
         while (true) 
         {
-            const std::size_t sPos = shader.find("#!", pos);
+            const std::size_t sPos = shader.find("#!");
             if (sPos == std::string::npos)
             {
                 break;
             }
 
             const std::size_t sAPos = shader.find('(', sPos + 1);
-            const std::size_t eApos = shader.find(')', sPos + 1);
 
-            if (sAPos == std::string::npos || eApos == std::string::npos)
+            if (sAPos == std::string::npos)
             {
                 *a_error = "Invalid Flare Shader definition: " + std::to_string(sPos);
-
-                return std::string();
-            }
-
-            if (sAPos > eApos)
-            {
-                *a_error = "Invalid Flare Shader braces: " + std::to_string(sPos);
 
                 return std::string();
             }
@@ -212,10 +262,13 @@ namespace IcarianCore
             // Could probably have a single array with a double null terminator to determine the end
             // Not an issue at the moment but could reduce allocations and jumping around in memory
             // Potential improvement if performance becomes an issue
-            const std::vector<std::string> args = SplitArgs(shader.substr(sAPos + 1, eApos - sAPos - 1));
+            std::vector<std::string> args;
+            const std::size_t eAPos = sAPos + SplitArgs(shader.data() + sAPos + 1, &args);
 
             std::string rStr;
-            if (defName == "structure")
+            switch (StringHash(defName.c_str()))
+            {
+            case StringHash("structure"):
             {
                 if (args.size() != 3)
                 {
@@ -225,10 +278,15 @@ namespace IcarianCore
                 }
 
                 // I am lazy therefore let the pre processor write it
-                FSHADER_UBO;
-                FSHADER_SSBO;
+                switch (StringHash(args[0].c_str()))
+                {
+                FSHADER_UBO
+                FSHADER_SSBO
+                }
+
+                break;
             }
-            else if (defName == "texture")
+            case StringHash("texture"):
             {
                 if (args.size() != 2)
                 {
@@ -246,8 +304,10 @@ namespace IcarianCore
                 };
 
                 a_inputs->emplace_back(input);
+
+                break;
             }
-            else if (defName == "pushtexture")
+            case StringHash("pushtexture"):
             {
                 if (args.size() != 2)
                 {
@@ -265,8 +325,10 @@ namespace IcarianCore
                 };
 
                 a_inputs->emplace_back(input);
+
+                break;
             }
-            else if (defName == "shadowtexture")
+            case StringHash("shadowtexture"):
             {
                 if (args.size() != 2)
                 {
@@ -284,8 +346,10 @@ namespace IcarianCore
                 };
 
                 a_inputs->emplace_back(input);
+
+                break;
             }
-            else if (defName == "cubeshadowtexture")
+            case StringHash("cubeshadowtexture"):
             {
                 if (args.size() != 2)
                 {
@@ -303,8 +367,10 @@ namespace IcarianCore
                 };
 
                 a_inputs->emplace_back(input);
+
+                break;
             }
-            else if (defName == "shadowtexturearray")
+            case StringHash("shadowtexturearray"):
             {
                 if (args.size() != 3)
                 {
@@ -329,7 +395,7 @@ namespace IcarianCore
                 }
                 default: 
                 {
-                    ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform");
+                    ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform");
 
                     break;
                 }
@@ -343,10 +409,12 @@ namespace IcarianCore
                 };
 
                 a_inputs->emplace_back(input);
+
+                break;
             }
-            else if (defName == "userbuffer")
+            case StringHash("userbuffer"):
             {
-                if (args.size() != 2)
+                if (args.size() != 3)
                 {
                     *a_error = "Flare Shader user buffer requires 2 arguments"; 
 
@@ -357,19 +425,19 @@ namespace IcarianCore
                 {
                 case ShaderPlatform_Vulkan:
                 {
-                    rStr = "layout(std140,binding=" + args[0] + ",set=" + args[0] + ") uniform " + args[1] + ";";
+                    rStr = "layout(std140,binding=" + args[0] + ",set=" + args[0] + ") uniform UserBuffer " + args[1] + " " + args[2] + ";";
 
                     break;
                 }
                 case ShaderPlatform_OpenGL:
                 {
-                    rStr = "layout(std140,binding=" + args[0] + ") uniform " + args[1] + ";";
+                    rStr = "layout(std140,binding=" + args[0] + ") uniform UserBuffer " + args[1] + " " + args[2] + ";";
 
                     break;
                 }
                 default:
                 {
-                    ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform");
+                    ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform");
 
                     break;
                 }
@@ -382,8 +450,10 @@ namespace IcarianCore
                 };
 
                 a_inputs->emplace_back(input);
+
+                break;
             }
-            else if (defName == "instancestructure")
+            case StringHash("instancestructure"):
             {
                 if (args.size() != 1)
                 {
@@ -408,13 +478,15 @@ namespace IcarianCore
                 }
                 default:
                 {
-                    ICARIAN_ASSERT_MSG_R(0, "Flare Shader invalid shader platform");
+                    ICARIAN_ASSERT_MSG(0, "Flare Shader invalid shader platform");
 
                     break;
                 }
                 }
+
+                break;
             }
-            else if (defName == "pushbuffer")
+            case StringHash("pushbuffer"):
             {
                 if (args.size() != 2)
                 {
@@ -423,7 +495,55 @@ namespace IcarianCore
                     return std::string();
                 }
 
-                FSHADER_PUSHBUFFER;
+                switch (StringHash(args[0].c_str()))
+                {
+                FSHADER_PUSHBUFFER
+                }
+
+                break;
+            }
+            // Exists because optimisation is terrible with unrolling loops so a pre processor loop is needed
+            case StringHash("preloop"):
+            {
+                if (args.size() != 4)
+                {
+                    *a_error = "Flare Shader pre loop requires 4 arguements";
+
+                    return std::string();
+                }
+
+                const std::string val = args[0];
+                const int startIndex = std::stoi(args[1]);
+                const int endIndex = std::stoi(args[2]);
+                const uint32_t size = val.size();
+
+                // Only gets optimised away if there is no break
+                // Therefore there is no cost if you do not break
+                // Do this to allow breaking in preprocessor loops
+                // Potential for no cost with a break but depends on vendor SPIRV compiler so mileage my vary
+                rStr += "switch(0) { \n";
+                rStr += "default: { \n";
+
+                for (int i = startIndex; i < endIndex; ++i)
+                {
+                    const std::string valStr = std::to_string(i);
+                    std::string snippet = args[3];
+                    
+                    std::size_t index = snippet.find(val);
+                    while (index != std::string::npos)
+                    {
+                        snippet.replace(index, size, valStr);
+
+                        index = snippet.find(val);
+                    }
+
+                    rStr += snippet;
+                }
+
+                rStr += "}} \n";
+
+                break;
+            }
             }
 
             std::size_t next = 1;
@@ -432,11 +552,31 @@ namespace IcarianCore
                 next = rStr.size();
             }
 
-            shader.replace(sPos, eApos - sPos + 1, rStr);
-
-            pos = sPos + next;
+            shader.replace(sPos, eAPos - sPos + 1, rStr);
         }
 
         return shader;
     }
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #include "ThreadPool.h"
 
 #include <chrono>
@@ -131,32 +135,32 @@ void ThreadPool::Destroy()
 
 uint32_t ThreadPool::GenerateLock()
 {
-    std::shared_mutex* mutex = new std::shared_mutex();
+    SharedSpinLock* lock = new SharedSpinLock();
 
     {
-        TLockArray<std::shared_mutex*> a = Instance->m_runtimeLocks.ToLockArray();
+        TLockArray<SharedSpinLock*> a = Instance->m_runtimeLocks.ToLockArray();
         const uint32_t count = a.Size();
 
         for (uint32_t i = 0; i < count; ++i)
         {
             if (a[i] == nullptr)
             {
-                a[i] = mutex;
+                a[i] = lock;
 
                 return i;
             }
         }
     }
 
-    return Instance->m_runtimeLocks.PushVal(mutex);
+    return Instance->m_runtimeLocks.PushVal(lock);
 }
 void ThreadPool::DestroyLock(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "DestroyLock invalid lock address");
     ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "DetroyLock lock is already destroyed");
 
-    const std::shared_mutex* mutex = Instance->m_runtimeLocks[a_addr];
-    IDEFER(delete mutex);
+    const SharedSpinLock* lock = Instance->m_runtimeLocks[a_addr];
+    IDEFER(delete lock);
     Instance->m_runtimeLocks.LockSet(a_addr, nullptr);
 }
 
@@ -165,28 +169,28 @@ void ThreadPool::ReadLock(uint32_t a_addr)
     ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "ReadLock invalid lock address");
     ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "ReadLock lock is already destroyed");
 
-    Instance->m_runtimeLocks[a_addr]->lock_shared();
+    Instance->m_runtimeLocks[a_addr]->LockShared();
 }
 void ThreadPool::ReadUnlock(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "ReadUnlock invalid lock address");
     ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "ReadUnlock lock is already destroyed");
 
-    Instance->m_runtimeLocks[a_addr]->unlock_shared();
+    Instance->m_runtimeLocks[a_addr]->UnlockShared();
 }
 void ThreadPool::WriteLock(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "WriteLock invalid lock address");
     ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "WriteLock lock is already destroyed");
 
-    Instance->m_runtimeLocks[a_addr]->lock();
+    Instance->m_runtimeLocks[a_addr]->Lock();
 }
 void ThreadPool::WriteUnlock(uint32_t a_addr)
 {
     ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "WriteUnlock invalid lock address");
     ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "WriteUnlock lock is already destroyed");
 
-    Instance->m_runtimeLocks[a_addr]->unlock();
+    Instance->m_runtimeLocks[a_addr]->Unlock();
 }
 
 uint32_t ThreadPool::GetThreadCount()
@@ -201,7 +205,7 @@ uint32_t ThreadPool::GetQueueSize()
 void ThreadPool::PushJob(ThreadJob* a_job)
 {
     {
-        const std::lock_guard l = std::lock_guard(Instance->m_lock);
+        const std::unique_lock l = std::unique_lock(Instance->m_lock);
 
         Instance->m_jobQueue.push(a_job);
     }
@@ -255,3 +259,25 @@ void ThreadPool::Dispath(uint32_t a_objectAddr)
 
     Instance->m_runtimeDispatch->Exec(args);
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

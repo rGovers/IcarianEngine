@@ -4,13 +4,16 @@ layout(location = 0) in vec2 vUV;
 
 #!texture(0, colorSampler)
 #!texture(1, normalSampler)
-#!texture(2, specSampler)
-#!texture(3, emissionSampler)
-#!texture(4, depthSampler)
+#!texture(2, aoSampler)
 
-#!structure(AmbientLightBuffer, 5, ambientLightBuffer)
+#!structure(AmbientLightBuffer, 3, ambientLightBuffer)
 
 layout(location = 0) out vec4 fragColor;
+
+const int kernelSize = 1;
+const int limit = kernelSize * 2 + 1;
+const int maxKernelSize = limit * limit;
+const float stepValue = 0.001;
 
 void main()
 {
@@ -21,7 +24,10 @@ void main()
     }
 
     vec4 color = texture(colorSampler, vUV);
+
+    float ao = texture(aoSampler, vUV).x;
+
     vec4 lCr = ambientLightBuffer.LightColor;
 
-    fragColor = vec4(color.rgb * lCr.xyz * lCr.w, 1.0);
+    fragColor = vec4(color.rgb * lCr.xyz * lCr.w * sqrt(1 - ao), 1.0);
 }

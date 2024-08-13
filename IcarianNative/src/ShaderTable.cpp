@@ -1,68 +1,117 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #include "Rendering/ShaderTable.h"
 
-#include <string>
-
+#include "Core/StringUtils.h"
 #include "Shaders.h"
 
 const char* GetVertexShaderString(const std::string_view& a_str)
 {
-    const std::string iStr = std::string(InternalShaderPathString);
-
-    if (a_str == iStr + "Quad")
+    switch (StringHash(a_str.data())) 
+    {
+    case StringHash("Quad"):
     {
         return QuadVertexShader;
     }
-    else if (a_str == iStr + "UI")
+    case StringHash("UI"):
     {
         return UIVertexShader;
+    }
     }
 
     return nullptr;
 }
 const char* GetPixelShaderString(const std::string_view& a_str)
 {
-    const std::string iStr = std::string(InternalShaderPathString);
-
-    if (a_str == iStr + "AmbientLight")
+    // Never optimised string comparisions as building jump tables is a pain in the ass then realised already have one just use switch statements
+    // We have constexpr in this day and age
+    switch (StringHash(a_str.data()))
+    {
+    case StringHash("AmbientOcclusion"):
+    {
+        return AmbientOcclusionPixelShader;
+    }
+    case StringHash("AmbientOcclusionFilter"):
+    {
+        return AmbientOcclusionFilterPixelShader;
+    }
+    case StringHash("AmbientLight"):
     {
         return AmbientLightPixelShader;
     }
-    else if (a_str == iStr + "DirectionalLight")
+    case StringHash("Blend"):
+    {
+        return BlendPixelShader;
+    }
+    case StringHash("DirectionalLight"):
     {
         return DirectionalLightPixelShader;
     }
-    else if (a_str == iStr + "PointLight")
+    case StringHash("PointLight"):
     {
         return PointLightPixelShader;
     }
-    else if (a_str == iStr + "SpotLight")
+    case StringHash("SpotLight"):
     {
         return SpotLightPixelShader;
     }
-    else if (a_str == iStr + "DirectionalLightShadow")
+    case StringHash("DirectionalLightShadow"):
     {
         return ShadowDirectionalLightPixelShader;
     }
-    else if (a_str == iStr + "PointLightShadow")
+    case StringHash("PointLightShadow"):
     {
         return ShadowPointLightPixelShader;
     }
-    else if (a_str == iStr + "SpotLightShadow")
+    case StringHash("SpotLightShadow"):
     {
         return ShadowSpotLightPixelShader;
     }
-    else if (a_str == iStr + "Post")
+    case StringHash("PostAtmosphere"):
     {
-        return PostPixelShader;
+        return PostAtmospherePixelShader;
     }
-    else if (a_str == iStr + "UIImage")
+    case StringHash("PostEmission"):
+    {
+        return PostEmissionPixelShader;
+    }
+    case StringHash("PostToneMap"):
+    {
+        return PostToneMapPixelShader;
+    }
+    case StringHash("UIImage"):
     {
         return UIImagePixelShader;
     }
-    else if (a_str == iStr + "UIText")
+    case StringHash("UIText"):
     {
         return UITextPixelShader;
+    }
     }
 
     return nullptr;
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

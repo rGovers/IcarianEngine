@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 using IcarianEngine.Definitions;
 using IcarianEngine.Maths;
 using IcarianEngine.Physics.Shapes;
@@ -25,7 +29,9 @@ namespace IcarianEngine.Physics
         /// <param name="a_other">The other body that collision ended with</param>
         public delegate void EndCollisionCallback(PhysicsBody a_other);
 
+        uint  m_objectLayer = 0;
         float m_mass = 10.0f;
+        float m_gravityFactor = 1.0f;
 
         /// <summary>
         /// Callback used for events on collision enter
@@ -74,16 +80,62 @@ namespace IcarianEngine.Physics
         }
 
         /// <summary>
+        /// The factor of Gravity applied to the RigidBody
+        /// </summary>
+        public float GravityFactor
+        {
+            get
+            {
+                return m_gravityFactor;
+            }
+            set
+            {
+                if (m_gravityFactor != value)
+                {
+                    m_gravityFactor = value;
+
+                    if (InternalAddr != uint.MaxValue)
+                    {
+                        RigidBodyInterop.SetGravityFactor(InternalAddr, m_gravityFactor);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// The layer the Rigidbody is on
+        /// </summary>
+        public uint ObjectLayer
+        {
+            get
+            {
+                return m_objectLayer;
+            }
+        }
+
+        /// <summary>
         /// The velocity of the RigidBody
         /// </summary>
         public Vector3 Velocity
         {
             get
             {
+                if (InternalAddr == uint.MaxValue)
+                {
+                    return Vector3.Zero;
+                }
+
                 return RigidBodyInterop.GetVelocity(InternalAddr);
             }
             set
             {
+                if (InternalAddr == uint.MaxValue)
+                {
+                    Logger.IcarianWarning("Setting velocity of unintialised RigidBody");
+
+                    return;
+                }
+
                 RigidBodyInterop.SetVelocity(InternalAddr, value);
             }
         }
@@ -94,10 +146,22 @@ namespace IcarianEngine.Physics
         {
             get
             {
+                if (InternalAddr == uint.MaxValue)
+                {
+                    return Vector3.Zero;
+                }
+
                 return RigidBodyInterop.GetAngularVelocity(InternalAddr);
             }
             set
             {
+                if (InternalAddr == uint.MaxValue)
+                {
+                    Logger.IcarianWarning("Setting angular velocity of unintialised RigidBody");
+
+                    return;
+                }
+
                 RigidBodyInterop.SetAngularVelocity(InternalAddr, value);
             }
         }
@@ -111,6 +175,7 @@ namespace IcarianEngine.Physics
             if (def != null)
             {
                 m_mass = def.Mass;
+                m_objectLayer = def.ObjectLayer;
             }
 
             base.Init();
@@ -123,11 +188,18 @@ namespace IcarianEngine.Physics
         /// <param name="a_forceMode">The force mode of the force</param>
         public void AddForce(Vector3 a_force, ForceMode a_forceMode = ForceMode.Force)
         {
+            if (InternalAddr == uint.MaxValue)
+            {
+                Logger.IcarianWarning("Adding force to unitialised RigidBody");
+
+                return;
+            }
+
             switch (a_forceMode)
             {
             case ForceMode.Acceleration:
             {
-                RigidBodyInterop.AddForce(InternalAddr, a_force * Time.DeltaTime, (uint)ForceMode.Impulse);
+                RigidBodyInterop.AddForce(InternalAddr, a_force * Time.FixedDeltaTime, (uint)ForceMode.Impulse);
 
                 break;
             }
@@ -146,11 +218,18 @@ namespace IcarianEngine.Physics
         /// <param name="a_forceMode">The mode of the torque</param>
         public void AddTorque(Vector3 a_torque, ForceMode a_forceMode = ForceMode.Force)
         {
+            if (InternalAddr == uint.MaxValue)
+            {
+                Logger.IcarianWarning("Adding torque to unitialised RigidBody");
+
+                return;
+            }
+
             switch (a_forceMode)
             {
             case ForceMode.Acceleration:
             {
-                RigidBodyInterop.AddTorque(InternalAddr, a_torque * Time.DeltaTime, (uint)ForceMode.Impulse);
+                RigidBodyInterop.AddTorque(InternalAddr, a_torque * Time.FixedDeltaTime, (uint)ForceMode.Impulse);
 
                 break;
             }
@@ -179,11 +258,34 @@ namespace IcarianEngine.Physics
 
             if (a_newShape != null)
             {
-                InternalAddr = RigidBodyInterop.CreateRigidBody(Transform.InternalAddr, a_newShape.InternalAddr, m_mass);
+                InternalAddr = RigidBodyInterop.CreateRigidBody(Transform.InternalAddr, a_newShape.InternalAddr, m_objectLayer, m_mass);
 
+                RigidBodyInterop.SetGravityFactor(InternalAddr, m_gravityFactor);
                 RigidBodyInterop.SetVelocity(InternalAddr, vel);
                 RigidBodyInterop.SetAngularVelocity(InternalAddr, angVel);
             }
         }
     };
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

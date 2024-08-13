@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #include "Scribe.h"
 
 #include <codecvt>
@@ -35,7 +39,6 @@ RUNTIME_FUNCTION(MonoString*, Scribe, GetString,
     IDEFER(mono_free(key));
 
     const std::u32string str = Scribe::GetString(key);
-
     if (!str.empty())
     {
         return mono_string_from_utf32((mono_unichar4*)str.c_str());
@@ -143,12 +146,28 @@ void Scribe::Destroy()
     }
 }
 
+std::string Scribe::GetCurrentLanguage()
+{
+    IVERIFY(Instance != nullptr);
+
+    const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
+
+    return Instance->m_curLang;
+}
+void Scribe::SetCurrentLanguage(const std::string_view& a_language)
+{
+    IVERIFY(Instance != nullptr);
+
+    const ThreadGuard g = ThreadGuard(Instance->m_lock);
+
+    Instance->m_curLang = std::string(a_language);
+}
+
 uint32_t Scribe::GetFont(const std::string_view& a_key)
 {
-    ICARIAN_ASSERT(Instance != nullptr);
+    IVERIFY(Instance != nullptr);
 
     const std::string key = std::string(a_key);
-
     if (Instance->m_fonts.Exists(key))
     {
         return Instance->m_fonts[key];
@@ -159,10 +178,9 @@ uint32_t Scribe::GetFont(const std::string_view& a_key)
 
 std::u32string Scribe::GetString(const std::string_view& a_key)
 {
-    ICARIAN_ASSERT(Instance != nullptr);
-        
+    IVERIFY(Instance != nullptr);
+    
     const std::string key = std::string(a_key);
-
     if (Instance->m_strings.Exists(key))
     {
         return Instance->m_strings[key];
@@ -170,7 +188,7 @@ std::u32string Scribe::GetString(const std::string_view& a_key)
 
     return converter.from_bytes(key);
 }
-std::u32string Scribe::GetStringFormated(const std::string_view& a_key, char32_t* const* a_args, uint32_t a_count)
+std::u32string Scribe::GetStringFormated(const std::string_view& a_key, const char32_t* const* a_args, uint32_t a_count)
 {
     std::u32string str = GetString(a_key);
 
@@ -226,3 +244,25 @@ std::u32string Scribe::GetStringFormated(const std::string_view& a_key, const st
 
     return str;
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

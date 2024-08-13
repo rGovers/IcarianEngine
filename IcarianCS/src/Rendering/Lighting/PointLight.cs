@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 using IcarianEngine.Definitions;
 using IcarianEngine.Maths;
 using System;
@@ -10,10 +14,8 @@ using System.Runtime.InteropServices;
 
 namespace IcarianEngine.Rendering.Lighting
 {
-    public class PointLight : Light, IDestroy
+    public class PointLight : ShadowLight, IDestroy
     {
-        static ConcurrentDictionary<uint, PointLight> s_lightMap = new ConcurrentDictionary<uint, PointLight>();
-
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateBuffer(uint a_transformAddr);
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -27,10 +29,20 @@ namespace IcarianEngine.Rendering.Lighting
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GetShadowMap(uint a_addr);
 
+        static ConcurrentDictionary<uint, PointLight> s_lightMap = new ConcurrentDictionary<uint, PointLight>();
+
         uint m_bufferAddr = uint.MaxValue;
 
+        internal uint InternalAddr
+        {
+            get
+            {
+                return m_bufferAddr;
+            }
+        }
+
         /// <summary>
-        /// Determines if the PointLight has been disposed of.
+        /// Determines if the PointLight has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -41,7 +53,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Returns the LightType of the PointLight.
+        /// The <see cref="IcarianEngine.Rendering.Lighting.LightType" /> of the PointLight
         /// </summary>
         public override LightType LightType
         {
@@ -52,7 +64,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Returns the Definition used to create the PointLight.
+        /// The Definition used to create the PointLight
         /// </summary>
         public PointLightDef PointLightDef
         {
@@ -63,7 +75,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Render layers the PointLight is a part of.
+        /// Render layers the PointLight is a part of
         /// </summary>
         /// Bitmask of RenderLayers.
         public override uint RenderLayer 
@@ -85,7 +97,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Color of the PointLight.
+        /// Color of the PointLight
         /// </summary>
         public override Color Color 
         {
@@ -106,7 +118,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Intensity of the PointLight.
+        /// Intensity of the PointLight
         /// </summary>
         public override float Intensity 
         {
@@ -132,7 +144,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Radius of the PointLight.
+        /// Radius of the PointLight
         /// </summary>
         public float Radius
         {
@@ -158,7 +170,31 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Returns the Light ShadowMaps.
+        /// Shadow Bias used by the PointLight
+        /// </summary>
+        public override Vector2 ShadowBias 
+        { 
+            get
+            {
+                PointLightBuffer buffer = GetBuffer(m_bufferAddr);
+
+                return buffer.ShadowBias;
+            } 
+            set
+            { 
+                PointLightBuffer buffer = GetBuffer(m_bufferAddr);
+
+                if (buffer.ShadowBias != value)
+                {
+                    buffer.ShadowBias = value;
+
+                    SetBuffer(m_bufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns the Light Shadow Maps
         /// </summary>
         public override IEnumerable<IRenderTexture> ShadowMaps
         {
@@ -173,7 +209,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Returns the CubeMap used for the PointLight ShadowMap.
+        /// Returns the CubeMap used for the PointLight Shadow Map
         /// </summary>
         public DepthCubeRenderTexture ShadowMap
         {
@@ -202,7 +238,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Called when the PointLight is created.
+        /// Called when the PointLight is created
         /// </summary>
         public override void Init()
         {
@@ -210,31 +246,28 @@ namespace IcarianEngine.Rendering.Lighting
 
             m_bufferAddr = GenerateBuffer(Transform.InternalAddr);
 
-            PointLightDef pointDef = PointLightDef;
-            if (pointDef != null)
+            LightDef lightDef = LightDef;
+            if (lightDef != null)
             {
                 PointLightBuffer buffer = GetBuffer(m_bufferAddr);
+                
+                buffer.RenderLayer = lightDef.RenderLayer;
+                buffer.Color = lightDef.Color.ToVector4();
+                buffer.Intensity = lightDef.Intensity;
 
-                buffer.RenderLayer = pointDef.RenderLayer;
-                buffer.Color = pointDef.Color.ToVector4();
-                buffer.Intensity = pointDef.Intensity;
-                buffer.Radius = pointDef.Radius;
-
-                SetBuffer(m_bufferAddr, buffer);
-            }
-            else
-            {
-                LightDef lightDef = LightDef;
-                if (lightDef != null)
+                ShadowLightDef shadowDef = ShadowLightDef;
+                if (shadowDef != null)
                 {
-                    PointLightBuffer buffer = GetBuffer(m_bufferAddr);
+                    buffer.ShadowBias = new Vector2(shadowDef.ShadowBiasConstant, shadowDef.ShadowBiasSlope);
 
-                    buffer.RenderLayer = lightDef.RenderLayer;
-                    buffer.Color = lightDef.Color.ToVector4();
-                    buffer.Intensity = lightDef.Intensity;
-
-                    SetBuffer(m_bufferAddr, buffer);
+                    PointLightDef pointDef = PointLightDef;
+                    if (pointDef != null)
+                    {
+                        buffer.Radius = pointDef.Radius;
+                    }
                 }
+                
+                SetBuffer(m_bufferAddr, buffer);
             }
 
             s_lightMap.TryAdd(m_bufferAddr, this);
@@ -250,12 +283,8 @@ namespace IcarianEngine.Rendering.Lighting
             return null;
         }
 
-        ~PointLight()
-        {
-            Dispose(false);
-        }
         /// <summary>
-        /// Disposes of the PointLight.
+        /// Disposes of the PointLight
         /// </summary>
         public void Dispose()
         {
@@ -264,9 +293,9 @@ namespace IcarianEngine.Rendering.Lighting
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// Called when the PointLight is disposed of.
+        /// Called when the PointLight is Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Determines if the PointLight is being disposed of.</param>
+        /// <param name="a_disposing">Determines if the PointLight is being Disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)
@@ -289,5 +318,31 @@ namespace IcarianEngine.Rendering.Lighting
                 Logger.IcarianError("Multiple PointLight Dispose");
             }
         }
+        ~PointLight()
+        {
+            Dispose(false);
+        }
     }
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 using IcarianEngine.Maths;
 using IcarianEngine.Rendering;
 using System;
@@ -16,7 +20,8 @@ namespace IcarianEngine
     {
         Cube,
         IcoSphere,
-        Torus
+        Torus,
+        Cylinder
     };
 
     public static class PrimitiveGenerator
@@ -393,6 +398,102 @@ namespace IcarianEngine
         }
 
         /// <summary>
+        /// Create a Cylinder primitive <see cref="IcarianEngine.Rendering.Model" />
+        /// </summary>
+        /// <param name="a_radius">The radius of the loops</param>
+        /// <param name="a_height">The height of the cylinder</param>
+        /// <param name="a_segments">The number of segements in the loop of the cylinder</param>
+        /// <returns>The created <see cref="IcarianEngine.Rendering.Model" /></returns>
+        public static Model CreateCylinder(float a_radius, float a_height, uint a_segments)
+        {
+            // Naive and can be improved but if people are creating a lot of primitives we have bigger problems performance wise
+            // If performance was a concern would be doing it on the C++ side anyway because of unpacking
+            uint loopOffset = a_segments + 1;
+            uint loopEnd = loopOffset * 2;
+            uint vertexCount = loopEnd + (a_segments * 2);
+            Vector3[] positions = new Vector3[vertexCount];
+            Vector3[] normals = new Vector3[vertexCount];
+
+            float halfHeight = a_height * 0.5f;
+
+            positions[0] = Vector3.UnitY * halfHeight;
+            positions[loopOffset] = -Vector3.UnitY * halfHeight;
+            Array.Fill(normals, Vector3.UnitY, 0, (int)loopOffset);
+            Array.Fill(normals, -Vector3.UnitY, (int)loopOffset, (int)loopOffset);
+
+            for (uint i = 0; i < a_segments; ++i)
+            {
+                float angle = (float)i / a_segments * Mathf.TwoPI;
+                Vector2 dir = new Vector2(Mathf.Sin(angle), Mathf.Cos(angle));
+
+                Vector3 norm = new Vector3(dir.X, 0.0f, dir.Y);
+                Vector2 sDir = dir * a_radius;
+                Vector3 posA = new Vector3(sDir.X, halfHeight,  sDir.Y);
+                Vector3 posB = new Vector3(sDir.X, -halfHeight, sDir.Y);
+
+                uint vertexOffset = i + 1;
+                uint indexA = vertexOffset;
+                uint indexB = vertexOffset + loopOffset;
+                uint indexC = loopEnd + i;
+                uint indexD = loopEnd + a_segments + i;
+
+                positions[indexA] = posA;
+                positions[indexB] = posB;
+                positions[indexC] = posA;
+                positions[indexD] = posB;
+                
+                normals[indexC] = norm;
+                normals[indexD] = norm;
+            }
+
+            uint indexCount = a_segments * 12;
+            uint[] indices = new uint[indexCount];
+
+            for (uint i = 0; i < a_segments; ++i)
+            {
+                uint tIndex = i * 3;
+                uint bIndex = i * 3 + a_segments * 3;
+                uint qIndex = i * 6 + a_segments * 6;
+
+                indices[tIndex + 0] = i + 1;
+                indices[tIndex + 1] = (i + 1) % a_segments + 1;
+                indices[tIndex + 2] = 0;
+
+                indices[bIndex + 0] = ((i + 1) % a_segments) + 1 + loopOffset;
+                indices[bIndex + 1] = i + 1 + loopOffset;
+                indices[bIndex + 2] = loopOffset;
+
+                uint quadIndexA = i + loopEnd;
+                uint quadIndexB = (i + 1) % a_segments + loopEnd;
+                uint quadIndexC = i + loopEnd + a_segments;
+                uint quadIndexD = (i + 1) % a_segments + loopEnd + a_segments;
+
+                indices[qIndex + 0] = quadIndexA;
+                indices[qIndex + 1] = quadIndexC;
+                indices[qIndex + 2] = quadIndexB;
+                
+                indices[qIndex + 3] = quadIndexB;
+                indices[qIndex + 4] = quadIndexC;
+                indices[qIndex + 5] = quadIndexD;
+            }
+
+            Vertex[] vertices = new Vertex[vertexCount];
+
+            for (uint i = 0; i < vertexCount; ++i)
+            {
+                vertices[i] = new Vertex()
+                {
+                    Position = new Vector4(positions[i], 1.0f),
+                    Normal = normals[i],
+                    Color = Vector4.One,
+                    TexCoords = Vector2.One
+                };
+            }
+
+            return Model.CreateModel(vertices, indices, new Vector2(halfHeight, a_radius).Magnitude);
+        }
+
+        /// <summary>
         /// Creates a primitive <see cref="IcarianEngine.Rendering.Model" />
         /// </summary>
         /// <param name="a_primitiveType">The type of primitive to create</param>
@@ -413,9 +514,35 @@ namespace IcarianEngine
             {
                 return CreateTorus(0.25f, 8, 1.0f, 16);
             }
+            case PrimitiveType.Cylinder:
+            {
+                return CreateCylinder(0.25f, 1.0f, 16);
+            }
             }
 
             return null;   
         }
     }
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

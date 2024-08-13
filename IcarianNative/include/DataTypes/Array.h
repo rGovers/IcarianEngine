@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #pragma once
 
 #include <cstdint>
@@ -19,7 +23,7 @@ private:
 
     inline void DestroyData()
     {
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
             for (uint32_t i = 0; i < m_size; ++i)
             {
@@ -165,18 +169,68 @@ public:
 
         m_data[m_size] = a_data;
     }
+    void Insert(uint32_t a_index, const T& a_data)
+    {
+        const uint32_t aSize = m_size + 1;
+        IDEFER(m_size = aSize);
+
+        if (aSize > m_capacity)
+        {
+            const uint32_t cap = m_capacity << 1;
+            const uint32_t diff = cap - m_capacity;
+            IDEFER(m_capacity = cap);
+
+            m_data = (T*)realloc(m_data, sizeof(T) * cap);
+            memset(m_data + m_capacity, 0, diff * sizeof(T));
+        }
+
+        memmove(m_data + a_index + 1, m_data + a_index, (m_size - a_index) * sizeof(T));
+
+        m_data[a_index] = a_data;
+    }
+
     void Erase(uint32_t a_index)
     {
         const uint32_t aSize = m_size - 1;
         IDEFER(m_size = aSize);
 
-        if constexpr (std::is_destructible<T>())
+        if constexpr (!std::is_trivially_destructible<T>())
         {
+            // Today I learned that not just pointer values but pointers can be deconstructed 
+            // Thank you for this knowledge debugger now I live in horror
+            // What vodoo is happening that I can deconstruct a address what is there to deconstruct?!
+            // TF it is a NOP what the actual fuck
+            // Pointer deconstructors are NOP I want to cry it should not have even reached here
+            // I dodged a bullet and am lucky this did not cause any issues I now have to account for this when using std::is_destructible
+            // Should be fixed now with is_trivially_destructible
             (&(m_data[a_index]))->~T();
         }
 
-        memcpy(m_data + a_index, m_data + a_index + 1, (aSize - a_index) * sizeof(T));
-        memset(m_data + m_size, 0, sizeof(T));
+        memmove(m_data + a_index, m_data + a_index + 1, (aSize - a_index) * sizeof(T));
+        memset(m_data + aSize, 0, sizeof(T));
+    }
+
+    void Resize(uint32_t a_size)
+    {
+        IDEFER(m_size = a_size);
+
+        if (a_size > m_capacity)
+        {
+            const uint32_t cap = a_size;
+            const uint32_t diff = cap - m_capacity;
+            IDEFER(m_capacity = cap);
+
+            m_data = (T*)realloc(m_data, sizeof(T) * cap);
+            memset(m_data + m_capacity, 0, diff * sizeof(T));
+        }
+
+        if constexpr (std::is_constructible<T>())
+        {
+            for (uint32_t i = m_size; i < a_size; ++i)
+            {
+                m_data[i] = T();
+            }
+        }
     }
     void Reserve(uint32_t a_size)
     {
@@ -213,3 +267,25 @@ public:
         m_data[a_index] = a_value;
     }
 };
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 using System;
 using System.Runtime.CompilerServices;
 
@@ -129,7 +133,8 @@ namespace IcarianEngine.Maths
         /// <summary>
         /// Gets the sign value of the input
         /// </summary>
-        /// <returns>The sign of the input value</returns>
+        /// <param name="a_a">The value to get the Sign of</param>
+        /// <returns>The sign of the input value as 1 or -1</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int Sign(float a_a)
         {
@@ -138,6 +143,19 @@ namespace IcarianEngine.Maths
             unchecked
             {
                 return (a_a.GetHashCode() >> 31) * 2 + 1;
+            }
+        }
+        /// <summary>
+        /// Gets the sign value of the input
+        /// </summary>
+        /// <param name="a_a">The value to get the Sign of</param>
+        /// <returns>The sign of the input value as 1 or -1</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int Sign(int a_a)
+        {
+            unchecked
+            {
+                return (a_a >> 31) * 2 + 1;
             }
         }
 
@@ -149,11 +167,16 @@ namespace IcarianEngine.Maths
         /// <returns>The mimimum of the values</returns>
         public static float Min(float a_a, float a_b)
         {
-            // Have not verified may have to hand inline and cancel out terms
-            int v = (int)(Sign(a_b - a_a) * 0.5f + 0.5f);
-            int invV = 1 - v;
+            unchecked
+            {
+                // I suspect the JIT is actually good as I cannot find a difference between this one and the System.Math.Min upto several million interations
+                // Gonna leave as it already works
+                int v = -((a_b - a_a).GetHashCode() >> 31);
+                int invV = 1 - v;
 
-            return a_a * v + a_b * invV;
+                return a_a * invV + a_b * v;
+            }
+            
         }
         /// <summary>
         /// Gets the maximum of 2 values
@@ -163,11 +186,100 @@ namespace IcarianEngine.Maths
         /// <returns>The maximum of the values</returns>
         public static float Max(float a_a, float a_b)
         {
-            // Have not verified may have to hand inline and cancel out terms
-            int v = (int)(Sign(a_b - a_a) * 0.5f + 0.5f);
-            int invV = 1 - v;
+            unchecked
+            {
+                int v = -((a_b - a_a).GetHashCode() >> 31);
+                int invV = 1 - v;
 
-            return a_a * invV + a_b * v;
+                return a_a * v + a_b * invV;
+            }
+        }
+        /// <summary>
+        /// Clamps a value in a range
+        /// </summary>
+        /// <param name="a_a">The value to clamp</param>
+        /// <param name="a_min">The minimum value for the value</param>
+        /// <param name="a_max">The maximum value for the value</param>
+        /// <returns>The value clamped to the range</returns>
+        public static float Clamp(float a_a, float a_min, float a_max)
+        {
+            return Mathf.Min(a_max, Mathf.Max(a_a, a_min));
+        }
+
+        /// <summary>
+        /// Gets the minimum of 2 values
+        /// </summary>
+        /// <param name="a_a">The first value to get the minimum value of</param>
+        /// <param name="a_b">The second value to get the minimum value of</param>
+        /// <returns>The mimimum of the values</returns>
+        public static int Min(int a_a, int a_b)
+        {
+            unchecked
+            {
+                int v = -((a_b - a_a) >> 31);
+                int invV = 1 - v;
+
+                return a_a * invV + a_b * v;
+            }   
+        }
+        /// <summary>
+        /// Gets the minimum of 2 values
+        /// </summary>
+        /// <param name="a_a">The first value to get the minimum value of</param>
+        /// <param name="a_b">The second value to get the minimum value of</param>
+        /// <returns>The mimimum of the values</returns>
+        public static uint Min(uint a_a, uint a_b)
+        {
+            // Unsigned so cannot use sign bit to get min
+            if (a_a < a_b)
+            {
+                return a_a;
+            }
+
+            return a_b;
+        }
+        /// <summary>
+        /// Gets the maximum of 2 values
+        /// </summary>
+        /// <param name="a_a">The first value to get the maximum of</param>
+        /// <param name="a_b">The second value to get the maximum of</param>
+        /// <returns>The maximum of the values</returns>
+        public static int Max(int a_a, int a_b)
+        {
+            unchecked
+            {
+                int v = -((a_b - a_a) >> 31);
+                int invV = 1 - v;
+
+                return a_a * v + a_b * invV;
+            }
+        }
+        /// <summary>
+        /// Gets the maximum of 2 values
+        /// </summary>
+        /// <param name="a_a">The first value to get the maximum of</param>
+        /// <param name="a_b">The second value to get the maximum of</param>
+        /// <returns>The maximum of the values</returns>
+        public static uint Max(uint a_a, uint a_b)
+        {
+            // Unsigned so cannot use sign bit to get max
+            if (a_a > a_b)
+            {
+                return a_a;
+            }
+
+            return a_b;
+        }
+        /// <summary>
+        /// Clamps a value in a range
+        /// </summary>
+        /// <param name="a_a">The value to clamp</param>
+        /// <param name="a_min">The minimum value for the value</param>
+        /// <param name="a_max">The maximum value for the value</param>
+        /// <returns>The value clamped to the range</returns>
+        public static int Clamp(int a_a, int a_min, int a_max)
+        {
+            return Mathf.Min(a_max, Mathf.Max(a_a, a_min));
         }
 
         /// <summary>
@@ -207,9 +319,32 @@ namespace IcarianEngine.Maths
         /// <param name="a_a">The point to interoplate from</param>
         /// <param name="a_b">The point to interoplate to</param>
         /// <param name="a_t">The value to interoplate by</param>
+        /// <returns>The interpolated value</returns>
         public static float Lerp(float a_a, float a_b, float a_t)
         {
             return a_a + (a_b - a_a) * a_t;
         }
     }
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

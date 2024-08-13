@@ -1,5 +1,10 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #include "Application.h"
 
+#include "AI/Navigation.h"
 #include "AppWindow/GLFWAppWindow.h"
 #include "AppWindow/HeadlessAppWindow.h"
 #include "Audio/AudioEngine.h"
@@ -18,23 +23,16 @@
 #include "Rendering/AnimationController.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/UI/UIControl.h"
+#include "Rendering/Video/VideoManager.h"
 #include "Runtime/RuntimeManager.h"
 #include "Scribe.h"
 #include "Trace.h"
 #include "ThreadPool.h"
 
+#include "EngineApplicationInteropStructures.h"
 #include "EngineInputInterop.h"
 
 static Application* Instance = nullptr;
-
-struct Monitor
-{
-    uint32_t Index;
-    MonoString* Name;
-    uint32_t Width;
-    uint32_t Height;
-    void* Handle;
-};
 
 #define APPLICATION_BINDING_FUNCTION_TABLE(F) \
     F(uint32_t, IcarianEngine, Application, GetWidth, { return Instance->GetWidth(); }) \
@@ -70,12 +68,14 @@ RUNTIME_FUNCTION(MonoArray*, Application, GetMonitors,
         arr = mono_array_new(domain, monitorClass, (uintptr_t)monitorCount);
         for (int i = 0; i < monitorCount; ++i)
         {
+            const AppMonitor& aM = appMonitors[i];
+
             Monitor monitor;
             monitor.Index = i;
             monitor.Name = mono_string_new(domain, appMonitors[i].Name.c_str());
-            monitor.Width = appMonitors[i].Width;
-            monitor.Height = appMonitors[i].Height;
-            monitor.Handle = appMonitors[i].Handle;
+            monitor.Width = aM.Width;
+            monitor.Height = aM.Height;
+            monitor.Handle = aM.Handle;
 
             mono_array_set(arr, Monitor, i, monitor);
         }
@@ -90,36 +90,10 @@ RUNTIME_FUNCTION(void, Application, SetFullscreenState,
     appMonitor.Height = a_monitor.Height;
     appMonitor.Handle = a_monitor.Handle;
 
-    class ApplicationSetFullscreen : public DeletionObject
+    IPUSHDELETIONFUNC(
     {
-    private:
-        bool       m_state;
-        uint32_t   m_width;
-        uint32_t   m_height;
-        AppMonitor m_monitor;
-
-    protected:
-
-    public:
-        ApplicationSetFullscreen(bool a_state, uint32_t a_width, uint32_t a_height, const AppMonitor& a_monitor)
-        {
-            m_state = a_state;
-            m_width = a_width;
-            m_height = a_height;
-            m_monitor = a_monitor;
-        }
-        virtual ~ApplicationSetFullscreen()
-        {
-            
-        }
-
-        virtual void Destroy()
-        {
-            Instance->SetFullscreen(m_monitor, m_state, m_width, m_height);
-        }
-    };
-
-    DeletionQueue::Push(new ApplicationSetFullscreen((bool)a_state, a_width, a_height, appMonitor), DeletionIndex_Render);
+        Instance->SetFullscreen(appMonitor, (bool)a_state, a_width, a_height);   
+    }, DeletionIndex_Render);
 }, Monitor a_monitor, uint32_t a_state, uint32_t a_width, uint32_t a_height)
 
 static void AppAssertCallback(const std::string& a_string)
@@ -166,7 +140,9 @@ Application::Application(Config* a_config)
     m_inputManager = new InputManager();
 
     ObjectManager::Init();
+    VideoManager::Init();
 
+    m_navigation = new Navigation();
     m_audioEngine = new AudioEngine();
     m_physicsEngine = new PhysicsEngine(m_config);
     m_renderEngine = new RenderEngine(m_appWindow, m_config);
@@ -189,15 +165,16 @@ Application::~Application()
 
     RuntimeManager::Destroy();
 
-    AnimationController::Destroy();
+    // Hacky but can depend on each other so need to clear them all
+    // Because the render engine is stopped should be safe to clear render object on the main thread
+    DeletionQueue::ClearQueue(DeletionIndex_Update);
+    DeletionQueue::ClearQueue(DeletionIndex_Render);
+    DeletionQueue::ClearQueue(DeletionIndex_Update);
 
+    AnimationController::Destroy();
     UIControl::Destroy();
 
-    for (uint32_t i = 0; i < DeletionQueue::QueueSize; ++i)
-    {
-        DeletionQueue::Flush(DeletionIndex_Update);
-    }
-
+    delete m_navigation;
     delete m_audioEngine;
     delete m_physicsEngine;
     delete m_renderEngine;
@@ -206,6 +183,7 @@ Application::~Application()
     delete m_config;
 
     ObjectManager::Destroy();
+    VideoManager::Destroy();
 
     Random::Destroy();
     Profiler::Destroy();
@@ -292,6 +270,8 @@ void Application::Run(int32_t a_argc, char* a_argv[])
                 
                 m_physicsEngine->Update(delta);
             }
+
+            RuntimeManager::LateUpdate();
         }
 
         DeletionQueue::Flush(DeletionIndex_Update); 
@@ -301,3 +281,25 @@ void Application::Run(int32_t a_argc, char* a_argv[])
 
     m_renderEngine->Stop();
 }
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
