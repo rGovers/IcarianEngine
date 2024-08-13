@@ -56,7 +56,7 @@
 /* #undef HAVE_WINMM */
 
 /* Define if we have the PortAudio backend */
-#define HAVE_PORTAUDIO
+/* #define HAVE_PORTAUDIO */
 
 /* Define if we have the PulseAudio backend */
 #define HAVE_PULSEAUDIO

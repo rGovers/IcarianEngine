@@ -889,7 +889,8 @@ CUBE_CProject BuildOpenALSoft(e_TargetPlatform a_targetPlatform, e_BuildConfigur
         CUBE_CProject_AppendSource(&project, "alc/backends/oss.cpp");
         // CUBE_CProject_AppendSource(&project, "alc/backends/pipewire.cpp");
         // This one is being a prick ^
-        CUBE_CProject_AppendSource(&project, "alc/backends/portaudio.cpp");
+        // Issues with portaudio on Ubuntu
+	// CUBE_CProject_AppendSource(&project, "alc/backends/portaudio.cpp");
         CUBE_CProject_AppendSource(&project, "alc/backends/pulseaudio.cpp");
         CUBE_CProject_AppendSource(&project, "alc/backends/wave.cpp");
 

@@ -129,6 +129,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "../deps/flare-stb",
         "../deps/KTX-Software/include",
         "../deps/flare-tinyxml2",
+	"../deps/Vulkan-Headers/include",
 
         "./lib/enet/include",
         "./lib/glslang",

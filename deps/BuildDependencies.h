@@ -224,7 +224,7 @@ static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfigu
         "./include/",
         "./utils/",
         "./external/",
-        "./extenal/basisu/zstd/",
+        "./external/basisu/zstd/",
         "./other_include/"
     );
 
@@ -320,7 +320,7 @@ static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfi
         "./include/",
         "./utils/",
         "./external/",
-        "./extenal/basisu/zstd/",
+        "./external/basisu/zstd/",
         "./other_include/"
     );
 
@@ -402,7 +402,7 @@ static CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildCo
         "./include/",
         "./utils/",
         "./external/",
-        "./extenal/basisu/zstd/",
+        "./external/basisu/zstd/",
         "./other_include/"
     );
 
@@ -500,7 +500,7 @@ static CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_Build
         "./include/",
         "./utils/",
         "./external/",
-        "./extenal/basisu/zstd/",
+        "./external/basisu/zstd/",
         "./other_include/"
     );
 
@@ -586,7 +586,7 @@ static CUBE_CProject BuildUnzip(e_TargetPlatform a_targetPlatform, e_BuildConfig
 
     CUBE_CProject_AppendIncludePaths(&project, 
         ".",
-        "../gen/assimp"
+	"../../../zlib/"
     );
 
     CUBE_CProject_AppendSources(&project, 
@@ -776,12 +776,14 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
     // Just hoping system zlib works
     CUBE_CProject_AppendIncludePaths(&project, 
         ".",
-        "code",
-        "include",
-        "contrib/pugixml/src",
-        "contrib/rapidjson/include",
-        "contrib/unzip",
-        "contrib/utf8cpp/source",
+        "./code",
+        "./include",
+        "./contrib/pugixml/src",
+        "./contrib/rapidjson/include",
+        "./contrib/unzip",
+        "./contrib/utf8cpp/source",
+
+	"../zlib",
         "../gen/assimp"
     );
 
