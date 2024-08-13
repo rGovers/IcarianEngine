@@ -1,3 +1,7 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
 #ifdef WIN32
 
 #include "LibXInput.h"
