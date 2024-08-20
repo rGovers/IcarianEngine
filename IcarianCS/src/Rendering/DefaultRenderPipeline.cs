@@ -735,8 +735,17 @@ namespace IcarianEngine.Rendering
 
                 return;
             }
-            
-            int size = m_postEffects.Count;
+
+            List<PostEffect> effects = new List<PostEffect>();
+            foreach (PostEffect e in m_postEffects)
+            {
+                if (e.ShouldRun)
+                {
+                    effects.Add(e);
+                }
+            }
+
+            int size = effects.Count;
             if (size == 0)
             {
                 RenderCommand.Blit(m_colorRenderTexture, a_camera.RenderTexture);
@@ -750,20 +759,17 @@ namespace IcarianEngine.Rendering
             int end = size - 1;
             for (int i = 0; i < size; ++i)
             {
-                if (m_postEffects[i].ShouldRun)
+                IRenderTexture renderTexture = m_postRenderTextures[textureIndex];
+                if (i >= end)
                 {
-                    IRenderTexture renderTexture = m_postRenderTextures[textureIndex];
-                    if (i >= end)
-                    {
-                        renderTexture = a_camera.RenderTexture;
-                    }
-
-                    m_postEffects[i].Run(renderTexture, new TextureSampler[] { sampler, m_normalSampler, m_emissionSampler, m_depthSampler });
-
-                    sampler = m_postTextureSamplers[textureIndex];
-
-                    textureIndex = (textureIndex + 1) % 2;
+                    renderTexture = a_camera.RenderTexture;
                 }
+
+                effects[i].Run(renderTexture, new TextureSampler[] { sampler, m_normalSampler, m_emissionSampler, m_depthSampler });
+
+                sampler = m_postTextureSamplers[textureIndex];
+
+                textureIndex = (textureIndex + 1) % 2;
             }
         }
 
