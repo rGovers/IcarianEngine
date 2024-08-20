@@ -4,73 +4,63 @@
 
 #include "Audio/AudioEngine.h"
 
-#include <cstddef>
-#include <string.h>
-
 #include "Audio/AudioClips/AudioClip.h"
 #include "Audio/AudioEngineBindings.h"
-#include "DataTypes/RingAllocator.h"
+#include "Core/Bitfield.h"
+#include "Core/IcarianDefer.h"
 #include "IcarianError.h"
-#include "ObjectManager.h"
 #include "Profiler.h"
 #include "Trace.h"
 
-static constexpr char ALCString[] = "ALC";
-static constexpr uint32_t ALCStringLength = sizeof(ALCString) - 1;
+static AudioEngine* Instance = nullptr;
 
-static bool IsExtensionSupported(const std::string_view& a_extension)
+static void OutCallback(ma_device* a_device, void* a_output, const void* a_input, ma_uint32 a_frameCount)
 {
-    if (strncmp(a_extension.data(), ALCString, ALCStringLength) == 0)
-    {
-        return (bool)alcIsExtensionPresent(NULL, a_extension.data());
-    }
-
-    return (bool)alIsExtensionPresent(a_extension.data());
+    Instance->AudioOutCallback(a_device, a_output, a_frameCount);
 }
 
-AudioEngine::AudioEngine()
+AudioEngine::AudioEngine() :
+    // Should allocate 1MB for the Ring Allocator hopefully it is enough otherwise may need to revisit
+    // Do not want to allocate in audio callbacks due to latency
+    m_allocator(1 << 20)
 {
+    TRACE("Creating AudioEngine...");
+    Instance = this;
+
     m_bindings = new AudioEngineBindings(this);   
 
-    TRACE("Creating AudioEngine...");
-    m_device = alcOpenDevice(NULL);
-    if (m_device == NULL)
-    {
-        IWARN("Failed to create AudioEngine: No audio device.");
+    ma_device_config deviceConfig = ma_device_config_init(ma_device_type_playback);
+    deviceConfig.playback.format = ma_format_s16;
+    deviceConfig.playback.channels = 2;
+    deviceConfig.sampleRate = SampleRate;
+    deviceConfig.dataCallback = OutCallback;
 
-        return;
+    if (ma_device_init(NULL, &deviceConfig, &m_device) != MA_SUCCESS)
+    {
+        goto Error;
     }
 
-    m_context = alcCreateContext(m_device, NULL);
-    if (m_context == NULL)
-    {
-        alcCloseDevice(m_device);
-        m_device = NULL;
+    ma_device_start(&m_device);
 
-        IWARN("Failed to create AudioEngine: No default audio context.");
+    m_init = true;
 
-        return;
-    }
+    return;
 
-    if (!alcMakeContextCurrent(m_context))
-    {
-        alcDestroyContext(m_context);
-        alcCloseDevice(m_device);
+Error:;
+    Logger::Error("Failed to initialise audio engine");
 
-        m_device = NULL;
-        m_context = NULL;
-
-        IWARN("Failed to create AudioEngine: Failed to make context current.");
-
-        return;
-    }
-
-    // Flush Errors
-    alGetError();
+    m_init = false;
 }
 AudioEngine::~AudioEngine()
 {
     delete m_bindings;
+
+    TRACE("Destroying AudioEngine...");
+
+    if (!m_init)
+    {
+        ma_device_stop(&m_device);
+    }
 
     for (uint32_t i = 0; i < m_audioClips.Size(); ++i)
     {
@@ -87,16 +77,6 @@ AudioEngine::~AudioEngine()
         if (m_audioSources.Exists(i))
         {
             IWARN("AudioSource was not destroyed.");
-
-            if (m_audioSources[i].Source != -1)
-            {
-                alSourceStop(m_audioSources[i].Source);
-                alDeleteSources(1, &m_audioSources[i].Source);
-            }
-            if (m_audioSources[i].Buffers[0] != -1)
-            {
-                alDeleteBuffers(AudioSourceBuffer::BufferCount, m_audioSources[i].Buffers);
-            }
         }
     }
 
@@ -116,315 +96,173 @@ AudioEngine::~AudioEngine()
         }
     }
 
-    TRACE("Destroying AudioEngine...");
-    alcMakeContextCurrent(NULL);
-    if (m_context != NULL)
+    if (!m_init)
     {
-        alcDestroyContext(m_context);
-    }
-    if (m_device != NULL)
-    {
-        alcCloseDevice(m_device);
+        ma_device_uninit(&m_device);
     }
 }
 
-static constexpr ALenum GetALFormat(e_AudioFormat a_format, uint32_t a_channelCount)
+void AudioEngine::AudioOutCallback(ma_device* a_device, void* a_output, ma_uint32 a_frameCount)
 {
-    switch (a_format)
-    {
-    case AudioFormat_U8:
-    {
-        switch (a_channelCount)
-        {
-        case 1:
-        {
-            return AL_FORMAT_MONO8;
-        }
-        case 2:
-        {
-            return AL_FORMAT_STEREO8;
-        }
-        }
-    }
-    case AudioFormat_S16:
-    {
-        switch (a_channelCount)
-        {
-        case 1:
-        {
-            return AL_FORMAT_MONO16;
-        }
-        case 2:
-        {
-            return AL_FORMAT_STEREO16;
-        }
-        }
-    }
-    }
+    memset(a_output, 0, a_frameCount * 2 * sizeof(int16_t));
 
-    return AL_FORMAT_MONO16;
-}
-static constexpr uint64_t GetAudioSize(e_AudioFormat a_format, uint32_t a_channelCount, uint32_t a_samples)
-{
-    switch (a_format)
-    {
-    case AudioFormat_U8:
-    {
-        return a_samples * a_channelCount * sizeof(uint8_t);
-    }
-    case AudioFormat_S16:
-    {
-        return a_samples * a_channelCount * sizeof(int16_t);
-    }
-    }
+    int16_t* out = (int16_t*)a_output;
 
-    return 0;
-}
+    const Array<bool> state = m_audioSources.ToStateArray();
+    TLockArray<AudioSourceBuffer> sources = m_audioSources.ToLockArray();
+    const uint32_t size = state.Size();
 
-static uint64_t FillBuffers(RingAllocator* a_allocator, ALuint* a_buffer, uint32_t a_bufferCount, AudioClip* a_clip, uint64_t a_sampleOffset, uint32_t a_sampleSize, bool a_canLoop)
-{
-    uint32_t outSampleSize;
-    const uint32_t channelCount = a_clip->GetChannelCount();  
-    const uint32_t sampleRate = a_clip->GetSampleRate();
-    const e_AudioFormat format = a_clip->GetAudioFormat();
+    printf("?\n");
 
-    const uint64_t maxSampleOffset = a_clip->GetSampleSize();
+    // TODO: Doing this in the callback as a quick and dirty to see if it works down the line probably want to create a swap buffer and read from the swap buffer in the callback
+    // Can probably dispatch the audio listeners onto the thread pool that way need to look into it however as I have to merge to passes from the thread pool
 
-    for (uint32_t i = 0; i < a_bufferCount; ++i)
+    for (uint32_t i = 0; i < size; ++i)
     {
-        // Do not need to de-allocate this as it is managed by the ring allocator.
-        uint8_t* data = a_clip->GetAudioData(a_allocator, a_sampleOffset, a_sampleSize, &outSampleSize);
-        if (data == nullptr)
+        if (!state[i])
+        {
+            continue;
+        }
+
+        AudioSourceBuffer& buffer = sources[i];
+
+        if (IISBITSET(buffer.Flags, AudioSourceBuffer::PlayBitOffset))
+        {
+            buffer.SampleOffset = 0;
+
+            ICLEARBIT(buffer.Flags, AudioSourceBuffer::PlayBitOffset);
+            ISETBIT(buffer.Flags, AudioSourceBuffer::PlayingBitOffset);
+        }
+
+        if (!IISBITSET(buffer.Flags, AudioSourceBuffer::PlayingBitOffset))
+        {
+            continue;
+        }
+
+        if (buffer.AudioClipAddr == -1)
+        {
+            ICLEARBIT(buffer.Flags, AudioSourceBuffer::PlayingBitOffset);
+
+            Logger::Warning("Playing audio source with no audio clip");
+
+            continue;
+        }
+
+        IVERIFY(buffer.AudioClipAddr < m_audioClips.Size());
+        IVERIFY(m_audioClips.Exists(buffer.AudioClipAddr));
+
+        AudioClip* clip = m_audioClips[buffer.AudioClipAddr];
+        const uint32_t sampleRate = clip->GetSampleRate();
+        const uint32_t channelCount = clip->GetChannelCount();
+        const float invChannel = 1.0f / channelCount;
+
+        switch (clip->GetAudioFormat())
+        {
+        case AudioFormat_U8:
         {
             break;
         }
-        
-        // Unlikely but if the sample size is less than the requested sample size, we need to loop.
-        // Not the most efficient way to do this but it works. KISS, right?
-        while (outSampleSize < a_sampleSize)
+        case AudioFormat_S16:
         {
-            if (a_canLoop)
+            printf("c \n");
+            const bool sampleMatches = sampleRate == SampleRate;
+            if (IISBITSET(buffer.Flags, AudioSourceBuffer::LoopBitOffset))
             {
-                a_sampleOffset = 0;
-
-                uint32_t nextOutSampleSize;
-                const uint8_t* oldData = data;
-                // Do not need to de-allocate this as it is managed by the ring allocator.
-                const uint8_t* nextData = a_clip->GetAudioData(a_allocator, 0, a_sampleSize - outSampleSize, &nextOutSampleSize);
-                if (nextData == nullptr)
+                uint32_t readSamples = 0;
+                while (true)
                 {
-                    break;
+                    uint32_t samples;
+                    const uint8_t* dat = clip->GetAudioData(&m_allocator, buffer.SampleOffset, a_frameCount - readSamples, &samples);
+                    const int16_t* readDat = (int16_t*)dat;
+
+                    for (uint32_t i = 0; i < samples; ++i)
+                    {
+                        for (uint32_t j = 0; j < channelCount; ++j)
+                        {
+                            const int16_t val = (int16_t)(readDat[i * channelCount + j] * invChannel);
+
+                            for (uint32_t k = 0; k < 2; ++k)
+                            {
+                                out[(i + readSamples) * 2 + k] += val;
+                            }
+                        }
+                    }
+
+                    if (readSamples >= a_frameCount)
+                    {
+                        buffer.SampleOffset += samples;
+
+                        break;
+                    }
+
+                    buffer.SampleOffset = 0;
                 }
-
-                // Again no need to de-allocate as it is managed by the ring allocator.
-                uint8_t* newData = (uint8_t*)a_allocator->Allocate<int16_t>((outSampleSize + nextOutSampleSize) * channelCount);
-
-                const uint32_t count = GetAudioSize(format, channelCount, outSampleSize);
-                memcpy(newData, data, count);
-
-                const uint32_t nextCount = GetAudioSize(format, channelCount, nextOutSampleSize);
-                memcpy(newData + count, nextData, nextCount);
-
-                data = newData;
-                outSampleSize += nextOutSampleSize;
             }
             else
             {
-                break;
-            }       
+                uint32_t samples;
+                const uint8_t* dat = clip->GetAudioData(&m_allocator, buffer.SampleOffset, a_frameCount, &samples);
+                const int16_t* readDat = (int16_t*)dat;
+
+                for (uint32_t i = 0; i < samples; ++i)
+                {
+                    for (uint32_t j = 0; j < channelCount; ++j)
+                    {
+                        const int16_t val = (int16_t)(readDat[i * channelCount + j] * invChannel);
+
+                        for (uint32_t k = 0; k < 2; ++k)
+                        {
+                            out[i * 2 + k] += val;
+                        }
+                    }
+                }
+
+                buffer.SampleOffset += samples;
+
+                if (samples < a_frameCount)
+                {
+                    ICLEARBIT(buffer.Flags, AudioSourceBuffer::PlayingBitOffset);
+                }
+            }
+
+            break;
         }
-
-        alBufferData(a_buffer[i], GetALFormat(format, channelCount), data, GetAudioSize(format, channelCount, outSampleSize), sampleRate);
-
-        a_sampleOffset = (a_sampleOffset + outSampleSize) % maxSampleOffset;
+        }
     }
-
-    return a_sampleOffset;
-}
-
-static void SetSourceTransform(const AudioSourceBuffer& a_source)
-{
-    const glm::mat4 transform = ObjectManager::GetGlobalMatrix(a_source.TransformAddr);
-
-    const glm::vec3 position = transform[3].xyz();
-    alSource3f(a_source.Source, AL_POSITION, position.x, position.y, position.z);
-
-    const glm::vec3 forward = transform[2].xyz();
-    const glm::vec3 up = -transform[1].xyz();
-
-    const ALfloat orientation[6] = 
-    {
-        forward.x, forward.y, forward.z,
-        up.x,      up.y,      up.z
-    };
-
-    alSourcefv(a_source.Source, AL_ORIENTATION, orientation);
 }
 
 void AudioEngine::Update()
 {
-    if (m_device == NULL || m_context == NULL)
+    if (!m_init)
     {
         return;
     }
 
-    const ALenum error = alGetError();
-    if (error != AL_NO_ERROR)
-    {
-        IWARN(std::string("OpenAL Error: ") + alGetString(error));
-
-        return;
-    }
-
-    {
-        PROFILESTACK("Listener Update");
-
-        const std::vector<bool> listenerState = m_audioListeners.ToStateVector();
-        TLockArray<AudioListenerBuffer> listenerBuffers = m_audioListeners.ToLockArray();
-
-        const uint32_t listenerBufferCount = (uint32_t)listenerState.size();
-        for (uint32_t i = 0; i < listenerBufferCount; ++i)
-        {
-            if (!listenerState[i])
-            {
-                continue;
-            }
-
-            const AudioListenerBuffer& buffer = listenerBuffers[i];
-            
-            const glm::mat4 transform = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
-
-            const glm::vec3 position = transform[3].xyz();
-
-            alListener3f(AL_POSITION, position.x, position.y, position.z);
-
-            const glm::vec3 forward = transform[2].xyz();
-            const glm::vec3 up = -transform[1].xyz();
-
-            const ALfloat orientation[6] = { forward.x, forward.y, forward.z, up.x, up.y, up.z };
-
-            alListenerfv(AL_ORIENTATION, orientation);
-
-            // To my knowledge, OpenAL only supports one listener so we can break here.
-            break;
-        }
-    }
-
-    {
-        PROFILESTACK("Source Update");
-        
-        // 128KB should be enough for anyone.
-        // Size is an educated guess based on the sample rate and sample size with several channels.
-        // Has not caused any issues so far but may need to be adjusted if overruns occur.
-        // Was looking for an excuse to write a ring allocator.
-        // Just Ye' Ol' if allocation is too expensive just dont. It is that simple.
-        RingAllocator allocator = RingAllocator(1024 * 128);
-
-        const std::vector<bool> sourceState = m_audioSources.ToStateVector();
-        TLockArray<AudioSourceBuffer> sourceBuffers = m_audioSources.ToLockArray();
-
-        const uint32_t sourceBufferCount = (uint32_t)sourceState.size();
-        for (uint32_t i = 0; i < sourceBufferCount; ++i)
-        {
-            if (!sourceState[i])
-            {
-                continue;
-            }
-
-            AudioSourceBuffer& buffer = sourceBuffers[i];
-
-            const bool canLoop = buffer.Flags & 0b1 << AudioSourceBuffer::LoopBitOffset;
-
-            if (buffer.Flags & 0b1 << AudioSourceBuffer::PlayBitOffset)
-            {
-                AudioClip* clip = m_audioClips[buffer.AudioClipAddr];
-
-                if (clip->GetChannelCount() == 0)
-                {
-                    continue;
-                }
-
-                if (buffer.Buffers[0] == -1)
-                {
-                    alGenBuffers(AudioSourceBuffer::BufferCount, buffer.Buffers);                
-                }
-
-                // OpenAL does not seem to like restarting sources for some reason
-                // Probably just me but seems odd
-                if (buffer.Source != -1)
-                {
-                    alSourceStop(buffer.Source);
-
-                    alDeleteSources(1, &buffer.Source);
-                }
-
-                alGenSources(1, &buffer.Source);
-
-                buffer.SampleOffset = FillBuffers(&allocator, buffer.Buffers, AudioSourceBuffer::BufferCount, clip, 0, AudioBufferSampleSize, canLoop);
-
-                alSourceQueueBuffers(buffer.Source, AudioSourceBuffer::BufferCount, buffer.Buffers);
-
-                SetSourceTransform(buffer);
-
-                if (buffer.AudioMixerAddr != -1)
-                {
-                    const AudioMixerBuffer& mixer = m_audioMixers[buffer.AudioMixerAddr];
-
-                    alSourcef(buffer.Source, AL_GAIN, mixer.Gain);
-                }
-                else
-                {
-                    alSourcef(buffer.Source, AL_GAIN, 1.0f);
-                }
-
-                alSourcePlay(buffer.Source);
-
-                buffer.Flags &= ~(0b1 << AudioSourceBuffer::PlayBitOffset);
-                buffer.Flags |= (0b1 << AudioSourceBuffer::PlayingBitOffset);
-            }
-            else if (buffer.Flags & 0b1 << AudioSourceBuffer::PlayingBitOffset)
-            {
-                ALint processed;
-                alGetSourcei(buffer.Source, AL_BUFFERS_PROCESSED, &processed);
-
-                if (processed > 0)
-                {
-                    ALuint queueBuffer;
-                    alSourceUnqueueBuffers(buffer.Source, 1, &queueBuffer);
-
-                    AudioClip* clip = m_audioClips[buffer.AudioClipAddr];
-
-                    buffer.SampleOffset = FillBuffers(&allocator, &queueBuffer, 1, clip, buffer.SampleOffset, AudioBufferSampleSize, canLoop);
-
-                    alSourceQueueBuffers(buffer.Source, 1, &queueBuffer);
-                }
-
-                SetSourceTransform(buffer);
-
-                if (buffer.AudioMixerAddr != -1)
-                {
-                    const AudioMixerBuffer& mixer = m_audioMixers[buffer.AudioMixerAddr];
-
-                    alSourcef(buffer.Source, AL_GAIN, mixer.Gain);
-                }
-                else
-                {
-                    alSourcef(buffer.Source, AL_GAIN, 1.0f);
-                }
-
-                if (!canLoop)
-                {
-                    ALint state;
-                    alGetSourcei(buffer.Source, AL_SOURCE_STATE, &state);
-
-                    if (state == AL_STOPPED)
-                    {
-                        buffer.Flags &= ~(0b1 << AudioSourceBuffer::PlayingBitOffset);
-                    }
-                }
-            }
-        }
-    }
+    // {
+    //     PROFILESTACK("Audio Sources");
+    //
+    //     const Array<bool> state = m_audioSources.ToStateArray();
+    //     TLockArray<AudioSourceBuffer> a = m_audioSources.ToLockArray();
+    //     const uint32_t size = state.Size();
+    //
+    //     for (uint32_t i = 0; i < size; ++i)
+    //     {
+    //         const bool exists = state[i];
+    //         if (!exists)
+    //         {
+    //             continue;
+    //         }
+    //
+    //         AudioSourceBuffer& buffer = a[i];
+    //         if (IISBITSET(buffer.Flags, AudioSourceBuffer::PlayBitOffset))
+    //         {
+    //
+    //
+    //             ICLEARBIT(buffer.Flags, AudioSourceBuffer::PlayBitOffset);
+    //             ISETBIT(buffer.Flags, AudioSourceBuffer::PlayingBitOffset);
+    //         }
+    //     }
+    // }
 }
 
 // MIT License

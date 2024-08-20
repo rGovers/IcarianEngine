@@ -136,13 +136,15 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "./lib/glslang/External/spirv-tools/include",
         "./lib/JoltPhysics",
         "./lib/minimp4",
-        "./lib/openal-soft/include",
         "./lib/SPIRV-Tools/include",
-        "./lib/VulkanMemoryAllocator/include"
+        "./lib/VulkanMemoryAllocator/include",
+        "./lib/miniaudio"
     );
 
     CUBE_CProject_AppendSources(&project, 
         "../deps/flare-tinyxml2/tinyxml2.cpp",
+
+        "./src/main.cpp",
 
         "./src/AnimationController.cpp",
         "./src/AnimationControllerBindings.cpp",
@@ -168,7 +170,6 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "./src/ImageUIElement.cpp",
         "./src/InputManager.cpp",
         "./src/Logger.cpp",
-        "./src/main.cpp",
         "./src/MaterialRenderStack.cpp",
         "./src/Navigation.cpp",
         "./src/NavigationBindings.cpp",
@@ -357,8 +358,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "./lib/glslang/build/glslang.lib",
             "./lib/glslang/build/SPIRV.lib",
             "./lib/glslang/External/spirv-tools/build/SPIRV-Tools.lib",
-            "./lib/JoltPhysics/build/Jolt.lib",
-            "./lib/openal-soft/build/OpenALSoft.lib"
+            "./lib/JoltPhysics/build/Jolt.lib"
         );
 
         CUBE_CProject_AppendReference(&project, "gdi32");
@@ -399,8 +399,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "./lib/glslang/build/libglslang.a",
             "./lib/glslang/build/libSPIRV.a",
             "./lib/glslang/External/spirv-tools/build/libSPIRV-Tools.a",
-            "./lib/JoltPhysics/build/libJolt.a",
-            "./lib/openal-soft/build/libOpenALSoft.a"
+            "./lib/JoltPhysics/build/libJolt.a"
         );
 
         CUBE_CProject_AppendReference(&project, "stdc++");

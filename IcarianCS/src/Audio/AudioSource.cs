@@ -7,25 +7,10 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineAudioSourceInteropStructures.h"
+
 namespace IcarianEngine.Audio
 {   
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    struct AudioSourceBuffer
-    {
-        public const int PlayBitOffset = 0;
-        public const int LoopBitOffset = 1;
-
-        public uint TransformAddr;
-        public uint AudioClipAddr;
-        public uint AudioMixerAddr;
-        public ulong SampleOffset;
-        public uint Flags;
-        uint Source;
-        uint BufferA;
-        uint BufferB;
-        uint BufferC;
-    }
-
     public class AudioSource : Component, IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -52,7 +37,7 @@ namespace IcarianEngine.Audio
         uint       m_bufferAddr = uint.MaxValue;
 
         /// <summary>
-        /// Whether or not the AudioSource has been disposed.
+        /// Whether the AudioSource has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -63,7 +48,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// The Def used to create the AudioSource.
+        /// The Def used to create the AudioSource
         /// </summary>
         public AudioSourceDef AudioSourceDef
         {
@@ -74,7 +59,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Whether or not the AudioSource is playing.
+        /// Whether or not the AudioSource is playing
         /// </summary>
         public bool IsPlaying
         {
@@ -90,7 +75,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// The AudioMixer the AudioSource is attached to.
+        /// The <see cref="IcarianEngine.Audio.AudioMixer" /> the AudioSource is attached to
         /// </summary>
         public AudioMixer AudioMixer
         {
@@ -121,7 +106,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// The AudioClip to play.
+        /// The AudioClip to play
         /// </summary>
         public AudioClip AudioClip
         {
@@ -176,7 +161,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Whether or not the AudioClip should loop.
+        /// Whether the AudioClip should loop
         /// </summary>
         public bool Loop
         {
@@ -203,7 +188,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Called when the AudioSource is created.
+        /// Called when the AudioSource is created
         /// </summary>
         public override void Init()
         {
@@ -223,14 +208,17 @@ namespace IcarianEngine.Audio
 
                         AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
                         
-                        if (m_loop)
+                        unchecked
                         {
-                            buffer.Flags |= (uint)(0b1 << AudioSourceBuffer.LoopBitOffset);
-                        }
+                            if (m_loop)
+                            {
+                                buffer.Flags |= (uint)(0b1 << (int)AudioSourceBuffer.LoopBitOffset);
+                            }
 
-                        if (def.PlayOnCreation)
-                        {
-                            buffer.Flags |= (uint)(0b1 << AudioSourceBuffer.PlayBitOffset);
+                            if (def.PlayOnCreation)
+                            {
+                                buffer.Flags |= (uint)(0b1 << (int)AudioSourceBuffer.PlayBitOffset);
+                            }
                         }
 
                         SetAudioSourceBuffer(m_bufferAddr, buffer);
@@ -240,7 +228,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Plays the AudioSource.
+        /// Plays the AudioSource
         /// </summary>
         public void Play()
         {
@@ -251,7 +239,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Destroys the AudioSource.
+        /// Disposes the AudioSource
         /// </summary>
         public void Dispose()
         {
@@ -259,10 +247,10 @@ namespace IcarianEngine.Audio
 
             GC.SuppressFinalize(this);
         }
-
         /// <summary>
-        /// Called when the AudioSource is being disposed.
+        /// Called when the AudioSource is being Disposed/Finalised
         /// </summary>
+        /// <param name="a_disposed">Whether is is being called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (!m_disposed)
@@ -288,7 +276,6 @@ namespace IcarianEngine.Audio
                 Logger.IcarianError("AudioSource already Disposed");
             }
         }
-
         ~AudioSource()
         {
             Dispose(false);

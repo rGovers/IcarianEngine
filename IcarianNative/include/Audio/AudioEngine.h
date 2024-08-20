@@ -4,29 +4,33 @@
 
 #pragma once
 
-#include <AL/al.h>
-#include <AL/alc.h>
 #include <cstdint>
 
 #include "Audio/AudioListenerBuffer.h"
-#include "Audio/AudioMixerBuffer.h"
-#include "Audio/AudioSourceBuffer.h"
+#include "DataTypes/RingAllocator.h"
 #include "DataTypes/TNCArray.h"
 
 class AudioClip;
 class AudioEngineBindings;
+
+#include "EngineAudioSourceInteropStructures.h"
+#include "EngineAudioMixerInteropStructures.h"
+
+#include <miniaudio.h>
 
 class AudioEngine
 {
 private:
     friend class AudioEngineBindings;
 
-    constexpr static uint32_t AudioBufferSampleSize = 4096;
+    constexpr static uint32_t SampleRate = 48000;
 
+    RingAllocator                 m_allocator;
+
+    bool                          m_init;
     AudioEngineBindings*          m_bindings;
 
-    ALCdevice*                    m_device;
-    ALCcontext*                   m_context;
+    ma_device                     m_device;
 
     TNCArray<AudioClip*>          m_audioClips;
     TNCArray<AudioSourceBuffer>   m_audioSources;
@@ -38,6 +42,8 @@ protected:
 public:
     AudioEngine();
     ~AudioEngine();
+
+    void AudioOutCallback(ma_device* a_device, void* a_output, ma_uint32 a_frameCount);
 
     void Update();
 };

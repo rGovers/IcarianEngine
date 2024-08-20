@@ -6,14 +6,10 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineAudioMixerInteropStructures.h"
+
 namespace IcarianEngine.Audio
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    struct AudioMixerBuffer
-    {
-        public float Gain;
-    };
-
     public class AudioMixer : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -39,7 +35,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Whether or not the AudioMixer has been disposed.
+        /// Whether the AudioMixer has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -50,7 +46,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// The name of the AudioMixer.
+        /// The name of the AudioMixer
         /// </summary>
         public string Name
         {
@@ -61,7 +57,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// The gain of the AudioMixer.
+        /// The gain of the AudioMixer
         /// </summary>
         public float Gain
         {
@@ -82,7 +78,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Creates a new AudioMixer.
+        /// Creates a new AudioMixer
         /// </summary>
         /// <param name="a_name">The name of the AudioMixer.</param>
         public AudioMixer(string a_name = "")
@@ -93,7 +89,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Destroys the AudioMixer.
+        /// Disposes the AudioMixer
         /// </summary>
         public void Dispose()
         {
@@ -101,11 +97,10 @@ namespace IcarianEngine.Audio
 
             GC.SuppressFinalize(this);
         }
-
         /// <summary>
-        /// Called when the AudioMixer is destroyed.
+        /// Called when the AudioMixer is Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether or not the AudioMixer is being disposed.</param>
+        /// <param name="a_disposing">Whether the AudioMixer is being Disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_bufferAddr != uint.MaxValue)
