@@ -219,6 +219,15 @@ void GLFWAppWindow::SetCursorState(e_CursorState a_state)
             glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
         }
 
+        glfwSetCursorPos(m_window, 0.0, 0.0);
+
+        m_lastCursorPos = glm::dvec2(0.0);
+
+        const Application* app = GetApplication();
+
+        InputManager* inputManager = app->GetInputManager();
+        inputManager->SetCursorPos(glm::vec2(0.0f));
+
         break;
     }
     }
