@@ -16,7 +16,23 @@ class AudioEngineBindings;
 #include "EngineAudioSourceInteropStructures.h"
 #include "EngineAudioMixerInteropStructures.h"
 
+// If you are seeing this while debugging in VSCode hope you are ready to see your desktop
+// Can also crash when using clangd
+// Only been able to open it without crashes in Vim and Kate with clangd disabled
+//
+// ADDITIONAL NOTE: I have confirmed that this is a know bug with clangd that has been open for a couple years yay...
+// However vscode cannot gracefully handle a LSP crash and will occasionsally crash when debugging you have been warned
 #include <miniaudio.h>
+
+struct MAISource
+{
+    ma_data_source_base MABaseSource;
+    uint32_t SourceAddr;
+    uint32_t ChannelCount;
+    uint32_t SampleRate;
+    ma_format MAFormat;
+    ma_sound MASound;
+};
 
 class AudioEngine
 {
@@ -30,12 +46,14 @@ private:
     bool                          m_init;
     AudioEngineBindings*          m_bindings;
 
-    ma_device                     m_device;
+    ma_engine                     m_engine;
 
     TNCArray<AudioClip*>          m_audioClips;
     TNCArray<AudioSourceBuffer>   m_audioSources;
     TNCArray<AudioListenerBuffer> m_audioListeners;
     TNCArray<AudioMixerBuffer>    m_audioMixers;
+
+    TNCArray<MAISource*>          m_audioStreams;
 
 protected:
 
@@ -43,7 +61,11 @@ public:
     AudioEngine();
     ~AudioEngine();
 
-    void AudioOutCallback(ma_device* a_device, void* a_output, ma_uint32 a_frameCount);
+    ma_result DataSourceRead(ma_data_source* a_dataSource, void* a_framesOut, ma_uint64 a_frameCount, ma_uint64* a_framesRead);
+    ma_result DataSourceSeek(ma_data_source* a_dataSource, ma_uint64 a_frameIndex);
+    ma_result DataSourceGetDataFormat(ma_data_source* a_dataSource, ma_format* a_format, ma_uint32* a_channels, ma_uint32* a_sampleRate, ma_channel* a_channelMap, size_t a_channelMapCap);
+    ma_result DataSourceGetCursor(ma_data_source* a_dataSource, ma_uint64* a_cursor);
+    ma_result DataSourceGetLength(ma_data_source* a_dataSource, ma_uint64* a_length);
 
     void Update();
 };

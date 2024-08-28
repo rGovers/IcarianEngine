@@ -21,8 +21,6 @@ namespace IcarianEngine.Audio
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void PlayAudioSource(uint a_addr);
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetLoopAudioSource(uint a_addr, uint a_loop);
-        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GetAudioSourcePlayingState(uint a_addr);
 
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -32,6 +30,7 @@ namespace IcarianEngine.Audio
 
         bool       m_disposed = false;
         bool       m_loop = false;
+        bool       m_3d = true;
         AudioMixer m_audioMixer = null;
 
         uint       m_bufferAddr = uint.MaxValue;
@@ -136,6 +135,7 @@ namespace IcarianEngine.Audio
 
                         Loop = m_loop;
                         AudioMixer = m_audioMixer;
+                        Is3DAudio = m_3d;
 
                         return;
                     }
@@ -161,7 +161,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Whether the AudioClip should loop
+        /// Whether the AudioSource should loop
         /// </summary>
         public bool Loop
         {
@@ -175,14 +175,49 @@ namespace IcarianEngine.Audio
 
                 if (m_bufferAddr != uint.MaxValue)
                 {
+                    AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+
                     if (m_loop)
                     {
-                        SetLoopAudioSource(m_bufferAddr, 1);
+                        buffer.Flags |= (byte)(0b1 << (int)AudioSourceBuffer.LoopBitOffset);
                     }
                     else
                     {
-                        SetLoopAudioSource(m_bufferAddr, 0);
+                        buffer.Flags &= (byte)~(0b1 << (int)AudioSourceBuffer.LoopBitOffset);
                     }
+
+                    SetAudioSourceBuffer(m_bufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Whether the AudioSource is spatial
+        /// </summary>
+        public bool Is3DAudio
+        {
+            get
+            {
+                return m_3d;
+            }
+            set
+            {
+                m_3d = value;
+
+                if (m_bufferAddr != uint.MaxValue)
+                {
+                    AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+
+                    if (m_3d)
+                    {
+                        buffer.Flags |= (byte)(0b1 << (int)AudioSourceBuffer.SpatialBitOffset);
+                    }
+                    else
+                    {
+                        buffer.Flags &= (byte)~(0b1 << (int)AudioSourceBuffer.SpatialBitOffset);
+                    }
+
+                    SetAudioSourceBuffer(m_bufferAddr, buffer);
                 }
             }
         }
@@ -197,6 +232,7 @@ namespace IcarianEngine.Audio
             if (def != null)
             {
                 m_loop = def.Loop;
+                m_3d = def.Is3D;
 
                 if (def.AudioClipPath != null)
                 {
@@ -213,6 +249,11 @@ namespace IcarianEngine.Audio
                             if (m_loop)
                             {
                                 buffer.Flags |= (uint)(0b1 << (int)AudioSourceBuffer.LoopBitOffset);
+                            }
+
+                            if (m_3d)
+                            {
+                                buffer.Flags |= (uint)(0b1 << (int)AudioSourceBuffer.SpatialBitOffset);
                             }
 
                             if (def.PlayOnCreation)

@@ -10,7 +10,9 @@ OGGAudioClip::OGGAudioClip(const std::filesystem::path& a_path) : AudioClip()
 {
     m_path = a_path;
 
-    m_stream = stb_vorbis_open_filename(m_path.string().c_str(), NULL, NULL);
+    const std::string str = m_path.string();
+
+    m_stream = stb_vorbis_open_filename(str.c_str(), NULL, NULL);
     m_info = stb_vorbis_get_info(m_stream);
 
     // I do not know how or why but get the sample size before doing anything else or else it will break

@@ -1,54 +1,34 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
-#include "InteropTypes.h"
+#include "Core/IcarianDefer.h"
 
-#ifdef CUBE_LANGUAGE_CSHARP
-namespace IcarianEngine.Audio {
-#endif
-
-/// @file EngineAudioSourceInteropStructures.h
-
-/// @cond INTERNAL
-
-IOP_PACKED struct AudioSourceBuffer
-{
-    IOP_CSPUBLIC static IOP_CONSTEXPR IOP_UINT32 PlayBitOffset = 0;
-    IOP_CSPUBLIC static IOP_CONSTEXPR IOP_UINT32 LoopBitOffset = 1;
-    IOP_CSPUBLIC static IOP_CONSTEXPR IOP_UINT32 PlayingBitOffset = 2;
-    IOP_CSPUBLIC static IOP_CONSTEXPR IOP_UINT32 SpatialBitOffset = 3;
-
-    IOP_CSPUBLIC IOP_UINT32 TransformAddr;
-    IOP_CSPUBLIC IOP_UINT32 AudioClipAddr;
-    IOP_CSPUBLIC IOP_UINT32 AudioMixerAddr;
-    IOP_CSPUBLIC IOP_UINT32 AudioStream;
-    IOP_CSPUBLIC IOP_UINT64 SampleOffset;
-    IOP_CSPUBLIC IOP_UINT32 Flags;
-};
-
-/// @endcond
-
-#ifdef CUBE_LANGUAGE_CSHARP
-}
-#endif
+// This is not free there is a cost with the macros but it is pretty minimal still would not use it if you do not need it
+// Mostly exists because error cleanup is a pain and not a fan of the goto return pattern
+#define IERRBLOCK bool _iErrVal = false
+#define ITRIGGERERR _iErrVal = true; return
+#define ITRIGGERERRRET(val) _iErrVal = true; return val
+#define IERRCHECK(cond) do { if (!(cond)) { ITRIGGERERR; } } while(0)
+#define IERRCHECKRET(cond, val) do { if (!(cond)) { ITRIGGERERRRET(val); } } while(0)
+#define IERRDEFER(code) IDEFER(if (_iErrVal) { code; })
 
 // MIT License
-// 
+//
 // Copyright (c) 2024 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

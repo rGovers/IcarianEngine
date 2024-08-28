@@ -10,6 +10,8 @@
 #include "Core/Bitfield.h"
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianError.h"
+#include "Core/StringUtils.h"
 #include "IcarianError.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
@@ -25,7 +27,6 @@ static AudioEngineBindings* Instance = nullptr;
     F(uint32_t, IcarianEngine.Audio, AudioSource, GenerateAudioSource, { return Instance->GenerateAudioSource(a_transformAddr, a_clipAddr); }, uint32_t a_transformAddr, uint32_t a_clipAddr) \
     F(void, IcarianEngine.Audio, AudioSource, DestroyAudioSource, { Instance->DestroyAudioSource(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Audio, AudioSource, PlayAudioSource, { Instance->PlayAudioSource(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Audio, AudioSource, SetLoopAudioSource, { Instance->SetLoopAudioSource(a_addr, (bool)a_loop); }, uint32_t a_addr, uint32_t a_loop) \
     F(uint32_t, IcarianEngine.Audio, AudioSource, GetAudioSourcePlayingState, { return Instance->GetAudioSourcePlayingState(a_addr); }, uint32_t a_addr) \
     F(AudioSourceBuffer, IcarianEngine.Audio, AudioSource, GetAudioSourceBuffer, { return Instance->GetAudioSourceBuffer(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Audio, AudioSource, SetAudioSourceBuffer, { Instance->SetAudioSourceBuffer(a_addr, a_buffer); }, uint32_t a_addr, AudioSourceBuffer a_buffer) \
@@ -65,24 +66,45 @@ AudioEngineBindings::~AudioEngineBindings()
 
 uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const std::filesystem::path& a_path) const
 {
+    IERRBLOCK;
+
     TRACE("Creating AudioClip");
+    IERRCHECKRET(std::filesystem::exists(a_path), -1);
+
     const std::filesystem::path ext = a_path.extension();
 
-    if (ext == ".ogg")
+    AudioClip* clip = nullptr;
+
+    const std::string extStr = ext.string();
+    switch (StringHash<uint32_t>(extStr.c_str()))
     {
-        return m_engine->m_audioClips.PushVal(new OGGAudioClip(a_path));
+    case StringHash<uint32_t>(".ogg"):
+    {
+        clip = new OGGAudioClip(a_path);
+        IERRDEFER(delete clip);
+
+        IERRCHECKRET(clip->GetSampleSize() > 0, -1);
+
+        break;
     }
-    else if (ext == ".wav")
+    case StringHash<uint32_t>(".wav"):
     {
-        return m_engine->m_audioClips.PushVal(new WAVAudioClip(a_path));
+        clip = new WAVAudioClip(a_path);
+        IERRDEFER(delete clip);
+
+        IERRCHECKRET(clip->GetSampleSize() > 0, -1);
+
+        break;
+    }
     }
 
-    return -1;
+    IERRCHECKRET(clip != nullptr, -1);
+
+    return m_engine->m_audioClips.PushVal(clip);
 }
 void AudioEngineBindings::DestroyAudioClip(uint32_t a_addr) const
 {
     TRACE("Destroying AudioClip");
-    IVERIFY(a_addr < m_engine->m_audioClips.Size());
     IVERIFY(m_engine->m_audioClips.Exists(a_addr));
 
     const AudioClip* clip = m_engine->m_audioClips[a_addr];
@@ -93,15 +115,15 @@ void AudioEngineBindings::DestroyAudioClip(uint32_t a_addr) const
 
 float AudioEngineBindings::GetAudioClipDuration(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_audioClips.Size());
     IVERIFY(m_engine->m_audioClips.Exists(a_addr));
 
-    const AudioClip* clip = m_engine->m_audioClips[a_addr];
+    const TReadLockArray<AudioClip*> a = m_engine->m_audioClips.ToReadLockArray();
+    const AudioClip* clip = a[a_addr];
+
     return clip->GetDuration();
 }
 uint32_t AudioEngineBindings::GetAudioClipSampleRate(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_audioClips.Size());
     IVERIFY(m_engine->m_audioClips.Exists(a_addr));
 
     const AudioClip* clip = m_engine->m_audioClips[a_addr];
@@ -109,15 +131,19 @@ uint32_t AudioEngineBindings::GetAudioClipSampleRate(uint32_t a_addr) const
 }
 uint32_t AudioEngineBindings::GetAudioClipChannelCount(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_audioClips.Size());
     IVERIFY(m_engine->m_audioClips.Exists(a_addr));
 
-    const AudioClip* clip = m_engine->m_audioClips[a_addr];
+    const TReadLockArray<AudioClip*> a = m_engine->m_audioClips.ToReadLockArray();
+    const AudioClip* clip = a[a_addr];
+
     return clip->GetChannelCount();
 }
 
 uint32_t AudioEngineBindings::GenerateAudioSource(uint32_t a_transformAddr, uint32_t a_clipAddr) const
 {
+    IVERIFY(a_transformAddr != -1);
+    IVERIFY(a_clipAddr != -1);
+
     TRACE("Creating AudioSource");
     const AudioSourceBuffer buffer 
     {
@@ -132,18 +158,37 @@ uint32_t AudioEngineBindings::GenerateAudioSource(uint32_t a_transformAddr, uint
 void AudioEngineBindings::DestroyAudioSource(uint32_t a_addr) const
 {
     TRACE("Destroying AudioSource");
-    IVERIFY(a_addr < m_engine->m_audioSources.Size());
     IVERIFY(m_engine->m_audioSources.Exists(a_addr));
 
-    const AudioSourceBuffer buffer = m_engine->m_audioSources[a_addr];
+    AudioSourceBuffer buffer = m_engine->m_audioSources[a_addr];
+    IDEFER(
+    {
+        if (buffer.AudioStream != -1)
+        {
+            IDEFER(buffer.AudioStream = -1);
 
+            IVERIFY(m_engine->m_audioStreams.Exists(buffer.AudioStream));
+
+            MAISource* source = m_engine->m_audioStreams[buffer.AudioStream];
+            IDEFER(
+            {
+                ma_sound_stop(&source->MASound);
+                ma_sound_uninit(&source->MASound);
+                ma_data_source_uninit(&source->MABaseSource);
+
+                delete source;
+            });
+
+            m_engine->m_audioStreams.Erase(buffer.AudioStream);
+        }
+    });
+    
     m_engine->m_audioSources.Erase(a_addr);
 }
 
 void AudioEngineBindings::PlayAudioSource(uint32_t a_addr) const
 {
     TRACE("Playing AudioSource");
-    IVERIFY(a_addr < m_engine->m_audioSources.Size());
     IVERIFY(m_engine->m_audioSources.Exists(a_addr));
 
     AudioSourceBuffer buffer = m_engine->m_audioSources[a_addr];
@@ -153,7 +198,6 @@ void AudioEngineBindings::PlayAudioSource(uint32_t a_addr) const
 }
 void AudioEngineBindings::SetLoopAudioSource(uint32_t a_addr, bool a_loop) const
 {
-    IVERIFY(a_addr < m_engine->m_audioSources.Size());
     IVERIFY(m_engine->m_audioSources.Exists(a_addr));
 
     AudioSourceBuffer buffer = m_engine->m_audioSources[a_addr];
@@ -163,22 +207,19 @@ void AudioEngineBindings::SetLoopAudioSource(uint32_t a_addr, bool a_loop) const
 }
 bool AudioEngineBindings::GetAudioSourcePlayingState(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_audioSources.Size());
     IVERIFY(m_engine->m_audioSources.Exists(a_addr));
 
     const AudioSourceBuffer buffer = m_engine->m_audioSources[a_addr];
-    return buffer.Flags & (0b1 << AudioSourceBuffer::PlayingBitOffset);
+    return IISBITSET(buffer.Flags, AudioSourceBuffer::PlayBitOffset);
 }
 AudioSourceBuffer AudioEngineBindings::GetAudioSourceBuffer(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_audioSources.Size());
     IVERIFY(m_engine->m_audioSources.Exists(a_addr));
 
     return m_engine->m_audioSources[a_addr];
 }
 void AudioEngineBindings::SetAudioSourceBuffer(uint32_t a_addr, const AudioSourceBuffer& a_buffer) const
 {
-    IVERIFY(a_addr < m_engine->m_audioSources.Size());
     IVERIFY(m_engine->m_audioSources.Exists(a_addr));
 
     m_engine->m_audioSources.LockSet(a_addr, a_buffer);
@@ -197,21 +238,18 @@ uint32_t AudioEngineBindings::GenerateAudioMixer() const
 void AudioEngineBindings::DestroyAudioMixer(uint32_t a_addr) const
 {
     TRACE("Destroying AudioMixer");
-    IVERIFY(a_addr < m_engine->m_audioMixers.Size());
     IVERIFY(m_engine->m_audioMixers.Exists(a_addr));
 
     m_engine->m_audioMixers.Erase(a_addr);
 }
 AudioMixerBuffer AudioEngineBindings::GetAudioMixerBuffer(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_audioMixers.Size());
     IVERIFY(m_engine->m_audioMixers.Exists(a_addr));
 
     return m_engine->m_audioMixers[a_addr];
 }
 void AudioEngineBindings::SetAudioMixerBuffer(uint32_t a_addr, const AudioMixerBuffer& a_buffer) const
 {
-    IVERIFY(a_addr < m_engine->m_audioMixers.Size());
     IVERIFY(m_engine->m_audioMixers.Exists(a_addr));
 
     m_engine->m_audioMixers.LockSet(a_addr, a_buffer);
@@ -230,7 +268,6 @@ uint32_t AudioEngineBindings::GenerateAudioListener(uint32_t a_transformAddr) co
 void AudioEngineBindings::DestroyAudioListener(uint32_t a_addr) const
 {
     TRACE("Destroying AudioListener");
-    IVERIFY(a_addr < m_engine->m_audioListeners.Size());
     IVERIFY(m_engine->m_audioListeners.Exists(a_addr));
 
     m_engine->m_audioListeners.Erase(a_addr);

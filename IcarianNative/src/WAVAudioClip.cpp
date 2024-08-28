@@ -11,23 +11,43 @@
 #include "FileCache.h"
 #include "IcarianError.h"
 
+constexpr static uint32_t GetFormatSize(e_AudioFormat a_format)
+{
+    switch (a_format)
+    {
+    case AudioFormat_U8:
+    {
+        return sizeof(uint8_t);
+    }
+    case AudioFormat_S16:
+    {
+        return sizeof(int16_t);
+    }
+    }
+
+    IERROR("Invalid format");
+
+    return 0;
+}
+
 // Not accounting for endian not an issue currently but may become an issue down the line
 WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
 {
     m_path = a_path;
 
-    m_duration = 0.0f;
     m_sampleRate = 0;
     m_channelCount = 0;
-    m_sampleSize = 0;
 
     FileHandle* handle = FileCache::LoadFile(m_path);
     if (handle != nullptr)
     {
         IDEFER(delete handle);
 
-        char buffer[128];
-        handle->Read(buffer, 12);
+        char buffer[16];
+        if (handle->Read(buffer, 12) != 12)
+        {
+            return;
+        }
 
         constexpr char RIFFStr[] = "RIFF";
         constexpr char WAVEStr[] = "WAVE";
@@ -73,8 +93,28 @@ WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
                 // Block align
                 handle->Read(buffer, 2);
 
-                // Bits per sample
                 handle->Read(buffer, 2);
+                const uint16_t bitsPerSample = *(uint16_t*)buffer;
+
+                switch (bitsPerSample)
+                {
+                case 8:
+                {
+                    m_format = AudioFormat_U8;
+
+                    break;
+                }
+                case 16:
+                {
+                    m_format = AudioFormat_S16;
+
+                    break;
+                }
+                default:
+                {
+                    IERROR("Wav invalid bits per sample");
+                }
+                }
 
                 // There is several forms of the fmt chunk and we do not care about the extended format
                 const int32_t offset = chunkSize - 16;
@@ -96,9 +136,6 @@ WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
                     IERROR("WAV invalid file");
                 }
 
-                m_sampleSize = m_dataSize / m_channelCount / sizeof(int16_t);
-                m_duration = (float)m_sampleSize / (float)m_sampleRate;
-
                 break;
             }
             else
@@ -115,7 +152,7 @@ WAVAudioClip::~WAVAudioClip()
 
 float WAVAudioClip::GetDuration() const
 {
-    return m_duration;
+    return (float)((double)GetSampleSize() / m_sampleRate);
 }
 
 uint32_t WAVAudioClip::GetSampleRate() const
@@ -128,32 +165,40 @@ uint32_t WAVAudioClip::GetChannelCount() const
 }
 uint64_t WAVAudioClip::GetSampleSize() const
 {
-    return m_sampleSize;
+    return m_dataSize / m_channelCount / GetFormatSize(m_format);
+}
+
+e_AudioFormat WAVAudioClip::GetAudioFormat() const
+{
+    return m_format;
 }
 
 uint8_t* WAVAudioClip::GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
 {
+    *a_outSampleSize = 0;
+
     FileHandle* handle = FileCache::LoadFile(m_path);
     if (handle == nullptr)
     {
         return nullptr;
     }
-
     IDEFER(delete handle);
         
-    const uint64_t seekOffset = a_sampleOffset * m_channelCount * sizeof(int16_t);
+    const uint32_t formatSize = GetFormatSize(m_format);
 
+    const uint64_t seekOffset = a_sampleOffset * m_channelCount * formatSize;
     if (!handle->Seek(m_dataOffset + seekOffset))
     {
         return nullptr;
     }
 
-    const uint64_t remainingSamples = m_sampleSize - a_sampleOffset;
+    const uint64_t remainingSamples = GetSampleSize() - a_sampleOffset;
     const uint64_t samplesToRead = glm::min((uint64_t)a_sampleSize, remainingSamples);
     const uint64_t size = samplesToRead * m_channelCount;
-    
-    uint8_t* data = (uint8_t*)a_allocator->Allocate<int16_t>(size);
-    if (handle->Read(data, size * sizeof(int16_t)) != size)
+    const uint64_t sampleSize = size * formatSize;
+
+    uint8_t* data = (uint8_t*)a_allocator->Allocate(sampleSize);
+    if (handle->Read(data, sampleSize) != sampleSize)
     {
         return nullptr;
     }

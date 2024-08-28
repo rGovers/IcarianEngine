@@ -13,13 +13,13 @@ class WAVAudioClip : public AudioClip
 private:
     std::filesystem::path m_path;
 
-    uint32_t              m_sampleRate;
-    uint32_t              m_channelCount;
-    uint64_t              m_sampleSize;
-    float                 m_duration;
-
     uint64_t              m_dataOffset;
     uint64_t              m_dataSize;
+
+    uint32_t              m_sampleRate;
+    uint32_t              m_channelCount;
+
+    e_AudioFormat         m_format;
 
 protected:
 
@@ -32,6 +32,8 @@ public:
     virtual uint32_t GetSampleRate() const;
     virtual uint32_t GetChannelCount() const;
     virtual uint64_t GetSampleSize() const;
+
+    virtual e_AudioFormat GetAudioFormat() const;
 
     virtual uint8_t* GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize);
 };
