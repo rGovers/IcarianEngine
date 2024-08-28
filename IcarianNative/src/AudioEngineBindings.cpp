@@ -16,48 +16,28 @@
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
+#include "EngineAudioClipInterop.h"
+#include "EngineAudioListenerInterop.h"
+#include "EngineAudioMixerInterop.h"
+#include "EngineAudioSourceInterop.h"
+
 static AudioEngineBindings* Instance = nullptr;
 
-#define AUDIOENGINE_BINDING_FUNCTION_TABLE(F) \
-    F(void, IcarianEngine.Audio, AudioClip, DestroyAudioClip, { Instance->DestroyAudioClip(a_addr); }, uint32_t a_addr) \
-    F(float, IcarianEngine.Audio, AudioClip, GetAudioClipDuration, { return Instance->GetAudioClipDuration(a_addr); }, uint32_t a_addr) \
-    F(uint32_t, IcarianEngine.Audio, AudioClip, GetAudioClipSampleRate, { return Instance->GetAudioClipSampleRate(a_addr); }, uint32_t a_addr) \
-    F(uint32_t, IcarianEngine.Audio, AudioClip, GetAudioClipChannelCount, { return Instance->GetAudioClipChannelCount(a_addr); }, uint32_t a_addr) \
-    \
-    F(uint32_t, IcarianEngine.Audio, AudioSource, GenerateAudioSource, { return Instance->GenerateAudioSource(a_transformAddr, a_clipAddr); }, uint32_t a_transformAddr, uint32_t a_clipAddr) \
-    F(void, IcarianEngine.Audio, AudioSource, DestroyAudioSource, { Instance->DestroyAudioSource(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Audio, AudioSource, PlayAudioSource, { Instance->PlayAudioSource(a_addr); }, uint32_t a_addr) \
-    F(uint32_t, IcarianEngine.Audio, AudioSource, GetAudioSourcePlayingState, { return Instance->GetAudioSourcePlayingState(a_addr); }, uint32_t a_addr) \
-    F(AudioSourceBuffer, IcarianEngine.Audio, AudioSource, GetAudioSourceBuffer, { return Instance->GetAudioSourceBuffer(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Audio, AudioSource, SetAudioSourceBuffer, { Instance->SetAudioSourceBuffer(a_addr, a_buffer); }, uint32_t a_addr, AudioSourceBuffer a_buffer) \
-    \
-    F(uint32_t, IcarianEngine.Audio, AudioMixer, GenerateAudioMixer, { return Instance->GenerateAudioMixer(); }) \
-    F(void, IcarianEngine.Audio, AudioMixer, DestroyAudioMixer, { Instance->DestroyAudioMixer(a_addr); }, uint32_t a_addr) \
-    F(AudioMixerBuffer, IcarianEngine.Audio, AudioMixer, GetAudioMixerBuffer, { return Instance->GetAudioMixerBuffer(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Audio, AudioMixer, SetAudioMixerBuffer, { Instance->SetAudioMixerBuffer(a_addr, a_buffer); }, uint32_t a_addr, AudioMixerBuffer a_buffer) \
-    \
-    F(uint32_t, IcarianEngine.Audio, AudioListener, GenerateAudioListener, { return Instance->GenerateAudioListener(a_transformAddr); }, uint32_t a_transformAddr) \
-    F(void, IcarianEngine.Audio, AudioListener, DestroyAudioListener, { Instance->DestroyAudioListener(a_addr); }, uint32_t a_addr) \
-
-AUDIOENGINE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION)
-
-RUNTIME_FUNCTION(uint32_t, AudioClip, GenerateFromFile,
-{
-    char* path = mono_string_to_utf8(a_path);
-    IDEFER(mono_free(path));
-
-    return Instance->GenerateAudioClipFromFile(path);
-}, MonoString* a_path)
+ENGINE_AUDIOCLIP_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_AUDIOLISTENER_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_AUDIOMIXER_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_AUDIOSOURCE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 AudioEngineBindings::AudioEngineBindings(AudioEngine* a_engine)
 {   
     m_engine = a_engine;
 
-    BIND_FUNCTION(IcarianEngine.Audio, AudioClip, GenerateFromFile);
-
     Instance = this;
 
-    AUDIOENGINE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_AUDIOCLIP_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_AUDIOLISTENER_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_AUDIOMIXER_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_AUDIOSOURCE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 }
 AudioEngineBindings::~AudioEngineBindings()
 {

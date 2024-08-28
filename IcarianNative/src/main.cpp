@@ -33,8 +33,7 @@
 #include <minimp4.h>
 
 #define MINIAUDIO_IMPLEMENTATION
-// #define MA_DEBUG_OUTPUT
-#include <miniaudio.h>
+#include "Audio/IcarianMiniaudio.h"
 
 #define ICARIANNATIVE_VERSION_STRX(x) #x
 #define ICARIANNATIVE_VERSION_STRI(x) ICARIANNATIVE_VERSION_STRX(x)

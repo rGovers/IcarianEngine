@@ -16,13 +16,7 @@ class AudioEngineBindings;
 #include "EngineAudioSourceInteropStructures.h"
 #include "EngineAudioMixerInteropStructures.h"
 
-// If you are seeing this while debugging in VSCode hope you are ready to see your desktop
-// Can also crash when using clangd
-// Only been able to open it without crashes in Vim and Kate with clangd disabled
-//
-// ADDITIONAL NOTE: I have confirmed that this is a know bug with clangd that has been open for a couple years yay...
-// However vscode cannot gracefully handle a LSP crash and will occasionsally crash when debugging you have been warned
-#include <miniaudio.h>
+#include "Audio/IcarianMiniaudio.h"
 
 struct MAISource
 {

@@ -7,22 +7,15 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineAudioClipInterop.h"
+#include "InteropBinding.h"
+
+ENGINE_AUDIOCLIP_EXPORT_TABLE(IOP_BIND_FUNCTION);
+
 namespace IcarianEngine.Audio
 {
     public class AudioClip : IDestroy
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateFromFile(string a_path);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void DestroyAudioClip(uint a_addr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static float GetAudioClipDuration(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GetAudioClipSampleRate(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GetAudioClipChannelCount(uint a_addr);
-
         static ConcurrentDictionary<uint, AudioClip> s_audioClips = new ConcurrentDictionary<uint, AudioClip>();
 
         uint m_bufferAddr = uint.MaxValue;
@@ -36,7 +29,7 @@ namespace IcarianEngine.Audio
         }
         
         /// <summary>
-        /// Whether or not the AudioClip has been disposed.
+        /// Whether the AudioClip has been Disposed
         /// </summary>
         public bool IsDisposed
         {
@@ -47,34 +40,34 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// The duration of the AudioClip in seconds.
+        /// The duration of the AudioClip in seconds
         /// </summary>
         public float Duration
         {
             get
             {
-                return GetAudioClipDuration(m_bufferAddr);
+                return AudioClipInterop.GetAudioClipDuration(m_bufferAddr);
             }
         }
 
         /// <summary>
-        /// The sample rate of the AudioClip.
+        /// The sample rate of the AudioClip
         /// </summary>
         public uint SampleRate
         {
             get
             {
-                return GetAudioClipSampleRate(m_bufferAddr);
+                return AudioClipInterop.GetAudioClipSampleRate(m_bufferAddr);
             }
         }
         /// <summary>
-        /// The number of channels in the AudioClip.
+        /// The number of channels in the AudioClip
         /// </summary>
         public uint ChannelCount
         {
             get
             {
-                return GetAudioClipChannelCount(m_bufferAddr);
+                return AudioClipInterop.GetAudioClipChannelCount(m_bufferAddr);
             }
         }
 
@@ -99,14 +92,14 @@ namespace IcarianEngine.Audio
         /// Loads an AudioClip from the given path.
         /// </summary>
         /// Supported formats: 
-        ///     OGG
-        ///     WAV
-        /// <param name="a_path">The path to the AudioClip.</param>
-        /// <returns>The AudioClip if it was loaded successfully, null otherwise.</returns>
+        ///     .ogg
+        ///     .wav
+        /// <param name="a_path">The path to the AudioClip</param>
+        /// <returns>The AudioClip if it was loaded successfully, null otherwise</returns>
         /// @see AssetLibrary.LoadAudioClip
         public static AudioClip LoadAudioClip(string a_path)
         {
-            uint addr = GenerateFromFile(a_path);
+            uint addr = AudioClipInterop.GenerateFromFile(a_path);
             if (addr != uint.MaxValue)
             {
                 return new AudioClip(addr);
@@ -118,7 +111,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Destroys the AudioClip.
+        /// Disposes of the AudioClip
         /// </summary>
         public void Dispose()
         {
@@ -126,18 +119,17 @@ namespace IcarianEngine.Audio
 
             GC.SuppressFinalize(this);
         }
-
         /// <summary>
-        /// Called when the AudioClip is being disposed.
+        /// Called when the AudioClip is being Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether or not the AudioClip is being disposed.</param>
+        /// <param name="a_disposing">Whether the AudioClip is being Disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_bufferAddr != uint.MaxValue)
             {
                 if (a_disposing)
                 {
-                    DestroyAudioClip(m_bufferAddr);
+                    AudioClipInterop.DestroyAudioClip(m_bufferAddr);
                 }
                 else
                 {
@@ -152,7 +144,6 @@ namespace IcarianEngine.Audio
                 Logger.IcarianError("AudioClip already Disposed");
             }
         }
-
         ~AudioClip()
         {
             Dispose(false);

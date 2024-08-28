@@ -7,27 +7,16 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineAudioSourceInterop.h"
 #include "EngineAudioSourceInteropStructures.h"
+#include "InteropBinding.h"
+
+ENGINE_AUDIOSOURCE_EXPORT_TABLE(IOP_BIND_FUNCTION);
 
 namespace IcarianEngine.Audio
 {   
     public class AudioSource : Component, IDestroy
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateAudioSource(uint a_transformAddr, uint a_audioClipAddr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void DestroyAudioSource(uint a_addr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void PlayAudioSource(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GetAudioSourcePlayingState(uint a_addr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static AudioSourceBuffer GetAudioSourceBuffer(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetAudioSourceBuffer(uint a_addr, AudioSourceBuffer a_buffer);
-
         bool       m_disposed = false;
         bool       m_loop = false;
         bool       m_3d = true;
@@ -69,7 +58,9 @@ namespace IcarianEngine.Audio
                     return false;
                 }
                 
-                return GetAudioSourcePlayingState(m_bufferAddr) != 0;
+                AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
+
+                return (buffer.Flags & 0b1 << (int)AudioSourceBuffer.PlayingBitOffset) != 0;
             }
         }
 
@@ -88,7 +79,7 @@ namespace IcarianEngine.Audio
 
                 if (m_bufferAddr != uint.MaxValue)
                 {
-                    AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+                    AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
 
                     if (m_audioMixer != null)
                     {
@@ -99,7 +90,7 @@ namespace IcarianEngine.Audio
                         buffer.AudioMixerAddr = uint.MaxValue;
                     }
 
-                    SetAudioSourceBuffer(m_bufferAddr, buffer);
+                    AudioSourceInterop.SetAudioSourceBuffer(m_bufferAddr, buffer);
                 }
             }
         }
@@ -116,7 +107,7 @@ namespace IcarianEngine.Audio
                     return null;
                 }
 
-                AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+                AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
 
                 if (buffer.AudioClipAddr == uint.MaxValue)
                 {
@@ -131,7 +122,7 @@ namespace IcarianEngine.Audio
                 {
                     if (m_bufferAddr == uint.MaxValue)
                     {
-                        m_bufferAddr = GenerateAudioSource(Transform.InternalAddr, value.InternalAddr);
+                        m_bufferAddr = AudioSourceInterop.GenerateAudioSource(Transform.InternalAddr, value.InternalAddr);
 
                         Loop = m_loop;
                         AudioMixer = m_audioMixer;
@@ -144,7 +135,7 @@ namespace IcarianEngine.Audio
                 {
                     if (m_bufferAddr != uint.MaxValue)
                     {
-                        DestroyAudioSource(m_bufferAddr);
+                        AudioSourceInterop.DestroyAudioSource(m_bufferAddr);
 
                         m_bufferAddr = uint.MaxValue;
                     }
@@ -152,11 +143,11 @@ namespace IcarianEngine.Audio
                     return;
                 }
 
-                AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+                AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
 
                 buffer.AudioClipAddr = value.InternalAddr;
 
-                SetAudioSourceBuffer(m_bufferAddr, buffer);
+                AudioSourceInterop.SetAudioSourceBuffer(m_bufferAddr, buffer);
             }
         }
 
@@ -175,7 +166,7 @@ namespace IcarianEngine.Audio
 
                 if (m_bufferAddr != uint.MaxValue)
                 {
-                    AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+                    AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
 
                     if (m_loop)
                     {
@@ -186,7 +177,7 @@ namespace IcarianEngine.Audio
                         buffer.Flags &= (byte)~(0b1 << (int)AudioSourceBuffer.LoopBitOffset);
                     }
 
-                    SetAudioSourceBuffer(m_bufferAddr, buffer);
+                    AudioSourceInterop.SetAudioSourceBuffer(m_bufferAddr, buffer);
                 }
             }
         }
@@ -206,7 +197,7 @@ namespace IcarianEngine.Audio
 
                 if (m_bufferAddr != uint.MaxValue)
                 {
-                    AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+                    AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
 
                     if (m_3d)
                     {
@@ -217,7 +208,7 @@ namespace IcarianEngine.Audio
                         buffer.Flags &= (byte)~(0b1 << (int)AudioSourceBuffer.SpatialBitOffset);
                     }
 
-                    SetAudioSourceBuffer(m_bufferAddr, buffer);
+                    AudioSourceInterop.SetAudioSourceBuffer(m_bufferAddr, buffer);
                 }
             }
         }
@@ -240,9 +231,9 @@ namespace IcarianEngine.Audio
 
                     if (clip != null)
                     {
-                        GenerateAudioSource(Transform.InternalAddr, clip.InternalAddr);
+                        AudioSourceInterop.GenerateAudioSource(Transform.InternalAddr, clip.InternalAddr);
 
-                        AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+                        AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
                         
                         unchecked
                         {
@@ -262,7 +253,7 @@ namespace IcarianEngine.Audio
                             }
                         }
 
-                        SetAudioSourceBuffer(m_bufferAddr, buffer);
+                        AudioSourceInterop.SetAudioSourceBuffer(m_bufferAddr, buffer);
                     }
                 }
             }
@@ -275,7 +266,7 @@ namespace IcarianEngine.Audio
         {
             if (m_bufferAddr != uint.MaxValue)
             {
-                PlayAudioSource(m_bufferAddr);
+                AudioSourceInterop.PlayAudioSource(m_bufferAddr);
             }
         }
 
@@ -300,7 +291,7 @@ namespace IcarianEngine.Audio
                 {
                     if (m_bufferAddr != uint.MaxValue)
                     {
-                        DestroyAudioSource(m_bufferAddr);
+                        AudioSourceInterop.DestroyAudioSource(m_bufferAddr);
 
                         m_bufferAddr = uint.MaxValue;
                     }
