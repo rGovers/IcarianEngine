@@ -4,39 +4,30 @@
 
 #pragma once
 
-#include "Audio/AudioClips/AudioClip.h"
+#include "InteropTypes.h"
 
-#include <filesystem>
+/// @file EngineAudioListenerInterop.h
 
-class WAVAudioClip : public AudioClip
-{
-private:
-    std::filesystem::path m_path;
+/// @cond INTERNAL
 
-    uint64_t              m_dataOffset;
-    uint64_t              m_dataSize;
+#ifdef CUBE_LANGUAGE_CPP
+#include "DeletionQueue.h"
+#endif
 
-    uint32_t              m_sampleRate;
-    uint32_t              m_channelCount;
+#define ENGINE_AUDIOLISTENER_EXPORT_TABLE(F) \
+    F(IOP_UINT32, IcarianEngine.Audio, AudioListenerInterop, GenerateAudioListener, \
+    { \
+        return Instance->GenerateAudioListener(a_transformAddr); \
+    }, IOP_UINT32 a_transformAddr) \
+    F(void, IcarianEngine.Audio, AudioListenerInterop, DestroyAudioListener, \
+    { \
+        IPUSHDELETIONFUNC( \
+        { \
+            Instance->DestroyAudioListener(a_addr); \
+        }, DeletionIndex_Update); \
+    }, IOP_UINT32 a_addr) \
 
-    e_AudioFormat         m_format;
-
-protected:
-
-public:
-    WAVAudioClip(const std::filesystem::path& a_path);
-    virtual ~WAVAudioClip();
-
-    virtual float GetDuration() const;
-
-    virtual uint32_t GetSampleRate() const;
-    virtual uint32_t GetChannelCount() const;
-    virtual uint64_t GetSampleSize() const;
-
-    virtual e_AudioFormat GetAudioFormat() const;
-
-    virtual uint8_t* GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize);
-};
+/// @endcond
 
 // MIT License
 // 

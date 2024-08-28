@@ -4,26 +4,26 @@
 
 #pragma once
 
-#include <AL/al.h>
+#include "InteropTypes.h"
 
-#include <cstdint>
+#ifdef CUBE_LANGUAGE_CSHARP
+namespace IcarianEngine.Audio {
+#endif
 
-struct AudioSourceBuffer
+/// @file EngineAudioMixerInteropStructures.h
+
+/// @cond INTERNAL
+
+IOP_PACKED struct AudioMixerBuffer
 {
-    static constexpr uint32_t PlayBitOffset = 0;
-    static constexpr uint32_t LoopBitOffset = 1;
-    static constexpr uint32_t PlayingBitOffset = 2;
-
-    static constexpr uint32_t BufferCount = 3;
-
-    uint32_t TransformAddr;
-    uint32_t AudioClipAddr;
-    uint32_t AudioMixerAddr;
-    uint64_t SampleOffset;
-    uint32_t Flags;
-    ALuint Source;
-    ALuint Buffers[BufferCount];
+    IOP_CSPUBLIC float Gain;
 };
+
+/// @endcond
+
+#ifdef CUBE_LANGUAGE_CSHARP
+}
+#endif
 
 // MIT License
 // 

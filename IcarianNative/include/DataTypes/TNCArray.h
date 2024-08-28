@@ -317,6 +317,11 @@ public:
 
     inline bool Exists(uint32_t a_addr)
     {
+        if (a_addr >= m_size)
+        {
+            return false;
+        }
+
         const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
         if constexpr (std::is_pointer<T>())

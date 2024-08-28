@@ -4,39 +4,25 @@
 
 #pragma once
 
-#include "Audio/AudioClips/AudioClip.h"
-
-#include <filesystem>
-
-class WAVAudioClip : public AudioClip
+// Wrapping this header as I was getting compiler warnings with a C++ compiler
+// Doing it this way I no longer get warnings they where kinda bugging me seeing them
+// Odd considering the header is doing extern C but not gonna question it compilers be weird
+extern "C" 
 {
-private:
-    std::filesystem::path m_path;
-
-    uint64_t              m_dataOffset;
-    uint64_t              m_dataSize;
-
-    uint32_t              m_sampleRate;
-    uint32_t              m_channelCount;
-
-    e_AudioFormat         m_format;
-
-protected:
-
-public:
-    WAVAudioClip(const std::filesystem::path& a_path);
-    virtual ~WAVAudioClip();
-
-    virtual float GetDuration() const;
-
-    virtual uint32_t GetSampleRate() const;
-    virtual uint32_t GetChannelCount() const;
-    virtual uint64_t GetSampleSize() const;
-
-    virtual e_AudioFormat GetAudioFormat() const;
-
-    virtual uint8_t* GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize);
-};
+// If you are seeing this while debugging in VSCode hope you are ready to see your desktop
+// Can also crash when using clangd
+// Only been able to open it without crashes in Vim and Kate with clangd disabled
+//
+// ADDITIONAL NOTE: I have confirmed that this is a know bug with clangd that has been open for a couple years yay...
+// However vscode cannot gracefully handle a LSP crash and will occasionsally crash when debugging you have been warned
+// #define MA_DEBUG_OUTPUT
+#define MA_NO_ENCODING
+#define MA_NO_RESOURCE_MANAGER
+#define MA_NO_WAV
+#define MA_NO_FLAC
+#define MA_NO_MP3
+#include <miniaudio.h>
+}
 
 // MIT License
 // 

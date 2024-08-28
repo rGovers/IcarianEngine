@@ -4,40 +4,62 @@
 
 #pragma once
 
-#include <AL/al.h>
-#include <AL/alc.h>
 #include <cstdint>
 
 #include "Audio/AudioListenerBuffer.h"
-#include "Audio/AudioMixerBuffer.h"
-#include "Audio/AudioSourceBuffer.h"
+#include "DataTypes/RingAllocator.h"
 #include "DataTypes/TNCArray.h"
 
 class AudioClip;
 class AudioEngineBindings;
+
+#include "EngineAudioSourceInteropStructures.h"
+#include "EngineAudioMixerInteropStructures.h"
+
+#include "Audio/IcarianMiniaudio.h"
+
+struct MAISource
+{
+    ma_data_source_base MABaseSource;
+    uint32_t SourceAddr;
+    uint32_t ChannelCount;
+    uint32_t SampleRate;
+    ma_format MAFormat;
+    ma_sound MASound;
+};
 
 class AudioEngine
 {
 private:
     friend class AudioEngineBindings;
 
-    constexpr static uint32_t AudioBufferSampleSize = 4096;
+    constexpr static uint32_t SampleRate = 48000;
 
+    RingAllocator                 m_allocator;
+
+    bool                          m_init;
     AudioEngineBindings*          m_bindings;
 
-    ALCdevice*                    m_device;
-    ALCcontext*                   m_context;
+    ma_engine                     m_engine;
 
     TNCArray<AudioClip*>          m_audioClips;
     TNCArray<AudioSourceBuffer>   m_audioSources;
     TNCArray<AudioListenerBuffer> m_audioListeners;
     TNCArray<AudioMixerBuffer>    m_audioMixers;
 
+    TNCArray<MAISource*>          m_audioStreams;
+
 protected:
 
 public:
     AudioEngine();
     ~AudioEngine();
+
+    ma_result DataSourceRead(ma_data_source* a_dataSource, void* a_framesOut, ma_uint64 a_frameCount, ma_uint64* a_framesRead);
+    ma_result DataSourceSeek(ma_data_source* a_dataSource, ma_uint64 a_frameIndex);
+    ma_result DataSourceGetDataFormat(ma_data_source* a_dataSource, ma_format* a_format, ma_uint32* a_channels, ma_uint32* a_sampleRate, ma_channel* a_channelMap, size_t a_channelMapCap);
+    ma_result DataSourceGetCursor(ma_data_source* a_dataSource, ma_uint64* a_cursor);
+    ma_result DataSourceGetLength(ma_data_source* a_dataSource, ma_uint64* a_length);
 
     void Update();
 };

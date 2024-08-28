@@ -7,52 +7,25 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineAudioSourceInterop.h"
+#include "EngineAudioSourceInteropStructures.h"
+#include "InteropBinding.h"
+
+ENGINE_AUDIOSOURCE_EXPORT_TABLE(IOP_BIND_FUNCTION);
+
 namespace IcarianEngine.Audio
 {   
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    struct AudioSourceBuffer
-    {
-        public const int PlayBitOffset = 0;
-        public const int LoopBitOffset = 1;
-
-        public uint TransformAddr;
-        public uint AudioClipAddr;
-        public uint AudioMixerAddr;
-        public ulong SampleOffset;
-        public uint Flags;
-        uint Source;
-        uint BufferA;
-        uint BufferB;
-        uint BufferC;
-    }
-
     public class AudioSource : Component, IDestroy
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateAudioSource(uint a_transformAddr, uint a_audioClipAddr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void DestroyAudioSource(uint a_addr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void PlayAudioSource(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetLoopAudioSource(uint a_addr, uint a_loop);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GetAudioSourcePlayingState(uint a_addr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static AudioSourceBuffer GetAudioSourceBuffer(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetAudioSourceBuffer(uint a_addr, AudioSourceBuffer a_buffer);
-
         bool       m_disposed = false;
         bool       m_loop = false;
+        bool       m_3d = true;
         AudioMixer m_audioMixer = null;
 
         uint       m_bufferAddr = uint.MaxValue;
 
         /// <summary>
-        /// Whether or not the AudioSource has been disposed.
+        /// Whether the AudioSource has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -63,7 +36,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// The Def used to create the AudioSource.
+        /// The Def used to create the AudioSource
         /// </summary>
         public AudioSourceDef AudioSourceDef
         {
@@ -74,7 +47,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Whether or not the AudioSource is playing.
+        /// Whether or not the AudioSource is playing
         /// </summary>
         public bool IsPlaying
         {
@@ -85,12 +58,14 @@ namespace IcarianEngine.Audio
                     return false;
                 }
                 
-                return GetAudioSourcePlayingState(m_bufferAddr) != 0;
+                AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
+
+                return (buffer.Flags & 0b1 << (int)AudioSourceBuffer.PlayingBitOffset) != 0;
             }
         }
 
         /// <summary>
-        /// The AudioMixer the AudioSource is attached to.
+        /// The <see cref="IcarianEngine.Audio.AudioMixer" /> the AudioSource is attached to
         /// </summary>
         public AudioMixer AudioMixer
         {
@@ -104,7 +79,7 @@ namespace IcarianEngine.Audio
 
                 if (m_bufferAddr != uint.MaxValue)
                 {
-                    AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+                    AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
 
                     if (m_audioMixer != null)
                     {
@@ -115,13 +90,13 @@ namespace IcarianEngine.Audio
                         buffer.AudioMixerAddr = uint.MaxValue;
                     }
 
-                    SetAudioSourceBuffer(m_bufferAddr, buffer);
+                    AudioSourceInterop.SetAudioSourceBuffer(m_bufferAddr, buffer);
                 }
             }
         }
 
         /// <summary>
-        /// The AudioClip to play.
+        /// The AudioClip to play
         /// </summary>
         public AudioClip AudioClip
         {
@@ -132,7 +107,7 @@ namespace IcarianEngine.Audio
                     return null;
                 }
 
-                AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+                AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
 
                 if (buffer.AudioClipAddr == uint.MaxValue)
                 {
@@ -147,10 +122,11 @@ namespace IcarianEngine.Audio
                 {
                     if (m_bufferAddr == uint.MaxValue)
                     {
-                        m_bufferAddr = GenerateAudioSource(Transform.InternalAddr, value.InternalAddr);
+                        m_bufferAddr = AudioSourceInterop.GenerateAudioSource(Transform.InternalAddr, value.InternalAddr);
 
                         Loop = m_loop;
                         AudioMixer = m_audioMixer;
+                        Is3DAudio = m_3d;
 
                         return;
                     }
@@ -159,7 +135,7 @@ namespace IcarianEngine.Audio
                 {
                     if (m_bufferAddr != uint.MaxValue)
                     {
-                        DestroyAudioSource(m_bufferAddr);
+                        AudioSourceInterop.DestroyAudioSource(m_bufferAddr);
 
                         m_bufferAddr = uint.MaxValue;
                     }
@@ -167,16 +143,16 @@ namespace IcarianEngine.Audio
                     return;
                 }
 
-                AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+                AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
 
                 buffer.AudioClipAddr = value.InternalAddr;
 
-                SetAudioSourceBuffer(m_bufferAddr, buffer);
+                AudioSourceInterop.SetAudioSourceBuffer(m_bufferAddr, buffer);
             }
         }
 
         /// <summary>
-        /// Whether or not the AudioClip should loop.
+        /// Whether the AudioSource should loop
         /// </summary>
         public bool Loop
         {
@@ -190,20 +166,55 @@ namespace IcarianEngine.Audio
 
                 if (m_bufferAddr != uint.MaxValue)
                 {
+                    AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
+
                     if (m_loop)
                     {
-                        SetLoopAudioSource(m_bufferAddr, 1);
+                        buffer.Flags |= (byte)(0b1 << (int)AudioSourceBuffer.LoopBitOffset);
                     }
                     else
                     {
-                        SetLoopAudioSource(m_bufferAddr, 0);
+                        buffer.Flags &= (byte)~(0b1 << (int)AudioSourceBuffer.LoopBitOffset);
                     }
+
+                    AudioSourceInterop.SetAudioSourceBuffer(m_bufferAddr, buffer);
                 }
             }
         }
 
         /// <summary>
-        /// Called when the AudioSource is created.
+        /// Whether the AudioSource is spatial
+        /// </summary>
+        public bool Is3DAudio
+        {
+            get
+            {
+                return m_3d;
+            }
+            set
+            {
+                m_3d = value;
+
+                if (m_bufferAddr != uint.MaxValue)
+                {
+                    AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
+
+                    if (m_3d)
+                    {
+                        buffer.Flags |= (byte)(0b1 << (int)AudioSourceBuffer.SpatialBitOffset);
+                    }
+                    else
+                    {
+                        buffer.Flags &= (byte)~(0b1 << (int)AudioSourceBuffer.SpatialBitOffset);
+                    }
+
+                    AudioSourceInterop.SetAudioSourceBuffer(m_bufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Called when the AudioSource is created
         /// </summary>
         public override void Init()
         {
@@ -212,6 +223,7 @@ namespace IcarianEngine.Audio
             if (def != null)
             {
                 m_loop = def.Loop;
+                m_3d = def.Is3D;
 
                 if (def.AudioClipPath != null)
                 {
@@ -219,39 +231,47 @@ namespace IcarianEngine.Audio
 
                     if (clip != null)
                     {
-                        GenerateAudioSource(Transform.InternalAddr, clip.InternalAddr);
+                        AudioSourceInterop.GenerateAudioSource(Transform.InternalAddr, clip.InternalAddr);
 
-                        AudioSourceBuffer buffer = GetAudioSourceBuffer(m_bufferAddr);
+                        AudioSourceBuffer buffer = AudioSourceInterop.GetAudioSourceBuffer(m_bufferAddr);
                         
-                        if (m_loop)
+                        unchecked
                         {
-                            buffer.Flags |= (uint)(0b1 << AudioSourceBuffer.LoopBitOffset);
+                            if (m_loop)
+                            {
+                                buffer.Flags |= (uint)(0b1 << (int)AudioSourceBuffer.LoopBitOffset);
+                            }
+
+                            if (m_3d)
+                            {
+                                buffer.Flags |= (uint)(0b1 << (int)AudioSourceBuffer.SpatialBitOffset);
+                            }
+
+                            if (def.PlayOnCreation)
+                            {
+                                buffer.Flags |= (uint)(0b1 << (int)AudioSourceBuffer.PlayBitOffset);
+                            }
                         }
 
-                        if (def.PlayOnCreation)
-                        {
-                            buffer.Flags |= (uint)(0b1 << AudioSourceBuffer.PlayBitOffset);
-                        }
-
-                        SetAudioSourceBuffer(m_bufferAddr, buffer);
+                        AudioSourceInterop.SetAudioSourceBuffer(m_bufferAddr, buffer);
                     }
                 }
             }
         }
 
         /// <summary>
-        /// Plays the AudioSource.
+        /// Plays the AudioSource
         /// </summary>
         public void Play()
         {
             if (m_bufferAddr != uint.MaxValue)
             {
-                PlayAudioSource(m_bufferAddr);
+                AudioSourceInterop.PlayAudioSource(m_bufferAddr);
             }
         }
 
         /// <summary>
-        /// Destroys the AudioSource.
+        /// Disposes the AudioSource
         /// </summary>
         public void Dispose()
         {
@@ -259,10 +279,10 @@ namespace IcarianEngine.Audio
 
             GC.SuppressFinalize(this);
         }
-
         /// <summary>
-        /// Called when the AudioSource is being disposed.
+        /// Called when the AudioSource is being Disposed/Finalised
         /// </summary>
+        /// <param name="a_disposed">Whether is is being called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (!m_disposed)
@@ -271,7 +291,7 @@ namespace IcarianEngine.Audio
                 {
                     if (m_bufferAddr != uint.MaxValue)
                     {
-                        DestroyAudioSource(m_bufferAddr);
+                        AudioSourceInterop.DestroyAudioSource(m_bufferAddr);
 
                         m_bufferAddr = uint.MaxValue;
                     }
@@ -288,7 +308,6 @@ namespace IcarianEngine.Audio
                 Logger.IcarianError("AudioSource already Disposed");
             }
         }
-
         ~AudioSource()
         {
             Dispose(false);

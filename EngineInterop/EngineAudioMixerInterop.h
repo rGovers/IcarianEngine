@@ -4,39 +4,38 @@
 
 #pragma once
 
-#include "Audio/AudioClips/AudioClip.h"
+#include "InteropTypes.h"
 
-#include <filesystem>
+/// @file EngineAudioMixerInterop.h
 
-class WAVAudioClip : public AudioClip
-{
-private:
-    std::filesystem::path m_path;
+/// @cond INTERNAL
 
-    uint64_t              m_dataOffset;
-    uint64_t              m_dataSize;
+#ifdef CUBE_LANGUAGE_CPP
+#include "DeletionQueue.h"
+#endif
 
-    uint32_t              m_sampleRate;
-    uint32_t              m_channelCount;
+#define ENGINE_AUDIOMIXER_EXPORT_TABLE(F) \
+    F(IOP_UINT32, IcarianEngine.Audio, AudioMixerInterop, GenerateAudioMixer, \
+    { \
+        return Instance->GenerateAudioMixer(); \
+    }) \
+    F(void, IcarianEngine.Audio, AudioMixerInterop, DestroyAudioMixer, \
+    { \
+        IPUSHDELETIONFUNC( \
+        { \
+            Instance->DestroyAudioMixer(a_addr); \
+        }, DeletionIndex_Update); \
+    }, IOP_UINT32 a_addr) \
+    F(AudioMixerBuffer, IcarianEngine.Audio, AudioMixerInterop, GetAudioMixerBuffer, \
+    { \
+        return Instance->GetAudioMixerBuffer(a_addr); \
+    }, IOP_UINT32 a_addr) \
+    F(void, IcarianEngine.Audio, AudioMixerInterop, SetAudioMixerBuffer, \
+    { \
+        Instance->SetAudioMixerBuffer(a_addr, a_buffer); \
+    }, IOP_UINT32 a_addr, AudioMixerBuffer a_buffer) \
 
-    e_AudioFormat         m_format;
-
-protected:
-
-public:
-    WAVAudioClip(const std::filesystem::path& a_path);
-    virtual ~WAVAudioClip();
-
-    virtual float GetDuration() const;
-
-    virtual uint32_t GetSampleRate() const;
-    virtual uint32_t GetChannelCount() const;
-    virtual uint64_t GetSampleSize() const;
-
-    virtual e_AudioFormat GetAudioFormat() const;
-
-    virtual uint8_t* GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize);
-};
+/// @endcond
 
 // MIT License
 // 
