@@ -3,6 +3,7 @@
 // License at end of file.
 
 using IcarianEngine.Maths;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -96,15 +97,26 @@ namespace IcarianEngine.Physics
             {
                 int count = result.Length;
 
-                a_hits = new RaycastResult[count];
+                List<RaycastResult> hits = new List<RaycastResult>(count);
 
-                for (int i = 0; i < count; ++i)
+                foreach (RaycastResultBuffer buff in result)
                 {
-                    a_hits[i].Fraction = result[i].Fraction;
-                    a_hits[i].Position = result[i].Position;
-                    a_hits[i].Normal = result[i].Normal;
-                    a_hits[i].Body = PhysicsBody.GetBody(result[i].BodyAddr);
+                    PhysicsBody b = PhysicsBody.GetBody(buff.BodyAddr);
+                    if (b == null)
+                    {
+                        continue;
+                    }
+
+                    hits.Add(new RaycastResult()
+                    {
+                        Fraction = buff.Fraction,
+                        Position = buff.Position,
+                        Normal = buff.Normal,
+                        Body = b
+                    });
                 }
+
+                a_hits = hits.ToArray();
 
                 return true;
             }
@@ -174,12 +186,23 @@ namespace IcarianEngine.Physics
             {
                 int count = result.Length;
 
-                a_bodies = new PhysicsBody[count];
-
-                for (int i = 0; i < count; ++i)
+                List<PhysicsBody> bodies = new List<PhysicsBody>(count);
+                foreach (uint r in result)
                 {
-                    a_bodies[i] = PhysicsBody.GetBody(result[i]);
+                    PhysicsBody b = PhysicsBody.GetBody(r);
+
+                    // Can be null as it is async and can be in the process of rebuilding a body
+                    // The collision functions can get funky because of it
+                    // Culling them here for more sane user output
+                    if (b == null)
+                    {
+                        continue;
+                    }
+
+                    bodies.Add(b);
                 }
+
+                a_bodies = bodies.ToArray();
 
                 return true;
             }
@@ -217,12 +240,23 @@ namespace IcarianEngine.Physics
             {
                 int count = result.Length;
 
-                a_bodies = new PhysicsBody[count];
-
-                for (int i = 0; i < count; ++i)
+                List<PhysicsBody> bodies = new List<PhysicsBody>(count);
+                foreach (uint r in result)
                 {
-                    a_bodies[i] = PhysicsBody.GetBody(result[i]);
+                    PhysicsBody b = PhysicsBody.GetBody(r);
+
+                    // Can be null as it is async and can be in the process of rebuilding a body
+                    // The collision functions can get funky because of it
+                    // Culling them here for more sane user output
+                    if (b == null)
+                    {
+                        continue;
+                    }
+
+                    bodies.Add(b);
                 }
+
+                a_bodies = bodies.ToArray();
 
                 return true;
             }
@@ -245,12 +279,23 @@ namespace IcarianEngine.Physics
             {
                 int count = result.Length;
 
-                a_bodies = new PhysicsBody[count];
-
-                for (int i = 0; i < count; ++i)
+                List<PhysicsBody> bodies = new List<PhysicsBody>(count);
+                foreach (uint r in result)
                 {
-                    a_bodies[i] = PhysicsBody.GetBody(result[i]);
+                    PhysicsBody b = PhysicsBody.GetBody(r);
+
+                    // Can be null as it is async and can be in the process of rebuilding a body
+                    // The collision functions can get funky because of it
+                    // Culling them here for more sane user output
+                    if (b == null)
+                    {
+                        continue;
+                    }
+
+                    bodies.Add(b);
                 }
+
+                a_bodies = bodies.ToArray();
 
                 return true;
             }

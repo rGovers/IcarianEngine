@@ -245,6 +245,24 @@ void PhysicsEngine::Update(double a_delta)
             // Need to sync the physics transform to the transform
             for (const JPH::BodyID id : bodies)
             {
+                const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(id, interface);
+
+                const JPH::Body* body = interface.TryGetBody(id);
+                if (body == nullptr)
+                {
+                    continue;
+                }
+
+                constexpr float Min = std::numeric_limits<float>::min();
+
+                // TODO: This is a hack should probably improve this
+                // Needed when regenerating Rigidbodies
+                const JPH::RVec3 jPos = body->GetPosition();
+                if (jPos == JPH::RVec3(Min, Min, Min))
+                {
+                    continue;
+                }
+
                 const auto iter = m_bodyMap.find(id.GetIndex());
                 if (iter == m_bodyMap.end())
                 {
@@ -259,15 +277,7 @@ void PhysicsEngine::Update(double a_delta)
                     continue;
                 }
 
-                const JPH::Body* body = interface.TryGetBody(id);
-                if (body == nullptr)
-                {
-                    continue;
-                }
-
-                const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(id, interface);
-
-                const JPH::RVec3 jTranslation = body->GetPosition() + body->GetLinearVelocity() * m_fixedTimeTimer;
+                const JPH::RVec3 jTranslation = jPos + body->GetLinearVelocity() * m_fixedTimeTimer;
                 const JPH::Quat jRotation = body->GetRotation();
 
                 const glm::vec3 translation = glm::vec3(jTranslation.GetX(), jTranslation.GetY(), jTranslation.GetZ());

@@ -33,6 +33,7 @@
 
 #include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianError.h"
 #include "Core/StringUtils.h"
 #include "FileCache.h"
 #include "IcarianError.h"
@@ -107,13 +108,19 @@ uint32_t PhysicsEngineBindings::CreateSphereShape(float a_radius) const
     const JPH::SphereShapeSettings sphereSettings = JPH::SphereShapeSettings(a_radius);
     const JPH::ShapeSettings::ShapeResult result = sphereSettings.Create();
 
+    if (result.HasError())
+    {
+        const JPH::String str = result.GetError();
+        IERROR(std::string("Jolt: ") + str.c_str());
+
+        return -1;
+    }
     IVERIFY(result.IsValid());
 
     return m_engine->m_collisionShapes.PushVal(result);
 }
 float PhysicsEngineBindings::GetSphereShapeRadius(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_collisionShapes.Size());
     IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
 
     const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
@@ -129,13 +136,20 @@ uint32_t PhysicsEngineBindings::CreateBoxShape(const glm::vec3& a_extents) const
 
     const JPH::BoxShapeSettings boxSettings = JPH::BoxShapeSettings(JPH::RVec3(halfExtents.x, halfExtents.y, halfExtents.z));
     const JPH::ShapeSettings::ShapeResult result = boxSettings.Create();
+
+    if (result.HasError())
+    {
+        const JPH::String str = result.GetError();
+        IERROR(std::string("Jolt: ") + str.c_str());
+
+        return -1;
+    }
     IVERIFY(result.IsValid());
 
     return m_engine->m_collisionShapes.PushVal(result);
 }
 glm::vec3 PhysicsEngineBindings::GetBoxShapeExtents(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_collisionShapes.Size());
     IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
 
     const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
@@ -153,13 +167,20 @@ uint32_t PhysicsEngineBindings::CreateCapsuleShape(float a_height, float a_radiu
     TRACE("Creating Capsule Shape");
     const JPH::CapsuleShapeSettings capsuleSettings = JPH::CapsuleShapeSettings(a_height * 0.5f, a_radius);
     const JPH::ShapeSettings::ShapeResult result = capsuleSettings.Create();
+
+    if (result.HasError())
+    {
+        const JPH::String str = result.GetError();
+        IERROR(std::string("Jolt: ") + str.c_str());
+
+        return -1;
+    }
     IVERIFY(result.IsValid());
 
     return m_engine->m_collisionShapes.PushVal(result);
 }
 float PhysicsEngineBindings::GetCapsuleShapeHeight(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_collisionShapes.Size());
     IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
 
     const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
@@ -171,7 +192,6 @@ float PhysicsEngineBindings::GetCapsuleShapeHeight(uint32_t a_addr) const
 }
 float PhysicsEngineBindings::GetCasuleShapeRadius(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_collisionShapes.Size());
     IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
 
     const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
@@ -187,14 +207,20 @@ uint32_t PhysicsEngineBindings::CreateCylinderShape(float a_height, float a_radi
     TRACE("Creating Cylinder Shape");
     const JPH::CylinderShapeSettings cylinderSettings = JPH::CylinderShapeSettings(a_height * 0.5f, a_radius);
     const JPH::ShapeSettings::ShapeResult result = cylinderSettings.Create();
+
+    if (result.HasError())
+    {
+        const JPH::String str = result.GetError();
+        IERROR(std::string("Jolt: ") + str.c_str());
+
+        return -1;
+    }
     IVERIFY(result.IsValid());
-    IVERIFY(!result.HasError());
 
     return m_engine->m_collisionShapes.PushVal(result);
 }
 float PhysicsEngineBindings::GetCylinderShapeHeight(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_collisionShapes.Size());
     IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
 
     const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
@@ -206,7 +232,6 @@ float PhysicsEngineBindings::GetCylinderShapeHeight(uint32_t a_addr) const
 }
 float PhysicsEngineBindings::GetCylinderShapeRadius(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_collisionShapes.Size());
     IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
 
     const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
@@ -219,6 +244,8 @@ float PhysicsEngineBindings::GetCylinderShapeRadius(uint32_t a_addr) const
 
 uint32_t PhysicsEngineBindings::CreateMeshShape(const std::filesystem::path& a_path) const
 {
+    IERRBLOCK;
+
     TRACE("Creating Mesh Shape");
 
     const std::filesystem::path ext = a_path.extension();
@@ -233,23 +260,18 @@ uint32_t PhysicsEngineBindings::CreateMeshShape(const std::filesystem::path& a_p
     case StringHash<uint32_t>(".gltf"):
     {
         FileHandle* handle = FileCache::LoadFile(a_path);
-        IVERIFY(handle != nullptr);
+        IERRCHECKRET(handle != nullptr, -1);
         IDEFER(delete handle);
 
         const uint64_t size = handle->GetSize();
         uint8_t* dat = new uint8_t[size];
         IDEFER(delete[] dat);
-        if (handle->Read(dat, size) != size)
-        {
-            IERROR("Failed reading mesh data: " + a_path.string());
-
-            break;
-        }
+        IERRCHECKRET(handle->Read(dat, size) == size, -1);
 
         Assimp::Importer importer;
 
         const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, aiProcess_Triangulate | aiProcess_PreTransformVertices, extStr.c_str() + 1);
-        IVERIFY(scene != nullptr);
+        IERRCHECKRET(scene != nullptr, -1);
 
         JPH::IndexedTriangleList faces;
         JPH::VertexList vertices;
@@ -282,9 +304,11 @@ uint32_t PhysicsEngineBindings::CreateMeshShape(const std::filesystem::path& a_p
 
         const JPH::MeshShapeSettings meshSettings = JPH::MeshShapeSettings(vertices, faces);
         const JPH::ShapeSettings::ShapeResult result = meshSettings.Create();
+
         if (result.HasError())
         {
-            IERROR(std::string("Jolt: ") + result.GetError().c_str());
+            const JPH::String str = result.GetError();
+            IERROR(std::string("Jolt: ") + str.c_str());
 
             return -1;
         }
@@ -294,8 +318,6 @@ uint32_t PhysicsEngineBindings::CreateMeshShape(const std::filesystem::path& a_p
     }
     default:
     {
-        IERROR("Invalid model file extension: " + a_path.string());
-
         break;
     }
     }
@@ -305,7 +327,6 @@ uint32_t PhysicsEngineBindings::CreateMeshShape(const std::filesystem::path& a_p
 
 void PhysicsEngineBindings::DestroyCollisionShape(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_collisionShapes.Size());
     IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
 
     m_engine->m_collisionShapes[a_addr].Clear();
@@ -314,7 +335,6 @@ void PhysicsEngineBindings::DestroyCollisionShape(uint32_t a_addr) const
 uint32_t PhysicsEngineBindings::CreateCharacterController(uint32_t a_transformAddr, uint32_t a_colliderAddr, const glm::vec3& a_up, float a_slopeAngle, float a_mass) const
 {
     TRACE("Creating Character Controller");
-    IVERIFY(a_colliderAddr < m_engine->m_collisionShapes.Size());
     IVERIFY(m_engine->m_collisionShapes.Exists(a_colliderAddr));
 
     const glm::mat4 globalTransform = ObjectManager::GetGlobalMatrix(a_transformAddr);
@@ -349,7 +369,6 @@ uint32_t PhysicsEngineBindings::CreateCharacterController(uint32_t a_transformAd
 }
 void PhysicsEngineBindings::DestroyCharacterController(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_characters.Size());
     IVERIFY(m_engine->m_characters.Exists(a_addr));
 
     const JPH::CharacterVirtual* character = m_engine->m_characters[a_addr];
@@ -358,7 +377,6 @@ void PhysicsEngineBindings::DestroyCharacterController(uint32_t a_addr) const
 }
 glm::vec3 PhysicsEngineBindings::GetCharacterControllerVelocity(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_characters.Size());
     IVERIFY(m_engine->m_characters.Exists(a_addr));
 
     const JPH::CharacterVirtual* character = m_engine->m_characters[a_addr];
@@ -368,7 +386,6 @@ glm::vec3 PhysicsEngineBindings::GetCharacterControllerVelocity(uint32_t a_addr)
 }
 void PhysicsEngineBindings::SetCharacterControllerVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const
 {
-    IVERIFY(a_addr < m_engine->m_characters.Size());
     IVERIFY(m_engine->m_characters.Exists(a_addr));
 
     JPH::CharacterVirtual* character = m_engine->m_characters[a_addr];
@@ -393,7 +410,6 @@ void PhysicsEngineBindings::AddBody(JPH::uint32 a_id, uint32_t a_index) const
 uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const
 {
     TRACE("Creating Physics Body");
-    IVERIFY(a_colliderAddr < m_engine->m_collisionShapes.Size());
     IVERIFY(m_engine->m_collisionShapes.Exists(a_colliderAddr));
 
     const glm::mat4 globalTransform = ObjectManager::GetGlobalMatrix(a_transformAddr);
@@ -430,7 +446,6 @@ uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint
 }
 void PhysicsEngineBindings::DestroyPhysicsBody(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -442,7 +457,6 @@ void PhysicsEngineBindings::DestroyPhysicsBody(uint32_t a_addr) const
 }
 void PhysicsEngineBindings::SetPhysicsBodyPosition(uint32_t a_addr, const glm::vec3& a_pos) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -450,23 +464,9 @@ void PhysicsEngineBindings::SetPhysicsBodyPosition(uint32_t a_addr, const glm::v
     JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
 
     interface.SetPosition(binding.Body, JPH::Vec3(a_pos.x, a_pos.y, a_pos.z), JPH::EActivation::Activate);
-
-    TransformBuffer buffer = ObjectManager::GetTransformBuffer(binding.TransformAddr);
-
-    glm::mat4 invMat = glm::identity<glm::mat4>();
-    if (buffer.ParentAddr != -1)
-    {
-        const glm::mat4 transformMat = ObjectManager::GetGlobalMatrix(buffer.ParentAddr);
-        invMat = glm::inverse(transformMat);
-    }
-
-    buffer.Translation = (invMat * glm::vec4(a_pos, 1.0f)).xyz();
-
-    ObjectManager::SetTransformBuffer(binding.TransformAddr, buffer);
 }
 glm::vec3 PhysicsEngineBindings::GetPhysicsBodyPosition(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -488,7 +488,6 @@ glm::vec3 PhysicsEngineBindings::GetPhysicsBodyPosition(uint32_t a_addr) const
 }
 void PhysicsEngineBindings::SetPhysicsBodyRotation(uint32_t a_addr, const glm::quat& a_rot) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -496,29 +495,9 @@ void PhysicsEngineBindings::SetPhysicsBodyRotation(uint32_t a_addr, const glm::q
     JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
 
     interface.SetRotation(binding.Body, JPH::Quat(a_rot.x, a_rot.y, a_rot.z, a_rot.w), JPH::EActivation::Activate);
-
-    TransformBuffer buffer = ObjectManager::GetTransformBuffer(binding.TransformAddr);
-
-    glm::quat invQuat = glm::identity<glm::quat>();
-    if (buffer.ParentAddr != -1)
-    {
-        const glm::mat4 transformMat = ObjectManager::GetGlobalMatrix(buffer.ParentAddr);
-        const glm::mat4 inv = glm::inverse(transformMat);
-
-        glm::vec3 trans;
-        glm::vec3 scale;
-        glm::vec3 skew;
-        glm::vec4 per;
-        glm::decompose(inv, scale, invQuat, trans, skew, per);
-    }
-
-    buffer.Rotation = a_rot * invQuat;
-
-    ObjectManager::SetTransformBuffer(binding.TransformAddr, buffer);
 }
 glm::quat PhysicsEngineBindings::GetPhysicsBodyRotation(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -547,7 +526,6 @@ glm::quat PhysicsEngineBindings::GetPhysicsBodyRotation(uint32_t a_addr) const
 
 uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, uint32_t a_layer, float a_mass) const
 {
-    IVERIFY(a_colliderAddr < m_engine->m_collisionShapes.Size());
     IVERIFY(m_engine->m_collisionShapes.Exists(a_colliderAddr));
     IVERIFY(a_layer < 8);
 
@@ -590,7 +568,6 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
 }
 void PhysicsEngineBindings::SetRigidBodyGravityFactor(uint32_t a_addr, float a_factor) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -605,7 +582,6 @@ void PhysicsEngineBindings::SetRigidBodyGravityFactor(uint32_t a_addr, float a_f
 }
 float PhysicsEngineBindings::GetRigidBodyGravityFactor(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -620,7 +596,6 @@ float PhysicsEngineBindings::GetRigidBodyGravityFactor(uint32_t a_addr) const
 }
 glm::vec3 PhysicsEngineBindings::GetRigidBodyVelocity(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -636,7 +611,6 @@ glm::vec3 PhysicsEngineBindings::GetRigidBodyVelocity(uint32_t a_addr) const
 }
 void PhysicsEngineBindings::SetRigidBodyVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -649,7 +623,6 @@ void PhysicsEngineBindings::SetRigidBodyVelocity(uint32_t a_addr, const glm::vec
 }
 glm::vec3 PhysicsEngineBindings::GetRigidBodyAngularVelocity(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -665,7 +638,6 @@ glm::vec3 PhysicsEngineBindings::GetRigidBodyAngularVelocity(uint32_t a_addr) co
 }
 void PhysicsEngineBindings::SetRigidBodyAngularVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -678,7 +650,6 @@ void PhysicsEngineBindings::SetRigidBodyAngularVelocity(uint32_t a_addr, const g
 }
 void PhysicsEngineBindings::RigidBodyAddForce(uint32_t a_addr, const glm::vec3& a_force, e_ForceMode a_mode) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -705,7 +676,6 @@ void PhysicsEngineBindings::RigidBodyAddForce(uint32_t a_addr, const glm::vec3& 
 }
 void PhysicsEngineBindings::RigidBodyAddTorque(uint32_t a_addr, const glm::vec3& a_torque, e_ForceMode a_mode) const
 {
-    IVERIFY(a_addr < m_engine->m_bodyBindings.Size());
     IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
@@ -733,7 +703,6 @@ void PhysicsEngineBindings::RigidBodyAddTorque(uint32_t a_addr, const glm::vec3&
 
 uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const
 {
-    IVERIFY(a_colliderAddr < m_engine->m_collisionShapes.Size());
     IVERIFY(m_engine->m_collisionShapes.Exists(a_colliderAddr));
 
     const glm::mat4 globalTransform = ObjectManager::GetGlobalMatrix(a_transformAddr);

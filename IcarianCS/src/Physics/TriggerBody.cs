@@ -47,18 +47,18 @@ namespace IcarianEngine.Physics
             }
         }
 
-        protected internal override void CollisionShapeSet(CollisionShape a_oldShape, CollisionShape a_newShape)
+        protected internal override void RebuildBody()
         {
             if (InternalAddr != uint.MaxValue)
             {
                 PhysicsBodyInterop.DestroyPhysicsBody(InternalAddr);
-
                 InternalAddr = uint.MaxValue;
             }
 
-            if (a_newShape != null)
+            CollisionShape shape = CollisionShape;
+            if (shape != null)
             {
-                InternalAddr = TriggerBodyInterop.CreateTriggerBody(Transform.InternalAddr, a_newShape.InternalAddr);
+                InternalAddr = TriggerBodyInterop.CreateTriggerBody(Transform.InternalAddr, shape.InternalAddr);
             }
         }
     }

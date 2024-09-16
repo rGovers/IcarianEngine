@@ -89,17 +89,15 @@ namespace IcarianEngine.Physics
             }
             set
             {
-                CollisionShapeSet(m_collisionShape, value);
-
-                m_collisionShape = value;
-
-                if (s_bodies.ContainsKey(m_internalAddr))
+                if (m_collisionShape != value)
                 {
-                    s_bodies[m_internalAddr] = this;
-                }
-                else
-                {
-                    s_bodies.TryAdd(m_internalAddr, this);
+                    m_collisionShape = value;
+
+                    RebuildBody();
+                    if (m_internalAddr != uint.MaxValue)
+                    {
+                        SetBody(m_internalAddr, this);
+                    }
                 }
             }
         }
@@ -108,10 +106,27 @@ namespace IcarianEngine.Physics
         {
             if (s_bodies.ContainsKey(a_addr))
             {
-                return s_bodies[a_addr];
+                PhysicsBody body = s_bodies[a_addr];
+
+                // May be a rebuilt body and a lingering call so we need to check
+                if (body.m_internalAddr == a_addr)
+                {
+                    return body;
+                }
             }
 
             return null;
+        }
+        internal static void SetBody(uint a_addr, PhysicsBody a_body)
+        {
+            if (s_bodies.ContainsKey(a_addr))
+            {
+                s_bodies[a_addr] = a_body;
+            }
+            else
+            {
+                s_bodies.TryAdd(a_addr, a_body);
+            }
         }
 
         /// <summary>
@@ -128,7 +143,7 @@ namespace IcarianEngine.Physics
             }
         }
 
-        protected internal virtual void CollisionShapeSet(CollisionShape a_oldShape, CollisionShape a_newShape)
+        protected internal virtual void RebuildBody()
         {
             if (m_internalAddr != uint.MaxValue)
             {
@@ -137,9 +152,9 @@ namespace IcarianEngine.Physics
                 m_internalAddr = uint.MaxValue;
             }
 
-            if (a_newShape != null)
+            if (m_collisionShape != null)
             {
-                m_internalAddr = PhysicsBodyInterop.CreatePhysicsBody(Transform.InternalAddr, a_newShape.InternalAddr);
+                m_internalAddr = PhysicsBodyInterop.CreatePhysicsBody(Transform.InternalAddr, m_collisionShape.InternalAddr);
             }
         }
 
@@ -150,6 +165,8 @@ namespace IcarianEngine.Physics
         public void SetPosition(Vector3 a_pos)
         {
             PhysicsBodyInterop.SetPosition(m_internalAddr, a_pos);
+
+            Transform.Translation = a_pos;
         }
         /// <summary>
         /// Gets the position of the PhysicsBody
@@ -166,6 +183,8 @@ namespace IcarianEngine.Physics
         public void SetRotation(Quaternion a_rotation)
         {
             PhysicsBodyInterop.SetRotation(m_internalAddr, a_rotation);
+
+            Transform.Rotation = a_rotation;
         }
         /// <summary>
         /// Gets the rotation of the PhysicsBody
@@ -177,10 +196,11 @@ namespace IcarianEngine.Physics
 
         static void OnCollisionEnter(CollisionDataBuffer a_data)
         {
-            if (!s_bodies.ContainsKey(a_data.BodyAddrA) && !s_bodies.ContainsKey(a_data.BodyAddrB))
+            // Because of defered deletion there can be some lingering references should be resolved at the end of the update
+            // But we need to return as they have been "deleted"
+            // Also my dumbass did an and instead of or
+            if (!s_bodies.ContainsKey(a_data.BodyAddrA) || !s_bodies.ContainsKey(a_data.BodyAddrB))
             {
-                Logger.IcarianError("Bad Collision Enter dispatch");
-
                 return;
             }
 
@@ -228,10 +248,11 @@ namespace IcarianEngine.Physics
         }
         static void OnCollisionStay(CollisionDataBuffer a_data)
         {
-            if (!s_bodies.ContainsKey(a_data.BodyAddrA) && !s_bodies.ContainsKey(a_data.BodyAddrB))
+            // Because of defered deletion there can be some lingering references should be resolved at the end of the update
+            // But we need to return as they have been "deleted"
+            // Also my dumbass did an and instead of or
+            if (!s_bodies.ContainsKey(a_data.BodyAddrA) || !s_bodies.ContainsKey(a_data.BodyAddrB))
             {
-                Logger.IcarianError("Bad Collision Stay dispatch");
-
                 return;
             }
 
@@ -277,10 +298,11 @@ namespace IcarianEngine.Physics
         }
         static void OnCollisionExit(CollisionDataBuffer a_data)
         {
-            if (!s_bodies.ContainsKey(a_data.BodyAddrA) && !s_bodies.ContainsKey(a_data.BodyAddrB))
+            // Because of defered deletion there can be some lingering references should be resolved at the end of the update
+            // But we need to return as they have been "deleted"
+            // Also my dumbass did an and instead of or
+            if (!s_bodies.ContainsKey(a_data.BodyAddrA) || !s_bodies.ContainsKey(a_data.BodyAddrB))
             {
-                Logger.IcarianError("Bad Collision Exit dispatch");
-
                 return;
             }
 

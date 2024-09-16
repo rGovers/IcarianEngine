@@ -72,9 +72,11 @@ namespace IcarianEngine.Physics
                 {
                     m_mass = value;
 
-                    CollisionShape shape = CollisionShape;
-
-                    CollisionShapeSet(shape, shape);
+                    RebuildBody();
+                    if (InternalAddr != uint.MaxValue)
+                    {
+                        SetBody(InternalAddr, this);
+                    }
                 }
             }
         }
@@ -110,6 +112,19 @@ namespace IcarianEngine.Physics
             get
             {
                 return m_objectLayer;
+            }
+            set
+            {
+                if (m_objectLayer != value)
+                {
+                    m_objectLayer = value;
+
+                    RebuildBody();
+                    if (InternalAddr != uint.MaxValue)
+                    {
+                        SetBody(InternalAddr, this);
+                    }
+                }
             }
         }
 
@@ -242,7 +257,7 @@ namespace IcarianEngine.Physics
             }
         }
 
-        protected internal override void CollisionShapeSet(CollisionShape a_oldShape, CollisionShape a_newShape)
+        protected internal override void RebuildBody()
         {
             Vector3 vel = Vector3.Zero;
             Vector3 angVel = Vector3.Zero;
@@ -251,14 +266,21 @@ namespace IcarianEngine.Physics
                 vel = RigidBodyInterop.GetVelocity(InternalAddr);
                 angVel = RigidBodyInterop.GetAngularVelocity(InternalAddr);
 
+                // Want to make sure the old body does not interact with the new body
+                // There may still be interactions due to it being deferred for async purposes
+                // May be some funkyness but should hopefully sort itself out
+                // Physics is a headache as it is async and calls back to C#
+                PhysicsBodyInterop.SetPosition(InternalAddr, new Vector3(float.MinValue));
+                RigidBodyInterop.SetVelocity(InternalAddr, Vector3.Zero);
                 PhysicsBodyInterop.DestroyPhysicsBody(InternalAddr);
 
                 InternalAddr = uint.MaxValue;
             }
 
-            if (a_newShape != null)
+            CollisionShape shape = CollisionShape;
+            if (shape != null)
             {
-                InternalAddr = RigidBodyInterop.CreateRigidBody(Transform.InternalAddr, a_newShape.InternalAddr, m_objectLayer, m_mass);
+                InternalAddr = RigidBodyInterop.CreateRigidBody(Transform.InternalAddr, shape.InternalAddr, m_objectLayer, m_mass);
 
                 RigidBodyInterop.SetGravityFactor(InternalAddr, m_gravityFactor);
                 RigidBodyInterop.SetVelocity(InternalAddr, vel);
