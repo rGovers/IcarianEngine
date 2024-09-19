@@ -25,7 +25,6 @@
 #include "Rendering/UI/UIControl.h"
 #include "Rendering/Video/VideoManager.h"
 #include "Runtime/RuntimeManager.h"
-#include "Scribe.h"
 #include "Trace.h"
 #include "ThreadPool.h"
 
@@ -131,7 +130,6 @@ Application::Application(Config* a_config)
     
     Random::Init();
     Profiler::Init();
-    Scribe::Init();
 
     UIControl::Init();
 
@@ -187,7 +185,6 @@ Application::~Application()
 
     Random::Destroy();
     Profiler::Destroy();
-    Scribe::Destroy();
 
     ThreadPool::Destroy();
     DeletionQueue::Destroy();

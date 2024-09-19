@@ -190,7 +190,6 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "./src/RuntimeFunction.cpp",
         "./src/RuntimeManager.cpp",
         "./src/RuntimeThreadJob.cpp",
-        "./src/Scribe.cpp",
         "./src/ShaderTable.cpp",
         "./src/SPIRVTools.cpp",
         "./src/TextUIElement.cpp",
