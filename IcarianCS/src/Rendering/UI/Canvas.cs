@@ -321,10 +321,14 @@ namespace IcarianEngine.Rendering.UI
                         case "text":
                         {
                             string text = att.Value;
-                            if (Scribe.KeyExists(text))
+                            if (Scribe.StringKeyExists(text))
+                            {
+                                text = Scribe.GetString(text);
+                            }
+
+                            if (Scribe.FontKeyExists(text))
                             {
                                 scribeFont = Scribe.GetFont(text);
-                                text = Scribe.GetString(text);
                             }
 
                             textElement.Text = text;
