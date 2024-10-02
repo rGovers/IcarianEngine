@@ -38,9 +38,11 @@ public:
     ~VulkanGraphicsEngineBindings();
 
     uint32_t GenerateFVertexShaderAddr(const std::string_view& a_str) const;
+    void AddVertexShaderImport(const std::string_view& a_key, const std::string_view& a_value);
     void DestroyVertexShader(uint32_t a_addr) const;
 
     uint32_t GenerateFPixelShaderAddr(const std::string_view& a_str) const;
+    void AddPixelShaderImport(const std::string_view& a_key, const std::string_view& a_value);
     void DestroyPixelShader(uint32_t a_addr) const;
 
     uint32_t GenerateShaderProgram(const RenderProgram& a_program) const;
@@ -149,8 +151,9 @@ public:
     void PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr) const;
     void BindRenderTexture(uint32_t a_addr, e_RenderTextureBindMode a_bindMode) const;
     void BlitRTRT(uint32_t a_srcAddr, uint32_t a_dstAddr) const;
-    void DrawMaterial();
-    void DrawModel(const glm::mat4& a_transform, uint32_t a_addr);
+    void BlitMTRT(uint32_t a_srcAddr, uint32_t a_index, uint32_t a_dstAddr) const;
+    void DrawMaterial() const;
+    void DrawModel(const glm::mat4& a_transform, uint32_t a_addr) const;
 
     void SetLightSplits(const LightShadowSplit* a_splits, uint32_t a_splitCount) const;
 };

@@ -1,0 +1,42 @@
+#!import(PBR)
+
+vec4 PointLightShading(vec4 a_color, vec3 a_pos, vec3 a_camDir, vec3 a_normal, float a_rough, float a_metal, PointLightBufferData a_light)
+{
+    float invMetal = 1 - a_metal;
+
+    float lR = a_light.Radius;
+    vec4 lP = a_light.LightPos;
+    vec4 lCr = a_light.LightColor;
+
+    vec3 lD = lP.xyz - a_pos;
+    float lDL = length(lD);
+    lD /= lDL;
+
+    vec3 h = normalize(lD.xyz + a_camDir);
+
+    float dV = max(dot(h, a_camDir), 0.0);
+    float dS = max(dot(a_normal, a_camDir), 0.0);
+    float dL = max(dot(a_normal, lD), 0.0);
+    float iV = max((lR - lDL) / lR, 0.0);
+    float iV2 = iV * iV;
+
+    // Light
+    vec3 lC = a_color.xyz * dL * lCr.xyz * lP.w;
+
+    // Metal
+    vec3 f0 = mix(vec3(0.04), a_color.xyz, a_metal);
+    vec3 f = FreS(dV, f0);
+
+    // Rough
+    float ndf = DistGGX(a_normal, h, a_rough);
+    float g = Smi(a_normal, a_camDir, lD.xyz, a_rough);
+    vec3 nu = ndf * g * f;
+    float de = 4.0 * dS * dL + 0.0001;
+    vec3 s = nu / de;
+
+    // Reflectance
+    vec3 kD = (vec3(1.0) - f) * invMetal;
+    vec3 lo = kD * a_color.xyz / PI + s;
+
+    return vec4(lC * lo * iV2, 1.0);
+}

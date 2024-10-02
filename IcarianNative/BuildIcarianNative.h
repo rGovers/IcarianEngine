@@ -12,23 +12,24 @@ extern "C" {
 
 const static char* IcarianNativeShaderBasePaths[] =
 {
-    "shaders/AmbientOcclusion.fpix",
-    "shaders/AmbientOcclusionFilter.fpix",
-    "shaders/AmbientLight.fpix",
-    "shaders/Blend.fpix",
-    "shaders/DirectionalLight.fpix",
-    "shaders/PointLight.fpix",
-    "shaders/PostAtmosphere.fpix",
-    "shaders/PostEmission.fpix",
-    "shaders/PostToneMap.fpix",
-    "shaders/Quad.vert",
-    "shaders/ShadowDirectionalLight.fpix",
-    "shaders/ShadowPointLight.fpix",
-    "shaders/ShadowSpotLight.fpix",
-    "shaders/SpotLight.fpix",
-    "shaders/UI.fvert",
-    "shaders/UIImage.fpix",
-    "shaders/UIText.fpix"
+    "./shaders/AmbientOcclusion.fpix",
+    "./shaders/AmbientOcclusionFilter.fpix",
+    "./shaders/AmbientLight.fpix",
+    "./shaders/Blend.fpix",
+    "./shaders/DirectionalLight.fpix",
+    "./shaders/PointLight.fpix",
+    "./shaders/PostAtmosphere.fpix",
+    "./shaders/PostEmission.fpix",
+    "./shaders/PostEmissionBlur.fpix",
+    "./shaders/PostToneMap.fpix",
+    "./shaders/Quad.vert",
+    "./shaders/ShadowDirectionalLight.fpix",
+    "./shaders/ShadowPointLight.fpix",
+    "./shaders/ShadowSpotLight.fpix",
+    "./shaders/SpotLight.fpix",
+    "./shaders/UI.fvert",
+    "./shaders/UIImage.fpix",
+    "./shaders/UIText.fpix"
 };
 
 const static CBUINT32 IcarianNativeShaderBasePathCount = sizeof(IcarianNativeShaderBasePaths) / sizeof(*IcarianNativeShaderBasePaths);

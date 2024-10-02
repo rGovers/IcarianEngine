@@ -1,0 +1,14 @@
+vec4 ScreenToWorld(vec3 a_pos, CameraBufferData a_camera)
+{
+    vec4 cP = vec4(a_pos, 1.0);
+
+    vec4 vP = a_camera.InvProj * cP;
+    vP /= vP.w;
+
+    return a_camera.InvView * vP;
+}
+
+float LinearDepth(float a_depth, float a_near, float a_far)
+{
+    return a_near * a_far / (a_far + a_depth * (a_near - a_far));
+}

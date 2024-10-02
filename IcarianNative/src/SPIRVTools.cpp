@@ -128,14 +128,21 @@ constexpr TBuiltInResource spirv_create_resources()
 
     return resource;
 }
-std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str, bool a_optimize)
+std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str, bool a_spriv14, bool a_optimize)
 {
 	constexpr EShMessages Messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
 
     TRACE("Generating SPIRV");
 
     glslang::TShader shader = glslang::TShader(a_lang);
-	shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_1);
+	if (a_spriv14)
+	{
+		shader.setEnvTarget(glslang::EShTargetLanguage::EShTargetSpv, glslang::EShTargetLanguageVersion::EShTargetSpv_1_4);
+	}
+	else
+	{
+		shader.setEnvTarget(glslang::EShTargetLanguage::EShTargetSpv, glslang::EShTargetLanguageVersion::EShTargetSpv_1_3);
+	}
 
     const char* strs[] =
 	{

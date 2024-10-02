@@ -34,11 +34,11 @@ VulkanComputeShader::~VulkanComputeShader()
     device.destroyShaderModule(m_module);
 }
 
-VulkanComputeShader* VulkanComputeShader::CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::string_view& a_str)
+VulkanComputeShader* VulkanComputeShader::CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str)
 {
     std::string error;
     std::vector<ShaderBufferInput> inputs;
-    const std::string glsl = IcarianCore::GLSLFromFlareShader(a_str, IcarianCore::ShaderPlatform_Vulkan, &inputs, &error);
+    const std::string glsl = IcarianCore::GLSLFromFlareShader(a_str, IcarianCore::ShaderPlatform_Vulkan, a_imports, &inputs, &error);
     if (glsl.empty())
     {
         IERROR("Flare compute shader error: " + error);
@@ -50,9 +50,11 @@ VulkanComputeShader* VulkanComputeShader::CreateFromFShader(VulkanRenderEngineBa
 }
 VulkanComputeShader* VulkanComputeShader::CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str)
 {
-    ICARIAN_ASSERT_MSG(!a_str.empty(), "Empty compute shader string");
+    IVERIFY(!a_str.empty());
 
-    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangCompute, a_str, true);
+    const bool spirv14 = a_engine->IsExtensionEnabled(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+
+    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangCompute, a_str, spirv14, true);
     if (spirv.empty())
     {
         IERROR("Failed to compile compute shader");

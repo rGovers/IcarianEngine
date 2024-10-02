@@ -7,6 +7,82 @@
 extern "C" {
 #endif
 
+const static char* IcarianCSGlobalImportsBasePaths[] =
+{
+    "./imports/Global/Maths.import",
+};
+
+const static char* IcarianCSPixelImportsBasePaths[] =
+{
+    "./imports/Pixel/Camera.import",
+    "./imports/Pixel/PBR.import",
+    "./imports/Pixel/Lighting.import",
+    "./imports/Pixel/DirectionalLight.import",
+    "./imports/Pixel/PointLight.import",
+    "./imports/Pixel/SpotLight.import"
+};
+
+const static CBUINT32 IcarianCSGlobalImportsBasePathCount = sizeof(IcarianCSGlobalImportsBasePaths) / sizeof(*IcarianCSGlobalImportsBasePaths);
+const static CBUINT32 IcarianCSPixelImportsBasePathCount = sizeof(IcarianCSPixelImportsBasePaths) / sizeof(*IcarianCSPixelImportsBasePaths);
+
+static CBBOOL WriteIcarianCSImportsToHeader(const char* a_workingPath)
+{
+    CBBOOL ret;
+
+    CUBE_Path workingPath = CUBE_Path_CreateC(a_workingPath);
+
+    CUBE_Path globalShaderPaths[IcarianCSGlobalImportsBasePathCount];
+
+    for (CBUINT32 i = 0; i < IcarianCSGlobalImportsBasePathCount; ++i)
+    {
+        globalShaderPaths[i] = CUBE_Path_CombineC(&workingPath, IcarianCSGlobalImportsBasePaths[i]);
+    }
+
+    CUBE_Path globalOutPath = CUBE_Path_CombineC(&workingPath, "src/Rendering/GlobalImports.h");
+    CUBE_String globalOutPathStr = CUBE_Path_ToString(&globalOutPath);
+
+    ret = ShadersToCSHeader(globalShaderPaths, IcarianCSGlobalImportsBasePathCount, globalOutPathStr.Data);
+
+    CUBE_String_Destroy(&globalOutPathStr);
+    CUBE_Path_Destroy(&globalOutPath);
+
+    for (CBUINT32 i = 0; i < IcarianCSGlobalImportsBasePathCount; ++i)
+    {
+        CUBE_Path_Destroy(&globalShaderPaths[i]);
+    }
+
+    if (!ret)
+    {
+        CUBE_Path_Destroy(&workingPath);
+
+        return CBFALSE;
+    }
+
+    CUBE_Path pixelShaderPaths[IcarianCSPixelImportsBasePathCount];
+
+    for (CBUINT32 i = 0; i < IcarianCSPixelImportsBasePathCount; ++i)
+    {
+        pixelShaderPaths[i] = CUBE_Path_CombineC(&workingPath, IcarianCSPixelImportsBasePaths[i]);
+    }
+
+    CUBE_Path pixelOutPath = CUBE_Path_CombineC(&workingPath, "src/Rendering/PixelImports.h");
+    CUBE_String pixelOutPathStr = CUBE_Path_ToString(&pixelOutPath);
+
+    ret = ShadersToCSHeader(pixelShaderPaths, IcarianCSPixelImportsBasePathCount, pixelOutPathStr.Data);
+
+    CUBE_String_Destroy(&pixelOutPathStr);
+    CUBE_Path_Destroy(&pixelOutPath);
+
+    for (CBUINT32 i = 0; i < IcarianCSPixelImportsBasePathCount; ++i)
+    {
+        CUBE_Path_Destroy(&pixelShaderPaths[i]);
+    }
+
+    CUBE_Path_Destroy(&workingPath);
+
+    return ret;
+}
+
 static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableExperiments)
 {
     CUBE_CSProject project = { 0 };
@@ -146,6 +222,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Rendering/RenderPipeline.cs",
         "./src/Rendering/RenderTexture.cs",
         "./src/Rendering/RenderTextureCmd.cs",
+        "./src/Rendering/ShaderImports.cs",
         "./src/Rendering/Texture.cs",
         "./src/Rendering/TextureSampler.cs",
         "./src/Rendering/VertexShader.cs",

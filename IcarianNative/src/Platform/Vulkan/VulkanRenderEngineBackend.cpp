@@ -57,6 +57,13 @@ constexpr const char* OptionalDeviceExtensions[] =
     VK_KHR_VIDEO_QUEUE_EXTENSION_NAME,
     VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME,
     VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME,
+
+    // Seem to be having weirdness with Nvidia on Linux where I am getting a driver error but the Validation layer is quiet about this and it works despite throwing an error?
+    // I am disabling because I do not know why it is not happy and not sure why it is throwing an error with OpCopyLogical
+    // Need to know for certain what is happening before I enable it do not need it at this point in time
+    // This is the first occurance that I got a error from the driver without a crash so I am a bit wary I am not used to graceful failures with Vulkan normally starts kicking and screaming
+    // VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+    // VK_KHR_SPIRV_1_4_EXTENSION_NAME,
 };
 constexpr uint32_t OptionalDeviceExtensionCount = sizeof(OptionalDeviceExtensions) / sizeof(*OptionalDeviceExtensions);
 
@@ -87,8 +94,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
     {
         Logger::Error(std::string(ValidationPrefix) + a_callbackData->pMessage);
 
-        return VK_TRUE;
-        // break;
+        // return VK_TRUE;
+        break;
     }
     default:
     {
@@ -355,7 +362,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         applicationName.c_str(), 
         0U, 
         "IcarianEngine", 
-        VK_MAKE_VERSION(ICARIANNATIVE_VERSION_MAJOR, ICARIANNATIVE_VERSION_MINOR, ICARIANNATIVE_VERSION_PATCH), 
+        VK_MAKE_API_VERSION(0, ICARIANNATIVE_VERSION_MAJOR, ICARIANNATIVE_VERSION_MINOR, ICARIANNATIVE_VERSION_PATCH),
         ICARIAN_VULKAN_VERSION, 
         nullptr
     );

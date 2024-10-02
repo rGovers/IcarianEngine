@@ -20,7 +20,7 @@ public:
     VulkanComputeShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data);
     ~VulkanComputeShader();
 
-    static VulkanComputeShader* CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::string_view& a_str);
+    static VulkanComputeShader* CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str);
     static VulkanComputeShader* CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str);
 };
 

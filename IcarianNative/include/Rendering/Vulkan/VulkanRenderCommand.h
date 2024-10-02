@@ -84,6 +84,7 @@ public:
     void BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTextureBindMode a_bindMode);
     
     void Blit(const VulkanRenderTexture* a_src, const VulkanRenderTexture* a_dst);
+    void Blit(const VulkanRenderTexture* a_src, uint32_t a_index, const VulkanRenderTexture* a_dst);
 
     void DrawMaterial();
     void DrawModel(const glm::mat4& a_transform, uint32_t a_addr);

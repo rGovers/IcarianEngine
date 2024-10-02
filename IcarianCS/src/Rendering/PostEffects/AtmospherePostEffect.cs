@@ -189,7 +189,8 @@ namespace IcarianEngine.Rendering.PostEffects
         /// </summary>
         /// <param name="a_renderTexture">The target <see cref="IcarianEngine.Rendering.IRenderTexture" /></param>
         /// <param name="a_samplers">Samplers used by the RenderPipeline</param>
-        public override void Run(IRenderTexture a_renderTexture, TextureSampler[] a_samplers)
+        /// <param name="a_gBuffer">The Deffered <see cref="IcarianEngine.Rendering.MultiRenderTexture" /> used for rendering</param>
+        public override void Run(IRenderTexture a_renderTexture, TextureSampler[] a_samplers, MultiRenderTexture a_gBuffer)
         {
             RenderCommand.BindRenderTexture(a_renderTexture);
             RenderCommand.BindMaterial(m_material);

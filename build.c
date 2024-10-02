@@ -311,6 +311,14 @@ int main(int a_argc, char** a_argv)
 
     PrintHeader("Building IcarianCS");
 
+    printf("Writing imports to Header files...\n");
+    if (!WriteIcarianCSImportsToHeader("IcarianEngine/IcarianCS"))
+    {
+        printf("Failed to write imports to header files\n");
+
+        return 1;
+    }
+
     printf("Creating IcarianCS project...\n");
     icarianCSProject = BuildIcarianCSProject(CBTRUE, CBFALSE);
 

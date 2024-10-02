@@ -6,7 +6,6 @@
 
 #include "Rendering/Vulkan/VulkanVertexShader.h"
 
-#include "Core/IcarianAssert.h"
 #include "Core/FlareShader.h"
 #include "Rendering/SPIRVTools.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
@@ -23,7 +22,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanRenderEngineBackend* a_engine, cons
         (uint32_t*)a_data.data()
     );
 
-    ICARIAN_ASSERT_MSG_R(device.createShaderModule(&createInfo, nullptr, &m_module) == vk::Result::eSuccess, "Failed to create VertexShader");
+    VKRESERRMSG(device.createShaderModule(&createInfo, nullptr, &m_module), "Failed to create VertexShader");
 
     TRACE("Created VertexShader");
 }
@@ -34,11 +33,11 @@ VulkanVertexShader::~VulkanVertexShader()
     device.destroyShaderModule(m_module);
 }
 
-VulkanVertexShader* VulkanVertexShader::CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::string_view& a_str)
+VulkanVertexShader* VulkanVertexShader::CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str)
 {
     std::string error;
     std::vector<ShaderBufferInput> inputs;
-    const std::string glsl = IcarianCore::GLSLFromFlareShader(a_str, IcarianCore::ShaderPlatform_Vulkan, &inputs, &error);
+    const std::string glsl = IcarianCore::GLSLFromFlareShader(a_str, IcarianCore::ShaderPlatform_Vulkan, a_imports, &inputs, &error);
 
     if (glsl.empty())
     {
@@ -51,7 +50,11 @@ VulkanVertexShader* VulkanVertexShader::CreateFromFShader(VulkanRenderEngineBack
 }
 VulkanVertexShader* VulkanVertexShader::CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str)
 {
-    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangVertex, a_str, true);
+    IVERIFY(!a_str.empty());
+
+    const bool spirv14 = a_engine->IsExtensionEnabled(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
+
+    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangVertex, a_str, spirv14, true);
     if (spirv.empty())
     {
         IERROR("Failed to compile vertex shader");

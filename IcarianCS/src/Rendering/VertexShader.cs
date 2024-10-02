@@ -9,13 +9,24 @@ namespace IcarianEngine.Rendering
 {
     public class VertexShader : IDestroy
     {
-        uint m_internalAddr = uint.MaxValue;
-
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateFromFile(string a_path);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyShader(uint a_addr);
+        
+        /// <summary>
+        /// Adds a import target to the VertexShader import table
+        /// </summary>
+        /// <param name="a_key">The import target to add</param>
+        /// <param name="a_value">The import value to addd</param>
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public extern static void AddImport(string a_key, string a_value);
 
+        uint m_internalAddr = uint.MaxValue;
+
+        /// <summary>
+        /// Whether the VertexShader has been Disposed/Finalised
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -37,6 +48,13 @@ namespace IcarianEngine.Rendering
             m_internalAddr = a_addr;
         }
 
+        /// <summary>
+        /// Loads a VertexShader from a file
+        /// </summary>
+        /// <param name="a_path">The path to the VertexShader</param>
+        /// Supported formats:
+        ///     .fvert
+        /// @see IcarianEngine.AssetLibrary.LoadVertexShader
         public static VertexShader LoadVertexShader(string a_path)
         {
             uint addr = GenerateFromFile(a_path);
@@ -53,27 +71,19 @@ namespace IcarianEngine.Rendering
             return null;
         }
 
-        public override bool Equals(object a_obj)
-        {
-            if (a_obj == null && m_internalAddr == uint.MaxValue)
-            {
-                return true;
-            }
-
-            return base.Equals(a_obj);
-        }
-        public override int GetHashCode()
-        {
-            return base.GetHashCode();
-        }
-
+        /// <summary>
+        /// Disposes of the VertexShader
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the VertexShader is being Disposed/Finalised
+        /// </summary>
+        /// <param name="a_disposing">Whether it is being called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_internalAddr != uint.MaxValue)
@@ -94,7 +104,6 @@ namespace IcarianEngine.Rendering
                 Logger.IcarianError("Multiple VertexShader Dispose");
             }
         }
-
         ~VertexShader()
         {
             Dispose(false);

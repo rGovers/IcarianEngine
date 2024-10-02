@@ -351,13 +351,13 @@ uint32_t VulkanGraphicsEngine::GenerateFVertexShader(const std::string_view& a_s
 {
     IVERIFY(!a_source.empty());
 
-    VulkanVertexShader* shader = VulkanVertexShader::CreateFromFShader(m_vulkanEngine, a_source);
+    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
+    VulkanVertexShader* shader = VulkanVertexShader::CreateFromFShader(m_vulkanEngine, m_vertexImports, a_source);
 
     return m_vertexShaders.PushVal(shader);
 }
 void VulkanGraphicsEngine::DestroyVertexShader(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_vertexShaders.Size());
     IVERIFY(m_vertexShaders.Exists(a_addr));
 
     const VulkanVertexShader* shader = m_vertexShaders[a_addr];
@@ -370,13 +370,13 @@ uint32_t VulkanGraphicsEngine::GenerateFPixelShader(const std::string_view& a_so
 {
     IVERIFY(!a_source.empty());
 
-    VulkanPixelShader* shader = VulkanPixelShader::CreateFromFShader(m_vulkanEngine, a_source);
+    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
+    VulkanPixelShader* shader = VulkanPixelShader::CreateFromFShader(m_vulkanEngine, m_pixelImports, a_source);
 
     return m_pixelShaders.PushVal(shader);
 }
 void VulkanGraphicsEngine::DestroyPixelShader(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_pixelShaders.Size());
     IVERIFY(m_pixelShaders.Exists(a_addr));
 
     const VulkanPixelShader* shader = m_pixelShaders[a_addr];
@@ -387,9 +387,7 @@ void VulkanGraphicsEngine::DestroyPixelShader(uint32_t a_addr)
 
 uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_program)
 {
-    IVERIFY(a_program.VertexShader < m_vertexShaders.Size());
     IVERIFY(m_vertexShaders.Exists(a_program.VertexShader));
-    IVERIFY(a_program.PixelShader < m_pixelShaders.Size());
     IVERIFY(m_pixelShaders.Exists(a_program.PixelShader));
 
     TRACE("Creating Shader Program");
@@ -400,7 +398,6 @@ uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_prog
 }
 void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_shaderPrograms.Size());
     IVERIFY(m_shaderPrograms.Exists(a_addr));
 
     TRACE("Destroying Shader Program");
@@ -514,16 +511,14 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
 RenderProgram VulkanGraphicsEngine::GetRenderProgram(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_shaderPrograms.Size(), "GetRenderProgram out of bounds");
-    ICARIAN_ASSERT_MSG(m_shaderPrograms.Exists(a_addr), "GetRenderProgram shader program does not exist");
+    IVERIFY(m_shaderPrograms.Exists(a_addr));
 
     return m_shaderPrograms[a_addr];
 }
 
 VulkanPipeline* VulkanGraphicsEngine::GetShadowPipeline(uint32_t a_renderTexture, uint32_t a_pipeline)
 {
-    ICARIAN_ASSERT_MSG(a_pipeline < m_shaderPrograms.Size(), "GetShadowPipeline pipeline out of bounds");
-    ICARIAN_ASSERT_MSG(m_shaderPrograms.Exists(a_pipeline), "GetShadowPipeline shader program does not exist");
+    IVERIFY(m_shaderPrograms.Exists(a_pipeline));
 
     const uint64_t addr = (uint64_t)a_renderTexture | (uint64_t)a_pipeline << 32;
 
@@ -536,8 +531,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetShadowPipeline(uint32_t a_renderTexture
 
     TRACE("Allocating Vulkan Shadow Pipeline");
     const VulkanDepthRenderTexture* tex = GetDepthRenderTexture(a_renderTexture);
-
-    ICARIAN_ASSERT_MSG(tex != nullptr, "GetShadowPipeline render texture is null");
+    IVERIFY(tex != nullptr);
 
     const vk::RenderPass pass = tex->GetRenderPass();
 
@@ -549,8 +543,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetShadowPipeline(uint32_t a_renderTexture
 }
 VulkanPipeline* VulkanGraphicsEngine::GetCubeShadowPipeline(uint32_t a_renderTexture, uint32_t a_pipeline)
 {
-    ICARIAN_ASSERT_MSG(a_pipeline < m_shaderPrograms.Size(), "GetCubeShadowPipeline pipeline out of bounds");
-    ICARIAN_ASSERT_MSG(m_shaderPrograms.Exists(a_pipeline), "GetCubeShadowPipeline shader program does not exist");
+    IVERIFY(m_shaderPrograms.Exists(a_pipeline));
 
     const uint64_t addr = (uint64_t)a_renderTexture | (uint64_t)a_pipeline << 32;
 
@@ -563,8 +556,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetCubeShadowPipeline(uint32_t a_renderTex
 
     TRACE("Allocating Vulkan Cube Shadow Pipeline");
     const VulkanDepthCubeRenderTexture* tex = GetDepthCubeRenderTexture(a_renderTexture);
-
-    ICARIAN_ASSERT_MSG(tex != nullptr, "GetCubeShadowPipeline render texture is null");
+    IVERIFY(tex != nullptr);
 
     const vk::RenderPass pass = tex->GetRenderPass();
 
@@ -576,8 +568,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetCubeShadowPipeline(uint32_t a_renderTex
 }
 VulkanPipeline* VulkanGraphicsEngine::GetPipeline(uint32_t a_renderTexture, uint32_t a_pipeline)
 {
-    ICARIAN_ASSERT_MSG(a_pipeline < m_shaderPrograms.Size(), "GetPipeline pipeline out of bounds");
-    ICARIAN_ASSERT_MSG(m_shaderPrograms.Exists(a_pipeline), "GetPipeline shader program does not exist");
+    IVERIFY(m_shaderPrograms.Exists(a_pipeline));
 
     const uint64_t addr = (uint64_t)a_renderTexture | (uint64_t)a_pipeline << 32;
 
@@ -589,12 +580,11 @@ VulkanPipeline* VulkanGraphicsEngine::GetPipeline(uint32_t a_renderTexture, uint
     }
 
     TRACE("Allocating Vulkan Pipeline");
-    const VulkanRenderTexture* tex = GetRenderTexture(a_renderTexture);
-
     vk::RenderPass pass = m_swapchain->GetRenderPass();
     bool hasDepth = false;
     uint32_t textureCount = 1;
 
+    const VulkanRenderTexture* tex = GetRenderTexture(a_renderTexture);
     if (tex != nullptr)
     {
         pass = tex->GetRenderPass();
@@ -1419,7 +1409,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, ui
         }
 
         const SpotLightBuffer& buffer = lights[i];
-        ICARIAN_ASSERT(buffer.Data != nullptr);
+        IVERIFY(buffer.Data != nullptr);
 
         if (buffer.TransformAddr == -1 || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Intensity <= 0.0f || buffer.Radius <= 0.0f)
         {

@@ -4,21 +4,23 @@
 
 #include "Core/FlareShader.h"
 
+#include <set>
+
 #include "Core/IcarianAssert.h"
 #include "Core/ShaderBuffers.h"
 #include "Core/StringUtils.h"
 
-#define FSHADER_PLATFORM_UBOSTR(str, platform, argA, argB, structure) \
+#define FSHADER_PLATFORM_UBOSTR(str, platform, argA, argB, structure, name) \
     switch (platform) \
     { \
     case ShaderPlatform_Vulkan: \
     { \
-        str = GLSL_VULKAN_UNIFORM_STRING(argA, argB, structure); \
+        str = GLSL_VULKAN_UNIFORM_STRING(argA, argB, structure, name); \
         break; \
     } \
     case ShaderPlatform_OpenGL: \
     { \
-        str = GLSL_OPENGL_UNIFORM_STRING(argA, argB, structure); \
+        str = GLSL_OPENGL_UNIFORM_STRING(argA, argB, structure, name); \
         break; \
     } \
     default: \
@@ -108,14 +110,14 @@
     F(ParticleBuffer, GLSL_PARTICLE_SSBO_STRUCTURE) \
 
 #define FSHADER_PUSHBUFFER_STRUCTURETABLE(F) \
-    F(ModelBuffer, GLSL_MODEL_SHADER_STRUCTURE) \
-    F(UIBuffer, GLSL_UI_SHADER_STRUCTURE) \
-    F(ShadowLightBuffer, GLSL_SHADOW_LIGHT_SHADER_STRUCTURE) \
+    F(ModelBuffer, GLSL_MODEL_PUSH_STRUCTURE) \
+    F(UIBuffer, GLSL_UI_PUSH_STRUCTURE) \
+    F(ShadowLightBuffer, GLSL_SHADOW_LIGHT_PUSH_STRUCTURE) \
 
 #define FSHADER_UBO_DEFINITION(str, structure) \
     case StringHash(#str): \
     { \
-        FSHADER_PLATFORM_UBOSTR(rStr, a_platform, args[1], args[2], structure); \
+        FSHADER_PLATFORM_UBOSTR(rStr, a_platform, args[1], args[2], structure, #str); \
         const ShaderBufferInput input = \
         { \
             .Slot = (uint16_t)std::stoi(args[1]), \
@@ -235,9 +237,11 @@ namespace IcarianCore
     	return -1;
     }
 
-    std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error)
+    std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error)
     {
         std::string shader = std::string(a_str);
+
+        std::set<std::string> imported;
 
         *a_error = std::string();
 
@@ -543,6 +547,36 @@ namespace IcarianCore
                 rStr += "}} \n";
 
                 break;
+            }
+            case StringHash("import"):
+            {
+                if (args.size() != 1)
+                {
+                    *a_error = "Flare Shader import requires 1 argument";
+
+                    return std::string();
+                }
+
+                const std::string val = args[0];
+
+                if (imported.find(val) != imported.end())
+                {
+                    break;
+                }
+
+                const auto iter = a_imports.find(val);
+                if (iter != a_imports.end())
+                {
+                    rStr = iter->second;
+
+                    imported.emplace(val);
+
+                    break;
+                }
+
+                *a_error = "Flare Shader no import found: " + val;
+
+                return std::string();
             }
             }
 

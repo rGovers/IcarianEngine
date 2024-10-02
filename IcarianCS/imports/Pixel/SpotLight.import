@@ -1,0 +1,47 @@
+#!import(PBR)
+
+vec4 SpotLightShading(vec4 a_color, vec3 a_pos, vec3 a_camDir, vec3 a_normal, float a_rough, float a_metal, SpotLightBufferData a_light)
+{
+    float invMetal = 1 - a_metal;
+
+    vec3 lP = a_light.LightPos;
+    vec3 lCa = a_light.CutoffAngle;
+    vec4 lD = a_light.LightDir;
+    vec4 lCr = a_light.LightColor;
+
+    vec3 vD = lP - a_pos;
+    float lDL = length(vD);
+    vD /= lDL;
+
+    vec3 h = normalize(lD.xyz + a_camDir);
+    float dV = max(dot(h, a_camDir), 0.0);
+    float dS = max(dot(a_normal, a_camDir), 0.0);
+    float dL = max(dot(a_normal, lD.xyz), 0.0);
+
+    float e = lCa.x - lCa.y;
+    float sDV = dot(lD.xyz, vD);
+    float iV = clamp((sDV - lCa.y) / e, 0.0, 1.0);
+    float dI = max((lCa.z - lDL) / lCa.z, 0.0);
+    float dI2 = dI * dI;
+
+    // Light
+    vec3 lC = a_color.xyz * dL * lCr.xyz * lD.w;
+
+    // Metal
+    vec3 f0 = mix(vec3(0.04), a_color.xyz, a_metal);
+    vec3 f = FreS(dV, f0);
+
+    // Rough
+    float ndf = DistGGX(a_normal, h, a_rough);
+    float g = Smi(a_normal.xyz, a_camDir, lD.xyz, a_rough);
+    vec3 nu = ndf * g * f;
+    float de = 4.0 * dS * dL + 0.0001;
+    vec3 s = nu / de;
+
+    // Reflectance
+    vec3 kD = (vec3(1.0) - f) * invMetal;
+
+    vec3 lo = kD * a_color.xyz / PI + s;
+
+    return vec4(lC * lo * iV * dI2, 1.0);
+}

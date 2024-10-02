@@ -61,6 +61,8 @@ void VulkanRenderCommand::Flush()
     SetFlushedState(true);
 
     m_renderTexAddr = -1;
+    // TODO: Improve this as this is hidden behaviour and not the best for users
+    m_materialAddr = -1;
 }
 
 VulkanRenderTexture* VulkanRenderCommand::GetRenderTexture() const
@@ -96,7 +98,7 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr)
         ShaderBufferInput camInput;
         if (shaderData->GetShaderBufferInput(ShaderBufferType_CameraBuffer, &camInput))
         {
-            VulkanUniformBuffer* camBuffer = m_gEngine->GetCameraUniformBuffer(m_bufferIndex);
+            const VulkanUniformBuffer* camBuffer = m_gEngine->GetCameraUniformBuffer(m_bufferIndex);
 
             shaderData->PushUniformBuffer(m_commandBuffer, camInput.Slot, camBuffer, currentFrame);
         }
@@ -104,7 +106,7 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr)
         ShaderBufferInput timeInput;
         if (shaderData->GetShaderBufferInput(ShaderBufferType_TimeBuffer, &timeInput))
         {
-            VulkanUniformBuffer* timeBuffer = m_gEngine->GetTimeUniformBuffer();
+            const VulkanUniformBuffer* timeBuffer = m_gEngine->GetTimeUniformBuffer();
 
             shaderData->PushUniformBuffer(m_commandBuffer, timeInput.Slot, timeBuffer, currentFrame);
         }
@@ -392,10 +394,10 @@ void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTe
 
 void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, const VulkanRenderTexture* a_dst)
 {
-    // TODO: Fix this temp fix for bliting
-    // Probably better to copy or redraw when not flushed
-    Flush();
-
+    Blit(a_src, 0, a_dst);
+}
+void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, uint32_t a_index, const VulkanRenderTexture* a_dst)
+{
     if (a_src == nullptr)
     {
         IERROR("Cannot blit Swapchain as source");
@@ -403,21 +405,32 @@ void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, const VulkanRen
         return;
     }
 
+    // TODO: Fix this temp fix for bliting
+    // Probably better to copy or redraw when not flushed
+    Flush();
+
     const glm::ivec2 swapSize = m_swapchain->GetSize();
 
     vk::Image dstImage = m_swapchain->GetTexture();
     vk::Offset3D dstOffset = vk::Offset3D((int32_t)swapSize.x, (int32_t)swapSize.y, 1);
     vk::ImageLayout dstLayout = m_swapchain->GetImageLayout();
+
     if (a_dst != nullptr)
     {
         dstImage = a_dst->GetTexture(0);
-        dstOffset = vk::Offset3D((int32_t)a_dst->GetWidth(), (int32_t)a_dst->GetHeight(), 1);
+
+        const uint32_t dstWidth = a_dst->GetWidth();
+        const uint32_t dstHeight = a_dst->GetHeight();
+
+        dstOffset = vk::Offset3D((int32_t)dstWidth, (int32_t)dstHeight, 1);
         dstLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     }
 
-    const vk::Image srcImage = a_src->GetTexture(0);
+    const vk::Image srcImage = a_src->GetTexture(a_index);
 
-    const vk::Offset3D srcOffset = vk::Offset3D((int32_t)a_src->GetWidth(), (int32_t)a_src->GetHeight(), 1);
+    const uint32_t srcWidth = a_src->GetWidth();
+    const uint32_t srcHeight = a_src->GetHeight();
+    const vk::Offset3D srcOffset = vk::Offset3D((int32_t)srcWidth, (int32_t)srcHeight, 1);
 
     constexpr vk::Offset3D ZeroOffset;
 
@@ -444,7 +457,7 @@ void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, const VulkanRen
 
     const vk::ImageMemoryBarrier srcMemoryBarrier = vk::ImageMemoryBarrier
     (
-        vk::AccessFlags(),
+        { },
         vk::AccessFlagBits::eTransferRead,
         srcLayout,
         vk::ImageLayout::eTransferSrcOptimal,
@@ -455,7 +468,7 @@ void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, const VulkanRen
     );
     const vk::ImageMemoryBarrier dstMemoryBarrier = vk::ImageMemoryBarrier
     (
-        vk::AccessFlags(),
+        { },
         vk::AccessFlagBits::eTransferWrite,
         dstLayout,
         vk::ImageLayout::eTransferDstOptimal,
@@ -468,12 +481,12 @@ void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, const VulkanRen
     m_commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &srcMemoryBarrier);
     m_commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &dstMemoryBarrier);
 
-    m_commandBuffer.blitImage(a_src->GetTexture(0), vk::ImageLayout::eTransferSrcOptimal, dstImage, vk::ImageLayout::eTransferDstOptimal, 1, &blitRegion, vk::Filter::eNearest);
+    m_commandBuffer.blitImage(srcImage, vk::ImageLayout::eTransferSrcOptimal, dstImage, vk::ImageLayout::eTransferDstOptimal, 1, &blitRegion, vk::Filter::eLinear);
 
     const vk::ImageMemoryBarrier srcFinalMemoryBarrier = vk::ImageMemoryBarrier
     (
         vk::AccessFlagBits::eTransferRead,
-        vk::AccessFlagBits::eMemoryRead,
+        vk::AccessFlagBits::eShaderRead,
         vk::ImageLayout::eTransferSrcOptimal,
         srcLayout,
         VK_QUEUE_FAMILY_IGNORED,
@@ -484,7 +497,7 @@ void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, const VulkanRen
     const vk::ImageMemoryBarrier dstFinalMemoryBarrier = vk::ImageMemoryBarrier
     (
         vk::AccessFlagBits::eTransferWrite,
-        vk::AccessFlagBits::eMemoryRead,
+        vk::AccessFlagBits::eShaderRead,
         vk::ImageLayout::eTransferDstOptimal,
         dstLayout,
         VK_QUEUE_FAMILY_IGNORED,
@@ -493,8 +506,8 @@ void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, const VulkanRen
         SubResourceRange
     );
 
-    m_commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &srcFinalMemoryBarrier);
-    m_commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &dstFinalMemoryBarrier);
+    m_commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &srcFinalMemoryBarrier);
+    m_commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &dstFinalMemoryBarrier);
 }
 
 void VulkanRenderCommand::DrawMaterial()

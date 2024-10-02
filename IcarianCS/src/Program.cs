@@ -17,10 +17,10 @@ namespace IcarianEngine
 
         static void Init(string[] a_args)
         {
+            Logger.IcarianMessage("Started");
+            
             ThreadPool.Init();
             JobScheduler.Init();
-
-            Logger.IcarianMessage("Started");
 
             Application.WorkingDirectory = string.Empty;
 
@@ -31,6 +31,8 @@ namespace IcarianEngine
                     Application.WorkingDirectory = arg.Substring(WorkingDirArg.Length + 1);
                 }
             }
+
+            ShaderImports.Init();
 
             RenderPipeline.SetPipeline(new DefaultRenderPipeline(new PostEffect[] 
             { 
@@ -106,7 +108,7 @@ namespace IcarianEngine
         }
 
         // Need to not crash on Windows when compiled with a .NET compiler despite being a library and not used
-        // It is weird that using .NET compiler on Windows causes issues not gonna question it but
+        // It is weird that using the .NET compiler on Windows causes issues not gonna question it but
         static void Main(string[] a_args)
         {
             

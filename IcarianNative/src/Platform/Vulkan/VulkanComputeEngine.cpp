@@ -172,13 +172,13 @@ vk::Buffer VulkanComputeEngine::GetParticleBufferData(uint32_t a_addr)
 
 uint32_t VulkanComputeEngine::GenerateComputeFShader(const std::string_view& a_str)
 {
-    VulkanComputeShader* shader = VulkanComputeShader::CreateFromFShader(m_engine, a_str);
+    // TODO: Imports for compute shaders
+    VulkanComputeShader* shader = VulkanComputeShader::CreateFromFShader(m_engine, std::unordered_map<std::string, std::string>(), a_str);
 
     return m_shaders.PushVal(shader);
 }
 void VulkanComputeEngine::DestroyComputeShader(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_shaders.Size());
     IVERIFY(m_shaders.Exists(a_addr));
 
     const VulkanComputeShader* shader = m_shaders[a_addr];
@@ -188,7 +188,6 @@ void VulkanComputeEngine::DestroyComputeShader(uint32_t a_addr)
 }
 VulkanComputeShader* VulkanComputeEngine::GetComputeShader(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_shaders.Size());
     IVERIFY(m_shaders.Exists(a_addr));
 
     return m_shaders[a_addr];
@@ -202,7 +201,6 @@ uint32_t VulkanComputeEngine::GenerateComputePipelineLayout(const ShaderBufferIn
 }
 void VulkanComputeEngine::DestroyComputePipelineLayout(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_layouts.Size());
     IVERIFY(m_layouts.Exists(a_addr));
 
     const VulkanComputeLayout* layout = m_layouts[a_addr];
@@ -212,7 +210,6 @@ void VulkanComputeEngine::DestroyComputePipelineLayout(uint32_t a_addr)
 }
 VulkanComputeLayout* VulkanComputeEngine::GetComputePipelineLayout(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_layouts.Size());
     IVERIFY(m_layouts.Exists(a_addr));
 
     return m_layouts[a_addr];
@@ -227,7 +224,6 @@ uint32_t VulkanComputeEngine::GenerateComputePipeline(uint32_t a_shaderAddr, uin
 }
 void VulkanComputeEngine::DestroyComputePipeline(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_pipelines.Size());
     IVERIFY(m_pipelines.Exists(a_addr));
 
     const VulkanComputePipeline* pipeline = m_pipelines[a_addr];
@@ -237,7 +233,6 @@ void VulkanComputeEngine::DestroyComputePipeline(uint32_t a_addr)
 }
 VulkanComputePipeline* VulkanComputeEngine::GetComputePipeline(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_pipelines.Size());
     IVERIFY(m_pipelines.Exists(a_addr));
 
     return m_pipelines[a_addr];

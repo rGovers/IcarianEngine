@@ -9,8 +9,9 @@
 
 #define SHADER_UNIFORM_STR(S) #S
 
-#define GLSL_DEFINITION(name) uniform name
+#define GLSL_DEFINITION(name) struct name##Data
 #define GLSL_SSBO_DEFINITION(name) struct name##Data
+#define GLSL_PUSH_DEFINITION(name) uniform name
 #define F_DEFINITION(name) struct Shader##name
 
 #define GLSL_MAT4(name) mat4 name;
@@ -25,11 +26,11 @@
 #define F_VEC3(name) alignas(16) glm::vec3 name;
 #define F_VEC4(name) alignas(16) glm::vec4 name;
 
-#define GLSL_VULKAN_UNIFORM_STRING(slot, name, structure) std::string("layout(std140,binding=") + (slot) + ",set=" + (slot) + ") " SHADER_UNIFORM_STR(structure) " " + (name) + ";" 
+#define GLSL_VULKAN_UNIFORM_STRING(slot, name, structure, structureName) std::string(SHADER_UNIFORM_STR(structure)) + "; layout(std140,binding=" + (slot) + ",set=" + (slot) + ") uniform " + (structureName) + "{ " + (structureName) + "Data " + (name) + "; };" 
 #define GLSL_VULKAN_SSBO_STRING(slot, name, structure, structureName) std::string(SHADER_UNIFORM_STR(structure)) + "; layout(std140,binding=" + (slot) + ",set=" + (slot) + ") readonly buffer " + (structureName) + " { int Count; " + (structureName) + "Data objects[]; } " + (name) + ";" 
 #define GLSL_VULKAN_PUSHBUFFER_STRING(name, structure) std::string("layout(push_constant) " SHADER_UNIFORM_STR(structure) " ") + (name) + ";"
 
-#define GLSL_OPENGL_UNIFORM_STRING(slot, name, structure) std::string("layout(std140,binding=") + (slot) + ") " SHADER_UNIFORM_STR(structure) " " + (name) + ";"
+#define GLSL_OPENGL_UNIFORM_STRING(slot, name, structure, structureName) std::string(SHADER_UNIFORM_STR(structure)) + "; layout(std140,binding=" + (slot) + ") uniform " + (structureName) + " { " + (structureName) + "Data " + (name) + "; };"
 #define GLSL_OPENGL_SSBO_STRING(slot, name, structure, structureName) std::string(SHADER_UNIFORM_STR(structure)) + "; layout(std140,binding=" + (slot) + ") readonly buffer " + (structureName) + " { int Count; " + (structureName) + "Data objects[]; } " + (name) + ";" 
 #define GLSL_OPENGL_PUSHBUFFER_STRING(name, structure) std::string("layout(binding=64,std140) " SHADER_UNIFORM_STR(structure) " ") + (name) + ";"
 
@@ -60,6 +61,7 @@ M4(LVP) \
 F(Split) \
 }
 #define GLSL_SHADOW_LIGHT_SHADER_STRUCTURE SHADOW_LIGHT_SHADER_STRUCTURE(GLSL_DEFINITION, GLSL_MAT4, GLSL_FLOAT)
+#define GLSL_SHADOW_LIGHT_PUSH_STRUCTURE SHADOW_LIGHT_SHADER_STRUCTURE(GLSL_PUSH_DEFINITION, GLSL_MAT4, GLSL_FLOAT)
 #define GLSL_SHADOW_LIGHT_SSBO_STRUCTURE SHADOW_LIGHT_SHADER_STRUCTURE(GLSL_SSBO_DEFINITION, GLSL_MAT4, GLSL_FLOAT)
 
 #define AMBIENT_LIGHT_SHADER_STRUCTURE(D, V4) \
@@ -107,6 +109,7 @@ M4(Model) \
 M4(InvModel) \
 }
 #define GLSL_MODEL_SHADER_STRUCTURE MODEL_SHADER_STRUCTURE(GLSL_DEFINITION, GLSL_MAT4)
+#define GLSL_MODEL_PUSH_STRUCTURE MODEL_SHADER_STRUCTURE(GLSL_PUSH_DEFINITION, GLSL_MAT4)
 #define GLSL_MODEL_SSBO_STRUCTURE MODEL_SHADER_STRUCTURE(GLSL_SSBO_DEFINITION, GLSL_MAT4)
 
 #define BONE_SHADER_STRUCTURE(D, M4) \
@@ -123,6 +126,7 @@ D(UIBuffer) \
 V4(Color) \
 }
 #define GLSL_UI_SHADER_STRUCTURE UI_SHADER_STRUCTURE(GLSL_DEFINITION, GLSL_VEC4)
+#define GLSL_UI_PUSH_STRUCTURE UI_SHADER_STRUCTURE(GLSL_PUSH_DEFINITION, GLSL_VEC4)
 
 #define TIME_SHADER_BUFFER(D, V2) \
 D(TimeBuffer) \

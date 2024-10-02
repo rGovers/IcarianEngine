@@ -12,7 +12,7 @@
 void spirv_init();
 void spirv_destroy();
 
-std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str, bool a_optimize = false);
+std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str, bool a_spirv14, bool a_optimize = false);
 
 // MIT License
 // 

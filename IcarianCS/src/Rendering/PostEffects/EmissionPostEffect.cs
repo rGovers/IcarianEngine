@@ -8,10 +8,17 @@ namespace IcarianEngine.Rendering.PostEffects
 {
     public class EmissionPostEffect : PostEffect, IDestroy
     {
-        VertexShader m_quadVertex;
-        PixelShader  m_emissionPixel;
+        const uint RenderTextureCount = 4;
 
-        Material     m_material;
+        VertexShader     m_quadVertex;
+        PixelShader      m_emissionPixel;
+        PixelShader      m_blurPixel;
+
+        Material         m_blurMaterial;
+        Material         m_emissionMaterial;
+ 
+        RenderTexture[]  m_renderTextures;
+        TextureSampler[] m_textureSamplers;
 
         /// <summary>
         /// Whether or not the EmissionPostEffect has been Disposed/Finalised
@@ -20,7 +27,7 @@ namespace IcarianEngine.Rendering.PostEffects
         {
             get
             {
-                return m_material == null;
+                return m_emissionMaterial == null;
             }
         }
 
@@ -28,6 +35,7 @@ namespace IcarianEngine.Rendering.PostEffects
         {
             m_quadVertex = VertexShader.LoadVertexShader("[INTERNAL]Quad");
             m_emissionPixel = PixelShader.LoadPixelShader("[INTERNAL]PostEmission");
+            m_blurPixel = PixelShader.LoadPixelShader("[INTERNAL]PostEmissionBlur");
 
             MaterialBuilder material = new MaterialBuilder()
             {
@@ -37,21 +45,72 @@ namespace IcarianEngine.Rendering.PostEffects
                 ColorBlendMode = MaterialBlendMode.None
             };
 
-            m_material = Material.CreateMaterial(material);
+            MaterialBuilder blurMaterial = new MaterialBuilder()
+            {
+                VertexShader = m_quadVertex,
+                PixelShader = m_blurPixel,
+                PrimitiveMode = PrimitiveMode.TriangleStrip,
+                ColorBlendMode = MaterialBlendMode.None
+            };
+
+            m_emissionMaterial = Material.CreateMaterial(material);
+            m_blurMaterial = Material.CreateMaterial(blurMaterial);
+
+            m_renderTextures = new RenderTexture[RenderTextureCount];
+            m_textureSamplers = new TextureSampler[RenderTextureCount];
+
+            for (uint i = 0; i < RenderTextureCount; ++i)
+            {
+                uint next = i + 1;
+
+                m_renderTextures[i] = new RenderTexture((uint)(1920 >> (int)next), (uint)(1080 >> (int)next), false, true);
+                m_textureSamplers[i] = TextureSampler.GenerateRenderTextureSampler(m_renderTextures[i]);
+            }
         }
 
         /// <summary>
-        /// Called when the post effect need to be run
+        /// Called when the SwapChain is resized
+        /// </summary>
+        public override void Resize(uint a_width, uint a_height)
+        {
+            for (uint i = 0; i < RenderTextureCount; ++i)
+            {
+                uint next = i + 1;
+
+                m_renderTextures[i].Resize((uint)(a_width >> (int)next), (uint)(a_height >> (int)next));
+            }
+        }
+
+        /// <summary>
+        /// Called when the EmissionPostEffect needs to be run
         /// </summary>
         /// <param name="a_renderTexture">The target <see cref="IcarianEngine.Rendering.IRenderTexture" /></param>
         /// <param name="a_samplers">Samplers used by the RenderPipeline</param>
-        public override void Run(IRenderTexture a_renderTexture, TextureSampler[] a_samplers)
+        /// <param name="a_gBuffer">The Deffered <see cref="IcarianEngine.Rendering.MultiRenderTexture" /> used for rendering</param>
+        public override void Run(IRenderTexture a_renderTexture, TextureSampler[] a_samplers, MultiRenderTexture a_gBuffer)
         {
+            RenderCommand.Blit(a_gBuffer, 3, m_renderTextures[0]);
+            for (uint i = 1; i < RenderTextureCount; ++i)
+            {
+                RenderCommand.Blit(m_renderTextures[i - 1], m_renderTextures[i]);
+            }
+
+            for (int i = (int)RenderTextureCount - 2; i >= 0; --i)
+            {
+                RenderCommand.BindRenderTexture(m_renderTextures[i]);
+                RenderCommand.BindMaterial(m_blurMaterial);
+
+                RenderCommand.PushTexture(0, m_textureSamplers[i + 1]);
+
+                RenderCommand.DrawMaterial();
+            }
+
             RenderCommand.BindRenderTexture(a_renderTexture);
-            RenderCommand.BindMaterial(m_material);
+            RenderCommand.BindMaterial(m_emissionMaterial);
 
             RenderCommand.PushTexture(0, a_samplers[0]);
             RenderCommand.PushTexture(1, a_samplers[2]);
+            RenderCommand.PushTexture(2, m_textureSamplers[0]);
 
             RenderCommand.DrawMaterial();
         }   
@@ -71,13 +130,21 @@ namespace IcarianEngine.Rendering.PostEffects
         /// <param name="a_disposing">Whether it is being called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
-            if(m_material != null)
+            if(m_emissionMaterial != null)
             {
                 if(a_disposing)
                 {
-                    m_material.Dispose();
+                    for (uint i = 0; i < RenderTextureCount; ++i)
+                    {
+                        m_textureSamplers[i].Dispose();
+                        m_renderTextures[i].Dispose();
+                    }
+
+                    m_emissionMaterial.Dispose();
+                    m_blurMaterial.Dispose();
 
                     m_quadVertex.Dispose();
+                    m_blurPixel.Dispose();
                     m_emissionPixel.Dispose();
                 }
                 else
@@ -85,7 +152,7 @@ namespace IcarianEngine.Rendering.PostEffects
                     Logger.IcarianWarning("EmissionPostEffect Failed to Dispose");
                 }
 
-                m_material = null;
+                m_emissionMaterial = null;
             }
             else
             {

@@ -12,7 +12,6 @@
 #include "DataTypes/TLockObj.h"
 #include "DataTypes/SpinLock.h"
 #include "Rendering/RenderEngineBackend.h"
-#include "Rendering/Vulkan/VulkanCommandBuffer.h"
 
 class AppWindow;
 class LibVulkan;

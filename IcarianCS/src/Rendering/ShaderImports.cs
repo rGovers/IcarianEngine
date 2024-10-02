@@ -2,30 +2,29 @@
 // 
 // License at end of file.
 
-#pragma once
+#include "GlobalImports.h"
+#include "PixelImports.h"
 
-#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-
-#include <string_view>
-
-#include "Rendering/Vulkan/VulkanShader.h"
-
-class VulkanPixelShader : public VulkanShader
+namespace IcarianEngine.Rendering
 {
-private:
-    
-protected:
+    internal partial class ShaderImports
+    {
+        internal static void Init()
+        {
+            // May move this to C++ for the default imports need to think about it
+            VertexShader.AddImport("Maths", MathsImportShader);
+            PixelShader.AddImport("Maths", MathsImportShader);
 
-public:
-    VulkanPixelShader() = delete;
-    VulkanPixelShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data);
-    virtual ~VulkanPixelShader();
+            PixelShader.AddImport("Camera", CameraImportShader);
 
-    static VulkanPixelShader* CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str);
-    static VulkanPixelShader* CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str);
-};
-
-#endif
+            PixelShader.AddImport("PBR", PBRImportShader);
+            PixelShader.AddImport("Lighting", LightingImportShader);
+            PixelShader.AddImport("DirectionalLight", DirectionalLightImportShader);
+            PixelShader.AddImport("PointLight", PointLightImportShader);
+            PixelShader.AddImport("SpotLight", SpotLightImportShader);
+        }
+    }
+}
 
 // MIT License
 // 

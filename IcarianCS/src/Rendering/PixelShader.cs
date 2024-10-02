@@ -9,13 +9,24 @@ namespace IcarianEngine.Rendering
 {
     public class PixelShader : IDestroy
     {
-        uint m_internalAddr = uint.MaxValue;
-
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateFromFile(string a_path);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyShader(uint a_addr);
 
+        /// <summary>
+        /// Adds a import target to the PixelShader import table
+        /// </summary>
+        /// <param name="a_key">The import target to add</param>
+        /// <param name="a_value">The import value to add</param>
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public extern static void AddImport(string a_key, string a_value);
+
+        uint m_internalAddr = uint.MaxValue;
+
+        /// <summary>
+        /// Whether the PixelShader has been Disposed/Finalised
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -37,6 +48,14 @@ namespace IcarianEngine.Rendering
             m_internalAddr = a_addr;
         }
 
+        /// <summary>
+        /// Loads a PixelShader from a file
+        /// </summary>
+        /// <param name="a_path">The path to the PixelShader</param>
+        /// Supported formats:
+        ///     .ffrag
+        ///     .fpix
+        /// @see IcarianEngine.AssetLibrary.LoadPixelShader
         public static PixelShader LoadPixelShader(string a_path)
         {
             uint addr = GenerateFromFile(a_path);
@@ -53,13 +72,19 @@ namespace IcarianEngine.Rendering
             return null;
         }
 
+        /// <summary>
+        /// Disposes of the PixelShader
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
 
             GC.SuppressFinalize(this);
         }
-
+        /// <summary>
+        /// Called when the PixelShader is being Disposed/Finalised
+        /// </summary>
+        /// <param name="a_disposing">Whether it is being called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_internalAddr != uint.MaxValue)
@@ -80,7 +105,6 @@ namespace IcarianEngine.Rendering
                 Logger.IcarianError("Multiple PixelShader Dispose");
             }
         }
-
         ~PixelShader()
         {
             Dispose(false);

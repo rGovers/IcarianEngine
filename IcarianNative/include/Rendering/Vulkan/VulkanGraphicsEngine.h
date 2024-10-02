@@ -76,13 +76,15 @@ private:
     VulkanRenderEngineBackend*                    m_vulkanEngine;
 
     SharedSpinLock                                m_pipeLock;
-    std::unordered_map<uint64_t, VulkanPipeline*> m_pipelines;
-
     SharedSpinLock                                m_shadowPipeLock;
-    std::unordered_map<uint64_t, VulkanPipeline*> m_shadowPipelines;
-
     SharedSpinLock                                m_cubeShadowPipeLock;
+    SharedSpinLock                                m_importLock;
+
+    std::unordered_map<uint64_t, VulkanPipeline*> m_pipelines;
+    std::unordered_map<uint64_t, VulkanPipeline*> m_shadowPipelines;
     std::unordered_map<uint64_t, VulkanPipeline*> m_cubeShadowPipelines;
+    std::unordered_map<std::string, std::string>  m_vertexImports;
+    std::unordered_map<std::string, std::string>  m_pixelImports;
 
     TStatic<VulkanRenderCommand>                  m_renderCommands;
     TStatic<VulkanLightData>                      m_lightData;
