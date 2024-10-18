@@ -174,7 +174,8 @@ static void LoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint
     const uint32_t startIndex = a_vertices->Size();
 
     const bool hasNormals = a_mesh->HasNormals();
-    const bool hasTexCoord = a_mesh->HasTextureCoords(0);
+    const bool hasTexCoordA = a_mesh->HasTextureCoords(0);
+    const bool hasTexCoordB = a_mesh->HasTextureCoords(1);
     const bool hasColour = a_mesh->HasVertexColors(0);
 
     for (uint32_t i = 0; i < a_mesh->mNumVertices; ++i) 
@@ -192,10 +193,16 @@ static void LoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint
             v.Normal = glm::vec3(norm.x, -norm.y, norm.z);
         }
 
-        if (hasTexCoord) 
+        if (hasTexCoordA) 
         {
             const aiVector3D& uv = a_mesh->mTextureCoords[0][i];
-            v.TexCoords = glm::vec2(uv.x, uv.y);
+            v.TexCoordsA = glm::vec2(uv.x, uv.y);
+        }
+
+        if (hasTexCoordB)
+        {
+            const aiVector3D& uv = a_mesh->mTextureCoords[1][i];
+            v.TexCoordsB = glm::vec2(uv.x, uv.y);
         }
 
         if (hasColour) 

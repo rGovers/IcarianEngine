@@ -2,7 +2,7 @@
 
 vec3 FreS(float a_cos, vec3 a_f0)
 {
-    return a_f0 + (1.0 - a_f0) * pow(clamp(1.0 - a_cos, 0.0, 1.0), 5.0);
+    return fma(vec3(1.0) - a_f0, vec3(pow(clamp(1.0 - a_cos, 0.0, 1.0), 5.0)), a_f0);
 }
 
 float DistGGX(vec3 a_n, vec3 a_h, float a_rough)
@@ -12,7 +12,7 @@ float DistGGX(vec3 a_n, vec3 a_h, float a_rough)
     float d = max(dot(a_n, a_h), 0.0);
     float d2 = d * d;
 
-    float de = (d2 * (r4 - 1.0) + 1.0);
+    float de = fma(d2, r4 - 1.0, 1.0);
     float s = PI * de * de;
 
     return r4 / s;
@@ -22,7 +22,7 @@ float SchGGX(float a_d, float a_rough)
     float r = a_rough + 1.0;
     float k = (r * r) / 8.0;
 
-    float de = a_d * (1.0 - k) + k;
+    float de = fma(a_d, 1.0 - k, k);
 
     return a_d / de;
 }

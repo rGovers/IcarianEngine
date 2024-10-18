@@ -121,6 +121,8 @@
     F(void, IcarianEngine.Rendering, RenderCommand, RTRTBlit, { }, uint32_t a_srcAddr, uint32_t a_dstAddr) \
     F(void, IcarianEngine.Rendering, RenderCommand, DrawMaterial, { }) \
     F(void, IcarianEngine.Rendering, RenderCommand, DrawModel, { }, glm::mat4 a_transform, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, RenderCommand, MarkerStart, {  }, MonoString* a_name) \
+    F(void, IcarianEngine.Rendering, RenderCommand, MarkerEnd, { }) \
     \
     F(void, IcarianEngine.Rendering, RenderPipeline, SetLightSplits, { }, MonoArray* a_splits) \
     \

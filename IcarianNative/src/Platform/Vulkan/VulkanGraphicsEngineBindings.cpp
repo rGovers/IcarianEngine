@@ -143,6 +143,8 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     F(void, IcarianEngine.Rendering, RenderCommand, MTRTBlit, { Instance->BlitMTRT(a_srcAddr, a_index, a_dstAddr); }, uint32_t a_srcAddr, uint32_t a_index, uint32_t a_dstAddr) \
     F(void, IcarianEngine.Rendering, RenderCommand, DrawMaterial, { Instance->DrawMaterial(); }) \
     F(void, IcarianEngine.Rendering, RenderCommand, DrawModel, { Instance->DrawModel(a_transform, a_addr); }, glm::mat4 a_transform, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, RenderCommand, MarkerStart, { char* str = mono_string_to_utf8(a_name); IDEFER(mono_free(str)); Instance->MarkerStart(str); }, MonoString* a_name) \
+    F(void, IcarianEngine.Rendering, RenderCommand, MarkerEnd, { Instance->MarkerEnd(); }) \
     \
     F(void, IcarianEngine.Rendering.Animation, SkeletonAnimator, PushTransform, { }, uint32_t a_addr, MonoString* a_object, MonoArray* a_transform) \
 
@@ -1515,6 +1517,18 @@ void VulkanGraphicsEngineBindings::DrawModel(const glm::mat4& a_transform, uint3
     IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
 
     m_graphicsEngine->m_renderCommands->DrawModel(a_transform, a_addr);
+}
+void VulkanGraphicsEngineBindings::MarkerStart(const std::string_view& a_name) const
+{
+    IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
+
+    m_graphicsEngine->m_renderCommands->MarkerStart(a_name);
+}
+void VulkanGraphicsEngineBindings::MarkerEnd() const
+{
+    IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
+
+    m_graphicsEngine->m_renderCommands->MarkerEnd();
 }
 
 void VulkanGraphicsEngineBindings::SetLightSplits(const LightShadowSplit* a_splits, uint32_t a_splitCount) const

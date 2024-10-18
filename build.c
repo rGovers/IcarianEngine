@@ -375,7 +375,7 @@ int main(int a_argc, char** a_argv)
     free(dependencyProjects);
 
     printf("Creating IcarianNative project...\n");
-    icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration, enableTrace, enableProfiler);
+    icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration, enableTrace, enableProfiler, CBFALSE);
 
     printf("Compiling IcarianNative...\n");
     ret = CUBE_CProject_MultiCompile(&icarianNativeProject, compiler, "IcarianNative", CBNULL, jobThreads, &lines, &lineCount);

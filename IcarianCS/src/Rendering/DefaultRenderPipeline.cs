@@ -570,6 +570,8 @@ namespace IcarianEngine.Rendering
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the light setup is for</param>
         public override void LightSetup(Camera a_camera)
         {
+            RenderCommand.MarkerStart("AO");
+
             RenderCommand.BindRenderTexture(m_aoRenderTexture);
 
             RenderCommand.BindMaterial(m_aoMaterial);
@@ -579,6 +581,8 @@ namespace IcarianEngine.Rendering
 
             RenderCommand.BindMaterial(m_aoFilterMaterial);
             RenderCommand.DrawMaterial();
+
+            RenderCommand.MarkerEnd();
 
             RenderCommand.BindRenderTexture(m_lightRenderTexture);
         }
@@ -765,7 +769,7 @@ namespace IcarianEngine.Rendering
                     renderTexture = a_camera.RenderTexture;
                 }
 
-                effects[i].Run(renderTexture, new TextureSampler[] { sampler, m_normalSampler, m_emissionSampler, m_depthSampler });
+                effects[i].Run(renderTexture, new TextureSampler[] { sampler, m_normalSampler, m_emissionSampler, m_depthSampler }, m_drawRenderTexture);
 
                 sampler = m_postTextureSamplers[textureIndex];
 

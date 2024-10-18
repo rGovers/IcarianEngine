@@ -1,0 +1,6 @@
+void CalculateTangentBiTangent(vec3 a_normal, out vec3 a_tangent, out vec3 a_biTangent)
+{
+    vec3 t = cross(a_normal, vec3(0.0, 1.0, 0.0));
+    a_biTangent = cross(a_normal, t);
+    a_tangent = t;
+}

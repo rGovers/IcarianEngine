@@ -30,20 +30,14 @@ void main()
 
     float depth = texture(depthSampler, vUV).x;
 
-    vec4 mP = ScreenToWorld(vec3(vUV * 2.0 + -1.0, depth), camBuffer);
+    vec3 uP = vec3(fma(vUV, vec2(2.0), vec2(-1.0)), depth);
+    vec4 mP = ScreenToWorld(uP, camBuffer);
 
-    vec3 lP = spotLightBuffer.LightPos.xyz;
-    vec3 lCa = spotLightBuffer.CutoffAngle.xyz;
-
-    vec4 sP = shadowLightBuffer.LVP * mP;
-    sP /= sP.w;
-    vec4 sPP = sP * 0.5 + 0.5;
-    float sD = texture(shadowSampler, sPP.xy).x;
-    float sN = LinearDepth(sD, NearPlane, lCa.z);
-
-    vec3 vD = lP - mP.xyz;
-    float lDL = length(vD);
-    if (sN < lDL)
+    vec4 lP = shadowLightBuffer.LVP * mP;
+    lP /= lP.w;
+    vec2 sP = fma(lP.xy, vec2(0.5), vec2(0.5));
+    float sD = texture(shadowSampler, sP).x;
+    if (lP.z > sD)
     {
         discard;
     }

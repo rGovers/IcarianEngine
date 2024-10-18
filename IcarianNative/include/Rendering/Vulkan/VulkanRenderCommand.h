@@ -88,6 +88,9 @@ public:
 
     void DrawMaterial();
     void DrawModel(const glm::mat4& a_transform, uint32_t a_addr);
+
+    void MarkerStart(const std::string_view& a_name);
+    void MarkerEnd();
 };
 
 #endif

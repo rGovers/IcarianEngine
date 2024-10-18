@@ -529,6 +529,31 @@ void VulkanRenderCommand::DrawModel(const glm::mat4& a_transform, uint32_t a_add
     m_commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
 }
 
+void VulkanRenderCommand::MarkerStart(const std::string_view& a_name)
+{
+#ifdef ICARIANNATIVE_ENABLE_MARKERS
+    const bool markersEnabled = m_engine->IsExtensionEnabled(VK_EXT_DEBUG_MARKER_EXTENSION_NAME); 
+    if (markersEnabled)
+    { 
+        const vk::DebugMarkerMarkerInfoEXT markerInfo = vk::DebugMarkerMarkerInfoEXT 
+        ( 
+            a_name.data()
+        ); 
+        m_commandBuffer.debugMarkerBeginEXT(markerInfo); 
+    }
+#endif
+}
+void VulkanRenderCommand::MarkerEnd()
+{
+#ifdef ICARIANNATIVE_ENABLE_MARKERS
+    const bool markersEnabled = m_engine->IsExtensionEnabled(VK_EXT_DEBUG_MARKER_EXTENSION_NAME); 
+    if (markersEnabled)
+    {
+        m_commandBuffer.debugMarkerEndEXT(); 
+    }
+#endif
+}
+
 #endif
 
 // MIT License

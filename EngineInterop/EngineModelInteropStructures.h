@@ -57,25 +57,30 @@ IOP_PACKED IOP_CSPUBLIC struct VertexInputAttribute
 IOP_PACKED IOP_CSPUBLIC struct Vertex
 {
     /// <summary>
-    /// The position of the vertex
+    /// The position of the Vertex
     /// </summary>
     IOP_CSPUBLIC IOP_VEC4 Position;
     /// <summary>
-    /// The normal of the vertex
+    /// The normal of the Vertex
     /// </summary>
     IOP_CSPUBLIC IOP_VEC3 Normal;
     /// <summary>
-    /// The color of the vertex
+    /// The color of the Vertex
     /// </summary>
     IOP_CSPUBLIC IOP_VEC4 Color;
     /// <summary>
-    /// The texture coordinates of the vertex
+    /// The first texture coordinates of the Vertex
     /// </summary>
-    IOP_CSPUBLIC IOP_VEC2 TexCoords;
+    IOP_CSPUBLIC IOP_VEC2 TexCoordsA;
+    /// <summary>
+    /// The second texture coordinates of the Vertex
+    /// </summary>
+    IOP_CSPUBLIC IOP_VEC2 TexCoordsB;
+
 
 #ifdef CUBE_LANGUAGE_CSHARP
     /// <summary>
-    /// Gets the attributes of the vertex
+    /// Gets the attributes of the Vertex
     /// </summary>
     /// <returns>The attributes of the vertex</returns>
     public static VertexInputAttribute[] GetAttributes()
@@ -85,16 +90,17 @@ IOP_PACKED IOP_CSPUBLIC struct Vertex
             new VertexInputAttribute() { Location = 0, Type = VertexType.Float, Count = 4, Offset = (ushort)Marshal.OffsetOf<Vertex>("Position") },
             new VertexInputAttribute() { Location = 1, Type = VertexType.Float, Count = 3, Offset = (ushort)Marshal.OffsetOf<Vertex>("Normal") },
             new VertexInputAttribute() { Location = 2, Type = VertexType.Float, Count = 4, Offset = (ushort)Marshal.OffsetOf<Vertex>("Color") },
-            new VertexInputAttribute() { Location = 3, Type = VertexType.Float, Count = 2, Offset = (ushort)Marshal.OffsetOf<Vertex>("TexCoords") }
+            new VertexInputAttribute() { Location = 3, Type = VertexType.Float, Count = 2, Offset = (ushort)Marshal.OffsetOf<Vertex>("TexCoordsA") },
+            new VertexInputAttribute() { Location = 4, Type = VertexType.Float, Count = 2, Offset = (ushort)Marshal.OffsetOf<Vertex>("TexCoordsB") }
         };
-    
     }
 #else
-    constexpr Vertex(const glm::vec4& a_pos = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), const glm::vec3& a_normal = glm::vec3(0.0f), const glm::vec4& a_color = glm::vec4(1.0f), const glm::vec2& a_texCoords = glm::vec2(0.0f)) :
+    constexpr Vertex(const glm::vec4& a_pos = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), const glm::vec3& a_normal = glm::vec3(0.0f), const glm::vec4& a_color = glm::vec4(1.0f), const glm::vec2& a_texCoordsA = glm::vec2(0.0f), const glm::vec2& a_texCoordsB = glm::vec2(0.0f)) :
             Position(a_pos),
             Normal(a_normal),
             Color(a_color),
-            TexCoords(a_texCoords)
+            TexCoordsA(a_texCoordsA),
+            TexCoordsB(a_texCoordsB)
         {   
 
         }

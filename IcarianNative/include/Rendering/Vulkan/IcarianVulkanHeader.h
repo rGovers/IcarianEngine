@@ -30,6 +30,30 @@ static constexpr bool VulkanEnableValidationLayers = false;
 static constexpr bool VulkanEnableValidationLayers = true;
 #endif
 
+#ifdef ICARIANNATIVE_ENABLE_MARKERS
+#define VULKAN_MARKER_COL(engine, cmdBuffer, name, r, g, b) \
+    const bool _markersEnabled = engine->IsExtensionEnabled(VK_EXT_DEBUG_MARKER_EXTENSION_NAME); \
+    if (_markersEnabled) \
+    { \
+        const vk::DebugMarkerMarkerInfoEXT markerInfo = vk::DebugMarkerMarkerInfoEXT \
+        ( \
+            name, \
+            { r / 255.0f, g / 255.0f, b / 255.0f, 1.0f } \
+        ); \
+        cmdBuffer.debugMarkerBeginEXT(markerInfo); \
+    } \
+    IDEFER( \
+    if (_markersEnabled) \
+    { \
+        cmdBuffer.debugMarkerEndEXT(); \
+    }); \
+    void(0)
+#define VULKAN_MARKER(engine, cmdBuffer, name) VULKAN_MARKER_COL(engine, cmdBuffer, name, 0, 0, 0)
+#else
+#define VULKAN_MARKER_COL(engine, cmdBuffer, name, r, g, b) void(0)
+#define VULKAN_MARKER(engine, cmdBuffer, name) void(0)
+#endif
+
 // While there are existing functions seems to be inconsitent, therefore my own.
 static std::string VkResultToString(vk::Result a_result)
 {

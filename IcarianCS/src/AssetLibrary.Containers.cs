@@ -80,7 +80,7 @@ namespace IcarianEngine
         }
     }
 
-#ifdef ENABLE_EXPERIMENTS
+#ifdef ENABLE_EXPERIMENTAL
     class VideoClipContainer : IAssetContainer
     {
         public LoadStatus Status

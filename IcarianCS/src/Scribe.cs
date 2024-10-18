@@ -3,7 +3,7 @@
 // License at end of file.
 
 using IcarianEngine.Mod;
-using IcarianEngine.Rendering.UI;
+using IcarianEngine.Rendering;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Xml;
@@ -38,10 +38,10 @@ namespace IcarianEngine
             return s_strings.ContainsKey(a_key);
         }
         /// <summary>
-        /// If a <see cref="IcarianEngine.Rendering.UI.Font" /> exists for the string in the current locale
+        /// If a <see cref="IcarianEngine.Rendering.Font" /> exists for the string in the current locale
         /// </summary>
-        /// <param name="a_key">The <see cref="IcarianEngine.Rendering.UI.Font" /> to find</param>
-        /// <returns>If the <see cref="IcarianEngine.Rendering.UI.Font" /> exists</returns>
+        /// <param name="a_key">The <see cref="IcarianEngine.Rendering.Font" /> to find</param>
+        /// <returns>If the <see cref="IcarianEngine.Rendering.Font" /> exists</returns>
         public static bool FontKeyExists(string a_key)
         {
             return s_fonts.ContainsKey(a_key);
@@ -242,10 +242,10 @@ namespace IcarianEngine
         }
 
         /// <summary>
-        /// Sets the <see cref="IcarianEngine.Rendering.UI.Font" /> for a string key
+        /// Sets the <see cref="IcarianEngine.Rendering.Font" /> for a string key
         /// </summary>
         /// <param name="a_key">The key</param>
-        /// <param name="a_font">The <see cref="IcarianEngine.Rendering.UI.Font" /> for the key</param>
+        /// <param name="a_font">The <see cref="IcarianEngine.Rendering.Font" /> for the key</param>
         public static void SetFont(string a_key, Font a_font)
         {
             if (FontKeyExists(a_key))
@@ -260,9 +260,9 @@ namespace IcarianEngine
             }
         }
         /// <summary>
-        /// Gets a <see cref="IcarianEngine.Rendering.UI.Font" /> from the locale
+        /// Gets a <see cref="IcarianEngine.Rendering.Font" /> from the locale
         /// </summary>
-        /// <param name="a_key">The <see cref="IcarianEngine.Rendering.UI.Font" /> key to get from the locale</param>
+        /// <param name="a_key">The <see cref="IcarianEngine.Rendering.Font" /> key to get from the locale</param>
         /// <returns>The locale font. Null on failure</returns>
         public static Font GetFont(string a_key)
         {

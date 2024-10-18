@@ -154,6 +154,8 @@ public:
     void BlitMTRT(uint32_t a_srcAddr, uint32_t a_index, uint32_t a_dstAddr) const;
     void DrawMaterial() const;
     void DrawModel(const glm::mat4& a_transform, uint32_t a_addr) const;
+    void MarkerStart(const std::string_view& a_name) const;
+    void MarkerEnd() const;
 
     void SetLightSplits(const LightShadowSplit* a_splits, uint32_t a_splitCount) const;
 };

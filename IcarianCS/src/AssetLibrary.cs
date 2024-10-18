@@ -66,7 +66,7 @@ namespace IcarianEngine
         /// </summary>
         public delegate void LoadPixelShaderCallback(PixelShader a_shader, LoadStatus a_status);
         /// <summary>
-        /// Delegate for loading a <see cref="IcarianEngine.Rendering.UI.Font" /> async
+        /// Delegate for loading a <see cref="IcarianEngine.Rendering.Font" /> async
         /// </summary>
         public delegate void LoadFontCallback(Font a_font, LoadStatus a_status);
         /// <summary>
@@ -658,23 +658,23 @@ namespace IcarianEngine
         }
 
         /// <summary>
-        /// Loads a <see cref="IcarianEngine.Rendering.UI.Font" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
+        /// Loads a <see cref="IcarianEngine.Rendering.Font" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.UI.Font" /></param>
-        /// <returns>The <see cref="IcarianEngine.Rendering.UI.Font" /> if it was loaded successfully, null otherwise</returns>
-        /// @see IcarianEngine.Rendering.UI.Font.LoadFont
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Font" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Font" /> if it was loaded successfully, null otherwise</returns>
+        /// @see IcarianEngine.Rendering.Font.LoadFont
         public static Font LoadFont(string a_path)
         {
             return LoadData<Font, FontContainer>(a_path, s_fonts);
         }
         /// <summary>
-        /// Loads a <see cref="IcarianEngine.Rendering.UI.Font" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchornously
+        /// Loads a <see cref="IcarianEngine.Rendering.Font" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchornously
         /// </summary>
-        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.UI.Font" /></param>
-        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.UI.Font" /> is loaded</param>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Font" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.Font" /> is loaded</param>
         /// <param name="a_priority">The priority of the job</param>
-        /// @see IcarianEngine.Rendering.UI.Font.LoadFont
+        /// @see IcarianEngine.Rendering.Font.LoadFont
         public static void LoadFontAsync(string a_path, LoadFontCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             if (string.IsNullOrWhiteSpace(a_path))

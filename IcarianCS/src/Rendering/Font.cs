@@ -11,7 +11,7 @@ using System.Runtime.CompilerServices;
 
 ENGINE_FONT_EXPORT_TABLE(IOP_BIND_FUNCTION);
 
-namespace IcarianEngine.Rendering.UI
+namespace IcarianEngine.Rendering
 {
     public class Font : IDestroy
     {
@@ -62,7 +62,7 @@ namespace IcarianEngine.Rendering.UI
         /// <param name="a_fontSize">The size of the font</param>
         /// <param name="a_scale">Scale to apply to the <see cref="IcarianEngine.Rendering.Model" /></param>
         /// <param name="a_depth">The depth of the <see cref="IcarianEngine.Rendering.Model" /></param>
-        /// <returns>The model. Null on failure</returns>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Model" />. Null on failure</returns>
         public Model CreateModel(string a_string, float a_fontSize, float a_scale, float a_depth)
         {
             uint addr = FontInterop.GenerateModel(m_bufferAddr, a_string, a_fontSize, a_scale, a_depth);
@@ -98,7 +98,7 @@ namespace IcarianEngine.Rendering.UI
         /// <summary>
         /// Called when the Font is being Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether being called from Dispose</param>
+        /// <param name="a_disposing">Whether it is being called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)

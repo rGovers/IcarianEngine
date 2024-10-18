@@ -35,13 +35,13 @@ vec4 SpotLightShading(vec4 a_color, vec3 a_pos, vec3 a_camDir, vec3 a_normal, fl
     float ndf = DistGGX(a_normal, h, a_rough);
     float g = Smi(a_normal.xyz, a_camDir, lD.xyz, a_rough);
     vec3 nu = ndf * g * f;
-    float de = 4.0 * dS * dL + 0.0001;
+    float de = fma(4.0 * dS, dL, 0.0001);
     vec3 s = nu / de;
 
     // Reflectance
     vec3 kD = (vec3(1.0) - f) * invMetal;
 
-    vec3 lo = kD * a_color.xyz / PI + s;
+    vec3 lo = fma(kD, a_color.xyz / PI, s);
 
     return vec4(lC * lo * iV * dI2, 1.0);
 }

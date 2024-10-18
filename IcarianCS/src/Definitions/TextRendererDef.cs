@@ -2,41 +2,36 @@
 // 
 // License at end of file.
 
-#pragma once
+using IcarianEngine.Rendering;
 
-#include "InteropTypes.h"
+namespace IcarianEngine.Definitions
+{
+    public class TextRendererDef : RendererDef
+    {
+        [EditorTooltip("The text for the text renderer")]
+        public string Text;
 
-/// @file EngineFontInterop.h
+        /// <summary>
+        /// Path relative to the project for the <see cref="IcarianEngine.Rendering.Font" /> to load
+        /// </summary>
+        [EditorTooltip("Path relative to the project for the font to load"), EditorPathString(new string[] { ".ttf" })]
+        public string FontPath;
 
-#ifdef CUBE_LANGUAGE_CPP
-#include "DeletionQueue.h"
-#endif
+        [EditorTooltip("The size of the font")]
+        public float FontSize = 24.0f;
 
-/// @cond INTERNAL
+        [EditorTooltip("The amount to scale the text by")]
+        public float TextScale = 1.0f;
 
-#define ENGINE_FONT_EXPORT_TABLE(F) \
-    F(IOP_UINT32, IcarianEngine.Rendering, FontInterop, GenerateFont, \
-    { \
-        char* str = mono_string_to_utf8(a_path); \
-        IDEFER(mono_free(str)); \
-        return Instance->GenerateFont(str); \
-    }, IOP_STRING a_path) \
-    F(void, IcarianEngine.Rendering, FontInterop, DestroyFont, \
-    { \
-        IDUALDELETIONFUNC( \
-        { \
-            Instance->DestroyFont(a_addr); \
-        }); \
-    }, IOP_UINT32 a_addr) \
-    F(IOP_UINT32, IcarianEngine.Rendering, FontInterop, GenerateModel, \
-    { \
-        mono_unichar4* str = mono_string_to_utf32(a_str); \
-        IDEFER(mono_free(str)); \
-        return Instance->GenerateModelFromString(a_addr, std::u32string_view((char32_t*)str), a_fontSize, a_scale, a_depth); \
-    }, IOP_UINT32 a_addr, IOP_STRING a_str, float a_fontSize, float a_scale, float a_depth) \
+        [EditorTooltip("The depth of the text")]
+        public float TextDepth = 0.25f;
 
-
-/// @endcond
+        public TextRendererDef()
+        {
+            ComponentType = typeof(TextRenderer);
+        }
+    }
+}
 
 // MIT License
 // 

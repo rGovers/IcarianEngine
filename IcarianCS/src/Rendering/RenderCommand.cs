@@ -39,6 +39,18 @@ namespace IcarianEngine.Rendering
         public extern static void PushShadowSplits(uint a_slot, LightShadowSplit[] a_splits);
         
         /// <summary>
+        /// Adds a marker region for use by graphics debuggers if enabled in build settings
+        /// </summary>
+        /// <param name="a_name">The name of the marker</param>
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public extern static void MarkerStart(string a_name);
+        /// <summary>
+        /// Ends a marker region
+        /// </summary>
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public extern static void MarkerEnd();
+
+        /// <summary>
         /// Draws the currently bound <see cref="IcarianEngine.Rendering.Material" />
         /// </summary>
         /// Renders the currently bound <see cref="IcarianEngine.Rendering.Material" /> to the currently bound <see cref="IcarianEngine.Rendering.IRenderTexture" />

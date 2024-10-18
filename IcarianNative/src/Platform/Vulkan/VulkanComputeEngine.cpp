@@ -131,6 +131,8 @@ VulkanCommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, u
     cmdBuffer.begin(BeginInfo);
     IDEFER(cmdBuffer.end());
 
+    VULKAN_MARKER_COL(m_engine, cmdBuffer, "Compute Pass", 128, 128, 128);
+
     const Array<ComputeParticleBuffer> particleBuffers = m_particleBuffers.ToActiveArray();
     for (const ComputeParticleBuffer& buffer : particleBuffers)
     {

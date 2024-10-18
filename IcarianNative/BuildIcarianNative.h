@@ -63,7 +63,7 @@ static CBBOOL WriteIcarianNativeShadersToHeader(const char* a_workingPath)
     return ret;
 }
 
-static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, CBBOOL a_enableTrace, CBBOOL a_enableProfiler)
+static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, CBBOOL a_enableTrace, CBBOOL a_enableProfiler, CBBOOL a_enableMarkers)
 {
     CUBE_CProject project = { 0 };
 
@@ -107,6 +107,10 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
     CUBE_String_Destroy(&commitDefine);
 
+    if (a_enableMarkers)
+    {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_MARKERS");
+    }
     if (a_enableTrace)
     {
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_TRACE");
@@ -159,6 +163,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "./src/GamePad.cpp",
         "./src/GLFWAppWindow.cpp",
         "./src/H264.cpp",
+        "./src/H264VideoInfo.cpp",
         "./src/HeadlessAppWindow.cpp",
         "./src/IcarianError.cpp",
         "./src/IcBodyActivationListener.cpp",
@@ -217,6 +222,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "./src/Platform/Vulkan/VulkanComputeParticle.cpp",
             "./src/Platform/Vulkan/VulkanComputePipeline.cpp",
             "./src/Platform/Vulkan/VulkanComputeShader.cpp",
+            "./src/Platform/Vulkan/VulkanDecalShader.cpp",
             "./src/Platform/Vulkan/VulkanDepthCubeRenderTexture.cpp",
             "./src/Platform/Vulkan/VulkanDepthRenderTexture.cpp",
             "./src/Platform/Vulkan/VulkanGraphicsEngine.cpp",

@@ -89,6 +89,8 @@ namespace IcarianEngine.Rendering.PostEffects
         /// <param name="a_gBuffer">The Deffered <see cref="IcarianEngine.Rendering.MultiRenderTexture" /> used for rendering</param>
         public override void Run(IRenderTexture a_renderTexture, TextureSampler[] a_samplers, MultiRenderTexture a_gBuffer)
         {
+            RenderCommand.MarkerStart("Emission");
+
             RenderCommand.Blit(a_gBuffer, 3, m_renderTextures[0]);
             for (uint i = 1; i < RenderTextureCount; ++i)
             {
@@ -113,6 +115,8 @@ namespace IcarianEngine.Rendering.PostEffects
             RenderCommand.PushTexture(2, m_textureSamplers[0]);
 
             RenderCommand.DrawMaterial();
+
+            RenderCommand.MarkerEnd();
         }   
 
         /// <summary>

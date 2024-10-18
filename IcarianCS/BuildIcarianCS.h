@@ -169,6 +169,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Definitions/SkinnedMeshRendererDef.cs",
         "./src/Definitions/SphereCollisionShapeDef.cs",
         "./src/Definitions/SpotLightDef.cs",
+        "./src/Definitions/TextRendererDef.cs",
         "./src/Definitions/TriggerBodyDef.cs",
 
         "./src/Maths/Color.cs",
@@ -209,6 +210,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Rendering/DefaultRenderPipeline.cs",
         "./src/Rendering/DepthCubeRenderTexture.cs",
         "./src/Rendering/DepthRenderTexture.cs",
+        "./src/Rendering/Font.cs",
         "./src/Rendering/IRenderTexture.cs",
         "./src/Rendering/Material.cs",
         "./src/Rendering/MeshRenderer.cs",
@@ -223,6 +225,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Rendering/RenderTexture.cs",
         "./src/Rendering/RenderTextureCmd.cs",
         "./src/Rendering/ShaderImports.cs",
+        "./src/Rendering/TextRenderer.cs",
         "./src/Rendering/Texture.cs",
         "./src/Rendering/TextureSampler.cs",
         "./src/Rendering/VertexShader.cs",

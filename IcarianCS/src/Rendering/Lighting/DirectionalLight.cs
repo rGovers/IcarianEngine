@@ -35,7 +35,9 @@ namespace IcarianEngine.Rendering.Lighting
 
         uint m_bufferAddr = uint.MaxValue;
 
-        /// <summary>
+        bool m_ownsMap = false;
+
+        /// <summary> 
         /// Determines if the DirectionalLight has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
@@ -196,6 +198,8 @@ namespace IcarianEngine.Rendering.Lighting
 
             m_bufferAddr = GenerateBuffer(Transform.InternalAddr);
 
+            DepthRenderTexture[] shadowMaps = null;
+
             LightDef def = LightDef;
             if (def != null)
             {
@@ -208,10 +212,31 @@ namespace IcarianEngine.Rendering.Lighting
                 ShadowLightDef shadowDef = ShadowLightDef;
                 if (shadowDef != null)
                 {
+                    if (shadowDef.ShadowMapSize > 0)
+                    {
+                        // TODO: Should probably have this not depend on the default render pipeline
+                        // May change to VSM down the line anyway so....
+                        shadowMaps = new DepthRenderTexture[DefaultRenderPipeline.CascadeCount];
+                        m_ownsMap = true;
+
+                        for (uint i = 0; i < DefaultRenderPipeline.CascadeCount; ++i)
+                        {
+                            shadowMaps[i] = new DepthRenderTexture(shadowDef.ShadowMapSize, shadowDef.ShadowMapSize);
+                        }
+                    }
+
                     buffer.ShadowBias = new Vector2(shadowDef.ShadowBiasConstant, shadowDef.ShadowBiasSlope);
                 }
 
                 SetBuffer(m_bufferAddr, buffer);
+            }
+
+            if (shadowMaps != null)
+            {
+                for (uint i = 0; i < DefaultRenderPipeline.CascadeCount; ++i)
+                {
+                    AddShadowMap(shadowMaps[i]);
+                }
             }
 
             s_lightMap.TryAdd(m_bufferAddr, this);
@@ -260,7 +285,7 @@ namespace IcarianEngine.Rendering.Lighting
         }
 
         /// <summary>
-        /// Disposes of the DirectionalLight
+        /// Disposes of the DirectionalLight 
         /// </summary>
         public void Dispose()
         {
@@ -278,6 +303,17 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 if(a_disposing)
                 {
+                    if (m_ownsMap)
+                    {
+                        foreach (DepthRenderTexture m in ShadowMaps)
+                        {
+                            if (m != null && !m.IsDisposed)
+                            {
+                                m.Dispose();
+                            }
+                        }
+                    }
+
                     DestroyBuffer(m_bufferAddr);
 
                     s_lightMap.TryRemove(m_bufferAddr, out DirectionalLight _);

@@ -335,16 +335,14 @@ namespace IcarianEngine.Maths
         public static Matrix4 CreatePerspective(float a_fov, float a_aspect, float a_near, float a_far)
         {
             float halfFov = a_fov * 0.5f;
-            float f = Mathf.Cos(halfFov) / Mathf.Sin(halfFov);
+            float tanHalf = Mathf.Tan(halfFov);
 
-            // Apparently no projection matrix is correct and had to eyeball until the view projection matrix looked right
-            // No idea if this is correct but looks right
             return new Matrix4
             (
-                a_aspect * f, 0.0f,  0.0f,                                 0.0f,
-                0.0f,         f,     0.0f,                                 0.0f,
-                0.0f,         0.0f,  a_far / (a_near - a_far),             -1.0f,
-                0.0f,         0.0f,  -(a_far * a_near) / (a_far - a_near), 0.0f
+                1.0f / (a_aspect * tanHalf), 0.0f,           0.0f,                                 0.0f,
+                0.0f,                        1.0f / tanHalf, 0.0f,                                 0.0f,
+                0.0f,                        0.0f,           a_far / (a_near - a_far),             -1.0f,
+                0.0f,                        0.0f,           -(a_far * a_near) / (a_far - a_near), 0.0f
             );
         }
 

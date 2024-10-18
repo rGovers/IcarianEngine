@@ -10,15 +10,16 @@ namespace IcarianEngine.Rendering
 {
     public class MeshRenderer : Renderer, IDestroy
     {
+        // NOTE: This was fine at the time of writing but now is starting to seem like code smell consider moving these 4 functions down the line
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        extern static uint GenerateBuffer(uint a_transformAddr, uint a_materialAddr, uint a_modelAddr); 
+        internal extern static uint GenerateBuffer(uint a_transformAddr, uint a_materialAddr, uint a_modelAddr); 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        extern static void DestroyBuffer(uint a_addr);
+        internal extern static void DestroyBuffer(uint a_addr);
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        extern static void GenerateRenderStack(uint a_addr); 
+        internal extern static void GenerateRenderStack(uint a_addr); 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        extern static void DestroyRenderStack(uint a_addr); 
+        internal extern static void DestroyRenderStack(uint a_addr); 
 
         bool     m_disposed = false;
 
@@ -101,7 +102,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// The <see cref="IcarianEngine.Rendering.Model" /> of the MeshRender
+        /// The <see cref="IcarianEngine.Rendering.Model" /> of the MeshRenderer
         /// </summary>
         public Model Model
         {
@@ -152,13 +153,15 @@ namespace IcarianEngine.Rendering
         {
             base.Init();
 
-            MeshRendererDef def = MeshRendererDef;
+            RendererDef def = RendererDef;
             if (def != null)
             {   
                 Material = AssetLibrary.GetMaterial(def.MaterialDef);
-                if (!string.IsNullOrWhiteSpace(def.ModelPath))
+
+                MeshRendererDef meshDef = MeshRendererDef;
+                if (meshDef != null && !string.IsNullOrWhiteSpace(meshDef.ModelPath))
                 {
-                    Model = AssetLibrary.LoadModel(def.ModelPath, def.Index);
+                    Model = AssetLibrary.LoadModel(meshDef.ModelPath, meshDef.Index);
                 }   
             }
         }
@@ -173,9 +176,9 @@ namespace IcarianEngine.Rendering
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// Called when the MeshRenderer is Dispose/Finalised
+        /// Called when the MeshRenderer is Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether was called from Dispose</param>
+        /// <param name="a_disposing">Whether it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(!m_disposed)

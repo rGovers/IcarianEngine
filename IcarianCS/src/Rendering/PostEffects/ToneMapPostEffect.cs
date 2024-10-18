@@ -93,12 +93,16 @@ namespace IcarianEngine.Rendering.PostEffects
         /// <param name="a_gBuffer">The Deffered <see cref="IcarianEngine.Rendering.MultiRenderTexture" /> used for rendering</param>
         public override void Run(IRenderTexture a_renderTexture, TextureSampler[] a_samplers, MultiRenderTexture a_gBuffer)
         {
+            RenderCommand.MarkerStart("Tone Map");
+
             RenderCommand.BindRenderTexture(a_renderTexture);
             RenderCommand.BindMaterial(m_material);
 
             RenderCommand.PushTexture(0, a_samplers[0]);
 
             RenderCommand.DrawMaterial();
+
+            RenderCommand.MarkerEnd();
         }
 
         /// <summary>

@@ -696,6 +696,8 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                     continue;
                 }
 
+                VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Models");
+
                 model->Bind(commandBuffer);
 
                 ShaderBufferInput modelSlot;
@@ -731,6 +733,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
             
         {
             PROFILESTACK("Skinned");
+
             const uint32_t skinnedModelCount = renderStack->GetSkinnedModelBufferCount();
             const SkinnedModelBuffer* skinnedModelBuffers = renderStack->GetSkinnedModelBuffers();
             for (uint32_t i = 0; i < skinnedModelCount; ++i)
@@ -767,6 +770,8 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                     {
                         continue;               
                     }
+
+                    VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Skinned Models");
 
                     if (!modelBound)
                     {
@@ -838,7 +843,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
     {
         const uint32_t materialAddr = renderStack->GetMaterialAddr();
         const RenderProgram& program = m_shaderPrograms[materialAddr];
-        ICARIAN_ASSERT(program.Data != nullptr);
+        IVERIFY(program.Data != nullptr);
 
         VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
 
@@ -882,7 +887,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
                     if (modelBuffer.ModelAddr != -1) 
                     {
                         const VulkanModel* model = GetModel(modelBuffer.ModelAddr);
-                        ICARIAN_ASSERT(model != nullptr);
+                        IVERIFY(model != nullptr);
 
                         const uint32_t indexCount = model->GetIndexCount();
                         const float radius = model->GetRadius();
@@ -927,6 +932,8 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
                         {
                             continue;
                         }
+
+                        VULKAN_MARKER(m_vulkanEngine, a_commandBuffer, "Models");
 
                         if (pipeline == nullptr) 
                         {
@@ -1017,6 +1024,8 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
                             continue;
                         }
 
+                        VULKAN_MARKER(m_vulkanEngine, a_commandBuffer, "Skinned Models");
+
                         if (pipeline == nullptr) 
                         {
                             if (!a_cube) 
@@ -1034,7 +1043,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
                         if (model == nullptr) 
                         {
                             model = GetModel(modelBuffer.ModelAddr);
-                            ICARIAN_ASSERT(model != nullptr);
+                            IVERIFY(model != nullptr);
 
                             model->Bind(a_commandBuffer);
                         }
@@ -1116,6 +1125,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
     IDEFER(commandBuffer.end());
     vCmdBuffer.SetCommandBuffer(commandBuffer);
+
+    VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Directional Shadow Pass", 255, 0, 0);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
@@ -1244,6 +1255,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
     IDEFER(commandBuffer.end());
     vCmdBuffer.SetCommandBuffer(commandBuffer);
+
+    VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Point Shadow Pass", 255, 0, 0);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
@@ -1378,6 +1391,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, ui
     IDEFER(commandBuffer.end());
     vCmdBuffer.SetCommandBuffer(commandBuffer);
 
+    VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Spot Shadow Pass", 255, 0, 0);
+
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
 
@@ -1505,6 +1520,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t
     IDEFER(commandBuffer.end());
     const VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_Graphics);
 
+    VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Draw Pass", 0, 255, 0);
+
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
 
     void* camArgs[] = 
@@ -1555,6 +1572,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
     IDEFER(commandBuffer.end());
     const VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_Graphics);
 
+    VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Light Pass", 0, 0, 255);
+
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
 
@@ -1587,6 +1606,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         {
             PROFILESTACK("S Dir Light");
 
+            VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Shadow Directional Light");
+
             const Array<DirectionalLightBuffer> lights = m_directionalLights.ToArray();
             const Array<bool> state = m_directionalLights.ToStateArray();
             const uint32_t size = lights.Size();
@@ -1599,7 +1620,10 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                 }
 
                 const DirectionalLightBuffer& buffer = lights[j];
-                if (buffer.TransformAddr == -1 || buffer.Intensity <= 0.0f)
+
+                const bool isValid = buffer.TransformAddr != -1 && buffer.Intensity > 0.0f;
+                const bool shareLayer = (camBuffer.RenderLayer & buffer.RenderLayer) != 0;
+                if (!isValid || !shareLayer)
                 {
                     continue;
                 }
@@ -1666,6 +1690,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         {
             PROFILESTACK("S Point Light");
 
+            VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Shadow Point Light");
+
             const Array<PointLightBuffer> lights = m_pointLights.ToArray();
             const Array<bool> state = m_pointLights.ToStateArray();
             const uint32_t size = lights.Size();
@@ -1678,7 +1704,10 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                 }
 
                 const PointLightBuffer& buffer = lights[j];
-                if (buffer.TransformAddr == -1 || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Radius <= 0.0f || buffer.Intensity <= 0.0f)
+
+                const bool isValid = buffer.TransformAddr != -1 && buffer.Radius > 0.0f && buffer.Intensity > 0.0f;
+                const bool shareLayer = (buffer.RenderLayer & camBuffer.RenderLayer) != 0;
+                if (!isValid || !shareLayer)
                 {
                     continue;
                 }
@@ -1764,6 +1793,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         }
         case LightType_Spot:
         {
+            VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Shadow Spot Light");
+
             PROFILESTACK("S Spot Light");
 
             const Array<SpotLightBuffer> lights = m_spotLights.ToArray();
@@ -1778,6 +1809,13 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                 }
 
                 const SpotLightBuffer& buffer = lights[j];
+                
+                const bool isValid = buffer.TransformAddr != -1 && buffer.Radius > 0 && buffer.Intensity > 0;
+                const bool shareLayer = (camBuffer.RenderLayer & buffer.RenderLayer) != 0;
+                if (!isValid || !shareLayer)
+                {
+                    continue;
+                }
 
                 const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
                 IVERIFY(lightBuffer != nullptr);
@@ -1910,6 +1948,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         {
             PROFILESTACK("Ambient Light");
 
+            VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Ambient Light");
+
             const Array<AmbientLightBuffer> lights = m_ambientLights.ToActiveArray();
             const uint32_t size = (uint32_t)lights.Size();
 
@@ -1965,6 +2005,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         case LightType_Directional:
         {
             PROFILESTACK("Dir Light");
+
+            VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Directional Light");
 
             const Array<DirectionalLightBuffer> lights = m_directionalLights.ToActiveArray();
 
@@ -2049,6 +2091,9 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         case LightType_Point:
         {
             PROFILESTACK("Point Light");
+
+            VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Point Light");
+
             const Array<PointLightBuffer> lights = m_pointLights.ToActiveArray();
 
             ShaderBufferInput pointLightInput;
@@ -2144,6 +2189,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         case LightType_Spot:
         {
             PROFILESTACK("Spot Light");
+
+            VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Spot Light");
 
             const Array<SpotLightBuffer> lights = m_spotLights.ToActiveArray();
 
@@ -2274,6 +2321,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint3
     IDEFER(commandBuffer.end());
     const VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_Graphics);
 
+    VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Forward Pass", 0, 255, 255);
+
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
 
     void* camArgs[] = 
@@ -2335,6 +2384,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
     IDEFER(commandBuffer.end());
     const VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_Graphics);
+
+    VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Post Pass", 255, 255, 0);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
 
@@ -2703,6 +2754,8 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
 
             vk::CommandBuffer buffer = StartCommandBuffer(camIndexSize * DrawingPassCount + i, a_index);
             IDEFER(buffer.end());
+
+            VULKAN_MARKER_COL(m_vulkanEngine, buffer, "UI Pass", 255, 255, 255);
 
             const VulkanRenderTexture* renderTexture = GetRenderTexture(canvasRenderer.RenderTextureAddr);
 
