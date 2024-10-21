@@ -10,6 +10,7 @@ extern "C" {
 const static char* IcarianCSGlobalImportsBasePaths[] =
 {
     "./imports/Global/Maths.import",
+    "./imports/Global/TBN.import"
 };
 
 const static char* IcarianCSPixelImportsBasePaths[] =
@@ -207,6 +208,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Physics/Shapes/SphereCollisionShape.cs",
 
         "./src/Rendering/Camera.cs",
+        "./src/Rendering/DecalShader.cs",
         "./src/Rendering/DefaultRenderPipeline.cs",
         "./src/Rendering/DepthCubeRenderTexture.cs",
         "./src/Rendering/DepthRenderTexture.cs",
@@ -253,7 +255,6 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
 
         "./src/Rendering/UI/Canvas.cs",
         "./src/Rendering/UI/CanvasRenderer.cs",
-        "./src/Rendering/UI/Font.cs",
         "./src/Rendering/UI/ImageUIElement.cs",
         "./src/Rendering/UI/TextUIElement.cs",
         "./src/Rendering/UI/UIElement.cs",

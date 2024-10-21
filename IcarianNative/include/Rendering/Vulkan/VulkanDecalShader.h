@@ -4,26 +4,20 @@
 
 #pragma once
 
-#include <string>
-#include <string_view>
-#include <unordered_map>
-#include <vector>
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include "EngineMaterialInteropStructures.h"
-
-namespace IcarianCore
+// NOTE: This is not a normal shader type this is a custom shader
+class VulkanDecalShader
 {
-    enum e_ShaderPlatform
-    {
-        ShaderPlatform_Null = -1,
-        ShaderPlatform_Vulkan,
-        ShaderPlatform_OpenGL
-    };
+private:
 
-    std::string DecalShaderFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error);
+protected:
 
-    std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error);
-}
+public:
+
+};
+
+#endif
 
 // MIT License
 // 

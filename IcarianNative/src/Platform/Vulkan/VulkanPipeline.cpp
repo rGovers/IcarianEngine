@@ -327,8 +327,10 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
 {
     TRACE("Creating Vulkan Pipeline");
     const vk::Device device = a_engine->GetLogicalDevice();
+
     const RenderProgram program = a_gEngine->GetRenderProgram(a_programAddr);
     IVERIFY(program.Data != nullptr);
+    
     const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
 
     const vk::PipelineDynamicStateCreateInfo dynamicState = vk::PipelineDynamicStateCreateInfo
@@ -348,27 +350,22 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
     vk::VertexInputAttributeDescription* attributeDescription = new vk::VertexInputAttributeDescription[program.VertexInputCount];
     IDEFER(delete[] attributeDescription);
 
-    for (uint16_t i = 0; i < program.VertexInputCount; ++i)
-    {
-        const VertexInputAttribute& attrib = program.VertexAttributes[i];
-
-        attributeDescription[i].binding = 0;
-        attributeDescription[i].location = attrib.Location;
-        attributeDescription[i].offset = attrib.Offset;
-        attributeDescription[i].format = GetFormat(attrib);
-    }
-
-    vk::PipelineVertexInputStateCreateInfo vertexInputInfo = vk::PipelineVertexInputStateCreateInfo
-    (
-        { },
-        0,
-        nullptr,
-        (uint32_t)program.VertexInputCount,
-        attributeDescription
-    );
+    vk::PipelineVertexInputStateCreateInfo vertexInputInfo = vk::PipelineVertexInputStateCreateInfo();
 
     if (program.VertexInputCount > 0)
     {
+        for (uint16_t i = 0; i < program.VertexInputCount; ++i)
+        {
+            const VertexInputAttribute& attrib = program.VertexAttributes[i];
+
+            attributeDescription[i].binding = 0;
+            attributeDescription[i].location = attrib.Location;
+            attributeDescription[i].offset = attrib.Offset;
+            attributeDescription[i].format = GetFormat(attrib);
+        }
+
+        vertexInputInfo.vertexAttributeDescriptionCount = (uint32_t)program.VertexInputCount;
+        vertexInputInfo.pVertexAttributeDescriptions = attributeDescription;
         vertexInputInfo.vertexBindingDescriptionCount = 1;
         vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
     }
@@ -475,7 +472,7 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
     }
     default:
     {
-        ICARIAN_ASSERT(0);
+        IERROR("Invalid MaterialBlendMode");
 
         break;
     }
@@ -518,6 +515,7 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
         layout,
         a_renderPass
     );
+
     if (a_depth)
     {   
         pipelineInfo.pDepthStencilState = &depthStencil;

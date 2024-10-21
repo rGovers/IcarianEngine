@@ -2,27 +2,26 @@
 // 
 // License at end of file.
 
-#pragma once
+using System;
+using System.Runtime.CompilerServices;
 
-#include <string>
-#include <string_view>
-#include <unordered_map>
-#include <vector>
-
-#include "EngineMaterialInteropStructures.h"
-
-namespace IcarianCore
+namespace IcarianEngine.Rendering
 {
-    enum e_ShaderPlatform
+    public class DecalShader
     {
-        ShaderPlatform_Null = -1,
-        ShaderPlatform_Vulkan,
-        ShaderPlatform_OpenGL
-    };
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GenerateFromFile(string a_path);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void DestroyShader(uint a_addr);
 
-    std::string DecalShaderFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error);
-
-    std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error);
+        /// <summary>
+        /// Adds a import target to the DecalShader import table
+        /// </summary>
+        /// <param name="a_key">The import target to add</param>
+        /// <param name="a_value">The import value to addd</param>
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public extern static void AddImport(string a_key, string a_value);
+    }
 }
 
 // MIT License

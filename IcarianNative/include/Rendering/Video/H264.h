@@ -4,7 +4,6 @@
 
 #pragma once
 
-#include "DataTypes/Array.h"
 #include <cstdint>
 
 // I could not make head or tails until completely refactoring 
@@ -264,8 +263,6 @@ namespace H264
 
 	struct PPS
 	{
-		uint32_t PICParameterSetID;
-		uint32_t SEQParameterSetID;
 		uint32_t NumSliceGroupsMinus1;
 		uint32_t SliceGroupMapType;
 		uint32_t RunLengthMinus1[8];
@@ -274,21 +271,23 @@ namespace H264
 		uint32_t SliceGroupChangeRateMinus1;
 		uint32_t PICSizeInMapUnitsMinus1;
 		uint32_t SliceGroupID[256];
-		uint32_t NumRefIdxl0ActiveMinus1;
-		uint32_t NumRefIdxl1ActiveMinus1;
-		int32_t PICInitQPMinus26;
-		int32_t PICInitQSMinus26;
-		int32_t ChromaQPIndexOffset;
 
 		int8_t ScalingList4x4[6][16];
 		int8_t ScalingList8x8[2][64];
-		int32_t SecondChromaQPIndexOffset;
+		int8_t SecondChromaQPIndexOffset;
 
 		uint16_t Flags;
 
+		uint8_t PICParameterSetID;
+		uint8_t SEQParameterSetID;
 		uint8_t WeightedBipredIDC;
 		uint8_t PICScalingListPresentFlag;
 		uint8_t UseDefaultScalingMatrixFlag;
+		uint8_t NumRefIdxl0ActiveMinus1;
+		uint8_t NumRefIdxl1ActiveMinus1;
+		int8_t PICInitQPMinus26;
+		int8_t PICInitQSMinus26;
+		int8_t ChromaQPIndexOffset;
 	};
 
 	struct SlicePredictiveWeightTable
@@ -396,7 +395,7 @@ namespace H264
     NALHeader ReadNALHeader(BitStream* a_bitstream);
     SPS ReadSPS(BitStream* a_bitstream);
 	PPS ReadPPS(BitStream* a_bitstream);
-	SliceHeader ReadSliceHeader(BitStream* a_bitStream, const NALHeader& a_nal, const Array<PPS>& a_pps, const Array<SPS>& a_sps);
+	SliceHeader ReadSliceHeader(BitStream* a_bitStream, const NALHeader& a_nal, const PPS* a_pps, const SPS* a_sps);
 };
 
 // MIT License

@@ -41,6 +41,7 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
 #define VULKANGRAPHICS_BINDING_FUNCTION_TABLE(F) \
     F(void, IcarianEngine.Rendering, VertexShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyVertexShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, PixelShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyPixelShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, DecalShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyDecalShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     \
     F(RenderProgram, IcarianEngine.Rendering, Material, GetProgramBuffer, { return Instance->GetRenderProgram(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, Material, SetProgramBuffer, { Instance->SetRenderProgram(a_addr, a_program); }, uint32_t a_addr, RenderProgram a_program) \
@@ -542,6 +543,14 @@ void VulkanGraphicsEngineBindings::AddPixelShaderImport(const std::string_view& 
 void VulkanGraphicsEngineBindings::DestroyPixelShader(uint32_t a_addr) const
 {
     m_graphicsEngine->DestroyPixelShader(a_addr);
+}
+uint32_t VulkanGraphicsEngineBindings::GenerateFDecalShaderAddr(const std::string_view& a_str) const
+{
+    return -1;
+}
+void VulkanGraphicsEngineBindings::DestroyDecalShader(uint32_t a_addr) const
+{
+    
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateShaderProgram(const RenderProgram& a_program) const

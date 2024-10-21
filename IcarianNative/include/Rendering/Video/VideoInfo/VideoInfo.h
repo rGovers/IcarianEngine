@@ -4,26 +4,64 @@
 
 #pragma once
 
-#include <string>
-#include <string_view>
-#include <unordered_map>
-#include <vector>
+#include <cstdint>
 
-#include "EngineMaterialInteropStructures.h"
+class FileHandle;
 
-namespace IcarianCore
+enum e_VideoProfile
 {
-    enum e_ShaderPlatform
+    VideoProfile_Null,
+    VideoProfile_H264,
+};
+
+enum e_VideoFrameType
+{
+    VideoFrameType_Intra,
+    VideoFrameType_Predictive
+};
+
+class VideoInfo
+{
+private:
+
+protected:
+
+public:
+    virtual ~VideoInfo() { }
+
+    virtual bool IsValid() const
     {
-        ShaderPlatform_Null = -1,
-        ShaderPlatform_Vulkan,
-        ShaderPlatform_OpenGL
-    };
+        return false;
+    }
 
-    std::string DecalShaderFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error);
+    virtual e_VideoProfile GetVideoProfile() const
+    {
+        return VideoProfile_Null;
+    }
 
-    std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error);
-}
+    virtual float GetFPS() const
+    {
+        return 0;
+    }
+    virtual double GetDuration() const
+    {
+        return 0;
+    }
+
+    virtual uint32_t GetWidth() const
+    {
+        return -1;
+    }
+    virtual uint32_t GetHeight() const
+    {
+        return -1;
+    }
+
+    virtual bool GetVideoClipData(FileHandle* a_handle, double a_inTimeStamp, uint32_t* a_startIndex, uint32_t* a_endIndex, uint8_t** a_data, uint32_t* a_size)
+    {
+        return false;
+    }
+};
 
 // MIT License
 // 

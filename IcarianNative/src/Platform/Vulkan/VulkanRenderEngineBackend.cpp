@@ -58,6 +58,10 @@ constexpr const char* OptionalDeviceExtensions[] =
     VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME,
     VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME,
 
+#ifdef ICARIANNATIVE_ENABLE_MARKERS
+    VK_EXT_DEBUG_MARKER_EXTENSION_NAME
+#endif
+
     // Seem to be having weirdness with Nvidia on Linux where I am getting a driver error but the Validation layer is quiet about this and it works despite throwing an error?
     // I am disabling because I do not know why it is not happy and not sure why it is throwing an error with OpCopyLogical
     // Need to know for certain what is happening before I enable it do not need it at this point in time
@@ -510,7 +514,8 @@ Please ensure you have a Vulkan 1.1 capable GPU with greater then 256MB of VRAM"
 
             for (uint32_t i = 0; i < queueFamilyCount; ++i)
             {
-                if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics)
+                // If I am reading correctly Vulkan makes a guarantee that there will be atleast 1 combined graphics and compute queue
+                if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics && queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
                 {
                     m_graphicsQueueIndex = i;
                 }
@@ -593,8 +598,15 @@ Please ensure you have a Vulkan 1.1 capable GPU with greater then 256MB of VRAM"
         queueCreateInfos.Push(vk::DeviceQueueCreateInfo({ }, queueFamily, 1, &QueuePriority));
     }
 
-    vk::PhysicalDeviceFeatures deviceFeatures;
-    deviceFeatures.samplerAnisotropy = VK_TRUE;
+    vk::PhysicalDeviceFeatures2 deviceFeatures2;
+    deviceFeatures2.features.samplerAnisotropy = VK_TRUE;
+
+    vk::PhysicalDeviceSamplerYcbcrConversionFeatures ycbcrConversionFeatures;
+    if (IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME))
+    {
+        ycbcrConversionFeatures.samplerYcbcrConversion = VK_TRUE;
+        deviceFeatures2.pNext = &ycbcrConversionFeatures;
+    }
 
     vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo
     (
@@ -605,7 +617,8 @@ Please ensure you have a Vulkan 1.1 capable GPU with greater then 256MB of VRAM"
         nullptr, 
         extensions.Size(), 
         extensions.Data(),
-        &deviceFeatures
+        nullptr,
+        &deviceFeatures2
     );
 
     if constexpr (VulkanEnableValidationLayers)

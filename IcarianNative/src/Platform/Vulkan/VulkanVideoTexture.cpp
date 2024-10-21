@@ -8,26 +8,56 @@
 
 #include "Core/Bitfield.h"
 #include "Rendering/Video/VideoClip.h"
+#include "Rendering/Video/VideoInfo/H264VideoInfo.h"
 #include "Rendering/Video/VideoManager.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
+#include "Rendering/Vulkan/VulkanTexture.h"
 
-class VideoBufferVulkanDeletionObject : public VulkanDeletionObject
+class VulkanVideoSessionDeletionObject : public VulkanDeletionObject
 {
 private:
-    VulkanRenderEngineBackend* m_engine;
-
-    VulkanVideoBuffer          m_buffer;
+    VulkanRenderEngineBackend*    m_engine;
+    vk::VideoSessionKHR           m_videoSession;
+    vk::VideoSessionParametersKHR m_sessionParamaters;
 
 protected:
 
 public:
-    VideoBufferVulkanDeletionObject(VulkanRenderEngineBackend* a_engine, const VulkanVideoBuffer& a_buffer)
+    VulkanVideoSessionDeletionObject(VulkanRenderEngineBackend* a_engine, vk::VideoSessionKHR a_videoSession, vk::VideoSessionParametersKHR a_sessionParamaters)
     {
         m_engine = a_engine;
-
-        m_buffer = a_buffer;
+        m_videoSession = a_videoSession;
+        m_sessionParamaters = a_sessionParamaters;
     }
-    ~VideoBufferVulkanDeletionObject()
+    virtual ~VulkanVideoSessionDeletionObject()
+    {
+
+    }
+
+    virtual void Destroy()
+    {
+        const vk::Device device = m_engine->GetLogicalDevice();
+
+        device.destroyVideoSessionKHR(m_videoSession);
+        device.destroyVideoSessionParametersKHR(m_sessionParamaters);
+    }
+};
+
+class VulkanVideoAllocationDeletionObject : public VulkanDeletionObject
+{
+private:
+    VulkanRenderEngineBackend* m_engine;
+    VmaAllocation              m_allocation;
+
+protected:
+
+public:
+    VulkanVideoAllocationDeletionObject(VulkanRenderEngineBackend* a_engine, VmaAllocation a_allocation)
+    {
+        m_engine = a_engine;
+        m_allocation = a_allocation;
+    }
+    virtual ~VulkanVideoAllocationDeletionObject()
     {
 
     }
@@ -36,80 +66,9 @@ public:
     {
         const VmaAllocator allocator = m_engine->GetAllocator();
 
-        vmaDestroyBuffer(allocator, m_buffer.Buffer, m_buffer.Allocation);
+        vmaFreeMemory(allocator, m_allocation);   
     }
 };
-
-static void CreateBuffer(const VmaAllocator& a_allocator, const VulkanVideoDecodeCapabilities* a_videoCapabilities, const uint8_t* a_data, uint32_t a_size, VmaAllocation* a_allocation, vk::Buffer* a_buffer)
-{
-    constexpr VmaAllocationCreateInfo BufferAllocInfo = 
-    { 
-        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-        .usage = VMA_MEMORY_USAGE_AUTO,
-        .requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-    };
-
-    const vk::VideoProfileListInfoKHR profileListInfo = vk::VideoProfileListInfoKHR
-    (
-        1,
-        &a_videoCapabilities->VideoProfile
-    );
-
-    const VkBufferCreateInfo bufferInfo = 
-    {
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .pNext = &profileListInfo,
-        .size = a_size,
-        .usage = VK_BUFFER_USAGE_VIDEO_DECODE_SRC_BIT_KHR,
-    };
-
-    VkBuffer buffer;
-    VmaAllocationInfo info;
-    VKRESERRMSG(vmaCreateBuffer(a_allocator, &bufferInfo, &BufferAllocInfo, &buffer, a_allocation, &info), "Failed to create Decode Video Buffer");
-    *a_buffer = buffer;
-
-#ifdef DEBUG
-    vmaSetAllocationName(a_allocator, *a_allocation, "Video Decode Buffer");
-#endif
-
-    memcpy(info.pMappedData, a_data, (size_t)a_size);
-    VKRESERR(vmaFlushAllocation(a_allocator, *a_allocation, 0, (VkDeviceSize)a_size));
-}
-
-double VulkanVideoTexture::GenerateClipBuffer(const VideoClip* a_clip, const VulkanVideoDecodeCapabilities* a_videoCapabilities, double a_timeStamp, uint32_t a_index)
-{
-    const VmaAllocator allocator = m_engine->GetAllocator();
-
-    m_buffers[a_index] = { 0 };
-
-    uint8_t* dat;
-    uint32_t size;
-    uint32_t endIndex;
-    if (!a_clip->GetVideoClipData(a_timeStamp, nullptr, &endIndex, &dat, &size))
-    {
-        return -1.0;
-    }
-    IDEFER(delete[] dat);
-
-    const VideoFrameInfo* frameInfo = a_clip->GetFrameInfo();
-
-    const double endTimeStamp = frameInfo[endIndex].TimeStamp;
-
-    VmaAllocation allocation;
-    vk::Buffer buffer;
-    CreateBuffer(allocator, a_videoCapabilities, dat, size, &allocation, &buffer);
-
-    const VulkanVideoBuffer vidBuf = 
-    {
-        .EndTimeStamp = endTimeStamp,
-        .Allocation = allocation,
-        .Buffer = buffer
-    };
-
-    m_buffers[a_index] = vidBuf;
-
-    return endTimeStamp;
-}
 
 constexpr StdVideoH264LevelIdc ConvertLevelIDCVulkan(uint32_t a_levelIDC)
 {
@@ -202,47 +161,20 @@ constexpr StdVideoH264LevelIdc ConvertLevelIDCVulkan(uint32_t a_levelIDC)
     return STD_VIDEO_H264_LEVEL_IDC_INVALID;
 }
 
-VulkanVideoTexture::VulkanVideoTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_videoAddr)
+void VulkanVideoTexture::LoadHardwarePlayback(const VideoInfo* a_info)
 {
-    m_engine = a_engine;
+    m_vulkanVideoData = new VulkanHarwareVideoData();
 
-    m_videoAddr = a_videoAddr;
-
-    m_currentVideoBuffer = 0;
-    m_time = 0.0;
-
-    if (!m_engine->IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME))
-    {
-        IERROR("Software decode not implemented yet");
-    }
-
-    const VideoClip* clip = VideoManager::GetVideoClip(m_videoAddr);
-    IVERIFY(clip != nullptr);
-
-    m_fps = clip->GetFPS();
-    m_duration = clip->GetDuration();
-    
-    const float frameStep = 1.0f / m_fps;
+    const VmaAllocator allocator = m_engine->GetAllocator();
+    const vk::Device device = m_engine->GetLogicalDevice();
 
     const VulkanVideoDecodeCapabilities* videoCapabilities = m_engine->GetVideoDecodeCapabilities();
 
-    double lastTimeStamp = 0;
-    for (uint32_t i = 0; i < VideoBufferCount; ++i)
-    {
-        lastTimeStamp = GenerateClipBuffer(clip, videoCapabilities, lastTimeStamp, i);
+    const H264VideoInfo* h264Info = (H264VideoInfo*)a_info;
 
-        if (lastTimeStamp == -1)
-        {
-            break;
-        }
+    const uint32_t spsCount = h264Info->GetSPSCount();
+    const H264::SPS* spsData = h264Info->GetSPSData();
 
-        lastTimeStamp += frameStep;
-    }
-
-    const vk::Device device = m_engine->GetLogicalDevice();
-
-    const uint32_t spsCount = clip->GetSPSCount();
-    const H264::SPS* spsData = clip->GetSPSData();
     uint32_t refFrames = 0;
 
     StdVideoH264SequenceParameterSet* vulkanSPS = new StdVideoH264SequenceParameterSet[spsCount];
@@ -274,7 +206,7 @@ VulkanVideoTexture::VulkanVideoTexture(VulkanRenderEngineBackend* a_engine, uint
                 .vcl_hrd_parameters_present_flag = (sps.VUI.Flags & H264::SPSVUIFlags_VCLHRDParametersPresent) != 0 
             };
 
-            const StdVideoH264SequenceParameterSetVui vVUI =
+            vulkanVUISet[i] = StdVideoH264SequenceParameterSetVui
             {
                 .flags = vVUIFlags,
                 .aspect_ratio_idc = (StdVideoH264AspectRatioIdc)sps.VUI.AspectRatioIDC,
@@ -289,8 +221,6 @@ VulkanVideoTexture::VulkanVideoTexture(VulkanRenderEngineBackend* a_engine, uint
                 .max_num_reorder_frames = sps.VUI.NumReorderFrames,
                 .max_dec_frame_buffering = sps.VUI.MaxDecFrameBuffering,
             };
-
-            vulkanVUISet[i] = vVUI;
         }
 
         const StdVideoH264SpsFlags vSPSFlags = 
@@ -313,7 +243,7 @@ VulkanVideoTexture::VulkanVideoTexture(VulkanRenderEngineBackend* a_engine, uint
             .vui_parameters_present_flag = (sps.Flags & H264::SPSFlags_VUIParametersPresent) != 0
         };
 
-        const StdVideoH264SequenceParameterSet vSPS =
+        vulkanSPS[i] = StdVideoH264SequenceParameterSet
         {
             .flags = vSPSFlags,
             .profile_idc = (StdVideoH264ProfileIdc)sps.ProfileIDC,
@@ -338,19 +268,87 @@ VulkanVideoTexture::VulkanVideoTexture(VulkanRenderEngineBackend* a_engine, uint
             .pOffsetForRefFrame = sps.OffsetForRefFrame,
             .pSequenceParameterSetVui = &(vulkanVUISet[i])
         };
-
-        vulkanSPS[i] = vSPS;
     }
 
-    const uint32_t ppsCount = clip->GetPPSCount();
-    const H264::PPS* ppsData = clip->GetPPSData();
+    const uint32_t ppsCount = h264Info->GetPPSCount();
+    const H264::PPS* ppsData = h264Info->GetPPSData();
+
+    StdVideoH264PictureParameterSet* vulkanPPS = new StdVideoH264PictureParameterSet[ppsCount];
+    IDEFER(delete[] vulkanPPS);
+    StdVideoH264ScalingLists* scalingLists = (StdVideoH264ScalingLists*)calloc(ppsCount, sizeof(StdVideoH264ScalingLists));
+    IDEFER(free(scalingLists));
+
+    for (uint32_t i = 0; i < ppsCount; ++i)
+    {
+        const H264::PPS& pps = ppsData[i];
+
+        StdVideoH264ScalingLists lists;
+        lists.scaling_list_present_mask = pps.PICScalingListPresentFlag;
+        lists.use_default_scaling_matrix_mask = pps.UseDefaultScalingMatrixFlag;
+
+        for (uint32_t j = 0; j < 6; ++j)
+        {
+            for (uint32_t k = 0; k < 16; ++k)
+            {
+                lists.ScalingList4x4[j][k] = pps.ScalingList4x4[j][k];
+            }
+        }
+
+        for (uint32_t j = 0; j < 2; ++j)
+        {
+            for (uint32_t k = 0; k < 64; ++k)
+            {
+                lists.ScalingList8x8[j][k] = pps.ScalingList8x8[j][k];
+            }
+        }
+
+        scalingLists[i] = lists;
+
+        const StdVideoH264PpsFlags vPPSFlags = 
+        {
+            .transform_8x8_mode_flag = (pps.Flags & H264::PPSFlags_Transform8x8ModeFlag) != 0,
+            .redundant_pic_cnt_present_flag = (pps.Flags & H264::PPSFlags_RedundantPICCNTPresentFlag) != 0,
+            .constrained_intra_pred_flag = (pps.Flags & H264::PPSFlags_ConstrainedIntraPred) != 0,
+            .deblocking_filter_control_present_flag = (pps.Flags & H264::PPSFlags_DeblockingFilterControlPresent) != 0,
+            .weighted_pred_flag = (pps.Flags & H264::PPSFlags_WeightedPred) != 0,
+            .bottom_field_pic_order_in_frame_present_flag = (pps.Flags & H264::PPSFlags_PICOrderPresent) != 0,
+            .entropy_coding_mode_flag = (pps.Flags & H264::PPSFlags_EntropyCodingMode) != 0,
+            .pic_scaling_matrix_present_flag = (pps.Flags & H264::PPSFlags_PICScalingMatrixPresent) != 0
+        };
+
+        vulkanPPS[i] = StdVideoH264PictureParameterSet
+        {
+            .flags = vPPSFlags,
+            .seq_parameter_set_id = pps.SEQParameterSetID,
+            .pic_parameter_set_id = pps.PICParameterSetID,
+            .num_ref_idx_l0_default_active_minus1 = pps.NumRefIdxl0ActiveMinus1,
+            .num_ref_idx_l1_default_active_minus1 = pps.NumRefIdxl1ActiveMinus1,
+            .weighted_bipred_idc = (StdVideoH264WeightedBipredIdc)pps.WeightedBipredIDC,
+            .pic_init_qp_minus26 = pps.PICInitQPMinus26,
+            .pic_init_qs_minus26 = pps.PICInitQSMinus26,
+            .chroma_qp_index_offset = pps.ChromaQPIndexOffset,
+            .second_chroma_qp_index_offset = pps.SecondChromaQPIndexOffset,
+            .pScalingLists = &(scalingLists[i]),
+        };
+    }
 
     const uint32_t videoQueueIndex = m_engine->GetVideoDecodeIndex();
+    const uint32_t width = h264Info->GetPaddedWidth();
+    const uint32_t height = h264Info->GetPaddedHeight();
 
-    const uint32_t width = glm::min(clip->GetPaddedWidth(), videoCapabilities->VideoCapabilities.maxCodedExtent.width);
-    const uint32_t height = glm::min(clip->GetPaddedHeight(), videoCapabilities->VideoCapabilities.maxCodedExtent.height);
+    if (width >= videoCapabilities->VideoCapabilities.maxCodedExtent.width)
+    {
+        IERROR("Video width higher then Video Capabilities");
+    }
+    if (height >= videoCapabilities->VideoCapabilities.maxCodedExtent.height)
+    {
+        IERROR("Video height higher then Video Capabilities");
+    }
 
-    const uint32_t dpbSlots = glm::min(refFrames + 1, videoCapabilities->VideoCapabilities.maxDpbSlots);
+    m_vulkanVideoData->DPBSlots = glm::min(refFrames + 1, videoCapabilities->VideoCapabilities.maxDpbSlots);
+    const vk::Extent2D extents = vk::Extent2D(width, height);
+
+    m_vulkanVideoData->VideoTexture = new VulkanTexture(m_engine, width, height, TextureFormat_NV12, m_vulkanVideoData->DPBSlots);
 
     const vk::VideoSessionCreateInfoKHR videoSessionInfo = vk::VideoSessionCreateInfoKHR
     (
@@ -358,73 +356,246 @@ VulkanVideoTexture::VulkanVideoTexture(VulkanRenderEngineBackend* a_engine, uint
         { },
         &videoCapabilities->VideoProfile,
         vk::Format::eG8B8R82Plane420Unorm,
-        vk::Extent2D(width, height),
+        extents,
         vk::Format::eG8B8R82Plane420Unorm,
-        dpbSlots,
+        m_vulkanVideoData->DPBSlots,
         refFrames * 2,
         &videoCapabilities->VideoCapabilities.stdHeaderVersion
     );
-    VKRESERR(device.createVideoSessionKHR(&videoSessionInfo, nullptr, &m_videoSession));
 
-    // const vk::VideoDecodeH264SessionParametersAddInfoKHR h264ParamAddInfo = vk::VideoDecodeH264SessionParametersAddInfoKHR
-    // (
-    //     spsCount,
-    //     (StdVideoH264SequenceParameterSet*)vulkanSPS,
-    // );
+    VKRESERR(device.createVideoSessionKHR(&videoSessionInfo, nullptr, &m_vulkanVideoData->VideoSession));
 
-    vk::VideoDecodeH264SessionParametersCreateInfoKHR h264ParamInfo = vk::VideoDecodeH264SessionParametersCreateInfoKHR
+    const vk::VideoDecodeH264SessionParametersAddInfoKHR h264ParamAddInfo = vk::VideoDecodeH264SessionParametersAddInfoKHR
     (
         spsCount,
-        ppsCount
+        vulkanSPS,
+        ppsCount,
+        vulkanPPS
     );
+
+    const vk::VideoDecodeH264SessionParametersCreateInfoKHR h264DecodeParamInfo = vk::VideoDecodeH264SessionParametersCreateInfoKHR
+    (
+        spsCount,
+        ppsCount,
+        &h264ParamAddInfo
+    );
+
+    const vk::VideoSessionParametersCreateInfoKHR h264ParamInfo = vk::VideoSessionParametersCreateInfoKHR
+    (
+        { },
+        nullptr,
+        m_vulkanVideoData->VideoSession,
+        &h264DecodeParamInfo
+    );
+
+    VKRESERR(device.createVideoSessionParametersKHR(&h264ParamInfo, nullptr, &m_vulkanVideoData->SessionParameters));
+
+    VKRESERR(device.getVideoSessionMemoryRequirementsKHR(m_vulkanVideoData->VideoSession, &m_vulkanVideoData->MaxBuffers, nullptr));
+    IVERIFY(m_vulkanVideoData->MaxBuffers <= VulkanHarwareVideoData::VideoBufferCount);
+
+    vk::VideoSessionMemoryRequirementsKHR* requirements = new vk::VideoSessionMemoryRequirementsKHR[m_vulkanVideoData->MaxBuffers];
+    IDEFER(delete[] requirements);
+    vk::BindVideoSessionMemoryInfoKHR* bindInfo = new vk::BindVideoSessionMemoryInfoKHR[m_vulkanVideoData->MaxBuffers];
+    IDEFER(delete[] bindInfo);
+
+    VKRESERR(device.getVideoSessionMemoryRequirementsKHR(m_vulkanVideoData->VideoSession, &m_vulkanVideoData->MaxBuffers, requirements));
+
+    for (uint32_t i = 0; i < m_vulkanVideoData->MaxBuffers; ++i)
+    {
+        const VkVideoSessionMemoryRequirementsKHR r = requirements[i];
+
+        const VmaAllocationCreateInfo allocCreateInfo = 
+        {
+            .memoryTypeBits = r.memoryRequirements.memoryTypeBits
+        };
+        
+        VmaAllocationInfo allocInfo;
+        VKRESERR(vmaAllocateMemory(allocator, &r.memoryRequirements, &allocCreateInfo, &m_vulkanVideoData->Allocations[i], &allocInfo));
+
+        const vk::BindVideoSessionMemoryInfoKHR bInfo = vk::BindVideoSessionMemoryInfoKHR
+        (
+            r.memoryBindIndex,
+            allocInfo.deviceMemory,
+            allocInfo.offset,
+            allocInfo.size
+        );
+
+        bindInfo[i] = bInfo;
+    }
+
+    VKRESERR(device.bindVideoSessionMemoryKHR(m_vulkanVideoData->VideoSession, m_vulkanVideoData->MaxBuffers, bindInfo));
+}
+
+VulkanVideoTexture::VulkanVideoTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_videoAddr)
+{
+    m_engine = a_engine;
+
+    m_videoAddr = a_videoAddr;
+
+    m_vulkanVideoData = nullptr;
+    m_lastFrame = 0;
+    m_lastIntra = 0;
+
+    const VideoClip* clip = VideoManager::GetVideoClip(m_videoAddr);
+    IVERIFY(clip != nullptr);
+    IVERIFY(clip->IsValid());
+
+    const VideoInfo* info = clip->GetVideoInfo();
+    IVERIFY(info != nullptr);
+    IVERIFY(info->IsValid());
+
+    switch (info->GetVideoProfile())
+    {
+    case VideoProfile_H264:
+    {
+// Exists for testing can switch to 0 without going to hunt for the extension
+#if 1
+        if (m_engine->IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME))
+        {
+            LoadHardwarePlayback(info);
+
+            break;
+        }
+#endif
+        IERROR("Software decode not implemented yet");
+
+        break;
+    }
+    default:
+    {
+        IERROR("Invalid video profile");
+
+        break;
+    }
+    }
 }
 VulkanVideoTexture::~VulkanVideoTexture()
 {
-    for (uint32_t i = 0; i < VideoBufferCount; ++i)
+    if (m_vulkanVideoData != nullptr)
     {
-        const bool valid = m_buffers[i].Buffer != vk::Buffer(nullptr);
-        if (valid)
+        m_engine->PushDeletionObject(new VulkanVideoSessionDeletionObject(m_engine, m_vulkanVideoData->VideoSession, m_vulkanVideoData->SessionParameters));
+
+        for (uint32_t i = 0; i < m_vulkanVideoData->MaxBuffers; ++i)
         {
-            m_engine->PushDeletionObject(new VideoBufferVulkanDeletionObject(m_engine, m_buffers[i]));
+            m_engine->PushDeletionObject(new VulkanVideoAllocationDeletionObject(m_engine, m_vulkanVideoData->Allocations[i]));
         }
+
+        delete m_vulkanVideoData->VideoTexture;
+
+        delete m_vulkanVideoData;
     }
 }
 
 void VulkanVideoTexture::UpdateVulkan(vk::CommandBuffer a_commandBuffer, double a_delta)
 {
-    IDEFER(m_time = glm::min(m_time + a_delta, m_duration));
+    VideoClip* clip = VideoManager::GetVideoClip(m_videoAddr);
+    IVERIFY(clip != nullptr);
+    IVERIFY(clip->IsValid());
 
-    const uint32_t decodeFrame = (uint32_t)(m_time * m_fps);
+    const VideoInfo* info = clip->GetVideoInfo();
+    IVERIFY(info != nullptr);
+    IVERIFY(info->IsValid());
 
-    while (m_time > m_buffers[m_currentVideoBuffer].EndTimeStamp)
+    const e_VideoProfile videoProfile = info->GetVideoProfile();
+
+    const double time = clip->GetTime();
+    IDEFER(
+        // Maybe move this out of the VideoTexture?
+        if (clip->GetUpdateMode() == VideoUpdateMode_Video)
+        {
+            clip->SetTime(time + a_delta);
+        });
+
+    uint32_t currentFrame = -1;
+    uint32_t nextIntra = -1;
+
+    switch (videoProfile)
     {
-        const float frameStep = 1.0f / m_fps;
+    case VideoProfile_H264:
+    {
+        const H264VideoInfo* h264Info = (H264VideoInfo*)info;
 
-        const uint32_t nextIndex = (m_currentVideoBuffer + 1) % VideoBufferCount;
-        IDEFER(m_currentVideoBuffer = nextIndex);
-
-        const bool valid = m_buffers[m_currentVideoBuffer].Buffer != vk::Buffer(nullptr);
-        if (valid)
+        const H264VideoFrameInfo* frames = h264Info->GetFrames();
+        const uint32_t frameCount = h264Info->GetFrameCount();
+        
+        // Do not want to seek through all the frames if we do not have to so keep track of the last intra frame
+        for (uint32_t i = m_lastIntra; i < frameCount; ++i)
         {
-            m_engine->PushDeletionObject(new VideoBufferVulkanDeletionObject(m_engine, m_buffers[m_currentVideoBuffer]));
+            const H264VideoFrameInfo& f = frames[i];
+            if (f.Type == VideoFrameType_Intra)
+            {
+                m_lastIntra = i;
+            }
+
+            if (f.TimeStamp >= time)
+            {
+                currentFrame = i;
+
+                break;
+            }
         }
 
-        const VideoClip* clip = VideoManager::GetVideoClip(m_videoAddr);
-        IVERIFY(clip != nullptr);
+        currentFrame = glm::min(currentFrame, frameCount);
 
-        const VulkanVideoDecodeCapabilities* videoCapabilities = m_engine->GetVideoDecodeCapabilities();
-
-        const double v = GenerateClipBuffer(clip, videoCapabilities, m_buffers[nextIndex].EndTimeStamp + frameStep, m_currentVideoBuffer);
-        if (v < 0)
+        for (uint32_t i = currentFrame + 1; i < frameCount; ++i)
         {
-            break;
+            const H264VideoFrameInfo& f = frames[i];
+            if (f.Type == VideoFrameType_Intra)
+            {
+                nextIntra = i;
+
+                break;
+            }
         }
+
+        break;
+    }
+    default:
+    {
+        IERROR("Invalid video profile");
+
+        break;
+    }
     }
 
-    vk::VideoBeginCodingInfoKHR beginInfo = vk::VideoBeginCodingInfoKHR
+    if (m_lastFrame == currentFrame)
+    {
+        return;
+    }
+    IDEFER(m_lastFrame = currentFrame);
+
+    const VulkanTexture* tex = m_vulkanVideoData->VideoTexture;
+
+    const vk::Extent2D extent = vk::Extent2D(tex->GetWidth(), tex->GetHeight());
+    const vk::ImageView view = tex->GetImageView();
+
+    for (uint32_t i = m_lastFrame; i < currentFrame; ++i)
+    {
+        const uint32_t index = i - m_lastIntra;
+        const uint32_t indexWrap = index % VulkanHarwareVideoData::TotalDBPFrames; 
+
+        m_vulkanVideoData->PictureResource[indexWrap] = vk::VideoPictureResourceInfoKHR
+        (
+            index % (m_vulkanVideoData->DPBSlots - 1),
+            extent,
+            indexWrap,
+            view
+        );
+        
+        m_vulkanVideoData->ReferenceSlots[indexWrap] = vk::VideoReferenceSlotInfoKHR
+        (
+            index % m_vulkanVideoData->DPBSlots,
+            &m_vulkanVideoData->PictureResource[index]
+        );
+    }
+
+    const vk::VideoBeginCodingInfoKHR beginInfo = vk::VideoBeginCodingInfoKHR
     (
         { },
-        m_videoSession
+        m_vulkanVideoData->VideoSession,
+        m_vulkanVideoData->SessionParameters,
+        glm::min(currentFrame - m_lastIntra, VulkanHarwareVideoData::TotalDBPFrames),
+        m_vulkanVideoData->ReferenceSlots
     );
     a_commandBuffer.beginVideoCodingKHR(&beginInfo);
 

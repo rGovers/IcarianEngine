@@ -390,8 +390,8 @@ namespace H264
 
         PPS pps = { 0 };
 
-        pps.PICParameterSetID = a_bitstream->ue();
-        pps.SEQParameterSetID = a_bitstream->ue();
+        pps.PICParameterSetID = (uint8_t)a_bitstream->ue();
+        pps.SEQParameterSetID = (uint8_t)a_bitstream->ue();
 
         const uint8_t entropy = a_bitstream->u1();
         if (entropy)
@@ -460,8 +460,8 @@ namespace H264
             }
         }
 
-        pps.NumRefIdxl0ActiveMinus1 = a_bitstream->ue();
-        pps.NumRefIdxl1ActiveMinus1 = a_bitstream->ue();
+        pps.NumRefIdxl0ActiveMinus1 = (uint8_t)a_bitstream->ue();
+        pps.NumRefIdxl1ActiveMinus1 = (uint8_t)a_bitstream->ue();
 
         const uint8_t weightedPred = a_bitstream->u1();
         if (weightedPred)
@@ -470,9 +470,9 @@ namespace H264
         }
 
         pps.WeightedBipredIDC = a_bitstream->u<uint8_t>(2);
-        pps.PICInitQPMinus26 = a_bitstream->se();
-        pps.PICInitQSMinus26 = a_bitstream->se();
-        pps.ChromaQPIndexOffset = a_bitstream->se();
+        pps.PICInitQPMinus26 = (int8_t)a_bitstream->se();
+        pps.PICInitQSMinus26 = (int8_t)a_bitstream->se();
+        pps.ChromaQPIndexOffset = (int8_t)a_bitstream->se();
 
         const uint8_t deblockingFilter = a_bitstream->u1();
         if (deblockingFilter)
@@ -521,7 +521,7 @@ namespace H264
                 }
             }
 
-            pps.SecondChromaQPIndexOffset = a_bitstream->se();
+            pps.SecondChromaQPIndexOffset = (int8_t)a_bitstream->se();
         }
 
         a_bitstream->Ignore(1);
@@ -753,7 +753,7 @@ namespace H264
         return marking;
     }
 
-    SliceHeader ReadSliceHeader(BitStream* a_bitStream, const NALHeader& a_nal, const Array<PPS>& a_pps, const Array<SPS>& a_sps)
+    SliceHeader ReadSliceHeader(BitStream* a_bitStream, const NALHeader& a_nal, const PPS* a_pps, const SPS* a_sps)
     {
         SliceHeader header = { 0 };
 

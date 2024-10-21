@@ -11,42 +11,57 @@
 #include <cstdint>
 
 class VideoClip;
+class VideoInfo;
 class VulkanRenderEngineBackend;
+class VulkanTexture;
 struct VulkanVideoDecodeCapabilities;
 
-struct VulkanVideoBuffer
+struct VulkanHarwareVideoData
 {
-    double EndTimeStamp;
-    VmaAllocation Allocation;
-    vk::Buffer Buffer;
+    static constexpr uint32_t VideoBufferCount = 8;
+    static constexpr uint32_t DBPFrames = 16;
+    static constexpr uint32_t TotalDBPFrames = DBPFrames + 1;
+    
+    uint32_t                        DPBSlots;
+    uint32_t                        MaxBuffers;
+    VmaAllocation                   Allocations[VideoBufferCount];
+  
+    vk::VideoSessionKHR             VideoSession;
+    vk::VideoSessionParametersKHR   SessionParameters;
+  
+    VulkanTexture*                  VideoTexture;
+
+    vk::VideoReferenceSlotInfoKHR   ReferenceSlots[TotalDBPFrames];
+    vk::VideoPictureResourceInfoKHR PictureResource[TotalDBPFrames];
 };
 
 class VulkanVideoTexture
 {
 private:
-    static constexpr uint32_t VideoBufferCount = 3;
+    VulkanRenderEngineBackend*      m_engine;
+  
+    // Yes there is a pointer to class data but only use it when using hardware decoding and is over a kb of data
+    // This way when not using hardware decoding the class fits in a cache line
+    VulkanHarwareVideoData*         m_vulkanVideoData;
 
-    VulkanRenderEngineBackend*    m_engine;
+    uint32_t                        m_outTextureAddr;
+    uint32_t                        m_lastIntra;
+    uint32_t                        m_lastFrame;
+    
+    uint32_t                        m_videoAddr;
 
-    uint32_t                      m_currentVideoBuffer;
-    VulkanVideoBuffer             m_buffers[VideoBufferCount];
-
-    vk::VideoSessionKHR           m_videoSession;
-    vk::VideoSessionParametersKHR m_sessionParameters;
-
-    uint32_t                      m_videoAddr;
-
-    double                        m_duration;
-    double                        m_time;
-    float                         m_fps;
-
-    double GenerateClipBuffer(const VideoClip* a_clip, const VulkanVideoDecodeCapabilities* a_videoCapabilities, double a_timeStamp, uint32_t a_index);
+    void LoadHardwarePlayback(const VideoInfo* a_info);
 
 protected:
 
 public:
     VulkanVideoTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_videoAddr);
     ~VulkanVideoTexture();
+
+    inline bool IsHardware() const
+    {
+        return m_vulkanVideoData != nullptr;
+    }
 
     void UpdateVulkan(vk::CommandBuffer a_commandBuffer, double a_delta);
 };

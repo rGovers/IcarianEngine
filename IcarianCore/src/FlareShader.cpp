@@ -237,6 +237,92 @@ namespace IcarianCore
     	return -1;
     }
 
+    std::string CreateDecalVertexShader(std::vector<ShaderBufferInput>* a_inputs, e_ShaderPlatform a_platform, uint32_t a_cameraSlot, uint32_t a_modelSlot, std::string* a_error)
+    {
+        std::string shader = "#version 450";
+
+        shader += "#!structure(CameraBuffer, " + std::to_string(a_cameraSlot) + ", __camBuffer)\n";
+        shader += "#!structure(SSModelBuffer, " + std::to_string(a_modelSlot) + ", __modelBuffer)\n";
+
+        shader += "layout(location=0) out vec4 fragPos;\n"
+
+        "vec3 __positions[] = \n"
+        "{\n"
+        "    vec3(-1, -1, -1), vec3( 1, -1, -1), vec3( 1,  1, -1),\n"
+        "    vec3(-1, -1, -1), vec3( 1,  1, -1), vec3(-1,  1, -1),\n"
+        "    vec3(-1, -1,  1), vec3( 1, -1,  1), vec3( 1,  1,  1),\n"
+        "    vec3(-1, -1,  1), vec3(-1,  1,  1), vec3( 1,  1,  1),\n"
+        "    vec3(-1, -1, -1), vec3(-1, -1,  1), vec3(-1,  1,  1),\n"
+        "    vec3(-1, -1, -1), vec3(-1,  1,  1), vec3(-1,  1, -1),\n"
+        "    vec3( 1, -1, -1), vec3( 1, -1,  1), vec3( 1,  1,  1),\n"
+        "    vec3( 1, -1, -1), vec3( 1,  1,  1), vec3( 1,  1, -1),\n"
+        "    vec3(-1,  1, -1), vec3( 1,  1, -1), vec3( 1,  1,  1),\n"
+        "    vec3(-1,  1, -1), vec3( 1,  1,  1), vec3(-1,  1,  1),\n"
+        "    vec3(-1, -1, -1), vec3(-1, -1,  1), vec3( 1, -1,  1),\n"
+        "    vec3(-1, -1, -1), vec3( 1, -1,  1), vec3( 1, -1, -1)\n"
+        "};\n"
+
+        "void main()\n"
+        "{\n"
+        "   vec4 pos = vec4(__positions[gl_VertexIndex], 1);\n"
+        "   mat4 modelMat = #!instancedstructure(__modelBuffer).Model;\n"
+        "   fragPos = __camBuffer.ViewProj * modelMat * pos;\n"
+        "}\n";
+
+        return GLSLFromFlareShader(shader, a_platform, std::unordered_map<std::string, std::string>(), a_inputs, a_error);
+    }
+
+    std::string DecalShaderFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error)
+    {
+        std::string shader = GLSLFromFlareShader(a_str, a_platform, a_imports, a_inputs, a_error);
+
+        if (!a_error->empty())
+        {
+            return std::string();
+        }
+
+        uint16_t lastSlot = 0;
+        for (const ShaderBufferInput& input : *a_inputs)
+        {
+            if (input.Slot > lastSlot)
+            {
+                lastSlot = input.Slot;
+            }
+        }
+
+        shader += "layout(location=0) in vec4 __fragPos;\n";
+
+        shader += "#!pushtexture(" + std::to_string(++lastSlot) + ", __depthSampler)\n";
+        shader += "#!structure(CameraBuffer, " + std::to_string(++lastSlot) + ", __camBuffer)\n";
+        shader += "#!structure(SSModelBuffer, " + std::to_string(++lastSlot) + ", __modelBuffer)\n";
+
+        shader += "void __fMain()\n"
+        "{\n"
+        // Calculate screen space
+        "   vec2 fC = (__fragPos.xz / __fragPos.w);\n"
+        "   vec2 sC = fC * 0.5 + vec2(0.5);\n"
+        // Sample depth
+        "   float d = texture(__depthSampler, sC);\n"
+        // Transform depth to Model pos
+        "   vec4 vP = __camBuffer.InvProj * vec4(sC, d, 1);\n"
+        "   vP /= vP.w;\n"
+        "   vec4 mP = __camBuffer.InvView * vP;\n"
+        // Calculate bounding box for decal
+        "   mat4 invModelMat = #!instancedstructure(__modelBuffer).InvModel;\n"
+        "   vec4 oP = invModelMat * mP;\n"
+        "   vec3 bB = vec3(0.5) - abs(oP.xyz);\n"
+        // Clip decal
+        "   if (bB.x < 0 || bB.y < 0 || bB.z < 0)\n"
+        "   {\n"
+        "       discard;\n"
+        "   }\n"
+        // Passthrough uv to decal shader
+        "   main(oP.xz + vec2(0.5));\n"
+        "}\n";
+
+        return GLSLFromFlareShader(shader, a_platform, a_imports, a_inputs, a_error);
+    }
+
     std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error)
     {
         std::string shader = std::string(a_str);

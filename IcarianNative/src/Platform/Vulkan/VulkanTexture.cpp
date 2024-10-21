@@ -99,6 +99,10 @@ constexpr static vk::Format ToVulkanFormat(e_TextureFormat a_format)
     {
         return vk::Format::eBc7UnormBlock;
     }
+    case TextureFormat_NV12:
+    {
+        return vk::Format::eG8B8R82Plane420Unorm;
+    }
     }
 
     return vk::Format::eR8G8B8A8Srgb;
@@ -123,11 +127,90 @@ constexpr static uint32_t ToChannels(e_TextureFormat a_format)
     {
         return 4;
     }
+    case TextureFormat_NV12:
+    {
+        return 3;
+    }
     }
 
     return 4;
 }
 
+void VulkanTexture::InitEmpty(vk::Format a_format, uint32_t a_channels)
+{
+    m_channels = a_channels;
+    m_format = a_format;
+
+    const vk::Extent3D extent = vk::Extent3D(m_width, m_height, 1);
+
+    const vk::Device device = m_engine->GetLogicalDevice();
+    const VmaAllocator allocator = m_engine->GetAllocator();
+
+    const VkImageCreateInfo imageInfo = 
+    { 
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = (VkFormat)m_format,
+        .extent = extent,
+        .mipLevels = 1,
+        .arrayLayers = m_arraySize,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+
+    const VmaAllocationCreateInfo allocInfo = 
+    { 
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
+    };
+
+    VkImage image;
+    VKRESERRMSG(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &m_allocation, NULL), "Failed to create VulkanTexture image");
+    m_image = image;
+#ifdef DEBUG
+    vmaSetAllocationName(allocator, m_allocation, "Texture");
+#endif
+
+    constexpr vk::ImageSubresourceRange SubresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+
+    constexpr vk::ComponentMapping ComponentMapping = vk::ComponentMapping(vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity);
+
+    vk::ImageViewCreateInfo viewInfo = vk::ImageViewCreateInfo
+    (
+        { }, 
+        m_image, 
+        vk::ImageViewType::e2D, 
+        m_format,
+        ComponentMapping,
+        SubresourceRange
+    );
+
+    // Nevermind the solution was the conversion needed to be wrapped in a conversioninfo to fix the validation error
+    vk::SamplerYcbcrConversionInfo conversionInfo;
+    if (a_format == vk::Format::eG8B8R82Plane420Unorm)
+    {
+        vk::SamplerYcbcrConversion conversion;
+        constexpr vk::SamplerYcbcrConversionCreateInfo CreateInfo = vk::SamplerYcbcrConversionCreateInfo
+        (
+            vk::Format::eG8B8R82Plane420Unorm,
+            vk::SamplerYcbcrModelConversion::eYcbcr709,
+            vk::SamplerYcbcrRange::eItuFull,
+            ComponentMapping,
+            vk::ChromaLocation::eMidpoint,
+            vk::ChromaLocation::eMidpoint,
+            vk::Filter::eLinear
+        );
+
+        VKRESERR(device.createSamplerYcbcrConversion(&CreateInfo, nullptr, &conversion));
+        conversionInfo.conversion = conversion;
+
+        viewInfo.pNext = &conversionInfo;
+    }
+
+    VKRESERRMSG(device.createImageView(&viewInfo, nullptr, &m_imageView), "Failed to create VulkanTexture image view");
+}
 void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a_channels, uint64_t a_dataSize)
 {
     m_channels = a_channels;
@@ -151,7 +234,7 @@ void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a
         .format = (VkFormat)m_format,
         .extent = extent,
         .mipLevels = 1,
-        .arrayLayers = 1,
+        .arrayLayers = m_arraySize,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
         .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -325,6 +408,15 @@ VulkanTexture::VulkanTexture()
 {
 
 }
+VulkanTexture::VulkanTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, uint32_t a_arraySize)
+{
+    m_engine = a_engine;
+    m_width = a_width;
+    m_height = a_height;
+    m_arraySize = a_arraySize;
+
+    InitEmpty(ToVulkanFormat(a_format), ToChannels(a_format));
+}
 VulkanTexture::~VulkanTexture()
 {
     TRACE("Queueing Texture Deletion");
@@ -339,6 +431,7 @@ VulkanTexture* VulkanTexture::CreateTexture(VulkanRenderEngineBackend* a_engine,
     texture->m_engine = a_engine;
     texture->m_width = a_width;
     texture->m_height = a_height;
+    texture->m_arraySize = 1;
     texture->InitBase(a_data, ToVulkanFormat(a_format), ToChannels(a_format), a_dataSize);
 
     return texture;
@@ -349,6 +442,7 @@ VulkanTexture* VulkanTexture::CreateTextureMipMapped(VulkanRenderEngineBackend* 
     texture->m_engine = a_engine;
     texture->m_width = a_width;
     texture->m_height = a_height;
+    texture->m_arraySize = 1;
     texture->InitMipMapped(a_levels, a_offsets, a_data, ToVulkanFormat(a_format), ToChannels(a_format), a_dataSize);
 
     return texture;
@@ -356,6 +450,8 @@ VulkanTexture* VulkanTexture::CreateTextureMipMapped(VulkanRenderEngineBackend* 
 
 void VulkanTexture::WriteData(const void* a_data, bool a_init)
 {
+    IVERIFY(a_data != nullptr);
+
     const VmaAllocator allocator = m_engine->GetAllocator();
 
     const vk::DeviceSize imageSize = (vk::DeviceSize)m_width * m_height * m_channels;
@@ -385,15 +481,12 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
     VmaAllocationInfo stagingAllocationInfo;
     VKRESERRMSG(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo), "Failed to create staging texture");
     IDEFER(m_engine->PushDeletionObject(new VulkanTextureBufferDeletionObject(m_engine, stagingBuffer, stagingAllocation)));
+    IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)imageSize)));
 #ifdef DEBUG
     vmaSetAllocationName(allocator, stagingAllocation, "StagingTexture");
 #endif
 
-    if (a_data != nullptr)
-    {
-        IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)imageSize)));
-        memcpy(stagingAllocationInfo.pMappedData, a_data, (size_t)imageSize);
-    }
+    memcpy(stagingAllocationInfo.pMappedData, a_data, (size_t)imageSize);
 
     constexpr vk::ImageSubresourceLayers SubresourceLayers = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1);
 
