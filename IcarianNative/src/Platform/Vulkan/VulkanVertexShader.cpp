@@ -4,7 +4,7 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include "Rendering/Vulkan/VulkanVertexShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanVertexShader.h"
 
 #include "Core/FlareShader.h"
 #include "Rendering/SPIRVTools.h"
@@ -41,7 +41,7 @@ VulkanVertexShader* VulkanVertexShader::CreateFromFShader(VulkanRenderEngineBack
 
     if (glsl.empty())
     {
-        IERROR("Flare vertex shader error: " + error);
+        IERROR("Flare Vertex shader error: " + error);
 
         return nullptr;
     }
@@ -52,12 +52,10 @@ VulkanVertexShader* VulkanVertexShader::CreateFromGLSL(VulkanRenderEngineBackend
 {
     IVERIFY(!a_str.empty());
 
-    const bool spirv14 = a_engine->IsExtensionEnabled(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
-
-    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangVertex, a_str, spirv14, true);
+    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangVertex, a_str, true);
     if (spirv.empty())
     {
-        IERROR("Failed to compile vertex shader");
+        IERROR("Failed to compile Vertex shader");
 
         return nullptr;
     }    

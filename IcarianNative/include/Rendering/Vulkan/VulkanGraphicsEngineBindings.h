@@ -41,6 +41,10 @@ public:
     void AddVertexShaderImport(const std::string_view& a_key, const std::string_view& a_value);
     void DestroyVertexShader(uint32_t a_addr) const;
 
+    uint32_t GenerateFMeshShaderAddr(const std::string_view& a_str) const;
+    void AddMeshShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
+    void DestroyMeshShader(uint32_t a_addr) const;
+
     uint32_t GenerateFPixelShaderAddr(const std::string_view& a_str) const;
     void AddPixelShaderImport(const std::string_view& a_key, const std::string_view& a_value);
     void DestroyPixelShader(uint32_t a_addr) const;

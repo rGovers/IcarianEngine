@@ -9,10 +9,13 @@
 #include "Core/IcarianDefer.h"
 #include "Core/ShaderBuffers.h"
 #include "Rendering/UI/UIElement.h"
+#include "Rendering/Vulkan/Shaders/VulkanMeshShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanPixelShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanTaskShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanVertexShader.h"
 #include "Rendering/Vulkan/VulkanDepthCubeRenderTexture.h"
 #include "Rendering/Vulkan/VulkanDepthRenderTexture.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
-#include "Rendering/Vulkan/VulkanPixelShader.h"
 #include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
@@ -20,7 +23,6 @@
 #include "Rendering/Vulkan/VulkanTexture.h"
 #include "Rendering/Vulkan/VulkanTextureSampler.h"
 #include "Rendering/Vulkan/VulkanUniformBuffer.h"
-#include "Rendering/Vulkan/VulkanVertexShader.h"
 #include "Trace.h"
 
 class VulkanShaderDataDeletionObject : public VulkanDeletionObject
@@ -397,19 +399,59 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
 
     if (a_program.VertexShader != -1)
     {
-        const VulkanVertexShader* vertexShader = m_gEngine->GetVertexShader(a_program.VertexShader);
-
-        const uint32_t inputCount = vertexShader->GetShaderInputCount();
-        for (uint32_t i = 0; i < inputCount; ++i)
+        switch (a_program.MaterialMode) 
         {
-            const ShaderBufferInput input = vertexShader->GetShaderInput(i);
+        case MaterialMode_BaseVertex:
+        {
+            const VulkanVertexShader* vertexShader = m_gEngine->GetVertexShader(a_program.VertexShader);
+            IVERIFY(vertexShader != nullptr);
 
-            PushVulkanShaderBufferInput(&vulkanInputs, input, vk::ShaderStageFlagBits::eVertex);
+            const uint32_t inputCount = vertexShader->GetShaderInputCount();
+            for (uint32_t i = 0; i < inputCount; ++i)
+            {
+                const ShaderBufferInput input = vertexShader->GetShaderInput(i);
+
+                PushVulkanShaderBufferInput(&vulkanInputs, input, vk::ShaderStageFlagBits::eVertex);
+            }
+
+            break;
+        }
+        case MaterialMode_BaseMesh:
+        {
+            const VulkanMeshShader* meshShader = m_gEngine->GetMeshShader(a_program.VertexShader);
+            IVERIFY(meshShader != nullptr);
+
+            const uint32_t inputCount = meshShader->GetShaderInputCount();
+            for (uint32_t i = 0; i < inputCount; ++i)
+            {
+                const ShaderBufferInput input = meshShader->GetShaderInput(i);
+
+                PushVulkanShaderBufferInput(&vulkanInputs, input, vk::ShaderStageFlagBits::eMeshEXT);
+            }
+
+            if (a_program.ExtraShader != -1)
+            {
+                const VulkanTaskShader* taskShader = m_gEngine->GetTaskShader(a_program.ExtraShader);
+                IVERIFY(taskShader != nullptr);
+
+                const uint32_t inputCount = taskShader->GetShaderInputCount();
+                for (uint32_t i = 0; i < inputCount; ++i)
+                {
+                    const ShaderBufferInput input = taskShader->GetShaderInput(i);
+
+                    PushVulkanShaderBufferInput(&vulkanInputs, input, vk::ShaderStageFlagBits::eTaskEXT);
+                }
+            }
+
+            break;
+        }
         }
     }
+
     if (a_program.PixelShader != -1)
     {
         const VulkanPixelShader* pixelShader = m_gEngine->GetPixelShader(a_program.PixelShader);
+        IVERIFY(pixelShader != nullptr);
 
         const uint32_t inputCount = pixelShader->GetShaderInputCount();
         for (uint32_t i = 0; i < inputCount; ++i)

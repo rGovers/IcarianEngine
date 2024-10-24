@@ -6,24 +6,23 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include <string>
+#include <string_view>
 
-#include "DataTypes/Array.h"
+#include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
-#include "EngineMaterialInteropStructures.h"
-#include "EngineParticleSystemInteropStructures.h"
-
-class VulkanParticleShaderGenerator
+class VulkanMeshShader : public VulkanShader
 {
 private:
 
 protected:
 
 public:
-    static std::string GenerateComputeShader(const ComputeParticleBuffer& a_parameters, Array<ShaderBufferInput>* a_inputs);
+    VulkanMeshShader() = delete;
+    VulkanMeshShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data);
+    virtual ~VulkanMeshShader();
 
-    static std::string GenerateMeshShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs, Array<VertexInputAttribute>* a_vertexInputs);
-    static std::string GeneratePixelShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs);
+    static VulkanMeshShader* CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str);
+    static VulkanMeshShader* CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str);
 };
 
 #endif

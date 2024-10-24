@@ -8,6 +8,7 @@
 
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianError.h"
 #include "Core/StringUtils.h"
 #include "DeletionQueue.h"
 #include "FileCache.h"
@@ -40,6 +41,7 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
 // My apologies to the poor soul that has to decipher this definition
 #define VULKANGRAPHICS_BINDING_FUNCTION_TABLE(F) \
     F(void, IcarianEngine.Rendering, VertexShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyVertexShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, MeshShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyMeshShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, PixelShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyPixelShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, DecalShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyDecalShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     \
@@ -153,6 +155,8 @@ VULKANGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile, 
 {
+    IERRBLOCK;
+
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
@@ -160,15 +164,9 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
     if (strncmp(str, INTERNALSHADERPATHSTR, InternalShaderStringSize) == 0)
     {
         const char* shader = GetVertexShaderString(str + InternalShaderStringSize);
+        IERRCHECKRET(shader != nullptr, -1);
 
-        if (shader != nullptr)
-        {
-            return Instance->GenerateFVertexShaderAddr(shader);
-        }
-        else
-        {
-            IWARN(std::string("Failed to find internal VertexShader: ") + str);
-        }
+        return Instance->GenerateFVertexShaderAddr(shader);
     }
     else
     {
@@ -183,23 +181,17 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
         case StringHash<uint32_t>(".fvert"):
         {
             FileHandle* handle = FileCache::LoadFile(p);
-            if (handle != nullptr)
-            {
-                IDEFER(delete handle);
+            IERRCHECKRET(handle != nullptr, -1);
+            IDEFER(delete handle);
 
-                const uint64_t size = handle->GetSize();
+            const uint64_t size = handle->GetSize();
 
-                char* str = new char[size];
-                IDEFER(delete[] str);
+            char* str = new char[size];
+            IDEFER(delete[] str);
 
-                handle->Read(str, size);
+            IERRCHECKRET(handle->Read(str, size) == size, -1);
 
-                return Instance->GenerateFVertexShaderAddr(std::string_view(str, size));
-            }
-            
-            IWARN(std::string("VertexShader failed to open: ") + str);
-
-            break;
+            return Instance->GenerateFVertexShaderAddr(std::string_view(str, size));
         }
         default:
         {
@@ -222,8 +214,60 @@ RUNTIME_FUNCTION(void, VertexShader, AddImport,
     Instance->AddVertexShaderImport(key, value);
 }, MonoString* a_key, MonoString* a_value)
 
+RUNTIME_FUNCTION(uint32_t, MeshShader, GenerateFromFile, 
+{
+    IERRBLOCK;
+
+    char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
+
+    const std::filesystem::path p = std::filesystem::path(str);
+    const std::filesystem::path ext = p.extension();
+
+    const std::string extStr = ext.string();
+
+    // Slower as just one comparison but can be expanded and consistant with pixel shader
+    switch (StringHash<uint32_t>(extStr.c_str())) 
+    {
+    case StringHash<uint32_t>(".fmesh"):
+    {
+        FileHandle* handle = FileCache::LoadFile(p);
+        IERRCHECKRET(handle != nullptr, -1);
+        IDEFER(delete handle);
+
+        const uint64_t size = handle->GetSize();
+
+        char* str = new char[size];
+        IDEFER(delete[] str);
+
+        IERRCHECKRET(handle->Read(str, size) == size, -1);
+
+        return Instance->GenerateFMeshShaderAddr(std::string_view(str, size));
+    }
+    default:
+    {
+        IWARN(std::string("MeshShader invalid file format: ") + str);
+
+        break;
+    }
+    }
+
+    return -1;
+}, MonoString* a_path)
+RUNTIME_FUNCTION(void, MeshShader, AddImport,
+{
+    char* key = mono_string_to_utf8(a_key);
+    IDEFER(mono_free(key));
+    char* value = mono_string_to_utf8(a_value);
+    IDEFER(mono_free(value));
+
+    Instance->AddMeshShaderImport(key, value);
+}, MonoString* a_key, MonoString* a_value)
+
 RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile, 
 {
+    IERRBLOCK;
+
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
@@ -231,15 +275,9 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
     if (strncmp(str, INTERNALSHADERPATHSTR, InternalShaderStringSize) == 0)
     {
         const char* shader = GetPixelShaderString(str + InternalShaderStringSize);
+        IERRCHECKRET(shader != nullptr, -1);
 
-        if (shader != nullptr)
-        {
-            return Instance->GenerateFPixelShaderAddr(shader);
-        }
-        else
-        {
-            IWARN(std::string("Failed to find internal PixelShader: ") + str);
-        }
+        return Instance->GenerateFPixelShaderAddr(shader);
     }
     else
     {
@@ -254,23 +292,17 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
         case StringHash<uint32_t>(".ffrag"):
         {
             FileHandle* handle = FileCache::LoadFile(p);
-            if (handle != nullptr)
-            {
-                IDEFER(delete handle);
+            IERRCHECKRET(handle != nullptr, -1);
+            IDEFER(delete handle);
 
-                const uint64_t size = handle->GetSize();
+            const uint64_t size = handle->GetSize();
 
-                char* str = new char[size];
-                IDEFER(delete[] str);
+            char* str = new char[size];
+            IDEFER(delete[] str);
 
-                handle->Read(str, size);
+            IERRCHECKRET(handle->Read(str, size) == size, -1);
 
-                return Instance->GenerateFPixelShaderAddr(std::string_view(str, size));
-            }
-
-            IWARN(std::string("PixelShader failed to open: ") + str);
-
-            break;
+            return Instance->GenerateFPixelShaderAddr(std::string_view(str, size));
         }
         default:
         {
@@ -350,6 +382,7 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
     program.CullingMode = (e_CullMode)a_cullMode;
     program.PrimitiveMode = (e_PrimitiveMode)a_primitiveMode;
     program.ColorBlendMode = (e_MaterialBlendMode)a_colorBlendMode;
+    program.MaterialMode = MaterialMode_BaseVertex;
     program.RenderLayer = a_renderLayer;
 
     if (a_vertexInputAttribs != NULL)
@@ -373,6 +406,30 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
 
     return Instance->GenerateShaderProgram(program);
 }, uint32_t a_vertexShader, uint32_t a_pixelShader, uint16_t a_vertexStride, MonoArray* a_vertexInputAttribs, uint32_t a_cullMode, uint32_t a_primitiveMode, uint32_t a_colorBlendMode, uint32_t a_renderLayer, uint32_t a_shadowVertexShader, uint32_t a_uboSize, void* a_uboData)
+RUNTIME_FUNCTION(uint32_t, Material, GenerateMeshProgram, 
+{
+    // List initialisers are being drunk so guess zero and init it is
+    RenderProgram program;
+    memset(&program, 0, sizeof(RenderProgram));
+    program.VertexShader = a_meshShader;
+    program.PixelShader = a_pixelShader;
+    program.ShadowVertexShader = a_shadowVertexShader;
+    program.VertexStride = a_vertexStride;
+    program.CullingMode = (e_CullMode)a_cullMode;
+    program.ColorBlendMode = (e_MaterialBlendMode)a_colorBlendMode;
+    program.MaterialMode = MaterialMode_BaseMesh;
+    program.RenderLayer = a_renderLayer;
+
+    if (a_uboData != NULL)
+    {
+        program.UBODataSize = a_uboSize;
+        program.UBOData = malloc((size_t)program.UBODataSize);
+
+        memcpy(program.UBOData, a_uboData, program.UBODataSize);
+    }
+
+    return Instance->GenerateShaderProgram(program);
+}, uint32_t a_meshShader, uint32_t a_pixelShader, uint16_t a_vertexStride, uint32_t a_cullMode, uint32_t a_colorBlendMode, uint32_t a_renderLayer, uint32_t a_shadowVertexShader, uint32_t a_uboSize, void* a_uboData)
 RUNTIME_FUNCTION(void, Material, DestroyProgram, 
 {
     IPUSHDELETIONFUNC(
@@ -392,7 +449,6 @@ RUNTIME_FUNCTION(void, Material, DestroyProgram,
 
         Instance->DestroyShaderProgram(a_addr);
     }, DeletionIndex_Render);
-
 }, uint32_t a_addr)
 
 // MSVC workaround
@@ -465,6 +521,8 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(VulkanGraphicsEngine*
 
     BIND_FUNCTION(IcarianEngine.Rendering, VertexShader, GenerateFromFile);
     BIND_FUNCTION(IcarianEngine.Rendering, VertexShader, AddImport);
+    BIND_FUNCTION(IcarianEngine.Rendering, MeshShader, GenerateFromFile);
+    BIND_FUNCTION(IcarianEngine.Rendering, MeshShader, AddImport);
     BIND_FUNCTION(IcarianEngine.Rendering, PixelShader, GenerateFromFile);
     BIND_FUNCTION(IcarianEngine.Rendering, PixelShader, AddImport);
 
@@ -474,6 +532,7 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(VulkanGraphicsEngine*
     BIND_FUNCTION(IcarianEngine.Rendering.Lighting, DirectionalLight, GetShadowMaps);
 
     BIND_FUNCTION(IcarianEngine.Rendering, Material, GenerateProgram);
+    BIND_FUNCTION(IcarianEngine.Rendering, Material, GenerateMeshProgram);
     BIND_FUNCTION(IcarianEngine.Rendering, Material, DestroyProgram);
 
     BIND_FUNCTION(IcarianEngine.Rendering, Model, GenerateModel);
@@ -514,6 +573,35 @@ void VulkanGraphicsEngineBindings::AddVertexShaderImport(const std::string_view&
 void VulkanGraphicsEngineBindings::DestroyVertexShader(uint32_t a_addr) const
 {
     m_graphicsEngine->DestroyVertexShader(a_addr);
+}
+
+uint32_t VulkanGraphicsEngineBindings::GenerateFMeshShaderAddr(const std::string_view& a_str) const
+{
+    return m_graphicsEngine->GenerateFMeshShader(a_str);
+}
+void VulkanGraphicsEngineBindings::AddMeshShaderImport(const std::string_view& a_key, const std::string_view& a_value) const
+{
+    IVERIFY(!a_key.empty());
+    IVERIFY(!a_value.empty());
+
+    const std::string k = std::string(a_key);
+    const std::string v = std::string(a_value);
+
+    const ThreadGuard g = ThreadGuard(m_graphicsEngine->m_importLock);
+
+    auto iter = m_graphicsEngine->m_meshImports.find(k);
+    if (iter != m_graphicsEngine->m_meshImports.end())
+    {
+        iter->second = v;
+
+        return;
+    }
+
+    m_graphicsEngine->m_meshImports.emplace(k, v);
+}
+void VulkanGraphicsEngineBindings::DestroyMeshShader(uint32_t a_addr) const
+{
+    m_graphicsEngine->DestroyMeshShader(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateFPixelShaderAddr(const std::string_view& a_str) const

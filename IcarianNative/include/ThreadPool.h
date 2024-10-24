@@ -39,7 +39,7 @@ private:
     uint32_t                                                        m_threadCount;
     volatile bool                                                   m_shutdown;
 
-    static void Run(uint32_t a_thread);
+    static void Run(uint32_t a_thread, e_JobPriority a_priority);
 
     void Start();
 

@@ -6,9 +6,9 @@
 
 #include "Rendering/Vulkan/VulkanComputePipeline.h"
 
+#include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanComputeLayout.h"
-#include "Rendering/Vulkan/VulkanComputeShader.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 

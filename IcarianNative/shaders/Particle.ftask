@@ -1,0 +1,23 @@
+#version 460
+
+#extension GL_EXT_mesh_shader : require
+
+struct TaskPayload
+{
+    uint TaskID;
+};
+
+// Ok so the Vulkan spec lied to me you cannot do it inline got it
+// Some fucking documentation would be nice not having to read a fucking spec
+// I hate that the best Vulkan GLSL documentation is OpenGL
+// API documentation is fine shader documentation is apparently go fuck yourself
+// Gonna have to do it myself arent I because CAD software is not a good example nor is drawing a single triangle
+// I just wanted a true global index
+taskPayloadSharedEXT TaskPayload taskOut;
+
+void main()
+{
+    taskOut.TaskID = gl_GlobalInvocationID.x;
+
+    EmitMeshTasksEXT(256, 1, 1);
+}

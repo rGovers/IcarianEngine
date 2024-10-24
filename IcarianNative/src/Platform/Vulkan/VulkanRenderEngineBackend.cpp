@@ -43,7 +43,8 @@ constexpr const char* InstanceExtensions[] =
 };
 constexpr const char* DeviceExtensions[] = 
 {
-    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME
+    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+    VK_EXT_MESH_SHADER_EXTENSION_NAME
 };
 
 constexpr const char* StandaloneDeviceExtensions[] =
@@ -61,13 +62,6 @@ constexpr const char* OptionalDeviceExtensions[] =
 #ifdef ICARIANNATIVE_ENABLE_MARKERS
     VK_EXT_DEBUG_MARKER_EXTENSION_NAME
 #endif
-
-    // Seem to be having weirdness with Nvidia on Linux where I am getting a driver error but the Validation layer is quiet about this and it works despite throwing an error?
-    // I am disabling because I do not know why it is not happy and not sure why it is throwing an error with OpCopyLogical
-    // Need to know for certain what is happening before I enable it do not need it at this point in time
-    // This is the first occurance that I got a error from the driver without a crash so I am a bit wary I am not used to graceful failures with Vulkan normally starts kicking and screaming
-    // VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
-    // VK_KHR_SPIRV_1_4_EXTENSION_NAME,
 };
 constexpr uint32_t OptionalDeviceExtensionCount = sizeof(OptionalDeviceExtensions) / sizeof(*OptionalDeviceExtensions);
 
@@ -452,7 +446,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         (
 "No suitable GPU found to run. \
 \
-Please ensure you have a Vulkan 1.1 capable GPU with greater then 256MB of VRAM"
+Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM and Mesh Shader capabilites."
         );
     }
 
@@ -482,91 +476,67 @@ Please ensure you have a Vulkan 1.1 capable GPU with greater then 256MB of VRAM"
     }
     else
     {
-        switch (id) 
-        {
-        // Bug specifically with AMD Polaris cards that we are working around
-        // Checking specifically if we are running on a Polaris GPU
-        // If we do not do this get black lines running down the screen when we go fullscreen
-        // They take a performance hit but it is better then the alternative
-        // RX 460/ Pro 560X 
-        case MakeDeviceID(AMDVendorID, 0x67EF):
-        // RX 550/550X
-        case MakeDeviceID(AMDVendorID, 0x699F):
-        // RX 560
-        case MakeDeviceID(AMDVendorID, 0x67FF):
-        // RX 470/480/570/580/590/590GME/ Pro 580
-        case MakeDeviceID(AMDVendorID, 0x67DF):
-        {
-            m_graphicsQueueIndex = 0;
-            m_computeQueueIndex = 0;
-            m_presentQueueIndex = 0;
+        uint32_t queueFamilyCount = 0;
+        m_pDevice.getQueueFamilyProperties(&queueFamilyCount, nullptr);
 
-            break;
-        }
-        default:
+        vk::QueueFamilyProperties* queueFamilies = new vk::QueueFamilyProperties[queueFamilyCount];
+        IDEFER(delete[] queueFamilies);
+
+        m_pDevice.getQueueFamilyProperties(&queueFamilyCount, queueFamilies);
+
+        const vk::SurfaceKHR surface = window->GetSurface(m_instance);
+
+        for (uint32_t i = 0; i < queueFamilyCount; ++i)
         {
-            uint32_t queueFamilyCount = 0;
-            m_pDevice.getQueueFamilyProperties(&queueFamilyCount, nullptr);
-
-            vk::QueueFamilyProperties* queueFamilies = new vk::QueueFamilyProperties[queueFamilyCount];
-            IDEFER(delete[] queueFamilies);
-            m_pDevice.getQueueFamilyProperties(&queueFamilyCount, queueFamilies);
-
-            for (uint32_t i = 0; i < queueFamilyCount; ++i)
+            // If I am reading correctly Vulkan makes a guarantee that there will be atleast 1 combined graphics and compute queue
+            if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics && queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
             {
-                // If I am reading correctly Vulkan makes a guarantee that there will be atleast 1 combined graphics and compute queue
-                if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics && queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
-                {
-                    m_graphicsQueueIndex = i;
-                }
+                m_graphicsQueueIndex = i;
+            }
 
-                if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eVideoDecodeKHR)
-                {
-                    m_videoDecodeQueueIndex = i;
-                }
+            if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eVideoDecodeKHR)
+            {
+                m_videoDecodeQueueIndex = i;
+            }
 
-                if (!headless)
+            if (!headless)
+            {
+                vk::Bool32 presentSupport = VK_FALSE;
+                VKRESERR(m_pDevice.getSurfaceSupportKHR(i, surface, &presentSupport));
+                
+                if (presentSupport)
                 {
-                    vk::Bool32 presentSupport = VK_FALSE;
-                    VKRESERR(m_pDevice.getSurfaceSupportKHR(i, window->GetSurface(m_instance), &presentSupport));
-
-                    if (presentSupport)
+                    // Want graphics queue to be last resort
+                    if (i == m_graphicsQueueIndex)
                     {
-                        // Want graphics queue to be last resort
-                        if (i == m_graphicsQueueIndex)
-                        {
-                            if (m_presentQueueIndex == -1)
-                            {
-                                m_presentQueueIndex = i;
-                            }
-                        }
-                        else
+                        if (m_presentQueueIndex == -1)
                         {
                             m_presentQueueIndex = i;
                         }
                     }
-                }
-
-                if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
-                {
-                    // Want present queue to be last resort
-                    // Have it wanting to use the present queue on NVIDIA cards so this is needed
-                    if (i == m_presentQueueIndex)
-                    {
-                        if (m_computeQueueIndex == -1)
-                        {
-                            m_computeQueueIndex = i;
-                        }
-                    }
                     else
                     {
-                        m_computeQueueIndex = i;
+                        m_presentQueueIndex = i;
                     }
                 }
             }
 
-            break;
-        }
+            if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
+            {
+                // Want present queue to be last resort
+                // Have it wanting to use the present queue on NVIDIA cards so this is needed
+                if (i == m_presentQueueIndex)
+                {
+                    if (m_computeQueueIndex == -1)
+                    {
+                        m_computeQueueIndex = i;
+                    }
+                }
+                else
+                {
+                    m_computeQueueIndex = i;
+                }
+            }
         }
     }
 
@@ -599,14 +569,30 @@ Please ensure you have a Vulkan 1.1 capable GPU with greater then 256MB of VRAM"
     }
 
     vk::PhysicalDeviceFeatures2 deviceFeatures2;
-    deviceFeatures2.features.samplerAnisotropy = VK_TRUE;
+    deviceFeatures2.features.samplerAnisotropy = vk::True;
+
+    void** nextChain = &deviceFeatures2.pNext;
 
     vk::PhysicalDeviceSamplerYcbcrConversionFeatures ycbcrConversionFeatures;
     if (IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME))
     {
-        ycbcrConversionFeatures.samplerYcbcrConversion = VK_TRUE;
-        deviceFeatures2.pNext = &ycbcrConversionFeatures;
+        ycbcrConversionFeatures.samplerYcbcrConversion = vk::True;
+
+        *nextChain = &ycbcrConversionFeatures;
+        nextChain = &ycbcrConversionFeatures.pNext;
     }
+
+    vk::PhysicalDeviceMeshShaderFeaturesEXT meshShaderFeature = vk::PhysicalDeviceMeshShaderFeaturesEXT
+    (
+        vk::True,
+        vk::True,
+        vk::False,
+        vk::False,
+        vk::True
+    );
+
+    *nextChain = &meshShaderFeature;
+    nextChain = &meshShaderFeature.pNext;
 
     vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo
     (

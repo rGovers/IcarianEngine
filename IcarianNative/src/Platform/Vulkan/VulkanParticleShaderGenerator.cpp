@@ -70,11 +70,11 @@ static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_param
     input.Slot = slot;
     input.BufferType = ShaderBufferType_SSParticleBuffer;
     a_inputs->Push(input);
-    code += "layout(std140,binding=" + std::to_string(slot) + ",set=" + std::to_string(slot) + ") buffer ParticleShaderBufferOut \n";
-    code += "{ \n";
-    code += "   int Count; \n";
-    code += "   ParticleBufferData objects[]; \n";
-    code += "} outParticleBuffer; \n";
+    code += "layout(std140,binding=" + std::to_string(slot) + ",set=" + std::to_string(slot) + ") buffer ParticleShaderBufferOut \n"
+    "{ \n"
+    "   int Count; \n"
+    "   ParticleBufferData objects[]; \n"
+    "} outParticleBuffer; \n";
     ++slot;
 
     return code;
@@ -82,28 +82,22 @@ static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_param
 
 static std::string GenerateComputeBasicFunctions()
 {
-    std::string code;
-
-    // Knicked but cannot remember original source something C related is all I can say.
-    // Godot also uses it but cannot remember where I originally saw it
-    code += "float rand(inout uint a_seed) \n";
-    code += "{ \n";
-    code += "   int s = int(a_seed); \n";
-    code += "   if (s == 0) \n";
-    code += "   { \n";
-    code += "       s = 305420679; \n";
-    code += "   } \n";
-    code += "   int k = s / 127773; \n";
-    code += "   s = 16807 * (s - k * 127773) - 2836 * k; \n";
-    code += "   if (s < 0) \n";
-    code += "   { \n";
-    code += "       s += 2147483647; \n";
-    code += "   } \n";
-    code += "   a_seed = uint(s); \n";
-    code += "   return float(a_seed % 65536) / 65535.0; \n";
-    code += "} \n";
-
-    return code;
+    return "float rand(inout uint a_seed) \n"
+    "{ \n"
+    "   int s = int(a_seed); \n"
+    "   if (s == 0) \n"
+    "   { \n"
+    "       s = 305420679; \n"
+    "   } \n"
+    "   int k = s / 127773; \n"
+    "   s = 16807 * (s - k * 127773) - 2836 * k; \n"
+    "   if (s < 0) \n"
+    "   { \n"
+    "       s += 2147483647; \n"
+    "   } \n"
+    "   a_seed = uint(s); \n"
+    "   return float(a_seed % 65536) / 65535.0; \n"
+    "} \n";
 }
 
 std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputeParticleBuffer& a_parameters, Array<ShaderBufferInput>* a_inputs)
@@ -125,35 +119,35 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
     code += "   uint index = gl_GlobalInvocationID.x; \n";
     if (a_parameters.MaxParticles % WorkgroupSize != 0)
     {
-        code += "   if (index >= inParticleBuffer.Count) \n";
-        code += "   { \n";
-        code += "       return; \n";
-        code += "   } \n";
+        code += "   if (index >= inParticleBuffer.Count) \n"
+        "   { \n"
+        "       return; \n"
+        "   } \n";
     }
     
-    code += "   float delta = timeBuffer.Time.x; \n";
-    code += "   float timePassed = timeBuffer.Time.y; \n";
-    code += "   uint seedDelta = uint(timePassed * 1000); \n";
-    code += "   uint seed = index * seedDelta + seedDelta; \n";
+    code += "   float delta = timeBuffer.Time.x; \n"
+    "   float timePassed = timeBuffer.Time.y; \n"
+    "   uint seedDelta = uint(timePassed * 1000); \n"
+    "   uint seed = index * seedDelta + seedDelta; \n"
     
-    code += "   ParticleBufferData particle = inParticleBuffer.objects[index]; \n";
-    code += "   if (particle.Position.w <= 0.0) \n";
-    code += "   { \n";
-    code += "       outParticleBuffer.objects[index].Position = vec4(0.0); \n";
+    "   ParticleBufferData particle = inParticleBuffer.objects[index]; \n"
+    "   if (particle.Position.w <= 0.0) \n"
+    "   { \n"
+    "       outParticleBuffer.objects[index].Position = vec4(0.0); \n";
 
     const bool isBurst = IISBITSET(a_parameters.Flags, ComputeParticleBuffer::BurstBit);
     if (!isBurst)
     {
-        code += "       if (rand(seed) < emitterRatio) \n";
-        code += "       { \n";
+        code += "       if (rand(seed) < emitterRatio) \n"
+        "       { \n";
 
         switch (a_parameters.EmitterType)
         {
         case ParticleEmitterType_Point:
         {
-            code += "       outParticleBuffer.objects[index].Position = vec4(0.0, 0.0, 0.0, 5.0); \n";
-            code += "       outParticleBuffer.objects[index].Velocity = vec3(rand(seed) * 2 - 1, rand(seed) * 2 - 1, rand(seed) * 2 - 1); \n";
-            code += "       outParticleBuffer.objects[index].Color = colour; \n";
+            code += "       outParticleBuffer.objects[index].Position = vec4(0.0, 0.0, 0.0, 5.0); \n"
+            "       outParticleBuffer.objects[index].Velocity = vec3(rand(seed) * 2 - 1, rand(seed) * 2 - 1, rand(seed) * 2 - 1); \n"
+            "       outParticleBuffer.objects[index].Color = colour; \n";
 
             break;
         }
@@ -168,23 +162,30 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
         code += "       } \n";
     }
 
-    code += "   } \n";
-    code += "   else \n";
-    code += "   { \n";
-    code += "       outParticleBuffer.objects[index].Position = vec4(particle.Position.xyz + particle.Velocity * delta, particle.Position.w - delta); \n";
-    code += "       outParticleBuffer.objects[index].Velocity = particle.Velocity + gravity * delta; \n";
-    code += "       outParticleBuffer.objects[index].Color = particle.Color; \n";
-    code += "   } \n";
-    code += "} \n";
+    code += "   } \n"
+    "   else \n"
+    "   { \n"
+    "       outParticleBuffer.objects[index].Position = vec4(particle.Position.xyz + particle.Velocity * delta, particle.Position.w - delta); \n"
+    "       outParticleBuffer.objects[index].Velocity = particle.Velocity + gravity * delta; \n"
+    "       outParticleBuffer.objects[index].Color = particle.Color; \n"
+    "   } \n"
+    "} \n";
 
     return code;
 }
 
-std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs, Array<VertexInputAttribute>* a_vertexInputs)
+std::string VulkanParticleShaderGenerator::GenerateMeshShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs, Array<VertexInputAttribute>* a_vertexInputs)
 {
     std::string code;
 
-    code += "#version 450 \n";
+    constexpr uint32_t WorkgroupSize = 256;
+
+    code += "#version 450 \n"
+    
+    "#extension GL_EXT_mesh_shader : require\n"
+
+    "layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in; \n"
+    "layout(triangles, max_vertices = 4, max_primitives = 2) out; \n";
 
     ShaderBufferInput input;
     input.Count = 1;
@@ -196,29 +197,7 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
         input.Slot = *a_slot;
         input.BufferType = ShaderBufferType_SSParticleBuffer;
         a_inputs->Push(input);
-        code += "#!structure(SSParticleBuffer," + std::to_string((*a_slot)++) + ",particleBuffer) \n";
-
-        code += "vec2 positions[6] = vec2[] \n";
-        code += "( \n";
-        code += "   vec2(-1.0, 1.0), \n";
-        code += "   vec2(1.0, 1.0), \n";
-        code += "   vec2(-1.0, -1.0), \n";
-        code += "   vec2(1.0, 1.0), \n";
-        code += "   vec2(1.0, -1.0), \n";
-        code += "   vec2(-1.0, -1.0) \n";
-        code += "); \n";
-
-        code += "vec2 uvs[6] = vec2[] \n";
-        code += "( \n";
-        code += "   vec2(0.0, 1.0), \n";
-        code += "   vec2(1.0, 1.0), \n";
-        code += "   vec2(0.0, 0.0), \n";
-        code += "   vec2(1.0, 1.0), \n";
-        code += "   vec2(1.0, 0.0), \n";
-        code += "   vec2(0.0, 0.0) \n";
-        code += "); \n";
-
-        code += "layout(location=1) out vec2 fragUV; \n";
+        code += "#!structure(SSParticleBuffer, " + std::to_string((*a_slot)++) + ", particleBuffer) \n";
 
         break;
     }
@@ -233,31 +212,67 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
     input.Slot = *a_slot;
     input.BufferType = ShaderBufferType_CameraBuffer;
     a_inputs->Push(input);
-    code += "#!structure(CameraBuffer," + std::to_string((*a_slot)++) + ",camBuffer) \n";
+    code += "#!structure(CameraBuffer, " + std::to_string((*a_slot)++) + ", camBuffer) \n";
 
     input.BufferType = ShaderBufferType_PModelBuffer;
     a_inputs->Push(input);
     code += "#!pushbuffer(PModelBuffer, modelBuffer)";
 
-    code += "layout(location=0) out vec4 fragColor; \n";
+    code += "layout(location=0) out PerVertexData \n"
+    "{ \n"
+    "   vec2 UV; \n"
+    "   vec4 Color; \n"
+    "} vertOut[];\n"
 
-    code += "void main() \n";
-    code += "{ \n";
+    "struct TaskPayload \n"
+    "{ \n"
+    "   uint TaskID; \n"
+    "}; \n"
+
+    "taskPayloadSharedEXT TaskPayload taskIn; \n"
+    
+    "void main() \n"
+    "{ \n";
+    code += "   uint index = taskIn.TaskID * " + std::to_string(WorkgroupSize) + " + gl_LocalInvocationIndex.x; \n";
+
+    if (a_parameters.MaxParticles % WorkgroupSize != 0)
+    {
+        code += "   if (index >= " + std::to_string(a_parameters.MaxParticles) + ") \n";
+        code += "   { \n"
+        "       SetMeshOutputsEXT(0, 0); \n"
+        "       return; \n"
+        "} \n";
+    }
+
     switch (a_parameters.DisplayMode)
     {
     case ParticleDisplayMode_Quad:
     {
-        code += "   int particleIndex = gl_VertexIndex / 6; \n";
-        code += "   int vertexIndex = gl_VertexIndex % 6; \n";
-        
-        code += "   ParticleBufferData particle = particleBuffer.objects[particleIndex]; \n";
+        code += "   ParticleBufferData particle = particleBuffer.objects[index]; \n"
+        "   if (particle.Position.w > 0) \n"
+        "   { \n"
+        "       SetMeshOutputsEXT(4, 2); \n"
 
-        code += "   float alive = max(sign(particle.Position.w), 0.0); \n";
-        code += "   fragColor = particle.Color; \n";
-        code += "   mat3 camBill = mat3(camBuffer.InvView); \n";
-        code += "   vec3 billPos = camBill * vec3(positions[vertexIndex], 0.0); \n";
-        code += "   vec4 pos = camBuffer.ViewProj * modelBuffer.Model * vec4(particle.Position.xyz + billPos * 0.01, 1.0); \n";
-        code += "   gl_Position = pos * alive; \n";
+        "       mat3 camBill = mat3(camBuffer.InvView); \n"
+        "       #!preloop(iter, 0, 4, \n"
+        "       { \n"
+        "           vec2 uv = vec2(iter & 1, iter >> 1); \n"
+        // Has a better chance of being optimized away then fma
+        // If it will be run then we use fma
+        "           vec2 pos = uv * 2 + -1; \n"
+        "           vec3 billPos = camBill * vec3(pos, 0.0); \n"
+        "           gl_MeshVerticesEXT[iter].gl_Position = camBuffer.ViewProj * modelBuffer.Model * vec4(particle.Position.xyz + billPos * 0.01, 1.0); \n"
+        "           vertOut[iter].UV = uv; \n"
+        "           vertOut[iter].Color = particle.Color; \n"
+        "       }) \n"
+
+        "       gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex + 0] =  uvec3(0, 1, 2); \n"
+        "       gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex + 1] =  uvec3(1, 3, 2); \n"
+        "   } \n"
+        "   else \n"
+        "   { \n"
+        "      SetMeshOutputsEXT(0, 0); \n"
+        "   }\n";
 
         break;
     }
@@ -275,20 +290,20 @@ std::string VulkanParticleShaderGenerator::GenerateVertexShader(const ComputePar
 }
 std::string VulkanParticleShaderGenerator::GeneratePixelShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs)
 {
-    std::string code;
+    return "#version 450 \n"
 
-    code += "#version 450 \n";
+    "layout(location = 0) in PerVertexData \n"
+    "{ \n"
+    "   vec2 UV; \n"
+    "   vec4 Color; \n"
+    "} fragIn; \n"
 
-    code += "layout(location=0) in vec4 fragColor; \n";
+    "layout(location = 0) out vec4 outColor; \n"
 
-    code += "layout(location=0) out vec4 outColor; \n";
-
-    code += "void main() \n";
-    code += "{ \n";
-    code += "   outColor = fragColor; \n";
-    code += "} \n";
-
-    return code;
+    "void main() \n"
+    "{ \n"
+    "   outColor = fragIn.Color; \n"
+    "} \n";
 }
 
 #endif

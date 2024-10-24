@@ -4,7 +4,7 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include "Rendering/Vulkan/VulkanPixelShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanPixelShader.h"
 
 #include "Core/FlareShader.h"
 #include "Rendering/SPIRVTools.h"
@@ -41,7 +41,7 @@ VulkanPixelShader* VulkanPixelShader::CreateFromFShader(VulkanRenderEngineBacken
 
     if (glsl.empty())
     {
-        IERROR("Flare pixel shader error: " + error);
+        IERROR("Flare Pixel shader error: " + error);
 
         return nullptr;
     }
@@ -52,12 +52,10 @@ VulkanPixelShader* VulkanPixelShader::CreateFromGLSL(VulkanRenderEngineBackend* 
 {
     IVERIFY(!a_str.empty());
 
-    const bool spirv14 = a_engine->IsExtensionEnabled(VK_KHR_SPIRV_1_4_EXTENSION_NAME);
-
-    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangFragment, a_str, spirv14, true);
+    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangFragment, a_str, true);
     if (spirv.empty())
     {
-        IERROR("Failed to compile pixel shader");
+        IERROR("Failed to compile Pixel shader");
 
         return nullptr;
     }

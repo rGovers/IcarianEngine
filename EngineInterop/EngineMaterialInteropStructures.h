@@ -28,6 +28,15 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(MaterialBlendMode) : IOP_UINT8
 };
 
 /// <summary>
+/// Material mode enumeration
+/// </summary>
+IOP_CSPUBLIC enum IOP_ENUM_NAME(MaterialMode) : IOP_UINT8
+{
+    IOP_ENUM_VALUE(MaterialMode, BaseVertex) = 0,
+    IOP_ENUM_VALUE(MaterialMode, BaseMesh) = 1
+};
+
+/// <summary>
 /// Shader buffer type enumeration.
 /// </summary>
 IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
@@ -100,19 +109,22 @@ IOP_PACKED IOP_CSINTERNAL struct ShaderBufferInput
 
 IOP_PACKED IOP_CSINTERNAL struct RenderProgram
 {
-    IOP_CSPUBLIC IOP_UINT32 VertexShader;
-    IOP_CSPUBLIC IOP_UINT32 PixelShader;
-    IOP_CSPUBLIC IOP_UINT32 ShadowVertexShader;
-    IOP_CSPUBLIC IOP_UINT32 RenderLayer;
+    // May have to start storing stuff out of band if I need to make this any larger
     IOP_POINTER(VertexInputAttribute*) VertexAttributes;
-    IOP_UINT16 VertexInputCount;
-    IOP_CSPUBLIC IOP_UINT16 VertexStride;
-    IOP_UINT32 UBODataSize;
     IOP_POINTER(void*) UBOData;
     IOP_POINTER(void*) Data;
+    IOP_CSPUBLIC IOP_UINT32 VertexShader;
+    IOP_CSPUBLIC IOP_UINT32 PixelShader;
+    IOP_CSPUBLIC IOP_UINT32 ExtraShader;
+    IOP_CSPUBLIC IOP_UINT32 ShadowVertexShader;
+    IOP_CSPUBLIC IOP_UINT32 RenderLayer;
+    IOP_UINT32 UBODataSize;
+    IOP_UINT16 VertexInputCount;
+    IOP_CSPUBLIC IOP_UINT16 VertexStride;
     IOP_CSPUBLIC IOP_ENUM_NAME(MaterialBlendMode) ColorBlendMode;
     IOP_CSPUBLIC IOP_ENUM_NAME(CullMode) CullingMode;
     IOP_CSPUBLIC IOP_ENUM_NAME(PrimitiveMode) PrimitiveMode;
+    IOP_CSPUBLIC IOP_ENUM_NAME(MaterialMode) MaterialMode;
     IOP_UINT8 Flags;
 
 #ifdef CUBE_LANGUAGE_CPP
@@ -121,12 +133,12 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
 
     bool operator ==(const RenderProgram& a_other) const
     {
-        if (VertexShader != a_other.VertexShader || PixelShader != a_other.PixelShader)
+        if (VertexShader != a_other.VertexShader || PixelShader != a_other.PixelShader || ExtraShader != a_other.ExtraShader)
         {
             return false;
         }
 
-        if (CullingMode != a_other.CullingMode || PrimitiveMode != a_other.PrimitiveMode)
+        if (CullingMode != a_other.CullingMode || PrimitiveMode != a_other.PrimitiveMode || MaterialMode != a_other.MaterialMode)
         {
             return false;
         }
@@ -147,6 +159,11 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
         }
 
         if (VertexInputCount != a_other.VertexInputCount)
+        {
+            return false;
+        }
+
+        if (UBODataSize != a_other.UBODataSize)
         {
             return false;
         }

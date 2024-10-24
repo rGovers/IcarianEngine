@@ -142,9 +142,17 @@ CBBOOL ShadersToHeader(const CUBE_Path* a_shaderPaths, CBUINT32 a_shaderCount, c
         {
             fprintf(outputFile, "Vertex");
         }
-        else if (strcmp(extension.Data, ".pix") == 0 || strcmp(extension.Data, ".frag") == 0 || strcmp(extension.Data, ".fpix") == 0)
+        else if (strcmp(extension.Data, ".pix") == 0 || strcmp(extension.Data, ".frag") == 0 || strcmp(extension.Data, ".fpix") == 0 || strcmp(extension.Data, ".ffrag") == 0)
         {
             fprintf(outputFile, "Pixel");
+        }
+        else if (strcmp(extension.Data, ".task") == 0 || strcmp(extension.Data, ".ftask") == 0)
+        {
+            fprintf(outputFile, "Task");
+        }
+        else if (strcmp(extension.Data, ".mesh") == 0 || strcmp(extension.Data, ".fmesh") == 0)
+        {
+            fprintf(outputFile, "Mesh");
         }
         else if (strcmp(extension.Data, ".import") == 0)
         {

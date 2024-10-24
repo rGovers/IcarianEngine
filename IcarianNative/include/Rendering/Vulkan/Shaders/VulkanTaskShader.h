@@ -8,21 +8,21 @@
 
 #include <string_view>
 
-#include "VulkanShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
-class VulkanVertexShader : public VulkanShader
+class VulkanTaskShader : public VulkanShader
 {
 private:
 
 protected:
 
 public:
-    VulkanVertexShader() = delete;
-    VulkanVertexShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data);
-    virtual ~VulkanVertexShader();
+    VulkanTaskShader() = delete;
+    VulkanTaskShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data);
+    virtual ~VulkanTaskShader();
 
-    static VulkanVertexShader* CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str);
-    static VulkanVertexShader* CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str);
+    static VulkanTaskShader* CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str);
+    static VulkanTaskShader* CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str);
 };
 
 #endif

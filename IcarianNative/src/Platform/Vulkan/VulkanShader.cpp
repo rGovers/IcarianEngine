@@ -4,7 +4,7 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include "Rendering/Vulkan/VulkanShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
 VulkanShader::VulkanShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount)
 {

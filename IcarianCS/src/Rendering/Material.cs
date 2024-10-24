@@ -15,39 +15,45 @@ namespace IcarianEngine.Rendering
     public struct MaterialBuilder
     {
         /// <summary>
-        /// The vertex shader to be used by the material.
+        /// The <see cref="IcarianEngine.Rendering.VertexShader" /> to be used by the <see cref="IcarianEngine.Rendering.Material" />
         /// </summary>
+        /// Mutually exclusive with MeshShader
         public VertexShader VertexShader;
         /// <summary>
-        /// The pixel shader to be used by the material.
+        /// The <see cref="IcarianEngine.Rendering.MeshShader" /> to be used by the <see cref="IcarianEngine.Rendering.Material" />
+        /// </summary>
+        /// Mutally exclusive with VertexShader
+        public MeshShader MeshShader;
+        /// <summary>
+        /// The <see cref="IcarianEngine.Rendering.PixelShader" /> to be used by the <see cref="IcarianEngine.Rendering.Material" />
         /// </summary>
         public PixelShader PixelShader;
         /// <summary>
-        /// The stride between each vertex.
+        /// The stride between each Vertex.
         /// </summary>
         public ushort VertexStride; 
         /// <summary>
-        /// The attributes of the vertex type.
+        /// The attributes of the Vertex type when using <see cref="IcarianEngine.Rendering.VertexShader" />
         /// </summary>
         public VertexInputAttribute[] Attributes;
         /// <summary>
-        /// The culling mode to be used by the material.
+        /// The <see cref="IcarianEngine.Rendering.CullMode" /> to be used by the <see cref="IcarianEngine.Rendering.Material" />
         /// </summary>
         public CullMode CullingMode;
         /// <summary>
-        /// The primitive mode to be used by the material.
+        /// The <see cref="IcarianEngine.Rendering.PrimitiveMode" /> when using <see cref="IcarianEngine.Rendering.VertexShader" />
         /// </summary>
         public PrimitiveMode PrimitiveMode;
         /// <summary>
-        /// The render layer to be used by the material.
+        /// The render layer to be used by the <see cref="IcarianEngine.Rendering.Material" />
         /// </summary>
         public uint RenderLayer;
         /// <summary>
-        /// The blend mode of the material.
+        /// The <see cref="IcarianEngine.Rendering.MaterialBlendMode" /> of the <see cref="IcarianEngine.Rendering.Material" />
         /// </summary>
         public MaterialBlendMode ColorBlendMode;
         /// <summary>
-        /// The shadow vertex shader to be used by the material.
+        /// The shadow <see cref="IcarianEngine.Rendering.VertexShader" /> to be used by the <see cref="IcarianEngine.Rendering.Material" />
         /// </summary>
         /// Optional
         public VertexShader ShadowVertexShader;
@@ -61,7 +67,9 @@ namespace IcarianEngine.Rendering
     public class Material : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateProgram(uint a_vertexShader, uint a_pixelShader, ushort a_vertexStride, VertexInputAttribute[] a_attributes, uint a_cullMode, uint a_primitiveMode, uint a_colorBlendMode, uint a_renderLayer, uint a_shadowVertexShader, uint a_uboSize, IntPtr a_uboBuffer); 
+        extern static uint GenerateProgram(uint a_vertexShader, uint a_pixelShader, ushort a_vertexStride, VertexInputAttribute[] a_attributes, uint a_cullMode, uint a_primitiveMode, uint a_colorBlendMode, uint a_renderLayer, uint a_shadowVertexShader, uint a_uboSize, IntPtr a_uboBuffer);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GenerateMeshProgram(uint a_meshShader, uint a_pixelShader, ushort a_vertexStride, uint a_cullMode, uint a_colorBlendMode, uint a_renderLayer, uint a_shadowVertexShader, uint a_uboSize, IntPtr a_uboBuffer);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static RenderProgram GetProgramBuffer(uint a_addr); 
         [MethodImpl(MethodImplOptions.InternalCall)]
@@ -78,7 +86,7 @@ namespace IcarianEngine.Rendering
         MaterialDef m_def = null;
 
         /// <summary>
-        /// Determines if the material has been disposed.
+        /// Determines if the Material has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -97,7 +105,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// The render layer the material is on.
+        /// The render layer the Material is on
         /// </summary>
         /// When a bit matches the render layer of the render source it will be rendered.
         public uint RenderLayer
@@ -117,7 +125,19 @@ namespace IcarianEngine.Rendering
         }
         
         /// <summary>
-        /// The material definition used to create the material.
+        /// Gets the <see cref="IcarianEngine.Rendering.MaterialMode" /> of the Material
+        public MaterialMode MaterialMode
+        {
+            get
+            {
+                RenderProgram val = GetProgramBuffer(m_bufferAddr);
+
+                return val.MaterialMode;
+            }
+        }
+
+        /// <summary>
+        /// The <see cref="IcarianEngine.Definitions.MaterialDef" /> used to create the Material
         /// </summary>
         public MaterialDef Def
         {
@@ -133,10 +153,10 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Sets the user defined uniform buffer object.
+        /// Sets the user defined uniform buffer object
         /// </summary>
-        /// <param name="a_data">The data to set the uniform buffer object to.</param>
-        /// Must be a struct. Must match the type used to create the material.
+        /// <param name="a_data">The data to set the uniform buffer object to</param>
+        /// Must be a struct. Must match the type used to create the Material
         public void SetUserUniform(object a_data)
         {
             if (a_data == null)
@@ -167,10 +187,10 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Sets the texture sampler for the material.
+        /// Sets the <see cref="IcarianEngine.Rendering.TextureSampler" /> for the Material
         /// </summary>
-        /// <param name="a_shaderSlot">The slot to set the texture sampler to.</param>
-        /// <param name="a_sampler">The texture sampler to use.</param>
+        /// <param name="a_shaderSlot">The slot to set the <see cref="IcarianEngine.Rendering.TextureSampler" /> to</param>
+        /// <param name="a_sampler">The <see cref="IcarianEngine.Rendering.TextureSampler" /> to use</param>
         public void SetTexture(uint a_shaderSlot, TextureSampler a_sampler)
         {
             if (a_sampler != null)
@@ -184,22 +204,29 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Creates a material from a material builder.
+        /// Creates a Material from a <see cref="IcarianEngine.Rendering.MaterialBuilder" />
         /// </summary>
-        /// <param name="a_builder">The material builder to use.</param>
-        /// <returns>The created material. Returns null when invalid.</returns>
+        /// <param name="a_builder">The <see cref="IcarianEngine.Rendering.MaterialBuilder" /> to use</param>
+        /// <returns>The created Material. Returns null when invalid.</returns>
         public static Material CreateMaterial(MaterialBuilder a_builder)
         {
-            if (a_builder.VertexShader == null)
+            if (a_builder.VertexShader == null && a_builder.MeshShader == null)
             {
-                Logger.IcarianError("Material invalid vertex shader");
+                Logger.IcarianError("Material invalid Vertex/Mesh shader");
+
+                return null;
+            }
+
+            if (a_builder.VertexShader != null && a_builder.MeshShader != null)
+            {
+                Logger.IcarianError("Material both Mesh and Vertex shader");
 
                 return null;
             }
 
             if (a_builder.PixelShader == null)
             {
-                Logger.IcarianError("Material invalid pixel shader");
+                Logger.IcarianError("Material invalid Pixel shader");
 
                 return null;
             }
@@ -219,26 +246,52 @@ namespace IcarianEngine.Rendering
                 Marshal.StructureToPtr(a_builder.UBOBuffer, uboBuffer, false);
             }
 
-            uint bufferAddr = GenerateProgram
-            (
-                a_builder.VertexShader.InternalAddr, 
-                a_builder.PixelShader.InternalAddr, 
-                a_builder.VertexStride, 
-                a_builder.Attributes, 
-                (uint)a_builder.CullingMode, 
-                (uint)a_builder.PrimitiveMode, 
-                (uint)a_builder.ColorBlendMode, 
-                a_builder.RenderLayer,
-                shadowVertexShader, 
-                uboSize,
-                uboBuffer
-            );
+            uint bufferAddr = uint.MaxValue;
+            if (a_builder.VertexShader != null)
+            {
+                bufferAddr = GenerateProgram
+                (
+                    a_builder.VertexShader.InternalAddr, 
+                    a_builder.PixelShader.InternalAddr, 
+                    a_builder.VertexStride, 
+                    a_builder.Attributes, 
+                    (uint)a_builder.CullingMode, 
+                    (uint)a_builder.PrimitiveMode, 
+                    (uint)a_builder.ColorBlendMode, 
+                    a_builder.RenderLayer,
+                    shadowVertexShader, 
+                    uboSize,
+                    uboBuffer
+                );
+            }
+            else
+            {
+                bufferAddr = GenerateMeshProgram
+                (
+                    a_builder.MeshShader.InternalAddr,
+                    a_builder.PixelShader.InternalAddr,
+                    a_builder.VertexStride,
+                    (uint)a_builder.CullingMode,
+                    (uint)a_builder.ColorBlendMode,
+                    a_builder.RenderLayer,
+                    shadowVertexShader,
+                    uboSize,
+                    uboBuffer
+                );
+            }
 
             // Trust the GC bout as far as I can throw it
             // Therefore memory stays in the C# domain
             if (uboBuffer != IntPtr.Zero)
             {
                 Marshal.FreeHGlobal(uboBuffer);
+            }
+
+            if (bufferAddr == uint.MaxValue)
+            {
+                Logger.IcarianError("Failed to create Material");
+
+                return null;
             }
 
             Material mat = new Material(bufferAddr);
@@ -252,10 +305,10 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Creates a material from a material definition.
+        /// Creates a Material from a <see cref="IcarianEngine.Definitions.MaterialDef" />
         /// </summary>
-        /// <param name="a_def">The material definition to use.</param>
-        /// <returns>The created material. Returns null when invalid.</returns>
+        /// <param name="a_def">The <see cref="IcarianEngine.Definitions.MaterialDef" /> to use</param>
+        /// <returns>The created Material. Returns null when invalid.</returns>
         /// @see IcarianEngine.AssetLibrary.GetMaterial
         public static Material FromDef(MaterialDef a_def)
         {
@@ -367,7 +420,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Disposes the material.
+        /// Disposes the Material
         /// </summary>
         public void Dispose()
         {
@@ -377,9 +430,9 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Called when the material is being disposed.
+        /// Called when the material is being Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Determines if the material is being disposed.</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)

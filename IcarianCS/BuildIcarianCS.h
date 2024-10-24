@@ -216,6 +216,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Rendering/IRenderTexture.cs",
         "./src/Rendering/Material.cs",
         "./src/Rendering/MeshRenderer.cs",
+        "./src/Rendering/MeshShader.cs",
         "./src/Rendering/Model.cs",
         "./src/Rendering/MultiRenderTexture.cs",
         "./src/Rendering/ParticleSystem.cs",

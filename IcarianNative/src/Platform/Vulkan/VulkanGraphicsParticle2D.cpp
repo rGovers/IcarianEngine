@@ -8,7 +8,6 @@
 
 #include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
-#include "Core/ShaderBuffers.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanParticleShaderGenerator.h"
@@ -16,6 +15,7 @@
 #include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanShaderData.h"
+#include "Shaders.h"
 
 void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer)
 {
@@ -25,35 +25,28 @@ void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer)
 
     Array<VertexInputAttribute> vertexInputs;
 
-    const std::string vShaderStr = VulkanParticleShaderGenerator::GenerateVertexShader(a_buffer, &slot, &m_inputs, &vertexInputs);
-    const uint32_t vertexShader = m_gEngine->GenerateFVertexShader(vShaderStr);
+    const uint32_t taskShader = m_gEngine->GenerateFTaskShader(ParticleTaskShader);
+
+    const std::string mShaderStr = VulkanParticleShaderGenerator::GenerateMeshShader(a_buffer, &slot, &m_inputs, &vertexInputs);
+    const uint32_t meshShader = m_gEngine->GenerateFMeshShader(mShaderStr);
 
     const std::string pShaderStr = VulkanParticleShaderGenerator::GeneratePixelShader(a_buffer, &slot, &m_inputs);
     const uint32_t pixelShader = m_gEngine->GenerateFPixelShader(pShaderStr);
 
     const uint32_t inputCount = m_inputs.Size();
     const uint32_t vertexInputCount = vertexInputs.Size();
+    IVERIFY(vertexInputCount <= 0);
 
-    RenderProgram program = 
+    const RenderProgram program = 
     {
-        .VertexShader = vertexShader,
+        .VertexShader = meshShader,
         .PixelShader = pixelShader,
+        .ExtraShader = taskShader,
         .ShadowVertexShader = uint32_t(-1),
         .PrimitiveMode = PrimitiveMode_Triangles,
+        .MaterialMode = MaterialMode_BaseMesh,
         .Flags = 0b1 << RenderProgram::DestroyFlag
     };
-
-    if (vertexInputCount > 0)
-    {
-        program.VertexStride = sizeof(IcarianCore::ShaderParticleBuffer);
-        program.VertexInputCount = vertexInputCount;
-        program.VertexAttributes = new VertexInputAttribute[vertexInputCount];
-
-        for (uint32_t i = 0; i < vertexInputCount; ++i)
-        {
-            program.VertexAttributes[i] = vertexInputs[i];
-        }
-    }
 
     m_renderProgramAddr = m_gEngine->GenerateRenderProgram(program);
 }
@@ -61,13 +54,6 @@ void VulkanGraphicsParticle2D::Destroy()
 {
     if (m_renderProgramAddr != -1)
     {
-        const RenderProgram program = m_gEngine->GetRenderProgram(m_renderProgramAddr);
-        IDEFER(
-        if (program.VertexAttributes != nullptr) 
-        {
-            delete[] program.VertexAttributes;
-        });
-
         m_gEngine->DestroyRenderProgram(m_renderProgramAddr);
 
         m_renderProgramAddr = -1;
@@ -172,7 +158,10 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
 
     pipeline->Bind(a_index, a_commandBuffer);
 
-    a_commandBuffer.draw(buffer.MaxParticles * 6, 1, 0, 0);
+    // Well that was concerning it just letting me do a normal draw call and the Validation layer did not care
+    // The only thing was that nothing was rendering
+    a_commandBuffer.drawMeshTasksEXT((uint32_t)glm::ceil(buffer.MaxParticles / 256.0), 1, 1);
+    // a_commandBuffer.drawMeshTasksEXT(1, 1, 1);
 }
 
 #endif
