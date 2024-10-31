@@ -55,6 +55,7 @@ constexpr const char* OptionalDeviceExtensions[] =
 {
     VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
     VK_KHR_VIDEO_QUEUE_EXTENSION_NAME,
+    VK_KHR_VIDEO_MAINTENANCE_1_EXTENSION_NAME,
     VK_KHR_VIDEO_DECODE_QUEUE_EXTENSION_NAME,
     VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME,
 
@@ -602,9 +603,15 @@ Please ensure you have a Vulkan 1.1 capable GPU with greater then 256MB of VRAM"
     deviceFeatures2.features.samplerAnisotropy = VK_TRUE;
 
     vk::PhysicalDeviceSamplerYcbcrConversionFeatures ycbcrConversionFeatures;
-    if (IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME))
+    vk::PhysicalDeviceVideoMaintenance1FeaturesKHR videoMaintance1Features;
+    const bool isVideoEnabled = IsVideoEnabled();
+    if (isVideoEnabled)
     {
-        ycbcrConversionFeatures.samplerYcbcrConversion = VK_TRUE;
+        videoMaintance1Features.videoMaintenance1 = vk::True;
+
+        ycbcrConversionFeatures.samplerYcbcrConversion = vk::True;
+        ycbcrConversionFeatures.pNext = &videoMaintance1Features;
+
         deviceFeatures2.pNext = &ycbcrConversionFeatures;
     }
 
@@ -691,7 +698,7 @@ Please ensure you have a Vulkan 1.1 capable GPU with greater then 256MB of VRAM"
 
     VKRESERRMSG(m_lDevice.createCommandPool(&poolInfo, nullptr, &m_commandPool), "Failed to create command pool");
 
-    if (IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME))
+    if (isVideoEnabled)
     {
         m_videoDecodeCapabilities.VideoProfile = vk::VideoProfileInfoKHR
         (

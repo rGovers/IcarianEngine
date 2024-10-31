@@ -19,10 +19,11 @@ struct H264VideoFrameInfo
 
         struct 
         {
-            uint32_t POC;
+            int32_t POC;
             uint32_t GOP;
         };
     } PrioData;
+    uint32_t NALIDC;
     uint32_t Size;
     double TimeStamp;
     uint64_t Offset;
@@ -37,9 +38,11 @@ private:
     uint32_t              m_paddedWidth;
     uint32_t              m_paddedHeight;
 
+    H264::SliceHeader*    m_sliceHeaders;
     H264::SPS*            m_sps;
     H264::PPS*            m_pps;
 
+    uint32_t              m_sliceHeaderCount;
     uint32_t              m_spsCount;
     uint32_t              m_ppsCount;
 
@@ -92,6 +95,15 @@ public:
         return m_paddedHeight;
     }
 
+    inline const H264::SliceHeader* GetSliceHeaderData() const
+    {
+        return m_sliceHeaders;
+    }
+    inline uint32_t GetSliceHeaderCount() const
+    {
+        return m_sliceHeaderCount;
+    }
+
     inline const H264VideoFrameInfo* GetFrames() const
     {
         return m_frames;
@@ -119,7 +131,7 @@ public:
         return m_pps;
     }
 
-    virtual bool GetVideoClipData(FileHandle* a_handle, double a_inTimeStamp, uint32_t* a_startIndex, uint32_t* a_endIndex, uint8_t** a_data, uint32_t* a_size);
+    virtual bool GetVideoClipData(FileHandle* a_handle, uint32_t a_startIndex, uint32_t a_endIndex, uint32_t a_alignment, uint8_t** a_data, uint32_t* a_size);
 };
 
 // MIT License

@@ -32,13 +32,6 @@ uint32_t VideoManagerBindings::GenerateVideoClipFromFile(const std::filesystem::
 {
     VideoClip* clip = new VideoClip(a_path);
 
-    uint8_t* dat;
-    uint32_t size;
-    if (clip->GetVideoClipData(0, nullptr, nullptr, &dat, &size))
-    {
-        delete[] dat;
-    }
-
     return m_manager->m_clips.PushVal(clip);
 }
 void VideoManagerBindings::DestroyVideoClip(uint32_t a_addr) const
@@ -48,6 +41,7 @@ void VideoManagerBindings::DestroyVideoClip(uint32_t a_addr) const
 
     const VideoClip* clip = m_manager->m_clips[a_addr];
     IDEFER(delete clip);
+    
     m_manager->m_clips.Erase(a_addr);
 }
 

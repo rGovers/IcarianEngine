@@ -95,21 +95,12 @@ VideoClip::~VideoClip()
 
 }
 
-bool VideoClip::GetVideoClipData(double a_inTimeStamp, uint32_t* a_startIndex, uint32_t* a_endIndex, uint8_t** a_data, uint32_t* a_size) const
+bool VideoClip::GetVideoClipData(uint32_t a_startIndex, uint32_t a_endIndex, uint32_t a_alignment, uint8_t** a_data, uint32_t* a_size) const
 {
     IERRBLOCK;
 
     IVERIFY(a_data != nullptr);
     IVERIFY(a_size != nullptr);
-
-    if (a_startIndex != nullptr)
-    {
-        *a_startIndex = -1;
-    }
-    if (a_endIndex != nullptr)
-    {
-        *a_endIndex = -1;
-    }
 
     IERRCHECKRET(m_videoInfo != nullptr, false);
 
@@ -117,7 +108,7 @@ bool VideoClip::GetVideoClipData(double a_inTimeStamp, uint32_t* a_startIndex, u
     IERRCHECKRET(handle != nullptr, false);
     IDEFER(delete handle);
 
-    return m_videoInfo->GetVideoClipData(handle, a_inTimeStamp, a_startIndex, a_endIndex, a_data, a_size);
+    return m_videoInfo->GetVideoClipData(handle, a_startIndex, a_endIndex, a_alignment, a_data, a_size);
 }
 
 // MIT License

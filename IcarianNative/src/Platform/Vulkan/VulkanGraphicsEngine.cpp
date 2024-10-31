@@ -2708,7 +2708,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
         const Array<VulkanVideoTexture*> videoTextures = m_videoTextures.ToActiveArray();
         if (!videoTextures.Empty())
         {
-            if (m_vulkanEngine->IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME))
+            if (m_vulkanEngine->IsVideoEnabled())
             {   
                 device.resetCommandPool(m_decodePool[a_index]);
                 

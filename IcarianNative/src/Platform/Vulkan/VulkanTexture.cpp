@@ -146,7 +146,9 @@ void VulkanTexture::InitEmpty(vk::Format a_format, uint32_t a_channels)
     const vk::Device device = m_engine->GetLogicalDevice();
     const VmaAllocator allocator = m_engine->GetAllocator();
 
-    const VkImageCreateInfo imageInfo = 
+    const bool isVideoTexture = a_format == vk::Format::eG8B8R82Plane420Unorm;
+
+    VkImageCreateInfo imageInfo = 
     { 
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
@@ -161,6 +163,14 @@ void VulkanTexture::InitEmpty(vk::Format a_format, uint32_t a_channels)
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
+    if (isVideoTexture)
+    {
+        // I should probably clean this up however it works for now... 
+        // This whole class is becoming a mess and could propably use a refactor....
+        imageInfo.flags |= VK_IMAGE_CREATE_VIDEO_PROFILE_INDEPENDENT_BIT_KHR;
+        imageInfo.usage |= VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR | VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR;
+    }
+
     const VmaAllocationCreateInfo allocInfo = 
     { 
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
@@ -173,7 +183,7 @@ void VulkanTexture::InitEmpty(vk::Format a_format, uint32_t a_channels)
     vmaSetAllocationName(allocator, m_allocation, "Texture");
 #endif
 
-    constexpr vk::ImageSubresourceRange SubresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
+    const vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, m_arraySize);
 
     constexpr vk::ComponentMapping ComponentMapping = vk::ComponentMapping(vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity);
 
@@ -184,14 +194,16 @@ void VulkanTexture::InitEmpty(vk::Format a_format, uint32_t a_channels)
         vk::ImageViewType::e2D, 
         m_format,
         ComponentMapping,
-        SubresourceRange
+        subresourceRange
     );
 
     // Nevermind the solution was the conversion needed to be wrapped in a conversioninfo to fix the validation error
     vk::SamplerYcbcrConversionInfo conversionInfo;
-    if (a_format == vk::Format::eG8B8R82Plane420Unorm)
+
+    if (isVideoTexture)
     {
         vk::SamplerYcbcrConversion conversion;
+
         constexpr vk::SamplerYcbcrConversionCreateInfo CreateInfo = vk::SamplerYcbcrConversionCreateInfo
         (
             vk::Format::eG8B8R82Plane420Unorm,

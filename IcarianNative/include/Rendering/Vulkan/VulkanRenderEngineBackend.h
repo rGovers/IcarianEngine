@@ -219,6 +219,11 @@ public:
     {
         return m_currentFlightFrame;
     }
+
+    inline bool IsVideoEnabled() const
+    {
+        return IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME) && IsExtensionEnabled(VK_KHR_VIDEO_MAINTENANCE_1_EXTENSION_NAME);
+    }
 };
 
 #endif

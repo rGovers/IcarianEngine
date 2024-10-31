@@ -8,6 +8,7 @@
 #include "DataTypes/Array.h"
 #include "FileCache.h"
 #include "IcarianError.h"
+#include "Memory.h"
 
 H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_trackInfo, uint32_t a_trackIndex, FileHandle* a_handle)
 {
@@ -113,12 +114,13 @@ H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_
 
     uint32_t pocCycle = 0;
     uint32_t prevPICOrderCNTLSB = 0;
-    uint32_t prevPICOrderCNTMSB = 0;
+    int32_t prevPICOrderCNTMSB = 0;
 
     uint32_t trackDuration = 0;
 
     const double invTimescale = 1.0 / a_trackInfo.timescale;
 
+    Array<H264::SliceHeader> sliceHeaders;
     for (uint32_t i = 0; i < a_trackInfo.sample_count; ++i) 
     {
         unsigned int frameBytes;
@@ -167,6 +169,7 @@ H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_
             }
 
             const H264::SliceHeader header = H264::ReadSliceHeader(&bitStream, nal, m_pps, m_sps);
+            sliceHeaders.Push(header);
 
             if (header.PICOrderCNTLSB == 0) 
             {
@@ -179,7 +182,7 @@ H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_
             const uint32_t maxPICOrderCNTLSB = 1 << (sps.Log2MaxPicOrderCNTLSBMinus4 + 4);
             const uint32_t halfMaxPICOrderCNTLSB = maxPICOrderCNTLSB / 2;
 
-            uint32_t picOrderCNTMSB = prevPICOrderCNTMSB;
+            int32_t picOrderCNTMSB = prevPICOrderCNTMSB;
             if (header.PICOrderCNTLSB < prevPICOrderCNTLSB && (prevPICOrderCNTLSB - header.PICOrderCNTLSB) >= halfMaxPICOrderCNTLSB) 
             {
                 picOrderCNTMSB = prevPICOrderCNTMSB + maxPICOrderCNTLSB;
@@ -197,9 +200,10 @@ H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_
                 .Type = type,
                 .PrioData =
                 {
-                    .POC = picOrderCNTMSB + header.PICOrderCNTLSB,
+                    .POC = (int32_t)(picOrderCNTMSB + header.PICOrderCNTLSB),
                     .GOP = pocCycle - 1,
                 },
+                .NALIDC = nal.IDC,
                 .Size = size,
                 .TimeStamp = timestamp * invTimescale,
                 .Offset = (uint64_t)offset + (p - dat),
@@ -211,10 +215,27 @@ H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_
         }
     }
 
+    m_sliceHeaderCount = sliceHeaders.Size();
+    m_sliceHeaders = new H264::SliceHeader[m_sliceHeaderCount];
+    IERRDEFER(
+    {
+        m_sliceHeaderCount = 0;
+
+        delete[] m_sliceHeaders;
+        m_sliceHeaders = nullptr;
+    });
+
+    for (uint32_t i = 0; i < m_sliceHeaderCount; ++i)
+    {
+        m_sliceHeaders[i] = sliceHeaders[i];
+    }
+
     m_frameCount = frames.Size();
     m_frames = new H264VideoFrameInfo[m_frameCount];
     IERRDEFER(
     {
+        m_frameCount = 0;
+
         delete[] m_frames;
         m_frames = nullptr;
     });
@@ -251,6 +272,10 @@ H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_
 }
 H264VideoInfo::~H264VideoInfo()
 {
+    if (m_sliceHeaders != nullptr)
+    {
+        delete[] m_sliceHeaders;
+    }
     if (m_pps != nullptr)
     {
         delete[] m_pps;
@@ -265,81 +290,24 @@ H264VideoInfo::~H264VideoInfo()
         delete[] m_frames;
     }
 }
-bool H264VideoInfo::GetVideoClipData(FileHandle* a_handle, double a_inTimeStamp, uint32_t* a_startIndex, uint32_t* a_endIndex, uint8_t** a_data, uint32_t* a_size)
+bool H264VideoInfo::GetVideoClipData(FileHandle* a_handle, uint32_t a_startIndex, uint32_t a_endIndex, uint32_t a_alignment, uint8_t** a_data, uint32_t* a_size)
 {
     IERRBLOCK;
 
     IVERIFY(a_size != nullptr);
     IVERIFY(a_data != nullptr);
 
-    if (a_startIndex != nullptr)
-    {
-        *a_startIndex = -1;
-    }
-    if (a_endIndex != nullptr)
-    {
-        *a_endIndex = -1;
-    }
-
     *a_size = 0;
     *a_data = nullptr;
 
-    uint32_t startIndex = 0;
-    uint32_t endIndex = m_frameCount;
-    for (uint32_t i = 0; i < m_frameCount; ++i)
-    {
-        if (m_frames[i].TimeStamp > a_inTimeStamp)
-        {
-            for (uint32_t j = i; j < m_frameCount; ++j)
-            {
-                if (m_frames[j].Type == VideoFrameType_Intra)
-                {
-                    endIndex = j;
-
-                    break;
-                }
-            }
-
-            goto FoundIntra;
-        }
-
-        if (m_frames[i].Type == VideoFrameType_Intra)
-        {
-            startIndex = i;
-        }
-    }
-
-    return false;
-
-    FoundIntra:;
-
-    IERRCHECKRET(startIndex < m_frameCount, false);
-    IERRCHECKRET(endIndex < m_frameCount, false);
-    IERRCHECKRET(startIndex != endIndex, false);
-
-    if (a_startIndex != nullptr)
-    {
-        *a_startIndex = startIndex;
-    }
-    IERRDEFER(
-        if (a_startIndex != nullptr)
-        {
-            *a_startIndex = -1;
-        });
-    if (a_endIndex != nullptr)
-    {
-        *a_endIndex = endIndex;
-    }
-    IERRDEFER(
-        if (a_endIndex != nullptr)
-        {
-            *a_endIndex = -1;
-        });
+    IVERIFY(a_startIndex < m_frameCount);
+    IVERIFY(a_endIndex < m_frameCount);
+    IVERIFY(a_startIndex < a_endIndex);
 
     uint32_t size = 0;
-    for (uint32_t i = startIndex; i < endIndex; ++i)
+    for (uint32_t i = a_startIndex; i < a_endIndex; ++i)
     {
-        size += m_frames[i].Size;
+        size += AlignTo(m_frames[i].Size, a_alignment);
     }
 
     *a_size = size;
@@ -360,9 +328,10 @@ bool H264VideoInfo::GetVideoClipData(FileHandle* a_handle, double a_inTimeStamp,
     // Oversized but better over then under and/or multiple allocations
     uint8_t* readBuff = new uint8_t[size + 4];
     IDEFER(delete[] readBuff);
-    for (uint32_t i = startIndex; i < endIndex; ++i)
+    for (uint32_t i = a_startIndex; i < a_endIndex; ++i)
     {
         const H264VideoFrameInfo& frame = m_frames[i];
+        IERRCHECKRET(frame.Size > 4, false);
 
         IERRCHECKRET(a_handle->Seek(frame.Offset), false);
         IERRCHECKRET(a_handle->Read(readBuff, frame.Size) == frame.Size, false);
@@ -377,7 +346,9 @@ bool H264VideoInfo::GetVideoClipData(FileHandle* a_handle, double a_inTimeStamp,
         memcpy(p, H264::NALStartCode, H264::NALStartCodeSize);
         memcpy(p + H264::NALStartCodeSize, offBuf, frame.Size - 4);
 
-        p += frame.Size;
+        const uint32_t alignedSize = AlignTo(frame.Size, a_alignment);
+        
+        p += alignedSize;
     }
 
     return true;

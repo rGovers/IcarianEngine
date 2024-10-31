@@ -24,17 +24,21 @@ struct VulkanHarwareVideoData
     
     uint32_t                        DPBSlots;
     uint32_t                        MaxBuffers;
+    uint32_t                        BufferSize;
+    
     VmaAllocation                   Allocations[VideoBufferCount];
-  
+
+    vk::Buffer                      StreamBuffer;
+    VmaAllocation                   StreamAllocation;
+
     vk::VideoSessionKHR             VideoSession;
     vk::VideoSessionParametersKHR   SessionParameters;
   
     VulkanTexture*                  VideoTexture;
-
-    vk::VideoReferenceSlotInfoKHR   ReferenceSlots[TotalDBPFrames];
-    vk::VideoPictureResourceInfoKHR PictureResource[TotalDBPFrames];
 };
 
+// Between Vulkan and H264 there are far too many varibles to keep track of FUCK THIS
+// I will be back when this breaks not before I want off this ride
 class VulkanVideoTexture
 {
 private:

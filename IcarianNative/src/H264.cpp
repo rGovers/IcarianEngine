@@ -759,12 +759,12 @@ namespace H264
 
         header.FirstMBInSlice = a_bitStream->ue();
         header.SliceType = (e_SliceHeaderType)a_bitStream->ue();
-        header.PICParameterSetID = a_bitStream->ue();
+        header.PICParameterSetID = (uint8_t)a_bitStream->ue();
 
         const PPS& pps = a_pps[header.PICParameterSetID];
         const SPS& sps = a_sps[pps.SEQParameterSetID];
 
-        header.FrameNum = a_bitStream->u(sps.Log2MaxFrameNumMinus4 + 4);
+        header.FrameNum = (uint16_t)a_bitStream->u(sps.Log2MaxFrameNumMinus4 + 4);
 
         if (sps.Flags & SPSFlags_FrameMBSOnly)
         {
@@ -783,7 +783,7 @@ namespace H264
 
         if (a_nal.Type == NALUnitType_CodedSliceIDR)
         {
-            header.IDRPICID = a_bitStream->ue();
+            header.IDRPICID = (uint16_t)a_bitStream->ue();
         }
 
         if (sps.PICOrderCNTType == 0)

@@ -4,59 +4,17 @@
 
 #pragma once
 
-#include <filesystem>
-
-class VideoInfo;
-
-enum e_VideoUpdateMode
+template<typename T>
+constexpr T AlignTo(T a_offset, T a_alignment)
 {
-    VideoUpdateMode_Audio,
-    VideoUpdateMode_Video
+    return ((a_offset + a_alignment - T(1)) / a_alignment) * a_alignment;  
 };
 
-class VideoClip
+template<typename T>
+constexpr bool IsAligned(T a_offset, T a_alignment)
 {
-private:
-    std::filesystem::path m_path;
-
-    VideoInfo*            m_videoInfo;
-
-    e_VideoUpdateMode     m_updateMode;
-
-    double                m_time;
-
-protected:
-
-public:
-    VideoClip(const std::filesystem::path& a_path);
-    ~VideoClip();
-
-    inline bool IsValid() const
-    {
-        return m_videoInfo != nullptr;
-    }
-
-    inline e_VideoUpdateMode GetUpdateMode() const
-    {
-        return m_updateMode;
-    }
-
-    inline const VideoInfo* GetVideoInfo() const
-    {
-        return m_videoInfo;
-    }
-
-    inline double GetTime() const
-    {
-        return m_time;
-    }
-    inline void SetTime(double a_time)
-    {
-        m_time = a_time;
-    }
-
-    bool GetVideoClipData(uint32_t a_startIndex, uint32_t a_endIndex, uint32_t a_alignment, uint8_t** a_data, uint32_t* a_size) const;
-};
+    return a_offset == AlignTo(a_offset, a_alignment);
+}
 
 // MIT License
 // 

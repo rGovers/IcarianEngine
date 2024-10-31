@@ -57,7 +57,7 @@ public:
         return -1;
     }
 
-    virtual bool GetVideoClipData(FileHandle* a_handle, double a_inTimeStamp, uint32_t* a_startIndex, uint32_t* a_endIndex, uint8_t** a_data, uint32_t* a_size)
+    virtual bool GetVideoClipData(FileHandle* a_handle, uint32_t a_startIndex, uint32_t a_endIndex, uint32_t a_alignment, uint8_t** a_data, uint32_t* a_size)
     {
         return false;
     }

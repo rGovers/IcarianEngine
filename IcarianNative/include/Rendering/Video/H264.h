@@ -368,9 +368,9 @@ namespace H264
 	{
 		uint32_t FirstMBInSlice;
 		e_SliceHeaderType SliceType;
-		uint32_t PICParameterSetID;
-		uint32_t FrameNum;
-		uint32_t IDRPICID;
+		uint8_t PICParameterSetID;
+		uint16_t FrameNum;
+		uint16_t IDRPICID;
 		uint32_t PICOrderCNTLSB;
 		int32_t DeltaPICOrderCNTBottom;
 		int32_t DeltaPICOrderCNT[2];
