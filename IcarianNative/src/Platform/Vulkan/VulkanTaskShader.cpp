@@ -4,17 +4,15 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanTaskShader.h"
 
 #include "Core/FlareShader.h"
 #include "Rendering/SPIRVTools.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
-VulkanComputeShader::VulkanComputeShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data) : VulkanShader(a_engine, a_inputs, a_inputCount)
+VulkanTaskShader::VulkanTaskShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data) : VulkanShader(a_engine, a_inputs, a_inputCount)
 {
-    TRACE("Creating ComputeShader");
-    
     const vk::Device device = m_engine->GetLogicalDevice();
 
     const vk::ShaderModuleCreateInfo createInfo = vk::ShaderModuleCreateInfo
@@ -24,42 +22,45 @@ VulkanComputeShader::VulkanComputeShader(VulkanRenderEngineBackend* a_engine, co
         (uint32_t*)a_data.data()
     );
 
-    VKRESERRMSG(device.createShaderModule(&createInfo, nullptr, &m_module), "Failed to create ComputeShader");
+    VKRESERRMSG(device.createShaderModule(&createInfo, nullptr, &m_module), "Failed to create TaskShader");
+
+    TRACE("Created TaskShader");
 }
-VulkanComputeShader::~VulkanComputeShader()
+VulkanTaskShader::~VulkanTaskShader()
 {
     const vk::Device device = m_engine->GetLogicalDevice();
 
     device.destroyShaderModule(m_module);
 }
 
-VulkanComputeShader* VulkanComputeShader::CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str)
+VulkanTaskShader* VulkanTaskShader::CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str)
 {
     std::string error;
     std::vector<ShaderBufferInput> inputs;
     const std::string glsl = IcarianCore::GLSLFromFlareShader(a_str, IcarianCore::ShaderPlatform_Vulkan, a_imports, &inputs, &error);
+
     if (glsl.empty())
     {
-        IERROR("Flare compute shader error: " + error);
+        IERROR("Flare Task shader error: " + error);
 
         return nullptr;
     }
 
     return CreateFromGLSL(a_engine, inputs.data(), (uint32_t)inputs.size(), glsl);
 }
-VulkanComputeShader* VulkanComputeShader::CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str)
+VulkanTaskShader* VulkanTaskShader::CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str)
 {
     IVERIFY(!a_str.empty());
 
-    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangCompute, a_str, true);
+    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangTask, a_str, true);
     if (spirv.empty())
     {
-        IERROR("Failed to compile compute shader");
+        IERROR("Failed to compile Task shader");
 
         return nullptr;
-    }
+    }    
 
-    return new VulkanComputeShader(a_engine, a_inputs, a_inputCount, spirv);
+    return new VulkanTaskShader(a_engine, a_inputs, a_inputCount, spirv);
 }
 
 #endif

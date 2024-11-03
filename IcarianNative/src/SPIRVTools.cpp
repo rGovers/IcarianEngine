@@ -117,6 +117,15 @@ constexpr TBuiltInResource spirv_create_resources()
 	resource.maxTaskWorkGroupSizeY_NV = 1;
 	resource.maxTaskWorkGroupSizeZ_NV = 1;
 	resource.maxMeshViewCountNV = 4;
+	resource.maxMeshOutputVerticesEXT = 256;
+    resource.maxMeshOutputPrimitivesEXT = 256;
+	resource.maxTaskWorkGroupSizeX_EXT = 128;
+    resource.maxTaskWorkGroupSizeY_EXT = 128;
+    resource.maxTaskWorkGroupSizeZ_EXT = 128;
+	resource.maxMeshWorkGroupSizeX_EXT = 128;
+    resource.maxMeshWorkGroupSizeY_EXT = 128;
+    resource.maxMeshWorkGroupSizeZ_EXT = 128;
+	resource.maxMeshViewCountEXT = 4;
 
 	resource.limits.nonInductiveForLoops = true;
     resource.limits.generalUniformIndexing = true;
@@ -128,21 +137,17 @@ constexpr TBuiltInResource spirv_create_resources()
 
     return resource;
 }
-std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str, bool a_spriv14, bool a_optimize)
+std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str, bool a_optimize)
 {
 	constexpr EShMessages Messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
 
     TRACE("Generating SPIRV");
 
     glslang::TShader shader = glslang::TShader(a_lang);
-	if (a_spriv14)
-	{
-		shader.setEnvTarget(glslang::EShTargetLanguage::EShTargetSpv, glslang::EShTargetLanguageVersion::EShTargetSpv_1_4);
-	}
-	else
-	{
-		shader.setEnvTarget(glslang::EShTargetLanguage::EShTargetSpv, glslang::EShTargetLanguageVersion::EShTargetSpv_1_3);
-	}
+
+	// Huh guess I have to set both to keep it quiet
+	shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
+	shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_5);
 
     const char* strs[] =
 	{
@@ -174,7 +179,7 @@ std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_v
 	glslang::SpvOptions options = 
 	{
 		.disableOptimizer = !a_optimize,
-		.optimizeSize = true,
+		.optimizeSize = a_optimize,
 #ifdef DEBUG
 		.validate = true
 #endif

@@ -6,13 +6,14 @@
 
 #include "Rendering/Vulkan/VulkanPipeline.h"
 
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "Rendering/Vulkan/Shaders/VulkanPixelShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanMeshShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanVertexShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanTaskShader.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
-#include "Rendering/Vulkan/VulkanPixelShader.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanShaderData.h"
-#include "Rendering/Vulkan/VulkanVertexShader.h"
 #include "Trace.h"
 
 #include "EngineMaterialInteropStructures.h"
@@ -79,16 +80,59 @@ static Array<vk::PipelineShaderStageCreateInfo> GetStageInfo(const RenderProgram
 
     if (a_program.VertexShader != -1)
     {
-        const VulkanShader* vertexShader = a_gEngine->GetVertexShader(a_program.VertexShader);
-        IVERIFY(vertexShader != nullptr);
+        switch (a_program.MaterialMode) 
+        {
+        case MaterialMode_BaseVertex:
+        {
+            const VulkanShader* vertexShader = a_gEngine->GetVertexShader(a_program.VertexShader);
+            IVERIFY(vertexShader != nullptr);
 
-        stages.Push(vk::PipelineShaderStageCreateInfo
-        (
-            { },
-            vk::ShaderStageFlagBits::eVertex,
-            vertexShader->GetShaderModule(),
-            "main"
-        ));
+            stages.Push(vk::PipelineShaderStageCreateInfo
+            (
+                { },
+                vk::ShaderStageFlagBits::eVertex,
+                vertexShader->GetShaderModule(),
+                "main"
+            ));
+
+            break;
+        }
+        case MaterialMode_BaseMesh:
+        {
+            const VulkanMeshShader* meshShader = a_gEngine->GetMeshShader(a_program.VertexShader);
+            IVERIFY(meshShader != nullptr);
+
+            stages.Push(vk::PipelineShaderStageCreateInfo
+            (
+                { },
+                vk::ShaderStageFlagBits::eMeshEXT,
+                meshShader->GetShaderModule(),
+                "main"
+            ));
+
+            if (a_program.ExtraShader != -1)
+            {
+                const VulkanTaskShader* taskShader = a_gEngine->GetTaskShader(a_program.ExtraShader);
+                IVERIFY(taskShader != nullptr);
+
+                stages.Push(vk::PipelineShaderStageCreateInfo
+                (
+                    { },
+                    vk::ShaderStageFlagBits::eTaskEXT,
+                    taskShader->GetShaderModule(),
+                    "main"
+                ));
+            }
+
+            break;
+        }
+        default:
+        {
+            IERROR("Invalid MatieralMode");
+
+            break;
+        }
+        }
     }
 
     if (a_program.PixelShader != -1)
@@ -130,7 +174,7 @@ constexpr static vk::CullModeFlags GetCullingMode(e_CullMode a_mode)
     }
     }
 
-    ICARIAN_ASSERT(0);
+    IERROR("Invalid Culling mode");
 
     return vk::CullModeFlagBits::eNone;
 }
@@ -156,7 +200,7 @@ constexpr static vk::CullModeFlags GetInvCullingMode(e_CullMode a_mode)
     }
     }
     
-    ICARIAN_ASSERT(0);
+    IERROR("Invalid Inverse Culling mode");
 
     return vk::CullModeFlagBits::eNone;
 }
@@ -175,7 +219,7 @@ constexpr static vk::PrimitiveTopology GetPrimitiveMode(e_PrimitiveMode a_mode)
     }
     }
 
-    ICARIAN_ASSERT(0);
+    IERROR("Invalid Primitive mode");
 
     return vk::PrimitiveTopology::eTriangleList;
 }
@@ -206,8 +250,6 @@ constexpr static vk::Format GetFormat(const VertexInputAttribute& a_attrib)
         }
         }
 
-        ICARIAN_ASSERT(0);
-
         break;
     }
     case VertexType_Int:
@@ -231,8 +273,6 @@ constexpr static vk::Format GetFormat(const VertexInputAttribute& a_attrib)
             return vk::Format::eR32G32B32A32Sint;
         }        
         }
-
-        ICARIAN_ASSERT(0);
 
         break;
     }
@@ -258,17 +298,15 @@ constexpr static vk::Format GetFormat(const VertexInputAttribute& a_attrib)
         }
         }
 
-        ICARIAN_ASSERT(0);
-
         break;
     }
     default:
     {
-        ICARIAN_ASSERT(0);
-
         break;
     }
     }
+
+    IERROR("Invalid Vertex format");
 
     return vk::Format::eUndefined;
 }
@@ -389,12 +427,12 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
     const vk::PipelineRasterizationStateCreateInfo rasterizer = vk::PipelineRasterizationStateCreateInfo
     (
         { },
-        VK_FALSE,
-        VK_FALSE,
+        vk::False,
+        vk::False,
         vk::PolygonMode::eFill,
         GetCullingMode(program.CullingMode),
         vk::FrontFace::eClockwise,
-        VK_FALSE,
+        vk::False,
         0.0f,
         0.0f,
         0.0f,
@@ -404,11 +442,11 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
     vk::PipelineDepthStencilStateCreateInfo depthStencil = vk::PipelineDepthStencilStateCreateInfo
     (
         { },
-        VK_TRUE,
-        VK_TRUE,
+        vk::True,
+        vk::True,
         vk::CompareOp::eLess,
-        VK_FALSE,
-        VK_FALSE
+        vk::False,
+        vk::False
     );
 
     vk::PipelineColorBlendAttachmentState colorBlendAttachment;
@@ -418,15 +456,15 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
     {
     case MaterialBlendMode_None:
     {
-        colorBlendAttachment.blendEnable = VK_FALSE;
+        colorBlendAttachment.blendEnable = vk::False;
 
         break;
     }
     case MaterialBlendMode_One:
     {
-        depthStencil.depthWriteEnable = VK_FALSE;
+        depthStencil.depthWriteEnable = vk::False;
 
-        colorBlendAttachment.blendEnable = VK_TRUE;
+        colorBlendAttachment.blendEnable = vk::True;
 
         colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eOne;
         colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOne;
@@ -440,9 +478,9 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
     }
     case MaterialBlendMode_Alpha:
     {
-        depthStencil.depthWriteEnable = VK_FALSE;
+        depthStencil.depthWriteEnable = vk::False;
 
-        colorBlendAttachment.blendEnable = VK_TRUE;
+        colorBlendAttachment.blendEnable = vk::True;
 
         colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
         colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
@@ -456,9 +494,9 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
     }
     case MaterialBlendMode_AlphaBlend:
     {
-        depthStencil.depthWriteEnable = VK_FALSE;
+        depthStencil.depthWriteEnable = vk::False;
 
-        colorBlendAttachment.blendEnable = VK_TRUE;
+        colorBlendAttachment.blendEnable = vk::True;
 
         colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
         colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eDstAlpha;
@@ -488,7 +526,7 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
     const vk::PipelineColorBlendStateCreateInfo colorBlending = vk::PipelineColorBlendStateCreateInfo
     (
         { },
-        VK_FALSE,
+        vk::False,
         vk::LogicOp::eCopy,
         a_textureCount,
         colorBlendAttachments
@@ -599,12 +637,12 @@ VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* 
     const vk::PipelineRasterizationStateCreateInfo rasterizer = vk::PipelineRasterizationStateCreateInfo
     (
         { },
-        VK_FALSE,
-        VK_FALSE,
+        vk::False,
+        vk::False,
         vk::PolygonMode::eFill,
         cullMode,
         vk::FrontFace::eClockwise,
-        VK_TRUE,
+        vk::True,
         0.0f,
         0.0f,
         0.0f,
@@ -613,7 +651,7 @@ VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* 
 
     constexpr vk::PipelineColorBlendAttachmentState ColorBlendAttachment = vk::PipelineColorBlendAttachmentState
     (
-        VK_FALSE,
+        vk::False,
         vk::BlendFactor::eOne,
         vk::BlendFactor::eOne,
         vk::BlendOp::eAdd,
@@ -626,7 +664,7 @@ VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* 
     const vk::PipelineColorBlendStateCreateInfo colorBlending = vk::PipelineColorBlendStateCreateInfo
     (
         { },
-        VK_FALSE,
+        vk::False,
         vk::LogicOp::eCopy,
         1,
         &ColorBlendAttachment
@@ -648,11 +686,11 @@ VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* 
     constexpr vk::PipelineDepthStencilStateCreateInfo DepthStencil = vk::PipelineDepthStencilStateCreateInfo
     (
         { },
-        VK_TRUE,
-        VK_TRUE,
+        vk::True,
+        vk::True,
         vk::CompareOp::eLess,
-        VK_FALSE,
-        VK_FALSE
+        vk::False,
+        vk::False
     );
 
     const vk::GraphicsPipelineCreateInfo pipelineInfo = vk::GraphicsPipelineCreateInfo

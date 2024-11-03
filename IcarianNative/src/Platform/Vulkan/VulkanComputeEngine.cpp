@@ -6,15 +6,14 @@
 
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "Core/ShaderBuffers.h"
 #include "Logger.h"
+#include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
 #include "Rendering/Vulkan/VulkanComputeEngineBindings.h"
 #include "Rendering/Vulkan/VulkanComputeLayout.h"
 #include "Rendering/Vulkan/VulkanComputeParticle.h"
 #include "Rendering/Vulkan/VulkanComputePipeline.h"
-#include "Rendering/Vulkan/VulkanComputeShader.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanUniformBuffer.h"
 #include "Trace.h"

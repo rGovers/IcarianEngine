@@ -8,7 +8,7 @@
 
 #include <string_view>
 
-#include "Rendering/Vulkan/VulkanShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
 class VulkanPixelShader : public VulkanShader
 {

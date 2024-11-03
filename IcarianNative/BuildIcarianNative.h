@@ -29,7 +29,8 @@ const static char* IcarianNativeShaderBasePaths[] =
     "./shaders/SpotLight.fpix",
     "./shaders/UI.fvert",
     "./shaders/UIImage.fpix",
-    "./shaders/UIText.fpix"
+    "./shaders/UIText.fpix",
+    "./shaders/Particle.ftask"
 };
 
 const static CBUINT32 IcarianNativeShaderBasePathCount = sizeof(IcarianNativeShaderBasePaths) / sizeof(*IcarianNativeShaderBasePaths);
@@ -229,6 +230,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "./src/Platform/Vulkan/VulkanGraphicsEngineBindings.cpp",
             "./src/Platform/Vulkan/VulkanGraphicsParticle2D.cpp",
             "./src/Platform/Vulkan/VulkanLightData.cpp",
+            "./src/Platform/Vulkan/VulkanMeshShader.cpp",
             "./src/Platform/Vulkan/VulkanModel.cpp",
             "./src/Platform/Vulkan/VulkanParticleShaderGenerator.cpp",
             "./src/Platform/Vulkan/VulkanPipeline.cpp",
@@ -241,6 +243,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "./src/Platform/Vulkan/VulkanShaderData.cpp",
             "./src/Platform/Vulkan/VulkanShaderStorageObject.cpp",
             "./src/Platform/Vulkan/VulkanSwapchain.cpp",
+            "./src/Platform/Vulkan/VulkanTaskShader.cpp",
             "./src/Platform/Vulkan/VulkanTexture.cpp",
             "./src/Platform/Vulkan/VulkanTextureSampler.cpp",
             "./src/Platform/Vulkan/VulkanUniformBuffer.cpp",

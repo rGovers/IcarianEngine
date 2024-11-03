@@ -4,11 +4,10 @@
 
 #include "ThreadPool.h"
 
-#include <chrono>
 #include <glm/glm.hpp>
 
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "IcarianError.h"
 #include "Logger.h"
 #include "Runtime/RuntimeManager.h"
 #include "Runtime/RuntimeFunction.h"
@@ -92,9 +91,20 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::Start()
 {
-    for (uint32_t i = 0; i < m_threadCount; ++i)
+    // Holding back a couple threads so that they can jump right on high priority jobs
+    const uint32_t highJobs = glm::max(m_threadCount / 8, 1U);
+    const uint32_t lowJobs = m_threadCount - highJobs;
+
+    for (uint32_t i = 0; i < highJobs; ++i)
     {
-        m_threads[i] = std::thread(ThreadPool::Run, i);
+        m_threads[i] = std::thread(ThreadPool::Run, i, JobPriority_RuntimeHigh);
+    }
+
+    for (uint32_t i = 0; i < lowJobs; ++i)
+    {
+        const uint32_t index = i + highJobs;
+
+        m_threads[index] = std::thread(ThreadPool::Run, index, JobPriority_RuntimeLow);
     }
 }
 void ThreadPool::Stop()
@@ -156,8 +166,8 @@ uint32_t ThreadPool::GenerateLock()
 }
 void ThreadPool::DestroyLock(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "DestroyLock invalid lock address");
-    ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "DetroyLock lock is already destroyed");
+    IVERIFY(a_addr < Instance->m_runtimeLocks.Size());
+    IVERIFY(Instance->m_runtimeLocks[a_addr] != nullptr);
 
     const SharedSpinLock* lock = Instance->m_runtimeLocks[a_addr];
     IDEFER(delete lock);
@@ -166,29 +176,29 @@ void ThreadPool::DestroyLock(uint32_t a_addr)
 
 void ThreadPool::ReadLock(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "ReadLock invalid lock address");
-    ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "ReadLock lock is already destroyed");
+    IVERIFY(a_addr < Instance->m_runtimeLocks.Size());
+    IVERIFY(Instance->m_runtimeLocks[a_addr] != nullptr);
 
     Instance->m_runtimeLocks[a_addr]->LockShared();
 }
 void ThreadPool::ReadUnlock(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "ReadUnlock invalid lock address");
-    ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "ReadUnlock lock is already destroyed");
+    IVERIFY(a_addr < Instance->m_runtimeLocks.Size());
+    IVERIFY(Instance->m_runtimeLocks[a_addr] != nullptr);
 
     Instance->m_runtimeLocks[a_addr]->UnlockShared();
 }
 void ThreadPool::WriteLock(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "WriteLock invalid lock address");
-    ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "WriteLock lock is already destroyed");
+    IVERIFY(a_addr < Instance->m_runtimeLocks.Size());
+    IVERIFY(Instance->m_runtimeLocks[a_addr] != nullptr);
 
     Instance->m_runtimeLocks[a_addr]->Lock();
 }
 void ThreadPool::WriteUnlock(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < Instance->m_runtimeLocks.Size(), "WriteUnlock invalid lock address");
-    ICARIAN_ASSERT_MSG(Instance->m_runtimeLocks[a_addr] != nullptr, "WriteUnlock lock is already destroyed");
+    IVERIFY(a_addr < Instance->m_runtimeLocks.Size());
+    IVERIFY(Instance->m_runtimeLocks[a_addr] != nullptr);
 
     Instance->m_runtimeLocks[a_addr]->Unlock();
 }
@@ -213,12 +223,27 @@ void ThreadPool::PushJob(ThreadJob* a_job)
     Instance->m_jobAvailable.notify_one();
 }
 
-void ThreadPool::Run(uint32_t a_thread)
+void ThreadPool::Run(uint32_t a_thread, e_JobPriority a_priority)
 {
     RuntimeManager::AttachThread();
 
+    bool noif = false;
+
     while (!Instance->m_shutdown) 
     {
+        if (noif)
+        {
+            Instance->m_jobAvailable.notify_one();
+
+            // Busy wait to make sure it does not just grab the same job again
+            // I could yield but do not want to incase there is a high priority job
+            // If there is not should sleep on its own when it reaches the conditional
+            volatile int busy = 0;
+            while (++busy < 8) { }
+
+            noif = false;
+        }
+
         ThreadJob* job = nullptr;
         ThreadJob** jobPtr = &job;
         IDEFER(
@@ -237,6 +262,15 @@ void ThreadPool::Run(uint32_t a_thread)
             }
 
             job = Instance->m_jobQueue.top();
+
+            if (job->GetPriority() < a_priority)
+            {
+                job = nullptr;
+
+                noif = true;                
+
+                continue;
+            }
 
             Instance->m_jobQueue.pop();
         }

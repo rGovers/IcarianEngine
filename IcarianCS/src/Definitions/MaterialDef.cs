@@ -59,10 +59,16 @@ namespace IcarianEngine.Definitions
     public class MaterialDef : Def
     {
         /// <summary>
-        /// Path relative to the project for the vertex shader file to be used.
+        /// Path relative to <see cref="IcarianEngine.Mod.IcarianAssembly" /> for the <see cref="IcarianEngine.Rendering.VertexShader" /> file to be used
         /// </summary>
-        [EditorTooltip("Path relative to the project for the vertex shader file to be used"), EditorPathString(new string[] { ".fvert" })]
+        /// Mutualy exclusive with <see cref="IcarianEngine.Rendering.MeshShader" />
+        [EditorTooltip("Path relative to the project for the vertex shader file to be used. Exclusive with Mesh Shader."), EditorPathString(new string[] { ".fvert" })]
         public string VertexShaderPath;
+        /// <summary>
+        /// Path relative to <see cref="IcarianEngine.Mod.IcarianAssembly" /> for the <see cref="IcarianEngine.Rendering.MeshShader" /> file to be used
+        /// </summary>
+        [EditorTooltip("Path relative to the project for the vertex shader file to be used. Exclusive with Mesh Shader."), EditorPathString(new string[] { ".fmesh" })]
+        public string MeshShaderPath;
         /// <summary>
         /// Path relative to the project for the pixel shader file to be used.
         /// </summary>
@@ -224,9 +230,16 @@ namespace IcarianEngine.Definitions
         {
             base.PostResolve();
 
+            if (!string.IsNullOrEmpty(VertexShaderPath) && !string.IsNullOrEmpty(MeshShaderPath))
+            {
+                Logger.IcarianWarning($"MaterialDef {DefName} using both Mesh and Vertex shader");
+
+                return;
+            }
+
             if (VertexType == null)
             {
-                Logger.IcarianError("Material Def Invalid VertexType");
+                Logger.IcarianWarning($"MaterialDef {DefName} invalid VertexType");
 
                 return;
             }
@@ -238,13 +251,13 @@ namespace IcarianEngine.Definitions
 
             if (UniformBufferType != null && (!UniformBufferType.IsValueType || UniformBufferType.IsEnum))
             {
-                Logger.IcarianError("Material Def Invalid UniformBufferType");
+                Logger.IcarianWarning($"MaterialDef {DefName} invalid UniformBufferType");
             }
 
             MethodInfo methodInfo = VertexType.GetMethod("GetAttributes", BindingFlags.Public | BindingFlags.Static);
             if (methodInfo == null)
             {
-                Logger.IcarianError("Material Def no VertexAttributes");
+                Logger.IcarianError($"MaterialDef {DefName} no VertexAttributes");
 
                 return;
             }

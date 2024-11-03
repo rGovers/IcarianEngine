@@ -50,7 +50,6 @@ D(ParticleBuffer) \
 { \
 V4(Position) \
 V3(Velocity) \
-V4(Color) \
 }
 #define GLSL_PARTICLE_SSBO_STRUCTURE PARTICLE_SHADER_STRUCTURE(GLSL_SSBO_DEFINITION, GLSL_VEC3, GLSL_VEC4)
 

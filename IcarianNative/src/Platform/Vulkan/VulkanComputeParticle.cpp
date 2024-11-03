@@ -154,7 +154,8 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
         IcarianCore::ShaderParticleBuffer* particles = new IcarianCore::ShaderParticleBuffer[a_buffer->MaxParticles];
         IDEFER(delete[] particles);
 
-        const glm::vec4& colour = a_buffer->Colour;
+        const float velScale = a_buffer->EmitterVelocityScale;
+        const glm::vec3 initVel = a_buffer->InitialVelocity;
 
         switch (a_buffer->EmitterType) 
         {
@@ -167,13 +168,12 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
                     Random::Range(-1.0f, 1.0f),
                     Random::Range(-1.0f, 1.0f),
                     Random::Range(-1.0f, 1.0f)
-                );
+                ) * velScale + initVel;
 
                 particles[i] = 
                 {
                     .Position = glm::vec4(0.0f, 0.0f, 0.0f, 5.0f),
                     .Velocity = vel,
-                    .Color = colour,
                 };
             }
 

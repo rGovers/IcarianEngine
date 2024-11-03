@@ -37,6 +37,7 @@ class VulkanDepthRenderTexture;
 class VulkanGraphicsEngineBindings;
 class VulkanGraphicsParticle2D;
 class VulkanLightData;
+class VulkanMeshShader;
 class VulkanModel;
 class VulkanPipeline;
 class VulkanPixelShader;
@@ -44,6 +45,7 @@ class VulkanRenderCommand;
 class VulkanRenderEngineBackend;
 class VulkanRenderTexture;
 class VulkanSwapchain;
+class VulkanTaskShader;
 class VulkanTexture;
 class VulkanUniformBuffer;
 class VulkanVertexShader;
@@ -84,6 +86,7 @@ private:
     std::unordered_map<uint64_t, VulkanPipeline*> m_shadowPipelines;
     std::unordered_map<uint64_t, VulkanPipeline*> m_cubeShadowPipelines;
     std::unordered_map<std::string, std::string>  m_vertexImports;
+    std::unordered_map<std::string, std::string>  m_meshImports;
     std::unordered_map<std::string, std::string>  m_pixelImports;
 
     TStatic<VulkanRenderCommand>                  m_renderCommands;
@@ -92,6 +95,8 @@ private:
     TNCArray<RenderProgram>                       m_shaderPrograms;
      
     TNCArray<VulkanVertexShader*>                 m_vertexShaders;
+    TNCArray<VulkanTaskShader*>                   m_taskShaders;
+    TNCArray<VulkanMeshShader*>                   m_meshShaders;
     TNCArray<VulkanPixelShader*>                  m_pixelShaders;
      
     TNCArray<TextureSamplerBuffer>                m_textureSampler;
@@ -166,6 +171,13 @@ public:
     uint32_t GenerateFVertexShader(const std::string_view& a_source);
     void DestroyVertexShader(uint32_t a_addr);
     VulkanVertexShader* GetVertexShader(uint32_t a_addr);
+
+    uint32_t GenerateFTaskShader(const std::string_view& a_source);
+    void DestroyTaskShader(uint32_t a_addr);
+    VulkanTaskShader* GetTaskShader(uint32_t a_addr);
+    uint32_t GenerateFMeshShader(const std::string_view& a_source);
+    void DestroyMeshShader(uint32_t a_addr);
+    VulkanMeshShader* GetMeshShader(uint32_t a_addr);
 
     uint32_t GenerateFPixelShader(const std::string_view& a_source);
     void DestroyPixelShader(uint32_t a_addr);
