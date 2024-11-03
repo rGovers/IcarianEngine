@@ -237,15 +237,160 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// The color of the particles
+        /// The lifetime of particles
         /// </summary>
-        public Color Color
+        public float Lifetime
         {
             get
             {
                 ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
 
-                return buffer.Colour.ToColor();
+                return buffer.Lifetime;
+            }
+            set
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                if (buffer.Lifetime != value)
+                {
+                    unchecked
+                    {
+                        buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.RefreshBit);
+                    }
+
+                    buffer.Lifetime = value;
+
+                    SetComputeBuffer(m_particleBufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The size of the particle at the start of its lifetime
+        /// </summary>
+        public float StartSize
+        {
+            get
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                return buffer.StartSize;
+            }
+            set
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                if (buffer.StartSize != value)
+                {
+                    unchecked
+                    {
+                        buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.RefreshBit);
+                    }
+
+                    buffer.StartSize = value;
+
+                    SetComputeBuffer(m_particleBufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The size of the particle at the end of its lifetime
+        /// </summary>
+        public float EndSize
+        {
+            get
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                return buffer.EndSize;
+            }
+            set
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                if (buffer.EndSize != value)
+                {
+                    unchecked
+                    {
+                        buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.RefreshBit);
+                    }
+
+                    buffer.EndSize = value;
+
+                    SetComputeBuffer(m_particleBufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The scale of emitter velocity
+        /// </summary>
+        public float EmitterVelocityScale
+        {
+            get
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                return buffer.EmitterVelocityScale;
+            }
+            set
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                if (buffer.EmitterVelocityScale != value)
+                {
+                    unchecked
+                    {
+                        buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.RefreshBit);
+                    }
+
+                    buffer.EmitterVelocityScale = value;
+
+                    SetComputeBuffer(m_particleBufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The initial velocity to apply to particles
+        /// </summary>
+        public Vector3 InitialVelocity
+        {
+            get
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                return buffer.InitialVelocity;
+            }
+            set
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                if (buffer.InitialVelocity != value)
+                {
+                    unchecked
+                    {
+                        buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.RefreshBit);
+                    }
+
+                    buffer.InitialVelocity = value;
+
+                    SetComputeBuffer(m_particleBufferAddr, buffer);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The color of the particle at the start of its lifetime
+        /// </summary>
+        public Color StartColor
+        {
+            get
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                return buffer.StartColour.ToColor();
             }
             set
             {
@@ -253,14 +398,44 @@ namespace IcarianEngine.Rendering
 
                 Vector4 colour = value.ToVector4();
 
-                if (buffer.Colour != colour)
+                if (buffer.StartColour != colour)
                 {
                     unchecked
                     {
                         buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.RefreshBit);
                     }
 
-                    buffer.Colour = colour;
+                    buffer.StartColour = colour;
+
+                    SetComputeBuffer(m_particleBufferAddr, buffer);
+                }
+            }
+        }
+        /// <summary>
+        /// The color of the particle at the end of its lifetime
+        /// </summary>
+        public Color EndColor
+        {
+            get
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                return buffer.EndColour.ToColor();
+            }
+            set
+            {
+                ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
+
+                Vector4 colour = value.ToVector4();
+
+                if (buffer.EndColour != colour)
+                {
+                    unchecked
+                    {
+                        buffer.Flags |= (byte)(0b1 << (int)ComputeParticleBuffer.RefreshBit);
+                    }
+
+                    buffer.EndColour = colour;
 
                     SetComputeBuffer(m_particleBufferAddr, buffer);
                 }
@@ -320,13 +495,20 @@ namespace IcarianEngine.Rendering
                 ComputeParticleBuffer buffer = GetComputeBuffer(m_particleBufferAddr);
 
                 buffer.MaxParticles = def.MaxParticles;
+                buffer.EmitterRatio = def.EmitterRatio;
                 buffer.RenderLayer = def.RenderLayer;
                 buffer.EmitterType = def.EmitterType;
                 buffer.EmitterRadius = def.EmitterRadius;
                 buffer.Gravity = def.Gravity;
-                buffer.Colour = def.Color.ToVector4();
+                buffer.InitialVelocity = def.InitialVelocity;
+                buffer.StartColour = def.StartColor.ToVector4();
+                buffer.EndColour = def.EndColor.ToVector4();
+                buffer.StartSize = def.StartSize;
+                buffer.EndSize = def.EndSize;
+                buffer.Lifetime = def.Lifetime;
+                buffer.EmitterVelocityScale = def.EmitterVelocityScale;
                 buffer.Flags = 0;
-                
+
                 unchecked
                 {
                     if (def.Burst)

@@ -44,9 +44,15 @@ IOP_PACKED IOP_CSINTERNAL struct ComputeParticleBuffer
     IOP_CSPUBLIC IOP_ENUM_NAME(ParticleDisplayMode) DisplayMode;
     IOP_CSPUBLIC float EmitterRadius;
     IOP_CSPUBLIC float EmitterRatio;
+    IOP_CSPUBLIC float Lifetime;
+    IOP_CSPUBLIC float StartSize;
+    IOP_CSPUBLIC float EndSize;
+    IOP_CSPUBLIC float EmitterVelocityScale;
     IOP_CSPUBLIC IOP_VEC3 EmitterBounds;
     IOP_CSPUBLIC IOP_VEC3 Gravity;
-    IOP_CSPUBLIC IOP_VEC4 Colour;
+    IOP_CSPUBLIC IOP_VEC3 InitialVelocity;
+    IOP_CSPUBLIC IOP_VEC4 StartColour;
+    IOP_CSPUBLIC IOP_VEC4 EndColour;
     IOP_CSPUBLIC IOP_UINT32 MaxParticles;
     IOP_CSPUBLIC IOP_UINT8 Flags;
     IOP_POINTER(void*) Data;

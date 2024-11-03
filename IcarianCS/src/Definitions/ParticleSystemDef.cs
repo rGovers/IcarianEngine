@@ -35,10 +35,33 @@ namespace IcarianEngine.Definitions
         public uint MaxParticles;
 
         /// <summary>
+        /// The spawn ratio for the system
+        /// </summary>
+        public float EmitterRatio;
+
+        /// <summary>
         /// The RenderLayer of the system
         /// </summary>
-        [EditorBitfield]
         public uint RenderLayer;
+
+        /// <summary>
+        /// The lifetime of particles in the system
+        /// </summary>
+        public float Lifetime = 5.0f;
+
+        /// <summary>
+        /// The size of the particle at the start of its lifetime
+        /// </summary>
+        public float StartSize = 1.0f;
+        /// <summary>
+        /// The size of the particle at the end of its lifetime
+        /// </summary>
+        public float EndSize = 1.0f;
+
+        /// <summary>
+        /// The scale of emitter velocity
+        /// </summary>
+        public float EmitterVelocityScale = 1.0f;
 
         /// <summary>
         /// The gravity to apply to the particles
@@ -46,9 +69,18 @@ namespace IcarianEngine.Definitions
         public Vector3 Gravity = new Vector3(0.0f, 9.807f, 0.0f);
 
         /// <summary>
-        /// The color of the particles
+        /// The initial velocity to apply to the particles
         /// </summary>
-        public Color Color;
+        public Vector3 InitialVelocity;
+
+        /// <summary>
+        /// The color of the particle at the start of its lifetime
+        /// </summary>
+        public Color StartColor;
+        /// <summary>
+        /// The color of the particle at the end of its lifetime
+        /// </summary>
+        public Color EndColor;
 
         /// <summary>
         /// Is a burst particle system

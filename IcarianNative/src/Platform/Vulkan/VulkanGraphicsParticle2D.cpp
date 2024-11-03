@@ -7,7 +7,6 @@
 #include "Rendering/Vulkan/VulkanGraphicsParticle2D.h"
 
 #include "Core/Bitfield.h"
-#include "Core/IcarianDefer.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanParticleShaderGenerator.h"
@@ -23,19 +22,15 @@ void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer)
 
     uint16_t slot = 0;
 
-    Array<VertexInputAttribute> vertexInputs;
-
     const uint32_t taskShader = m_gEngine->GenerateFTaskShader(ParticleTaskShader);
 
-    const std::string mShaderStr = VulkanParticleShaderGenerator::GenerateMeshShader(a_buffer, &slot, &m_inputs, &vertexInputs);
+    const std::string mShaderStr = VulkanParticleShaderGenerator::GenerateMeshShader(a_buffer, &slot, &m_inputs);
     const uint32_t meshShader = m_gEngine->GenerateFMeshShader(mShaderStr);
 
     const std::string pShaderStr = VulkanParticleShaderGenerator::GeneratePixelShader(a_buffer, &slot, &m_inputs);
     const uint32_t pixelShader = m_gEngine->GenerateFPixelShader(pShaderStr);
 
     const uint32_t inputCount = m_inputs.Size();
-    const uint32_t vertexInputCount = vertexInputs.Size();
-    IVERIFY(vertexInputCount <= 0);
 
     const RenderProgram program = 
     {

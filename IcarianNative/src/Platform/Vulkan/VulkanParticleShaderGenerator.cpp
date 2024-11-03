@@ -15,6 +15,8 @@
 // Credit:
 // https://github.com/godotengine/godot/blob/master/scene/resources/particle_process_material.cpp
 
+static constexpr uint32_t WorkgroupSize = 256;
+
 static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_parameters, Array<ShaderBufferInput>* a_inputs)
 {
     a_inputs->Clear();
@@ -26,34 +28,29 @@ static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_param
 
     uint16_t slot = 0;
 
-    // TODO: Dynamic values probably using the UserUBO or a ParticleComputeBuffer TBD
-    if (IISBITSET(a_parameters.Flags, ComputeParticleBuffer::DynamicBit))
-    {
-        
-    }
-    else
-    {
-        code += "const vec3 gravity = vec3(" + std::to_string(a_parameters.Gravity.x) + ", " + std::to_string(a_parameters.Gravity.y) + ", " + std::to_string(a_parameters.Gravity.z) + "); \n";
-        code += "const vec4 colour = vec4(" + std::to_string(a_parameters.Colour.x) + ", " + std::to_string(a_parameters.Colour.y) + ", " + std::to_string(a_parameters.Colour.z) + ", " + std::to_string(a_parameters.Colour.w) + "); \n";
+    code += "const vec3 gravity = vec3(" + std::to_string(a_parameters.Gravity.x) + ", " + std::to_string(a_parameters.Gravity.y) + ", " + std::to_string(a_parameters.Gravity.z) + "); \n";
 
-        const bool isBurst = IISBITSET(a_parameters.Flags, ComputeParticleBuffer::BurstBit);
-        if (!isBurst)
+    const bool isBurst = IISBITSET(a_parameters.Flags, ComputeParticleBuffer::BurstBit);
+    if (!isBurst)
+    {
+        code += "const float emitterRatio = " + std::to_string(a_parameters.EmitterRatio) + "; \n";
+
+        code += "const vec3 initialVelocity = vec3(" + std::to_string(a_parameters.InitialVelocity.x) + ", " + std::to_string(a_parameters.InitialVelocity.y) + ", " + std::to_string(a_parameters.InitialVelocity.z) + "); \n";
+        code += "const float lifetime = " + std::to_string(a_parameters.Lifetime) + "; \n";
+        code += "const float emitterVelocityScale = " + std::to_string(a_parameters.EmitterVelocityScale) + "; \n";
+
+        switch (a_parameters.EmitterType)
         {
-            code += "const float emitterRatio = " + std::to_string(a_parameters.EmitterRatio) + "; \n";
+        case ParticleEmitterType_Point:
+        {
+            break;
+        }
+        default:
+        {
+            IERROR("Invalid particle emitter type");
 
-            switch (a_parameters.EmitterType)
-            {
-            case ParticleEmitterType_Point:
-            {
-                break;
-            }
-            default:
-            {
-                IERROR("Invalid particle emitter type");
-
-                break;
-            }
-            }
+            break;
+        }
         }
     }
 
@@ -104,8 +101,6 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
 {
     std::string code;
 
-    constexpr uint32_t WorkgroupSize = 256;
-
     code += "#version 450 \n";
 
     code += "layout(local_size_x=" + std::to_string(WorkgroupSize) +", local_size_y=1, local_size_z=1) in; \n";
@@ -127,7 +122,8 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
     
     code += "   float delta = timeBuffer.Time.x; \n"
     "   float timePassed = timeBuffer.Time.y; \n"
-    "   uint seedDelta = uint(timePassed * 1000); \n"
+    // Using a prime for a better seed
+    "   uint seedDelta = uint(timePassed * 5003); \n"
     "   uint seed = index * seedDelta + seedDelta; \n"
     
     "   ParticleBufferData particle = inParticleBuffer.objects[index]; \n"
@@ -145,9 +141,29 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
         {
         case ParticleEmitterType_Point:
         {
-            code += "       outParticleBuffer.objects[index].Position = vec4(0.0, 0.0, 0.0, 5.0); \n"
-            "       outParticleBuffer.objects[index].Velocity = vec3(rand(seed) * 2 - 1, rand(seed) * 2 - 1, rand(seed) * 2 - 1); \n"
-            "       outParticleBuffer.objects[index].Color = colour; \n";
+            code += "       outParticleBuffer.objects[index].Position = vec4(0.0, 0.0, 0.0, lifetime); \n"
+            "       outParticleBuffer.objects[index].Velocity = ";
+
+            if (a_parameters.EmitterVelocityScale > 0.001f)
+            {
+                code += "vec3(rand(seed) * 2 - 1, rand(seed) * 2 - 1, rand(seed) * 2 - 1)";
+
+                if (glm::epsilonEqual(a_parameters.EmitterVelocityScale, 1.0f, 0.001f))
+                {
+                    code += " * emitterVelocityScale"; 
+                }
+            }
+            else
+            {
+                code += "vec3(0.0)";
+            }
+
+            if (a_parameters.InitialVelocity != glm::vec3(0.0))
+            {
+                code += " + initialVelocity";
+            }
+
+            code += "; \n";
 
             break;
         }
@@ -166,29 +182,47 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
     "   else \n"
     "   { \n"
     "       outParticleBuffer.objects[index].Position = vec4(particle.Position.xyz + particle.Velocity * delta, particle.Position.w - delta); \n"
-    "       outParticleBuffer.objects[index].Velocity = particle.Velocity + gravity * delta; \n"
-    "       outParticleBuffer.objects[index].Color = particle.Color; \n"
+    "       outParticleBuffer.objects[index].Velocity = particle.Velocity";
+
+    if (a_parameters.Gravity != glm::vec3(0.0f))
+    {
+        code += " + (gravity * delta)";
+    }
+
+    code += "; \n" 
+
     "   } \n"
     "} \n";
 
     return code;
 }
 
-std::string VulkanParticleShaderGenerator::GenerateMeshShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs, Array<VertexInputAttribute>* a_vertexInputs)
+static std::string GenerateMeshVariables(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs)
 {
-    std::string code;
-
-    constexpr uint32_t WorkgroupSize = 256;
-
-    code += "#version 450 \n"
-    
-    "#extension GL_EXT_mesh_shader : require\n"
-
-    "layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in; \n"
-    "layout(triangles, max_vertices = 4, max_primitives = 2) out; \n";
+    a_inputs->Clear();
 
     ShaderBufferInput input;
     input.Count = 1;
+
+    std::string code;
+
+    code += "const float startSize = " + std::to_string(a_parameters.StartSize) + "; \n";
+    code += "const float endSize = " + std::to_string(a_parameters.EndSize) + "; \n";
+
+    code += "const vec4 startColour = vec4(" + std::to_string(a_parameters.StartColour.x) + ", " + std::to_string(a_parameters.StartColour.y) + ", " + std::to_string(a_parameters.StartColour.z) + ", "  + std::to_string(a_parameters.StartColour.w) + "); \n";
+    code += "const vec4 endColour = vec4(" + std::to_string(a_parameters.EndColour.x) + ", " + std::to_string(a_parameters.EndColour.y) + ", " + std::to_string(a_parameters.EndColour.z) + ", "  + std::to_string(a_parameters.EndColour.w) + "); \n";
+
+    code += "const float lifetime = " + std::to_string(a_parameters.Lifetime) + "; \n";
+    code += "const float invLifetime = " + std::to_string(1.0f / a_parameters.Lifetime) + "; \n";
+
+    input.Slot = *a_slot;
+    input.BufferType = ShaderBufferType_CameraBuffer;
+    a_inputs->Push(input);
+    code += "#!structure(CameraBuffer, " + std::to_string((*a_slot)++) + ", camBuffer) \n";
+
+    input.BufferType = ShaderBufferType_PModelBuffer;
+    a_inputs->Push(input);
+    code += "#!pushbuffer(PModelBuffer, modelBuffer)";
 
     switch (a_parameters.DisplayMode)
     {
@@ -209,19 +243,27 @@ std::string VulkanParticleShaderGenerator::GenerateMeshShader(const ComputeParti
     }
     }
 
-    input.Slot = *a_slot;
-    input.BufferType = ShaderBufferType_CameraBuffer;
-    a_inputs->Push(input);
-    code += "#!structure(CameraBuffer, " + std::to_string((*a_slot)++) + ", camBuffer) \n";
+    return code;
+}
 
-    input.BufferType = ShaderBufferType_PModelBuffer;
-    a_inputs->Push(input);
-    code += "#!pushbuffer(PModelBuffer, modelBuffer)";
+std::string VulkanParticleShaderGenerator::GenerateMeshShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs)
+{
+    std::string code;
+
+    code += "#version 450 \n"
+    
+    "#extension GL_EXT_mesh_shader : require\n"
+
+    "layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in; \n"
+    "layout(triangles, max_vertices = 4, max_primitives = 2) out; \n";
+
+    code += GenerateMeshVariables(a_parameters, a_slot, a_inputs);
 
     code += "layout(location=0) out PerVertexData \n"
     "{ \n"
     "   vec2 UV; \n"
     "   vec4 Color; \n"
+    "   uint Index; \n"
     "} vertOut[];\n"
 
     "struct TaskPayload \n"
@@ -233,7 +275,7 @@ std::string VulkanParticleShaderGenerator::GenerateMeshShader(const ComputeParti
     
     "void main() \n"
     "{ \n";
-    code += "   uint index = taskIn.TaskID * " + std::to_string(WorkgroupSize) + " + gl_LocalInvocationIndex.x; \n";
+    code += "   uint index = taskIn.TaskID * " + std::to_string(WorkgroupSize) + " + gl_GlobalInvocationID.x; \n";
 
     if (a_parameters.MaxParticles % WorkgroupSize != 0)
     {
@@ -249,21 +291,45 @@ std::string VulkanParticleShaderGenerator::GenerateMeshShader(const ComputeParti
     case ParticleDisplayMode_Quad:
     {
         code += "   ParticleBufferData particle = particleBuffer.objects[index]; \n"
-        "   if (particle.Position.w > 0) \n"
+        "   float particleLife = particle.Position.w; \n"
+        // Apparently need to use an epsilon otherwise things get fucky
+        "   if (particleLife > 0.001) \n"
         "   { \n"
         "       SetMeshOutputsEXT(4, 2); \n"
+        "       float lifeScale = particleLife * invLifetime; \n";
 
-        "       mat3 camBill = mat3(camBuffer.InvView); \n"
+        if (a_parameters.StartSize != a_parameters.EndSize)
+        {
+            code += "       float size = mix(endSize, startSize, lifeScale); \n";
+        }
+        else
+        {
+            code += "       float size = startSize; \n";
+        }
+
+        if (a_parameters.StartColour != a_parameters.EndColour)
+        {
+            code += "       vec4 colour = mix(endColour, startColour, lifeScale); \n";
+        }
+        else
+        {
+            code += "       vec4 colour = startColour; \n";
+        }
+
+        code += "       mat3 camBill = mat3(camBuffer.InvView); \n"
         "       #!preloop(iter, 0, 4, \n"
         "       { \n"
         "           vec2 uv = vec2(iter & 1, iter >> 1); \n"
-        // Has a better chance of being optimized away then fma
-        // If it will be run then we use fma
-        "           vec2 pos = uv * 2 + -1; \n"
+        // Sigh....
+        // Compiler is not optimizing this away and I cannot be fucked
+        // It is constant how...
+        // fma it is then
+        "           vec2 pos = fma(uv, vec2(2), vec2(-1)); \n"
         "           vec3 billPos = camBill * vec3(pos, 0.0); \n"
-        "           gl_MeshVerticesEXT[iter].gl_Position = camBuffer.ViewProj * modelBuffer.Model * vec4(particle.Position.xyz + billPos * 0.01, 1.0); \n"
+        "           gl_MeshVerticesEXT[iter].gl_Position = camBuffer.ViewProj * modelBuffer.Model * vec4(particle.Position.xyz + billPos * size, 1.0); \n"
         "           vertOut[iter].UV = uv; \n"
-        "           vertOut[iter].Color = particle.Color; \n"
+        "           vertOut[iter].Color = colour; \n"
+        "           vertOut[iter].Index = index; \n"
         "       }) \n"
 
         "       gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex + 0] =  uvec3(0, 1, 2); \n"
@@ -296,6 +362,7 @@ std::string VulkanParticleShaderGenerator::GeneratePixelShader(const ComputePart
     "{ \n"
     "   vec2 UV; \n"
     "   vec4 Color; \n"
+    "   uint Index; \n"
     "} fragIn; \n"
 
     "layout(location = 0) out vec4 outColor; \n"
