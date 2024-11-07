@@ -121,6 +121,12 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_PROFILER");
     }
 
+    // Experimental feature and do not want to support Windows until I confirm it works and is effective
+    if (a_targetPlatform != TargetPlatform_Windows && 1)
+    {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_DMA");
+    }
+
     CUBE_CProject_AppendIncludePaths(&project, 
         "./include",
 
@@ -136,6 +142,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "../deps/KTX-Software/include",
         "../deps/flare-tinyxml2",
 	    "../deps/Vulkan-Headers/include",
+        "../deps/renderdoc/app/",
 
         "./lib/enet/include",
         "./lib/glslang",
@@ -210,6 +217,14 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         
         "./src/WAVAudioClip.cpp"
     );
+
+    // Should probably make this separate but works for now
+    if (1)
+    {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_GRAPHICS_RENDERDOC");
+
+        CUBE_CProject_AppendSource(&project, "./src/Library/LibRenderDoc.cpp");
+    }
 
     // Keeping it on for now just breaking it out in preperation for platform configuration
     if (1)

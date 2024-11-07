@@ -297,21 +297,28 @@ void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTe
 
     m_renderTexAddr = a_renderTexAddr;
 
-    glm::vec2 screenSize;
+    uint32_t screenWidth;
+    uint32_t screenHeight;
 
     const VulkanRenderTexture* renderTexture = m_gEngine->GetRenderTexture(m_renderTexAddr);
-
     if (renderTexture == nullptr)
     {
-        screenSize = m_swapchain->GetSize();
+        screenWidth = m_swapchain->GetWidth();
+        screenHeight = m_swapchain->GetHeight();
 
         constexpr vk::ClearValue ClearColor = vk::ClearValue(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f));
 
+        const uint32_t imageIndex = m_engine->GetImageIndex();
+
+        const vk::Rect2D rect = vk::Rect2D({ 0, 0 }, { screenWidth, screenHeight });
+        const vk::RenderPass pass = m_swapchain->GetRenderPass();
+        const vk::Framebuffer framebuffer = m_swapchain->GetFramebuffer(imageIndex);
+
         const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
         (
-            m_swapchain->GetRenderPass(),
-            m_swapchain->GetFramebuffer(m_engine->GetImageIndex()),
-            vk::Rect2D({ 0, 0 }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y }),
+            pass,
+            framebuffer,
+            rect,
             1,
             &ClearColor
         );
@@ -320,7 +327,8 @@ void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTe
     }
     else
     {
-        screenSize = glm::vec2(renderTexture->GetWidth(), renderTexture->GetHeight());
+        screenWidth = renderTexture->GetWidth();
+        screenHeight = renderTexture->GetHeight();
 
         vk::RenderPass renderPass;
 
@@ -346,17 +354,25 @@ void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTe
         }
         default:
         {
-            ICARIAN_ASSERT(0);
+            IERROR("Invalid RenderTextureBindMode");
+
+            break;;
         }
         }
+
+        const vk::Rect2D rect = vk::Rect2D({ 0, 0 }, { screenWidth, screenHeight });
+        const vk::Framebuffer framebuffer = renderTexture->GetFramebuffer();
+
+        const uint32_t clearCount = renderTexture->GetTotalTextureCount();
+        const vk::ClearValue* clearValues = renderTexture->GetClearValues();
 
         const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
         (
             renderPass,
-            renderTexture->GetFramebuffer(),
-            vk::Rect2D({ 0, 0 }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y }),
-            renderTexture->GetTotalTextureCount(),
-            renderTexture->GetClearValues()
+            framebuffer,
+            rect,
+            clearCount,
+            clearValues
         );
 
         m_commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
@@ -367,6 +383,8 @@ void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTe
         return;
     }
     
+    const glm::vec2 screenSize = glm::vec2(screenWidth, screenHeight);
+
     const CameraBuffer camBuffer = m_gEngine->GetCameraBuffer(m_cameraAddr);
     const glm::vec2 viewPos = camBuffer.View.Position * screenSize;
     const glm::vec2 viewSize = camBuffer.View.Size * screenSize;
@@ -409,22 +427,22 @@ void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, uint32_t a_inde
     // Probably better to copy or redraw when not flushed
     Flush();
 
-    const glm::ivec2 swapSize = m_swapchain->GetSize();
+    uint32_t width = m_swapchain->GetWidth();
+    uint32_t height = m_swapchain->GetHeight();
 
     vk::Image dstImage = m_swapchain->GetTexture();
-    vk::Offset3D dstOffset = vk::Offset3D((int32_t)swapSize.x, (int32_t)swapSize.y, 1);
     vk::ImageLayout dstLayout = m_swapchain->GetImageLayout();
 
     if (a_dst != nullptr)
     {
+        width = a_dst->GetWidth();
+        height = a_dst->GetHeight();
+
         dstImage = a_dst->GetTexture(0);
-
-        const uint32_t dstWidth = a_dst->GetWidth();
-        const uint32_t dstHeight = a_dst->GetHeight();
-
-        dstOffset = vk::Offset3D((int32_t)dstWidth, (int32_t)dstHeight, 1);
         dstLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
     }
+    
+    const vk::Offset3D dstOffset = vk::Offset3D((int32_t)width, (int32_t)height, 1);
 
     const vk::Image srcImage = a_src->GetTexture(a_index);
 

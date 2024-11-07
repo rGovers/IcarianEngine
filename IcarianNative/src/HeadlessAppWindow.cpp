@@ -11,11 +11,12 @@
 #include <string>
 
 #include "Application.h"
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianError.h"
 #include "IcarianError.h"
 #include "InputManager.h"
 #include "Profiler.h"
+#include "Rendering/LibRenderDoc.h"
 #include "Rendering/UI/UIControl.h"
 #include "Trace.h"
 
@@ -82,9 +83,11 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app) : AppWindow(a_app)
 
     m_close = false;
 
+#ifndef ICARIANNATIVE_ENABLE_DMA
     m_frameData = nullptr;
     m_unlockWindow = false;
-    
+#endif
+
     m_delta = 0.0;
     m_time = 0.0;
 
@@ -92,13 +95,13 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app) : AppWindow(a_app)
 
     const std::string addrStr = GetAddr(PipeName);
 
-#if WIN32
+#ifdef WIN32
     WSADATA wsaData = { };
-    ICARIAN_ASSERT_MSG_R(WSAStartup(MAKEWORD(2, 2), &wsaData) == 0, "Failed to start WSA");
+    IVERIFY(WSAStartup(MAKEWORD(2, 2), &wsaData) == 0);
 #endif
 
     m_pipe = IcarianCore::IPCPipe::Connect(addrStr);
-    ICARIAN_ASSERT_MSG_R(m_pipe != nullptr, "Failed to connect to pipe");
+    IVERIFY(m_pipe != nullptr);
 
     m_width = 1280;
     m_height = 720;
@@ -124,11 +127,13 @@ HeadlessAppWindow::~HeadlessAppWindow()
         m_pipe = nullptr;
     }
 
+#ifndef ICARIANNATIVE_ENABLE_DMA
     if (m_frameData != nullptr)
     {
         delete[] m_frameData;
         m_frameData = nullptr;
     }
+#endif
 
     delete Logger::CallbackFunc;
     Logger::CallbackFunc = nullptr;
@@ -138,6 +143,18 @@ HeadlessAppWindow::~HeadlessAppWindow()
 
 void HeadlessAppWindow::PushMessageQueue()
 {
+    IERRBLOCK;
+
+    IERRDEFER(
+    {
+        delete m_pipe;
+        m_pipe = nullptr;
+
+        m_close = true;
+
+        IERROR("Failed to send messages");
+    });
+
     if (!m_queuedMessages.Empty())
     {
         TLockArray<IcarianCore::PipeMessage> a = m_queuedMessages.ToLockArray();
@@ -153,19 +170,7 @@ void HeadlessAppWindow::PushMessageQueue()
                 delete[] msg.Data;
             });
 
-            if (!m_pipe->Send(msg))
-            {
-                m_close = true;
-
-                delete m_pipe;
-                m_pipe = nullptr;
-
-                printf("Failed to send message \n");
-
-                assert(0);
-
-                return;
-            }
+            IERRCHECK(m_pipe->Send(msg));
         }
 
         m_queuedMessages.UClear();
@@ -204,14 +209,12 @@ bool HeadlessAppWindow::PollMessage()
     std::queue<IcarianCore::PipeMessage> messages;
     if (!m_pipe->Receive(&messages))
     {
-        printf("Failed to receive message \n");
-
         m_close = true;
 
         delete m_pipe;
         m_pipe = nullptr;
 
-        assert(0);
+        IERROR("Failed to receive message");
 
         return false;
     }
@@ -236,23 +239,30 @@ bool HeadlessAppWindow::PollMessage()
         }
         case IcarianCore::PipeMessageType_UnlockFrame:
         {
+#ifdef ICARIANNATIVE_ENABLE_DMA
+            // IERROR("DMA enabled UnlockFrame not available");
+#else
             m_unlockWindow = true;
+#endif
 
             break;
         }
         case IcarianCore::PipeMessageType_Resize:
         {
-            const std::lock_guard g = std::lock_guard(m_fLock);
             const glm::ivec2 size = *(glm::ivec2*)msg.Data;
 
             m_width = (uint32_t)size.x;
             m_height = (uint32_t)size.y;
+
+#ifndef ICARIANNATIVE_ENABLE_DMA
+            const std::lock_guard g = std::lock_guard(m_fLock);
 
             if (m_frameData != nullptr)
             {
                 delete[] m_frameData;
                 m_frameData = nullptr;
             }
+#endif
 
             break;
         }
@@ -278,7 +288,7 @@ bool HeadlessAppWindow::PollMessage()
 
             const unsigned char mouseState = *(unsigned char*)msg.Data;
 
-            bool leftDown = mouseState & 0b1 << MouseButton_Left;
+            bool leftDown = IISBITSET(mouseState, MouseButton_Left);
             if (leftDown)
             {
                 if (UIControl::SubmitClick(inputManager->GetCursorPos(), glm::vec2((float)m_width, (float)m_height)))
@@ -292,8 +302,8 @@ bool HeadlessAppWindow::PollMessage()
             }
 
             inputManager->SetMouseButton(MouseButton_Left, leftDown);
-            inputManager->SetMouseButton(MouseButton_Middle, mouseState & 0b1 << MouseButton_Middle);
-            inputManager->SetMouseButton(MouseButton_Right, mouseState & 0b1 << MouseButton_Right);
+            inputManager->SetMouseButton(MouseButton_Middle, IISBITSET(mouseState, MouseButton_Middle));
+            inputManager->SetMouseButton(MouseButton_Right, IISBITSET(mouseState, MouseButton_Right));
 
             break;
         }
@@ -310,6 +320,11 @@ bool HeadlessAppWindow::PollMessage()
                 const e_KeyCode keyCode = (e_KeyCode)i;
 
                 inputManager->SetKeyboardKey(keyCode, state.IsKeyDown(keyCode));
+            }
+
+            if (inputManager->IsKeyPressed(KeyCode_F9))
+            {
+                LibRenderDoc::CaptureFrame();
             }
 
             break;
@@ -361,14 +376,13 @@ void HeadlessAppWindow::Update()
             delete m_pipe;
             m_pipe = nullptr;
 
-            printf("Failed to send update data \n");
-
-            assert(0);
+            IERROR("Failed to send update data");
 
             return;
         }
     }
 
+#ifndef ICARIANNATIVE_ENABLE_DMA
     {
         PROFILESTACK("Frame Data");
         if (m_frameData != nullptr && m_unlockWindow)
@@ -384,14 +398,13 @@ void HeadlessAppWindow::Update()
                 delete m_pipe;
                 m_pipe = nullptr;
 
-                printf("Failed to send frame data \n");
-
-                assert(0);
+                IERROR("Failed to send frame data");
 
                 return;
             }
         }
     }
+#endif
 
     {
         PROFILESTACK("Messages");
@@ -399,14 +412,8 @@ void HeadlessAppWindow::Update()
     }
 }
 
-glm::ivec2 HeadlessAppWindow::GetSize() const
+void HeadlessAppWindow::PushFrameInfo(double a_delta, double a_time)
 {
-    return glm::ivec2((int)m_width, (int)m_height);
-}
-
-void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer, double a_delta, double a_time)
-{
-    PROFILESTACK("Frame Data");
     constexpr int Size = sizeof(glm::dvec2);
 
     IcarianCore::PipeMessage msg;
@@ -415,7 +422,32 @@ void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const
     msg.Data = new char[Size];
     (*(glm::dvec2*)msg.Data).x = a_delta;
     (*(glm::dvec2*)msg.Data).y = a_time;
+
     m_queuedMessages.Push(msg);
+}
+
+#ifdef ICARIANNATIVE_ENABLE_DMA
+void HeadlessAppWindow::PushSwapBufferFD(const DMASwapBufferFD& a_swapBuffer)
+{
+    constexpr int Size = sizeof(DMASwapBufferFD);
+
+    IcarianCore::PipeMessage msg;
+    msg.Type = IcarianCore::PipeMessageType_PushDMASwapFDBuffer;
+    msg.Length = Size;
+    msg.Data = new char[Size];
+    (*(DMASwapBufferFD*)msg.Data) = a_swapBuffer;
+
+    m_queuedMessages.Push(msg);
+}
+
+void HeadlessAppWindow::FlushSwapBufferFD()
+{
+    m_queuedMessages.Push(IcarianCore::PipeMessage(IcarianCore::PipeMessageType_FlushDMASwapFDBuffer));
+}
+#else
+void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer)
+{
+    PROFILESTACK("Frame Data");
 
     // TODO: Implement a better way of doing this 
     // Can end up ~32MiB which cannot keep up with a copy
@@ -434,6 +466,28 @@ void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const
         memcpy(m_frameData, a_buffer, size);
     }
 }
+#endif
+
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
+#ifdef ICARIANNATIVE_ENABLE_DMA
+constexpr const char* HeadlessExtensions[] =
+{
+    VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME,
+};
+#endif
+
+Array<const char*> HeadlessAppWindow::GetRequiredVulkanExtenions() const
+{
+#ifdef ICARIANNATIVE_ENABLE_DMA
+    return Array<const char*>(HeadlessExtensions, sizeof(HeadlessExtensions) / sizeof(*HeadlessExtensions));
+#endif
+
+    return Array<const char*>();
+}
+
+#endif
 
 // MIT License
 // 

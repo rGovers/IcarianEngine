@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <mutex>
 
+#include "Core/DMASwapBuffer.h"
 #include "Core/IPCPipe.h"
 #include "Core/PipeMessage.h"
 #include "DataTypes/TArray.h"
@@ -40,14 +41,15 @@ private:
 
     IcarianCore::IPCPipe*                          m_pipe;
 
-    volatile bool                                  m_unlockWindow;    
     bool                                           m_close;
-
-    std::mutex                                     m_fLock;
 
     TArray<IcarianCore::PipeMessage>               m_queuedMessages;
 
+#ifndef ICARIANNATIVE_ENABLE_DMA
+    std::mutex                                     m_fLock;
+    volatile bool                                  m_unlockWindow;    
     char*                                          m_frameData;
+#endif
 
     uint32_t                                       m_width;
     uint32_t                                       m_height;
@@ -79,7 +81,14 @@ public:
 
     virtual void Update();
 
-    virtual glm::ivec2 GetSize() const;
+    virtual uint32_t GetWidth() const
+    {
+        return m_width;
+    }
+    virtual uint32_t GetHeight() const
+    {
+        return m_height;
+    }
 
     virtual bool IsHeadless() const
     {
@@ -87,17 +96,21 @@ public:
     }
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-    virtual Array<const char*> GetRequiredVulkanExtenions() const
-    {
-        return Array<const char*>();
-    }
+    virtual Array<const char*> GetRequiredVulkanExtenions() const;
     virtual vk::SurfaceKHR GetSurface(const vk::Instance& a_instance)
     {
         return vk::SurfaceKHR();
     }
 #endif
 
-    void PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer, double a_delta, double a_time);
+    void PushFrameInfo(double a_delta, double a_time);
+
+#ifdef ICARIANNATIVE_ENABLE_DMA
+    void PushSwapBufferFD(const DMASwapBufferFD& a_swapbuffer);
+    void FlushSwapBufferFD();
+#else
+    void PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer);
+#endif
 };
 
 // MIT License

@@ -9,6 +9,8 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
+#include "Core/Bitfield.h"
+#include "DataTypes/Array.h"
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 class AppWindow;
@@ -20,37 +22,69 @@ class VulkanRenderPass;
 struct SwapChainSupportInfo
 {
     vk::SurfaceCapabilitiesKHR Capabilites;
-    std::vector<vk::SurfaceFormatKHR> Formats;
-    std::vector<vk::PresentModeKHR> PresentModes;
+    Array<vk::SurfaceFormatKHR> Formats;
+    Array<vk::PresentModeKHR> PresentModes;
 };
 
+struct VulkanSwapchainImage
+{
+    vk::Image Image;
+    VmaAllocation Allocation;
+    vk::ImageView View;
+    vk::Framebuffer Framebuffer;
+#ifdef ICARIANNATIVE_ENABLE_DMA
+#ifndef WIN32
+    int FD;
+#endif
+#endif
+};
+
+// You may be wondering how did you get DMA based swapchains the answer shamelessly copy code from GPU drivers and desktop compositors
+// Vulkan is the more strigent of the 2 between OpenGL and Vulkan so it is better to initialize the DMA buffer on the Vulkan side
+// Not even sure if you can create it on the OpenGL side
 class VulkanSwapchain
 {
 private:
-    AppWindow*                   m_window;
-    VulkanRenderEngineBackend*   m_engine;
+    constexpr static bool ForceHeadless = false;
 
-    RuntimeFunction*             m_resizeFunc;
+    constexpr static uint32_t HeadlessBlockSize = 128 << 20;
 
-    unsigned char                m_init;
-    std::vector<vk::Image>       m_colorImage;
-    VmaAllocation                m_colorAllocation[VulkanMaxFlightFrames];
+    AppWindow*                  m_window;
+    VulkanRenderEngineBackend*  m_engine;
 
-    vk::Buffer                   m_buffer;
-    VmaAllocation                m_allocBuffer;
+    RuntimeFunction*            m_resizeFunc;
 
-    vk::SwapchainKHR             m_swapchain = nullptr;
-    vk::RenderPass               m_renderPass = nullptr;
-    vk::RenderPass               m_renderPassNoClear = nullptr;
-    std::vector<vk::ImageView>   m_imageViews;
-    std::vector<vk::Framebuffer> m_framebuffers;
+    Array<VulkanSwapchainImage> m_images;
+
+    vk::Semaphore               m_startSemaphores[VulkanMaxFlightFrames];
+    vk::Semaphore               m_endSemaphores[VulkanMaxFlightFrames];
+    vk::Fence                   m_fences[VulkanMaxFlightFrames];
+
+#ifdef ICARIANNATIVE_ENABLE_DMA
+    int                         m_startSemaphoreFD[VulkanMaxFlightFrames];
+    int                         m_endSemaphoreFD[VulkanMaxFlightFrames];
+
+    VmaPool                     m_pool;
+    // Needs to remain valid for the pool hence in the Swapchain
+    VkExportMemoryAllocateInfo  m_exportInfo;
+#else
+    vk::Buffer                  m_buffer;
+    VmaAllocation               m_allocBuffer;
+
+    unsigned char               m_init;
+#endif
+
+    vk::SwapchainKHR            m_swapchain;
+    vk::RenderPass              m_renderPass;
+    vk::RenderPass              m_renderPassNoClear;
       
-    vk::SurfaceFormatKHR         m_surfaceFormat;
+    vk::SurfaceFormatKHR        m_surfaceFormat;
 
-    glm::ivec2                   m_size;
+    uint32_t                    m_width;
+    uint32_t                    m_height;
 
-    void Init(const glm::ivec2& a_size);
-    void InitHeadless(const glm::ivec2& a_size);
+    void Init(uint32_t a_width, uint32_t a_height);
+    void InitHeadless(uint32_t a_width, uint32_t a_height);
     void Destroy();
     
 protected:
@@ -66,9 +100,13 @@ public:
         return m_surfaceFormat;
     }
 
-    inline glm::ivec2 GetSize() const
+    inline uint32_t GetWidth() const
     {
-        return m_size;
+        return m_width;
+    }
+    inline uint32_t GetHeight() const
+    {
+        return m_height;
     }
 
     inline vk::RenderPass GetRenderPass() const
@@ -80,9 +118,18 @@ public:
         return m_renderPassNoClear;
     }
 
+    inline vk::Fence GetFence(uint32_t a_index) const
+    {
+        return m_fences[a_index];
+    }
+    inline vk::Semaphore GetEndSemaphore(uint32_t a_index) const
+    {
+        return m_endSemaphores[a_index];
+    }
+
     inline vk::Framebuffer GetFramebuffer(uint32_t a_index) const
     {
-        return m_framebuffers[a_index];
+        return m_images[a_index].Framebuffer;
     }
     inline vk::SwapchainKHR GetSwapchain() const
     {
@@ -94,11 +141,15 @@ public:
 
     inline bool IsInitialized(uint32_t a_index) const
     {
-        return (m_init & 0b1 << a_index) != 0;
+#ifdef ICARIANNATIVE_ENABLE_DMA
+        return true;
+#else
+        return IISBITSET(m_init, a_index);
+#endif
     }
 
-    bool StartFrame(uint32_t* a_imageIndex, double a_delta, double a_time);
-    void EndFrame(const vk::Semaphore& a_semaphores, uint32_t a_imageIndex);
+    bool StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaphore, double a_delta, double a_time);
+    void EndFrame(uint32_t a_imageIndex);
 };
 
 #endif

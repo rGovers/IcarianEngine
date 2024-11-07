@@ -1356,7 +1356,10 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
         m_shadowSetupFunc->Exec(shadowSetupArgs);
     }
 
-    const Frustum cameraFrustum = camBuffer.ToFrustum((glm::vec2)m_swapchain->GetSize());
+    const uint32_t swapWidth = m_swapchain->GetWidth();
+    const uint32_t swapHeight = m_swapchain->GetHeight();
+
+    const Frustum cameraFrustum = camBuffer.ToFrustum(glm::vec2(swapWidth, swapHeight));
 
     const Array<PointLightBuffer> lights = m_pointLights.ToActiveArray();
 
@@ -1491,7 +1494,9 @@ VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, ui
         m_shadowSetupFunc->Exec(shadowSetupArgs);
     }
 
-    const Frustum cameraFrustum = camBuffer.ToFrustum((glm::vec2)m_swapchain->GetSize());
+    const uint32_t swapWidth = m_swapchain->GetWidth();
+    const uint32_t swapHeight = m_swapchain->GetHeight();
+    const Frustum cameraFrustum = camBuffer.ToFrustum(glm::vec2(swapWidth, swapHeight));
 
     const Array<SpotLightBuffer> lights = m_spotLights.ToArray();
     const Array<bool> state = m_spotLights.ToStateArray();
@@ -1618,13 +1623,16 @@ VulkanCommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t
         m_preRenderFunc->Exec(camArgs);
     }
 
+    uint32_t screenWidth = m_swapchain->GetWidth();
+    uint32_t screenHeight = m_swapchain->GetHeight();
+
     const VulkanRenderTexture* renderTexture = renderCommand.GetRenderTexture();
-    glm::vec2 screenSize = (glm::vec2)m_swapchain->GetSize();
     if (renderTexture != nullptr)
     {
-        screenSize = glm::vec2(renderTexture->GetWidth(), renderTexture->GetHeight());
+        screenWidth = renderTexture->GetWidth();
+        screenHeight = renderTexture->GetHeight();
     }
-    const Frustum frustum = camBuffer.ToFrustum(screenSize);
+    const Frustum frustum = camBuffer.ToFrustum(glm::vec2(screenWidth, screenHeight));
 
     Draw(false, camBuffer, frustum, &renderCommand, a_frameIndex);
 
@@ -1671,15 +1679,17 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         m_lightSetupFunc->Exec(lightSetupArgs);
     }
 
-    const VulkanRenderTexture* renderTexture = renderCommand.GetRenderTexture();
+    uint32_t screenWidth = m_swapchain->GetWidth();
+    uint32_t screenHeight = m_swapchain->GetHeight();
 
-    glm::vec2 screenSize = (glm::vec2)m_swapchain->GetSize();
+    const VulkanRenderTexture* renderTexture = renderCommand.GetRenderTexture();
     if (renderTexture != nullptr)
     {
-        screenSize = glm::vec2(renderTexture->GetWidth(), renderTexture->GetHeight());
+        screenWidth = renderTexture->GetWidth();
+        screenHeight = renderTexture->GetHeight();
     }
 
-    const Frustum frustum = camBuffer.ToFrustum(screenSize);
+    const Frustum frustum = camBuffer.ToFrustum(glm::vec2(screenWidth, screenHeight));
 
     for (uint32_t i = 0; i < LightType_ShadowEnd; ++i)
     {
@@ -2424,13 +2434,17 @@ VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint3
         m_preForwardFunc->Exec(camArgs);
     }
 
+    uint32_t screenWidth = m_swapchain->GetWidth();
+    uint32_t screenHeight = m_swapchain->GetHeight();
+
     const VulkanRenderTexture* renderTexture = renderCommand.GetRenderTexture();
-    glm::vec2 screenSize = (glm::vec2)m_swapchain->GetSize();
     if (renderTexture != nullptr)
     {
-        screenSize = glm::vec2(renderTexture->GetWidth(), renderTexture->GetHeight());
+        screenWidth = renderTexture->GetWidth();
+        screenHeight = renderTexture->GetHeight();
     }
-    const Frustum frustum = camBuffer.ToFrustum(screenSize);
+
+    const Frustum frustum = camBuffer.ToFrustum(glm::vec2(screenWidth, screenHeight));
 
     Draw(true, camBuffer, frustum, &renderCommand, a_frameIndex);
 
@@ -2844,45 +2858,67 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
 
             VULKAN_MARKER_COL(m_vulkanEngine, buffer, "UI Pass", 255, 255, 255);
 
-            const VulkanRenderTexture* renderTexture = GetRenderTexture(canvasRenderer.RenderTextureAddr);
+            uint32_t screenWidth;
+            uint32_t screenHeight;
 
-            glm::ivec2 screenSize;
+            const VulkanRenderTexture* renderTexture = GetRenderTexture(canvasRenderer.RenderTextureAddr);
             if (renderTexture != nullptr)
             {
-                screenSize = glm::ivec2((int)renderTexture->GetWidth(), (int)renderTexture->GetHeight());
+                screenWidth = renderTexture->GetWidth();
+                screenHeight = renderTexture->GetHeight();
+
+                const vk::Rect2D rect = vk::Rect2D({ 0, 0 }, { screenWidth, screenHeight });
+
+                const vk::RenderPass pass = renderTexture->GetRenderPassNoClear();
+                const vk::Framebuffer framebuffer = renderTexture->GetFramebuffer();
+
+                const uint32_t clearCount = renderTexture->GetTotalTextureCount();
+                const vk::ClearValue* clearValues = renderTexture->GetClearValues();
+
                 const vk::RenderPassBeginInfo renderPassInto = vk::RenderPassBeginInfo
                 (
-                    renderTexture->GetRenderPassNoClear(),
-                    renderTexture->GetFramebuffer(),
-                    vk::Rect2D({ 0, 0 }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y }),
-                    renderTexture->GetTotalTextureCount(),
-                    renderTexture->GetClearValues()
+                    pass,
+                    framebuffer,
+                    rect,
+                    clearCount,
+                    clearValues
                 );
 
                 buffer.beginRenderPass(renderPassInto, vk::SubpassContents::eInline);
             }
             else
             {
-                screenSize = m_swapchain->GetSize();
+                screenWidth = m_swapchain->GetWidth();
+                screenHeight = m_swapchain->GetHeight();
+
+                const uint32_t imageIndex = m_vulkanEngine->GetImageIndex();
+
+                const vk::Rect2D rect = vk::Rect2D({ 0, 0 }, { screenWidth, screenHeight });
+                
+                const vk::RenderPass pass = m_swapchain->GetRenderPassNoClear();
+                const vk::Framebuffer framebuffer = m_swapchain->GetFramebuffer(imageIndex);
+
                 constexpr vk::ClearValue ClearColor = vk::ClearValue();
+
                 const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
                 (
-                    m_swapchain->GetRenderPassNoClear(),
-                    m_swapchain->GetFramebuffer(m_vulkanEngine->GetImageIndex()),
-                    vk::Rect2D({ 0, 0 }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y }),
+                    pass,
+                    framebuffer,
+                    rect,
                     1,
                     &ClearColor
                 );
 
                 buffer.beginRenderPass(&renderPassInfo, vk::SubpassContents::eInline);
             }
+            IDEFER(buffer.endRenderPass());
+
+            const glm::vec2 screenSize = glm::vec2(screenWidth, screenHeight);
 
             for (uint32_t i = 0; i < canvas.ChildCount; ++i)
             {
                 DrawUIElement(buffer, canvas.ChildElements[i], canvas, screenSize, a_index);
             }
-
-            buffer.endRenderPass();
 
             uiBuffers.Push(buffer);
         }

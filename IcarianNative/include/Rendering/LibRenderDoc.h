@@ -4,61 +4,31 @@
 
 #pragma once
 
-#include "AppWindow/AppWindow.h"
+#include "renderdoc_app.h"
 
-#include <GLFW/glfw3.h>
-
-class Config;
-
-class GLFWAppWindow : public AppWindow
+class LibRenderDoc
 {
 private:
-    GLFWwindow*    m_window;
-   
-    bool           m_shouldClose;
+    void*                m_module;
 
-    double         m_time;
-    double         m_prevTime;
-    double         m_startTime;
+    bool                 m_shouldCapture;
+    bool                 m_capturing;
 
-    glm::dvec2     m_lastCursorPos;
+    RENDERDOC_API_1_6_0* m_api;
 
-#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-    vk::SurfaceKHR m_surface;
-#endif
-
+    LibRenderDoc();
 protected:
 
 public:
-    GLFWAppWindow(Application* a_app, Config* a_config);
-    virtual ~GLFWAppWindow();
+    ~LibRenderDoc();
 
-    virtual bool ShouldClose() const;
+    static void Init();
+    static void Destroy();
 
-    virtual double GetDelta() const;
-    virtual double GetTime() const;
+    static void CaptureFrame();
 
-    virtual void SetCursorState(e_CursorState a_state);
-
-    virtual void Update();
-
-    virtual uint32_t GetWidth() const;
-    virtual uint32_t GetHeight() const;
-
-    virtual void Resize(uint32_t a_width, uint32_t a_height);
-    virtual void SetFullscreen(const AppMonitor& a_monitor, bool a_state, uint32_t a_width, uint32_t a_height);
-
-    virtual bool IsHeadless() const
-    {
-        return false;
-    }
-
-    virtual AppMonitor* GetMonitors(int* a_count) const;
-
-#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-    virtual Array<const char*> GetRequiredVulkanExtenions() const;
-    virtual vk::SurfaceKHR GetSurface(const vk::Instance& a_instance);
-#endif
+    static void StartFrame();
+    static void EndFrame();
 };
 
 // MIT License

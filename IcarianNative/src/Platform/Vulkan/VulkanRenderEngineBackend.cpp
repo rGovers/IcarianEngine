@@ -14,6 +14,7 @@
 #include "Core/IcarianDefer.h"
 #include "Logger.h"
 #include "Profiler.h"
+#include "Rendering/LibRenderDoc.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/Vulkan/LibVulkan.h"
 #include "Rendering/Vulkan/VulkanCommandBuffer.h"
@@ -37,10 +38,6 @@ constexpr const char* ValidationLayers[] =
     "VK_LAYER_KHRONOS_validation"
 };
 
-constexpr const char* InstanceExtensions[] = 
-{
-    
-};
 constexpr const char* DeviceExtensions[] = 
 {
     VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
@@ -50,6 +47,17 @@ constexpr const char* DeviceExtensions[] =
 constexpr const char* StandaloneDeviceExtensions[] =
 {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+constexpr const char* HeadlessDeviceExtensions[] =
+{
+#ifdef ICARIANNATIVE_ENABLE_DMA
+    VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
+#ifndef WIN32
+    VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
+    VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME,
+#endif
+#endif
 };
 
 constexpr const char* OptionalDeviceExtensions[] = 
@@ -214,7 +222,7 @@ static bool IsDeviceSuitable(const vk::Instance& a_instance, const vk::PhysicalD
     if (!a_window->IsHeadless())
     {
         const SwapChainSupportInfo info = VulkanSwapchain::QuerySwapChainSupport(a_device, a_window->GetSurface(a_instance));
-        if (info.Formats.empty() || info.PresentModes.empty())
+        if (info.Formats.Empty() || info.PresentModes.Empty())
         {
             return false;
         }
@@ -319,11 +327,6 @@ static Array<const char*> GetRequiredExtensions(const AppWindow* a_window)
         extensions.Push(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
 
-    for (const char* ext : InstanceExtensions)
-    {
-        extensions.Push(ext);
-    }
-
     return extensions;
 }
 
@@ -333,6 +336,8 @@ VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : RenderEngineBackend(a_engine)
 {
+    LibRenderDoc::Init();
+
     m_vulkanLib = new LibVulkan();
 
     VULKAN_HPP_DEFAULT_DISPATCHER.init((PFN_vkGetInstanceProcAddr)m_vulkanLib->vkGetInstanceProcAddr);
@@ -403,7 +408,14 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     }
 
     Array<const char*> extensions = Array<const char*>(DeviceExtensions, sizeof(DeviceExtensions) / sizeof(*DeviceExtensions));
-    if (!headless)
+    if (headless)
+    {
+        for (const char* ext : HeadlessDeviceExtensions)
+        {
+            extensions.Push(ext);
+        }
+    }
+    else
     {
         for (const char* ext : StandaloneDeviceExtensions)
         {
@@ -661,19 +673,6 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
     }
 
     TRACE("Got Vulkan Queues");
-
-    constexpr vk::SemaphoreCreateInfo SemaphoreInfo;
-    constexpr vk::FenceCreateInfo FenceInfo = vk::FenceCreateInfo
-    (
-        vk::FenceCreateFlagBits::eSignaled
-    );
-
-    TRACE("Creating Vulkan sync objects");
-    for (uint32_t i = 0; i < VulkanMaxFlightFrames; ++i)
-    {
-        VKRESERRMSG(m_lDevice.createSemaphore(&SemaphoreInfo, nullptr, &m_imageAvailable[i]), "Failed to create image semaphore");
-        VKRESERRMSG(m_lDevice.createFence(&FenceInfo, nullptr, &m_inFlight[i]), "Failed to create fence");
-    }
     
     const vk::CommandPoolCreateInfo poolInfo = vk::CommandPoolCreateInfo
     (
@@ -681,7 +680,10 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
         m_graphicsQueueIndex
     );  
 
-    VKRESERRMSG(m_lDevice.createCommandPool(&poolInfo, nullptr, &m_commandPool), "Failed to create command pool");
+    for (unsigned int i = 0; i < CommandIndex_Last; ++i)
+    {
+        VKRESERRMSG(m_lDevice.createCommandPool(&poolInfo, nullptr, &m_commandPools[i]), "Failed to create command pool");
+    }
 
     if (isVideoEnabled)
     {
@@ -737,7 +739,10 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
     delete m_graphicsEngine;
 
     TRACE("Destroy Command Pool");
-    m_lDevice.destroyCommandPool(m_commandPool);
+    for (unsigned int i = 0; i < CommandIndex_Last; ++i)
+    {
+        m_lDevice.destroyCommandPool(m_commandPools[i]);
+    }
 
     if (m_swapchain != nullptr)
     {
@@ -748,9 +753,6 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
     TRACE("Destroy Vulkan Sync Objects");
     for (uint32_t i = 0; i < VulkanMaxFlightFrames; ++i)
     {
-        m_lDevice.destroySemaphore(m_imageAvailable[i]);
-        m_lDevice.destroyFence(m_inFlight[i]);
-
         for (uint32_t j = 0; j < m_interSemaphore[i].Size(); ++j)
         {
             m_lDevice.destroySemaphore(m_interSemaphore[i][j]);
@@ -781,6 +783,8 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
 
     delete m_vulkanLib;
 
+    LibRenderDoc::Destroy();
+
     TRACE("Vulkan cleaned up");
 }
 
@@ -807,9 +811,13 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     const RenderEngine* renderEngine = GetRenderEngine();
     AppWindow* window = renderEngine->m_window;
 
+    LibRenderDoc::StartFrame();
+    IDEFER(LibRenderDoc::EndFrame());
+
     const bool isHeadless = window->IsHeadless();
     const bool init = m_swapchain != nullptr;
 
+    vk::Semaphore lastSemaphore;
     {
         PROFILESTACK("Swap Setup");
 
@@ -819,7 +827,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
             m_graphicsEngine->SetSwapchain(m_swapchain);
         }
 
-        if (!m_swapchain->StartFrame(&m_imageIndex, a_delta, a_time))
+        if (!m_swapchain->StartFrame(&m_imageIndex, &lastSemaphore, a_delta, a_time))
         {
             return;
         }
@@ -870,19 +878,6 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
     Profiler::StartFrame("Render Submit");
 
-    vk::Semaphore lastSemaphore = nullptr;
-    if (isHeadless)
-    {
-        if (init)
-        {
-            lastSemaphore = m_imageAvailable[m_currentFlightFrame];
-        }
-    }
-    else
-    {
-        lastSemaphore = m_imageAvailable[m_currentFlightFrame];
-    }
-
     {
         // TODO: Redo command buffer submission, can probably get benefits from allowing GPUs with multli queue to do stuff at the same time.
         // Also just generally a bit of a mess
@@ -893,7 +888,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
         for (uint32_t i = 0; i < buffersSize; ++i)
         {
-            const vk::Semaphore curSemaphore = m_interSemaphore[m_currentFlightFrame][i];
+            vk::Semaphore curSemaphore = m_interSemaphore[m_currentFlightFrame][i];
             IDEFER(lastSemaphore = curSemaphore);
 
             const VulkanCommandBuffer& buffer = commandBuffers[i];
@@ -933,6 +928,26 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
             }
             }
 
+            vk::Fence fence = nullptr;
+            if (i == endBuffer)
+            {
+                curSemaphore = m_swapchain->GetEndSemaphore(m_currentFlightFrame);
+
+#ifndef ICARIANNATIVE_ENABLE_DMA
+                if (isHeadless)
+                {
+                    if (!m_swapchain->IsInitialized(m_imageIndex))
+                    {
+                        fence = m_swapchain->GetFence(m_currentFlightFrame);
+                    }
+                }
+                else
+#endif
+                {
+                    fence = m_swapchain->GetFence(m_currentFlightFrame);
+                }
+            }
+
             vk::SubmitInfo submitInfo = vk::SubmitInfo
             (
                 0,
@@ -950,30 +965,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
                 submitInfo.pWaitSemaphores = &lastSemaphore;
             }
 
-            if (i == endBuffer)
-            {
-                if (isHeadless)
-                {
-                    if (!m_swapchain->IsInitialized(m_imageIndex))
-                    {
-                        submitInfo.pSignalSemaphores = &m_imageAvailable[(m_currentFlightFrame + 1) % VulkanMaxFlightFrames];
-
-                        VKRESERRMSG(queue.submit(1, &submitInfo, m_inFlight[m_currentFlightFrame]), "Failed to submit command");
-                    }
-                    else
-                    {
-                        VKRESERRMSG(queue.submit(1, &submitInfo, nullptr), "Failed to submit command");
-                    }
-                }
-                else
-                {
-                    VKRESERRMSG(queue.submit(1, &submitInfo, m_inFlight[m_currentFlightFrame]), "Failed to submit command");
-                }
-            }
-            else
-            {
-                VKRESERRMSG(queue.submit(1, &submitInfo, nullptr), "Failed to submit command");
-            }
+            VKRESERRMSG(queue.submit(1, &submitInfo, fence), "Failed to submit command");
         }    
     }
 
@@ -1010,7 +1002,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     {
         PROFILESTACK("Swap Present");
 
-        m_swapchain->EndFrame(lastSemaphore, m_imageIndex);
+        m_swapchain->EndFrame(m_imageIndex);
 
         m_currentFrame = (m_currentFrame + 1) % VulkanFlightPoolSize;
         m_currentFlightFrame = (m_currentFlightFrame + 1) % VulkanMaxFlightFrames;
@@ -1045,11 +1037,13 @@ public:
 };
 
 // TODO: Down the line setup return VulkanCommandBuffers as TLockObj
-TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBufferLevel a_level)
+TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBufferLevel a_level, e_CommandIndex a_index)
 {   
+    IVERIFY(a_index < CommandIndex_Last);
+
     const vk::CommandBufferAllocateInfo allocInfo = vk::CommandBufferAllocateInfo
     (
-        m_commandPool,
+        m_commandPools[a_index],
         a_level,
         1
     );
@@ -1057,25 +1051,25 @@ TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::CreateCommandB
     TLockObj<vk::CommandBuffer, SpinLock>* lockObj = new TLockObj<vk::CommandBuffer, SpinLock>(&m_graphicsQueueLock); 
 
     vk::CommandBuffer cmdBuffer;
-
     VKRESERRMSG(m_lDevice.allocateCommandBuffers(&allocInfo, &cmdBuffer), "Failed to Allocate Command Buffer");
 
     lockObj->Set(cmdBuffer);
 
     return lockObj;
 }
-void VulkanRenderEngineBackend::DestroyCommandBuffer(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer)
+void VulkanRenderEngineBackend::DestroyCommandBuffer(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer, e_CommandIndex a_index)
 {
     IDEFER(delete a_buffer);
+    IVERIFY(a_index < CommandIndex_Last);
 
     const vk::CommandBuffer buffer = a_buffer->Get();
 
-    PushDeletionObject(new VulkanCommandBufferDeletionObject(m_lDevice, m_commandPool, buffer));
+    PushDeletionObject(new VulkanCommandBufferDeletionObject(m_lDevice, m_commandPools[a_index], buffer));
 }
 
-TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::BeginSingleCommand()
+TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::BeginSingleCommand(e_CommandIndex a_index)
 {
-    TLockObj<vk::CommandBuffer, SpinLock>* buffer = CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
+    TLockObj<vk::CommandBuffer, SpinLock>* buffer = CreateCommandBuffer(vk::CommandBufferLevel::ePrimary, a_index);
     const vk::CommandBuffer cmdBuffer = buffer->Get();
 
     constexpr vk::CommandBufferBeginInfo BufferBeginInfo = vk::CommandBufferBeginInfo
@@ -1087,7 +1081,7 @@ TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::BeginSingleCom
 
     return buffer;
 }
-void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer)
+void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer, e_CommandIndex a_index)
 {
     IDEFER(DestroyCommandBuffer(a_buffer));
     
@@ -1103,7 +1097,42 @@ void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, Spi
         &cmdBuffer
     );
 
-    VKRESERRMSG(m_graphicsQueue.submit(1, &submitInfo, nullptr), "Failed to Submit Command");
+    vk::Queue queue;
+    switch (a_index)
+    {
+    case CommandIndex_Present:
+    {
+        queue = m_presentQueue;
+
+        break;
+    }
+    case CommandIndex_Graphics:
+    {
+        queue = m_graphicsQueue;
+
+        break;
+    }
+    case CommandIndex_Compute:
+    {
+        queue = m_computeQueue;
+
+        break;
+    } 
+    case CommandIndex_VideoDecode:
+    {
+        queue = m_videoDecodeQueue;
+
+        break;
+    }
+    default:
+    {
+        IERROR("Invalid Command Index");
+
+        break;
+    }
+    }
+
+    VKRESERRMSG(queue.submit(1, &submitInfo, nullptr), "Failed to Submit Command");
 }
 
 e_RenderDeviceType VulkanRenderEngineBackend::GetDeviceType() const

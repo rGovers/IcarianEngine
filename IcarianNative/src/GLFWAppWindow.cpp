@@ -313,13 +313,21 @@ void GLFWAppWindow::Update()
     }  
 }
 
-glm::ivec2 GLFWAppWindow::GetSize() const
+uint32_t GLFWAppWindow::GetWidth() const
 {
     glm::ivec2 winSize;
     glfwGetWindowSize(m_window, &winSize.x, &winSize.y);
 
-    return winSize;
+    return (uint32_t)winSize.x;
 }
+uint32_t GLFWAppWindow::GetHeight() const
+{
+    glm::ivec2 winSize;
+    glfwGetWindowSize(m_window, &winSize.x, &winSize.y);
+
+    return (uint32_t)winSize.y;
+}
+
 void GLFWAppWindow::Resize(uint32_t a_width, uint32_t a_height)
 {
     glfwSetWindowSize(m_window, (int)a_width, (int)a_height);
