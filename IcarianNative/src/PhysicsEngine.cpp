@@ -182,8 +182,13 @@ static void TransformObject(uint32_t a_transformAddr, const glm::vec3& a_transla
     ObjectManager::SetTransformBuffer(a_transformAddr, buffer);
 }
 
-void PhysicsEngine::Update(double a_delta)
+void PhysicsEngine::Update(double a_delta, float a_timeScale)
 {
+    if (a_timeScale <= 0.0f)
+    {
+        return;
+    }
+
     {
         PROFILESTACK("Physics Sim");
 
@@ -192,7 +197,8 @@ void PhysicsEngine::Update(double a_delta)
         // Done some digging and found a note about stability above 60hz needing to be done in steps
         constexpr double JoltStepMagicNumber = 1.0 / 60.0;
 
-        const int steps = (int)(m_fixedTimeStep / JoltStepMagicNumber + 1);
+        const int steps = (int)((m_fixedTimeStep * a_timeScale) / JoltStepMagicNumber + 1);
+        const float timeStep = (float)(m_fixedTimeStep * a_timeScale);
 
         while (m_fixedTimeTimer >= m_fixedTimeStep)
         {
@@ -223,10 +229,10 @@ void PhysicsEngine::Update(double a_delta)
                     .mWalkStairsStepUp = up * 0.2f
                 };
 
-                c->ExtendedUpdate((float)m_fixedTimeStep, gravity, updateSettings, broadFilter, objectFilter, { }, { }, *m_allocator);
+                c->ExtendedUpdate(timeStep, gravity, updateSettings, broadFilter, objectFilter, { }, { }, *m_allocator);
             }
 
-            m_physicsSystem->Update((float)m_fixedTimeStep, steps, m_allocator, m_jobSystem);
+            m_physicsSystem->Update(timeStep, steps, m_allocator, m_jobSystem);
         }
     }
 

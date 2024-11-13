@@ -23,6 +23,8 @@ class Application
 private:
     AppWindow*      m_appWindow;
 
+    float           m_timeScale;
+
     bool            m_close;
     e_CursorState   m_cursorState;
 
@@ -50,6 +52,15 @@ public:
     inline uint32_t GetHeight() const
     {
         return (uint32_t)m_appWindow->GetSize().y;
+    }
+
+    inline void SetTimeScale(float a_timeScale)
+    {
+        m_timeScale = a_timeScale;
+    }
+    inline float GetTimeScale() const
+    {
+        return m_timeScale;
     }
 
     inline e_CursorState GetCursorState() const

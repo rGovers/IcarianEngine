@@ -14,7 +14,7 @@
 #include "DeletionQueue.h"
 #endif
 
-#define ENGINEINPUT_EXPORT_TABLE(F) \
+#define ENGINE_INPUT_EXPORT_TABLE(F) \
     F(IOP_VEC2, IcarianEngine, InputInterop, GetCursorPos, \
     { \
         return Instance->GetCursorPos(); \
@@ -67,7 +67,7 @@
         return (uint32_t)Instance->IsGamePadButtonReleased((e_GamePadSlot)a_slot, (e_GamePadButton)a_button); \
     }, IOP_UINT32 a_slot, IOP_UINT32 a_button) \
 
-#define ENGINEAPPINPUT_EXPORT_TABLE(F) \
+#define ENGINE_APPINPUT_EXPORT_TABLE(F) \
     F(IOP_UINT32, IcarianEngine, InputInterop, GetCursorState, \
     { \
         return (uint32_t)Instance->GetCursorState(); \

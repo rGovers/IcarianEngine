@@ -94,7 +94,7 @@ public:
 
     bool CanObjectLayersCollide(uint32_t a_lhs, uint32_t a_rhs) const;
 
-    void Update(double a_delta);
+    void Update(double a_delta, float a_timeScale);
 
     uint32_t GetBodyAddr(JPH::uint32 a_joltIndex);
 };

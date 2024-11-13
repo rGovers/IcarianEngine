@@ -8,6 +8,36 @@
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 
+class ContactThreadJob : public ThreadJob
+{
+private:
+    RuntimeFunction*    m_function;
+    CollisionDataBuffer m_buffer;
+
+protected:
+
+public:
+    ContactThreadJob(const CollisionDataBuffer& a_buffer, RuntimeFunction* a_function) : ThreadJob(JobPriority_RuntimeHigh)
+    {
+        m_function = a_function;
+        m_buffer = a_buffer;
+    }
+    virtual ~ContactThreadJob()
+    {
+
+    }
+
+    virtual void Execute() 
+    {
+        void* args[] =
+        {
+            &m_buffer
+        };
+
+        m_function->Exec(args);
+    }
+};
+
 IcContactListener::IcContactListener(PhysicsEngine* a_engine)
 {
     m_engine = a_engine;
@@ -34,58 +64,62 @@ void IcContactListener::OnContactAdded(const JPH::Body& a_lhs, const JPH::Body& 
     const JPH::RVec3 pos = a_manifold.mBaseOffset;
     const JPH::RVec3 normalV = a_manifold.mWorldSpaceNormal;
 
-    CollisionDataBuffer data = 
+    const JPH::BodyID bodyAID = a_lhs.GetID();
+    const JPH::BodyID bodyBID = a_rhs.GetID();
+
+    const JPH::uint32 bodyAIndex = bodyAID.GetIndex();
+    const JPH::uint32 bodyBIndex = bodyBID.GetIndex();
+
+    const CollisionDataBuffer data = 
     {
         .IsTrigger = (uint32_t)a_ioSettings.mIsSensor,
-        .BodyAddrA = (uint32_t)m_engine->GetBodyAddr(a_lhs.GetID().GetIndex()),
-        .BodyAddrB = (uint32_t)m_engine->GetBodyAddr(a_rhs.GetID().GetIndex()),
+        .BodyAddrA = (uint32_t)m_engine->GetBodyAddr(bodyAIndex),
+        .BodyAddrB = (uint32_t)m_engine->GetBodyAddr(bodyBIndex),
         .Position = glm::vec3(pos.GetX(), pos.GetY(), pos.GetZ()),
         .Normal = glm::vec3(normalV.GetX(), normalV.GetY(), normalV.GetZ()),
         .Depth = (float)a_manifold.mPenetrationDepth
     };
 
-    void* args[] =
-    {
-        &data
-    };
-
-    m_onCollisionEnterFunc->Exec(args);
+    ThreadPool::PushJob(new ContactThreadJob(data, m_onCollisionEnterFunc));
 }
 void IcContactListener::OnContactPersisted(const JPH::Body& a_lhs, const JPH::Body& a_rhs, const JPH::ContactManifold& a_manifold, JPH::ContactSettings& a_ioSettings)
 {
     const JPH::RVec3 pos = a_manifold.mBaseOffset;
     const JPH::RVec3 normalV = a_manifold.mWorldSpaceNormal;
 
-    CollisionDataBuffer data = 
+    const JPH::BodyID bodyAID = a_lhs.GetID();
+    const JPH::BodyID bodyBID = a_rhs.GetID();
+
+    const JPH::uint32 bodyAIndex = bodyAID.GetIndex();
+    const JPH::uint32 bodyBIndex = bodyBID.GetIndex();
+
+    const CollisionDataBuffer data = 
     {
         .IsTrigger = (uint32_t)a_ioSettings.mIsSensor,
-        .BodyAddrA = (uint32_t)m_engine->GetBodyAddr(a_lhs.GetID().GetIndex()),
-        .BodyAddrB = (uint32_t)m_engine->GetBodyAddr(a_rhs.GetID().GetIndex()),
+        .BodyAddrA = (uint32_t)m_engine->GetBodyAddr(bodyAIndex),
+        .BodyAddrB = (uint32_t)m_engine->GetBodyAddr(bodyBIndex),
         .Position = glm::vec3(pos.GetX(), pos.GetY(), pos.GetZ()),
         .Normal = glm::vec3(normalV.GetX(), normalV.GetY(), normalV.GetZ()),
         .Depth = (float)a_manifold.mPenetrationDepth
     };
 
-    void* args[] =
-    {
-        &data
-    };
-
-    m_onCollisionStayFunc->Exec(args);
+    ThreadPool::PushJob(new ContactThreadJob(data, m_onCollisionStayFunc));
 }
 void IcContactListener::OnContactRemoved(const JPH::SubShapeIDPair& a_shapePair)
 {
-    CollisionDataBuffer data;
+    const JPH::BodyID bodyAID = a_shapePair.GetBody1ID();
+    const JPH::BodyID bodyBID = a_shapePair.GetBody2ID();
 
-    data.BodyAddrA = (uint32_t)m_engine->GetBodyAddr(a_shapePair.GetBody1ID().GetIndex());
-    data.BodyAddrB = (uint32_t)m_engine->GetBodyAddr(a_shapePair.GetBody2ID().GetIndex());
+    const JPH::uint32 bodyAIndex = bodyAID.GetIndex();
+    const JPH::uint32 bodyBIndex = bodyBID.GetIndex();
 
-    void* args[] =
+    const CollisionDataBuffer data =
     {
-        &data
+        .BodyAddrA = m_engine->GetBodyAddr(bodyAIndex),
+        .BodyAddrB = m_engine->GetBodyAddr(bodyBIndex)
     };
 
-    m_onCollisionExitFunc->Exec(args);
+    ThreadPool::PushJob(new ContactThreadJob(data, m_onCollisionExitFunc));
 }
 
 // MIT License

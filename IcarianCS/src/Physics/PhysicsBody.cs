@@ -206,6 +206,12 @@ namespace IcarianEngine.Physics
 
             PhysicsBody bodyA = s_bodies[a_data.BodyAddrA];
             PhysicsBody bodyB = s_bodies[a_data.BodyAddrB];
+            if (bodyA == null || bodyB == null)
+            {
+                Logger.IcarianWarning("Null collision body");
+
+                return;
+            }
 
             if (a_data.IsTrigger == 0)
             {
@@ -218,7 +224,17 @@ namespace IcarianEngine.Physics
                         Depth = a_data.Depth  
                     };
 
-                    rBodyA.OnCollisionStartCallback(bodyB, data);
+                    // Mostly an API safety thing to clean up user code want as minimal locks in user code as possible
+                    // Redispatched the call as I kept shooting myself in the foot and decided to just fix the gun
+                    // I may need to change the locks to NativeLock down the line as it may interfere with user code
+                    lock (rBodyA)
+                    {
+                        // It is not impossible for it to be deleted so recheck once the lock is aquired
+                        if (rBodyA != null && rBodyA.OnCollisionStartCallback != null)
+                        {
+                            rBodyA.OnCollisionStartCallback(bodyB, data);
+                        }
+                    }
                 }
 
                 if (bodyB is RigidBody rBodyB && rBodyB.OnCollisionStartCallback != null)
@@ -230,19 +246,38 @@ namespace IcarianEngine.Physics
                         Depth = a_data.Depth
                     };
 
-                    rBodyB.OnCollisionStartCallback(bodyA, data);
+                    lock (rBodyB)
+                    {
+                        if (rBodyB != null && rBodyB.OnCollisionStartCallback != null)
+                        {
+                            rBodyB.OnCollisionStartCallback(bodyA, data);
+                        }
+                    }
+
                 }
             }
             else
             {
                 if (bodyA is TriggerBody tBodyA && tBodyA.OnTriggerStartCallback != null)
                 {
-                    tBodyA.OnTriggerStartCallback(bodyB);
+                    lock (tBodyA)
+                    {
+                        if (tBodyA != null && tBodyA.OnTriggerStartCallback != null)
+                        {
+                            tBodyA.OnTriggerStartCallback(bodyB);
+                        }
+                    }
                 }
 
                 if (bodyB is TriggerBody tBodyB && tBodyB.OnTriggerStartCallback != null)
                 {
-                    tBodyB.OnTriggerStartCallback(bodyA);
+                    lock (tBodyB)
+                    {
+                        if (tBodyB != null && tBodyB.OnTriggerStartCallback != null)
+                        {
+                            tBodyB.OnTriggerStartCallback(bodyA);
+                        }
+                    }
                 }
             }
         }
@@ -258,6 +293,12 @@ namespace IcarianEngine.Physics
 
             PhysicsBody bodyA = s_bodies[a_data.BodyAddrA];
             PhysicsBody bodyB = s_bodies[a_data.BodyAddrB];
+            if (bodyA == null || bodyB == null)
+            {
+                Logger.IcarianWarning("Null collision body");
+
+                return;
+            }
 
             if (a_data.IsTrigger == 0)
             {
@@ -269,7 +310,13 @@ namespace IcarianEngine.Physics
                         Depth = a_data.Depth
                     };
 
-                    rBodyA.OnCollisionStayCallback(bodyB, data);
+                    lock (rBodyA)
+                    {
+                        if (rBodyA != null && rBodyA.OnCollisionStayCallback != null)
+                        {
+                            rBodyA.OnCollisionStayCallback(bodyB, data);
+                        }
+                    }
                 }
 
                 if (bodyB is RigidBody rBodyB && rBodyB.OnCollisionStayCallback != null)
@@ -280,19 +327,37 @@ namespace IcarianEngine.Physics
                         Depth = a_data.Depth
                     };
 
-                    rBodyB.OnCollisionStayCallback(bodyA, data);
+                    lock (rBodyB)
+                    {
+                        if (rBodyB != null && rBodyB.OnCollisionStayCallback != null)
+                        {
+                            rBodyB.OnCollisionStayCallback(bodyA, data);
+                        }
+                    }
                 }
             }
             else
             {
                 if (bodyA is TriggerBody tBodyA && tBodyA.OnTriggerStayCallback != null)
                 {
-                    tBodyA.OnTriggerStayCallback(bodyB);
+                    lock (tBodyA)
+                    {
+                        if (tBodyA != null && tBodyA.OnTriggerStayCallback != null)
+                        {
+                            tBodyA.OnTriggerStayCallback(bodyB);
+                        }
+                    }
                 }
 
                 if (bodyB is TriggerBody tBodyB && tBodyB.OnTriggerStayCallback != null)
                 {
-                    tBodyB.OnTriggerStayCallback(bodyA);
+                    lock (tBodyB)
+                    {
+                        if (tBodyB != null && tBodyB.OnTriggerStayCallback != null)
+                        {
+                            tBodyB.OnTriggerStayCallback(bodyA);
+                        }
+                    }
                 }
             }
         }
@@ -308,29 +373,59 @@ namespace IcarianEngine.Physics
 
             PhysicsBody bodyA = s_bodies[a_data.BodyAddrA];
             PhysicsBody bodyB = s_bodies[a_data.BodyAddrB];
+            if (bodyA == null || bodyB == null)
+            {
+                Logger.IcarianWarning("Null collision body");
+
+                return;
+            }
 
             if (a_data.IsTrigger == 0)
             {
                 if (bodyA is RigidBody rBodyA && rBodyA.OnCollisionEndCallback != null)
                 {
-                    rBodyA.OnCollisionEndCallback(bodyB);
+                    lock (rBodyA)
+                    {
+                        if (rBodyA != null && rBodyA.OnCollisionEndCallback != null)
+                        {
+                            rBodyA.OnCollisionEndCallback(bodyB);
+                        }
+                    }
                 }
 
                 if (bodyB is RigidBody rBodyB && rBodyB.OnCollisionEndCallback != null)
                 {
-                    rBodyB.OnCollisionEndCallback(bodyA);
+                    lock (rBodyB)
+                    {
+                        if (rBodyB != null && rBodyB.OnCollisionEndCallback != null)
+                        {
+                            rBodyB.OnCollisionEndCallback(bodyA);
+                        }
+                    }
                 }
             }
             else
             {
                 if (bodyA is TriggerBody tBodyA && tBodyA.OnTriggerEndCallback != null)
                 {
-                    tBodyA.OnTriggerEndCallback(bodyB);
+                    lock (tBodyA)
+                    {
+                        if (tBodyA != null && tBodyA.OnTriggerEndCallback != null)
+                        {
+                            tBodyA.OnTriggerEndCallback(bodyB);
+                        }
+                    }
                 }
 
                 if (bodyB is TriggerBody tBodyB && tBodyB.OnTriggerEndCallback != null)
                 {
-                    tBodyB.OnTriggerEndCallback(bodyA);
+                    lock (tBodyB)
+                    {
+                        if (tBodyB != null && tBodyB.OnTriggerEndCallback != null)
+                        {
+                            tBodyB.OnTriggerEndCallback(bodyA);
+                        }
+                    }
                 }
             }
         }

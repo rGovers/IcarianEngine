@@ -30,6 +30,7 @@
 
 #include "EngineApplicationInteropStructures.h"
 #include "EngineInputInterop.h"
+#include "EngineTimeInterop.h"
 
 static Application* Instance = nullptr;
 
@@ -45,7 +46,8 @@ static Application* Instance = nullptr;
 
 APPLICATION_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
-ENGINEAPPINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_APPINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_TIME_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 RUNTIME_FUNCTION(MonoArray*, Application, GetMonitors,
 {
@@ -105,6 +107,7 @@ Application::Application(Config* a_config)
     Instance = this;
 
     m_close = false;
+    m_timeScale = 1.0f;
 
     TRACE("Starting Application");
     m_config = a_config;
@@ -148,7 +151,8 @@ Application::Application(Config* a_config)
 
     APPLICATION_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 
-    ENGINEAPPINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_APPINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_TIME_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 
     BIND_FUNCTION(IcarianEngine, Application, GetMonitors);
     BIND_FUNCTION(IcarianEngine, Application, SetFullscreenState);
@@ -265,7 +269,7 @@ void Application::Run(int32_t a_argc, char* a_argv[])
             {
                 PROFILESTACK("Physics");
                 
-                m_physicsEngine->Update(delta);
+                m_physicsEngine->Update(delta, m_timeScale);
             }
 
             RuntimeManager::LateUpdate();

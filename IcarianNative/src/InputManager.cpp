@@ -18,7 +18,7 @@
 
 static InputManager* Instance = nullptr;
 
-ENGINEINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_INPUT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 InputManager::InputManager()
 {
@@ -35,7 +35,7 @@ InputManager::InputManager()
 
     m_gamePadDeadZone = 0.1f;
 
-    ENGINEINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_INPUT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 
     m_mousePressedFunc = RuntimeManager::GetFunction("IcarianEngine", "Input", ":MousePressedEvent(uint)");
     m_mouseReleasedFunc = RuntimeManager::GetFunction("IcarianEngine", "Input", ":MouseReleasedEvent(uint)");
