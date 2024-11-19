@@ -152,6 +152,13 @@ static constexpr int GLFWKeyTable[] =
 
 GLFWAppWindow::GLFWAppWindow(Application* a_app, Config* a_config) : AppWindow(a_app)
 {
+#ifndef WIN32
+    if (a_config->DisableWayland())
+    {
+        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+    }
+#endif
+
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);

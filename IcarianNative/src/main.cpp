@@ -15,6 +15,7 @@
 #include "Config.h"
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "Core/StringUtils.h"
 
 #define STBI_ASSERT(x) ICARIAN_ASSERT_MSG(x, "STBI Assert")
 
@@ -100,9 +101,21 @@ int main(int a_argc, char* a_argv[])
     for (int i = 0; i < a_argc; ++i)
     {
         const char* arg = a_argv[i];
-        if (strcmp(arg, "--headless") == 0)
+
+        switch (StringHash(arg))
+        {
+        case StringHash("--headless"):
         {
             config->SetHeadless(true);
+
+            break;
+        }
+        case StringHash("--nowayland"):
+        {
+            config->SetDisableWayland(true);
+
+            break;
+        }
         }
     }
 

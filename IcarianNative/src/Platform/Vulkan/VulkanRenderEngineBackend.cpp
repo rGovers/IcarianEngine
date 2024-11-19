@@ -227,30 +227,29 @@ static bool IsDeviceSuitable(const vk::Instance& a_instance, const vk::PhysicalD
 
 static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device)
 {
-    uint32_t score = 0;
-
     const vk::PhysicalDeviceProperties properties = a_device.getProperties();
+
+    // This thing keeps winning need to make sure it is last resort
+    if (strstr(properties.deviceName, "llvmpipe") != NULL)
+    {
+        return 0;
+    }
+
+    uint32_t score = 0;
     // Weighting the score
     // While there are situations that one type can be better then the other generally in this order
+    // UPDATE: Had to remove CPU score and up the discrete score as a software renderer on a 5950 X was beating a 7900 XTX oops.....
     switch (properties.deviceType) 
     {
     case vk::PhysicalDeviceType::eDiscreteGpu:
     {
-        score += 200;
+        score += 2000;
 
         break;
     }
     case vk::PhysicalDeviceType::eIntegratedGpu:
     {
-        score += 100;
-
-        break;
-    }
-    // Not really a good way to determine which is better so weight the same
-    case vk::PhysicalDeviceType::eCpu:
-    case vk::PhysicalDeviceType::eVirtualGpu:
-    {
-        score += 50;
+        score += 1000;
 
         break;
     }
@@ -465,6 +464,9 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
     vk::PhysicalDeviceProperties props;
     m_pDevice.getProperties(&props);
 
+    // Did for testing but leaving to make sure nothing weird is happening
+    printf("Selected GPU: %s \n", props.deviceName.data());
+
     const uint64_t id = MakeDeviceID(props.vendorID, props.deviceID);
 
     constexpr uint32_t AMDVendorID = 0x1002;
@@ -594,7 +596,7 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
         vk::True,
         vk::False,
         vk::False,
-        vk::True
+        vk::False
     );
 
     *nextChain = &meshShaderFeature;

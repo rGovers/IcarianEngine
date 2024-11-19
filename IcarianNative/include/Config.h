@@ -15,6 +15,7 @@ private:
     static constexpr char DefaultAppName[] = "IcarianEngine";
 
     bool              m_headless = false;
+    bool              m_disableWayland = false;
 
     double            m_fixedTimeStep = 1.0 / 50.0;
     uint32_t          m_fileCacheSize = 256;
@@ -37,6 +38,16 @@ public:
     inline uint32_t GetFileCacheSize() const
     {
         return m_fileCacheSize;
+    }
+
+    // Mostly exists because some tools still do not have the best Wayland support
+    inline bool DisableWayland() const
+    {
+        return m_disableWayland;
+    }
+    inline void SetDisableWayland(bool a_value)
+    {
+        m_disableWayland = a_value;
     }
 
     inline const std::string GetApplicationName() const

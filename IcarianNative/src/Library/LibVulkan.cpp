@@ -65,7 +65,7 @@ Error:;
         (
 "Icarian Engine failed to load Vulkan. \
 \
-Please ensure you have a Vulkan 1.1 capable GPU and drivers are upto date."
+Please ensure you have a Vulkan 1.2 capable GPU and drivers are upto date."
         );
 }
 LibVulkan::~LibVulkan()

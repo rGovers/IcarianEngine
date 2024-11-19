@@ -27,30 +27,38 @@ void main()
 
     float depth = texture(depthSampler, vUV).x;
 
-    vec4 cP = vec4(vUV * 2.0 + -1.0, depth, 1.0);
+    vec2 oUV = fma(vUV, vec2(2.0), vec2(-1.0));
+
+    vec4 cP = vec4(oUV, depth, 1.0);
     vec4 vP = camBuffer.InvProj * cP;
     vP /= vP.w;
     vec4 mP = camBuffer.InvView * vP;
 
-    int sI = 0;
-    vec4 lP;
     #!preloop(iter, 0, 6,
     {
         if (-vP.z <= shadowLightBuffer.objects[iter].Split)
         {
-            sI = iter;
-            lP = shadowLightBuffer.objects[iter].LVP * mP;
+            // Finally figured out what was causing the visual artifacts on AMD GPUs
+            // Turns out value inside branch != value outside of the branch 
+            // This was really painful to debug as shader debuggers where showing the correct value
+            // The only reason I was able to catch on is the artifacts where squarish
+            // Had to write each value to the fragment and debug that way with the graphics debugger
+            // Unlikely but not impossible to be the driver as it happens across OSs and Drivers on the OSs
+            // This is a non issue on Nvidia GPUs they correctly set the exiting iterator value
+            // NOTE: This occurs regardless of it being a preloop or a normal for loop
+            // TLDR: When branching do all the work in the branch do not pass out the iterator value
+            vec4 lP = shadowLightBuffer.objects[iter].LVP * mP;
+
+            vec2 sP = fma(lP.xy, vec2(0.5), vec2(0.5));
+            float sV = texture(shadowSampler[iter], sP).x;
+            if (lP.z > sV)
+            {
+                discard;
+            }
 
             break;
         }
     })
-
-    vec4 sP = lP * 0.5 + 0.5;
-    float sV = texture(shadowSampler[sI], sP.xy).x;
-    if (lP.z > sV)
-    {
-        discard;
-    }
 
     vec3 p = camBuffer.InvView[3].xyz;
     vec3 cV = normalize(p - mP.xyz);

@@ -483,7 +483,7 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, double a_delta, double 
 
     {
         PROFILESTACK("Fence");
-        const vk::Result result = device.waitForFences(1, &fence, VK_TRUE, UINT64_MAX);
+        const vk::Result result = device.waitForFences(1, &fence, vk::True, 10000);
         if (result != vk::Result::eSuccess)
         {
             VKRESWARNMSG(result, "Could not wait for fence");
