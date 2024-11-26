@@ -10,6 +10,23 @@
 
 #include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
+struct VulkanTaskFShaderBuilder
+{
+    VulkanRenderEngineBackend* Engine;
+    std::string String;
+    std::unordered_map<std::string, std::string> Imports;
+    std::string EntryPoint;
+};
+
+struct VulkanTaskGLSLShaderBuilder
+{
+    VulkanRenderEngineBackend* Engine;
+    std::string String;
+    ShaderBufferInput* Inputs;
+    uint32_t InputCount;
+    std::string EntryPoint;
+};
+
 class VulkanTaskShader : public VulkanShader
 {
 private:
@@ -18,11 +35,11 @@ protected:
 
 public:
     VulkanTaskShader() = delete;
-    VulkanTaskShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data);
+    VulkanTaskShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator);
     virtual ~VulkanTaskShader();
 
-    static VulkanTaskShader* CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str);
-    static VulkanTaskShader* CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str);
+    static void CreateFromFShader(VulkanTaskShader* a_out, const VulkanTaskFShaderBuilder& a_builder, Allocator* a_allocator);
+    static void CreateFromGLSL(VulkanTaskShader* a_out, const VulkanTaskGLSLShaderBuilder& a_builder, Allocator* a_allocator);
 };
 
 #endif

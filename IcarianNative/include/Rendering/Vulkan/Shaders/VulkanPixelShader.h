@@ -6,9 +6,24 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include <string_view>
-
 #include "Rendering/Vulkan/Shaders/VulkanShader.h"
+
+struct VulkanPixelFShaderBuilder
+{
+    VulkanRenderEngineBackend* Engine;
+    std::string String;
+    std::unordered_map<std::string, std::string> Imports;
+    std::string EntryPoint;
+};
+
+struct VulkanPixelGLSLShaderBuilder
+{
+    VulkanRenderEngineBackend* Engine;
+    std::string String;
+    ShaderBufferInput* Inputs;
+    uint32_t InputCount;
+    std::string EntryPoint;
+};
 
 class VulkanPixelShader : public VulkanShader
 {
@@ -18,11 +33,11 @@ protected:
 
 public:
     VulkanPixelShader() = delete;
-    VulkanPixelShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data);
+    VulkanPixelShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator);
     virtual ~VulkanPixelShader();
 
-    static VulkanPixelShader* CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str);
-    static VulkanPixelShader* CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str);
+    static void CreateFromFShader(VulkanPixelShader* a_out, const VulkanPixelFShaderBuilder& a_builder, Allocator* a_allocator);
+    static void CreateFromGLSL(VulkanPixelShader* a_out, const VulkanPixelGLSLShaderBuilder& a_builder, Allocator* a_allocator);
 };
 
 #endif

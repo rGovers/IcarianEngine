@@ -159,6 +159,8 @@ GLFWAppWindow::GLFWAppWindow(Application* a_app, Config* a_config) : AppWindow(a
     }
 #endif
 
+    m_unlockUPS = a_config->IsUPSUnlocked();
+
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -242,20 +244,31 @@ void GLFWAppWindow::SetCursorState(e_CursorState a_state)
 
 void GLFWAppWindow::Update()
 {
-    glfwPollEvents();
-
-    m_prevTime = m_time;
-    m_time = glfwGetTime();
-
-    // Putting a 1KHz limit in place cause dont need to hit 16KHz on a 5950x on Linux
-    // Still probably a little high
-    // This feels so wrong that this is needed in the standalone app
-    while (GetDelta() < 0.001f)
     {
-        std::this_thread::yield();
+        PROFILESTACK("Polling");
 
         glfwPollEvents();
+    }
+
+    {
+        PROFILESTACK("Waiting");
+
+        m_prevTime = m_time;
         m_time = glfwGetTime();
+
+        // Putting a 1KHz limit in place cause dont need to hit 16KHz on a 5950x on Linux
+        // Still probably a little high
+        // This feels so wrong that this is needed in the standalone app
+        if (!m_unlockUPS)
+        {
+            while (GetDelta() < 0.001f)
+            {
+                std::this_thread::yield();
+
+                glfwPollEvents();
+                m_time = glfwGetTime();
+            }
+        }
     }
 
     m_shouldClose = glfwWindowShouldClose(m_window);

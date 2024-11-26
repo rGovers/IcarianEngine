@@ -15,6 +15,7 @@ class GLFWAppWindow : public AppWindow
 private:
     GLFWwindow*    m_window;
    
+    bool           m_unlockUPS;
     bool           m_shouldClose;
 
     double         m_time;

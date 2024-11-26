@@ -9,7 +9,6 @@
 #include <cstring>
 
 #include "Core/Bitfield.h"
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "Core/ShaderBuffers.h"
 #include "Random.h"
@@ -84,7 +83,7 @@ void VulkanComputeParticle::Clear()
         TRACE("Queueing Particle Buffers for deletion");
         for (uint32_t i = 0; i < MaxParticleBuffers; ++i)
         {
-            backend->PushDeletionObject(new VulkanParticleBufferDeletionObject(backend, m_particleBuffers[i], m_allocations[i]));
+            backend->PushDeletionObject<VulkanParticleBufferDeletionObject>(backend, m_particleBuffers[i], m_allocations[i]);
 
             m_particleBuffers[i] = nullptr;
             m_allocations[i] = NULL;
@@ -248,7 +247,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
             VmaAllocation stagingAlloc;
             VmaAllocationInfo stagingInfo;
             VKRESERRMSG(vmaCreateBuffer(allocator, &sCreateInfo, &sAllocInfo, &stagingBuffer, &stagingAlloc, &stagingInfo), "Failed to create particle staging buffer");
-            IDEFER(backend->PushDeletionObject(new VulkanParticleBufferDeletionObject(backend, stagingBuffer, stagingAlloc)));
+            IDEFER(backend->PushDeletionObject<VulkanParticleBufferDeletionObject>(backend, stagingBuffer, stagingAlloc));
             IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAlloc, 0, (VkDeviceSize)particleBufferSize)));
 
 #ifdef DEBUG

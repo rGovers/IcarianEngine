@@ -8,6 +8,7 @@ using IcarianEngine.Mod;
 using IcarianEngine.Physics.Shapes;
 using IcarianEngine.Rendering;
 using IcarianEngine.Rendering.Animation;
+using IcarianEngine.Rendering.Shaders;
 using IcarianEngine.Rendering.UI;
 #ifdef ENABLE_EXPERIMENTAL
 using IcarianEngine.Rendering.Video;
@@ -58,11 +59,11 @@ namespace IcarianEngine
         /// </summary>
         public delegate void LoadAudioClipCallback(AudioClip a_clip, LoadStatus a_status);
         /// <summary>
-        /// Delegate for loading a <see cref="IcarianEngine.Rendering.VertexShader" /> async
+        /// Delegate for loading a <see cref="IcarianEngine.Rendering.Shaders.VertexShader" /> async
         /// </summary>
         public delegate void LoadVertexShaderCallback(VertexShader a_shader, LoadStatus a_status);
         /// <summary>
-        /// Delegate for loading a <see cref="IcarianEngine.Rendering.PixelShader" /> async
+        /// Delegate for loading a <see cref="IcarianEngine.Rendering.Shaders.PixelShader" /> async
         /// </summary>
         public delegate void LoadPixelShaderCallback(PixelShader a_shader, LoadStatus a_status);
         /// <summary>
@@ -563,24 +564,24 @@ namespace IcarianEngine
 #endif
 
         /// <summary>
-        /// Loads a <see cref="IcarianEngine.Rendering.VertexShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
+        /// Loads a <see cref="IcarianEngine.Rendering.Shaders.VertexShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.VertexShader" /></param>
-        /// <returns>The <see cref="IcarianEngine.Rendering.VertexShader" /> if it was loaded successfully, null otherwise.</returns>
-        /// @see IcarianEngine.Rendering.VertexShader.LoadVertexShader
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Shaders.VertexShader" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Shaders.VertexShader" /> if it was loaded successfully, null otherwise.</returns>
+        /// @see IcarianEngine.Rendering.Shaders.VertexShader.LoadVertexShader
         public static VertexShader LoadVertexShader(string a_path)
         {
             return LoadData<VertexShader, VertexShaderContainer>(a_path, s_vertexShaders);
         }
         /// <summary>
-        /// Loads a <see cref="IcarianEngine.Rendering.VertexShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchronously
+        /// Loads a <see cref="IcarianEngine.Rendering.Shaders.VertexShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchronously
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.VertexShader" /></param>
-        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.VertexShader" /> is loaded</param>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Shaders.VertexShader" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.Shaders.VertexShader" /> is loaded</param>
         /// <param name="a_priority">The priority of the job.</param>
-        /// @see IcarianEngine.Rendering.VertexShader.LoadVertexShader
+        /// @see IcarianEngine.Rendering.VertexShader.Shaders.LoadVertexShader
         public static void LoadVertexShaderAsync(string a_path, LoadVertexShaderCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             if (string.IsNullOrWhiteSpace(a_path))
@@ -610,24 +611,24 @@ namespace IcarianEngine
             }, a_priority);
         }
         /// <summary>
-        /// Loads a <see cref="IcarianEngine.Rendering.PixelShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
+        /// Loads a <see cref="IcarianEngine.Rendering.Shaders.PixelShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.PixelShader" /></param>
-        /// <returns>The <see cref="IcarianEngine.Rendering.PixelShader" /> if it was loaded successfully, null otherwise.</returns>
-        /// @see IcarianEngine.Rendering.PixelShader.LoadPixelShader
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Shaders.PixelShader" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Shaders.PixelShader" /> if it was loaded successfully, null otherwise.</returns>
+        /// @see IcarianEngine.Rendering.Shaders.PixelShader.LoadPixelShader
         public static PixelShader LoadPixelShader(string a_path)
         {
             return LoadData<PixelShader, PixelShaderContainer>(a_path, s_pixelShaders);
         }
         /// <summary>
-        /// Loads a <see cref="IcarianEngine.Rendering.PixelShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchronously
+        /// Loads a <see cref="IcarianEngine.Rendering.Shaders.PixelShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchronously
         /// </summary>
         /// Lifetime managed by AssetLibrary
-        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.PixelShader" /></param>
-        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.PixelShader" /> is loaded</param>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Shaders.PixelShader" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.Shaders.PixelShader" /> is loaded</param>
         /// <param name="a_priority">The priority of the job.</param>
-        /// @see IcarianEngine.Rendering.PixelShader.LoadPixelShader
+        /// @see IcarianEngine.Rendering.Shaders.PixelShader.LoadPixelShader
         public static void LoadPixelShaderAsync(string a_path, LoadPixelShaderCallback a_callback, JobPriority a_priority = JobPriority.Medium)
         {
             if (string.IsNullOrWhiteSpace(a_path))

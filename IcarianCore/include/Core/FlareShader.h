@@ -20,6 +20,7 @@ namespace IcarianCore
         ShaderPlatform_OpenGL
     };
 
+    std::string CreateDecalVertexShader(std::vector<ShaderBufferInput>* a_inputs, e_ShaderPlatform a_platform, uint32_t a_cameraSlot, uint32_t a_modelSlot, std::string* a_error);
     std::string DecalShaderFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error);
 
     std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error);

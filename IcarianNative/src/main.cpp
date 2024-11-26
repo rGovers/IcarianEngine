@@ -46,6 +46,7 @@ void PrintVersion()
     printf("IcarianEngine %d.%d.%d.%s %s \n", ICARIANNATIVE_VERSION_MAJOR, ICARIANNATIVE_VERSION_MINOR, ICARIANNATIVE_VERSION_PATCH, ICARIANNATIVE_COMMIT_HASHSTR, ICARIANNATIVE_VERSION_TAGSTR);
 }
 
+// #if 0
 #ifdef WIN32
 
 int APIENTRY WinMain(HINSTANCE a_hInstance, HINSTANCE a_hPrevInstance, LPSTR a_lpCmdLine, int a_nCmdShow)
@@ -76,9 +77,20 @@ int APIENTRY WinMain(HINSTANCE a_hInstance, HINSTANCE a_hPrevInstance, LPSTR a_l
         WideCharToMultiByte(CP_UTF8, 0, argv[i], -1, cargv[i], len, NULL, NULL);
 
         const char* arg = cargv[i];
-        if (strcmp(arg, "--headless") == 0)
+        switch (StringHash(arg))
+        {
+        case StringHash("--headless"):
         {
             config->SetHeadless(true);
+
+            break;
+        }
+        case StringHash("--unlockups"):
+        {
+            config->SetUPSUnlocked(true);
+
+            break;
+        }
         }
     }
 
@@ -113,6 +125,12 @@ int main(int a_argc, char* a_argv[])
         case StringHash("--nowayland"):
         {
             config->SetDisableWayland(true);
+
+            break;
+        }
+        case StringHash("--unlockups"):
+        {
+            config->SetUPSUnlocked(true);
 
             break;
         }

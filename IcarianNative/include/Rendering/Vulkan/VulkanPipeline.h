@@ -8,6 +8,7 @@
 
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
+class Allocator;
 class VulkanGraphicsEngine;
 class VulkanRenderEngineBackend;
 class VulkanRenderPass;
@@ -15,8 +16,26 @@ class VulkanShaderData;
 
 enum e_VulkanPipelineType
 {
+    VulkanPipelineType_Decal,
     VulkanPipelineType_Graphics,
     VulkanPipelineType_Shadow
+};
+
+struct VulkanGraphicsPipelineBuilder
+{
+    VulkanRenderEngineBackend* Engine; 
+    VulkanGraphicsEngine* GraphicsEngine; 
+    vk::RenderPass RenderPass;
+    uint32_t TextureCount; 
+    uint32_t ProgramAddr;
+    bool Depth;
+};
+
+struct VulkanDecalPipelineBuilder
+{
+    VulkanRenderEngineBackend* Engine;
+    VulkanGraphicsEngine* GraphicsEngine; 
+    uint32_t DecalAddr;
 };
 
 class VulkanPipeline
@@ -24,13 +43,12 @@ class VulkanPipeline
 private:
     VulkanRenderEngineBackend* m_engine;
     VulkanGraphicsEngine*      m_gEngine;
-
-    uint32_t                   m_programAddr;
     
     vk::Pipeline               m_pipeline;
 
+    uint32_t                   m_programAddr;
     e_VulkanPipelineType       m_type;
-
+    
     VulkanPipeline(vk::Pipeline a_pipeline, VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_programAddr, e_VulkanPipelineType a_type);
     
 protected:
@@ -52,8 +70,9 @@ public:
 
     void Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
 
-    static VulkanPipeline* CreatePipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const vk::RenderPass& a_renderPass, bool a_depth, uint32_t a_textureCount, uint32_t a_programAddr);
-    static VulkanPipeline* CreateShadowPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const vk::RenderPass& a_renderPass, uint32_t a_programAddr);
+    static void CreateDecalPipeline(VulkanPipeline* a_out, const VulkanDecalPipelineBuilder& a_builder);
+    static void CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder);
+    static void CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder);
 };
 
 #endif

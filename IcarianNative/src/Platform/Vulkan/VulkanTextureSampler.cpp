@@ -6,8 +6,6 @@
 
 #include "Rendering/Vulkan/VulkanTextureSampler.h"
 
-#include "Core/IcarianAssert.h"
-#include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanTexture.h"
 
@@ -54,7 +52,7 @@ constexpr static vk::Filter GetFilterMode(e_TextureFilter a_filter)
     }
     }
 
-    ICARIAN_ASSERT(0);
+    IERROR("Invalid TextureFilter");
 
     return vk::Filter::eNearest;
 } 
@@ -77,28 +75,28 @@ constexpr static vk::SamplerAddressMode GetAddressMode(e_TextureAddress a_addres
     }
     }
 
-    ICARIAN_ASSERT(0);
+    IERROR("Invalid AddressMode");
 
     return vk::SamplerAddressMode::eRepeat;
 }
 
-VulkanTextureSampler::VulkanTextureSampler(VulkanRenderEngineBackend* a_engine)
+VulkanTextureSampler::VulkanTextureSampler(VulkanRenderEngineBackend* a_engine, vk::Sampler a_sampler)
 {
     m_engine = a_engine;
+
+    m_sampler = a_sampler;
 }
 VulkanTextureSampler::~VulkanTextureSampler()
 {
-    m_engine->PushDeletionObject(new VulkanTextureSamplerDeletionObject(m_engine, m_sampler));
+    m_engine->PushDeletionObject<VulkanTextureSamplerDeletionObject>(m_engine, m_sampler);
 }
 
-VulkanTextureSampler* VulkanTextureSampler::GenerateFromBuffer(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const TextureSamplerBuffer& a_sampler)
+void VulkanTextureSampler::GenerateFromBuffer(VulkanTextureSampler* a_out, const VulkanTextureSamplerBuilder& a_builder)
 {
-    VulkanTextureSampler* sampler = new VulkanTextureSampler(a_engine);
+    const vk::Device device = a_builder.Engine->GetLogicalDevice();
 
-    const vk::Device device = a_engine->GetLogicalDevice();
-
-    const vk::Filter filter = GetFilterMode(a_sampler.FilterMode);
-    const vk::SamplerAddressMode address = GetAddressMode(a_sampler.AddressMode);
+    const vk::Filter filter = GetFilterMode(a_builder.Sampler.FilterMode);
+    const vk::SamplerAddressMode address = GetAddressMode(a_builder.Sampler.AddressMode);
 
     const vk::SamplerCreateInfo samplerInfo = vk::SamplerCreateInfo
     (
@@ -111,9 +109,10 @@ VulkanTextureSampler* VulkanTextureSampler::GenerateFromBuffer(VulkanRenderEngin
         address
     );
 
-    ICARIAN_ASSERT_MSG_R(device.createSampler(&samplerInfo, nullptr, &sampler->m_sampler) == vk::Result::eSuccess, "Failed to create texture sampler");
+    vk::Sampler sampler;
+    VKRESERRMSG(device.createSampler(&samplerInfo, nullptr, &sampler), "Failed to create texture sampler");
 
-    return sampler;
+    new (a_out) VulkanTextureSampler(a_builder.Engine, sampler);
 }
 
 #endif

@@ -6,10 +6,7 @@
 
 #include "Rendering/Vulkan/VulkanShaderStorageObject.h"
 
-#include "Core/IcarianAssert.h"
-#include "Core/IcarianDefer.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
-#include "Trace.h"
 
 class VulkanSSBOBufferDeletionObject : public VulkanDeletionObject
 {
@@ -56,21 +53,24 @@ VulkanShaderStorageObject::VulkanShaderStorageObject(VulkanRenderEngineBackend* 
 
     m_bufferSize = a_bufferSize;
 
-    VkBufferCreateInfo bufferInfo = { };
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = (VkDeviceSize)a_bufferSize + Offset;
-    bufferInfo.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    const VkBufferCreateInfo bufferInfo = 
+    {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = (VkDeviceSize)a_bufferSize + Offset,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+    };
 
-    VmaAllocationCreateInfo allocInfo = { 0 };
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    const VmaAllocationCreateInfo allocInfo = 
+    {  
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO,
+        .requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+    };
 
-    VmaAllocationInfo vmaAllocInfo = {};
-        
     VkBuffer tBuffer;
-    vmaCreateBuffer(allocator, (VkBufferCreateInfo*)&bufferInfo, &allocInfo, &tBuffer, &m_allocation, &vmaAllocInfo);
+    VmaAllocationInfo vmaAllocInfo;
+    VKRESERR(vmaCreateBuffer(allocator, (VkBufferCreateInfo*)&bufferInfo, &allocInfo, &tBuffer, &m_allocation, &vmaAllocInfo));
     m_buffer = tBuffer;
 
     constexpr uint32_t Align = Offset - CountSize;
@@ -84,7 +84,7 @@ VulkanShaderStorageObject::VulkanShaderStorageObject(VulkanRenderEngineBackend* 
 }
 VulkanShaderStorageObject::~VulkanShaderStorageObject()
 {
-    m_engine->PushDeletionObject(new VulkanSSBOBufferDeletionObject(m_engine, m_buffer, m_allocation));
+    m_engine->PushDeletionObject<VulkanSSBOBufferDeletionObject>(m_engine, m_buffer, m_allocation);
 }
 
 #endif

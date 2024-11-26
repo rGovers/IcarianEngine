@@ -6,9 +6,8 @@
 
 #include "Rendering/Vulkan/VulkanPipeline.h"
 
-#include "Core/IcarianDefer.h"
-#include "Rendering/Vulkan/Shaders/VulkanPixelShader.h"
 #include "Rendering/Vulkan/Shaders/VulkanMeshShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanPixelShader.h"
 #include "Rendering/Vulkan/Shaders/VulkanVertexShader.h"
 #include "Rendering/Vulkan/Shaders/VulkanTaskShader.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
@@ -74,9 +73,9 @@ public:
     }
 };
 
-static Array<vk::PipelineShaderStageCreateInfo> GetStageInfo(const RenderProgram& a_program, VulkanGraphicsEngine* a_gEngine)
+static Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> GetStageInfo(const RenderProgram& a_program, VulkanGraphicsEngine* a_gEngine)
 {
-    Array<vk::PipelineShaderStageCreateInfo> stages;
+    Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> stages;
 
     if (a_program.VertexShader != -1)
     {
@@ -128,7 +127,7 @@ static Array<vk::PipelineShaderStageCreateInfo> GetStageInfo(const RenderProgram
         }
         default:
         {
-            IERROR("Invalid MatieralMode");
+            IERROR("Invalid MaterialMode");
 
             break;
         }
@@ -325,7 +324,7 @@ VulkanPipeline::VulkanPipeline(vk::Pipeline a_pipeline, VulkanRenderEngineBacken
 VulkanPipeline::~VulkanPipeline()
 {
     TRACE("Queueing Pipeline for deletion");
-    m_engine->PushDeletionObject(new VulkanPipelineDeletionObject(m_engine, m_pipeline));
+    m_engine->PushDeletionObject<VulkanPipelineDeletionObject>(m_engine, m_pipeline);
 }
 
 VulkanShaderData* VulkanPipeline::GetShaderData() const
@@ -361,12 +360,14 @@ void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) c
     a_commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
 }
 
-VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const vk::RenderPass& a_renderPass, bool a_depth, uint32_t a_textureCount, uint32_t a_programAddr)
+void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder)
 {
     TRACE("Creating Vulkan Pipeline");
-    const vk::Device device = a_engine->GetLogicalDevice();
+    RENDERSCRATCHFRAME;
 
-    const RenderProgram program = a_gEngine->GetRenderProgram(a_programAddr);
+    const vk::Device device = a_builder.Engine->GetLogicalDevice();
+
+    const RenderProgram program = a_builder.GraphicsEngine->GetRenderProgram(a_builder.ProgramAddr);
     IVERIFY(program.Data != nullptr);
     
     const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
@@ -385,10 +386,9 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
         vk::VertexInputRate::eVertex
     );
 
-    vk::VertexInputAttributeDescription* attributeDescription = new vk::VertexInputAttributeDescription[program.VertexInputCount];
-    IDEFER(delete[] attributeDescription);
+    vk::VertexInputAttributeDescription* attributeDescription = (vk::VertexInputAttributeDescription*)RenderScratchAlloc::Allocate(program.VertexInputCount * sizeof(vk::VertexInputAttributeDescription), alignof(vk::VertexInputAttributeDescription));
 
-    vk::PipelineVertexInputStateCreateInfo vertexInputInfo = vk::PipelineVertexInputStateCreateInfo();
+    vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
 
     if (program.VertexInputCount > 0)
     {
@@ -412,7 +412,7 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
     (
         { },
         GetPrimitiveMode(program.PrimitiveMode),
-        VK_FALSE
+        vk::False
     );
 
     const vk::PipelineViewportStateCreateInfo viewportState = vk::PipelineViewportStateCreateInfo
@@ -516,9 +516,9 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
     }
     }
 
-    vk::PipelineColorBlendAttachmentState* colorBlendAttachments = new vk::PipelineColorBlendAttachmentState[a_textureCount];
-    IDEFER(delete[] colorBlendAttachments);
-    for (uint32_t i = 0; i < a_textureCount; ++i)
+    vk::PipelineColorBlendAttachmentState* colorBlendAttachments = (vk::PipelineColorBlendAttachmentState*)RenderScratchAlloc::Allocate(a_builder.TextureCount * sizeof(vk::PipelineColorBlendAttachmentState), alignof(vk::PipelineColorBlendAttachmentState));
+
+    for (uint32_t i = 0; i < a_builder.TextureCount; ++i)
     {
         colorBlendAttachments[i] = colorBlendAttachment;
     }
@@ -528,11 +528,11 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
         { },
         vk::False,
         vk::LogicOp::eCopy,
-        a_textureCount,
+        a_builder.TextureCount,
         colorBlendAttachments
     );
     
-    const Array<vk::PipelineShaderStageCreateInfo> shaderStages = GetStageInfo(program, a_gEngine);
+    const Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> shaderStages = GetStageInfo(program, a_builder.GraphicsEngine);
 
     const vk::PipelineLayout layout = shaderData->GetLayout();
 
@@ -551,10 +551,10 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
         &colorBlending,
         &dynamicState,
         layout,
-        a_renderPass
+        a_builder.RenderPass
     );
 
-    if (a_depth)
+    if (a_builder.Depth)
     {   
         pipelineInfo.pDepthStencilState = &depthStencil;
     }
@@ -562,17 +562,19 @@ VulkanPipeline* VulkanPipeline::CreatePipeline(VulkanRenderEngineBackend* a_engi
     vk::Pipeline pipeline;
     VKRESERRMSG(device.createGraphicsPipelines(nullptr, 1, &pipelineInfo, nullptr, &pipeline), "Failed to create Vulkan Pipeline");
 
-    return new VulkanPipeline(pipeline, a_engine, a_gEngine, a_programAddr, VulkanPipelineType_Graphics);
+    new (a_out) VulkanPipeline(pipeline, a_builder.Engine, a_builder.GraphicsEngine, a_builder.ProgramAddr, VulkanPipelineType_Graphics);
 }
 
-VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const vk::RenderPass& a_renderPass, uint32_t a_programAddr)
+void VulkanPipeline::CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder)
 {
-    const vk::Device device = a_engine->GetLogicalDevice();
-    const RenderProgram program = a_gEngine->GetRenderProgram(a_programAddr);
+    TRACE("Creating Vulkan Shadow Pipeline");
+    RENDERSCRATCHFRAME;
+
+    const vk::Device device = a_builder.Engine->GetLogicalDevice();
+    const RenderProgram program = a_builder.GraphicsEngine->GetRenderProgram(a_builder.ProgramAddr);
     IVERIFY(program.Data != nullptr);
     IVERIFY(program.ShadowVertexShader != -1);
 
-    TRACE("Creating Vulkan Shadow Pipeline");
     const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
 
     const vk::PipelineDynamicStateCreateInfo dynamicState = vk::PipelineDynamicStateCreateInfo
@@ -589,8 +591,7 @@ VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* 
         vk::VertexInputRate::eVertex
     );
 
-    vk::VertexInputAttributeDescription* attributeDescription = new vk::VertexInputAttributeDescription[program.VertexInputCount];
-    IDEFER(delete[] attributeDescription);
+    vk::VertexInputAttributeDescription* attributeDescription = (vk::VertexInputAttributeDescription*)RenderScratchAlloc::Allocate(program.VertexInputCount * sizeof(vk::VertexInputAttributeDescription), alignof(vk::VertexInputAttributeDescription));
 
     for (uint16_t i = 0; i < program.VertexInputCount; ++i)
     {
@@ -621,7 +622,7 @@ VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* 
     (
         { },
         primitiveMode,
-        VK_FALSE
+        vk::False
     );
 
     const vk::PipelineViewportStateCreateInfo viewportState = vk::PipelineViewportStateCreateInfo
@@ -670,7 +671,7 @@ VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* 
         &ColorBlendAttachment
     );
 
-    const VulkanShader* vertexShader = a_gEngine->GetVertexShader(program.ShadowVertexShader);
+    const VulkanShader* vertexShader = a_builder.GraphicsEngine->GetVertexShader(program.ShadowVertexShader);
     IVERIFY(vertexShader != nullptr);
 
     const vk::PipelineShaderStageCreateInfo vertexStage = vk::PipelineShaderStageCreateInfo
@@ -708,13 +709,13 @@ VulkanPipeline* VulkanPipeline::CreateShadowPipeline(VulkanRenderEngineBackend* 
         &colorBlending,
         &dynamicState,
         layout,
-        a_renderPass
+        a_builder.RenderPass
     );
 
     vk::Pipeline pipeline;
     VKRESERRMSG(device.createGraphicsPipelines(nullptr, 1, &pipelineInfo, nullptr, &pipeline), "Failed to create Vulkan Shadow Pipeline");
 
-    return new VulkanPipeline(pipeline, a_engine, a_gEngine, a_programAddr, VulkanPipelineType_Shadow);
+    new (a_out) VulkanPipeline(pipeline, a_builder.Engine, a_builder.GraphicsEngine, a_builder.ProgramAddr, VulkanPipelineType_Shadow);
 }
 
 #endif

@@ -33,9 +33,11 @@ public:
 
         m_textureCount = a_textureCount;
 
-        m_images = new vk::Image[m_textureCount];
-        m_views = new vk::ImageView[m_textureCount];
-        m_allocations = new VmaAllocation[m_textureCount];
+        BlockAllocator* allocator = m_engine->GetDeletionAllocator();
+
+        m_images = allocator->TAllocate<vk::Image>(m_textureCount);
+        m_views = allocator->TAllocate<vk::ImageView>(m_textureCount);
+        m_allocations = allocator->TAllocate<VmaAllocation>(m_textureCount);
 
         for (uint32_t i = 0; i < m_textureCount; ++i)
         {
@@ -48,9 +50,11 @@ public:
     }
     virtual ~VulkanRenderTextureDeletionObject()
     {
-        delete[] m_images;
-        delete[] m_views;
-        delete[] m_allocations;
+        BlockAllocator* allocator = m_engine->GetDeletionAllocator();
+
+        allocator->Free(m_images);
+        allocator->Free(m_views);
+        allocator->Free(m_allocations);
     }
 
     virtual void Destroy()
@@ -425,8 +429,8 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, Vu
 VulkanRenderTexture::~VulkanRenderTexture()
 {
     TRACE("Queueing Render Texture for Deletion");
-    m_engine->PushDeletionObject(new VulkanRenderTextureDeletionObject(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer));
-    m_engine->PushDeletionObject(new VulkanRenderTextureRenderPassDeletionObject(m_engine, m_renderPass, m_renderPassColorClear, m_renderPassNoClear));
+    m_engine->PushDeletionObject<VulkanRenderTextureDeletionObject>(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer);
+    m_engine->PushDeletionObject<VulkanRenderTextureRenderPassDeletionObject>(m_engine, m_renderPass, m_renderPassColorClear, m_renderPassNoClear);
 
     if (IISBITSET(m_flags, OwnsDepthTextureFlag))
     {
@@ -554,7 +558,7 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 void VulkanRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 {
     TRACE("Resizing Render Texture");
-    m_engine->PushDeletionObject(new VulkanRenderTextureDeletionObject(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer));
+    m_engine->PushDeletionObject<VulkanRenderTextureDeletionObject>(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer);
 
     if (IISBITSET(m_flags, OwnsDepthTextureFlag))
     {

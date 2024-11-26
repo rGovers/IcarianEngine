@@ -131,7 +131,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     VmaAllocation stagingAlloc;
     VmaAllocationInfo stagingInfo;
     VKRESERRMSG(vmaCreateBuffer(allocator, &sCreateInfo, &sAllocInfo, &stagingBuffer, &stagingAlloc, &stagingInfo), "Failed to create model staging buffer");
-    IDEFER(m_engine->PushDeletionObject(new VulkanModelBufferDeletionObject(m_engine, stagingBuffer, stagingAlloc)));
+    IDEFER(m_engine->PushDeletionObject<VulkanModelBufferDeletionObject>(m_engine, stagingBuffer, stagingAlloc));
     IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAlloc, 0, (VkDeviceSize)vbSize)));
 
 #ifdef DEBUG
@@ -147,7 +147,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
 VulkanModel::~VulkanModel()
 {
     TRACE("Queuing Model Deletion");
-    m_engine->PushDeletionObject(new VulkanModelBufferDeletionObject(m_engine, m_buffer, m_allocation));
+    m_engine->PushDeletionObject<VulkanModelBufferDeletionObject>(m_engine, m_buffer, m_allocation);
 }
 
 void VulkanModel::Bind(const vk::CommandBuffer& a_cmdBuffer) const

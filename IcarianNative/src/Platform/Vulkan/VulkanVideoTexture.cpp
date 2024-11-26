@@ -512,14 +512,14 @@ VulkanVideoTexture::~VulkanVideoTexture()
     {
         if (m_vulkanVideoData->StreamAllocation != nullptr)
         {
-            m_engine->PushDeletionObject(new VulkanVideoBufferDeletionObject(m_engine, m_vulkanVideoData->StreamAllocation, m_vulkanVideoData->StreamBuffer));
+            m_engine->PushDeletionObject<VulkanVideoBufferDeletionObject>(m_engine, m_vulkanVideoData->StreamAllocation, m_vulkanVideoData->StreamBuffer);
         }
 
-        m_engine->PushDeletionObject(new VulkanVideoSessionDeletionObject(m_engine, m_vulkanVideoData->VideoSession, m_vulkanVideoData->SessionParameters));
+        m_engine->PushDeletionObject<VulkanVideoSessionDeletionObject>(m_engine, m_vulkanVideoData->VideoSession, m_vulkanVideoData->SessionParameters);
 
         for (uint32_t i = 0; i < m_vulkanVideoData->MaxBuffers; ++i)
         {
-            m_engine->PushDeletionObject(new VulkanVideoAllocationDeletionObject(m_engine, m_vulkanVideoData->Allocations[i]));
+            m_engine->PushDeletionObject<VulkanVideoAllocationDeletionObject>(m_engine, m_vulkanVideoData->Allocations[i]);
         }
 
         delete m_vulkanVideoData->VideoTexture;
@@ -692,7 +692,7 @@ void VulkanVideoTexture::UpdateVulkan(vk::CommandBuffer a_commandBuffer, double 
 
         if (m_vulkanVideoData->StreamAllocation != nullptr)
         {
-            m_engine->PushDeletionObject(new VulkanVideoBufferDeletionObject(m_engine, m_vulkanVideoData->StreamAllocation, m_vulkanVideoData->StreamBuffer));
+            m_engine->PushDeletionObject<VulkanVideoBufferDeletionObject>(m_engine, m_vulkanVideoData->StreamAllocation, m_vulkanVideoData->StreamBuffer);
             m_vulkanVideoData->StreamAllocation = nullptr;
             m_vulkanVideoData->StreamBuffer = nullptr;
         }

@@ -5,9 +5,9 @@
 using System;
 using System.Runtime.CompilerServices;
 
-namespace IcarianEngine.Rendering
+namespace IcarianEngine.Rendering.Shaders
 {
-    public class MeshShader : IDestroy
+    public class VertexShader : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateFromFile(string a_path);
@@ -15,7 +15,7 @@ namespace IcarianEngine.Rendering
         extern static void DestroyShader(uint a_addr);
         
         /// <summary>
-        /// Adds a import target to the MeshShader import table
+        /// Adds a import target to the VertexShader import table
         /// </summary>
         /// <param name="a_key">The import target to add</param>
         /// <param name="a_value">The import value to addd</param>
@@ -25,7 +25,7 @@ namespace IcarianEngine.Rendering
         uint m_internalAddr = uint.MaxValue;
 
         /// <summary>
-        /// Whether the MeshShader has been Disposed/Finalised
+        /// Whether the VertexShader has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -43,36 +43,36 @@ namespace IcarianEngine.Rendering
             }
         }
 
-        MeshShader(uint a_addr)
-        {
+        VertexShader(uint a_addr)
+        {   
             m_internalAddr = a_addr;
         }
 
         /// <summary>
-        /// Loads a MeshShader from a file
+        /// Loads a VertexShader from a file
         /// </summary>
-        /// <param name="a_path">The path to the MeshShader</param>
+        /// <param name="a_path">The path to the VertexShader</param>
         /// Supported formats:
-        ///     .fmesh
-        /// @see IcarianEngine.AssetLibrary.LoadMeshShader
-        public static MeshShader LoadMeshShader(string a_path)
+        ///     .fvert
+        /// @see IcarianEngine.AssetLibrary.LoadVertexShader
+        public static VertexShader LoadVertexShader(string a_path)
         {
             uint addr = GenerateFromFile(a_path);
 
             if (addr != uint.MaxValue)
             {
-                return new MeshShader(addr);
+                return new VertexShader(addr);
             }
             else
             {
-                Logger.IcarianError($"Failed to load MeshShader: {a_path}");
+                Logger.IcarianError($"Failed to load VertexShader: {a_path}");
             }
 
             return null;
         }
 
         /// <summary>
-        /// Disposes of the MeshShader
+        /// Disposes of the VertexShader
         /// </summary>
         public void Dispose()
         {
@@ -81,7 +81,7 @@ namespace IcarianEngine.Rendering
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// Called when the MeshShader is being Disposed/Finalised
+        /// Called when the VertexShader is being Disposed/Finalised
         /// </summary>
         /// <param name="a_disposing">Whether it is being called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
@@ -94,17 +94,17 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.IcarianWarning("MeshShader Failed to Dispose");
+                    Logger.IcarianWarning("VertexShader Failed to Dispose");
                 }
 
                 m_internalAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple MeshShader Dispose");
+                Logger.IcarianError("Multiple VertexShader Dispose");
             }
         }
-        ~MeshShader()
+        ~VertexShader()
         {
             Dispose(false);
         }

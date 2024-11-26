@@ -261,6 +261,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     case BuildConfiguration_Debug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-rdynamic");
 
         if (a_targetPlatform != TargetPlatform_Windows)
         {

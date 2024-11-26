@@ -205,17 +205,19 @@ public:
         return *this;
     }
 
-    Array<T> ToArray()
+    template<typename Alloc = MallocAllocator>
+    Array<T, Alloc> ToArray()
     {
         const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
-        return Array<T>(m_data, m_size);
+        return Array<T, Alloc>(m_data, m_size);
     }
-    Array<bool> ToStateArray()
+    template<typename Alloc = MallocAllocator>
+    Array<bool, Alloc> ToStateArray()
     {
         const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
-        Array<bool> a;
+        Array<bool, Alloc> a;
         a.Reserve(m_size);
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -227,11 +229,12 @@ public:
 
         return a;
     }
-    Array<T> ToActiveArray()
+    template<typename Alloc = MallocAllocator>
+    Array<T, Alloc> ToActiveArray()
     {
         const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
-        Array<T> a;
+        Array<T, Alloc> a;
         a.Reserve(m_size);
         for (uint32_t i = 0; i < m_size; ++i)
         {

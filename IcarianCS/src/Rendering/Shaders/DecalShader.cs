@@ -5,7 +5,7 @@
 using System;
 using System.Runtime.CompilerServices;
 
-namespace IcarianEngine.Rendering
+namespace IcarianEngine.Rendering.Shaders
 {
     public class DecalShader
     {
@@ -13,14 +13,6 @@ namespace IcarianEngine.Rendering
         extern static uint GenerateFromFile(string a_path);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyShader(uint a_addr);
-
-        /// <summary>
-        /// Adds a import target to the DecalShader import table
-        /// </summary>
-        /// <param name="a_key">The import target to add</param>
-        /// <param name="a_value">The import value to addd</param>
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        public extern static void AddImport(string a_key, string a_value);
     }
 }
 

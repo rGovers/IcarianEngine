@@ -5,6 +5,7 @@
 using IcarianEngine.Maths;
 using IcarianEngine.Rendering.Lighting;
 using IcarianEngine.Rendering.PostEffects;
+using IcarianEngine.Rendering.Shaders;
 using System;
 using System.Collections.Generic;
 

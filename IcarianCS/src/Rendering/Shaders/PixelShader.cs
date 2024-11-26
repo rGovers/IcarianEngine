@@ -5,27 +5,27 @@
 using System;
 using System.Runtime.CompilerServices;
 
-namespace IcarianEngine.Rendering
+namespace IcarianEngine.Rendering.Shaders
 {
-    public class VertexShader : IDestroy
+    public class PixelShader : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateFromFile(string a_path);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyShader(uint a_addr);
-        
+
         /// <summary>
-        /// Adds a import target to the VertexShader import table
+        /// Adds a import target to the PixelShader import table
         /// </summary>
         /// <param name="a_key">The import target to add</param>
-        /// <param name="a_value">The import value to addd</param>
+        /// <param name="a_value">The import value to add</param>
         [MethodImpl(MethodImplOptions.InternalCall)]
         public extern static void AddImport(string a_key, string a_value);
 
         uint m_internalAddr = uint.MaxValue;
 
         /// <summary>
-        /// Whether the VertexShader has been Disposed/Finalised
+        /// Whether the PixelShader has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -43,36 +43,37 @@ namespace IcarianEngine.Rendering
             }
         }
 
-        VertexShader(uint a_addr)
-        {   
+        PixelShader(uint a_addr)
+        {
             m_internalAddr = a_addr;
         }
 
         /// <summary>
-        /// Loads a VertexShader from a file
+        /// Loads a PixelShader from a file
         /// </summary>
-        /// <param name="a_path">The path to the VertexShader</param>
+        /// <param name="a_path">The path to the PixelShader</param>
         /// Supported formats:
-        ///     .fvert
-        /// @see IcarianEngine.AssetLibrary.LoadVertexShader
-        public static VertexShader LoadVertexShader(string a_path)
+        ///     .ffrag
+        ///     .fpix
+        /// @see IcarianEngine.AssetLibrary.LoadPixelShader
+        public static PixelShader LoadPixelShader(string a_path)
         {
             uint addr = GenerateFromFile(a_path);
 
             if (addr != uint.MaxValue)
             {
-                return new VertexShader(addr);
+                return new PixelShader(addr);
             }
             else
             {
-                Logger.IcarianError($"Failed to load VertexShader: {a_path}");
+                Logger.IcarianError($"Failed to load PixelShader: {a_path}");
             }
 
             return null;
         }
 
         /// <summary>
-        /// Disposes of the VertexShader
+        /// Disposes of the PixelShader
         /// </summary>
         public void Dispose()
         {
@@ -81,7 +82,7 @@ namespace IcarianEngine.Rendering
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// Called when the VertexShader is being Disposed/Finalised
+        /// Called when the PixelShader is being Disposed/Finalised
         /// </summary>
         /// <param name="a_disposing">Whether it is being called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
@@ -94,17 +95,17 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.IcarianWarning("VertexShader Failed to Dispose");
+                    Logger.IcarianWarning("PixelShader Failed to Dispose");
                 }
 
                 m_internalAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple VertexShader Dispose");
+                Logger.IcarianError("Multiple PixelShader Dispose");
             }
         }
-        ~VertexShader()
+        ~PixelShader()
         {
             Dispose(false);
         }

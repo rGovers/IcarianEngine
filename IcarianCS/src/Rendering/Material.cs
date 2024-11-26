@@ -3,6 +3,7 @@
 // License at end of file.
 
 using IcarianEngine.Definitions;
+using IcarianEngine.Rendering.Shaders;
 using System;
 using System.Reflection;
 using System.Runtime.CompilerServices;

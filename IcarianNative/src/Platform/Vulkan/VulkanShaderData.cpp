@@ -8,6 +8,7 @@
 
 #include "Core/IcarianDefer.h"
 #include "Core/ShaderBuffers.h"
+#include "DataTypes/Allocator.h"
 #include "Rendering/UI/UIElement.h"
 #include "Rendering/Vulkan/Shaders/VulkanMeshShader.h"
 #include "Rendering/Vulkan/Shaders/VulkanPixelShader.h"
@@ -166,7 +167,7 @@ struct Input
     vk::DescriptorSetLayoutBinding Binding;
 };
 
-static void GetLayoutInfo(const Array<VulkanShaderInput>& a_inputs, Array<vk::PushConstantRange>* a_pushConstants, Array<Input>* a_pushBindings)
+static void GetLayoutInfo(const Array<VulkanShaderInput, RenderScratchAlloc>& a_inputs, Array<vk::PushConstantRange, RenderScratchAlloc>* a_pushConstants, Array<Input, RenderScratchAlloc>* a_pushBindings)
 {
     const uint32_t inputCount = a_inputs.Size();
 
@@ -323,7 +324,7 @@ static vk::DescriptorImageInfo GetDescriptorImageInfo(const TextureSamplerBuffer
     return imageInfo;
 }
 
-static void GeneratePushBindings(const Array<Input>& a_bindings, const Array<VulkanShaderInput>& a_inputs, const vk::Device a_device, Array<vk::DescriptorSetLayout>* a_layouts, Array<VulkanPushDescriptor>* a_pushDescriptors)
+static void GeneratePushBindings(const Array<Input, RenderScratchAlloc>& a_bindings, const Array<VulkanShaderInput, RenderScratchAlloc>& a_inputs, const vk::Device a_device, Array<vk::DescriptorSetLayout, RenderScratchAlloc>* a_layouts, Array<VulkanPushDescriptor>* a_pushDescriptors)
 {
     for (const Input& i : a_bindings)
     {
@@ -351,7 +352,7 @@ static void GeneratePushBindings(const Array<Input>& a_bindings, const Array<Vul
     }
 }
 
-static void PushVulkanShaderBufferInput(Array<VulkanShaderInput>* a_inputs, const ShaderBufferInput& a_bufferInput, vk::ShaderStageFlags a_stage)
+static void PushVulkanShaderBufferInput(Array<VulkanShaderInput, RenderScratchAlloc>* a_inputs, const ShaderBufferInput& a_bufferInput, vk::ShaderStageFlags a_stage)
 {
     for (VulkanShaderInput& i : *a_inputs)
     {
@@ -379,8 +380,13 @@ static void PushVulkanShaderBufferInput(Array<VulkanShaderInput>* a_inputs, cons
     a_inputs->Push(vInput);
 }
 
-VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const RenderProgram& a_program)
+VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const RenderProgram& a_program, Allocator* a_allocator)
 {
+    TRACE("Creating Shader Data");
+    RENDERSCRATCHFRAME;
+
+    m_allocator = a_allocator;
+
     m_engine = a_engine;
     m_gEngine = a_gEngine;
 
@@ -388,14 +394,12 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
 
     m_userUniformBuffer = nullptr;
 
-    m_userBufferInput.BufferType = ShaderBufferType_Null;
-    m_transformBufferInput.BufferType = ShaderBufferType_Null;
-    m_uiBufferInput.BufferType = ShaderBufferType_Null;
+    m_shadowSlotInputCount = 0;
+    m_shadowSlotInputs = nullptr;
 
-    TRACE("Creating Shader Data");
     const vk::Device device = m_engine->GetLogicalDevice();
 
-    Array<VulkanShaderInput> vulkanInputs;
+    Array<VulkanShaderInput, RenderScratchAlloc> vulkanInputs;
 
     if (a_program.VertexShader != -1)
     {
@@ -462,43 +466,19 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
         }
     }
 
-    for (const VulkanShaderInput& input : vulkanInputs)
+    m_slotInputCount = vulkanInputs.Size();
+    m_slotInputs = m_allocator->TAllocate<VulkanShaderInput>(m_slotInputCount);
+
+    for (uint32_t i = 0; i < m_slotInputCount; ++i)
     {
-        switch (input.BufferType)
-        {
-        case ShaderBufferType_UserUBO:
-        {
-            m_userBufferInput = input;
-
-            break;
-        }
-        case ShaderBufferType_PModelBuffer:
-        {
-            m_transformBufferInput = input;
-
-            break;
-        }
-        case ShaderBufferType_PUIBuffer:
-        {
-            m_uiBufferInput = input;
-
-            break;
-        }
-        default:
-        {
-            m_slotInputs.Push(input);
-
-            break;
-        }
-        }
+        m_slotInputs[i] = vulkanInputs[i];
     }
 
-    Array<vk::PushConstantRange> pushConstants;
-    Array<Input> pushBindings;
+    Array<vk::PushConstantRange, RenderScratchAlloc> pushConstants;
+    Array<Input, RenderScratchAlloc> pushBindings;
     GetLayoutInfo(vulkanInputs, &pushConstants, &pushBindings);
 
-    Array<vk::DescriptorSetLayout> layouts;
-
+    Array<vk::DescriptorSetLayout, RenderScratchAlloc> layouts;
     GeneratePushBindings(pushBindings, vulkanInputs, device, &layouts, &m_pushDescriptors);    
 
     const vk::PipelineLayoutCreateInfo pipelineLayoutInfo = vk::PipelineLayoutCreateInfo
@@ -512,7 +492,7 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
 
     if (a_program.UBOData != NULL && a_program.UBODataSize > 0)
     {
-        m_userUniformBuffer = new VulkanUniformBuffer(m_engine, a_program.UBODataSize);
+        m_userUniformBuffer = m_allocator->Create<VulkanUniformBuffer>(m_engine, a_program.UBODataSize);
     }
 
     TRACE("Creating Pipeline Layout");
@@ -522,21 +502,29 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
     {
         const VulkanVertexShader* vertexShader = m_gEngine->GetVertexShader(a_program.ShadowVertexShader);
 
+        vulkanInputs.Clear();
+
         const uint32_t inputCount = vertexShader->GetShaderInputCount();
         for (uint32_t i = 0; i < inputCount; ++i)
         {
             const ShaderBufferInput input = vertexShader->GetShaderInput(i);
 
-            PushVulkanShaderBufferInput(&m_shadowSlotInputs, input, vk::ShaderStageFlagBits::eVertex);
+            PushVulkanShaderBufferInput(&vulkanInputs, input, vk::ShaderStageFlagBits::eVertex);
         }
 
-        Array<vk::PushConstantRange> shadowPushConstants;
-        Array<Input> shadowPushBindings;
-        GetLayoutInfo(m_shadowSlotInputs, &shadowPushConstants, &shadowPushBindings);
+        Array<vk::PushConstantRange, RenderScratchAlloc> shadowPushConstants;
+        Array<Input, RenderScratchAlloc> shadowPushBindings;
+        GetLayoutInfo(vulkanInputs, &shadowPushConstants, &shadowPushBindings);
 
-        Array<vk::DescriptorSetLayout> shadowLayouts;
+        Array<vk::DescriptorSetLayout, RenderScratchAlloc> shadowLayouts;
+        GeneratePushBindings(shadowPushBindings, vulkanInputs, device, &shadowLayouts, &m_shadowPushDescriptors);
 
-        GeneratePushBindings(shadowPushBindings, m_shadowSlotInputs, device, &shadowLayouts, &m_shadowPushDescriptors);
+        m_shadowSlotInputCount = vulkanInputs.Size();
+        m_shadowSlotInputs = m_allocator->TAllocate<VulkanShaderInput>(m_shadowSlotInputCount);
+        for (uint32_t i = 0; i < m_shadowSlotInputCount; ++i)
+        {
+            m_shadowSlotInputs[i] = vulkanInputs[i];
+        }
 
         const vk::PipelineLayoutCreateInfo shadowPipelineLayoutInfo = vk::PipelineLayoutCreateInfo
         (
@@ -551,14 +539,91 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
         VKRESERRMSG(device.createPipelineLayout(&shadowPipelineLayoutInfo, nullptr, &m_shadowLayout), "Failed to create Shadow PipelineLayout");
     }
 }
+VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const VulkanDecalShader* a_shader, Allocator* a_allocator)
+{
+    TRACE("Creating Decal Shader Data");
+    RENDERSCRATCHFRAME;
+
+    m_allocator = a_allocator;
+
+    m_engine = a_engine;
+    m_gEngine = a_gEngine;
+
+    m_shadowLayout = nullptr;
+
+    m_userUniformBuffer = nullptr;
+
+    m_shadowSlotInputCount = 0;
+    m_shadowSlotInputs = nullptr;
+
+    const vk::Device device = m_engine->GetLogicalDevice();
+
+    Array<VulkanShaderInput, RenderScratchAlloc> vulkanInputs;
+
+    const VulkanVertexShader* vertexShader = a_shader->GetVertexShader();
+    IVERIFY(vertexShader != nullptr);
+
+    const uint32_t vertexInputCount = vertexShader->GetShaderInputCount();
+    for (uint32_t i = 0; i < vertexInputCount; ++i)
+    {
+        const ShaderBufferInput input = vertexShader->GetShaderInput(i);
+        
+        PushVulkanShaderBufferInput(&vulkanInputs, input, vk::ShaderStageFlagBits::eVertex);
+    }
+
+    const VulkanPixelShader* pixelShader = a_shader->GetPixelShader();
+    IVERIFY(pixelShader != nullptr);
+
+    const uint32_t pixelInputCount = pixelShader->GetShaderInputCount();
+    for (uint32_t i = 0; i < pixelInputCount; ++i)
+    {
+        const ShaderBufferInput input = pixelShader->GetShaderInput(i);
+
+        PushVulkanShaderBufferInput(&vulkanInputs, input, vk::ShaderStageFlagBits::eFragment);
+    }
+
+    m_slotInputCount = vulkanInputs.Size();
+    m_slotInputs = m_allocator->TAllocate<VulkanShaderInput>(m_slotInputCount);
+
+    for (uint32_t i = 0; i < m_slotInputCount; ++i)
+    {
+        m_slotInputs[i] = vulkanInputs[i];
+    }
+
+    Array<vk::PushConstantRange, RenderScratchAlloc> pushConstants;
+    Array<Input, RenderScratchAlloc> pushBindings;
+    GetLayoutInfo(vulkanInputs, &pushConstants, &pushBindings);
+
+    Array<vk::DescriptorSetLayout, RenderScratchAlloc> layouts;
+    GeneratePushBindings(pushBindings, vulkanInputs, device, &layouts, &m_pushDescriptors);    
+
+    const vk::PipelineLayoutCreateInfo pipelineLayoutInfo = vk::PipelineLayoutCreateInfo
+    (
+        { },
+        layouts.Size(),
+        layouts.Data(),
+        pushConstants.Size(),
+        pushConstants.Data()
+    );
+
+    TRACE("Creating Pipeline Layout");
+    VKRESERRMSG(device.createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_layout), "Failed to create PipelineLayout");
+}
 VulkanShaderData::~VulkanShaderData()
 {
     TRACE("Queueing Shader Data for deletion");
-    m_engine->PushDeletionObject(new VulkanShaderDataDeletionObject(m_engine, m_pushDescriptors, m_shadowPushDescriptors, m_layout, m_shadowLayout));    
+    m_engine->PushDeletionObject<VulkanShaderDataDeletionObject>(m_engine, m_pushDescriptors, m_shadowPushDescriptors, m_layout, m_shadowLayout);    
 
     if (m_userUniformBuffer != nullptr)
     {
-        delete m_userUniformBuffer;
+        m_allocator->Destroy(m_userUniformBuffer);
+    }
+
+    m_allocator->Free(m_slotInputs);
+    
+    if (m_shadowSlotInputs != nullptr)
+    {
+        m_allocator->Free(m_shadowSlotInputs);
     }
 }
 
@@ -875,65 +940,89 @@ void VulkanShaderData::PushShadowShaderStorageObject(vk::CommandBuffer a_command
 
 void VulkanShaderData::UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_transform) const
 {
-    if (m_transformBufferInput.BufferType == ShaderBufferType_PModelBuffer)
+    for (uint32_t i = 0; i < m_slotInputCount; ++i)
     {
+        const VulkanShaderInput& input = m_slotInputs[i];
+
+        if (input.BufferType != ShaderBufferType_PModelBuffer)
+        {
+            continue;
+        }
+
         const IcarianCore::ShaderModelBuffer buffer =
         {
             .Model = a_transform,
             .InvModel = glm::inverse(a_transform)
         };
 
-        a_commandBuffer.pushConstants(m_layout, m_transformBufferInput.StageFlags, 0, sizeof(IcarianCore::ShaderModelBuffer), &buffer);
+        a_commandBuffer.pushConstants(m_layout, input.StageFlags, 0, sizeof(IcarianCore::ShaderModelBuffer), &buffer);
+
+        return;
     }
 }
 void VulkanShaderData::UpdateShadowTransformBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_transform) const
 {
-    for (const VulkanShaderInput& input : m_shadowSlotInputs)
+    for (uint32_t i = 0; i < m_shadowSlotInputCount; ++i)
     {
-        if (input.BufferType == ShaderBufferType_PModelBuffer)
+        const VulkanShaderInput& input = m_shadowSlotInputs[i];
+
+        if (input.BufferType != ShaderBufferType_PModelBuffer)
         {
-            const IcarianCore::ShaderModelBuffer buffer =
-            {
-                .Model = a_transform,
-                .InvModel = glm::inverse(a_transform)
-            };
-
-            a_commandBuffer.pushConstants(m_shadowLayout, input.StageFlags, 0, sizeof(IcarianCore::ShaderModelBuffer), &buffer);
-
-            return;
+            continue;
         }
+
+        const IcarianCore::ShaderModelBuffer buffer =
+        {
+            .Model = a_transform,
+            .InvModel = glm::inverse(a_transform)
+        };
+
+        a_commandBuffer.pushConstants(m_shadowLayout, input.StageFlags, 0, sizeof(IcarianCore::ShaderModelBuffer), &buffer);
+
+        return;
     }
 }
 
 void VulkanShaderData::UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, const UIElement* a_element) const
 {
-    if (m_uiBufferInput.BufferType == ShaderBufferType_PUIBuffer)
+    for (uint32_t i = 0; i < m_slotInputCount; ++i)
     {
+        const VulkanShaderInput& input = m_slotInputs[i];
+
+        if (input.BufferType != ShaderBufferType_PUIBuffer)
+        {
+            continue;
+        }
+
         const IcarianCore::ShaderUIBuffer buffer =
         {
             .Color = a_element->GetColor()
         };
 
-        a_commandBuffer.pushConstants(m_layout, m_uiBufferInput.StageFlags, 0, sizeof(IcarianCore::ShaderUIBuffer), &buffer);
+        a_commandBuffer.pushConstants(m_layout, input.StageFlags, 0, sizeof(IcarianCore::ShaderUIBuffer), &buffer);
     }
 }
 
 void VulkanShaderData::UpdateShadowLightBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_lvp, float a_split) const
 {
-    for (const VulkanShaderInput& input : m_shadowSlotInputs)
+    for (uint32_t i = 0; i < m_shadowSlotInputCount; ++i)
     {
-        if (input.BufferType == ShaderBufferType_PShadowLightBuffer)
+        const VulkanShaderInput& input = m_shadowSlotInputs[i];
+
+        if (input.BufferType != ShaderBufferType_PShadowLightBuffer)
         {
-            const IcarianCore::ShaderShadowLightBuffer buffer =
-            {
-                .LVP = a_lvp,
-                .Split = a_split
-            };
-
-            a_commandBuffer.pushConstants(m_shadowLayout, input.StageFlags, 0, sizeof(IcarianCore::ShaderShadowLightBuffer), &buffer);
-
-            return;
+            continue;
         }
+
+        const IcarianCore::ShaderShadowLightBuffer buffer =
+        {
+            .LVP = a_lvp,
+            .Split = a_split
+        };
+
+        a_commandBuffer.pushConstants(m_shadowLayout, input.StageFlags, 0, sizeof(IcarianCore::ShaderShadowLightBuffer), &buffer);
+
+        return;
     }
 }
 
@@ -941,26 +1030,43 @@ void VulkanShaderData::Update(uint32_t a_index, const RenderProgram& a_program)
 {
     // Want the user to be able to update the uniform buffer whenever they want
     // However updating mid render can cause issues
-    if (m_userBufferInput.BufferType == ShaderBufferType_UserUBO && m_userUniformBuffer != nullptr)
+    if (m_userUniformBuffer != nullptr)
     {
         m_userUniformBuffer->SetData(a_index, a_program.UBOData);
     }
 }
 void VulkanShaderData::BindShadow(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
 {
-    for (const VulkanShaderInput& input : m_shadowSlotInputs)
+    if (m_userUniformBuffer != nullptr)
     {
-        if (input.BufferType == ShaderBufferType_UserUBO && m_userUniformBuffer != nullptr)
+        for (uint32_t i = 0; i < m_shadowSlotInputCount; ++i)
         {
+            const VulkanShaderInput& input = m_shadowSlotInputs[i];
+
+            if (input.BufferType != ShaderBufferType_UserUBO)
+            {
+                continue;
+            }
+
             PushUniformBuffer(a_commandBuffer, input.Slot, m_userUniformBuffer, a_index);
         }
     }
 }
 void VulkanShaderData::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
 {
-    if (m_userBufferInput.BufferType == ShaderBufferType_UserUBO && m_userUniformBuffer != nullptr)
+    if (m_userUniformBuffer != nullptr)
     {
-        PushUniformBuffer(a_commandBuffer, m_userBufferInput.Slot, m_userUniformBuffer, a_index);
+        for (uint32_t i = 0; i < m_slotInputCount; ++i)
+        {
+            const VulkanShaderInput& input = m_slotInputs[i];
+
+            if (input.BufferType != ShaderBufferType_UserUBO)
+            {
+                continue;
+            }
+
+            PushUniformBuffer(a_commandBuffer, input.Slot, m_userUniformBuffer, a_index);
+        }
     }
 
     for (const VulkanTextureBinding& b : m_textures)
@@ -973,42 +1079,50 @@ void VulkanShaderData::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer)
 
 bool VulkanShaderData::GetShaderBufferInput(e_ShaderBufferType a_bufferType, ShaderBufferInput* a_input) const
 {
-    for (const VulkanShaderInput& input : m_slotInputs)
+    for (uint32_t i = 0; i < m_slotInputCount; ++i)
     {
-        if (input.BufferType == a_bufferType)
-        {
-            const ShaderBufferInput sInput = 
-            {
-                .Slot = (uint16_t)input.Slot,
-                .BufferType = input.BufferType,
-                .Count = (uint16_t)input.Count
-            };
+        const VulkanShaderInput& input = m_slotInputs[i];
 
-            *a_input = sInput;
-        
-            return true;
+        if (input.BufferType != a_bufferType)
+        {
+            continue;
         }
+
+        const ShaderBufferInput sInput = 
+        {
+            .Slot = (uint16_t)input.Slot,
+            .BufferType = input.BufferType,
+            .Count = (uint16_t)input.Count
+        };
+
+        *a_input = sInput;
+        
+        return true;
     }
 
     return false;
 }
 bool VulkanShaderData::GetShadowShaderBufferInput(e_ShaderBufferType a_bufferType, ShaderBufferInput* a_input) const
 {
-    for (const VulkanShaderInput& input : m_shadowSlotInputs)
+    for (uint32_t i = 0; i < m_shadowSlotInputCount; ++i)
     {
-        if (input.BufferType == a_bufferType)
+        const VulkanShaderInput& input = m_shadowSlotInputs[i];
+
+        if (input.BufferType != a_bufferType)
         {
-            const ShaderBufferInput sInput = 
-            {
-                .Slot = (uint16_t)input.Slot,
-                .BufferType = input.BufferType,
-                .Count = (uint16_t)input.Count
-            };
-
-            *a_input = sInput;
-
-            return true;
+            continue;
         }
+
+        const ShaderBufferInput sInput = 
+        {
+            .Slot = (uint16_t)input.Slot,
+            .BufferType = input.BufferType,
+            .Count = (uint16_t)input.Count
+        };
+
+        *a_input = sInput;
+
+        return true;
     }
 
     return false;

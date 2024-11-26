@@ -6,6 +6,7 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
+#include <filesystem>
 #include <string_view>
 
 class VulkanGraphicsEngine;
@@ -49,7 +50,7 @@ public:
     void AddPixelShaderImport(const std::string_view& a_key, const std::string_view& a_value);
     void DestroyPixelShader(uint32_t a_addr) const;
 
-    uint32_t GenerateFDecalShaderAddr(const std::string_view& a_str) const;
+    uint32_t GenerateFDecalShaderAddr(const std::filesystem::path& a_path) const;
     void DestroyDecalShader(uint32_t a_addr) const;
 
     uint32_t GenerateShaderProgram(const RenderProgram& a_program) const;

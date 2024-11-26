@@ -229,14 +229,15 @@ void VulkanRenderCommand::PushLight(uint32_t a_slot, e_LightType a_lightType, ui
 }
 void VulkanRenderCommand::PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount) const
 {
+    RENDERSCRATCHFRAME;
+
     const RenderProgram program = m_gEngine->GetRenderProgram(m_materialAddr);
     IVERIFY(program.Data != nullptr);
     VulkanShaderData* data = (VulkanShaderData*)program.Data;
 
     VulkanPushPool* pushPool = m_engine->GetPushPool();
 
-    IcarianCore::ShaderShadowLightBuffer* shadowLightBuffer = new IcarianCore::ShaderShadowLightBuffer[a_splitCount];
-    IDEFER(delete[] shadowLightBuffer);
+    IcarianCore::ShaderShadowLightBuffer* shadowLightBuffer = RenderScratchAlloc::TAllocate<IcarianCore::ShaderShadowLightBuffer>(a_splitCount);
 
     for (uint32_t i = 0; i < a_splitCount; ++i)
     {
@@ -244,13 +245,16 @@ void VulkanRenderCommand::PushLightSplits(uint32_t a_slot, const LightShadowSpli
         shadowLightBuffer[i].Split = a_splits[i].Split;
     }
 
-    const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_engine, sizeof(IcarianCore::ShaderShadowLightBuffer) * a_splitCount, a_splitCount, shadowLightBuffer);
-    IDEFER(delete storage);
+    VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
+    new (storage) VulkanShaderStorageObject(m_engine, sizeof(IcarianCore::ShaderShadowLightBuffer) * a_splitCount, a_splitCount, shadowLightBuffer);
+    IDEFER(storage->~VulkanShaderStorageObject());
 
     data->PushShaderStorageObject(m_commandBuffer, a_slot, storage, m_engine->GetCurrentFrame());
 }
 void VulkanRenderCommand::PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr) const
 {
+    RENDERSCRATCHFRAME;
+
     const RenderProgram program = m_gEngine->GetRenderProgram(m_materialAddr);
     IVERIFY(program.Data != nullptr);
     VulkanShaderData* data = (VulkanShaderData*)program.Data;
@@ -261,27 +265,33 @@ void VulkanRenderCommand::PushShadowTextureArray(uint32_t a_slot, uint32_t a_dir
     const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)dirLight.Data;
     const uint32_t count = lightBuffer->LightRenderTextureCount;
 
-    TextureSamplerBuffer* buffer = new TextureSamplerBuffer[count];
+    TextureSamplerBuffer* buffer = RenderScratchAlloc::TAllocate<TextureSamplerBuffer>(count);
     IDEFER(
+    for (uint32_t i = 0; i < count; ++i)
     {
-        for (uint32_t i = 0; i < count; ++i)
-        {
-            delete (VulkanTextureSampler*)buffer[i].Data;
-        }
-
-        delete[] buffer;
+        ((VulkanTextureSampler*)buffer[i].Data)->~VulkanTextureSampler();
     });
 
     for (uint32_t i = 0; i < count; ++i)
     {
         const uint32_t renderTex = lightBuffer->LightRenderTextures[i];
 
+        VulkanTextureSampler* sampler = RenderScratchAlloc::TAllocate<VulkanTextureSampler>();
+
         buffer[i].Addr = renderTex;
         buffer[i].Slot = 0;
         buffer[i].TextureMode = TextureMode_DepthRenderTexture;
         buffer[i].FilterMode = TextureFilter_Linear;
         buffer[i].AddressMode = TextureAddress_ClampToEdge;
-        buffer[i].Data = VulkanTextureSampler::GenerateFromBuffer(m_engine, m_gEngine, buffer[i]);
+        buffer[i].Data = sampler;
+
+        const VulkanTextureSamplerBuilder builder =
+        {
+            .Engine = m_engine,
+            .Sampler = buffer[i]
+        };
+
+        VulkanTextureSampler::GenerateFromBuffer(sampler, builder);
     }
 
     data->PushTextures(m_commandBuffer, a_slot, buffer, count, m_engine->GetCurrentFrame());

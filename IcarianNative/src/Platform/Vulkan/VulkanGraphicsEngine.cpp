@@ -58,7 +58,9 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
 {
     m_vulkanEngine = a_vulkanEngine;
 
-    m_runtimeBindings = new VulkanGraphicsEngineBindings(this);
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
+    m_runtimeBindings = allocator->Create<VulkanGraphicsEngineBindings>(this);
 
     TRACE("Getting RenderPipeline Functions");
     m_shadowSetupFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":ShadowSetupS(uint,uint)");
@@ -128,10 +130,12 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
 
     m_imageUIPipelineAddr = GenerateRenderProgram(imageProgram);
 
-    m_timeUniform = new VulkanUniformBuffer(m_vulkanEngine, sizeof(IcarianCore::ShaderTimeBuffer));
+    m_timeUniform = allocator->Create<VulkanUniformBuffer>(m_vulkanEngine, sizeof(IcarianCore::ShaderTimeBuffer));
 }
 VulkanGraphicsEngine::~VulkanGraphicsEngine()
 {
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+
     TRACE("Checking if shaders where deleted");
     for (uint32_t i = 0; i < m_vertexShaders.Size(); ++i)
     {
@@ -139,7 +143,7 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         {
             Logger::Warning("Vertex Shader was not destroyed");
 
-            delete m_vertexShaders[i];
+            blockAllocator->Destroy(m_vertexShaders[i]);
         }
     }
 
@@ -149,24 +153,44 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         {
             Logger::Warning("Pixel Shader was not destroyed");
 
-            delete m_pixelShaders[i];
+            blockAllocator->Destroy(m_pixelShaders[i]);
+        }
+    }
+
+    for (uint32_t i = 0; i < m_meshShaders.Size(); ++i)
+    {
+        if (m_meshShaders.Exists(i))
+        {
+            Logger::Warning("Mesh Shader was not destroyed");
+
+            blockAllocator->Destroy(m_meshShaders[i]);
+        }
+    }
+
+    for (uint32_t i = 0; i < m_taskShaders.Size(); ++i)
+    {
+        if (m_taskShaders.Exists(i))
+        {
+            Logger::Warning("Task Shader was not destroyed");
+
+            blockAllocator->Destroy(m_taskShaders[i]);
         }
     }
 
     TRACE("Deleting Pipelines");
     for (const auto& iter : m_pipelines)
     {
-        delete iter.second;
+        blockAllocator->Destroy(iter.second);
     }
     TRACE("Deleting Shadow Pipelines");
     for (const auto& iter : m_shadowPipelines)
     {
-        delete iter.second;
+        blockAllocator->Destroy(iter.second);
     }
     TRACE("Deleting Cube Shadow Pipelines");
     for (const auto& iter : m_cubeShadowPipelines)
     {
-        delete iter.second;
+        blockAllocator->Destroy(iter.second);
     }
 
     TRACE("Checking shader program buffer health");
@@ -181,12 +205,11 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         {
             Logger::Warning("Shader data was not destroyed");
 
-            delete (VulkanShaderData*)m_shaderPrograms[i].Data;
-            m_shaderPrograms[i].Data = nullptr;
+            blockAllocator->Destroy((VulkanShaderData*)m_shaderPrograms[i].Data);
         }
     }
 
-    delete m_runtimeBindings;
+    blockAllocator->Destroy(m_runtimeBindings);
 
     delete m_shadowSetupFunc;
     delete m_preShadowFunc;
@@ -205,7 +228,9 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
 
 void VulkanGraphicsEngine::Cleanup()
 {
-    delete m_timeUniform;
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
+    allocator->Destroy(m_timeUniform);
 
     const RenderProgram textProgram = m_shaderPrograms[m_textUIPipelineAddr];
     IDEFER(
@@ -245,11 +270,11 @@ void VulkanGraphicsEngine::Cleanup()
     }
 
     TRACE("Deleting camera ubos");
-    for (const VulkanUniformBuffer* uniform : m_cameraUniforms)
+    for (VulkanUniformBuffer* uniform : m_cameraUniforms)
     {
         if (uniform != nullptr)
         {
-            delete uniform;
+            allocator->Destroy(uniform);
         }
     }
 
@@ -331,8 +356,7 @@ void VulkanGraphicsEngine::Cleanup()
         {
             Logger::Warning("Texture sampler data was not destroyed");
 
-            delete (VulkanTextureSampler*)m_textureSampler[i].Data;
-            m_textureSampler[i].Data = nullptr;
+            allocator->Destroy((VulkanTextureSampler*)m_textureSampler[i].Data);
         }
     }
 
@@ -353,8 +377,21 @@ uint32_t VulkanGraphicsEngine::GenerateFVertexShader(const std::string_view& a_s
 {
     IVERIFY(!a_source.empty());
 
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanVertexShader* shader = blockAllocator->TAllocate<VulkanVertexShader>();
+
     const SharedThreadGuard g = SharedThreadGuard(m_importLock);
-    VulkanVertexShader* shader = VulkanVertexShader::CreateFromFShader(m_vulkanEngine, m_vertexImports, a_source);
+
+    const VulkanVertexFShaderBuilder builder =
+    {
+        .Engine = m_vulkanEngine,
+        .String = std::string(a_source),
+        .Imports = m_pixelImports,
+        .EntryPoint = "main"
+    };
+    
+    VulkanVertexShader::CreateFromFShader(shader, builder, blockAllocator);
 
     return m_vertexShaders.PushVal(shader);
 }
@@ -362,8 +399,10 @@ void VulkanGraphicsEngine::DestroyVertexShader(uint32_t a_addr)
 {
     IVERIFY(m_vertexShaders.Exists(a_addr));
 
-    const VulkanVertexShader* shader = m_vertexShaders[a_addr];
-    IDEFER(delete shader);
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanVertexShader* shader = m_vertexShaders[a_addr];
+    IDEFER(blockAllocator->Destroy(shader));
 
     m_vertexShaders.Erase(a_addr);
 }
@@ -372,8 +411,21 @@ uint32_t VulkanGraphicsEngine::GenerateFTaskShader(const std::string_view& a_sou
 {
     IVERIFY(!a_source.empty());
 
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanTaskShader* shader = blockAllocator->TAllocate<VulkanTaskShader>();
+
     const SharedThreadGuard g = SharedThreadGuard(m_importLock);
-    VulkanTaskShader* shader = VulkanTaskShader::CreateFromFShader(m_vulkanEngine, m_meshImports, a_source);
+
+    const VulkanTaskFShaderBuilder builder = 
+    {
+        .Engine = m_vulkanEngine,
+        .String = std::string(a_source),
+        .Imports = m_meshImports,
+        .EntryPoint = "main"
+    };
+
+    VulkanTaskShader::CreateFromFShader(shader, builder, blockAllocator);
 
     return m_taskShaders.PushVal(shader);
 }
@@ -381,8 +433,10 @@ void VulkanGraphicsEngine::DestroyTaskShader(uint32_t a_addr)
 {
     IVERIFY(m_taskShaders.Exists(a_addr));
 
-    const VulkanTaskShader* shader = m_taskShaders[a_addr];
-    IDEFER(delete shader);
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanTaskShader* shader = m_taskShaders[a_addr];
+    IDEFER(blockAllocator->Destroy(shader));
 
     m_taskShaders.Erase(a_addr);
 }
@@ -390,8 +444,21 @@ uint32_t VulkanGraphicsEngine::GenerateFMeshShader(const std::string_view& a_sou
 {
     IVERIFY(!a_source.empty());
 
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanMeshShader* shader = blockAllocator->TAllocate<VulkanMeshShader>();
+
     const SharedThreadGuard g = SharedThreadGuard(m_importLock);
-    VulkanMeshShader* shader = VulkanMeshShader::CreateFromFShader(m_vulkanEngine, m_meshImports, a_source);
+
+    const VulkanMeshFShaderBuilder builder =
+    {
+        .Engine = m_vulkanEngine,
+        .String = std::string(a_source),
+        .Imports = m_meshImports,
+        .EntryPoint = "main"
+    };
+
+    VulkanMeshShader::CreateFromFShader(shader, builder, blockAllocator);
 
     return m_meshShaders.PushVal(shader);
 }
@@ -399,8 +466,10 @@ void VulkanGraphicsEngine::DestroyMeshShader(uint32_t a_addr)
 {
     IVERIFY(m_meshShaders.Exists(a_addr));
 
-    const VulkanMeshShader* shader = m_meshShaders[a_addr];
-    IDEFER(delete shader);
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanMeshShader* shader = m_meshShaders[a_addr];
+    IDEFER(blockAllocator->Destroy(shader));
 
     m_meshShaders.Erase(a_addr);
 }
@@ -409,17 +478,32 @@ uint32_t VulkanGraphicsEngine::GenerateFPixelShader(const std::string_view& a_so
 {
     IVERIFY(!a_source.empty());
 
-    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
-    VulkanPixelShader* shader = VulkanPixelShader::CreateFromFShader(m_vulkanEngine, m_pixelImports, a_source);
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
 
+    VulkanPixelShader* shader = blockAllocator->TAllocate<VulkanPixelShader>();
+
+    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
+
+    const VulkanPixelFShaderBuilder builder =
+    {
+        .Engine = m_vulkanEngine,
+        .String = std::string(a_source),
+        .Imports = m_pixelImports,
+        .EntryPoint = "main"
+    };
+
+    VulkanPixelShader::CreateFromFShader(shader, builder, blockAllocator);
+    
     return m_pixelShaders.PushVal(shader);
 }
 void VulkanGraphicsEngine::DestroyPixelShader(uint32_t a_addr)
 {
     IVERIFY(m_pixelShaders.Exists(a_addr));
 
-    const VulkanPixelShader* shader = m_pixelShaders[a_addr];
-    IDEFER(delete shader);
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanPixelShader* shader = m_pixelShaders[a_addr];
+    IDEFER(blockAllocator->Destroy(shader));
 
     m_pixelShaders.Erase(a_addr);
 }
@@ -448,9 +532,11 @@ uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_prog
     }
     IVERIFY(m_pixelShaders.Exists(a_program.PixelShader));
 
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
     TRACE("Creating Shader Program");
     RenderProgram p = a_program;
-    p.Data = new VulkanShaderData(m_vulkanEngine, this, a_program);
+    p.Data = allocator->Create<VulkanShaderData>(m_vulkanEngine, this, a_program, allocator);
 
     return m_shaderPrograms.PushVal(p);
 }
@@ -460,12 +546,14 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
     TRACE("Destroying Shader Program");
 
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
     const RenderProgram program = m_shaderPrograms[a_addr];
     IDEFER(
     {
         if (program.Data != nullptr)
         {
-            delete (VulkanShaderData*)program.Data;
+            allocator->Destroy((VulkanShaderData*)program.Data);
         }
 
         if (IISBITSET(program.Flags, RenderProgram::DestroyFlag))
@@ -532,8 +620,8 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
         for (const uint64_t key : keys)
         {
-            const VulkanPipeline* pipeline = m_pipelines[key];
-            IDEFER(delete pipeline);
+            VulkanPipeline* pipeline = m_pipelines[key];
+            IDEFER(allocator->Destroy(pipeline));
 
             m_pipelines.erase(key);
         }
@@ -556,8 +644,8 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
             for (const uint64_t key : keys)
             {
-                const VulkanPipeline* pipeline = m_shadowPipelines[key];
-                IDEFER(delete pipeline);
+                VulkanPipeline* pipeline = m_shadowPipelines[key];
+                IDEFER(allocator->Destroy(pipeline));
 
                 m_shadowPipelines.erase(key);
             }
@@ -578,8 +666,8 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
             for (const uint64_t key : keys)
             {
-                const VulkanPipeline* pipeline = m_cubeShadowPipelines[key];
-                IDEFER(delete pipeline);
+                VulkanPipeline* pipeline = m_cubeShadowPipelines[key];
+                IDEFER(allocator->Destroy(pipeline));
 
                 m_cubeShadowPipelines.erase(key);
             }
@@ -613,7 +701,18 @@ VulkanPipeline* VulkanGraphicsEngine::GetShadowPipeline(uint32_t a_renderTexture
 
     const vk::RenderPass pass = tex->GetRenderPass();
 
-    VulkanPipeline* pipeline = VulkanPipeline::CreateShadowPipeline(m_vulkanEngine, this, pass, a_pipeline);
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
+    const VulkanGraphicsPipelineBuilder builder =
+    {
+        .Engine = m_vulkanEngine,
+        .GraphicsEngine = this,
+        .RenderPass = pass,
+        .ProgramAddr = a_pipeline,
+    };
+
+    VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
+    VulkanPipeline::CreateShadowPipeline(pipeline, builder);
 
     m_shadowPipelines.emplace(addr, pipeline);
 
@@ -638,7 +737,18 @@ VulkanPipeline* VulkanGraphicsEngine::GetCubeShadowPipeline(uint32_t a_renderTex
 
     const vk::RenderPass pass = tex->GetRenderPass();
 
-    VulkanPipeline* pipeline = VulkanPipeline::CreateShadowPipeline(m_vulkanEngine, this, pass, a_pipeline);
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
+    const VulkanGraphicsPipelineBuilder builder =
+    {
+        .Engine = m_vulkanEngine,
+        .GraphicsEngine = this,
+        .RenderPass = pass,
+        .ProgramAddr = a_pipeline,
+    };
+
+    VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
+    VulkanPipeline::CreateShadowPipeline(pipeline, builder);
 
     m_cubeShadowPipelines.emplace(addr, pipeline);
 
@@ -670,7 +780,20 @@ VulkanPipeline* VulkanGraphicsEngine::GetPipeline(uint32_t a_renderTexture, uint
         textureCount = tex->GetTextureCount();
     }
 
-    VulkanPipeline* pipeline = VulkanPipeline::CreatePipeline(m_vulkanEngine, this, pass, hasDepth, textureCount, a_pipeline);
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
+    const VulkanGraphicsPipelineBuilder builder =
+    {
+        .Engine = m_vulkanEngine,
+        .GraphicsEngine = this,
+        .RenderPass = pass,
+        .TextureCount = textureCount,
+        .ProgramAddr = a_pipeline,
+        .Depth = hasDepth,
+    };
+
+    VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
+    VulkanPipeline::CreatePipeline(pipeline, builder);
 
     m_pipelines.emplace(addr, pipeline);
 
@@ -689,10 +812,13 @@ vk::CommandBuffer VulkanGraphicsEngine::StartCommandBuffer(uint32_t a_bufferInde
 
 void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer, const Frustum& a_frustum, VulkanRenderCommand* a_renderCommand, uint32_t a_frameIndex)
 {
-    vk::CommandBuffer commandBuffer = a_renderCommand->GetCommandBuffer();
+    RENDERSCRATCHFRAME;
+
+    const vk::CommandBuffer commandBuffer = a_renderCommand->GetCommandBuffer();
 
     const TReadLockArray<MaterialRenderStack*> stacks = m_renderStacks.ToReadLockArray();
-    const Array<RenderProgram> programs = m_shaderPrograms.ToArray();
+
+    const Array<RenderProgram, RenderScratchAlloc> programs = m_shaderPrograms.ToArray<RenderScratchAlloc>();
 
     for (const MaterialRenderStack* renderStack : stacks)
     {
@@ -726,6 +852,8 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
             const ModelBuffer* modelBuffers = renderStack->GetModelBuffers();
             for (uint32_t i = 0; i < modelCount; ++i)
             {
+                RENDERSCRATCHFRAME;
+
                 const ModelBuffer& modelBuffer = modelBuffers[i];
                 const bool valid = modelBuffer.ModelAddr != -1;
                 if (!valid)
@@ -739,8 +867,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                 const float radius = model->GetRadius();
                 const uint32_t indexCount = model->GetIndexCount();
 
-                glm::mat4* transforms = new glm::mat4[modelBuffer.TransformCount];
-                IDEFER(delete[] transforms);
+                glm::mat4* transforms = RenderScratchAlloc::TAllocate<glm::mat4>(modelBuffer.TransformCount);
                 uint32_t transformCount = 0;
 
                 {
@@ -781,8 +908,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                 ShaderBufferInput modelSlot;
                 if (shaderData->GetShaderBufferInput(ShaderBufferType_SSModelBuffer, &modelSlot))
                 {
-                    IcarianCore::ShaderModelBuffer* modelBuffer = new IcarianCore::ShaderModelBuffer[transformCount];
-                    IDEFER(delete[] modelBuffer);
+                    IcarianCore::ShaderModelBuffer* modelBuffer = RenderScratchAlloc::TAllocate<IcarianCore::ShaderModelBuffer>(transformCount);
 
                     for (uint32_t j = 0; j < transformCount; ++j)
                     {
@@ -791,8 +917,9 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                         modelBuffer[j].InvModel = glm::inverse(mat);
                     }
 
-                    const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderModelBuffer) * transformCount, transformCount, modelBuffer);
-                    IDEFER(delete storage);
+                    void* storagePtr = RenderScratchAlloc::Allocate(sizeof(VulkanShaderStorageObject), alignof(VulkanShaderStorageObject));
+                    const VulkanShaderStorageObject* storage = new (storagePtr) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderModelBuffer) * transformCount, transformCount, modelBuffer);
+                    IDEFER(storage->~VulkanShaderStorageObject());
 
                     shaderData->PushShaderStorageObject(commandBuffer, modelSlot.Slot, storage, a_frameIndex);
                     
@@ -834,6 +961,8 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                 const uint32_t objectCount = modelBuffer.ObjectCount;
                 for (uint32_t j = 0; j < objectCount; ++j)
                 {
+                    RENDERSCRATCHFRAME;
+
                     const uint32_t transformAddr = modelBuffer.TransformAddr[j];
                     const bool valid = transformAddr != -1;
                     if (!valid)
@@ -863,14 +992,22 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                         const SkeletonData skeleton = AnimationController::GetSkeleton(modelBuffer.SkeletonAddr[j]);
                         const uint32_t boneCount = (uint32_t)skeleton.BoneData.size();
 
-                        std::unordered_map<uint32_t, uint32_t> boneMap;
+                        typedef std::unordered_map
+                        <
+                            uint32_t, uint32_t, 
+                            std::hash<uint32_t>, 
+                            std::equal_to<uint32_t>,
+                            STLRenderScratchAlloc<std::pair<const uint32_t, uint32_t>>
+                        > BoneMap;
+
+                        BoneMap boneMap;
+                        boneMap.reserve(boneCount);
                         for (uint32_t i = 0; i < boneCount; ++i)
                         {
                             boneMap.emplace(skeleton.BoneData[i].TransformIndex, i);
                         }
 
-                        IcarianCore::ShaderBoneBuffer* boneBuffer = new IcarianCore::ShaderBoneBuffer[boneCount];
-                        IDEFER(delete[] boneBuffer);
+                        IcarianCore::ShaderBoneBuffer* boneBuffer = (IcarianCore::ShaderBoneBuffer*)RenderScratchAlloc::Allocate(boneCount * sizeof(IcarianCore::ShaderBoneBuffer), alignof(IcarianCore::ShaderBoneBuffer));
 
                         for (uint32_t k = 0; k < boneCount; ++k)
                         {
@@ -893,8 +1030,9 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                             boneBuffer[k].BoneMatrix = transform * bone.InverseBindPose;
                         }
 
-                        const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderBoneBuffer) * boneCount, boneCount, boneBuffer);
-                        IDEFER(delete storage);
+                        void* storagePtr = RenderScratchAlloc::Allocate(sizeof(VulkanShaderStorageObject), alignof(VulkanShaderStorageObject));
+                        const VulkanShaderStorageObject* storage = new (storagePtr) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderBoneBuffer) * boneCount, boneCount, boneBuffer);
+                        IDEFER(storage->~VulkanShaderStorageObject());
 
                         shaderData->PushShaderStorageObject(commandBuffer, boneSlot.Slot, storage, a_frameIndex);
                     }    
@@ -910,6 +1048,8 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
 void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, const glm::vec2& a_bias, uint32_t a_renderLayer, uint32_t a_renderTexture, bool a_cube, vk::CommandBuffer a_commandBuffer, uint32_t a_frameIndex)
 {
     PROFILESTACK("Rendering");
+
+    RENDERSCRATCHFRAME;
     VulkanUniformBuffer* shadowLightBuffer = nullptr;
 
     VulkanPushPool* pushPool = m_vulkanEngine->GetPushPool();
@@ -960,6 +1100,8 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
 
                 for (uint32_t i = 0; i < modelCount; ++i) 
                 {
+                    RENDERSCRATCHFRAME;
+
                     const ModelBuffer& modelBuffer = modelBuffers[i];
                 
                     if (modelBuffer.ModelAddr != -1) 
@@ -971,9 +1113,9 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
                         const float radius = model->GetRadius();
 
                         const uint32_t transformCount = modelBuffer.TransformCount;
-                    
-                        glm::mat4* transforms = new glm::mat4[transformCount];
-                        IDEFER(delete[] transforms);
+
+                        glm::mat4* transforms = RenderScratchAlloc::TAllocate<glm::mat4>(transformCount);
+
                         uint32_t finalTransformCount = 0;
 
                         {
@@ -1034,9 +1176,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
                         ShaderBufferInput modelSlot;
                         if (shaderData->GetShadowShaderBufferInput(ShaderBufferType_SSModelBuffer, &modelSlot)) 
                         {
-                            IcarianCore::ShaderModelBuffer* modelBuffer = new IcarianCore::ShaderModelBuffer[finalTransformCount];
-                            IDEFER(delete[] modelBuffer);
-
+                            IcarianCore::ShaderModelBuffer* modelBuffer = RenderScratchAlloc::TAllocate<IcarianCore::ShaderModelBuffer>(finalTransformCount);
                             for (uint32_t j = 0; j < finalTransformCount; ++j) 
                             {
                                 const glm::mat4& mat = transforms[j];
@@ -1045,8 +1185,9 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
                                 modelBuffer[j].InvModel = glm::inverse(mat);
                             }
 
-                            const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderModelBuffer) * finalTransformCount, finalTransformCount, modelBuffer);
-                            IDEFER(delete storage);
+                            VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
+                            new (storage) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderModelBuffer) * finalTransformCount, finalTransformCount, modelBuffer);
+                            IDEFER(storage->~VulkanShaderStorageObject());
 
                             shaderData->PushShadowShaderStorageObject(a_commandBuffer, modelSlot.Slot, storage, a_frameIndex);
 
@@ -1129,19 +1270,27 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
                         ShaderBufferInput boneSlot;
                         if (shaderData->GetShaderBufferInput(ShaderBufferType_SSBoneBuffer, &boneSlot)) 
                         {
+                            RENDERSCRATCHFRAME;
+
                             const SkeletonData skeleton = AnimationController::GetSkeleton(modelBuffer.SkeletonAddr[j]);
                             const uint32_t boneCount = (uint32_t)skeleton.BoneData.size();
 
-                            std::unordered_map<uint32_t, uint32_t> boneMap;
+                            typedef std::unordered_map
+                            <
+                                uint32_t, uint32_t, 
+                                std::hash<uint32_t>, 
+                                std::equal_to<uint32_t>,
+                                STLRenderScratchAlloc<std::pair<const uint32_t, uint32_t>>
+                            > BoneMap;
+
+                            BoneMap boneMap;
                             boneMap.reserve(boneCount);
                             for (uint32_t i = 0; i < boneCount; ++i)
                             {
                                 boneMap.emplace(skeleton.BoneData[i].TransformIndex, i);
                             }
 
-                            IcarianCore::ShaderBoneBuffer* boneBuffer = new IcarianCore::ShaderBoneBuffer[boneCount];
-                            IDEFER(delete[] boneBuffer);
-
+                            IcarianCore::ShaderBoneBuffer* boneBuffer = RenderScratchAlloc::TAllocate<IcarianCore::ShaderBoneBuffer>(boneCount);
                             for (uint32_t k = 0; k < boneCount; ++k) 
                             {
                                 const BoneTransformData& bone = skeleton.BoneData[k];
@@ -1165,8 +1314,9 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
                                 boneBuffer[k].BoneMatrix = transform * bone.InverseBindPose;
                             }
 
-                            const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderBoneBuffer) * boneCount, boneCount, boneBuffer);
-                            IDEFER(delete storage);
+                            VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
+                            new (storage) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderBoneBuffer) * boneCount, boneCount, boneBuffer);
+                            IDEFER(storage->~VulkanShaderStorageObject());
 
                             shaderData->PushShaderStorageObject(a_commandBuffer, boneSlot.Slot, storage, a_frameIndex);
                         }
@@ -1183,6 +1333,8 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
 
 VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
+    RENDERSCRATCHFRAME;
+
     VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(nullptr, VulkanCommandBufferType_Graphics);
 
     // Could possibly reverse the pass order and do culling on the previous pass to speed this up
@@ -1223,8 +1375,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
         m_shadowSetupFunc->Exec(shadowSetupArgs);
     }
 
-    const Array<DirectionalLightBuffer> lights = m_directionalLights.ToArray();
-    const Array<bool> state = m_directionalLights.ToStateArray();
+    const Array<DirectionalLightBuffer, RenderScratchAlloc> lights = m_directionalLights.ToArray<RenderScratchAlloc>();
+    const Array<bool, RenderScratchAlloc> state = m_directionalLights.ToStateArray<RenderScratchAlloc>();
     const uint32_t size = lights.Size();
 
     for (uint32_t i = 0; i < size; ++i)
@@ -1310,6 +1462,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
 }
 VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
+    RENDERSCRATCHFRAME;
+
     VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(nullptr, VulkanCommandBufferType_Graphics);
 
     // ASAN hamstrings rendering performance have seen 2-4x performance improvements on linux with it disabled so make sure using release and not releasewithdebug for final build...
@@ -1358,7 +1512,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
 
     const Frustum cameraFrustum = camBuffer.ToFrustum((glm::vec2)m_swapchain->GetSize());
 
-    const Array<PointLightBuffer> lights = m_pointLights.ToActiveArray();
+    const Array<PointLightBuffer, RenderScratchAlloc> lights = m_pointLights.ToActiveArray<RenderScratchAlloc>();
 
     for (const PointLightBuffer& buffer : lights)
     {
@@ -1452,6 +1606,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
 }
 VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
+    RENDERSCRATCHFRAME;
+
     VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(nullptr, VulkanCommandBufferType_Graphics);
 
     Profiler::Start("Spot Shadow Pass");
@@ -1493,8 +1649,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, ui
 
     const Frustum cameraFrustum = camBuffer.ToFrustum((glm::vec2)m_swapchain->GetSize());
 
-    const Array<SpotLightBuffer> lights = m_spotLights.ToArray();
-    const Array<bool> state = m_spotLights.ToStateArray();
+    const Array<SpotLightBuffer, RenderScratchAlloc> lights = m_spotLights.ToArray<RenderScratchAlloc>();
+    const Array<bool, RenderScratchAlloc> state = m_spotLights.ToStateArray<RenderScratchAlloc>();
     const uint32_t size = lights.Size();
 
     for (uint32_t i = 0; i < size; ++i)
@@ -1647,6 +1803,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
     Profiler::StartFrame("Update");
 
+    RENDERSCRATCHFRAME;
+
     VulkanPushPool* pushPool = m_vulkanEngine->GetPushPool();
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
@@ -1689,10 +1847,12 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         {
             PROFILESTACK("S Dir Light");
 
+            RENDERSCRATCHFRAME;
+
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Shadow Directional Light");
 
-            const Array<DirectionalLightBuffer> lights = m_directionalLights.ToArray();
-            const Array<bool> state = m_directionalLights.ToStateArray();
+            const Array<DirectionalLightBuffer, RenderScratchAlloc> lights = m_directionalLights.ToArray<RenderScratchAlloc>();
+            const Array<bool, RenderScratchAlloc> state = m_directionalLights.ToStateArray<RenderScratchAlloc>();
             const uint32_t size = lights.Size();
 
             for (uint32_t j = 0; j < size; ++j)
@@ -1775,10 +1935,12 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         {
             PROFILESTACK("S Point Light");
 
+            RENDERSCRATCHFRAME;
+
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Shadow Point Light");
 
-            const Array<PointLightBuffer> lights = m_pointLights.ToArray();
-            const Array<bool> state = m_pointLights.ToStateArray();
+            const Array<PointLightBuffer, RenderScratchAlloc> lights = m_pointLights.ToArray<RenderScratchAlloc>();
+            const Array<bool, RenderScratchAlloc> state = m_pointLights.ToStateArray<RenderScratchAlloc>();
             const uint32_t size = lights.Size();
 
             for (uint32_t j = 0; j < size; ++j)
@@ -1857,6 +2019,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                 ShaderBufferInput shadowTextureInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_ShadowTextureCube, &shadowTextureInput))
                 {
+                    VulkanTextureSampler* sampler = RenderScratchAlloc::TAllocate<VulkanTextureSampler>();
+
                     const TextureSamplerBuffer buffer =
                     {
                         .Addr = lightBuffer->LightRenderTextures[0],
@@ -1864,9 +2028,17 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                         .TextureMode = TextureMode_DepthCubeRenderTexture,
                         .FilterMode = TextureFilter_Linear,
                         .AddressMode = TextureAddress_ClampToEdge,
-                        .Data = VulkanTextureSampler::GenerateFromBuffer(m_vulkanEngine, this, buffer)
+                        .Data = sampler
                     };
-                    IDEFER(delete (VulkanTextureSampler*)buffer.Data);
+
+                    const VulkanTextureSamplerBuilder builder =
+                    {
+                        .Engine = m_vulkanEngine,
+                        .Sampler = buffer
+                    };
+                    VulkanTextureSampler::GenerateFromBuffer(sampler, builder);
+
+                    IDEFER(sampler->~VulkanTextureSampler());
 
                     data->PushTexture(commandBuffer, shadowTextureInput.Slot, buffer, a_frameIndex);
                 }
@@ -1878,12 +2050,14 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         }
         case LightType_Spot:
         {
+            PROFILESTACK("S Spot Light");
+            
+            RENDERSCRATCHFRAME;
+
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Shadow Spot Light");
 
-            PROFILESTACK("S Spot Light");
-
-            const Array<SpotLightBuffer> lights = m_spotLights.ToArray();
-            const Array<bool> state = m_spotLights.ToStateArray();
+            const Array<SpotLightBuffer, RenderScratchAlloc> lights = m_spotLights.ToArray<RenderScratchAlloc>();
+            const Array<bool, RenderScratchAlloc> state = m_spotLights.ToStateArray<RenderScratchAlloc>();
             const uint32_t size = lights.Size();
 
             for (uint32_t j = 0; j < size; ++j)
@@ -1968,6 +2142,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                 ShaderBufferInput shadowTextureInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_ShadowTexture2D, &shadowTextureInput))
                 {
+                    VulkanTextureSampler* sampler = RenderScratchAlloc::TAllocate<VulkanTextureSampler>();
+
                     const TextureSamplerBuffer buffer =
                     {
                         .Addr = lightBuffer->LightRenderTextures[0],
@@ -1975,9 +2151,17 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                         .TextureMode = TextureMode_DepthRenderTexture,
                         .FilterMode = TextureFilter_Linear,
                         .AddressMode = TextureAddress_ClampToEdge,
-                        .Data = VulkanTextureSampler::GenerateFromBuffer(m_vulkanEngine, this, buffer)
+                        .Data = sampler
                     };
-                    IDEFER(delete (VulkanTextureSampler*)buffer.Data);
+
+                    const VulkanTextureSamplerBuilder builder =
+                    {
+                        .Engine = m_vulkanEngine,
+                        .Sampler = buffer
+                    };
+
+                    VulkanTextureSampler::GenerateFromBuffer(sampler, builder);
+                    IDEFER(sampler->~VulkanTextureSampler());
 
                     data->PushTexture(commandBuffer, shadowTextureInput.Slot, buffer, a_frameIndex);
                 }
@@ -2012,6 +2196,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
     for (uint32_t i = 0; i < LightType_End; ++i)
     {
+        RENDERSCRATCHFRAME;
+
         void* lightArgs[] = 
         {
             &i,
@@ -2027,7 +2213,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         }
 
         const VulkanShaderData* data = pipeline->GetShaderData();
-        ICARIAN_ASSERT(data != nullptr);
+        IVERIFY(data != nullptr);
 
         switch ((e_LightType)i)
         {
@@ -2035,51 +2221,71 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         {
             PROFILESTACK("Ambient Light");
 
+            RENDERSCRATCHFRAME;
+
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Ambient Light");
 
-            const Array<AmbientLightBuffer> lights = m_ambientLights.ToActiveArray();
-            const uint32_t size = (uint32_t)lights.Size();
+            const Array<AmbientLightBuffer, RenderScratchAlloc> lights = m_ambientLights.ToActiveArray<RenderScratchAlloc>();
+            const uint32_t size = lights.Size();
 
             ShaderBufferInput ambientLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_AmbientLightBuffer, &ambientLightInput))
             {
                 for (const AmbientLightBuffer& ambientLight : lights)
                 {
-                    if (camBuffer.RenderLayer & ambientLight.RenderLayer && ambientLight.Intensity > 0.0f)
+                    const bool sharesLayer = (camBuffer.RenderLayer & ambientLight.RenderLayer) != 0;
+                    if (!sharesLayer)
                     {
-                        VulkanUniformBuffer* uniformBuffer = pushPool->AllocateAmbientLightUniformBuffer();
-
-                        const IcarianCore::ShaderAmbientLightBuffer buffer =
-                        {
-                            .LightColor = glm::vec4(ambientLight.Color.xyz(), ambientLight.Intensity)
-                        };
-
-                        uniformBuffer->SetData(a_frameIndex, &buffer);
-
-                        data->PushUniformBuffer(commandBuffer, ambientLightInput.Slot, uniformBuffer, a_frameIndex);
-
-                        commandBuffer.draw(4, 1, 0, 0);
+                        continue;
                     }
+
+                    const bool isValid = ambientLight.Intensity > 0.0f;
+                    if (!isValid)
+                    {
+                        continue;
+                    }
+
+                    VulkanUniformBuffer* uniformBuffer = pushPool->AllocateAmbientLightUniformBuffer();
+
+                    const IcarianCore::ShaderAmbientLightBuffer buffer =
+                    {
+                        .LightColor = glm::vec4(ambientLight.Color.xyz(), ambientLight.Intensity)
+                    };
+
+                    uniformBuffer->SetData(a_frameIndex, &buffer);
+
+                    data->PushUniformBuffer(commandBuffer, ambientLightInput.Slot, uniformBuffer, a_frameIndex);
+
+                    commandBuffer.draw(4, 1, 0, 0);
                 }
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSAmbientLightBuffer, &ambientLightInput))
             {
-                IcarianCore::ShaderAmbientLightBuffer* buffers = new IcarianCore::ShaderAmbientLightBuffer[size];
-                IDEFER(delete[] buffers);
+                IcarianCore::ShaderAmbientLightBuffer* buffers = RenderScratchAlloc::TAllocate<IcarianCore::ShaderAmbientLightBuffer>(size);
                 uint32_t count = 0;
 
                 for (const AmbientLightBuffer& ambientLight : lights)
                 {
-                    if (camBuffer.RenderLayer & ambientLight.RenderLayer && ambientLight.Intensity > 0.0f)
+                    const bool sharesLayer = (camBuffer.RenderLayer & ambientLight.RenderLayer) != 0;
+                    if (!sharesLayer)
                     {
-                        buffers[count++].LightColor = glm::vec4(ambientLight.Color.xyz(), ambientLight.Intensity);
+                        continue;
                     }
+
+                    const bool isValid = ambientLight.Intensity > 0.0f;
+                    if (!isValid)
+                    {
+                        continue;
+                    }
+
+                    buffers[count++].LightColor = glm::vec4(ambientLight.Color.xyz(), ambientLight.Intensity);
                 }
 
                 if (count > 0)
                 {
-                    const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderAmbientLightBuffer) * count, count, buffers);
-                    IDEFER(delete storage);
+                    VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
+                    new (storage) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderAmbientLightBuffer) * count, count, buffers);
+                    IDEFER(storage->~VulkanShaderStorageObject());
 
                     data->PushShaderStorageObject(commandBuffer, ambientLightInput.Slot, storage, a_frameIndex);
 
@@ -2093,79 +2299,100 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         {
             PROFILESTACK("Dir Light");
 
+            RENDERSCRATCHFRAME;
+
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Directional Light");
 
-            const Array<DirectionalLightBuffer> lights = m_directionalLights.ToActiveArray();
+            const Array<DirectionalLightBuffer, RenderScratchAlloc> lights = m_directionalLights.ToActiveArray<RenderScratchAlloc>();
 
             ShaderBufferInput dirLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_DirectionalLightBuffer, &dirLightInput))
             {
                 for (const DirectionalLightBuffer& dirLight : lights)
                 {
-                    if (dirLight.TransformAddr != -1 && camBuffer.RenderLayer & dirLight.RenderLayer && dirLight.Intensity > 0.0f)
+                    const bool sharesLayer = (camBuffer.RenderLayer & dirLight.RenderLayer) != 0;
+                    if (!sharesLayer)
                     {
-                        const VulkanLightBuffer* lightData = (VulkanLightBuffer*)dirLight.Data;
-                        IVERIFY(lightData != nullptr);
-
-                        const bool isShadowLight = lightData->LightRenderTextureCount > 0;
-                        if (isShadowLight)
-                        {
-                            continue;
-                        }
-
-                        VulkanUniformBuffer* uniformBuffer = pushPool->AllocateDirectionalLightUniformBuffer();
-
-                        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(dirLight.TransformAddr);
-                        const glm::vec3 forward = glm::normalize(tMat[2].xyz());
-
-                        const IcarianCore::ShaderDirectionalLightBuffer buffer =
-                        {   
-                            .LightDir = glm::vec4(forward, dirLight.Intensity),
-                            .LightColor = dirLight.Color
-                        };
-
-                        uniformBuffer->SetData(a_frameIndex, &buffer);
-                        
-                        data->PushUniformBuffer(commandBuffer, dirLightInput.Slot, uniformBuffer, a_frameIndex);
-
-                        commandBuffer.draw(4, 1, 0, 0);
+                        continue;
                     }
+
+                    const bool isValid = dirLight.TransformAddr != -1 && dirLight.Intensity > 0.0f;
+                    if (!isValid)
+                    {
+                        continue;
+                    }
+
+                    const VulkanLightBuffer* lightData = (VulkanLightBuffer*)dirLight.Data;
+                    IVERIFY(lightData != nullptr);
+
+                    const bool isShadowLight = lightData->LightRenderTextureCount > 0;
+                    if (isShadowLight)
+                    {
+                        continue;
+                    }
+
+                    VulkanUniformBuffer* uniformBuffer = pushPool->AllocateDirectionalLightUniformBuffer();
+
+                    const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(dirLight.TransformAddr);
+                    const glm::vec3 forward = glm::normalize(tMat[2].xyz());
+
+                    const IcarianCore::ShaderDirectionalLightBuffer buffer =
+                    {   
+                        .LightDir = glm::vec4(forward, dirLight.Intensity),
+                        .LightColor = dirLight.Color
+                    };
+
+                    uniformBuffer->SetData(a_frameIndex, &buffer);
+                        
+                    data->PushUniformBuffer(commandBuffer, dirLightInput.Slot, uniformBuffer, a_frameIndex);
+
+                    commandBuffer.draw(4, 1, 0, 0);
                 }
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSDirectionalLightBuffer, &dirLightInput))
             {
                 const uint32_t size = lights.Size();
-                IcarianCore::ShaderDirectionalLightBuffer* buffers = new IcarianCore::ShaderDirectionalLightBuffer[size];
-                IDEFER(delete[] buffers);
+
+                IcarianCore::ShaderDirectionalLightBuffer* buffers = RenderScratchAlloc::TAllocate<IcarianCore::ShaderDirectionalLightBuffer>(size);
                 uint32_t count = 0;
 
                 for (const DirectionalLightBuffer& dirLight : lights)
                 {
-                    if (dirLight.TransformAddr != -1 && camBuffer.RenderLayer & dirLight.RenderLayer && dirLight.Intensity > 0.0f)
+                    const bool sharesLayer = (camBuffer.RenderLayer & dirLight.RenderLayer) != 0;
+                    if (!sharesLayer)
                     {
-                        const VulkanLightBuffer* lightData = (VulkanLightBuffer*)dirLight.Data;
-                        IVERIFY(lightData != nullptr);
-
-                        const bool isShadowLight = lightData->LightRenderTextureCount > 0;
-                        if (isShadowLight)
-                        {
-                            continue;
-                        }
-
-                        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(dirLight.TransformAddr);
-                        const glm::vec3 forward = glm::normalize(tMat[2].xyz());
-
-                        IDEFER(++count);
-
-                        buffers[count].LightDir = glm::vec4(forward, dirLight.Intensity);
-                        buffers[count].LightColor = dirLight.Color;
+                        continue;
                     }
+
+                    const bool isValid = dirLight.TransformAddr != -1 && dirLight.Intensity > 0.0f;
+                    if (!isValid)
+                    {
+                        continue;
+                    }
+
+                    const VulkanLightBuffer* lightData = (VulkanLightBuffer*)dirLight.Data;
+                    IVERIFY(lightData != nullptr);
+
+                    const bool isShadowLight = lightData->LightRenderTextureCount > 0;
+                    if (isShadowLight)
+                    {
+                        continue;
+                    }
+
+                    IDEFER(++count);
+
+                    const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(dirLight.TransformAddr);
+                    const glm::vec3 forward = glm::normalize(tMat[2].xyz());
+
+                    buffers[count].LightDir = glm::vec4(forward, dirLight.Intensity);
+                    buffers[count].LightColor = dirLight.Color;
                 }
 
                 if (count > 0)
                 {
-                    const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderDirectionalLightBuffer) * count, count, buffers);
-                    IDEFER(delete storage);
+                    VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
+                    new (storage) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderDirectionalLightBuffer) * count, count, buffers);
+                    IDEFER(storage->~VulkanShaderStorageObject());
 
                     data->PushShaderStorageObject(commandBuffer, dirLightInput.Slot, storage, a_frameIndex);
 
@@ -2179,85 +2406,103 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         {
             PROFILESTACK("Point Light");
 
+            RENDERSCRATCHFRAME;
+
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Point Light");
 
-            const Array<PointLightBuffer> lights = m_pointLights.ToActiveArray();
+            const Array<PointLightBuffer, RenderScratchAlloc> lights = m_pointLights.ToActiveArray<RenderScratchAlloc>();
 
             ShaderBufferInput pointLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_PointLightBuffer, &pointLightInput))
             {
                 for (const PointLightBuffer& pointLight : lights)
                 {
-                    if (pointLight.TransformAddr != -1 && camBuffer.RenderLayer & pointLight.RenderLayer && pointLight.Radius > 0.0f && pointLight.Intensity > 0.0f)
+                    const bool sharesLayer = (camBuffer.RenderLayer & pointLight.RenderLayer) != 0;
+                    if (!sharesLayer)
                     {
-                        const VulkanLightBuffer* lightData = (VulkanLightBuffer*)pointLight.Data;
-                        IVERIFY(lightData != nullptr);
-
-                        const bool isShadowLight = lightData->LightRenderTextureCount > 0;
-                        if (isShadowLight)
-                        {
-                            continue;
-                        }
-
-                        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(pointLight.TransformAddr);
-                        const glm::vec3 position = tMat[3].xyz();
-
-                        if (!frustum.CompareSphere(position, pointLight.Radius))
-                        {
-                            continue;
-                        }
-
-                        VulkanUniformBuffer* uniformBuffer = pushPool->AllocatePointLightUniformBuffer();
-
-                        const IcarianCore::ShaderPointLightBuffer buffer =
-                        {
-                            .LightPos = glm::vec4(position, pointLight.Intensity),
-                            .LightColor = pointLight.Color,
-                            .Radius = pointLight.Radius,
-                        };
-
-                        uniformBuffer->SetData(a_frameIndex, &buffer);
-
-                        data->PushUniformBuffer(commandBuffer, pointLightInput.Slot, uniformBuffer, a_frameIndex);
-
-                        commandBuffer.draw(4, 1, 0, 0);
+                        continue;
                     }
+
+                    const bool isValid = pointLight.TransformAddr != -1 && pointLight.Radius > 0.0f && pointLight.Intensity > 0.0f;
+                    if (!isValid)
+                    {
+                        continue;
+                    }
+
+                    const VulkanLightBuffer* lightData = (VulkanLightBuffer*)pointLight.Data;
+                    IVERIFY(lightData != nullptr);
+
+                    const bool isShadowLight = lightData->LightRenderTextureCount > 0;
+                    if (isShadowLight)
+                    {
+                        continue;
+                    }
+
+                    const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(pointLight.TransformAddr);
+                    const glm::vec3 position = tMat[3].xyz();
+                    if (!frustum.CompareSphere(position, pointLight.Radius))
+                    {
+                        continue;
+                    }
+
+                    VulkanUniformBuffer* uniformBuffer = pushPool->AllocatePointLightUniformBuffer();
+
+                    const IcarianCore::ShaderPointLightBuffer buffer =
+                    {
+                        .LightPos = glm::vec4(position, pointLight.Intensity),
+                        .LightColor = pointLight.Color,
+                        .Radius = pointLight.Radius,
+                    };
+
+                    uniformBuffer->SetData(a_frameIndex, &buffer);
+
+                    data->PushUniformBuffer(commandBuffer, pointLightInput.Slot, uniformBuffer, a_frameIndex);
+
+                    commandBuffer.draw(4, 1, 0, 0);
                 }
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSPointLightBuffer, &pointLightInput))
             {
                 const uint32_t size = lights.Size();
-                IcarianCore::ShaderPointLightBuffer* buffers = new IcarianCore::ShaderPointLightBuffer[size];
-                IDEFER(delete[] buffers);
+
+                IcarianCore::ShaderPointLightBuffer* buffers = RenderScratchAlloc::TAllocate<IcarianCore::ShaderPointLightBuffer>(size);
                 uint32_t count = 0;
 
                 for (const PointLightBuffer& pointLight : lights)
                 {
-                    if (pointLight.TransformAddr != -1 && camBuffer.RenderLayer & pointLight.RenderLayer && pointLight.Radius > 0.0f && pointLight.Intensity > 0.0f)
+                    const bool sharesLayer = (camBuffer.RenderLayer & pointLight.RenderLayer) != 0;
+                    if (!sharesLayer)
                     {
-                        const VulkanLightBuffer* lightData = (VulkanLightBuffer*)pointLight.Data;
-                        IVERIFY(lightData != nullptr);
-
-                        const bool isShadowLight = lightData->LightRenderTextureCount > 0;
-                        if (isShadowLight)
-                        {
-                            continue;
-                        }
-
-                        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(pointLight.TransformAddr);
-                        const glm::vec3 position = tMat[3].xyz();
-
-                        if (!frustum.CompareSphere(position, pointLight.Radius))
-                        {
-                            continue;
-                        }
-
-                        IDEFER(++count);
-
-                        buffers[count].LightPos = glm::vec4(position, pointLight.Intensity);
-                        buffers[count].LightColor = pointLight.Color;
-                        buffers[count].Radius = pointLight.Radius;
+                        continue;
                     }
+
+                    const bool isValid = pointLight.TransformAddr != -1 && pointLight.Radius > 0.0f && pointLight.Intensity > 0.0f;
+                    if (!isValid)
+                    {
+                        continue;
+                    }
+
+                    const VulkanLightBuffer* lightData = (VulkanLightBuffer*)pointLight.Data;
+                    IVERIFY(lightData != nullptr);
+
+                    const bool isShadowLight = lightData->LightRenderTextureCount > 0;
+                    if (isShadowLight)
+                    {
+                        continue;
+                    }
+
+                    const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(pointLight.TransformAddr);
+                    const glm::vec3 position = tMat[3].xyz();
+                    if (!frustum.CompareSphere(position, pointLight.Radius))
+                    {
+                        continue;
+                    }
+
+                    IDEFER(++count);
+
+                    buffers[count].LightPos = glm::vec4(position, pointLight.Intensity);
+                    buffers[count].LightColor = pointLight.Color;
+                    buffers[count].Radius = pointLight.Radius;
                 }
 
                 if (count > 0)
@@ -2277,92 +2522,109 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         {
             PROFILESTACK("Spot Light");
 
+            RENDERSCRATCHFRAME;
+
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Spot Light");
 
-            const Array<SpotLightBuffer> lights = m_spotLights.ToActiveArray();
+            const Array<SpotLightBuffer, RenderScratchAlloc> lights = m_spotLights.ToActiveArray<RenderScratchAlloc>();
 
             ShaderBufferInput spotLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_SpotLightBuffer, &spotLightInput))
             {
                 for (const SpotLightBuffer& spotLight : lights)
                 {
-                    if (spotLight.TransformAddr != -1 && camBuffer.RenderLayer & spotLight.RenderLayer)
+                    const bool sharesLayer = (camBuffer.RenderLayer & spotLight.RenderLayer) != 0;
+                    if (!sharesLayer)
                     {
-                        const VulkanLightBuffer* lightData = (VulkanLightBuffer*)spotLight.Data;
-                        IVERIFY(lightData != nullptr);
-
-                        const bool isShadowLight = lightData->LightRenderTextureCount > 0;
-                        if (isShadowLight)
-                        {
-                            continue;
-                        }
-
-                        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(spotLight.TransformAddr);
-                        const glm::vec3 position = tMat[3].xyz();
-
-                        if (!frustum.CompareSphere(position, spotLight.Radius))
-                        {
-                            continue;
-                        }
-
-                        const glm::vec3 forward = glm::normalize(tMat[2].xyz());
-
-                        VulkanUniformBuffer* uniformBuffer = pushPool->AllocateSpotLightUniformBuffer();
-
-                        const IcarianCore::ShaderSpotLightBuffer buffer =
-                        {   
-                            .LightPos = position,
-                            .LightDir = glm::vec4(forward, spotLight.Intensity),
-                            .LightColor = spotLight.Color,
-                            .CutoffAngle = glm::vec3(spotLight.CutoffAngle, spotLight.Radius)
-                        };
-
-                        uniformBuffer->SetData(a_frameIndex, &buffer);
-
-                        data->PushUniformBuffer(commandBuffer, spotLightInput.Slot, uniformBuffer, a_frameIndex);
-
-                        commandBuffer.draw(4, 1, 0, 0);
+                        continue;
                     }
+
+                    const bool isValid = spotLight.TransformAddr != -1 && spotLight.Radius > 0.0f && spotLight.Intensity > 0.0f;
+                    if (!isValid)
+                    {
+                        continue;
+                    }
+
+                    const VulkanLightBuffer* lightData = (VulkanLightBuffer*)spotLight.Data;
+                    IVERIFY(lightData != nullptr);
+
+                    const bool isShadowLight = lightData->LightRenderTextureCount > 0;
+                    if (isShadowLight)
+                    {
+                        continue;
+                    }
+
+                    const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(spotLight.TransformAddr);
+                    const glm::vec3 position = tMat[3].xyz();
+                    if (!frustum.CompareSphere(position, spotLight.Radius))
+                    {
+                        continue;
+                    }
+
+                    const glm::vec3 forward = glm::normalize(tMat[2].xyz());
+
+                    VulkanUniformBuffer* uniformBuffer = pushPool->AllocateSpotLightUniformBuffer();
+
+                    const IcarianCore::ShaderSpotLightBuffer buffer =
+                    {   
+                        .LightPos = position,
+                        .LightDir = glm::vec4(forward, spotLight.Intensity),
+                        .LightColor = spotLight.Color,
+                        .CutoffAngle = glm::vec3(spotLight.CutoffAngle, spotLight.Radius)
+                    };
+
+                    uniformBuffer->SetData(a_frameIndex, &buffer);
+
+                    data->PushUniformBuffer(commandBuffer, spotLightInput.Slot, uniformBuffer, a_frameIndex);
+
+                    commandBuffer.draw(4, 1, 0, 0);
                 }
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSSpotLightBuffer, &spotLightInput))
             {
                 const uint32_t size = lights.Size();
 
-                IcarianCore::ShaderSpotLightBuffer* buffers = new IcarianCore::ShaderSpotLightBuffer[size];
-                IDEFER(delete[] buffers);
+                IcarianCore::ShaderSpotLightBuffer* buffers = RenderScratchAlloc::TAllocate<IcarianCore::ShaderSpotLightBuffer>(size);
                 uint32_t count = 0;
-
                 for (const SpotLightBuffer& spotLight : lights)
                 {
-                    if (spotLight.TransformAddr != -1 && camBuffer.RenderLayer & spotLight.RenderLayer)
+                    const bool sharesLayer = (camBuffer.RenderLayer & spotLight.RenderLayer) != 0;
+                    if (!sharesLayer)
                     {
-                        const VulkanLightBuffer* lightData = (VulkanLightBuffer*)spotLight.Data;
-                        IVERIFY(lightData != nullptr);
-
-                        const bool isShadowLight = lightData->LightRenderTextureCount > 0;
-                        if (isShadowLight)
-                        {
-                            continue;
-                        }
-
-                        const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(spotLight.TransformAddr);
-                        const glm::vec3 position = tMat[3].xyz();
-
-                        if (!frustum.CompareSphere(position, spotLight.Radius))
-                        {
-                            continue;
-                        }
-
-                        IDEFER(++count);
-
-                        const glm::vec3 forward = glm::normalize(tMat[2].xyz());
-
-                        buffers[count].LightPos = position;
-                        buffers[count].LightDir = glm::vec4(forward, spotLight.Intensity);
-                        buffers[count].LightColor = spotLight.Color;
-                        buffers[count].CutoffAngle = glm::vec3(spotLight.CutoffAngle, spotLight.Radius);
+                        continue;
                     }
+
+                    const bool isValid = spotLight.TransformAddr != -1 && spotLight.Radius > 0.0f && spotLight.Intensity > 0.0f;
+                    if (!isValid)
+                    {
+                        continue;
+                    }
+
+                    const VulkanLightBuffer* lightData = (VulkanLightBuffer*)spotLight.Data;
+                    IVERIFY(lightData != nullptr);
+
+                    const bool isShadowLight = lightData->LightRenderTextureCount > 0;
+                    if (isShadowLight)
+                    {
+                        continue;
+                    }
+
+                    const glm::mat4 tMat = ObjectManager::GetGlobalMatrix(spotLight.TransformAddr);
+                    const glm::vec3 position = tMat[3].xyz();
+
+                    if (!frustum.CompareSphere(position, spotLight.Radius))
+                    {
+                        continue;
+                    }
+
+                    IDEFER(++count);
+
+                    const glm::vec3 forward = glm::normalize(tMat[2].xyz());
+
+                    buffers[count].LightPos = position;
+                    buffers[count].LightDir = glm::vec4(forward, spotLight.Intensity);
+                    buffers[count].LightColor = spotLight.Color;
+                    buffers[count].CutoffAngle = glm::vec3(spotLight.CutoffAngle, spotLight.Radius);
                 }
 
                 if (count > 0)
@@ -2402,6 +2664,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint3
 
     Profiler::StartFrame("Update");
 
+    RENDERSCRATCHFRAME;
+
     const CameraBuffer camBuffer = m_cameraBuffers[a_camIndex];
     
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
@@ -2437,8 +2701,10 @@ VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint3
     {
         PROFILESTACK("Particles");
 
+        RENDERSCRATCHFRAME;
+
         const uint32_t renderTextureAddr = renderCommand.GetRenderTexutreAddr();
-        const Array<VulkanGraphicsParticle2D*> particleSystems = m_particleEmitters.ToActiveArray();
+        const Array<VulkanGraphicsParticle2D*, RenderScratchAlloc> particleSystems = m_particleEmitters.ToActiveArray<RenderScratchAlloc>();
 
         for (VulkanGraphicsParticle2D* pSys : particleSystems)
         {
@@ -2624,12 +2890,18 @@ struct DrawCallBind
 
 Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a_time, uint32_t a_index)
 {
+    RENDERSCRATCHFRAME;
+
     // TODO: Prebuild camera uniform buffers
     Profiler::StartFrame("Drawing Setup");
     m_renderCommands.Clear();
 
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
     {
-        const Array<bool> state = m_shaderPrograms.ToStateArray();
+        RENDERSCRATCHFRAME;
+
+        const Array<bool, RenderScratchAlloc> state = m_shaderPrograms.ToStateArray<RenderScratchAlloc>();
         TLockArray<RenderProgram> a = m_shaderPrograms.ToLockArray();
         const uint32_t size = state.Size();
 
@@ -2658,7 +2930,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
     const vk::Device device = m_vulkanEngine->GetLogicalDevice();
 
     const uint32_t camBufferSize = m_cameraBuffers.Size();
-    Array<uint32_t> camIndices;
+    Array<uint32_t, RenderScratchAlloc> camIndices;
     for (uint32_t i = 0; i < camBufferSize; ++i)
     {
         if (m_cameraBuffers[i].TransformAddr != -1)
@@ -2712,7 +2984,9 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
         const uint32_t diff = totalPoolSize - camUniformSize;
         for (uint32_t i = 0; i < diff; ++i)
         {
-            m_cameraUniforms.Push(new VulkanUniformBuffer(m_vulkanEngine, sizeof(IcarianCore::ShaderCameraBuffer)));
+            VulkanUniformBuffer* buffer = allocator->Create<VulkanUniformBuffer>(m_vulkanEngine, sizeof(IcarianCore::ShaderCameraBuffer));
+
+            m_cameraUniforms.Push(buffer);
         }
     }
 
@@ -2725,7 +2999,10 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
 
     PROFILESTACK("Drawing Cmd");
 
-    std::vector<std::future<VulkanCommandBuffer>> futures;
+    // Do not mind this ungodly type name just STL things
+    // Having to use vector because std::future is being a bitch
+    std::vector<std::future<VulkanCommandBuffer>, STLRenderScratchAlloc<std::future<VulkanCommandBuffer>>> futures;
+    futures.reserve(camIndexSize * DrawingPassCount);
     for (uint32_t i = 0; i < camIndexSize; ++i)
     {
         const uint32_t camIndex = camIndices[i];
@@ -2792,7 +3069,9 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
     {
         PROFILESTACK("Video Decode");
 
-        const Array<VulkanVideoTexture*> videoTextures = m_videoTextures.ToActiveArray();
+        RENDERSCRATCHFRAME;
+
+        const Array<VulkanVideoTexture*, RenderScratchAlloc> videoTextures = m_videoTextures.ToActiveArray<RenderScratchAlloc>();
         if (!videoTextures.Empty())
         {
             if (m_vulkanEngine->IsVideoEnabled())
@@ -2824,7 +3103,9 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
     {
         PROFILESTACK("UI Draw");
 
-        const Array<CanvasRendererBuffer> a = m_canvasRenderers.ToActiveArray();
+        RENDERSCRATCHFRAME;
+
+        const Array<CanvasRendererBuffer, RenderScratchAlloc> a = m_canvasRenderers.ToActiveArray<RenderScratchAlloc>();
 
         const uint32_t canvasArrSize = a.Size();
         for (uint32_t i = 0; i < canvasArrSize; ++i)
@@ -3185,6 +3466,10 @@ uint32_t VulkanGraphicsEngine::GenerateTextureSampler(uint32_t a_textureAddr, e_
     }
     }
     
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanTextureSampler* texSampler = allocator->TAllocate<VulkanTextureSampler>();
+
     const TextureSamplerBuffer sampler =
     {
         .Addr = a_textureAddr,
@@ -3192,8 +3477,16 @@ uint32_t VulkanGraphicsEngine::GenerateTextureSampler(uint32_t a_textureAddr, e_
         .TextureMode = a_textureMode,
         .FilterMode = a_filterMode,
         .AddressMode = a_addressMode,
-        .Data = VulkanTextureSampler::GenerateFromBuffer(m_vulkanEngine, this, sampler)
+        .Data = texSampler
     };
+
+    const VulkanTextureSamplerBuilder builder =
+    {
+        .Engine = m_vulkanEngine,
+        .Sampler = sampler
+    };
+
+    VulkanTextureSampler::GenerateFromBuffer(texSampler, builder);
 
     return m_textureSampler.PushVal(sampler);
 }
@@ -3201,11 +3494,13 @@ void VulkanGraphicsEngine::DestroyTextureSampler(uint32_t a_addr)
 {
     IVERIFY(m_textureSampler.Exists(a_addr));
 
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
     const TextureSamplerBuffer sampler = m_textureSampler[a_addr];
     IDEFER(
     if (sampler.Data != nullptr) 
     { 
-        delete (VulkanTextureSampler*)sampler.Data; 
+        allocator->Destroy((VulkanTextureSampler*)sampler.Data); 
     });
 
     m_textureSampler.Erase(a_addr);

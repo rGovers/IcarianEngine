@@ -16,6 +16,7 @@ private:
 
     bool              m_headless = false;
     bool              m_disableWayland = false;
+    bool              m_unlockUPS = false;
 
     double            m_fixedTimeStep = 1.0 / 50.0;
     uint32_t          m_fileCacheSize = 256;
@@ -38,6 +39,15 @@ public:
     inline uint32_t GetFileCacheSize() const
     {
         return m_fileCacheSize;
+    }
+
+    inline bool IsUPSUnlocked() const
+    {
+        return m_unlockUPS;
+    }
+    inline void SetUPSUnlocked(bool a_value)
+    {
+        m_unlockUPS = a_value;
     }
 
     // Mostly exists because some tools still do not have the best Wayland support

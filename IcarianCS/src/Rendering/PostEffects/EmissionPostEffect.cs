@@ -3,6 +3,7 @@
 // License at end of file.
 
 using System;
+using IcarianEngine.Rendering.Shaders;
 
 namespace IcarianEngine.Rendering.PostEffects
 {

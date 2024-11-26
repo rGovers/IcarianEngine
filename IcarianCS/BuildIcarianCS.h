@@ -208,7 +208,6 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Physics/Shapes/SphereCollisionShape.cs",
 
         "./src/Rendering/Camera.cs",
-        "./src/Rendering/DecalShader.cs",
         "./src/Rendering/DefaultRenderPipeline.cs",
         "./src/Rendering/DepthCubeRenderTexture.cs",
         "./src/Rendering/DepthRenderTexture.cs",
@@ -216,12 +215,10 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Rendering/IRenderTexture.cs",
         "./src/Rendering/Material.cs",
         "./src/Rendering/MeshRenderer.cs",
-        "./src/Rendering/MeshShader.cs",
         "./src/Rendering/Model.cs",
         "./src/Rendering/MultiRenderTexture.cs",
         "./src/Rendering/ParticleSystem.cs",
         "./src/Rendering/ParticleSystem2D.cs",
-        "./src/Rendering/PixelShader.cs",
         "./src/Rendering/RenderCommand.cs",
         "./src/Rendering/Renderer.cs",
         "./src/Rendering/RenderPipeline.cs",
@@ -231,7 +228,6 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Rendering/TextRenderer.cs",
         "./src/Rendering/Texture.cs",
         "./src/Rendering/TextureSampler.cs",
-        "./src/Rendering/VertexShader.cs",
         "./src/Rendering/Viewport.cs",
 
         "./src/Rendering/Animation/AnimationClip.cs",
@@ -253,6 +249,11 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Rendering/PostEffects/EmissionPostEffect.cs",
         "./src/Rendering/PostEffects/PostEffect.cs",
         "./src/Rendering/PostEffects/ToneMapPostEffect.cs",
+
+        "./src/Rendering/Shaders/DecalShader.cs",
+        "./src/Rendering/Shaders/MeshShader.cs",
+        "./src/Rendering/Shaders/PixelShader.cs",
+        "./src/Rendering/Shaders/VertexShader.cs",
 
         "./src/Rendering/UI/Canvas.cs",
         "./src/Rendering/UI/CanvasRenderer.cs",

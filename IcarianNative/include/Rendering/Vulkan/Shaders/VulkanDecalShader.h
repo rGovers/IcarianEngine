@@ -6,15 +6,50 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
+#include <string>
+#include <unordered_map>
+
+class Allocator;
+
+class VulkanPixelShader;
+class VulkanRenderEngineBackend;
+class VulkanShaderData;
+class VulkanVertexShader;
+
+struct VulkanDecalShaderBuilder
+{
+    VulkanRenderEngineBackend* Engine;
+    std::string String;
+    std::unordered_map<std::string, std::string> Imports;
+};
+
 // NOTE: This is not a normal shader type this is a custom shader
 class VulkanDecalShader
 {
 private:
+    Allocator*                 m_allocator;
+
+    VulkanVertexShader*        m_vertexShader;
+    VulkanPixelShader*         m_pixelShader;
+
+    VulkanDecalShader(VulkanVertexShader* a_vertexShader, VulkanPixelShader* a_pixelShader, Allocator* a_allocator);
 
 protected:
 
 public:
+    VulkanDecalShader() = delete;
+    ~VulkanDecalShader();
 
+    inline VulkanVertexShader* GetVertexShader() const
+    {
+        return m_vertexShader;
+    }
+    inline VulkanPixelShader* GetPixelShader() const
+    {
+        return m_pixelShader;
+    }
+
+    static void CreateFromFShader(VulkanDecalShader* a_out, const VulkanDecalShaderBuilder& a_builder, Allocator* a_allocator); 
 };
 
 #endif

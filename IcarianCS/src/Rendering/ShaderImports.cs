@@ -2,6 +2,8 @@
 // 
 // License at end of file.
 
+using IcarianEngine.Rendering.Shaders;
+
 #include "GlobalImports.h"
 #include "PixelImports.h"
 

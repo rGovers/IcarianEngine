@@ -11,8 +11,9 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
-VulkanPixelShader::VulkanPixelShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data) : VulkanShader(a_engine, a_inputs, a_inputCount)
+VulkanPixelShader::VulkanPixelShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator) : VulkanShader(a_engine, a_inputs, a_inputCount, a_allocator)
 {
+    TRACE("Creating Pixel Shader");
     const vk::Device device = m_engine->GetLogicalDevice();
 
     const vk::ShaderModuleCreateInfo createInfo = vk::ShaderModuleCreateInfo
@@ -23,8 +24,6 @@ VulkanPixelShader::VulkanPixelShader(VulkanRenderEngineBackend* a_engine, const 
     );
 
     VKRESERRMSG(device.createShaderModule(&createInfo, nullptr, &m_module), "Failed to create PixelShader");
-
-    TRACE("Created PixelShader");
 }
 VulkanPixelShader::~VulkanPixelShader()
 {
@@ -33,34 +32,48 @@ VulkanPixelShader::~VulkanPixelShader()
     device.destroyShaderModule(m_module);
 }
 
-VulkanPixelShader* VulkanPixelShader::CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str)
+void VulkanPixelShader::CreateFromFShader(VulkanPixelShader* a_out, const VulkanPixelFShaderBuilder& a_builder, Allocator* a_allocator)
 {
+    IVERIFY(a_out != nullptr);
+    IVERIFY(a_builder.Engine != nullptr);
+    IVERIFY(!a_builder.EntryPoint.empty());
+    IVERIFY(!a_builder.String.empty());
+
     std::string error;
     std::vector<ShaderBufferInput> inputs;
-    const std::string glsl = IcarianCore::GLSLFromFlareShader(a_str, IcarianCore::ShaderPlatform_Vulkan, a_imports, &inputs, &error);
+    const std::string str = IcarianCore::GLSLFromFlareShader(a_builder.String, IcarianCore::ShaderPlatform_Vulkan, a_builder.Imports, &inputs, &error);
 
-    if (glsl.empty())
+    if (str.empty())
     {
         IERROR("Flare Pixel shader error: " + error);
-
-        return nullptr;
     }
 
-    return CreateFromGLSL(a_engine, inputs.data(), (uint32_t)inputs.size(), glsl);
-}
-VulkanPixelShader* VulkanPixelShader::CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str)
-{
-    IVERIFY(!a_str.empty());
+    const VulkanPixelGLSLShaderBuilder glslBuilder =
+    {
+        .Engine = a_builder.Engine,
+        .String = str,
+        .Inputs = inputs.data(),
+        .InputCount = (uint32_t)inputs.size(),
+        .EntryPoint = a_builder.EntryPoint,
+    };
 
-    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangFragment, a_str, true);
+    CreateFromGLSL(a_out, glslBuilder, a_allocator);
+}
+void VulkanPixelShader::CreateFromGLSL(VulkanPixelShader* a_out, const VulkanPixelGLSLShaderBuilder& a_builder, Allocator* a_allocator)
+{
+    IVERIFY(a_out != nullptr);
+    IVERIFY(a_builder.Engine != nullptr);
+    IVERIFY(!a_builder.EntryPoint.empty());
+    IVERIFY(!a_builder.String.empty());
+
+    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangFragment, a_builder.String, true, a_builder.EntryPoint);
     if (spirv.empty())
     {
         IERROR("Failed to compile Pixel shader");
-
-        return nullptr;
     }
 
-    return new VulkanPixelShader(a_engine, a_inputs, a_inputCount, spirv);
+    // Use this syntax otherwise ASAN gets angry
+    new (a_out) VulkanPixelShader(a_builder.Engine, a_builder.Inputs, a_builder.InputCount, spirv, a_allocator);
 }
 
 #endif

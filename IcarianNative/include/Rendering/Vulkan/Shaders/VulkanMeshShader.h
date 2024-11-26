@@ -6,9 +6,24 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include <string_view>
-
 #include "Rendering/Vulkan/Shaders/VulkanShader.h"
+
+struct VulkanMeshFShaderBuilder
+{
+    VulkanRenderEngineBackend* Engine;
+    std::string String;
+    std::unordered_map<std::string, std::string> Imports;
+    std::string EntryPoint;
+};
+
+struct VulkanMeshGLSLShaderBuilder
+{
+    VulkanRenderEngineBackend* Engine;
+    std::string String;
+    ShaderBufferInput* Inputs;
+    uint32_t InputCount;
+    std::string EntryPoint;
+};
 
 class VulkanMeshShader : public VulkanShader
 {
@@ -18,11 +33,11 @@ protected:
 
 public:
     VulkanMeshShader() = delete;
-    VulkanMeshShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data);
+    VulkanMeshShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator);
     virtual ~VulkanMeshShader();
 
-    static VulkanMeshShader* CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str);
-    static VulkanMeshShader* CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str);
+    static void CreateFromFShader(VulkanMeshShader* a_out, const VulkanMeshFShaderBuilder& a_builder, Allocator* a_allocator);
+    static void CreateFromGLSL(VulkanMeshShader* a_out, const VulkanMeshGLSLShaderBuilder& a_builder, Allocator* a_allocator);
 };
 
 #endif

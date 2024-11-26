@@ -11,7 +11,7 @@
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
-VulkanComputeShader::VulkanComputeShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data) : VulkanShader(a_engine, a_inputs, a_inputCount)
+VulkanComputeShader::VulkanComputeShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator) : VulkanShader(a_engine, a_inputs, a_inputCount, a_allocator)
 {
     TRACE("Creating ComputeShader");
     
@@ -33,33 +33,46 @@ VulkanComputeShader::~VulkanComputeShader()
     device.destroyShaderModule(m_module);
 }
 
-VulkanComputeShader* VulkanComputeShader::CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::unordered_map<std::string, std::string>& a_imports, const std::string_view& a_str)
+void VulkanComputeShader::CreateFromFShader(VulkanComputeShader* a_out, const VulkanComputeFShaderBuilder& a_builder, Allocator* a_allocator)
 {
+    IVERIFY(a_out != nullptr);
+    IVERIFY(a_builder.Engine != nullptr);
+    IVERIFY(!a_builder.EntryPoint.empty());
+    IVERIFY(!a_builder.String.empty());
+
     std::string error;
     std::vector<ShaderBufferInput> inputs;
-    const std::string glsl = IcarianCore::GLSLFromFlareShader(a_str, IcarianCore::ShaderPlatform_Vulkan, a_imports, &inputs, &error);
-    if (glsl.empty())
+    const std::string str = IcarianCore::GLSLFromFlareShader(a_builder.String, IcarianCore::ShaderPlatform_Vulkan, a_builder.Imports, &inputs, &error);
+    if (str.empty())
     {
-        IERROR("Flare compute shader error: " + error);
-
-        return nullptr;
+        IERROR("Flare Compute shader error: " + error);
     }
 
-    return CreateFromGLSL(a_engine, inputs.data(), (uint32_t)inputs.size(), glsl);
-}
-VulkanComputeShader* VulkanComputeShader::CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str)
-{
-    IVERIFY(!a_str.empty());
+    const VulkanComputeGLSLShaderBuilder glslBuilder =
+    {
+        .Engine = a_builder.Engine,
+        .String = str,
+        .Inputs = inputs.data(),
+        .InputCount = (uint32_t)inputs.size(),
+        .EntryPoint = a_builder.EntryPoint,
+    };
 
-    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangCompute, a_str, true);
+    return CreateFromGLSL(a_out, glslBuilder, a_allocator);
+}
+void VulkanComputeShader::CreateFromGLSL(VulkanComputeShader* a_out, const VulkanComputeGLSLShaderBuilder& a_builder, Allocator* a_allocator)
+{
+    IVERIFY(a_out != nullptr);
+    IVERIFY(a_builder.Engine != nullptr);
+    IVERIFY(!a_builder.EntryPoint.empty());
+    IVERIFY(!a_builder.String.empty());
+
+    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangCompute, a_builder.String, true, a_builder.EntryPoint);
     if (spirv.empty())
     {
-        IERROR("Failed to compile compute shader");
-
-        return nullptr;
+        IERROR("Failed to compile Compute shader");
     }
 
-    return new VulkanComputeShader(a_engine, a_inputs, a_inputCount, spirv);
+    new (a_out) VulkanComputeShader(a_builder.Engine, a_builder.Inputs, a_builder.InputCount, spirv, a_allocator);
 }
 
 #endif

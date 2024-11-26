@@ -197,7 +197,7 @@ uint8_t* WAVAudioClip::GetAudioData(RingAllocator* a_allocator, uint64_t a_sampl
     const uint64_t size = samplesToRead * m_channelCount;
     const uint64_t sampleSize = size * formatSize;
 
-    uint8_t* data = (uint8_t*)a_allocator->Allocate(sampleSize);
+    uint8_t* data = (uint8_t*)a_allocator->Allocate(sampleSize, 1);
     if (handle->Read(data, sampleSize) != sampleSize)
     {
         return nullptr;

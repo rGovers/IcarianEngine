@@ -173,8 +173,18 @@ vk::Buffer VulkanComputeEngine::GetParticleBufferData(uint32_t a_addr)
 
 uint32_t VulkanComputeEngine::GenerateComputeFShader(const std::string_view& a_str)
 {
+    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+
+    const VulkanComputeFShaderBuilder builder =
+    {
+        .Engine = m_engine,
+        .String = std::string(a_str),
+        .EntryPoint = "main"
+    };
+
     // TODO: Imports for compute shaders
-    VulkanComputeShader* shader = VulkanComputeShader::CreateFromFShader(m_engine, std::unordered_map<std::string, std::string>(), a_str);
+    VulkanComputeShader* shader = blockAllocator->TAllocate<VulkanComputeShader>();
+    VulkanComputeShader::CreateFromFShader(shader, builder, blockAllocator);
 
     return m_shaders.PushVal(shader);
 }
@@ -182,8 +192,10 @@ void VulkanComputeEngine::DestroyComputeShader(uint32_t a_addr)
 {
     IVERIFY(m_shaders.Exists(a_addr));
 
-    const VulkanComputeShader* shader = m_shaders[a_addr];
-    IDEFER(delete shader);
+    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+
+    VulkanComputeShader* shader = m_shaders[a_addr];
+    IDEFER(blockAllocator->Destroy(shader));
 
     m_shaders.Erase(a_addr);
 }

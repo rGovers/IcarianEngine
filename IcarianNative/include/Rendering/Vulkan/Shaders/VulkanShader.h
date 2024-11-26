@@ -8,6 +8,7 @@
 
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
+class Allocator;
 class VulkanRenderEngineBackend;
 
 #include "EngineMaterialInteropStructures.h"
@@ -18,13 +19,14 @@ private:
 
 protected:
     VulkanRenderEngineBackend*  m_engine;
-    
+    Allocator*                  m_allocator;
+
     vk::ShaderModule            m_module;
     
     ShaderBufferInput*          m_inputs;
     uint32_t                    m_inputCount;
 
-    VulkanShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount);
+    VulkanShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, Allocator* a_allocator);
     
 public:
     VulkanShader() = delete;

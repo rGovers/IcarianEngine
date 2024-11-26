@@ -5,27 +5,27 @@
 using System;
 using System.Runtime.CompilerServices;
 
-namespace IcarianEngine.Rendering
+namespace IcarianEngine.Rendering.Shaders
 {
-    public class PixelShader : IDestroy
+    public class MeshShader : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateFromFile(string a_path);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyShader(uint a_addr);
-
+        
         /// <summary>
-        /// Adds a import target to the PixelShader import table
+        /// Adds a import target to the MeshShader import table
         /// </summary>
         /// <param name="a_key">The import target to add</param>
-        /// <param name="a_value">The import value to add</param>
+        /// <param name="a_value">The import value to addd</param>
         [MethodImpl(MethodImplOptions.InternalCall)]
         public extern static void AddImport(string a_key, string a_value);
 
         uint m_internalAddr = uint.MaxValue;
 
         /// <summary>
-        /// Whether the PixelShader has been Disposed/Finalised
+        /// Whether the MeshShader has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -43,37 +43,36 @@ namespace IcarianEngine.Rendering
             }
         }
 
-        PixelShader(uint a_addr)
+        MeshShader(uint a_addr)
         {
             m_internalAddr = a_addr;
         }
 
         /// <summary>
-        /// Loads a PixelShader from a file
+        /// Loads a MeshShader from a file
         /// </summary>
-        /// <param name="a_path">The path to the PixelShader</param>
+        /// <param name="a_path">The path to the MeshShader</param>
         /// Supported formats:
-        ///     .ffrag
-        ///     .fpix
-        /// @see IcarianEngine.AssetLibrary.LoadPixelShader
-        public static PixelShader LoadPixelShader(string a_path)
+        ///     .fmesh
+        /// @see IcarianEngine.AssetLibrary.LoadMeshShader
+        public static MeshShader LoadMeshShader(string a_path)
         {
             uint addr = GenerateFromFile(a_path);
 
             if (addr != uint.MaxValue)
             {
-                return new PixelShader(addr);
+                return new MeshShader(addr);
             }
             else
             {
-                Logger.IcarianError($"Failed to load PixelShader: {a_path}");
+                Logger.IcarianError($"Failed to load MeshShader: {a_path}");
             }
 
             return null;
         }
 
         /// <summary>
-        /// Disposes of the PixelShader
+        /// Disposes of the MeshShader
         /// </summary>
         public void Dispose()
         {
@@ -82,7 +81,7 @@ namespace IcarianEngine.Rendering
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// Called when the PixelShader is being Disposed/Finalised
+        /// Called when the MeshShader is being Disposed/Finalised
         /// </summary>
         /// <param name="a_disposing">Whether it is being called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
@@ -95,17 +94,17 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.IcarianWarning("PixelShader Failed to Dispose");
+                    Logger.IcarianWarning("MeshShader Failed to Dispose");
                 }
 
                 m_internalAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple PixelShader Dispose");
+                Logger.IcarianError("Multiple MeshShader Dispose");
             }
         }
-        ~PixelShader()
+        ~MeshShader()
         {
             Dispose(false);
         }

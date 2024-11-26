@@ -13,6 +13,7 @@
 #define ENGINE_TIME_EXPORT_TABLE(F) \
     F(void, IcarianEngine, TimeInterop, SetTimeScale, \
     { \
+        Instance->SetTimeScale(a_timeScale); \
     }, float a_timeScale) \
 
 /// @endcond

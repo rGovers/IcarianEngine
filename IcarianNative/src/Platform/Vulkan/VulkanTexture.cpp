@@ -351,14 +351,14 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
 
     VmaAllocationInfo stagingAllocationInfo;
     VKRESERRMSG(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo), "Failed to create staging texture");
-    IDEFER(m_engine->PushDeletionObject(new VulkanTextureBufferDeletionObject(m_engine, stagingBuffer, stagingAllocation)));
+    IDEFER(m_engine->PushDeletionObject<VulkanTextureBufferDeletionObject>(m_engine, stagingBuffer, stagingAllocation));
 #ifdef DEBUG
     vmaSetAllocationName(allocator, stagingAllocation, "StagingMipTexture");
 #endif
 
     if (a_data != nullptr)
     {
-        IDEFER(ICARIAN_ASSERT_R(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)a_dataSize) == VK_SUCCESS));
+        IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)a_dataSize)));
         memcpy(stagingAllocationInfo.pMappedData, a_data, (size_t)a_dataSize);
     }
 
@@ -432,7 +432,7 @@ VulkanTexture::VulkanTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_wid
 VulkanTexture::~VulkanTexture()
 {
     TRACE("Queueing Texture Deletion");
-    m_engine->PushDeletionObject(new VulkanTextureDeletionObject(m_engine, m_image, m_imageView, m_allocation));
+    m_engine->PushDeletionObject<VulkanTextureDeletionObject>(m_engine, m_image, m_imageView, m_allocation);
 }
 
 VulkanTexture* VulkanTexture::CreateTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize)
@@ -492,7 +492,7 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
     VmaAllocation stagingAllocation;
     VmaAllocationInfo stagingAllocationInfo;
     VKRESERRMSG(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo), "Failed to create staging texture");
-    IDEFER(m_engine->PushDeletionObject(new VulkanTextureBufferDeletionObject(m_engine, stagingBuffer, stagingAllocation)));
+    IDEFER(m_engine->PushDeletionObject<VulkanTextureBufferDeletionObject>(m_engine, stagingBuffer, stagingAllocation));
     IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)imageSize)));
 #ifdef DEBUG
     vmaSetAllocationName(allocator, stagingAllocation, "StagingTexture");

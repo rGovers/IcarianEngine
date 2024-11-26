@@ -137,7 +137,7 @@ constexpr TBuiltInResource spirv_create_resources()
 
     return resource;
 }
-std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str, bool a_optimize)
+std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str, bool a_optimize, const std::string_view& a_entryPoint)
 {
 	constexpr EShMessages Messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
 
@@ -148,6 +148,7 @@ std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_v
 	// Huh guess I have to set both to keep it quiet
 	shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
 	shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_5);
+	shader.setEntryPoint(a_entryPoint.data());
 
     const char* strs[] =
 	{

@@ -40,10 +40,10 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
 // The lazy part of me won against the part that wants to write clean code
 // My apologies to the poor soul that has to decipher this definition
 #define VULKANGRAPHICS_BINDING_FUNCTION_TABLE(F) \
-    F(void, IcarianEngine.Rendering, VertexShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyVertexShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering, MeshShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyMeshShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering, PixelShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyPixelShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering, DecalShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyDecalShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Shaders, VertexShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyVertexShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Shaders, MeshShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyMeshShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Shaders, PixelShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyPixelShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Shaders, DecalShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyDecalShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     \
     F(RenderProgram, IcarianEngine.Rendering, Material, GetProgramBuffer, { return Instance->GetRenderProgram(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, Material, SetProgramBuffer, { Instance->SetRenderProgram(a_addr, a_program); }, uint32_t a_addr, RenderProgram a_program) \
@@ -325,6 +325,14 @@ RUNTIME_FUNCTION(void, PixelShader, AddImport,
     Instance->AddPixelShaderImport(key, value);
 }, MonoString* a_key, MonoString* a_value)
 
+RUNTIME_FUNCTION(uint32_t, DecalShader, GenerateFromFile, 
+{
+    char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
+
+    return Instance->GenerateFDecalShaderAddr(str);
+}, MonoString* a_path)
+
 RUNTIME_FUNCTION(MonoArray*, Camera, GetProjectionMatrix, 
 {
     const glm::mat4 proj = Instance->GetCameraProjectionMatrix(a_addr, a_width, a_height);
@@ -519,12 +527,12 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(VulkanGraphicsEngine*
     TRACE("Binding Vulkan functions to C#");
     VULKANGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH)
 
-    BIND_FUNCTION(IcarianEngine.Rendering, VertexShader, GenerateFromFile);
-    BIND_FUNCTION(IcarianEngine.Rendering, VertexShader, AddImport);
-    BIND_FUNCTION(IcarianEngine.Rendering, MeshShader, GenerateFromFile);
-    BIND_FUNCTION(IcarianEngine.Rendering, MeshShader, AddImport);
-    BIND_FUNCTION(IcarianEngine.Rendering, PixelShader, GenerateFromFile);
-    BIND_FUNCTION(IcarianEngine.Rendering, PixelShader, AddImport);
+    BIND_FUNCTION(IcarianEngine.Rendering.Shaders, VertexShader, GenerateFromFile);
+    BIND_FUNCTION(IcarianEngine.Rendering.Shaders, VertexShader, AddImport);
+    BIND_FUNCTION(IcarianEngine.Rendering.Shaders, MeshShader, GenerateFromFile);
+    BIND_FUNCTION(IcarianEngine.Rendering.Shaders, MeshShader, AddImport);
+    BIND_FUNCTION(IcarianEngine.Rendering.Shaders, PixelShader, GenerateFromFile);
+    BIND_FUNCTION(IcarianEngine.Rendering.Shaders, PixelShader, AddImport);
 
     BIND_FUNCTION(IcarianEngine.Rendering, Camera, GetProjectionMatrix);
     BIND_FUNCTION(IcarianEngine.Rendering, Camera, GetProjectionMatrixNF);
@@ -632,7 +640,7 @@ void VulkanGraphicsEngineBindings::DestroyPixelShader(uint32_t a_addr) const
 {
     m_graphicsEngine->DestroyPixelShader(a_addr);
 }
-uint32_t VulkanGraphicsEngineBindings::GenerateFDecalShaderAddr(const std::string_view& a_str) const
+uint32_t VulkanGraphicsEngineBindings::GenerateFDecalShaderAddr(const std::filesystem::path& a_path) const
 {
     return -1;
 }

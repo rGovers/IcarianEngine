@@ -5,6 +5,7 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 #define GLM_FORCE_SWIZZLE 
@@ -15,8 +16,9 @@
 #include "EngineMaterialInteropStructures.h"
 #include "EngineTextureSamplerInteropStructures.h"
 
-class ObjectManager;
+class Allocator;
 class UIElement;
+class VulkanDecalShader;
 class VulkanGraphicsEngine;
 class VulkanRenderEngineBackend;
 class VulkanShaderStorageObject;
@@ -48,6 +50,8 @@ class VulkanShaderData
 private:
     static constexpr uint32_t StaticIndex = 0;
 
+    Allocator*                  m_allocator;
+
     VulkanRenderEngineBackend*  m_engine;
     VulkanGraphicsEngine*       m_gEngine;
  
@@ -59,20 +63,18 @@ private:
     Array<VulkanPushDescriptor> m_pushDescriptors;
     Array<VulkanPushDescriptor> m_shadowPushDescriptors;
 
-    Array<VulkanShaderInput>    m_slotInputs;
-    // Want quick access to these so they are stored separately
-    VulkanShaderInput           m_userBufferInput;  
-    VulkanShaderInput           m_transformBufferInput;
-    VulkanShaderInput           m_uiBufferInput;
-
-    Array<VulkanShaderInput>    m_shadowSlotInputs;
+    uint32_t                    m_slotInputCount;
+    uint32_t                    m_shadowSlotInputCount;
+    VulkanShaderInput*          m_slotInputs;
+    VulkanShaderInput*          m_shadowSlotInputs;
 
     Array<VulkanTextureBinding> m_textures;
 
 protected:
 
 public:
-    VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const RenderProgram& a_program);
+    VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const RenderProgram& a_program, Allocator* a_allocator);
+    VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const VulkanDecalShader* a_shader, Allocator* a_allocator);
     ~VulkanShaderData();
 
     inline vk::PipelineLayout GetLayout() const

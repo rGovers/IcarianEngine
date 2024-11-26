@@ -15,23 +15,20 @@
 #endif
 
 #include "Core/IcarianDefer.h"
+#include "IcarianError.h"
 
-// A no deallocation allocator
-// Loops back to the start when it runs out of memory
-// Note that this allocator has no bounds checking or sanitizer so overflows will write to future allocations
-// Not to be used as a main allocator used in performance critical areas where allocations are known to be small, frequent and short lived where general purpose allocators are too slow
-// People forget that there are 100s of ways to allocate memory and you do not need to pick just one
-class RingAllocator : public Allocator
+class StackAllocator : public Allocator
 {
 private:
     void* m_memory;
-    void* m_slider;
     void* m_end;
+    void* m_stackPointer;
+    void* m_stackSlider;
 
 protected:
 
 public:
-    RingAllocator(uint64_t a_size)
+    StackAllocator(uint64_t a_size)
     {
 #ifdef WIN32
         m_memory = VirtualAlloc(nullptr, a_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
@@ -41,10 +38,12 @@ public:
         // Fall back to malloc
         m_memory = malloc(a_size);
 #endif
-        m_slider = m_memory;
-        m_end = (void*)((char*)m_memory + a_size);
+        m_end = (char*)m_memory + a_size;
+        m_stackPointer = m_memory;
+        m_stackSlider = m_memory;
+
     }
-    ~RingAllocator()
+    ~StackAllocator()
     {
 #ifdef WIN32
         VirtualFree(m_memory, 0, MEM_RELEASE);
@@ -59,19 +58,63 @@ public:
     {
         return (uint64_t)((char*)m_end - (char*)m_memory);
     }
+    inline uint64_t GetUsedSize() const
+    {
+        return (uint64_t)((char*)m_stackSlider - (char*)m_memory);
+    }
+    inline uint64_t GetRemainingSize() const
+    {
+        return (uint64_t)((char*)m_end - (char*)m_stackSlider);
+    }
+
+    void PushStackPointer()
+    {
+        const uintptr_t oldStackSlider = (uintptr_t)m_stackSlider;
+
+        uintptr_t* oldPtr = TAllocate<uintptr_t>();
+        *oldPtr = (uintptr_t)m_stackPointer;
+
+        m_stackPointer = m_stackSlider;
+
+        IVERIFY((uintptr_t)m_stackSlider - oldStackSlider >= sizeof(uintptr_t));
+    }
+    void PopStackPointer()
+    {
+        if (m_stackPointer <= m_memory)
+        {
+            IERROR("Pop at bottom of the Stack");
+        }
+
+        m_stackSlider = m_stackPointer;
+        m_stackPointer = (void*)*((uintptr_t*)m_stackPointer - 1);
+    }
+
+    inline void Reset()
+    {
+        m_stackPointer = m_memory;
+        m_stackSlider = m_memory;
+    }
 
     virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
     {
-        void* next = Align((char*)m_slider + a_size, a_alignment);
-
-        if (next > (char*)m_end)
+        void* ptr = Align(m_stackSlider, a_alignment);
+        void* next = (char*)ptr + a_size;
+        if (next > m_end)
         {
-            m_slider = m_memory;
+            IERROR("Stack Allocator out of memory");
         }
 
-        IDEFER(m_slider = (char*)m_slider + a_size);
+        IDEFER(m_stackSlider = next);
 
-        return m_slider;
+#ifdef DEBUG
+        const uintptr_t off = (char*)m_end - (char*)m_memory;
+        if (next > (char*)m_memory + (uintptr_t)(off * 0.9))
+        {
+            Logger::Warning("High Stack memory usage!");
+        }
+#endif
+
+        return ptr;
     }
 };
 
