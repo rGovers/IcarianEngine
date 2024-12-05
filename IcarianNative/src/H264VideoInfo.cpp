@@ -195,19 +195,18 @@ H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_
             prevPICOrderCNTLSB = header.PICOrderCNTLSB;
             prevPICOrderCNTMSB = picOrderCNTMSB;
 
-            const H264VideoFrameInfo info = 
+            H264VideoFrameInfo info = 
             {
                 .Type = type,
-                .PrioData =
-                {
-                    .POC = (int32_t)(picOrderCNTMSB + header.PICOrderCNTLSB),
-                    .GOP = pocCycle - 1,
-                },
                 .NALIDC = nal.IDC,
                 .Size = size,
                 .TimeStamp = timestamp * invTimescale,
                 .Offset = (uint64_t)offset + (p - dat),
             };
+
+            // Steam Runtime version of GCC does not like inline union initialization
+            info.PrioData.POC = (int32_t)(picOrderCNTMSB + header.PICOrderCNTLSB);
+            info.PrioData.GOP = pocCycle - 1;
 
             frames.Push(info);
 

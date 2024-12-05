@@ -79,8 +79,8 @@ static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     case TargetPlatform_LinuxZig:
     {
         CUBE_CProject_AppendDefines(&project, 
-            "_GLFW_X11",
-            "_GLFW_WAYLAND"
+            "_GLFW_WAYLAND",
+            "_GLFW_X11"
         );
         
         CUBE_CProject_AppendSources(&project, 
@@ -94,6 +94,27 @@ static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfigu
             "./src/wl_init.c",
             "./src/wl_monitor.c",
             "./src/wl_window.c",
+
+            "./src/x11_init.c",
+            "./src/x11_monitor.c",
+            "./src/x11_window.c",
+            "./src/xkb_unicode.c"
+        );
+
+        break;
+    }
+    case TargetPlatform_LinuxSteam:
+    {
+        // Been having issues with the Steam runtime environment so X11 it is
+        CUBE_CProject_AppendDefine(&project, "_GLFW_X11");
+
+        CUBE_CProject_AppendSources(&project, 
+            "./src/glx_context.c",
+            "./src/linux_joystick.c",
+            "./src/posix_poll.c",
+            "./src/posix_module.c",
+            "./src/posix_time.c",
+            "./src/posix_thread.c",
 
             "./src/x11_init.c",
             "./src/x11_monitor.c",

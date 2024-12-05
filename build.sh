@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cc -o buildC -Ideps/CUBE/include/ build.c
+cc -std=gnu11 -O2 -o buildC -Ideps/CUBE/include/ build.c
 if [ $? -ne 0 ]; then
     echo "Build bootstrap failed"
     exit 1

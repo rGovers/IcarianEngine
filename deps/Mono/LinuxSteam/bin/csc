@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec "${BASH_SOURCE%/*}"/mono --gc-params=nursery-size=64m $MONO_OPTIONS "${BASH_SOURCE%/*}/../lib/mono/4.5/csc.exe" "$@"

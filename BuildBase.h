@@ -22,7 +22,8 @@ typedef enum
     TargetPlatform_Windows,
     TargetPlatform_Linux,
     TargetPlatform_LinuxClang,
-    TargetPlatform_LinuxZig
+    TargetPlatform_LinuxZig,
+    TargetPlatform_LinuxSteam
 } e_TargetPlatform;
 
 typedef enum
@@ -353,6 +354,7 @@ void PrintHelp()
     printf("      linux - Linux with GCC\n");
     printf("      linuxclang - Linux with Clang\n");
     printf("      linuxzig - Linux with Zig\n");
+    printf("      linuxsteam - Linux Steam Sniper version with GCC\n");
     printf("\n");
 
     printf("  --configuration=<configuration> - Set the build configuration. \n");

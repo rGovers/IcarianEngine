@@ -82,10 +82,17 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         CUBE_CProject_AppendDefine(&project, "NDEBUG");
     }
 
-    CUBE_StackString commitHash = CUBE_Git_GetCommitHashShort();
+    CUBE_String commitDefine = CUBE_String_CreateC("ICARIANNATIVE_COMMIT_HASH="); 
+    if (a_targetPlatform != TargetPlatform_LinuxSteam)
+    {
+        CUBE_StackString commitHash = CUBE_Git_GetCommitHashShort();
 
-    CUBE_String commitDefine = CUBE_String_CreateC("ICARIANNATIVE_COMMIT_HASH=");
-    CUBE_String_AppendSS(&commitDefine, &commitHash);
+        CUBE_String_AppendSS(&commitDefine, &commitHash);
+    }
+    else
+    {
+        CUBE_String_AppendC(&commitDefine, "Steam");
+    }
 
     CUBE_CProject_AppendDefines(&project,
         "ICARIANNATIVE_VERSION_MAJOR=2024",
@@ -261,11 +268,11 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     case BuildConfiguration_Debug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
-        CUBE_CProject_AppendCFlag(&project, "-rdynamic");
 
         if (a_targetPlatform != TargetPlatform_Windows)
         {
             CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
+            CUBE_CProject_AppendCFlag(&project, "-rdynamic");
         }
 
         if (a_targetPlatform == TargetPlatform_LinuxZig)
@@ -412,6 +419,40 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "./lib/JoltPhysics/build/libJolt.a"
         );
 
+        CUBE_CProject_AppendReference(&project, "stdc++");
+        CUBE_CProject_AppendReference(&project, "atomic");
+        CUBE_CProject_AppendReference(&project, "m");
+
+        break;
+    }
+    // Can we all agree FUCK CONTAINERS
+    case TargetPlatform_LinuxSteam:
+    {
+        CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/LinuxSteam/include/mono-2.0");
+
+        CUBE_CProject_AppendLibraries(&project,
+            "../IcarianCore/build/libIcarianCore.a",
+
+            "../deps/glfw/build/libGLFW.a",
+            "../deps/miniz/build/libminiz.a",
+            "../deps/KTX-Software/build/libktxc.a",
+            "../deps/KTX-Software/build/libktxcpp.a",
+            "../deps/Mono/LinuxSteam/lib/libmonosgen-2.0.a",
+            "../deps/zlib/build/libzlib.a",
+            "../deps/assimp/build/libassimp.a",
+            "../deps/assimp/contrib/unzip/build/libunzip.a",
+
+            "./lib/enet/build/libenet.a",
+            "./lib/glslang/build/libglslang.a",
+            "./lib/glslang/build/libSPIRV.a",
+            "./lib/glslang/External/spirv-tools/build/libSPIRV-Tools.a",
+            "./lib/JoltPhysics/build/libJolt.a"
+        );
+
+        CUBE_CProject_AppendCFlag(&project, "-pthread");
+
+        CUBE_CProject_AppendReference(&project, "dl");
+        CUBE_CProject_AppendReference(&project, "rt");
         CUBE_CProject_AppendReference(&project, "stdc++");
         CUBE_CProject_AppendReference(&project, "atomic");
         CUBE_CProject_AppendReference(&project, "m");

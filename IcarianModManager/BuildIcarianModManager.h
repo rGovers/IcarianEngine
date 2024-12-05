@@ -27,10 +27,17 @@ static CUBE_CProject BuildIcarianModManagerProject(e_TargetPlatform a_targetPlat
         CUBE_CProject_AppendDefine(&project, "NDEBUG");
     }
 
-    CUBE_StackString commitHash = CUBE_Git_GetCommitHashShort();
-
     CUBE_String commitDefine = CUBE_String_CreateC("ICARIANMODMANAGER_COMMIT_HASH=");
-    CUBE_String_AppendSS(&commitDefine, &commitHash);
+    if (a_targetPlatform != TargetPlatform_LinuxSteam)
+    {
+        CUBE_StackString commitHash = CUBE_Git_GetCommitHashShort();
+
+        CUBE_String_AppendSS(&commitDefine, &commitHash);
+    }
+    else
+    {
+        CUBE_String_AppendC(&commitDefine, "Steam");
+    }
 
     CUBE_CProject_AppendDefines(&project,
         "ICARIANMODMANAGER_VERSION_MAJOR=2024",
@@ -147,6 +154,22 @@ static CUBE_CProject BuildIcarianModManagerProject(e_TargetPlatform a_targetPlat
             "../deps/glfw/build/libGLFW.a"
         );
 
+        CUBE_CProject_AppendReference(&project, "stdc++");
+        CUBE_CProject_AppendReference(&project, "m");
+
+        break;
+    }
+    case TargetPlatform_LinuxSteam:
+    {
+        CUBE_CProject_AppendLibraries(&project, 
+            "../IcarianCore/build/libIcarianCore.a",
+
+            "../deps/glfw/build/libGLFW.a"
+        );
+
+        CUBE_CProject_AppendCFlag(&project, "-pthread");
+
+        CUBE_CProject_AppendReference(&project, "dl");
         CUBE_CProject_AppendReference(&project, "stdc++");
         CUBE_CProject_AppendReference(&project, "m");
 

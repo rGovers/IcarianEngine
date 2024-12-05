@@ -34,6 +34,7 @@ CUBE_CProject BuildENetProject(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     case TargetPlatform_Linux:
     case TargetPlatform_LinuxClang:
     case TargetPlatform_LinuxZig:
+    case TargetPlatform_LinuxSteam:
     {
         CUBE_CProject_AppendSource(&project, "./unix.c");
 
@@ -108,6 +109,7 @@ CUBE_CProject BuildGLSLangProject(e_TargetPlatform a_targetPlatform, e_BuildConf
     case TargetPlatform_Linux:
     case TargetPlatform_LinuxClang:
     case TargetPlatform_LinuxZig:
+    case TargetPlatform_LinuxSteam:
     {
         CUBE_CProject_AppendSource(&project, "glslang/OSDependent/Unix/ossource.cpp");
 
@@ -202,21 +204,23 @@ CUBE_CProject BuildSPIRVProject(e_TargetPlatform a_targetPlatform, e_BuildConfig
 
     CUBE_CProject_AppendIncludePaths(&project, 
         ".",
-        "External/spirv-tools/include",
+        "./External/spirv-tools/include",
         "../gen/glslang/include"
     );
 
     CUBE_CProject_AppendSources(&project, 
-        "SPIRV/GlslangToSpv.cpp",
-        "SPIRV/InReadableOrder.cpp",
-        "SPIRV/Logger.cpp",
-        "SPIRV/SpvBuilder.cpp",
-        "SPIRV/SpvPostProcess.cpp",
-        "SPIRV/doc.cpp",
-        "SPIRV/SpvTools.cpp",
-        "SPIRV/disassemble.cpp",
-        "SPIRV/CInterface/spirv_c_interface.cpp"
+        "./SPIRV/GlslangToSpv.cpp",
+        "./SPIRV/InReadableOrder.cpp",
+        "./SPIRV/Logger.cpp",
+        "./SPIRV/SpvBuilder.cpp",
+        "./SPIRV/SpvPostProcess.cpp",
+        "./SPIRV/doc.cpp",
+        "./SPIRV/SpvTools.cpp",
+        "./SPIRV/disassemble.cpp",
+        "./SPIRV/CInterface/spirv_c_interface.cpp"
     );
+
+    CUBE_CProject_AppendCFlag(&project, "-std=c++17");
 
     switch (a_configuration)
     {
@@ -262,200 +266,206 @@ CUBE_CProject BuildSPIRVToolsProject(e_TargetPlatform a_targetPlatform, e_BuildC
         CUBE_CProject_AppendDefine(&project, "NDEBUG");
     }
 
-    CUBE_CProject_AppendIncludePath(&project, ".");
-    CUBE_CProject_AppendIncludePath(&project, "./include");
-    CUBE_CProject_AppendIncludePath(&project, "external/spirv-headers/include");
-    CUBE_CProject_AppendIncludePath(&project, "../../../gen/glslang/SPIRV-Tools");
+    CUBE_CProject_AppendIncludePaths(&project, 
+        ".",
+        "./include",
+        "./external/spirv-headers/include",
+        "../../../gen/glslang/SPIRV-Tools"
+    );
 
-    CUBE_CProject_AppendSource(&project, "source/assembly_grammar.cpp");
-    CUBE_CProject_AppendSource(&project, "source/binary.cpp");
-    CUBE_CProject_AppendSource(&project, "source/diagnostic.cpp");
-    CUBE_CProject_AppendSource(&project, "source/disassemble.cpp");
-    CUBE_CProject_AppendSource(&project, "source/enum_string_mapping.cpp");
-    CUBE_CProject_AppendSource(&project, "source/ext_inst.cpp");
-    CUBE_CProject_AppendSource(&project, "source/extensions.cpp");
-    CUBE_CProject_AppendSource(&project, "source/libspirv.cpp");
-    CUBE_CProject_AppendSource(&project, "source/name_mapper.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opcode.cpp");
-    CUBE_CProject_AppendSource(&project, "source/operand.cpp");
-    CUBE_CProject_AppendSource(&project, "source/parsed_operand.cpp");
-    CUBE_CProject_AppendSource(&project, "source/print.cpp");
-    CUBE_CProject_AppendSource(&project, "source/software_version.cpp");
-    CUBE_CProject_AppendSource(&project, "source/spirv_endian.cpp");
-    CUBE_CProject_AppendSource(&project, "source/spirv_fuzzer_options.cpp");
-    CUBE_CProject_AppendSource(&project, "source/spirv_optimizer_options.cpp");
-    CUBE_CProject_AppendSource(&project, "source/spirv_reducer_options.cpp");
-    CUBE_CProject_AppendSource(&project, "source/spirv_target_env.cpp");
-    CUBE_CProject_AppendSource(&project, "source/spirv_validator_options.cpp");
-    CUBE_CProject_AppendSource(&project, "source/table.cpp");
-    CUBE_CProject_AppendSource(&project, "source/text.cpp");
-    CUBE_CProject_AppendSource(&project, "source/text_handler.cpp");
+    CUBE_CProject_AppendSources(&project, 
+        "./source/assembly_grammar.cpp",
+        "./source/binary.cpp",
+        "./source/diagnostic.cpp",
+        "./source/disassemble.cpp",
+        "./source/enum_string_mapping.cpp",
+        "./source/ext_inst.cpp",
+        "./source/extensions.cpp",
+        "./source/libspirv.cpp",
+        "./source/name_mapper.cpp",
+        "./source/opcode.cpp",
+        "./source/operand.cpp",
+        "./source/parsed_operand.cpp",
+        "./source/print.cpp",
+        "./source/software_version.cpp",
+        "./source/spirv_endian.cpp",
+        "./source/spirv_fuzzer_options.cpp",
+        "./source/spirv_optimizer_options.cpp",
+        "./source/spirv_reducer_options.cpp",
+        "./source/spirv_target_env.cpp",
+        "./source/spirv_validator_options.cpp",
+        "./source/table.cpp",
+        "./source/text.cpp",
+        "./source/text_handler.cpp",
 
-    CUBE_CProject_AppendSource(&project, "source/val/validate.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_adjacency.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_annotation.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_arithmetics.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_atomics.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_barriers.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_bitwise.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_builtins.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_capability.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_cfg.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_composites.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_constants.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_conversion.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_debug.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_decorations.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_derivatives.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_extensions.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_execution_limitations.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_function.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_id.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_image.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_interfaces.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_instruction.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_layout.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_literals.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_logicals.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_memory.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_memory_semantics.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_mesh_shading.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_misc.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_mode_setting.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_non_uniform.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_primitives.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_ray_query.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_ray_tracing.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_ray_tracing_reorder.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_scopes.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_small_type_uses.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validate_type.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/basic_block.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/construct.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/function.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/instruction.cpp");
-    CUBE_CProject_AppendSource(&project, "source/val/validation_state.cpp");
+        "./source/val/validate.cpp",
+        "./source/val/validate_adjacency.cpp",
+        "./source/val/validate_annotation.cpp",
+        "./source/val/validate_arithmetics.cpp",
+        "./source/val/validate_atomics.cpp",
+        "./source/val/validate_barriers.cpp",
+        "./source/val/validate_bitwise.cpp",
+        "./source/val/validate_builtins.cpp",
+        "./source/val/validate_capability.cpp",
+        "./source/val/validate_cfg.cpp",
+        "./source/val/validate_composites.cpp",
+        "./source/val/validate_constants.cpp",
+        "./source/val/validate_conversion.cpp",
+        "./source/val/validate_debug.cpp",
+        "./source/val/validate_decorations.cpp",
+        "./source/val/validate_derivatives.cpp",
+        "./source/val/validate_extensions.cpp",
+        "./source/val/validate_execution_limitations.cpp",
+        "./source/val/validate_function.cpp",
+        "./source/val/validate_id.cpp",
+        "./source/val/validate_image.cpp",
+        "./source/val/validate_interfaces.cpp",
+        "./source/val/validate_instruction.cpp",
+        "./source/val/validate_layout.cpp",
+        "./source/val/validate_literals.cpp",
+        "./source/val/validate_logicals.cpp",
+        "./source/val/validate_memory.cpp",
+        "./source/val/validate_memory_semantics.cpp",
+        "./source/val/validate_mesh_shading.cpp",
+        "./source/val/validate_misc.cpp",
+        "./source/val/validate_mode_setting.cpp",
+        "./source/val/validate_non_uniform.cpp",
+        "./source/val/validate_primitives.cpp",
+        "./source/val/validate_ray_query.cpp",
+        "./source/val/validate_ray_tracing.cpp",
+        "./source/val/validate_ray_tracing_reorder.cpp",
+        "./source/val/validate_scopes.cpp",
+        "./source/val/validate_small_type_uses.cpp",
+        "./source/val/validate_type.cpp",
+        "./source/val/basic_block.cpp",
+        "./source/val/construct.cpp",
+        "./source/val/function.cpp",
+        "./source/val/instruction.cpp",
+        "./source/val/validation_state.cpp",
 
-    CUBE_CProject_AppendSource(&project, "source/opt/fix_func_call_arguments.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/aggressive_dead_code_elim_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/amd_ext_to_khr.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/analyze_live_input_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/basic_block.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/block_merge_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/block_merge_util.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/build_module.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/ccp_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/cfg_cleanup_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/cfg.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/code_sink.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/combine_access_chains.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/compact_ids_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/composite.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/const_folding_rules.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/constants.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/control_dependence.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/convert_to_sampled_image_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/convert_to_half_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/copy_prop_arrays.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/dataflow.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/dead_branch_elim_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/dead_insert_elim_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/dead_variable_elimination.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/decoration_manager.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/debug_info_manager.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/def_use_manager.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/desc_sroa.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/desc_sroa_util.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/dominator_analysis.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/dominator_tree.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/eliminate_dead_constant_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/eliminate_dead_functions_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/eliminate_dead_functions_util.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/eliminate_dead_io_components_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/eliminate_dead_members_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/eliminate_dead_output_stores_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/feature_manager.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/fix_storage_class.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/flatten_decoration_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/fold.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/folding_rules.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/fold_spec_constant_op_and_composite_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/freeze_spec_constant_value_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/function.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/graphics_robust_access_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/if_conversion.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/inline_exhaustive_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/inline_opaque_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/inline_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/inst_bindless_check_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/inst_buff_addr_check_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/inst_debug_printf_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/instruction.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/instruction_list.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/instrument_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/interface_var_sroa.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/invocation_interlock_placement_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/interp_fixup_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/ir_context.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/ir_loader.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/licm_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/liveness.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/local_access_chain_convert_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/local_redundancy_elimination.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/local_single_block_elim_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/local_single_store_elim_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/loop_dependence.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/loop_dependence_helpers.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/loop_descriptor.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/loop_fission.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/loop_fusion.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/loop_fusion_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/loop_peeling.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/loop_utils.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/loop_unroller.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/loop_unswitch_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/mem_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/merge_return_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/module.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/optimizer.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/pass_manager.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/private_to_local_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/propagator.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/reduce_load_size.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/redundancy_elimination.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/register_pressure.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/relax_float_ops_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/remove_dontinline_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/remove_duplicates_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/remove_unused_interface_variables_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/replace_desc_array_access_using_var_index.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/replace_invalid_opc.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/scalar_analysis.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/scalar_analysis_simplification.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/scalar_replacement_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/set_spec_constant_default_value_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/simplification_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/spread_volatile_semantics.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/ssa_rewrite_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/strength_reduction_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/strip_debug_info_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/strip_nonsemantic_info_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/struct_cfg_analysis.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/switch_descriptorset_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/trim_capabilities_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/type_manager.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/types.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/unify_const_pass.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/upgrade_memory_model.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/value_number_table.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/vector_dce.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/workaround1209.cpp");
-    CUBE_CProject_AppendSource(&project, "source/opt/wrap_opkill.cpp");
+        "./source/opt/fix_func_call_arguments.cpp",
+        "./source/opt/aggressive_dead_code_elim_pass.cpp",
+        "./source/opt/amd_ext_to_khr.cpp",
+        "./source/opt/analyze_live_input_pass.cpp",
+        "./source/opt/basic_block.cpp",
+        "./source/opt/block_merge_pass.cpp",
+        "./source/opt/block_merge_util.cpp",
+        "./source/opt/build_module.cpp",
+        "./source/opt/ccp_pass.cpp",
+        "./source/opt/cfg_cleanup_pass.cpp",
+        "./source/opt/cfg.cpp",
+        "./source/opt/code_sink.cpp",
+        "./source/opt/combine_access_chains.cpp",
+        "./source/opt/compact_ids_pass.cpp",
+        "./source/opt/composite.cpp",
+        "./source/opt/const_folding_rules.cpp",
+        "./source/opt/constants.cpp",
+        "./source/opt/control_dependence.cpp",
+        "./source/opt/convert_to_sampled_image_pass.cpp",
+        "./source/opt/convert_to_half_pass.cpp",
+        "./source/opt/copy_prop_arrays.cpp",
+        "./source/opt/dataflow.cpp",
+        "./source/opt/dead_branch_elim_pass.cpp",
+        "./source/opt/dead_insert_elim_pass.cpp",
+        "./source/opt/dead_variable_elimination.cpp",
+        "./source/opt/decoration_manager.cpp",
+        "./source/opt/debug_info_manager.cpp",
+        "./source/opt/def_use_manager.cpp",
+        "./source/opt/desc_sroa.cpp",
+        "./source/opt/desc_sroa_util.cpp",
+        "./source/opt/dominator_analysis.cpp",
+        "./source/opt/dominator_tree.cpp",
+        "./source/opt/eliminate_dead_constant_pass.cpp",
+        "./source/opt/eliminate_dead_functions_pass.cpp",
+        "./source/opt/eliminate_dead_functions_util.cpp",
+        "./source/opt/eliminate_dead_io_components_pass.cpp",
+        "./source/opt/eliminate_dead_members_pass.cpp",
+        "./source/opt/eliminate_dead_output_stores_pass.cpp",
+        "./source/opt/feature_manager.cpp",
+        "./source/opt/fix_storage_class.cpp",
+        "./source/opt/flatten_decoration_pass.cpp",
+        "./source/opt/fold.cpp",
+        "./source/opt/folding_rules.cpp",
+        "./source/opt/fold_spec_constant_op_and_composite_pass.cpp",
+        "./source/opt/freeze_spec_constant_value_pass.cpp",
+        "./source/opt/function.cpp",
+        "./source/opt/graphics_robust_access_pass.cpp",
+        "./source/opt/if_conversion.cpp",
+        "./source/opt/inline_exhaustive_pass.cpp",
+        "./source/opt/inline_opaque_pass.cpp",
+        "./source/opt/inline_pass.cpp",
+        "./source/opt/inst_bindless_check_pass.cpp",
+        "./source/opt/inst_buff_addr_check_pass.cpp",
+        "./source/opt/inst_debug_printf_pass.cpp",
+        "./source/opt/instruction.cpp",
+        "./source/opt/instruction_list.cpp",
+        "./source/opt/instrument_pass.cpp",
+        "./source/opt/interface_var_sroa.cpp",
+        "./source/opt/invocation_interlock_placement_pass.cpp",
+        "./source/opt/interp_fixup_pass.cpp",
+        "./source/opt/ir_context.cpp",
+        "./source/opt/ir_loader.cpp",
+        "./source/opt/licm_pass.cpp",
+        "./source/opt/liveness.cpp",
+        "./source/opt/local_access_chain_convert_pass.cpp",
+        "./source/opt/local_redundancy_elimination.cpp",
+        "./source/opt/local_single_block_elim_pass.cpp",
+        "./source/opt/local_single_store_elim_pass.cpp",
+        "./source/opt/loop_dependence.cpp",
+        "./source/opt/loop_dependence_helpers.cpp",
+        "./source/opt/loop_descriptor.cpp",
+        "./source/opt/loop_fission.cpp",
+        "./source/opt/loop_fusion.cpp",
+        "./source/opt/loop_fusion_pass.cpp",
+        "./source/opt/loop_peeling.cpp",
+        "./source/opt/loop_utils.cpp",
+        "./source/opt/loop_unroller.cpp",
+        "./source/opt/loop_unswitch_pass.cpp",
+        "./source/opt/mem_pass.cpp",
+        "./source/opt/merge_return_pass.cpp",
+        "./source/opt/module.cpp",
+        "./source/opt/optimizer.cpp",
+        "./source/opt/pass.cpp",
+        "./source/opt/pass_manager.cpp",
+        "./source/opt/private_to_local_pass.cpp",
+        "./source/opt/propagator.cpp",
+        "./source/opt/reduce_load_size.cpp",
+        "./source/opt/redundancy_elimination.cpp",
+        "./source/opt/register_pressure.cpp",
+        "./source/opt/relax_float_ops_pass.cpp",
+        "./source/opt/remove_dontinline_pass.cpp",
+        "./source/opt/remove_duplicates_pass.cpp",
+        "./source/opt/remove_unused_interface_variables_pass.cpp",
+        "./source/opt/replace_desc_array_access_using_var_index.cpp",
+        "./source/opt/replace_invalid_opc.cpp",
+        "./source/opt/scalar_analysis.cpp",
+        "./source/opt/scalar_analysis_simplification.cpp",
+        "./source/opt/scalar_replacement_pass.cpp",
+        "./source/opt/set_spec_constant_default_value_pass.cpp",
+        "./source/opt/simplification_pass.cpp",
+        "./source/opt/spread_volatile_semantics.cpp",
+        "./source/opt/ssa_rewrite_pass.cpp",
+        "./source/opt/strength_reduction_pass.cpp",
+        "./source/opt/strip_debug_info_pass.cpp",
+        "./source/opt/strip_nonsemantic_info_pass.cpp",
+        "./source/opt/struct_cfg_analysis.cpp",
+        "./source/opt/switch_descriptorset_pass.cpp",
+        "./source/opt/trim_capabilities_pass.cpp",
+        "./source/opt/type_manager.cpp",
+        "./source/opt/types.cpp",
+        "./source/opt/unify_const_pass.cpp",
+        "./source/opt/upgrade_memory_model.cpp",
+        "./source/opt/value_number_table.cpp",
+        "./source/opt/vector_dce.cpp",
+        "./source/opt/workaround1209.cpp",
+        "./source/opt/wrap_opkill.cpp",
 
-    CUBE_CProject_AppendSource(&project, "source/util/bit_vector.cpp");
-    CUBE_CProject_AppendSource(&project, "source/util/parse_number.cpp");
-    CUBE_CProject_AppendSource(&project, "source/util/string_utils.cpp");
+        "./source/util/bit_vector.cpp",
+        "./source/util/parse_number.cpp",
+        "./source/util/string_utils.cpp"
+    );
+
+    CUBE_CProject_AppendCFlag(&project, "-std=c++17");
 
     switch (a_configuration)
     {

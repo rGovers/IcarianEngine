@@ -167,7 +167,7 @@ static FileBuffer* GenerateFileBuffer(FILE* a_file, uint64_t a_size)
     return buffer;
 }
 
-FileHandle* FileCache::GenerateFileHandle(const std::filesystem::path& a_path, FILE* a_file, uint64_t a_size)
+FileHandle* FileCache::GenerateFileHandle(const std::string& a_path, FILE* a_file, uint64_t a_size)
 {
     const uint64_t remaining = m_size - m_allocated;
 
@@ -184,7 +184,7 @@ FileHandle* FileCache::GenerateFileHandle(const std::filesystem::path& a_path, F
         return new CacheFileHandle(buffer);
     }
 
-    std::filesystem::path key;
+    std::string key;
     FileBuffer* b = nullptr;
     // Looking for a file to delete that so that the current file can fit
     // No point deleting a file if we cannot fit it
@@ -262,7 +262,7 @@ void FileCache::Update()
         return;
     }
 
-    std::filesystem::path* keys = new std::filesystem::path[mapSize];
+    std::string* keys = new std::string[mapSize];
     IDEFER(delete[] keys);
     uint32_t keyCount = 0;
 
@@ -287,12 +287,12 @@ void FileCache::Update()
     }
 
     TRACE("Flushing File Cache");
-
     for (uint32_t i = 0; i < keyCount; ++i)
     {
-        const std::filesystem::path& key = keys[i];
+        const std::string& key = keys[i];
 
-        const FileBuffer* buffer = Instance->m_files[key];
+        // Use at otherwise does not compile in the Steam Sniper runtime
+        const FileBuffer* buffer = Instance->m_files.at(key);
         IDEFER(
         {
             delete[] (uint8_t*)buffer->Data;
@@ -310,10 +310,12 @@ void FileCache::PreLoad(const std::filesystem::path& a_path)
         return;
     }
 
+    const std::string s = a_path.string();
+
     {
         const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
 
-        const auto iter = Instance->m_files.find(a_path);
+        const auto iter = Instance->m_files.find(s);
         if (iter != Instance->m_files.end())
         {
             return;
@@ -322,7 +324,6 @@ void FileCache::PreLoad(const std::filesystem::path& a_path)
 
     const ThreadGuard g = ThreadGuard(Instance->m_lock);
 
-    const std::string s = a_path.string();
     const uint64_t maxSize = Instance->m_size >> 3;
 
     FILE* fp = fopen(s.c_str(), "rb");
@@ -340,7 +341,7 @@ void FileCache::PreLoad(const std::filesystem::path& a_path)
         }
 
         // Not the most efficent but I am lazy
-        FileHandle* handle = Instance->GenerateFileHandle(a_path, fp, size);
+        FileHandle* handle = Instance->GenerateFileHandle(s, fp, size);
         IDEFER(delete handle);
     }
     else
@@ -350,12 +351,14 @@ void FileCache::PreLoad(const std::filesystem::path& a_path)
 }
 FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
 {
+    const std::string s = a_path.string();
+
     if (Instance != nullptr)
     {
         {
             const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
 
-            const auto iter = Instance->m_files.find(a_path);
+            const auto iter = Instance->m_files.find(s);
             if (iter != Instance->m_files.end())
             {
                 return new CacheFileHandle(iter->second);
@@ -364,7 +367,6 @@ FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
         
         const ThreadGuard g = ThreadGuard(Instance->m_lock);
 
-        const std::string s = a_path.string();
         // Do not want the whole cache taken up by a single file otherwise it eliminates the point
         const uint64_t maxSize = Instance->m_size >> 3;
 
@@ -385,7 +387,7 @@ FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
                 return new ReadFileHandle(fp, size);
             }
 
-            return Instance->GenerateFileHandle(a_path, fp, size);
+            return Instance->GenerateFileHandle(s, fp, size);
         }
         else
         {
@@ -395,8 +397,6 @@ FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
     // May not want cache on all platforms but still need file IO and prefer minimize duplicate code
     else
     {
-        const std::string s = a_path.string();
-
         FILE* fp = fopen(s.c_str(), "rb");
         if (fp != NULL)
         {

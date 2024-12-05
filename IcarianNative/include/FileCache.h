@@ -82,16 +82,17 @@ public:
 class FileCache
 {
 private:
-    SharedSpinLock                                         m_lock;
-    uint64_t                                               m_size;
-    uint64_t                                               m_allocated;
-    uint32_t                                               m_updateFrame;
+    SharedSpinLock                               m_lock;
+    uint64_t                                     m_size;
+    uint64_t                                     m_allocated;
+    uint32_t                                     m_updateFrame;
 
-    std::unordered_map<std::filesystem::path, FileBuffer*> m_files;
+    // Use string as compilers seem to be hit or miss as to path as a key
+    std::unordered_map<std::string, FileBuffer*> m_files;
 
     FileCache(uint32_t a_sizeMiB);
 
-    FileHandle* GenerateFileHandle(const std::filesystem::path& a_path, FILE* a_file, uint64_t a_size);
+    FileHandle* GenerateFileHandle(const std::string& a_path, FILE* a_file, uint64_t a_size);
 
 protected:
 

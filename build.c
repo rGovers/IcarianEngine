@@ -108,6 +108,10 @@ int main(int a_argc, char** a_argv)
             {
                 targetPlatform = TargetPlatform_LinuxZig;
             }
+            else if (strcmp(platformStr, "linuxsteam") == 0)
+            {
+                targetPlatform = TargetPlatform_LinuxSteam;
+            }
             else
             {
                 printf("Unknown platform: %s\n", platformStr);
@@ -214,6 +218,7 @@ int main(int a_argc, char** a_argv)
         break;
     }
     case TargetPlatform_Linux:
+    case TargetPlatform_LinuxSteam:
     {
         printf("Target Platform: Linux\n");
 
@@ -312,7 +317,7 @@ int main(int a_argc, char** a_argv)
     PrintHeader("Building IcarianCS");
 
     printf("Writing imports to Header files...\n");
-    if (!WriteIcarianCSImportsToHeader("IcarianEngine/IcarianCS"))
+    if (!WriteIcarianCSImportsToHeader("IcarianCS"))
     {
         printf("Failed to write imports to header files\n");
 
@@ -323,7 +328,21 @@ int main(int a_argc, char** a_argv)
     icarianCSProject = BuildIcarianCSProject(CBTRUE, CBFALSE);
 
     printf("Compiling IcarianCS...\n");
-    ret = CUBE_CSProject_PreProcessCompile(&icarianCSProject, "IcarianCS", "../deps/Mono/Linux/bin/csc", compiler, CBNULL, &lines, &lineCount);
+    switch (targetPlatform) 
+    {
+    case TargetPlatform_LinuxSteam:
+    {
+        ret = CUBE_CSProject_PreProcessCompile(&icarianCSProject, "IcarianCS", "../deps/Mono/LinuxSteam/bin/csc", compiler, CBNULL, &lines, &lineCount);
+
+        break;
+    }
+    default:
+    {
+        ret = CUBE_CSProject_PreProcessCompile(&icarianCSProject, "IcarianCS", "../deps/Mono/Linux/bin/csc", compiler, CBNULL, &lines, &lineCount);
+
+        break;
+    }
+    }
 
     FlushLines(&lines, &lineCount);
 
@@ -434,6 +453,8 @@ int main(int a_argc, char** a_argv)
         break;
     }
     case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
     {
         CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative", "build/IcarianNative");
         CUBE_IO_CopyFileC("IcarianModManager/build/IcarianModManager", "build/IcarianModManager");
@@ -443,6 +464,19 @@ int main(int a_argc, char** a_argv)
 
         CUBE_IO_CopyDirectoryC("deps/Mono/Linux/lib/", "build/lib/", CBTRUE);
         CUBE_IO_CopyDirectoryC("deps/Mono/Linux/etc/", "build/etc/", CBTRUE);
+
+        break;
+    }
+    case TargetPlatform_LinuxSteam:
+    {
+        CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative", "build/IcarianNative");
+        CUBE_IO_CopyFileC("IcarianModManager/build/IcarianModManager", "build/IcarianModManager");
+
+        CUBE_IO_CHMODC("build/IcarianNative", 0755);
+        CUBE_IO_CHMODC("build/IcarianModManager", 0755);
+
+        CUBE_IO_CopyDirectoryC("deps/Mono/LinuxSteam/lib/", "build/lib/", CBTRUE);
+        CUBE_IO_CopyDirectoryC("deps/Mono/LinuxSteam/etc/", "build/etc/", CBTRUE);
 
         break;
     }
