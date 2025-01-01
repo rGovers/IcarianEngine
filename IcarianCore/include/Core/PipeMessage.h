@@ -24,6 +24,7 @@ namespace IcarianCore
         PipeMessageType_PushFrame,
         PipeMessageType_PushDMASwapFDBuffer,
         PipeMessageType_FlushDMASwapFDBuffer,
+        PipeMessageType_DMASwap,
         PipeMessageType_Message,
         PipeMessageType_End
     };

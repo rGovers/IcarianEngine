@@ -606,7 +606,7 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
         vk::True,
         vk::False,
         vk::False,
-        vk::True
+        vk::False
     );
 
     *nextChain = &meshShaderFeature;

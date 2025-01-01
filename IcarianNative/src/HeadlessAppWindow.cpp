@@ -444,6 +444,11 @@ void HeadlessAppWindow::FlushSwapBufferFD()
 {
     m_queuedMessages.Push(IcarianCore::PipeMessage(IcarianCore::PipeMessageType_FlushDMASwapFDBuffer));
 }
+
+void HeadlessAppWindow::DMASwap()
+{
+    m_queuedMessages.Push(IcarianCore::PipeMessage(IcarianCore::PipeMessageType_DMASwap));
+}
 #else
 void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer)
 {

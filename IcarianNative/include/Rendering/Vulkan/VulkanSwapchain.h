@@ -47,8 +47,6 @@ class VulkanSwapchain
 private:
     constexpr static bool ForceHeadless = false;
 
-    constexpr static uint32_t HeadlessBlockSize = 128 << 20;
-
     AppWindow*                  m_window;
     VulkanRenderEngineBackend*  m_engine;
 

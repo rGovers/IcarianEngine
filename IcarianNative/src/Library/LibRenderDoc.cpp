@@ -18,14 +18,14 @@ static LibRenderDoc* Instance = nullptr;
 
 LibRenderDoc::LibRenderDoc()
 {
-    m_module = nullptr;
-    m_api = nullptr;
+    m_module = NULL;
+    m_api = NULL;
     m_shouldCapture = false;
     m_capturing = false;
 
 #ifdef WIN32
     m_module = GetModuleHandleA("renderdoc.dll");
-    if (m_module == nullptr)
+    if (m_module == NULL)
     {
         return;
     }
@@ -33,11 +33,11 @@ LibRenderDoc::LibRenderDoc()
     pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)GetProcAddress(m_module, "RENDERDOC_GetAPI");
     if (RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_6_0, (void**)&m_api) != 1)
     {
-        m_module = nullptr;
+        m_module = NULL;
     }
 #else
     m_module = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD);
-    if (m_module == nullptr)
+    if (m_module == NULL)
     {
         return;
     }
@@ -45,18 +45,24 @@ LibRenderDoc::LibRenderDoc()
     pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)dlsym(m_module, "RENDERDOC_GetAPI");
     if (RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_6_0, (void**)&m_api) != 1)
     {
-        m_module = nullptr;
-        m_api = nullptr;
+        m_module = NULL;
+        m_api = NULL;
     }
 #endif
 }
 LibRenderDoc::~LibRenderDoc()
 {
-    m_api->RemoveHooks();
+    if (m_api != NULL)
+    {
+        m_api->RemoveHooks();
+    }
 
-#ifndef WIN32
-    dlclose(m_module);
+    if (m_module != NULL)
+    {
+ #ifndef WIN32
+        dlclose(m_module);
 #endif
+    }
 }
 
 void LibRenderDoc::Init()
@@ -105,7 +111,7 @@ void LibRenderDoc::StartFrame()
     }
     IDEFER(Instance->m_shouldCapture = false);
 
-    if (Instance->m_module == nullptr || Instance->m_api == NULL)
+    if (Instance->m_module == NULL || Instance->m_api == NULL)
     {
         return;
     }
@@ -128,7 +134,7 @@ void LibRenderDoc::EndFrame()
     }
     IDEFER(Instance->m_capturing = false);
 
-    if (Instance->m_module == nullptr || Instance->m_api == NULL)
+    if (Instance->m_module == NULL || Instance->m_api == NULL)
     {
         return;
     }

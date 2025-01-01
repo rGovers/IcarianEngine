@@ -108,6 +108,8 @@ public:
 #ifdef ICARIANNATIVE_ENABLE_DMA
     void PushSwapBufferFD(const DMASwapBufferFD& a_swapbuffer);
     void FlushSwapBufferFD();
+
+    void DMASwap();
 #else
     void PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer);
 #endif

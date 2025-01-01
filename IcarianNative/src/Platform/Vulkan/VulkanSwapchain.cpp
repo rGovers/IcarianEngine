@@ -148,6 +148,8 @@ void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height)
     const VmaAllocator allocator = m_engine->GetAllocator();
     const vk::Device device = m_engine->GetLogicalDevice();
 
+    device.waitIdle();
+
     const vk::Extent3D extents = vk::Extent3D(m_width, m_height, 1);
 
 #ifdef ICARIANNATIVE_ENABLE_DMA
@@ -170,16 +172,18 @@ void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height)
         .mipLevels = 1,
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
+#ifdef ICARIANNATIVE_ENABLE_DMA
+        .tiling = VK_IMAGE_TILING_LINEAR,
+#else
         .tiling = VK_IMAGE_TILING_OPTIMAL,
+#endif
         .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
     const VmaAllocationCreateInfo allocInfo = 
     { 
-        .usage = VMA_MEMORY_USAGE_AUTO,
-        .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        // .preferredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
 #ifdef ICARIANNATIVE_ENABLE_DMA
         .pool = m_pool,
 #endif
@@ -208,7 +212,6 @@ void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height)
             NULL
 #endif  
         ), "Failed to create swapchain image");
-        VKRESERRMSG(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &swapImage.Allocation, NULL), "Failed to create swapchain image");
         swapImage.Image = image;
 
 #ifdef ICARIANNATIVE_ENABLE_DMA
@@ -373,9 +376,16 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         constexpr uint32_t ExtentSize = 1 << 13;
         const vk::Extent3D extents = vk::Extent3D(ExtentSize, ExtentSize, 1);
 
+        const VkExternalMemoryImageCreateInfo externalImageInfo =
+        {
+            .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+            .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
+        };
+
         const VkImageCreateInfo poolImageInfo = 
         {
             .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .pNext = &externalImageInfo,
             .imageType = VK_IMAGE_TYPE_2D,
             .format = VK_FORMAT_R8G8B8A8_UNORM,
             .extent = extents,
@@ -406,8 +416,6 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         const VmaPoolCreateInfo poolCreateInfo = 
         {
             .memoryTypeIndex = memIndex,
-            .blockSize = HeadlessBlockSize,
-            .maxBlockCount = 1,
             .pMemoryAllocateNext = &m_exportInfo,
         };
 
@@ -701,7 +709,7 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaph
         if (m_width != winWidth || m_height != winHeight)
         {
             Destroy();
-            InitHeadless(m_width, m_height);
+            InitHeadless(winWidth, winHeight);
 
             void* args[] =
             {
@@ -811,7 +819,11 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
     const bool headless = m_window->IsHeadless() || ForceHeadless;
     if (headless)
     {        
-#ifndef ICARIANNATIVE_ENABLE_DMA
+#ifdef ICARIANNATIVE_ENABLE_DMA
+        HeadlessAppWindow* window = (HeadlessAppWindow*)m_window;
+
+        window->DMASwap();
+#else
         if (!IISBITSET(m_init, a_imageIndex))
         {
             ISETBIT(m_init, a_imageIndex);
