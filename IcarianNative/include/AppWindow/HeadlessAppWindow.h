@@ -109,6 +109,11 @@ public:
     void PushSwapBufferFD(const DMASwapBufferFD& a_swapbuffer);
     void FlushSwapBufferFD();
 
+#ifdef WIN32
+    void PushSwapBufferHandle(const DMASwapBufferHandle& a_swapBuffer);
+#endif
+    void FlushSwapBufferHandle();
+
     void DMASwap();
 #else
     void PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer);

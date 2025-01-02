@@ -5,6 +5,11 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
+#if defined(WIN32) && defined(ICARIANNATIVE_ENABLE_DMA)
+#include "Core/WindowsHeaders.h"
+#define VK_USE_PLATFORM_WIN32_KHR
+#endif
 #include <vulkan/vulkan.hpp>
 
 // Nvidia driver was being weird about SPIRV 1.4 on Vulkan 1.1 bumping to Vulkan 1.2 seems to have fixed it

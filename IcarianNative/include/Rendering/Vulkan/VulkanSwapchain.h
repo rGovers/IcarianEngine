@@ -33,7 +33,9 @@ struct VulkanSwapchainImage
     vk::ImageView View;
     vk::Framebuffer Framebuffer;
 #ifdef ICARIANNATIVE_ENABLE_DMA
-#ifndef WIN32
+#ifdef WIN32
+    HANDLE Handle;
+#else
     int FD;
 #endif
 #endif
@@ -59,8 +61,13 @@ private:
     vk::Fence                   m_fences[VulkanMaxFlightFrames];
 
 #ifdef ICARIANNATIVE_ENABLE_DMA
+#ifdef WIN32
+    HANDLE                      m_startSemaphoreHandle[VulkanMaxFlightFrames];
+    HANDLE                      m_endSemaphoreHandle[VulkanMaxFlightFrames];
+#else
     int                         m_startSemaphoreFD[VulkanMaxFlightFrames];
     int                         m_endSemaphoreFD[VulkanMaxFlightFrames];
+#endif
 
     VmaPool                     m_pool;
     // Needs to remain valid for the pool hence in the Swapchain

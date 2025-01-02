@@ -429,7 +429,7 @@ void HeadlessAppWindow::PushFrameInfo(double a_delta, double a_time)
 #ifdef ICARIANNATIVE_ENABLE_DMA
 void HeadlessAppWindow::PushSwapBufferFD(const DMASwapBufferFD& a_swapBuffer)
 {
-    constexpr int Size = sizeof(DMASwapBufferFD);
+    constexpr uint32_t Size = sizeof(DMASwapBufferFD);
 
     IcarianCore::PipeMessage msg;
     msg.Type = IcarianCore::PipeMessageType_PushDMASwapFDBuffer;
@@ -439,10 +439,28 @@ void HeadlessAppWindow::PushSwapBufferFD(const DMASwapBufferFD& a_swapBuffer)
 
     m_queuedMessages.Push(msg);
 }
-
 void HeadlessAppWindow::FlushSwapBufferFD()
 {
     m_queuedMessages.Push(IcarianCore::PipeMessage(IcarianCore::PipeMessageType_FlushDMASwapFDBuffer));
+}
+
+#ifdef WIN32
+void HeadlessAppWindow::PushSwapBufferHandle(const DMASwapBufferHandle& a_swapBuffer)
+{
+    constexpr uint32_t Size = sizeof(DMASwapBufferHandle);
+
+    IcarianCore::PipeMessage msg;
+    msg.Type = IcarianCore::PipeMessageType_PushDMASwapHandleBuffer;
+    msg.Length = Size;
+    msg.Data = new char[Size];
+    (*(DMASwapBufferHandle*)msg.Data) = a_swapBuffer;
+
+    m_queuedMessages.Push(msg);
+}
+#endif
+void HeadlessAppWindow::FlushSwapBufferHandle()
+{
+    m_queuedMessages.Push(IcarianCore::PipeMessage(IcarianCore::PipeMessageType_FlushDMASwapHandleBuffer));
 }
 
 void HeadlessAppWindow::DMASwap()

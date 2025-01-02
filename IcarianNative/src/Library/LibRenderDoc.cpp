@@ -30,10 +30,11 @@ LibRenderDoc::LibRenderDoc()
         return;
     }
 
-    pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)GetProcAddress(m_module, "RENDERDOC_GetAPI");
+    pRENDERDOC_GetAPI RENDERDOC_GetAPI = (pRENDERDOC_GetAPI)GetProcAddress((HMODULE)m_module, "RENDERDOC_GetAPI");
     if (RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_6_0, (void**)&m_api) != 1)
     {
         m_module = NULL;
+        m_api = NULL;
     }
 #else
     m_module = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD);

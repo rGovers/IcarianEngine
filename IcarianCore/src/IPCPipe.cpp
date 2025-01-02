@@ -20,7 +20,7 @@ namespace IcarianCore
 {
     IPCPipe::IPCPipe()
     {
-#if WIN32
+#ifdef WIN32
         m_pipeSock = INVALID_SOCKET;
 #else
         m_pipeSock = -1;
@@ -28,7 +28,7 @@ namespace IcarianCore
     }
     IPCPipe::~IPCPipe()
     {
-#if WIN32
+#ifdef WIN32
         if (m_pipeSock != INVALID_SOCKET)
         {
             closesocket(m_pipeSock);
@@ -43,7 +43,7 @@ namespace IcarianCore
 
     IPCPipe* IPCPipe::Accept() const
     {
-#if WIN32
+#ifdef WIN32
         struct timeval timeout;
         timeout.tv_sec = 5;
         timeout.tv_usec = 0;
@@ -105,7 +105,7 @@ namespace IcarianCore
 
     IPCPipe* IPCPipe::Connect(const std::string_view& a_pipeName)
     {
-#if WIN32
+#ifdef WIN32
         const SOCKET clientSock = socket(AF_UNIX, SOCK_STREAM, 0);
 
         struct sockaddr_un serverAddr;
@@ -119,9 +119,6 @@ namespace IcarianCore
 
             return nullptr;
         }
-
-        IPCPipe* pipe = new IPCPipe();
-        pipe->m_pipeSock = clientSock;
 #else
         const int clientSock = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -136,16 +133,16 @@ namespace IcarianCore
 
             return nullptr;
         }
+#endif
 
         IPCPipe* pipe = new IPCPipe();
         pipe->m_pipeSock = clientSock;
-#endif
 
         return pipe;
     }
     IPCPipe* IPCPipe::Create(const std::string_view& a_pipeName)
     {
-#if WIN32
+#ifdef WIN32
         // Failsafe to ensure the pipe is deleted
         DeleteFileA(a_pipeName.data());
 
@@ -218,7 +215,7 @@ namespace IcarianCore
 
     bool IPCPipe::Send(const PipeMessage& a_msg) const
     {
-#if WIN32
+#ifdef WIN32
         const int bytesSent = send(m_pipeSock, (const char*)&a_msg, PipeMessage::Size, 0);
         if (bytesSent < 0)
         {
@@ -273,7 +270,7 @@ namespace IcarianCore
     }
     bool IPCPipe::Receive(std::queue<PipeMessage>* a_messages) const
     {
-#if WIN32
+#ifdef WIN32
         struct timeval timeout;
         timeout.tv_sec = 0;
         timeout.tv_usec = 5;

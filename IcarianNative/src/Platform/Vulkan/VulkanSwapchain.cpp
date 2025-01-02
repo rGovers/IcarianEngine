@@ -156,7 +156,11 @@ void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height)
     const VkExternalMemoryImageCreateInfo externalImageInfo =
     {
         .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
-        .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
+#ifdef WIN32
+        .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
+#else
+        .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+#endif
     };
 #endif
 
@@ -191,13 +195,12 @@ void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height)
 
     m_images.Reserve(VulkanMaxFlightFrames);
 
-    VkImage image;
-
     TRACE("Creating Swapchain Headless Images");
     for (uint32_t i = 0; i < VulkanMaxFlightFrames; ++i)
     {
         VulkanSwapchainImage swapImage = { };
 
+        VkImage image;
         VmaAllocationInfo info;
         VKRESERRMSG(vmaCreateImage
         (
@@ -215,7 +218,30 @@ void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height)
         swapImage.Image = image;
 
 #ifdef ICARIANNATIVE_ENABLE_DMA
-#ifndef WIN32
+        HeadlessAppWindow* window = (HeadlessAppWindow*)m_window;
+#ifdef WIN32
+        const vk::MemoryGetWin32HandleInfoKHR handleInfo = vk::MemoryGetWin32HandleInfoKHR
+        (
+            info.deviceMemory,
+            vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32
+        );
+
+        swapImage.Handle = device.getMemoryWin32HandleKHR(handleInfo);
+        IVERIFY(swapImage.Handle != INVALID_HANDLE_VALUE);
+
+        const DMASwapBufferHandle swapBuffer =
+        {
+            .Width = m_width,
+            .Height = m_height,
+            .Size = (uint64_t)info.size,
+            .Offset = (uint64_t)info.offset,
+            .ImageHandle = swapImage.Handle,
+            .StartSemaphore = m_startSemaphoreHandle[i],
+            .EndSemaphore = m_endSemaphoreHandle[i],
+        };
+
+        window->PushSwapBufferHandle(swapBuffer);
+#else
         const vk::MemoryGetFdInfoKHR fdInfo = vk::MemoryGetFdInfoKHR
         (
             info.deviceMemory,
@@ -235,8 +261,7 @@ void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height)
             .StartSemaphore = m_startSemaphoreFD[i],
             .EndSemaphore = m_endSemaphoreFD[i],
         };
-
-        HeadlessAppWindow* window = (HeadlessAppWindow*)m_window;
+    
         window->PushSwapBufferFD(swapBuffer);
 #endif
 #endif
@@ -316,7 +341,11 @@ void VulkanSwapchain::Destroy()
 #ifdef ICARIANNATIVE_ENABLE_DMA
         HeadlessAppWindow* window = (HeadlessAppWindow*)m_window;
 
+#ifdef WIN32
+        window->FlushSwapBufferHandle();
+#else
         window->FlushSwapBufferFD();
+#endif
 #else
         vmaDestroyBuffer(allocator, m_buffer, m_allocBuffer);
 #endif
@@ -358,7 +387,12 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
 
     const bool headless = a_window->IsHeadless() || ForceHeadless;
 
-#ifndef WIN32
+#ifdef WIN32
+    constexpr vk::ExportSemaphoreCreateInfo SemaphoreExportInfo = vk::ExportSemaphoreCreateInfo
+    (
+        vk::ExternalSemaphoreHandleTypeFlagBits::eOpaqueWin32
+    );
+#else
     constexpr vk::ExportSemaphoreCreateInfo SemaphoreExportInfo = vk::ExportSemaphoreCreateInfo
     (
         vk::ExternalSemaphoreHandleTypeFlagBits::eOpaqueFd
@@ -379,7 +413,11 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         const VkExternalMemoryImageCreateInfo externalImageInfo =
         {
             .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
-            .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
+#ifdef WIN32
+            .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
+#else
+            .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+#endif
         };
 
         const VkImageCreateInfo poolImageInfo = 
@@ -410,7 +448,11 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         m_exportInfo =
         {
             .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+#ifdef WIN32
+            .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
+#else
             .handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
+#endif
         };
 
         const VmaPoolCreateInfo poolCreateInfo = 
@@ -450,9 +492,27 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         VKRESERRMSG(device.createFence(&FenceInfo, nullptr, &m_fences[i]), "Failed to create fence");
 
 #ifdef ICARIANNATIVE_ENABLE_DMA
-#ifndef WIN32
         if (headless)
         {
+#ifdef WIN32
+            const vk::SemaphoreGetWin32HandleInfoKHR startHandleInfo = vk::SemaphoreGetWin32HandleInfoKHR
+            (
+                m_startSemaphores[i],
+                vk::ExternalSemaphoreHandleTypeFlagBits::eOpaqueWin32
+            );
+
+            const vk::SemaphoreGetWin32HandleInfoKHR endHandleInfo = vk::SemaphoreGetWin32HandleInfoKHR
+            (
+                m_endSemaphores[i],
+                vk::ExternalSemaphoreHandleTypeFlagBits::eOpaqueWin32
+            );
+
+            VKRESERR(device.getSemaphoreWin32HandleKHR(&startHandleInfo, &m_startSemaphoreHandle[i]));
+            IVERIFY(m_startSemaphoreHandle[i] != INVALID_HANDLE_VALUE);
+
+            VKRESERR(device.getSemaphoreWin32HandleKHR(&endHandleInfo, &m_endSemaphoreHandle[i]));
+            IVERIFY(m_endSemaphoreHandle[i] != INVALID_HANDLE_VALUE);
+#else
             const vk::SemaphoreGetFdInfoKHR startHandleInfo = vk::SemaphoreGetFdInfoKHR
             (
                 m_startSemaphores[i],
@@ -469,8 +529,8 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
 
             VKRESERR(device.getSemaphoreFdKHR(&endHandleInfo, &m_endSemaphoreFD[i]));
             IVERIFY(m_endSemaphoreFD[i] >= 0);
-        }
 #endif
+        }
 #endif
     }
 

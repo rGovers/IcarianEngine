@@ -121,8 +121,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_PROFILER");
     }
 
-    // Experimental feature and do not want to support Windows until I confirm it works and is effective
-    if (a_targetPlatform != TargetPlatform_Windows && 1)
+    if (1)
     {
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_DMA");
     }

@@ -4,6 +4,10 @@
 
 #pragma once
 
+#ifdef WIN32
+#include "Core/WindowsHeaders.h"
+#endif
+
 #include <cstdint>
 
 struct DMASwapBufferFD
@@ -16,6 +20,19 @@ struct DMASwapBufferFD
     int StartSemaphore;
     int EndSemaphore;
 };
+
+#ifdef WIN32
+struct DMASwapBufferHandle
+{
+    uint32_t Width;
+    uint32_t Height;
+    uint64_t Size;
+    uint64_t Offset;
+    HANDLE ImageHandle;
+    HANDLE StartSemaphore;
+    HANDLE EndSemaphore;
+};
+#endif
 
 // MIT License
 // 

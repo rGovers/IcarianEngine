@@ -4,8 +4,11 @@
 
 #pragma once
 
-#include "Core/PipeMessage.h"
+#ifdef WIN32
 #include "Core/WindowsHeaders.h"
+#endif
+
+#include "Core/PipeMessage.h"
 
 #include <queue>
 #include <string_view>
