@@ -213,6 +213,32 @@ namespace IcarianCore
         return pipe;
     }
 
+    bool IPCPipe::IsAlive() const
+    {
+#ifdef WIN32
+        // TODO: Change this
+        return true;
+#else
+        if (m_pipeSock < 0)
+        {
+            return false;
+        }
+
+        struct pollfd pfd = 
+        {
+            .fd = m_pipeSock,
+            .events = POLLOUT,
+        };
+
+        if (poll(&pfd, 1, 1) < 0) 
+        {
+            return true;
+        }
+
+        return (pfd.revents & POLLERR) == 0;
+#endif
+    }
+
     bool IPCPipe::Send(const PipeMessage& a_msg) const
     {
 #ifdef WIN32
@@ -309,9 +335,11 @@ namespace IcarianCore
             }
         }
 #else
-        struct pollfd pollFd;
-        pollFd.fd = m_pipeSock;
-        pollFd.events = POLLIN;
+        struct pollfd pollFd =
+        {
+            .fd = m_pipeSock,
+            .events = POLLIN
+        };
 
         while (poll(&pollFd, 1, 1) > 0)
         {

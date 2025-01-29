@@ -4,44 +4,36 @@
 
 #pragma once
 
-#ifdef WIN32
-#include "Core/WindowsHeaders.h"
-#endif
-
-#include "Core/CommunicationPipe.h"
-#include "Core/PipeMessage.h"
-
-#include <queue>
-#include <string_view>
+#include <cstdint>
 
 namespace IcarianCore
-{   
-    class IPCPipe : public CommunicationPipe
+{
+    constexpr bool IsBigEndian()
     {
-    private:
-#if WIN32
-        SOCKET m_pipeSock;
-#else
-        int    m_pipeSock;
-#endif
+        constexpr uint32_t Value = 0x01020304;
+        constexpr uint8_t Magic = (const uint8_t&)Value;
 
-        IPCPipe();
+        return Magic == 0x01;
+    }
 
-    protected:
+    template<typename T>
+    constexpr T HToN(T a_value)
+    {
+        if constexpr (!IsBigEndian())
+        {
+            const uint8_t* data = (uint8_t*)&a_value;
 
-    public:
-        virtual ~IPCPipe();
+            T ret = 0;
+            for (uint32_t i = 0; i < sizeof(T); ++i)
+            {
+                ret |= data[sizeof(T) - i - 1] << (i * 8);
+            }
 
-        IPCPipe* Accept() const;
+            return ret;
+        }
 
-        static IPCPipe* Connect(const std::string_view& a_pipeName);
-        static IPCPipe* Create(const std::string_view& a_pipeName);
-
-        virtual bool IsAlive() const;
-
-        virtual bool Send(const PipeMessage& a_msg) const;
-        virtual bool Receive(std::queue<PipeMessage>* a_messages) const;
-    };
+        return a_value;
+    }
 }
 
 // MIT License

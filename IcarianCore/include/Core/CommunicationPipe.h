@@ -2,45 +2,27 @@
 // 
 // License at end of file.
 
-#pragma once
-
-#ifdef WIN32
-#include "Core/WindowsHeaders.h"
-#endif
-
-#include "Core/CommunicationPipe.h"
-#include "Core/PipeMessage.h"
+#pragma once 
 
 #include <queue>
-#include <string_view>
+
+#include "Core/PipeMessage.h"
 
 namespace IcarianCore
 {   
-    class IPCPipe : public CommunicationPipe
+    class CommunicationPipe
     {
     private:
-#if WIN32
-        SOCKET m_pipeSock;
-#else
-        int    m_pipeSock;
-#endif
-
-        IPCPipe();
 
     protected:
 
     public:
-        virtual ~IPCPipe();
+        virtual ~CommunicationPipe() { };
 
-        IPCPipe* Accept() const;
+        virtual bool IsAlive() const = 0;
 
-        static IPCPipe* Connect(const std::string_view& a_pipeName);
-        static IPCPipe* Create(const std::string_view& a_pipeName);
-
-        virtual bool IsAlive() const;
-
-        virtual bool Send(const PipeMessage& a_msg) const;
-        virtual bool Receive(std::queue<PipeMessage>* a_messages) const;
+        virtual bool Send(const PipeMessage& a_msg) const = 0;
+        virtual bool Receive(std::queue<PipeMessage>* a_messages) const = 0;
     };
 }
 
