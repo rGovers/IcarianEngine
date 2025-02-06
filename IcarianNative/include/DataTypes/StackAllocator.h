@@ -6,14 +6,6 @@
 
 #include "DataTypes/Allocator.h"
 
-#ifdef WIN32
-#include "Core/WindowsHeaders.h"
-#elif defined(__linux__)
-#include <sys/mman.h>
-#else
-#include <cstdlib>
-#endif
-
 #include "Core/IcarianDefer.h"
 #include "IcarianError.h"
 
@@ -30,14 +22,7 @@ protected:
 public:
     StackAllocator(uint64_t a_size)
     {
-#ifdef WIN32
-        m_memory = VirtualAlloc(nullptr, a_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-#elif defined(__linux__)
-        m_memory = mmap(nullptr, a_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-#else
-        // Fall back to malloc
-        m_memory = malloc(a_size);
-#endif
+        m_memory = MapMemory(a_size);
         m_end = (char*)m_memory + a_size;
         m_stackPointer = m_memory;
         m_stackSlider = m_memory;
@@ -45,13 +30,7 @@ public:
     }
     ~StackAllocator()
     {
-#ifdef WIN32
-        VirtualFree(m_memory, 0, MEM_RELEASE);
-#elif defined(__linux__)
-        munmap(m_memory, GetSize());
-#else
-        free(m_memory);
-#endif
+        UnmapMemory(m_memory, GetSize());
     }
 
     inline uint64_t GetSize() const
@@ -120,7 +99,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

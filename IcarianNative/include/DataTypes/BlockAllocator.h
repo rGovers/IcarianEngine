@@ -6,20 +6,13 @@
 
 #include "DataTypes/Allocator.h"
 
-#include <cstring>
-
-#ifdef WIN32
-#include "Core/WindowsHeaders.h"
-#elif defined(__linux__)
-#include <execinfo.h>
-#include <sys/mman.h>
-// #if 1
+#ifdef __linux__
 #if defined (__GNUC__) && !defined (__clang__)
 #include <cxxabi.h>
 #endif
-#else
-#include <cstdlib>
 #endif
+
+#include <cstring>
 
 #include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
@@ -258,16 +251,8 @@ private:
     {
         TRACE("Allocating Block");
 
-#ifdef WIN32
-        void* ptr = VirtualAlloc(nullptr, m_blockSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-#elif defined(__linux__)
-        void* ptr = mmap(nullptr, m_blockSize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-#else
-        // Fall back to malloc
-        void* ptr = malloc(m_blockSize);
-#endif
-
-        memset(ptr, 0, m_blockSize);
+        void* ptr = MapMemory(m_blockSize);
+        memset(ptr, 0, (size_t)m_blockSize);
         
         BlockHeader* header = (BlockHeader*)ptr;
 #ifdef DEBUG
@@ -292,13 +277,7 @@ private:
     {
         TRACE("Freeing Block");
 
-#ifdef WIN32
-        VirtualFree(a_block, 0, MEM_RELEASE);
-#elif defined(__linux__)
-        munmap(a_block, m_blockSize);
-#else
-        free(a_block);
-#endif
+        UnmapMemory(a_block, m_blockSize);
     }
 protected:
 
@@ -359,6 +338,7 @@ public:
             while (allocationHeader != NULL)
             {
                 AllocationHeader* nextAllocation = NextAllocation(allocationHeader);
+                IVERIFY(allocationHeader != nextAllocation);
                 IDEFER(allocationHeader = nextAllocation);
 
                 if (!IISBITSET(allocationHeader->Flags, AllocationHeader::FreeFlagBit))
@@ -377,7 +357,7 @@ public:
 
                     void* ptr = (char*)allocationHeader + sizeof(AllocationHeader);
 
-                    const void* nextAllocationPtr = Align((char*)ptr + a_size, a_alignment);
+                    void* nextAllocationPtr = Align((char*)ptr + a_size, a_alignment);
                     AllocationHeader* nextAllocation = (AllocationHeader*)nextAllocationPtr;
 
                     const uint16_t offset = (uint16_t)(uintptr_t)((char*)nextAllocation - (char*)allocationHeader);
@@ -431,7 +411,7 @@ public:
                     return ptr;
                 }
 
-                const void* newHeaderPtr = Align((char*)ptr + a_size, a_alignment);
+                void* newHeaderPtr = Align((char*)ptr + a_size, a_alignment);
                 AllocationHeader* newHeader = (AllocationHeader*)newHeaderPtr;
                 
                 const uint16_t nextOffset = (uint16_t)(uintptr_t)((char*)nextAllocation - (char*)newHeader);
@@ -472,7 +452,7 @@ public:
             return;
         }
 
-        const void* headerPtr = (char*)a_ptr - sizeof(AllocationHeader);
+        void* headerPtr = (char*)a_ptr - sizeof(AllocationHeader);
         AllocationHeader* header = (AllocationHeader*)headerPtr;
         VerifyAllocation(header);
 
@@ -488,6 +468,7 @@ public:
 #endif
 #endif
 
+        IVERIFY(!IISBITSET(header->Flags, AllocationHeader::FreeFlagBit));
         ISETBIT(header->Flags, AllocationHeader::FreeFlagBit);
 
         AllocationHeader* nextAllocation = NextAllocation(header);
@@ -545,6 +526,39 @@ public:
         }
     }
 
+    // Have the data to implement realloc so just do it
+    // NOTE: This is not thread safe
+    void* Realloc(void* a_ptr, uint64_t a_size, uint32_t a_alignment)
+    {
+        const bool isNull = (uintptr_t)a_ptr < sizeof(AllocationHeader);
+        if (isNull)
+        {
+            return Allocate(a_size, a_alignment);
+        }
+
+        void* headerPtr = (char*)a_ptr - sizeof(AllocationHeader);
+        AllocationHeader* header = (AllocationHeader*)headerPtr;
+        VerifyAllocation(header);
+
+        // If the allocation is valid there should be another header after the allocation
+        IVERIFY(header->NextOffset >= sizeof(AllocationHeader));
+        IVERIFY(!IISBITSET(header->Flags, AllocationHeader::FreeFlagBit));
+
+        const uint64_t size = (uint64_t)header->NextOffset - sizeof(AllocationHeader);
+        if (size >= a_size)
+        {
+            // Still have room so just return the same pointer
+            return a_ptr;
+        }
+        
+        IDEFER(Free(a_ptr));
+
+        void* nextPtr = Allocate(a_size, a_alignment);
+        memcpy(nextPtr, a_ptr, size);
+
+        return nextPtr;
+    }
+
     void TrimBlocks()
     {
         BlockHeader* prev = m_block;
@@ -584,7 +598,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

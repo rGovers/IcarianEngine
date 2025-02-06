@@ -8,6 +8,8 @@
 #include "Audio/AudioEngineBindings.h"
 #include "Core/Bitfield.h"
 #include "Core/IcarianError.h"
+#include "DataTypes/BlockAllocator.h"
+#include "DataTypes/RingAllocator.h"
 #include "IcarianError.h"
 #include "Logger.h"
 #include "ObjectManager.h"
@@ -16,38 +18,61 @@
 
 static AudioEngine* Instance = nullptr;
 
-AudioEngine::AudioEngine() :
-    // Should allocate 1MB for the Ring Allocator hopefully it is enough otherwise may need to revisit
-    // Do not want to allocate in audio callbacks due to latency
-    m_allocator(1 << 20)
+static void* MAIAlloc(size_t a_size, void* a_userData)
+{
+    BlockAllocator* allocator = (BlockAllocator*)a_userData;
+
+    // Do not see anything about alignment so just going to assume 16 byte alignment
+    return allocator->Allocate((uint64_t)a_size, 16);
+}
+static void* MAIRealloc(void* a_ptr, size_t a_size, void* a_userData)
+{
+    BlockAllocator* allocator = (BlockAllocator*)a_userData;
+
+    return allocator->Realloc(a_ptr, (uint64_t)a_size, 16);
+}
+static void MAIFree(void* a_ptr, void* a_userData)
+{
+    BlockAllocator* allocator = (BlockAllocator*)a_userData;
+
+    allocator->Free(a_ptr);
+}
+
+AudioEngine::AudioEngine()
 {
     IERRBLOCK;
+
+    m_init = true;
 
     IERRDEFER(
     {
         Logger::Error("Failed to initialize audio engine");
 
         m_init = false;
-
     });
 
     TRACE("Creating AudioEngine...");
     Instance = this;
 
-    m_init = true;
-
-    m_bindings = new AudioEngineBindings(this);   
+    m_blockAllocator = new BlockAllocator(16 << 10);
 
     ma_engine_config config = ma_engine_config_init();
     // TODO: Multi listener
     config.listenerCount = 1;
+    config.allocationCallbacks.onMalloc = MAIAlloc;
+    config.allocationCallbacks.onRealloc = MAIRealloc;
+    config.allocationCallbacks.onFree = MAIFree;
+    config.allocationCallbacks.pUserData = m_blockAllocator;
 
-    IERRCHECK(ma_engine_init(NULL, &m_engine) == MA_SUCCESS);
+    IERRCHECK(ma_engine_init(&config, &m_engine) == MA_SUCCESS);
     IERRDEFER(ma_engine_uninit(&m_engine));
+
+    m_ringAllocator = m_blockAllocator->Create<RingAllocator>(1 << 20);
+    m_bindings = m_blockAllocator->Create<AudioEngineBindings>(this);   
 }
 AudioEngine::~AudioEngine()
 {
-    delete m_bindings;
+    m_blockAllocator->Destroy(m_bindings);
 
     TRACE("Destroying AudioEngine...");
     if (m_init)
@@ -61,7 +86,7 @@ AudioEngine::~AudioEngine()
         {
             IWARN("AudioClip was not destroyed.");
 
-            delete m_audioClips[i];
+            m_blockAllocator->Destroy(m_audioClips[i]);
         }
     }
 
@@ -98,7 +123,7 @@ AudioEngine::~AudioEngine()
             ma_sound_uninit(&source->MASound);
             ma_data_source_uninit(&source->MABaseSource);
 
-            delete source;
+            m_blockAllocator->Destroy(source);
 
             IWARN("AudioStream was not destroyed");
         }
@@ -108,6 +133,10 @@ AudioEngine::~AudioEngine()
     {
         ma_engine_uninit(&m_engine);
     }
+
+    m_blockAllocator->Destroy(m_ringAllocator);
+
+    delete m_blockAllocator;
 }
 
 constexpr static uint32_t GetFormatSize(e_AudioFormat a_format)
@@ -176,7 +205,7 @@ ma_result AudioEngine::DataSourceRead(ma_data_source* a_dataSource, void* a_fram
     const uint32_t stride = formatSize * channelCount;
 
     uint32_t readSize;
-    const uint8_t* dat = clip->GetAudioData(&m_allocator, buffer.SampleOffset, (uint32_t)a_frameCount, &readSize);
+    const uint8_t* dat = clip->GetAudioData(m_ringAllocator, buffer.SampleOffset, (uint32_t)a_frameCount, &readSize);
 
     memcpy(a_framesOut, dat, (uint64_t)readSize * stride);
 
@@ -580,7 +609,7 @@ void AudioEngine::Update()
 
                 // Miniaudio will try to retrieve info while we have the lock and there is no way that I am aware of 
                 // to provide ahead of time or defer retrieval so have to pass it through kinda annoying
-                MAISource* source = new MAISource();
+                MAISource* source = m_blockAllocator->Create<MAISource>();
                 source->SourceAddr = i,
                 source->ChannelCount = clip->GetChannelCount(),
                 source->SampleRate = clip->GetSampleRate(),
@@ -672,7 +701,7 @@ void AudioEngine::Update()
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -7,16 +7,16 @@
 #include <cstdint>
 
 #include "Audio/AudioListenerBuffer.h"
-#include "DataTypes/RingAllocator.h"
+#include "Audio/IcarianMiniaudio.h"
 #include "DataTypes/TNCArray.h"
 
 class AudioClip;
 class AudioEngineBindings;
+class BlockAllocator;
+class RingAllocator;
 
 #include "EngineAudioSourceInteropStructures.h"
 #include "EngineAudioMixerInteropStructures.h"
-
-#include "Audio/IcarianMiniaudio.h"
 
 struct MAISource
 {
@@ -35,7 +35,8 @@ private:
 
     constexpr static uint32_t SampleRate = 48000;
 
-    RingAllocator                 m_allocator;
+    BlockAllocator*               m_blockAllocator;
+    RingAllocator*                m_ringAllocator;
 
     bool                          m_init;
     AudioEngineBindings*          m_bindings;
@@ -55,6 +56,11 @@ public:
     AudioEngine();
     ~AudioEngine();
 
+    inline BlockAllocator* GetBlockAllocator() const
+    {
+        return m_blockAllocator;
+    }
+
     ma_result DataSourceRead(ma_data_source* a_dataSource, void* a_framesOut, ma_uint64 a_frameCount, ma_uint64* a_framesRead);
     ma_result DataSourceSeek(ma_data_source* a_dataSource, ma_uint64 a_frameIndex);
     ma_result DataSourceGetDataFormat(ma_data_source* a_dataSource, ma_format* a_format, ma_uint32* a_channels, ma_uint32* a_sampleRate, ma_channel* a_channelMap, size_t a_channelMapCap);
@@ -66,7 +72,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

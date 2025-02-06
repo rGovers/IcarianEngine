@@ -12,6 +12,7 @@
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
 #include "Core/StringUtils.h"
+#include "DataTypes/BlockAllocator.h"
 #include "IcarianError.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
@@ -53,6 +54,7 @@ uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const std::filesystem::p
 
     const std::filesystem::path ext = a_path.extension();
 
+    BlockAllocator* allocator = m_engine->GetBlockAllocator();
     AudioClip* clip = nullptr;
 
     const std::string extStr = ext.string();
@@ -60,17 +62,17 @@ uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const std::filesystem::p
     {
     case StringHash<uint32_t>(".ogg"):
     {
-        clip = new OGGAudioClip(a_path);
-        IERRDEFER(delete clip);
-
+        clip = allocator->Create<OGGAudioClip>(a_path);
+        IERRDEFER(allocator->Destroy(clip));
+        
         IERRCHECKRET(clip->GetSampleSize() > 0, -1);
 
         break;
     }
     case StringHash<uint32_t>(".wav"):
     {
-        clip = new WAVAudioClip(a_path);
-        IERRDEFER(delete clip);
+        clip = allocator->Create<WAVAudioClip>(a_path);
+        IERRDEFER(allocator->Destroy(clip));
 
         IERRCHECKRET(clip->GetSampleSize() > 0, -1);
 
@@ -87,8 +89,10 @@ void AudioEngineBindings::DestroyAudioClip(uint32_t a_addr) const
     TRACE("Destroying AudioClip");
     IVERIFY(m_engine->m_audioClips.Exists(a_addr));
 
-    const AudioClip* clip = m_engine->m_audioClips[a_addr];
-    IDEFER(delete clip);
+    BlockAllocator* allocator = m_engine->GetBlockAllocator();
+
+    AudioClip* clip = m_engine->m_audioClips[a_addr];
+    IDEFER(allocator->Destroy(clip));
 
     m_engine->m_audioClips.Erase(a_addr);
 }

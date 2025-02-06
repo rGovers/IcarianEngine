@@ -4,6 +4,15 @@
 
 #pragma once
 
+#ifdef WIN32
+#include "Core/WindowsHeaders.h"
+#elif defined(__linux__)
+#include <execinfo.h>
+#include <sys/mman.h>
+#else
+#include <cstdlib>
+#endif
+
 #include <cstdint>
 #include <cstdlib>
 #include <type_traits>
@@ -24,8 +33,39 @@ struct MallocAllocator
 class Allocator
 {
 private:
+    constexpr static uint64_t UnixPageSize = 4 << 10;
 
 protected:
+    static void* MapMemory(uint64_t a_size)
+    {
+#ifdef WIN32
+        return VirtualAlloc(NULL, a_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+#elif defined(__linux__)
+        // Seem to be having funkyness with pages so not gonna do anything fancy and just let the Kernel figure out the rest as that seems to be working
+        void* ptr = mmap(NULL, a_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (ptr == (void*)-1)
+        {
+            // We are not malloc if we fail at this stage no point retrying just fail and leave
+            // Not gonna implement clever scavenging just if we are out we are out
+            return nullptr;
+        }
+
+        return ptr;
+#else
+        // Fall back to malloc
+        return malloc(a_size);
+#endif
+    }
+    static void UnmapMemory(void* a_ptr, uint64_t a_size)
+    {
+#ifdef WIN32
+        VirtualFree(a_ptr, a_size, MEM_RELEASE);
+#elif defined(__linux__)
+        munmap(a_ptr, a_size);
+#else
+        free(m_memory);
+#endif
+    }
 
 public:
     constexpr static uint32_t BaseAlignment = sizeof(void*);
