@@ -14,11 +14,25 @@ namespace IcarianCore
 {
     SocketPipe::SocketPipe()
     {
+        m_thread = std::thread(Run, this);
+
         m_host = NULL;
         m_peer = NULL;
+
+        m_join = false;
+        m_joined = false;
     }
     SocketPipe::~SocketPipe()
     {
+        m_join = true;
+
+        while (!m_joined)
+        {
+            std::this_thread::yield();
+        }
+
+        m_thread.join();
+
         if (m_peer != NULL)
         {
             enet_peer_disconnect(m_peer, 0);
@@ -36,7 +50,7 @@ namespace IcarianCore
                 }
                 case ENET_EVENT_TYPE_DISCONNECT:
                 {
-                    goto End;
+                    goto DesDisconnectEnd;
                 }
                 default:
                 {
@@ -46,10 +60,13 @@ namespace IcarianCore
             }
 
             enet_peer_reset(m_peer);
-End:;
+DesDisconnectEnd:;
         }
 
-        enet_host_destroy(m_host);
+        if (m_host != NULL)
+        {
+            enet_host_destroy(m_host);
+        }
     }
 
     SocketPipe* SocketPipe::Connect(const std::string_view& a_addr, uint16_t a_port)
@@ -152,104 +169,193 @@ End:;
 
     bool SocketPipe::IsAlive() const
     {
-        return m_host != NULL && m_peer != NULL;
+        return m_host != NULL && m_peer != NULL && !m_joined;
+    }
+
+    void SocketPipe::Run(SocketPipe* a_pipe)
+    {
+        // Been struggling when there is a large performance gap between to systems one end get overwhelmed and packets get nuked from buffer being full
+        // To counteract this dedicate a thread to handling network traffic
+        while (a_pipe->m_host != NULL && a_pipe->m_peer != NULL && !a_pipe->m_join)
+        {
+            bool work = false;
+
+            {
+                const std::lock_guard g = std::lock_guard(a_pipe->m_writeLock);
+
+                ENetEvent event;
+                while (a_pipe->m_host != NULL && enet_host_service(a_pipe->m_host, &event, 0) > 0)
+                {
+                    work = true;
+
+                    switch (event.type) 
+                    {
+                    case ENET_EVENT_TYPE_RECEIVE:
+                    {
+                        ENetPacket* packet = event.packet;
+                        IDEFER(enet_packet_destroy(packet));
+
+                        PipeMessage msg = { };
+
+                        const uint64_t packetSize = (uint64_t)packet->dataLength;
+                        if (packetSize > PipeMessage::Size)
+                        {
+                            const uint64_t dataSize = packetSize - PipeMessage::Size;
+                        
+                            msg.Data = new char[dataSize];
+                            memcpy(msg.Data, packet->data + PipeMessage::Size, dataSize);
+                        }
+                        else if (packetSize < PipeMessage::Size)
+                        {
+                            break;
+                        }
+
+                        memcpy(&msg, packet->data, PipeMessage::Size);
+
+                        a_pipe->m_writeQueue.emplace(msg);
+
+                        break;
+                    }
+                    case ENET_EVENT_TYPE_DISCONNECT:
+                    {
+                        enet_peer_disconnect(a_pipe->m_peer, 0);
+
+                        ENetEvent event;
+                        while (enet_host_service(a_pipe->m_host, &event, 3000) > 0)
+                        {
+                            switch (event.type) 
+                            {
+                            case ENET_EVENT_TYPE_RECEIVE:
+                            {
+                                enet_packet_destroy(event.packet);
+    
+                                break;
+                            }
+                            case ENET_EVENT_TYPE_DISCONNECT:
+                            {
+                                goto RunDisconnectEnd;
+                            }
+                            default:
+                            {
+                                break;
+                            }
+                            }
+                        }
+    
+                        enet_peer_reset(a_pipe->m_peer);
+RunDisconnectEnd:;
+
+                        a_pipe->m_peer = NULL;
+
+                        enet_host_destroy(a_pipe->m_host);
+                        a_pipe->m_host = NULL;
+
+                        a_pipe->m_join = true;
+
+                        break;
+                    }
+                    default:
+                    {
+                        break;
+                    }
+                }
+            }
+            }
+
+            {
+                const std::lock_guard g = std::lock_guard(a_pipe->m_readLock);
+
+                while (!a_pipe->m_readQueue.empty())
+                {
+                    work = true;
+
+                    const PipeMessage& msg = a_pipe->m_readQueue.front();
+                    IDEFER(
+                    if (msg.Data != nullptr) 
+                    {
+                        delete[] msg.Data;
+                    });
+
+                    a_pipe->m_readQueue.pop();
+
+                    enet_uint8 channel = 0;
+                    enet_uint32 flags = 0;
+                    switch (msg.Type) 
+                    {
+                    case PipeMessageType_PushFrame:
+                    {
+                        channel = 1;
+            
+                        break;
+                    }
+                    default:
+                    {
+                        flags |= ENET_PACKET_FLAG_RELIABLE;
+            
+                        break;
+                    }
+                    }
+            
+                    ENetPacket* packet = enet_packet_create(&msg, (size_t)PipeMessage::Size, flags);
+                    if (msg.Data != nullptr && msg.Length > 0)
+                    {
+                        enet_packet_resize(packet, (size_t)PipeMessage::Size + msg.Length);
+            
+                        memcpy(packet->data + PipeMessage::Size, msg.Data, msg.Length);
+                    }
+            
+                    if (enet_peer_send(a_pipe->m_peer, channel, packet) < 0)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            if (!work)
+            {
+                std::this_thread::yield();
+            }
+        }
+
+        a_pipe->m_joined = true;
     }
 
     bool SocketPipe::Send(const PipeMessage& a_msg)
     {
-        if (m_host == NULL || m_peer == NULL)
+        if (!IsAlive())
         {
             return false;
         }
+        
+        const std::lock_guard g = std::lock_guard(m_readLock);
 
-        enet_uint32 flags = 0;
-        switch (a_msg.Type) 
+        PipeMessage msg;
+        msg.Type = a_msg.Type;
+        if (a_msg.Length > 0 && a_msg.Data != nullptr)
         {
-        case PipeMessageType_PushFrame:
-        {
-            break;
-        }
-        default:
-        {
-            flags = ENET_PACKET_FLAG_RELIABLE;
-
-            break;
-        }
+            msg.Length = a_msg.Length;
+            msg.Data = new char[msg.Length];
+            memcpy(msg.Data, a_msg.Data, msg.Length);
         }
 
-        const uint64_t messageSize = a_msg.Length + PipeMessage::Size;
+        m_readQueue.emplace(msg);
 
-        char* dat = new char[messageSize];
-        IDEFER(delete[] dat);
-
-        memcpy(dat, &a_msg, PipeMessage::Size);
-        if (a_msg.Data != nullptr)
-        {
-            memcpy(dat + PipeMessage::Size, a_msg.Data, a_msg.Length);
-        }
-
-        ENetPacket* packet = enet_packet_create(dat, (size_t)messageSize, flags);
-        return enet_peer_send(m_peer, 0, packet) == 0;
+        return true;
     }
     bool SocketPipe::Receive(std::queue<PipeMessage>* a_messages)
     {
-        if (m_host == NULL || m_peer == NULL)
+        if (!IsAlive())
         {
             return false;
         }
 
-        ENetEvent event;
-        while (enet_host_service(m_host, &event, 0) > 0)
+        const std::lock_guard g = std::lock_guard(m_writeLock);
+
+        while (!m_writeQueue.empty()) 
         {
-            switch (event.type) 
-            {
-            case ENET_EVENT_TYPE_RECEIVE:
-            {
-                ENetPacket* packet = event.packet;
-                IDEFER(enet_packet_destroy(packet));
-
-                PipeMessage msg = { };
-
-                const uint64_t packetSize = (uint64_t)packet->dataLength;
-                if (packetSize > PipeMessage::Size)
-                {
-                    const uint64_t dataSize = packetSize - PipeMessage::Size;
-
-                    msg.Data = new char[dataSize];
-                    memcpy(msg.Data, packet->data + PipeMessage::Size, dataSize);
-                }
-                else if (packetSize < PipeMessage::Size)
-                {
-                    // Someone is doing a fucky
-                    return false;
-                }
-
-                memcpy(&msg, packet->data, PipeMessage::Size);
-
-                a_messages->emplace(msg);
-
-                break;
-            }
-            case ENET_EVENT_TYPE_DISCONNECT:
-            {
-                enet_peer_disconnect(m_peer, 0);
-
-                // Can probably do this better but eh works for now
-                std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-
-                enet_peer_reset(m_peer);
-                m_peer = NULL;
-
-                enet_host_destroy(m_host);
-                m_host = NULL;
-
-                break;
-            }
-            default:
-            {
-                break;
-            }
-            }
+            const PipeMessage& msg = m_writeQueue.front();
+            a_messages->emplace(msg);
+            m_writeQueue.pop();
         }
 
         return true;

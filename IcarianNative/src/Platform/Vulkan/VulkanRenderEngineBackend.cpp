@@ -480,6 +480,9 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
     vk::PhysicalDeviceProperties props;
     m_pDevice.getProperties(&props);
 
+    // Did for testing but leaving to make sure nothing weird is happening
+    Logger::Message(std::string("Selected GPU: ") + props.deviceName.data());
+
     const uint64_t id = MakeDeviceID(props.vendorID, props.deviceID);
 
     constexpr uint32_t AMDVendorID = 0x1002;

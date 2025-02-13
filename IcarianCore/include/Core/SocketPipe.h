@@ -7,8 +7,10 @@
 #include "Core/CommunicationPipe.h"
 
 #include <enet/enet.h>
+#include <mutex>
 #include <queue>
 #include <string_view>
+#include <thread>
 
 #include "Core/PipeMessage.h"
 
@@ -17,10 +19,23 @@ namespace IcarianCore
     class SocketPipe : public CommunicationPipe
     {
     private:
-        ENetHost* m_host;
-        ENetPeer* m_peer;
+        ENetHost*               m_host;
+        ENetPeer*               m_peer;
+
+        std::mutex              m_readLock;
+        std::mutex              m_writeLock;
+
+        std::queue<PipeMessage> m_readQueue;
+        std::queue<PipeMessage> m_writeQueue;
+
+        std::thread             m_thread;
+
+        volatile bool           m_join;
+        volatile bool           m_joined;
 
         SocketPipe();
+
+        static void Run(SocketPipe* a_pipe);
 
     protected:
 

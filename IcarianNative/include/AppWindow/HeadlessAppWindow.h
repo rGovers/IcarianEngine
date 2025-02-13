@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <mutex>
 
+#include "Core/Bitfield.h"
 #include "Core/DMASwapBuffer.h"
 #include "Core/CommunicationPipe.h"
 #include "Core/PipeMessage.h"
@@ -40,21 +41,25 @@ private:
     };
 
     static constexpr char PipeName[] = "IcarianEngine-IPC";
+    static constexpr uint32_t CloseBit = 0;
+    static constexpr uint32_t RemoteBit = 1;
 
     IcarianCore::CommunicationPipe*                m_pipe;
-
-    bool                                           m_close;
 
     TArray<IcarianCore::PipeMessage>               m_queuedMessages;
 
 #ifndef ICARIANNATIVE_ENABLE_DMA
     std::mutex                                     m_fLock;
     volatile bool                                  m_unlockWindow;    
+    uint64_t                                       m_windowFrame;
+    uint64_t                                       m_gpuFrame;
     char*                                          m_frameData;
 #endif
 
     uint32_t                                       m_width;
     uint32_t                                       m_height;
+
+    uint8_t                                        m_flags;
 
     std::chrono::high_resolution_clock::time_point m_prevTime;
    
@@ -95,6 +100,11 @@ public:
     virtual bool IsHeadless() const
     {
         return true;
+    }
+
+    inline bool IsRemote() const
+    {
+        return IISBITSET(m_flags, RemoteBit);
     }
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN

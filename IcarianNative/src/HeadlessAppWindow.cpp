@@ -84,12 +84,14 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
 {
     TRACE("Creating headless window");
 
-    m_close = false;
     m_pipe = nullptr;
+    m_flags = 0;
 
 #ifndef ICARIANNATIVE_ENABLE_DMA
     m_frameData = nullptr;
     m_unlockWindow = false;
+    m_windowFrame = 0;
+    m_gpuFrame = 0;
 #endif
 
     m_delta = 0.0;
@@ -102,15 +104,12 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
         const uint16_t port = a_config->GetRemotePort();
 
         m_pipe = IcarianCore::SocketPipe::Create(port);
+
+        ISETBIT(m_flags, RemoteBit);
     }
     else
     {
         const std::string addrStr = GetAddr(PipeName);
-
-#ifdef WIN32
-        WSADATA wsaData = { };
-        IVERIFY(WSAStartup(MAKEWORD(2, 2), &wsaData) == 0);
-#endif
 
         m_pipe = IcarianCore::IPCPipe::Connect(addrStr);
     }
@@ -163,7 +162,7 @@ void HeadlessAppWindow::PushMessageQueue()
         delete m_pipe;
         m_pipe = nullptr;
 
-        m_close = true;
+        ISETBIT(m_flags, CloseBit);
 
         IERROR("Failed to send messages");
     });
@@ -192,7 +191,7 @@ void HeadlessAppWindow::PushMessageQueue()
 
 bool HeadlessAppWindow::ShouldClose() const
 {
-    return m_close || m_pipe == nullptr || !m_pipe->IsAlive();
+    return IISBITSET(m_flags, CloseBit) || m_pipe == nullptr || !m_pipe->IsAlive();
 }
 
 double HeadlessAppWindow::GetDelta() const
@@ -222,7 +221,7 @@ bool HeadlessAppWindow::PollMessage()
     std::queue<IcarianCore::PipeMessage> messages;
     if (!m_pipe->Receive(&messages))
     {
-        m_close = true;
+        ISETBIT(m_flags, CloseBit);
 
         delete m_pipe;
         m_pipe = nullptr;
@@ -246,7 +245,7 @@ bool HeadlessAppWindow::PollMessage()
         {
         case IcarianCore::PipeMessageType_Close:
         {
-            m_close = true;
+            ISETBIT(m_flags, CloseBit);
 
             break;
         }
@@ -373,18 +372,29 @@ void HeadlessAppWindow::Update()
 
     {
         PROFILESTACK("Timing");
-        const std::chrono::time_point time = std::chrono::high_resolution_clock::now();
 
-        m_delta = std::chrono::duration<double>(time - m_prevTime).count();
+        std::chrono::high_resolution_clock::time_point time;
+        while (true) 
+        {
+            time = std::chrono::high_resolution_clock::now();
+            m_delta = std::chrono::duration<double>(time - m_prevTime).count();
+            
+            if (m_delta >= 0.001f)
+            {
+                break;
+            }
+
+            std::this_thread::yield();
+        }
+
         m_time += m_delta;
-
         m_prevTime = time;
 
         const glm::dvec2 tVec = glm::vec2(m_delta, m_time);
 
         if (!m_pipe->Send({ IcarianCore::PipeMessageType_UpdateData, sizeof(glm::dvec2), (char*)&tVec}))
         {
-            m_close = true;
+            ISETBIT(m_flags, CloseBit);
 
             delete m_pipe;
             m_pipe = nullptr;
@@ -398,15 +408,19 @@ void HeadlessAppWindow::Update()
 #ifndef ICARIANNATIVE_ENABLE_DMA
     {
         PROFILESTACK("Frame Data");
-        if (m_frameData != nullptr && m_unlockWindow)
+
+        // When on the same system we want to throttle to the Window but over the network that is too much latency to sync so just shotgun it out
+        if (m_frameData != nullptr && m_windowFrame != m_gpuFrame && (m_unlockWindow || IISBITSET(m_flags, RemoteBit)))
         {
+            IDEFER(m_windowFrame = m_gpuFrame);
+
             m_unlockWindow = false;
 
             const std::lock_guard g = std::lock_guard(m_fLock);
 
             if (!m_pipe->Send({ IcarianCore::PipeMessageType_PushFrame, m_width * m_height * 4, m_frameData }))
             {
-                m_close = true;
+                ISETBIT(m_flags, CloseBit);
 
                 delete m_pipe;
                 m_pipe = nullptr;
@@ -421,6 +435,7 @@ void HeadlessAppWindow::Update()
 
     {
         PROFILESTACK("Messages");
+        
         PushMessageQueue();
     }
 }
@@ -485,13 +500,11 @@ void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const
 {
     PROFILESTACK("Frame Data");
 
-    // TODO: Implement a better way of doing this 
-    // Can end up ~32MiB which cannot keep up with a copy
-    // Assuming I can do maths ~6GiB/s so yeah not upto par
-    // Probably end up with a syncronised direct push at some point
     const std::lock_guard g = std::lock_guard(m_fLock);
     if (m_width == a_width && m_height == a_height)
     {
+        IDEFER(++m_gpuFrame);
+
         const uint32_t size = m_width * m_height * 4;
 
         if (m_frameData == nullptr)

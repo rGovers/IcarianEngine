@@ -4,8 +4,8 @@
 
 #include "Rendering/RenderEngine.h"
 
+#include "AppWindow/HeadlessAppWindow.h"
 #include "Config.h"
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "DeletionQueue.h"
 #include "Profiler.h"
@@ -45,14 +45,14 @@ RenderEngine::RenderEngine(AppWindow* a_window, Config* a_config)
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
         m_backend = new VulkanRenderEngineBackend(this);
 #else
-        ICARIAN_ASSERT_MSG_R(0, "Vulkan is not enabled");
+        IERROR("Vulkan is not enabled");
 #endif
 
         break;
     }
     default:
     {
-        ICARIAN_ASSERT_MSG_R(0, "Failed to create RenderEngine");
+        IERROR("Failed to create RenderEngine");
 
         break;
     }
@@ -121,10 +121,44 @@ void RenderEngine::Run()
         {
             PROFILESTACK("Update");
 
-            const std::chrono::time_point time = std::chrono::high_resolution_clock::now();
+            double delta = 0.0f;
 
-            double delta = std::chrono::duration<double>(time - prevTime).count();
-            timePassed += delta;
+            {
+                PROFILESTACK("Timing");
+
+                if (m_window->IsHeadless())
+                {
+                    const HeadlessAppWindow* headless = (HeadlessAppWindow*)m_window;
+    
+                    constexpr float RemoteTargetFPS = 60.0f;
+    
+                    std::chrono::high_resolution_clock::time_point time;
+
+                    while (true)
+                    {
+                        time = std::chrono::high_resolution_clock::now();
+                        delta = std::chrono::duration<double>(time - prevTime).count();
+    
+                        if (!headless->IsRemote() || delta > 1.0 / RemoteTargetFPS)
+                        {
+                            break;
+                        }
+    
+                        std::this_thread::yield();
+                    }
+
+                    prevTime = time;
+                }
+                else
+                {
+                    const std::chrono::high_resolution_clock::time_point time = std::chrono::high_resolution_clock::now();
+    
+                    delta = std::chrono::duration<double>(time - prevTime).count();
+                    prevTime = time;
+                }
+
+                timePassed += delta;
+            }
 
             {
                 PROFILESTACK("Asset Store");
@@ -157,8 +191,6 @@ void RenderEngine::Run()
 
                 DeletionQueue::Flush(DeletionIndex_Render);
             }
-
-            prevTime = time;
         }   
     }
     
