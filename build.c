@@ -27,6 +27,10 @@ static const char EnableTraceString[] = "--enable-trace";
 static const CBUINT32 EnableTraceStringLen = sizeof(EnableTraceString) - 1;
 static const char EnableProfilerString[] = "--enable-profiler";
 static const CBUINT32 EnableProfilerStringLen = sizeof(EnableProfilerString) - 1;
+static const char RemoteString[] = "--remote";
+static const CBUINT32 RemoteStringLen = sizeof(RemoteString) - 1;
+static const char ModString[] = "--disable-mod";
+static const CBUINT32 ModStringLen = sizeof(ModString) - 1;
 
 int main(int a_argc, char** a_argv)
 {
@@ -52,6 +56,8 @@ int main(int a_argc, char** a_argv)
 
     CBBOOL enableTrace;
     CBBOOL enableProfiler;
+    CBBOOL enableMod;
+    CBBOOL remoteMode;
 
 #ifdef _WIN32
     targetPlatform = TargetPlatform_Windows;
@@ -68,6 +74,8 @@ int main(int a_argc, char** a_argv)
 
     enableTrace = CBFALSE;
     enableProfiler = CBFALSE;
+    enableMod = CBTRUE;
+    remoteMode = CBFALSE;
 
     printf("IcarianEngine Build\n");
     printf("\n");
@@ -158,6 +166,14 @@ int main(int a_argc, char** a_argv)
         else if (strncmp(a_argv[i], EnableProfilerString, EnableProfilerStringLen) == 0)
         {
             enableProfiler = CBTRUE;
+        }
+        else if (strncmp(a_argv[i], RemoteString, RemoteStringLen) == 0)
+        {
+            remoteMode = CBTRUE;
+        }
+        else if (strncmp(a_argv[i], ModString, ModStringLen) == 0)
+        {
+            enableMod = CBFALSE;
         }
         else if (strncmp(a_argv[i], JobString, JobStringLen) == 0)
         {
@@ -312,7 +328,7 @@ int main(int a_argc, char** a_argv)
     PrintHeader("Building IcarianCS");
 
     printf("Writing imports to Header files...\n");
-    if (!WriteIcarianCSImportsToHeader("IcarianEngine/IcarianCS"))
+    if (!WriteIcarianCSImportsToHeader("IcarianCS"))
     {
         printf("Failed to write imports to header files\n");
 
@@ -375,7 +391,7 @@ int main(int a_argc, char** a_argv)
     free(dependencyProjects);
 
     printf("Creating IcarianNative project...\n");
-    icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration, enableTrace, enableProfiler, CBFALSE);
+    icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration, enableTrace, enableProfiler, CBFALSE, remoteMode);
 
     printf("Compiling IcarianNative...\n");
     ret = CUBE_CProject_MultiCompile(&icarianNativeProject, compiler, "IcarianNative", CBNULL, jobThreads, &lines, &lineCount);
@@ -393,24 +409,27 @@ int main(int a_argc, char** a_argv)
 
     printf("IcarianNative Compiled!\n");
 
-    PrintHeader("Building IcarianModManager");
-
-    icarianModManagerProject = BuildIcarianModManagerProject(targetPlatform, buildConfiguration);
-
-    ret = CUBE_CProject_MultiCompile(&icarianModManagerProject, compiler, "IcarianModManager", CBNULL, jobThreads, &lines, &lineCount);
-
-    FlushLines(&lines, &lineCount);
-
-    if (!ret)
+    if (enableMod)
     {
-        printf("Failed to compile IcarianModManager\n");
+        PrintHeader("Building IcarianModManager");
 
-        return 1;
+        icarianModManagerProject = BuildIcarianModManagerProject(targetPlatform, buildConfiguration);
+    
+        ret = CUBE_CProject_MultiCompile(&icarianModManagerProject, compiler, "IcarianModManager", CBNULL, jobThreads, &lines, &lineCount);
+    
+        FlushLines(&lines, &lineCount);
+    
+        if (!ret)
+        {
+            printf("Failed to compile IcarianModManager\n");
+    
+            return 1;
+        }
+    
+        CUBE_CProject_Destroy(&icarianModManagerProject);
+    
+        printf("IcarianModManager Compiled!\n");
     }
-
-    CUBE_CProject_Destroy(&icarianModManagerProject);
-
-    printf("IcarianModManager Compiled!\n");
 
     PrintHeader("Copying Files");
 
@@ -423,7 +442,11 @@ int main(int a_argc, char** a_argv)
     case TargetPlatform_Windows:
     {
         CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative.exe", "build/IcarianNative.exe");
-        CUBE_IO_CopyFileC("IcarianModManager/build/IcarianModManager.exe", "build/IcarianModManager.exe");
+
+        if (enableMod)
+        {
+            CUBE_IO_CopyFileC("IcarianModManager/build/IcarianModManager.exe", "build/IcarianModManager.exe");
+        }
 
         CUBE_IO_CopyDirectoryC("deps/Mono/Windows/lib/", "build/lib/", CBTRUE);
         CUBE_IO_CopyDirectoryC("deps/Mono/Windows/etc/", "build/etc/", CBTRUE);
@@ -434,9 +457,15 @@ int main(int a_argc, char** a_argv)
         break;
     }
     case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
     {
         CUBE_IO_CopyFileC("IcarianNative/build/IcarianNative", "build/IcarianNative");
-        CUBE_IO_CopyFileC("IcarianModManager/build/IcarianModManager", "build/IcarianModManager");
+
+        if (enableMod)
+        {
+            CUBE_IO_CopyFileC("IcarianModManager/build/IcarianModManager", "build/IcarianModManager");
+        }
 
         CUBE_IO_CHMODC("build/IcarianNative", 0755);
         CUBE_IO_CHMODC("build/IcarianModManager", 0755);

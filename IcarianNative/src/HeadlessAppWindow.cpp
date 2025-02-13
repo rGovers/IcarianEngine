@@ -11,8 +11,11 @@
 #include <string>
 
 #include "Application.h"
+#include "Config.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
+#include "Core/IPCPipe.h"
+#include "Core/SocketPipe.h"
 #include "IcarianError.h"
 #include "InputManager.h"
 #include "Profiler.h"
@@ -77,11 +80,12 @@ void HeadlessAppWindow::ProfilerCallback(const Profiler::PData& a_profilerData)
     m_queuedMessages.Push(msg);
 }
 
-HeadlessAppWindow::HeadlessAppWindow(Application* a_app) : AppWindow(a_app)
+HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : AppWindow(a_app)
 {
     TRACE("Creating headless window");
 
     m_close = false;
+    m_pipe = nullptr;
 
 #ifndef ICARIANNATIVE_ENABLE_DMA
     m_frameData = nullptr;
@@ -93,14 +97,23 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app) : AppWindow(a_app)
 
     TRACE("Initialising IPC");
 
-    const std::string addrStr = GetAddr(PipeName);
+    if (a_config->IsRemote())
+    {
+        const uint16_t port = a_config->GetRemotePort();
+
+        m_pipe = IcarianCore::SocketPipe::Create(port);
+    }
+    else
+    {
+        const std::string addrStr = GetAddr(PipeName);
 
 #ifdef WIN32
-    WSADATA wsaData = { };
-    IVERIFY(WSAStartup(MAKEWORD(2, 2), &wsaData) == 0);
+        WSADATA wsaData = { };
+        IVERIFY(WSAStartup(MAKEWORD(2, 2), &wsaData) == 0);
 #endif
 
-    m_pipe = IcarianCore::IPCPipe::Connect(addrStr);
+        m_pipe = IcarianCore::IPCPipe::Connect(addrStr);
+    }
     IVERIFY(m_pipe != nullptr);
 
     m_width = 1280;
@@ -179,7 +192,7 @@ void HeadlessAppWindow::PushMessageQueue()
 
 bool HeadlessAppWindow::ShouldClose() const
 {
-    return m_close || m_pipe == nullptr;
+    return m_close || m_pipe == nullptr || !m_pipe->IsAlive();
 }
 
 double HeadlessAppWindow::GetDelta() const
@@ -514,7 +527,7 @@ Array<const char*> HeadlessAppWindow::GetRequiredVulkanExtenions() const
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

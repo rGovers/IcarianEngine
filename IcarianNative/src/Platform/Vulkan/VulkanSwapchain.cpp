@@ -916,7 +916,7 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
             0,
             SubResource,
             {0, 0, 0},
-            { (uint32_t)m_size.x, (uint32_t)m_size.y, 1 }
+            { m_width, m_height, 1 }
         );
 
         cmdBuffer.copyImageToBuffer(m_images[a_imageIndex].Image, vk::ImageLayout::eTransferSrcOptimal, m_buffer, 1, &imageCopy);
@@ -924,10 +924,6 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
         cmdBuffer.end();
 
         constexpr vk::PipelineStageFlags WaitStages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
-
-        const uint32_t currentFlightFrame = m_engine->GetCurrentFlightFrame();
-
-        const vk::Fence fence = m_engine->GetCurrentFlightFence();
 
         const vk::SubmitInfo submitInfo = vk::SubmitInfo
         (
@@ -937,10 +933,10 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
             1, 
             &cmdBuffer,
             1,
-            &m_startSemaphore[(flightFrame + 1) % VulkanMaxFlightFrames]
+            &m_startSemaphores[(flightFrame + 1) % VulkanMaxFlightFrames]
         );
 
-        VKRESWARNMSG(graphicsQueue.submit(1, &submitInfo, fence), "Failed to submit swap copy");
+        VKRESWARNMSG(graphicsQueue.submit(1, &submitInfo, m_fences[flightFrame]), "Failed to submit swap copy");
 #endif
     }
     else
@@ -964,7 +960,7 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

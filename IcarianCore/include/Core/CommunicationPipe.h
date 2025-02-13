@@ -21,8 +21,8 @@ namespace IcarianCore
 
         virtual bool IsAlive() const = 0;
 
-        virtual bool Send(const PipeMessage& a_msg) const = 0;
-        virtual bool Receive(std::queue<PipeMessage>* a_messages) const = 0;
+        virtual bool Send(const PipeMessage& a_msg) = 0;
+        virtual bool Receive(std::queue<PipeMessage>* a_messages) = 0;
     };
 }
 

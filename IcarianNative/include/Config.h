@@ -7,21 +7,26 @@
 #include <string>
 #include <string_view>
 
+#include "Core/Bitfield.h"
 #include "Rendering/RenderEngine.h"
 
 class Config
 {
 private:
-    static constexpr char DefaultAppName[] = "IcarianEngine";
+    static constexpr uint32_t HeadlessBit = 0;
+    static constexpr uint32_t RemoteBit = 1;
 
-    bool              m_headless = false;
+    static constexpr char DefaultAppName[] = "IcarianEngine";
 
     double            m_fixedTimeStep = 1.0 / 50.0;
     uint32_t          m_fileCacheSize = 256;
 
     std::string       m_appName = std::string(DefaultAppName);
-
+    
+    uint16_t          m_remotePort = 9001;
     e_RenderingEngine m_renderingEngine = RenderingEngine_Vulkan;
+
+    uint8_t           m_flags;
 
 protected:
 
@@ -47,19 +52,38 @@ public:
     {
         return m_renderingEngine;
     }
+
     inline bool IsHeadless() const
     {
-        return m_headless;
+        return IISBITSET(m_flags, HeadlessBit);
     }
     inline void SetHeadless(bool a_value)
     {
-        m_headless = a_value;
+        ITOGGLEBIT(a_value, m_flags, HeadlessBit);
+    }
+
+    inline bool IsRemote() const
+    {
+        return IISBITSET(m_flags, RemoteBit);
+    }
+    inline void SetRemote(bool a_value)
+    {
+        ITOGGLEBIT(a_value, m_flags, RemoteBit);
+    }
+
+    inline uint16_t GetRemotePort() const
+    {
+        return m_remotePort;
+    }
+    inline void SetRemotePort(uint16_t a_port)
+    {
+        m_remotePort = a_port;
     }
 };
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

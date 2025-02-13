@@ -921,9 +921,80 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
     return project;
 }
 
+CUBE_CProject BuildENetProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    CUBE_CProject project = { 0 };
+    project.Name = CUBE_StackString_CreateC("enet");
+    project.Target = CUBE_CProjectTarget_StaticLibrary;
+    project.Language = CUBE_CProjectLanguage_C;
+    project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    CUBE_CProject_AppendDefine(&project, "HAS_SOCKLEN_T");
+
+    CUBE_CProject_AppendIncludePath(&project, "./include");
+
+    switch (a_targetPlatform)
+    {
+    case TargetPlatform_Windows:
+    {
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32"
+        );
+
+        CUBE_CProject_AppendSource(&project, "./win32.c");
+
+        break;
+    }
+    case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
+    {
+        CUBE_CProject_AppendSource(&project, "./unix.c");
+
+        break;
+    }
+    }
+
+    CUBE_CProject_AppendSources(&project, 
+        "./callbacks.c",
+        "./compress.c",
+        "./host.c",
+        "./list.c",
+        "./packet.c",
+        "./peer.c",
+        "./protocol.c"
+    );
+
+    switch (a_configuration)
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        break;
+    }
+    }
+
+    return project;
+}
+
 DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
-    *a_count = 9;
+    *a_count = 10;
 
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * (*a_count));
 
@@ -968,6 +1039,10 @@ DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targe
     projects[8].Project = BuildAssimp(a_targetPlatform, a_configuration);
     projects[8].WorkingDirectory = "deps/assimp";
     projects[8].Export = CBTRUE;
+
+    projects[9].Project = BuildENetProject(a_targetPlatform, a_configuration);
+    projects[9].WorkingDirectory = "deps/enet";
+    projects[9].Export = CBTRUE;
 
     return projects;
 }

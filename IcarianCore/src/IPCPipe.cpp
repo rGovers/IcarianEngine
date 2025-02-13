@@ -239,7 +239,7 @@ namespace IcarianCore
 #endif
     }
 
-    bool IPCPipe::Send(const PipeMessage& a_msg) const
+    bool IPCPipe::Send(const PipeMessage& a_msg)
     {
 #ifdef WIN32
         const int bytesSent = send(m_pipeSock, (const char*)&a_msg, PipeMessage::Size, 0);
@@ -294,7 +294,7 @@ namespace IcarianCore
 
         return true;
     }
-    bool IPCPipe::Receive(std::queue<PipeMessage>* a_messages) const
+    bool IPCPipe::Receive(std::queue<PipeMessage>* a_messages)
     {
 #ifdef WIN32
         struct timeval timeout;
@@ -400,7 +400,7 @@ namespace IcarianCore
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

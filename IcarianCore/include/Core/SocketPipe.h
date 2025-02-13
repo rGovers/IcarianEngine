@@ -4,21 +4,44 @@
 
 #pragma once
 
-#include "InteropTypes.h"
+#include "Core/CommunicationPipe.h"
 
-/// @cond INTERNAL
+#include <enet/enet.h>
+#include <queue>
+#include <string_view>
 
-#define ENGINE_NETWORKMANAGER_EXPORT_TABLE(F) \
-    F(IOP_UINT32, IcarianEngine.Networking, NetworkManagerInterop, IsInitialized, \
-    { \
-        return (uint32_t)Instance->IsInitialized(); \
-    }) \
-    
-/// @endcond
+#include "Core/PipeMessage.h"
+
+namespace IcarianCore
+{   
+    class SocketPipe : public CommunicationPipe
+    {
+    private:
+        ENetHost* m_host;
+        ENetPeer* m_peer;
+
+        SocketPipe();
+
+    protected:
+
+    public:
+        virtual ~SocketPipe();
+
+        SocketPipe* Accept() const;
+
+        static SocketPipe* Connect(const std::string_view& a_addr, uint16_t a_port);
+        static SocketPipe* Create(uint16_t a_port);
+
+        virtual bool IsAlive() const;
+
+        virtual bool Send(const PipeMessage& a_msg);
+        virtual bool Receive(std::queue<PipeMessage>* a_messages);
+    };
+}
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

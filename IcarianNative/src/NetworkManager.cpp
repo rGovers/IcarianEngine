@@ -4,9 +4,9 @@
 
 #include "Networking/NetworkManager.h"
 
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "DeletionQueue.h"
+#include "IcarianError.h"
 #include "Logger.h"
 #include "Networking/NetworkClient.h"
 #include "Networking/NetworkServer.h"
@@ -14,7 +14,6 @@
 #include "Runtime/RuntimeManager.h"
 
 #include "EngineNetworkClientInterop.h"
-#include "EngineNetworkManagerInterop.h"
 #include "EngineNetworkServerInterop.h"
 
 static NetworkManager* Instance = nullptr;
@@ -64,7 +63,6 @@ public:
     }
 };
 
-ENGINE_NETWORKMANAGER_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 ENGINE_NETWORKCLIENT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 ENGINE_NETWORKSERVER_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
@@ -72,9 +70,6 @@ NetworkManager::NetworkManager()
 {
     Instance = this;
 
-    m_initialized = enet_initialize() == 0;
-
-    ENGINE_NETWORKMANAGER_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
     ENGINE_NETWORKCLIENT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
     ENGINE_NETWORKSERVER_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 
@@ -109,20 +104,10 @@ NetworkManager::~NetworkManager()
             delete m_clients[i];
         }
     }
-
-    if (m_initialized)
-    {
-        enet_deinitialize();
-    }
 }
 
 uint32_t NetworkManager::CreateNetworkClient(const NetworkAddress& a_address)
 {
-    if (!m_initialized)
-    {
-        return -1;
-    }
-
     NetworkClient* client = NetworkClient::Connect(this, a_address);
     if (client == nullptr)
     {
@@ -136,11 +121,6 @@ uint32_t NetworkManager::CreateNetworkClient(const NetworkAddress& a_address)
 }
 uint32_t NetworkManager::CreateNetworkClientConnection(uint32_t a_hostAddr, const ENetEvent& a_event)
 {
-    if (!m_initialized)
-    {
-        return -1;
-    }
-
     NetworkClient* client = new NetworkClient(this, a_hostAddr, a_event);
     const uint32_t addr = m_clients.PushVal(client);
     client->SetBufferAddress(addr);
@@ -149,13 +129,7 @@ uint32_t NetworkManager::CreateNetworkClientConnection(uint32_t a_hostAddr, cons
 }
 void NetworkManager::DestroyNetworkClient(uint32_t a_addr)
 {
-    if (!m_initialized)
-    {
-        return;
-    }
-
-    ICARIAN_ASSERT_MSG(a_addr < m_clients.Size(), "DestroyNetworkClient out of bounds.");
-    ICARIAN_ASSERT_MSG(m_clients.Exists(a_addr), "DestroyNetworkClient already destroyed.");
+    IVERIFY(m_clients.Exists(a_addr));
 
     const NetworkClient* client = m_clients[a_addr];
     IDEFER(delete client);
@@ -164,13 +138,7 @@ void NetworkManager::DestroyNetworkClient(uint32_t a_addr)
 }
 uint32_t NetworkManager::NetworkClientGetServerAddress(uint32_t a_addr)
 {
-    if (!m_initialized)
-    {
-        return -1;
-    }
-
-    ICARIAN_ASSERT_MSG(a_addr < m_clients.Size(), "NetworkClientGetServerAddress out of bounds.");
-    ICARIAN_ASSERT_MSG(m_clients.Exists(a_addr), "NetworkClientGetServerAddress already destroyed.");
+    IVERIFY(m_clients.Exists(a_addr));
 
     const TReadLockArray<NetworkClient*> a = m_clients.ToReadLockArray();
 
@@ -179,13 +147,7 @@ uint32_t NetworkManager::NetworkClientGetServerAddress(uint32_t a_addr)
 
 void NetworkManager::NetworkClientSend(uint32_t a_addr, const uint8_t* a_data, uint32_t a_size, e_PacketFlags a_flags)
 {
-    if (!m_initialized)
-    {
-        return;
-    }
-
-    ICARIAN_ASSERT_MSG(a_addr < m_clients.Size(), "NetworkClientSend out of bounds.");
-    ICARIAN_ASSERT_MSG(m_clients.Exists(a_addr), "NetworkClientSend already destroyed.");
+    IVERIFY(m_clients.Exists(a_addr));
 
     TLockArray<NetworkClient*> a = m_clients.ToLockArray();
 
@@ -194,11 +156,6 @@ void NetworkManager::NetworkClientSend(uint32_t a_addr, const uint8_t* a_data, u
 }
 void NetworkManager::NetworkClientReceive(uint32_t a_addr, const uint8_t* a_data, uint32_t a_size)
 {
-    if (!m_initialized)
-    {
-        return;
-    }
-
     MonoDomain* domain = RuntimeManager::GetDomain();
     MonoArray* array = mono_array_new(domain, mono_get_byte_class(), a_size);
 
@@ -217,11 +174,6 @@ void NetworkManager::NetworkClientReceive(uint32_t a_addr, const uint8_t* a_data
 }
 void NetworkManager::NetworkClientDisconnect(uint32_t a_addr, bool a_error)
 {
-    if (!m_initialized)
-    {
-        return;
-    }
-
     uint32_t error = (uint32_t)a_error;
 
     void* args[] =
@@ -235,11 +187,6 @@ void NetworkManager::NetworkClientDisconnect(uint32_t a_addr, bool a_error)
 
 uint32_t NetworkManager::CreateNetworkServer(uint16_t a_port, uint32_t a_maxClients)
 {
-    if (!m_initialized)
-    {
-        return -1;
-    }
-
     NetworkServer* server = NetworkServer::Create(this, a_port, a_maxClients);
     if (server == nullptr)
     {
@@ -253,13 +200,7 @@ uint32_t NetworkManager::CreateNetworkServer(uint16_t a_port, uint32_t a_maxClie
 }
 void NetworkManager::DestroyNetworkServer(uint32_t a_addr)
 {
-    if (!m_initialized)
-    {
-        return;
-    }
-
-    ICARIAN_ASSERT_MSG(a_addr < m_servers.Size(), "DestroyNetworkServer out of bounds.");
-    ICARIAN_ASSERT_MSG(m_servers.Exists(a_addr), "DestroyNetworkServer already destroyed.");
+    IVERIFY(m_servers.Exists(a_addr));
 
     const NetworkServer* server = m_servers[a_addr];
     IDEFER(delete server);
@@ -269,13 +210,7 @@ void NetworkManager::DestroyNetworkServer(uint32_t a_addr)
 
 void NetworkManager::NetworkServerSend(uint32_t a_addr, const uint8_t* a_data, uint32_t a_size, e_PacketFlags a_flags)
 {
-    if (!m_initialized)
-    {
-        return;
-    }
-
-    ICARIAN_ASSERT_MSG(a_addr < m_servers.Size(), "NetworkServerSend out of bounds.");
-    ICARIAN_ASSERT_MSG(m_servers.Exists(a_addr), "NetworkServerSend already destroyed.");
+    IVERIFY(m_servers.Exists(a_addr));
 
     TLockArray<NetworkServer*> a = m_servers.ToLockArray();
 
@@ -284,11 +219,6 @@ void NetworkManager::NetworkServerSend(uint32_t a_addr, const uint8_t* a_data, u
 }
 void NetworkManager::NetworkServerConnect(uint32_t a_addr, uint32_t a_clientAddr)
 {
-    if (!m_initialized)
-    {
-        return;
-    }
-
     void* args[] =
     {
         &a_addr,
@@ -299,13 +229,7 @@ void NetworkManager::NetworkServerConnect(uint32_t a_addr, uint32_t a_clientAddr
 }
 uint32_t NetworkManager::NetworkServerGetMaxClients(uint32_t a_addr)
 {
-    if (!m_initialized)
-    {
-        return -1;
-    }
-
-    ICARIAN_ASSERT_MSG(a_addr < m_servers.Size(), "NetworkServerGetMaxClients out of bounds.");
-    ICARIAN_ASSERT_MSG(m_servers.Exists(a_addr), "NetworkServerGetMaxClients already destroyed.");
+    IVERIFY(m_servers.Exists(a_addr));
 
     const TReadLockArray<NetworkServer*> a = m_servers.ToReadLockArray();
 
@@ -313,13 +237,7 @@ uint32_t NetworkManager::NetworkServerGetMaxClients(uint32_t a_addr)
 }
 NetworkPeer* NetworkManager::NetworkServerGetClients(uint32_t a_addr)
 {
-    if (!m_initialized)
-    {
-        return nullptr;
-    }
-
-    ICARIAN_ASSERT_MSG(a_addr < m_servers.Size(), "NetworkServerGetClients out of bounds.");
-    ICARIAN_ASSERT_MSG(m_servers.Exists(a_addr), "NetworkServerGetClients already destroyed.");
+    IVERIFY(m_servers.Exists(a_addr));
 
     const TReadLockArray<NetworkServer*> a = m_servers.ToReadLockArray();
 
@@ -328,11 +246,6 @@ NetworkPeer* NetworkManager::NetworkServerGetClients(uint32_t a_addr)
 
 void NetworkManager::Update()
 {
-    if (!m_initialized)
-    {
-        return;
-    }
-
     {
         const std::vector<bool> states = m_clients.ToStateVector();
         TLockArray<NetworkClient*> clients = m_clients.ToLockArray();
@@ -364,7 +277,7 @@ void NetworkManager::Update()
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

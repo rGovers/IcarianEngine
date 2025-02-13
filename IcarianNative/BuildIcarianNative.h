@@ -64,7 +64,7 @@ static CBBOOL WriteIcarianNativeShadersToHeader(const char* a_workingPath)
     return ret;
 }
 
-static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, CBBOOL a_enableTrace, CBBOOL a_enableProfiler, CBBOOL a_enableMarkers)
+static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, CBBOOL a_enableTrace, CBBOOL a_enableProfiler, CBBOOL a_enableMarkers, CBBOOL a_remoteMode)
 {
     CUBE_CProject project = { 0 };
 
@@ -121,7 +121,12 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_PROFILER");
     }
 
-    if (1)
+    // This is still an experimental feature but enabling it to start testing
+    // We do want this feature is it allows a 4x to 10x speed up with the swapchain in headless mode when running on the same system
+    // (We mostly use headless mode when using the editors window and not our own and the performance hit is due to process boundaries and data transfer)
+    // Windows is still giving me issues and not setup to test properly on Windows
+    // And disabling in remote mode because well it is a remote system so DMA is imposible
+    if (!a_remoteMode && a_targetPlatform != TargetPlatform_Windows)
     {
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_DMA");
     }
@@ -142,8 +147,8 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "../deps/flare-tinyxml2",
 	    "../deps/Vulkan-Headers/include",
         "../deps/renderdoc/app/",
+        "../deps/enet/include",
 
-        "./lib/enet/include",
         "./lib/glslang",
         "./lib/glslang/External/spirv-tools/include",
         "./lib/JoltPhysics",
@@ -376,8 +381,8 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "../deps/zlib/build/zlib.lib",
             "../deps/assimp/build/assimp.lib",
             "../deps/assimp/contrib/unzip/build/unzip.lib",
+            "../deps/enet/build/enet.lib",
 
-            "./lib/enet/build/enet.lib",
             "./lib/glslang/build/glslang.lib",
             "./lib/glslang/build/SPIRV.lib",
             "./lib/glslang/External/spirv-tools/build/SPIRV-Tools.lib",
@@ -393,7 +398,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         // Magic string to get std library to link with MinGW
         CUBE_CProject_AppendCFlag(&project, "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic");
 
-        if (a_configuration == BuildConfiguration_Release)
+        if (a_configuration == BuildConfiguration_Release && !a_remoteMode)
         {
             CUBE_CProject_AppendCFlag(&project, "-Wl,-subsystem,windows");
         }
@@ -417,8 +422,8 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "../deps/zlib/build/libzlib.a",
             "../deps/assimp/build/libassimp.a",
             "../deps/assimp/contrib/unzip/build/libunzip.a",
+            "../deps/enet/build/libenet.a",
 
-            "./lib/enet/build/libenet.a",
             "./lib/glslang/build/libglslang.a",
             "./lib/glslang/build/libSPIRV.a",
             "./lib/glslang/External/spirv-tools/build/libSPIRV-Tools.a",

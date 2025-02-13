@@ -47,24 +47,26 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
     }
 
     CUBE_CProject_AppendIncludePaths(&project, 
-        "include",
+        "./include",
+
         "../deps/flare-glm",
         "../deps/flare-tinyxml2",
         "../deps/OpenFBX/src",
         "../deps/tinygltf",
+        "../deps/enet/include",
+
         "../EngineInterop"
     );
 
     CUBE_CProject_AppendSources(&project,
         "../deps/flare-tinyxml2/tinyxml2.cpp",
 
-        "src/FlareShader.cpp",
-        "src/InputBindings.cpp",
-        "src/IPCPipe.cpp",
-        "src/MonoNativeImpl.cpp"
+        "./src/FlareShader.cpp",
+        "./src/InputBindings.cpp",
+        "./src/IPCPipe.cpp",
+        "./src/MonoNativeImpl.cpp",
+        "./src/SocketPipe.cpp"
     );
-    
-    CUBE_CProject_AppendReference(&project, "stdc++");
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
 

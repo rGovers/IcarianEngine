@@ -7,31 +7,10 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 #include "EngineNetworkInteropStructures.h"
-#include "EngineNetworkManagerInterop.h"
-#include "InteropBinding.h"
-
-ENGINE_NETWORKMANAGER_EXPORT_TABLE(IOP_BIND_FUNCTION)
-
-namespace IcarianEngine.Networking
-{
-    public static class NetworkManager
-    {
-        /// <summary>
-        /// Whether or not the network manager has been initialized.
-        /// </summary>
-        public static bool IsInitialized
-        {
-            get
-            {
-                return NetworkManagerInterop.IsInitialized() != 0;
-            }
-        }
-    }
-}
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

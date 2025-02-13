@@ -11,11 +11,13 @@
 #include <mutex>
 
 #include "Core/DMASwapBuffer.h"
-#include "Core/IPCPipe.h"
+#include "Core/CommunicationPipe.h"
 #include "Core/PipeMessage.h"
 #include "DataTypes/TArray.h"
 #include "Logger.h"
 #include "Profiler.h"
+
+class Config;
 
 class HeadlessAppWindow : public AppWindow
 {
@@ -39,7 +41,7 @@ private:
 
     static constexpr char PipeName[] = "IcarianEngine-IPC";
 
-    IcarianCore::IPCPipe*                          m_pipe;
+    IcarianCore::CommunicationPipe*                m_pipe;
 
     bool                                           m_close;
 
@@ -69,7 +71,7 @@ private:
 protected:
 
 public:
-    HeadlessAppWindow(Application* a_app);
+    HeadlessAppWindow(Application* a_app, Config* a_config);
     ~HeadlessAppWindow();
 
     virtual bool ShouldClose() const;
@@ -122,7 +124,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
