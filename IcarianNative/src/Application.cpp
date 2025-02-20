@@ -116,7 +116,7 @@ Application::Application(Config* a_config)
 
     if (a_config->IsHeadless())
     {
-        m_appWindow = new HeadlessAppWindow(this);
+        m_appWindow = new HeadlessAppWindow(this, a_config);
     }
     else
     {
@@ -285,7 +285,7 @@ void Application::Run(int32_t a_argc, char* a_argv[])
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -47,11 +47,11 @@ public:
 
     inline uint32_t GetWidth() const
     {
-        return (uint32_t)m_appWindow->GetSize().x;
+        return m_appWindow->GetWidth();
     }
     inline uint32_t GetHeight() const
     {
-        return (uint32_t)m_appWindow->GetSize().y;
+        return m_appWindow->GetHeight();
     }
 
     inline void SetTimeScale(float a_timeScale)

@@ -430,8 +430,8 @@ uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint
         PhysicsEngine::LayerNonMoving
     );
 
-    JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
-    const JPH::BodyID id = interface.CreateAndAddBody(bodySettings, JPH::EActivation::DontActivate);
+    JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+    const JPH::BodyID id = bodyinterface.CreateAndAddBody(bodySettings, JPH::EActivation::DontActivate);
 
     const BodyBinding binding = 
     {
@@ -451,9 +451,9 @@ void PhysicsEngineBindings::DestroyPhysicsBody(uint32_t a_addr) const
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
     m_engine->m_bodyBindings.Erase(a_addr);
 
-    JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
-    interface.RemoveBody(binding.Body);
-    interface.DestroyBody(binding.Body);
+    JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+    bodyinterface.RemoveBody(binding.Body);
+    bodyinterface.DestroyBody(binding.Body);
 }
 void PhysicsEngineBindings::SetPhysicsBodyPosition(uint32_t a_addr, const glm::vec3& a_pos) const
 {
@@ -461,9 +461,9 @@ void PhysicsEngineBindings::SetPhysicsBodyPosition(uint32_t a_addr, const glm::v
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
 
-    JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
+    JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
 
-    interface.SetPosition(binding.Body, JPH::Vec3(a_pos.x, a_pos.y, a_pos.z), JPH::EActivation::Activate);
+    bodyinterface.SetPosition(binding.Body, JPH::Vec3(a_pos.x, a_pos.y, a_pos.z), JPH::EActivation::Activate);
 }
 glm::vec3 PhysicsEngineBindings::GetPhysicsBodyPosition(uint32_t a_addr) const
 {
@@ -471,9 +471,9 @@ glm::vec3 PhysicsEngineBindings::GetPhysicsBodyPosition(uint32_t a_addr) const
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
 
-    const JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
+    const JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
 
-    const JPH::RVec3 pos = interface.GetPosition(binding.Body);
+    const JPH::RVec3 pos = bodyinterface.GetPosition(binding.Body);
 
     const TransformBuffer buffer = ObjectManager::GetTransformBuffer(binding.TransformAddr);
 
@@ -492,9 +492,9 @@ void PhysicsEngineBindings::SetPhysicsBodyRotation(uint32_t a_addr, const glm::q
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
 
-    JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
+    JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
 
-    interface.SetRotation(binding.Body, JPH::Quat(a_rot.x, a_rot.y, a_rot.z, a_rot.w), JPH::EActivation::Activate);
+    bodyinterface.SetRotation(binding.Body, JPH::Quat(a_rot.x, a_rot.y, a_rot.z, a_rot.w), JPH::EActivation::Activate);
 }
 glm::quat PhysicsEngineBindings::GetPhysicsBodyRotation(uint32_t a_addr) const
 {
@@ -502,9 +502,9 @@ glm::quat PhysicsEngineBindings::GetPhysicsBodyRotation(uint32_t a_addr) const
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
 
-    const JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
+    const JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
 
-    const JPH::Quat rot = interface.GetRotation(binding.Body);
+    const JPH::Quat rot = bodyinterface.GetRotation(binding.Body);
 
     const TransformBuffer buffer = ObjectManager::GetTransformBuffer(binding.TransformAddr);
 
@@ -551,8 +551,8 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
     bodySettings.mMotionQuality = JPH::EMotionQuality::LinearCast;
     bodySettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
 
-    JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
-    const JPH::BodyID id = interface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
+    JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+    const JPH::BodyID id = bodyinterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
     IDEFER(m_engine->m_activationListener->OnBodyActivated(id, 0));
 
     const BodyBinding binding = 
@@ -572,10 +572,10 @@ void PhysicsEngineBindings::SetRigidBodyGravityFactor(uint32_t a_addr, float a_f
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
-    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, interface);
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, bodyinterface);
 
-    JPH::Body* body = interface.TryGetBody(binding.Body);
+    JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
 
     JPH::MotionProperties* properties = body->GetMotionProperties();
     properties->SetGravityFactor(a_factor);
@@ -586,10 +586,10 @@ float PhysicsEngineBindings::GetRigidBodyGravityFactor(uint32_t a_addr) const
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
-    const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(binding.Body, interface);
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(binding.Body, bodyinterface);
 
-    const JPH::Body* body = interface.TryGetBody(binding.Body);
+    const JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
 
     const JPH::MotionProperties* properties = body->GetMotionProperties();
     return properties->GetGravityFactor();
@@ -600,10 +600,10 @@ glm::vec3 PhysicsEngineBindings::GetRigidBodyVelocity(uint32_t a_addr) const
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
-    const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(binding.Body, interface);
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(binding.Body, bodyinterface);
 
-    const JPH::Body* body = interface.TryGetBody(binding.Body);
+    const JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
 
     const JPH::Vec3 vel = body->GetLinearVelocity();
 
@@ -615,10 +615,10 @@ void PhysicsEngineBindings::SetRigidBodyVelocity(uint32_t a_addr, const glm::vec
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
-    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, interface);
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, bodyinterface);
 
-    JPH::Body* body = interface.TryGetBody(binding.Body);
+    JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
     body->SetLinearVelocity(JPH::Vec3(a_velocity.x, a_velocity.y, a_velocity.z));
 }
 glm::vec3 PhysicsEngineBindings::GetRigidBodyAngularVelocity(uint32_t a_addr) const
@@ -627,10 +627,10 @@ glm::vec3 PhysicsEngineBindings::GetRigidBodyAngularVelocity(uint32_t a_addr) co
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
-    const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(binding.Body, interface);
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(binding.Body, bodyinterface);
 
-    const JPH::Body* body = interface.TryGetBody(binding.Body);
+    const JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
 
     const JPH::Vec3 vel = body->GetAngularVelocity();
 
@@ -642,10 +642,10 @@ void PhysicsEngineBindings::SetRigidBodyAngularVelocity(uint32_t a_addr, const g
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
-    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, interface);
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, bodyinterface);
 
-    JPH::Body* body = interface.TryGetBody(binding.Body);
+    JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
     body->SetAngularVelocity(JPH::Vec3(a_velocity.x, a_velocity.y, a_velocity.z));
 }
 void PhysicsEngineBindings::RigidBodyAddForce(uint32_t a_addr, const glm::vec3& a_force, e_ForceMode a_mode) const
@@ -654,10 +654,10 @@ void PhysicsEngineBindings::RigidBodyAddForce(uint32_t a_addr, const glm::vec3& 
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
-    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, interface);
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, bodyinterface);
 
-    JPH::Body* body = interface.TryGetBody(binding.Body);
+    JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
     switch (a_mode) 
     {
     case ForceMode_Impulse:
@@ -680,10 +680,10 @@ void PhysicsEngineBindings::RigidBodyAddTorque(uint32_t a_addr, const glm::vec3&
 
     const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& interface = m_engine->m_physicsSystem->GetBodyLockInterface();
-    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, interface);
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, bodyinterface);
 
-    JPH::Body* body = interface.TryGetBody(binding.Body);
+    JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
     switch (a_mode) 
     {
     case ForceMode_Impulse:
@@ -724,8 +724,8 @@ uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint
     );
     bodySettings.mIsSensor = true;
 
-    JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
-    const JPH::BodyID id = interface.CreateAndAddBody(bodySettings, JPH::EActivation::DontActivate);
+    JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+    const JPH::BodyID id = bodyinterface.CreateAndAddBody(bodySettings, JPH::EActivation::DontActivate);
 
     const BodyBinding binding = 
     {
@@ -800,7 +800,7 @@ RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, cons
         *a_resultCount = collector.Results.Size();
         RaycastResultBuffer* results = new RaycastResultBuffer[*a_resultCount];
 
-        const JPH::BodyInterface& interface = m_engine->m_physicsSystem->GetBodyInterface();
+        const JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
 
         for (uint32_t i = 0; i < *a_resultCount; ++i)
         {
@@ -808,9 +808,9 @@ RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, cons
 
             const JPH::Vec3 pos = ray.GetPointOnRay(res.mFraction);
 
-            JPH::RefConst<JPH::Shape> shape = interface.GetShape(res.mBodyID);
+            JPH::RefConst<JPH::Shape> shape = bodyinterface.GetShape(res.mBodyID);
 
-            const JPH::RMat44 mat = interface.GetWorldTransform(res.mBodyID);
+            const JPH::RMat44 mat = bodyinterface.GetWorldTransform(res.mBodyID);
             const JPH::RMat44 invMat = mat.Inversed();
             const JPH::RMat44 rot = mat.GetRotation();
             const JPH::Vec3 normal = rot * shape->GetSurfaceNormal(res.mSubShapeID2, invMat * pos);

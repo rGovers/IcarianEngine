@@ -136,8 +136,9 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
 
-    TLockObj<vk::CommandBuffer, SpinLock>* buffer = backend->BeginSingleCommand();
-    IDEFER(backend->EndSingleCommand(buffer));
+    TLockObj<vk::CommandBuffer, SpinLock>* buffer = backend->BeginSingleCommand(CommandIndex_Compute);
+    IDEFER(backend->EndSingleCommand(buffer, CommandIndex_Compute));
+    
     const vk::CommandBuffer cmdBuffer = buffer->Get();
 
     const int32_t value = (int32_t)a_buffer->MaxParticles;

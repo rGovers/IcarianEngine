@@ -5,9 +5,8 @@
 #include "Rendering/RenderEngine.h"
 
 #include "Application.h"
-#include "AppWindow/AppWindow.h"
+#include "AppWindow/HeadlessAppWindow.h"
 #include "Config.h"
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "DeletionQueue.h"
 #include "Profiler.h"
@@ -126,11 +125,44 @@ void RenderEngine::Run()
             PROFILESTACK("Update");
             const float timeScale = app->GetTimeScale();
 
-            const std::chrono::time_point time = std::chrono::high_resolution_clock::now();
-            IDEFER(prevTime = time);
+            double delta = 0.0f;
 
-            double delta = std::chrono::duration<double>(time - prevTime).count();
-            timePassed += delta;
+            {
+                PROFILESTACK("Timing");
+
+                if (m_window->IsHeadless())
+                {
+                    const HeadlessAppWindow* headless = (HeadlessAppWindow*)m_window;
+    
+                    constexpr float RemoteTargetFPS = 60.0f;
+    
+                    std::chrono::high_resolution_clock::time_point time;
+
+                    while (true)
+                    {
+                        time = std::chrono::high_resolution_clock::now();
+                        delta = std::chrono::duration<double>(time - prevTime).count();
+    
+                        if (!headless->IsRemote() || delta > 1.0 / RemoteTargetFPS)
+                        {
+                            break;
+                        }
+    
+                        std::this_thread::yield();
+                    }
+
+                    prevTime = time;
+                }
+                else
+                {
+                    const std::chrono::high_resolution_clock::time_point time = std::chrono::high_resolution_clock::now();
+    
+                    delta = std::chrono::duration<double>(time - prevTime).count();
+                    prevTime = time;
+                }
+
+                timePassed += delta;
+            }
 
             const double scaledDelta = delta * timeScale;
 

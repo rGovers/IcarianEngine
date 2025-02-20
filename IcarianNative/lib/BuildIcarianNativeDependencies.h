@@ -7,75 +7,6 @@
 extern "C" {
 #endif
 
-CUBE_CProject BuildENetProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
-{
-    CUBE_CProject project = { 0 };
-
-    project.Name = CUBE_StackString_CreateC("enet");
-    project.Target = CUBE_CProjectTarget_StaticLibrary;
-    project.Language = CUBE_CProjectLanguage_C;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
-
-    CUBE_CProject_AppendDefine(&project, "HAS_SOCKLEN_T");
-
-    CUBE_CProject_AppendIncludePath(&project, "./include");
-
-    switch (a_targetPlatform)
-    {
-    case TargetPlatform_Windows:
-    {
-        CUBE_CProject_AppendDefine(&project, "WIN32");
-        CUBE_CProject_AppendDefine(&project, "_WIN32");
-
-        CUBE_CProject_AppendSource(&project, "./win32.c");
-
-        break;
-    }
-    case TargetPlatform_Linux:
-    case TargetPlatform_LinuxClang:
-    case TargetPlatform_LinuxZig:
-    case TargetPlatform_LinuxSteam:
-    {
-        CUBE_CProject_AppendSource(&project, "./unix.c");
-
-        break;
-    }
-    }
-
-    CUBE_CProject_AppendSource(&project, "./callbacks.c");
-    CUBE_CProject_AppendSource(&project, "./compress.c");
-    CUBE_CProject_AppendSource(&project, "./host.c");
-    CUBE_CProject_AppendSource(&project, "./list.c");
-    CUBE_CProject_AppendSource(&project, "./packet.c");
-    CUBE_CProject_AppendSource(&project, "./peer.c");
-    CUBE_CProject_AppendSource(&project, "./protocol.c");
-
-    switch (a_configuration)
-    {
-    case BuildConfiguration_Debug:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-g");
-
-        break;
-    }
-    case BuildConfiguration_ReleaseWithDebug:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-g");
-        CUBE_CProject_AppendCFlag(&project, "-O3");
-
-        break;
-    }
-    case BuildConfiguration_Release:
-    {
-        CUBE_CProject_AppendCFlag(&project, "-O3");
-
-        break;
-    }
-    }
-
-    return project;
-}
-
 CUBE_CProject BuildGLSLangProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
@@ -717,24 +648,21 @@ CUBE_CProject BuildJoltPhysicsProject(e_TargetPlatform a_targetPlatform, e_Build
 
 DependencyProject* BuildIcarianNativeIDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
-    *a_count = 5;
+    *a_count = 4;
 
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * (*a_count));
 
-    projects[0].Project = BuildENetProject(a_targetPlatform, a_configuration);
-    projects[0].WorkingDirectory = "IcarianNative/lib/enet";
+    projects[0].Project = BuildGLSLangProject(a_targetPlatform, a_configuration);
+    projects[0].WorkingDirectory = "IcarianNative/lib/glslang";
 
-    projects[1].Project = BuildGLSLangProject(a_targetPlatform, a_configuration);
+    projects[1].Project = BuildSPIRVProject(a_targetPlatform, a_configuration);
     projects[1].WorkingDirectory = "IcarianNative/lib/glslang";
 
-    projects[2].Project = BuildSPIRVProject(a_targetPlatform, a_configuration);
-    projects[2].WorkingDirectory = "IcarianNative/lib/glslang";
+    projects[2].Project = BuildSPIRVToolsProject(a_targetPlatform, a_configuration);
+    projects[2].WorkingDirectory = "IcarianNative/lib/glslang/External/spirv-tools";
 
-    projects[3].Project = BuildSPIRVToolsProject(a_targetPlatform, a_configuration);
-    projects[3].WorkingDirectory = "IcarianNative/lib/glslang/External/spirv-tools";
-
-    projects[4].Project = BuildJoltPhysicsProject(a_targetPlatform, a_configuration);
-    projects[4].WorkingDirectory = "IcarianNative/lib/JoltPhysics";
+    projects[3].Project = BuildJoltPhysicsProject(a_targetPlatform, a_configuration);
+    projects[3].WorkingDirectory = "IcarianNative/lib/JoltPhysics";
 
     return projects;
 }

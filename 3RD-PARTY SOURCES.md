@@ -64,6 +64,12 @@ Original Project:
 
 https://github.com/assimp/assimp
 
+### RenderDoc
+License: MIT
+
+Original Project: 
+https://github.com/baldurk/renderdoc
+
 ### Dear ImGui
 License: MIT
 

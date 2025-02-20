@@ -7,23 +7,28 @@
 #include <string>
 #include <string_view>
 
+#include "Core/Bitfield.h"
 #include "Rendering/RenderEngine.h"
 
 class Config
 {
 private:
-    static constexpr char DefaultAppName[] = "IcarianEngine";
+    static constexpr uint32_t HeadlessBit = 0;
+    static constexpr uint32_t RemoteBit = 1;
+    static constexpr uint32_t DisableWaylandBit = 2;
+    static constexpr uint32_t UnlockUPSBit = 3;
 
-    bool              m_headless = false;
-    bool              m_disableWayland = false;
-    bool              m_unlockUPS = false;
+    static constexpr char DefaultAppName[] = "IcarianEngine";
 
     double            m_fixedTimeStep = 1.0 / 50.0;
     uint32_t          m_fileCacheSize = 256;
 
     std::string       m_appName = std::string(DefaultAppName);
-
+    
+    uint16_t          m_remotePort = 9001;
     e_RenderingEngine m_renderingEngine = RenderingEngine_Vulkan;
+
+    uint8_t           m_flags;
 
 protected:
 
@@ -43,21 +48,21 @@ public:
 
     inline bool IsUPSUnlocked() const
     {
-        return m_unlockUPS;
+        return IISBITSET(m_flags, UnlockUPSBit);
     }
     inline void SetUPSUnlocked(bool a_value)
     {
-        m_unlockUPS = a_value;
+        ITOGGLEBIT(a_value, m_flags, UnlockUPSBit);
     }
 
     // Mostly exists because some tools still do not have the best Wayland support
     inline bool DisableWayland() const
     {
-        return m_disableWayland;
+        return IISBITSET(m_flags, DisableWaylandBit);
     }
     inline void SetDisableWayland(bool a_value)
     {
-        m_disableWayland = a_value;
+        ITOGGLEBIT(a_value, m_flags, DisableWaylandBit);
     }
 
     inline const std::string GetApplicationName() const
@@ -68,19 +73,38 @@ public:
     {
         return m_renderingEngine;
     }
+
     inline bool IsHeadless() const
     {
-        return m_headless;
+        return IISBITSET(m_flags, HeadlessBit);
     }
     inline void SetHeadless(bool a_value)
     {
-        m_headless = a_value;
+        ITOGGLEBIT(a_value, m_flags, HeadlessBit);
+    }
+
+    inline bool IsRemote() const
+    {
+        return IISBITSET(m_flags, RemoteBit);
+    }
+    inline void SetRemote(bool a_value)
+    {
+        ITOGGLEBIT(a_value, m_flags, RemoteBit);
+    }
+
+    inline uint16_t GetRemotePort() const
+    {
+        return m_remotePort;
+    }
+    inline void SetRemotePort(uint16_t a_port)
+    {
+        m_remotePort = a_port;
     }
 };
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

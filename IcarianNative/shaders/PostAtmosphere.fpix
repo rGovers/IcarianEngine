@@ -26,6 +26,8 @@ const float pi16 = PI * 16.0;
 // Rayleigh values
 const float frM = 3.0 / pi16;
 
+const float sunOffset = 0.1;
+
 // Note that this is not accurate at all this is an aproximation of an aproximation
 // Credit:
 // https://drivers.amd.com/developer/gdc/GDC02_HoffmanPreetham.pdf
@@ -61,8 +63,8 @@ void main()
 
     // Zenith
     float dE = lD / fP;
-    float z = dE / pow(max(-sunDir.y, 0.001), 0.75);
-    float zS = min(1.0, 1 + sunDir.y);
+    float z = dE / pow(max(-sunDir.y - sunOffset, 0.001), 0.75);
+    // float z = pow(max(-sunDir.y, 0.001), 0.75);
 
     // Rayleigh Scattering
     float ray = frM * (1 + c2);
@@ -78,13 +80,15 @@ void main()
 
     // In Scatter
     // None of this is accurate but eh who tf cares
+    vec3 e = vec3(userBuffer.Rayleigh.xyz * ray);
     vec3 iS = vec3(userBuffer.Rayleigh.xyz * ray + userBuffer.Mie.xyz * mie);
     vec3 sC = userBuffer.SunColor.xyz * pow(cS, 350);
     // G is unrelated but seems to work so.....
-    vec3 hC = userBuffer.HazeColor.xyz * pow(hCS, 4) * max(0, (z - iG) * 2) * zS;
+    vec3 hC = userBuffer.HazeColor.xyz * pow(hCS, 4) * max(0, g - z);
 
-    vec3 aC = iS + sC + hC;
+    vec3 aC = iS + sC;
     vec4 c = texture(colorSampler, vUV);
 
+    // fragColor = vec4(dE.xxx, 1.0);
     fragColor = vec4(c.xyz + aC, 1.0);
 }

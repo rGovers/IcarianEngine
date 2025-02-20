@@ -4,6 +4,11 @@
 
 #pragma once
 
+#ifdef WIN32
+// Windows being annoying again if it is not included first
+#include "Core/WindowsHeaders.h"
+#endif
+
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 

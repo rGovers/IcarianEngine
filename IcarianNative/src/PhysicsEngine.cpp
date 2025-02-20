@@ -246,14 +246,15 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
             const SharedThreadGuard g = SharedThreadGuard(m_bodyMapLock);
 
             // Should not need but doing just incase for good practice as it multithreaded app
-            const JPH::BodyLockInterfaceLocking& interface = m_physicsSystem->GetBodyLockInterface();
+            // FFS something in WIN32 means that I can no longer call this interface without a compiler error bodyInterface it is 
+            const JPH::BodyLockInterfaceLocking& bodyinterface = m_physicsSystem->GetBodyLockInterface();
 
             // Need to sync the physics transform to the transform
             for (const JPH::BodyID id : bodies)
             {
-                const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(id, interface);
+                const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(id, bodyinterface);
 
-                const JPH::Body* body = interface.TryGetBody(id);
+                const JPH::Body* body = bodyinterface.TryGetBody(id);
                 if (body == nullptr)
                 {
                     continue;

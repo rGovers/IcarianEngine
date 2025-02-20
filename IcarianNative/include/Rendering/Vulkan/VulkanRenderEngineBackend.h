@@ -178,6 +178,15 @@ public:
     virtual void Destroy() = 0;
 };
 
+enum e_CommandIndex
+{
+    CommandIndex_Present,
+    CommandIndex_Graphics,
+    CommandIndex_Compute,
+    CommandIndex_VideoDecode,
+    CommandIndex_Last
+};
+
 class VulkanRenderEngineBackend : public RenderEngineBackend
 {
 private:
@@ -221,10 +230,8 @@ private:
     TArray<VulkanDeletionObject*> m_deletionObjects[VulkanDeletionQueueSize];
 
     Array<vk::Semaphore>          m_interSemaphore[VulkanMaxFlightFrames];
-    vk::Semaphore                 m_imageAvailable[VulkanMaxFlightFrames];
-    vk::Fence                     m_inFlight[VulkanMaxFlightFrames];
             
-    vk::CommandPool               m_commandPool;
+    vk::CommandPool               m_commandPools[CommandIndex_Last];
 
     uint32_t                      m_imageIndex = -1;
     uint32_t                      m_currentFrame = 0;
@@ -253,11 +260,11 @@ public:
 
     virtual void Update(double a_delta, double a_time);
 
-    TLockObj<vk::CommandBuffer, SpinLock>* CreateCommandBuffer(vk::CommandBufferLevel a_level);
-    void DestroyCommandBuffer(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer);
+    TLockObj<vk::CommandBuffer, SpinLock>* CreateCommandBuffer(vk::CommandBufferLevel a_level, e_CommandIndex a_index = CommandIndex_Graphics);
+    void DestroyCommandBuffer(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer, e_CommandIndex a_index = CommandIndex_Graphics);
 
-    TLockObj<vk::CommandBuffer, SpinLock>* BeginSingleCommand();
-    void EndSingleCommand(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer);
+    TLockObj<vk::CommandBuffer, SpinLock>* BeginSingleCommand(e_CommandIndex a_index = CommandIndex_Graphics);
+    void EndSingleCommand(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer, e_CommandIndex a_index = CommandIndex_Graphics);
 
     virtual e_RenderDeviceType GetDeviceType() const;
 
@@ -328,15 +335,6 @@ public:
         VulkanDeletionObject* deletionObject = m_deletionAllocator->Create<T>(a_args...);
 
         InternalPushDeletionObject(deletionObject);
-    }
-
-    inline vk::Fence GetCurrentFlightFence() const
-    {
-        return m_inFlight[m_currentFlightFrame];
-    }
-    inline vk::Semaphore GetImageSemaphore(uint32_t a_index) const
-    {
-        return m_imageAvailable[a_index];
     }
 
     inline VmaAllocator GetAllocator() const

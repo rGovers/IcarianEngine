@@ -43,7 +43,9 @@ public:
 
     virtual void Update();
 
-    virtual glm::ivec2 GetSize() const;
+    virtual uint32_t GetWidth() const;
+    virtual uint32_t GetHeight() const;
+
     virtual void Resize(uint32_t a_width, uint32_t a_height);
     virtual void SetFullscreen(const AppMonitor& a_monitor, bool a_state, uint32_t a_width, uint32_t a_height);
 

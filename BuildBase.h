@@ -33,6 +33,10 @@ typedef enum
     BuildConfiguration_Release,
 } e_BuildConfiguration;
 
+#define BUILD_CONSOLECOLOUR_GREEN "\033[0;32m"
+#define BUILD_CONSOLECOLOUR_CYAN "\033[0;36m"
+#define BUILD_CONSOLECOLOUR_RESET "\033[0m"
+
 static const char GeneratedFileHeader[] = "// ----------------------------------------------------\n//\n// Auto generated file do not modify\n//\n// ----------------------------------------------------\n\n";
 
 CBBOOL TemplatesToHeader(const CUBE_Path* a_templatePath, CBUINT32 a_templateCount, const char* a_outputFile)
@@ -324,7 +328,7 @@ void PrintHeader(const char* a_str)
     printf("----------------------------------------\n");
     printf("----------------------------------------\n");
     printf("\n");
-    printf("%s\n", a_str);
+    printf("   %s\n", a_str);
     printf("\n");
     printf("----------------------------------------\n");
     printf("----------------------------------------\n");
@@ -340,34 +344,39 @@ static const char CompileCommandsString[] = "--compile-commands";
 static const CBUINT32 CompileCommandsStringLen = sizeof(CompileCommandsString) - 1;
 static const char JobString[] = "--j";
 static const CBUINT32 JobStringLen = sizeof(JobString) - 1;
+static const char RebuildString[] = "--rebuild";
+static const CBUINT32 RebuildStringLen = sizeof(RebuildString) - 1;
 
 void PrintHelp()
 {
     printf("Help:\n");
 
-    printf("  --compile-commands=<workingDirectory> - Generate a compile commands file. \n");
+    printf("  " BUILD_CONSOLECOLOUR_CYAN "--compile-commands=" BUILD_CONSOLECOLOUR_GREEN "<workingDirectory>" BUILD_CONSOLECOLOUR_RESET " - Generate a compile commands file. \n");
     printf("\n");
 
-    printf("  --platform=<platform> - Set the target platform. \n");
+    printf("  " BUILD_CONSOLECOLOUR_CYAN "--platform=" BUILD_CONSOLECOLOUR_GREEN "<platform>" BUILD_CONSOLECOLOUR_RESET " - Set the target platform. \n");
     printf("    Valid values are: \n");
-    printf("      windows - Windows\n");
-    printf("      linux - Linux with GCC\n");
-    printf("      linuxclang - Linux with Clang\n");
-    printf("      linuxzig - Linux with Zig\n");
-    printf("      linuxsteam - Linux Steam Sniper version with GCC\n");
+    printf("      " BUILD_CONSOLECOLOUR_CYAN "windows" BUILD_CONSOLECOLOUR_RESET" - Windows\n");
+    printf("      " BUILD_CONSOLECOLOUR_CYAN "linux" BUILD_CONSOLECOLOUR_RESET " - Linux with GCC\n");
+    printf("      " BUILD_CONSOLECOLOUR_CYAN "linuxclang" BUILD_CONSOLECOLOUR_RESET " - Linux with Clang\n");
+    printf("      " BUILD_CONSOLECOLOUR_CYAN "linuxzig" BUILD_CONSOLECOLOUR_RESET " - Linux with Zig\n");
+    printf("      " BUILD_CONSOLECOLOUR_CYAN "linuxsteam" BUILD_CONSOLECOLOUR_RESET " - Linux Steam Sniper version with GCC\n");
     printf("\n");
 
-    printf("  --configuration=<configuration> - Set the build configuration. \n");
+    printf("  " BUILD_CONSOLECOLOUR_CYAN "--configuration=" BUILD_CONSOLECOLOUR_GREEN "<configuration>" BUILD_CONSOLECOLOUR_RESET " - Set the build configuration. \n");
     printf("    Valid values are: \n");
-    printf("      debug - Debug\n");
-    printf("      releasewithdebug - Release with debug symbols\n");
-    printf("      release - Release\n");
+    printf("      " BUILD_CONSOLECOLOUR_CYAN "debug" BUILD_CONSOLECOLOUR_RESET " - Debug\n");
+    printf("      " BUILD_CONSOLECOLOUR_CYAN "releasewithdebug" BUILD_CONSOLECOLOUR_RESET " - Release with debug symbols\n");
+    printf("      " BUILD_CONSOLECOLOUR_CYAN "release" BUILD_CONSOLECOLOUR_RESET " - Release\n");
     printf("\n");
 
-    printf("  --j=<number> - The number of job threads to spawn. \n");
+    printf("  " BUILD_CONSOLECOLOUR_CYAN "--j=" BUILD_CONSOLECOLOUR_GREEN "<number>" BUILD_CONSOLECOLOUR_RESET " - The number of job threads to spawn. \n");
     printf("\n");
 
-    printf("  --help - Print this help message.\n");
+    printf("  " BUILD_CONSOLECOLOUR_CYAN "--rebuild" BUILD_CONSOLECOLOUR_RESET " - Forces a rebuild of the project. \n");
+    printf("\n");
+
+    printf("  " BUILD_CONSOLECOLOUR_CYAN "--help" BUILD_CONSOLECOLOUR_RESET " - Print this help message.\n");
     printf("\n");
 }
 
