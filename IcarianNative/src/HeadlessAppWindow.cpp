@@ -3,6 +3,7 @@
 // License at end of file.
 
 #include "AppWindow/HeadlessAppWindow.h"
+#include "DataTypes/RingAllocator.h"
 
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
@@ -34,10 +35,12 @@ void HeadlessAppWindow::MessageCallback(const std::string_view& a_message, e_Log
     constexpr uint32_t TypeSize = sizeof(e_LoggerMessageType);
     const uint32_t size = strSize + TypeSize;
 
+    const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
     IcarianCore::PipeMessage msg;
     msg.Type = IcarianCore::PipeMessageType_Message;
     msg.Length = size;
-    msg.Data = new char[size];
+    msg.Data = (char*)m_msgAllocator->Allocate(size);
     memcpy(msg.Data, &a_type, TypeSize);
     memcpy(msg.Data + TypeSize, a_message.data(), strSize);
 
@@ -47,10 +50,12 @@ void HeadlessAppWindow::ProfilerCallback(const Profiler::PData& a_profilerData)
 {
     constexpr uint32_t ScopeSize = sizeof(ProfileScope);
 
+    const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
     IcarianCore::PipeMessage msg;
     msg.Type = IcarianCore::PipeMessageType_ProfileScope;
     msg.Length = ScopeSize;
-    msg.Data = new char[ScopeSize];
+    msg.Data = (char*)m_msgAllocator->Allocate(ScopeSize);
 
     ProfileScope* scope = (ProfileScope*)msg.Data;
     
@@ -87,6 +92,8 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
     m_pipe = nullptr;
     m_flags = 0;
 
+    m_msgAllocator = new RingAllocator(4 << 20);
+
 #ifndef ICARIANNATIVE_ENABLE_DMA
     m_frameData = nullptr;
     m_unlockWindow = false;
@@ -109,11 +116,17 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
     }
     else
     {
+#ifdef WIN32
+        m_pipe = IcarianCore::SocketPipe::Create(9001);
+#else
         const std::string addrStr = GetAddr(PipeName);
 
         m_pipe = IcarianCore::IPCPipe::Connect(addrStr);
+#endif
     }
+    
     IVERIFY(m_pipe != nullptr);
+    IVERIFY(m_pipe->IsAlive());
 
     m_width = 1280;
     m_height = 720;
@@ -151,6 +164,8 @@ HeadlessAppWindow::~HeadlessAppWindow()
     Logger::CallbackFunc = nullptr;
     delete Profiler::CallbackFunc;
     Profiler::CallbackFunc = nullptr;
+
+    delete m_msgAllocator;
 }
 
 void HeadlessAppWindow::PushMessageQueue()
@@ -176,11 +191,6 @@ void HeadlessAppWindow::PushMessageQueue()
         for (uint32_t i = 0; i < size; ++i)
         {
             const IcarianCore::PipeMessage& msg = a[i];
-            IDEFER(
-            if (msg.Data != nullptr)
-            {
-                delete[] msg.Data;
-            });
 
             IERRCHECK(m_pipe->Send(msg));
         }
@@ -207,10 +217,12 @@ void HeadlessAppWindow::SetCursorState(e_CursorState a_state)
 {
     constexpr uint32_t Size = sizeof(e_CursorState);
 
+    const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
     IcarianCore::PipeMessage msg;
     msg.Type = IcarianCore::PipeMessageType_SetCursorState;
     msg.Length = Size;
-    msg.Data = new char[Size];
+    msg.Data = (char*)m_msgAllocator->Allocate(Size);
     *(e_CursorState*)msg.Data = a_state;
 
     m_queuedMessages.Push(msg);
@@ -334,10 +346,11 @@ bool HeadlessAppWindow::PollMessage()
                 inputManager->SetKeyboardKey(keyCode, state.IsKeyDown(keyCode));
             }
 
-            if (inputManager->IsKeyPressed(KeyCode_F9))
-            {
-                LibRenderDoc::CaptureFrame();
-            }
+            break;
+        }
+        case IcarianCore::PipeMessageType_CaptureFrame:
+        {
+            LibRenderDoc::CaptureFrame();
 
             break;
         }
@@ -444,10 +457,12 @@ void HeadlessAppWindow::PushFrameInfo(double a_delta, double a_time)
 {
     constexpr int Size = sizeof(glm::dvec2);
 
+    const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
     IcarianCore::PipeMessage msg;
     msg.Type = IcarianCore::PipeMessageType_FrameData;
     msg.Length = Size;
-    msg.Data = new char[Size];
+    msg.Data = (char*)m_msgAllocator->Allocate(Size);
     (*(glm::dvec2*)msg.Data).x = a_delta;
     (*(glm::dvec2*)msg.Data).y = a_time;
 
@@ -459,10 +474,12 @@ void HeadlessAppWindow::PushSwapBufferFD(const DMASwapBufferFD& a_swapBuffer)
 {
     constexpr uint32_t Size = sizeof(DMASwapBufferFD);
 
+    const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
     IcarianCore::PipeMessage msg;
     msg.Type = IcarianCore::PipeMessageType_PushDMASwapFDBuffer;
     msg.Length = Size;
-    msg.Data = new char[Size];
+    msg.Data = (char*)m_msgAllocator->Allocate(Size);
     (*(DMASwapBufferFD*)msg.Data) = a_swapBuffer;
 
     m_queuedMessages.Push(msg);
@@ -477,10 +494,12 @@ void HeadlessAppWindow::PushSwapBufferHandle(const DMASwapBufferHandle& a_swapBu
 {
     constexpr uint32_t Size = sizeof(DMASwapBufferHandle);
 
+    const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
     IcarianCore::PipeMessage msg;
     msg.Type = IcarianCore::PipeMessageType_PushDMASwapHandleBuffer;
     msg.Length = Size;
-    msg.Data = new char[Size];
+    msg.Data = (char*)m_msgAllocator->Allocate(Size);
     (*(DMASwapBufferHandle*)msg.Data) = a_swapBuffer;
 
     m_queuedMessages.Push(msg);

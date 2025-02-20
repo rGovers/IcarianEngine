@@ -35,8 +35,6 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include "Audio/IcarianMiniaudio.h"
 
-#include <enet/enet.h>
-
 #define ICARIANNATIVE_VERSION_STRX(x) #x
 #define ICARIANNATIVE_VERSION_STRI(x) ICARIANNATIVE_VERSION_STRX(x)
 #define ICARIANNATIVE_VERSION_TAGSTR ICARIANNATIVE_VERSION_STRI(ICARIANNATIVE_VERSION_TAG)
@@ -87,11 +85,20 @@ int APIENTRY WinMain(HINSTANCE a_hInstance, HINSTANCE a_hPrevInstance, LPSTR a_l
 {
     PrintVersion();
 
-    if (enet_initialize() < 0)
+    // Whatever enet needs we will do ourselves
+    // We need a newer version and enet does not allow overriding
+    WSADATA wsaData;
+    if (WSAStartup (MAKEWORD(2, 0), & wsaData))
     {
         return 1;
     }
-    IDEFER(enet_deinitialize());
+    timeBeginPeriod(1);
+
+    IDEFER(
+    {
+        timeEndPeriod(1);
+        WSACleanup();
+    });
 
     Config* config = new Config("./config.xml");
 
@@ -132,12 +139,6 @@ int APIENTRY WinMain(HINSTANCE a_hInstance, HINSTANCE a_hPrevInstance, LPSTR a_l
 int main(int a_argc, char* a_argv[])
 {
     PrintVersion();
-
-    if (enet_initialize() < 0)
-    {
-        return 1;
-    }
-    IDEFER(enet_deinitialize());
 
     Config* config = new Config("./config.xml");
 

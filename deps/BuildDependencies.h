@@ -189,7 +189,7 @@ static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     project.Name = CUBE_StackString_CreateC("ktxc");
     project.Target = CUBE_CProjectTarget_StaticLibrary;
     project.Language = CUBE_CProjectLanguage_C;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
+    project.OutputPath = CUBE_Path_CreateC("./build/c/");
 
     if (a_configuration == BuildConfiguration_Debug)
     {
@@ -285,7 +285,7 @@ static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfi
     project.Name = CUBE_StackString_CreateC("ktxcpp");
     project.Target = CUBE_CProjectTarget_StaticLibrary;
     project.Language = CUBE_CProjectLanguage_CPP;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
+    project.OutputPath = CUBE_Path_CreateC("./build/cpp/");
 
     if (a_configuration == BuildConfiguration_Debug)
     {
@@ -367,7 +367,7 @@ static CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildCo
     project.Name = CUBE_StackString_CreateC("ktxwritec");
     project.Target = CUBE_CProjectTarget_StaticLibrary;
     project.Language = CUBE_CProjectLanguage_C;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
+    project.OutputPath = CUBE_Path_CreateC("./build/writec/");
 
     if (a_configuration == BuildConfiguration_Debug)
     {
@@ -465,7 +465,7 @@ static CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_Build
     project.Name = CUBE_StackString_CreateC("ktxwritecpp");
     project.Target = CUBE_CProjectTarget_StaticLibrary;
     project.Language = CUBE_CProjectLanguage_CPP;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
+    project.OutputPath = CUBE_Path_CreateC("./build/writecpp");
 
     if (a_configuration == BuildConfiguration_Debug)
     {

@@ -12,6 +12,7 @@
 #include "Config.h"
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianLambda.h"
 #include "Logger.h"
 #include "Profiler.h"
 #include "Rendering/LibRenderDoc.h"
@@ -809,10 +810,6 @@ bool VulkanRenderEngineBackend::IsExtensionEnabled(const std::string_view& a_ext
 
 void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 {
-    // TODO: Bump DMA buffers up in priority to allow GPU->GPU memory sharing between processes instead of GPU->CPU->GPU. 
-    // RAM clock now effects even the linux build also probably want to improve locality of rendering data to allow more efficient use of the cache instead of RAM.
-    // Also investigate seeing if you can squezee some extra frames from a buffer scavenging system for GPU memory. A little bit of wasted memory for a few extra frames is probably worth it.
-    // Constant allocation is killing performance on the GPU side. 
     // TODO: Can probably better manage semaphores.
     const RenderEngine* renderEngine = GetRenderEngine();
     AppWindow* window = renderEngine->m_window;
@@ -894,65 +891,97 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
         for (uint32_t i = 0; i < buffersSize; ++i)
         {
-            vk::Semaphore curSemaphore = m_interSemaphore[m_currentFlightFrame][i];
+            const vk::Semaphore curSemaphore = ILAMBDA(
+            {
+                if (i == endBuffer)
+                {
+                    ILRETURN m_swapchain->GetEndSemaphore(m_currentFlightFrame);
+                }
+
+                ILRETURN m_interSemaphore[m_currentFlightFrame][i];
+            });
             IDEFER(lastSemaphore = curSemaphore);
 
             const VulkanCommandBuffer& buffer = commandBuffers[i];
             const vk::CommandBuffer cmdBuffer = buffer.GetCommandBuffer();
             
-            vk::PipelineStageFlags waitStages;
-            vk::Queue queue;
+            const e_VulkanCommandBufferType bufferType = buffer.GetBufferType();
 
-            switch (buffer.GetBufferType())
+            const vk::PipelineStageFlags waitStages = ILAMBDA(
             {
-            case VulkanCommandBufferType_Compute:
-            {
-                queue = m_computeQueue;
-                waitStages = vk::PipelineStageFlagBits::eComputeShader;
-
-                break;
-            }
-            case VulkanCommandBufferType_VideoDecode:
-            {
-                queue = m_videoDecodeQueue;
-                waitStages = vk::PipelineStageFlagBits::eAllCommands;
-
-                break;
-            }
-            case VulkanCommandBufferType_Graphics:
-            {
-                queue = m_graphicsQueue;
-                waitStages = vk::PipelineStageFlagBits::eAllGraphics;
-
-                break;
-            }
-            default:
-            {
-                IERROR("Invalid command buffer type");
-
-                break;
-            }
-            }
-
-            vk::Fence fence = nullptr;
-            if (i == endBuffer)
-            {
-                curSemaphore = m_swapchain->GetEndSemaphore(m_currentFlightFrame);
-
-#ifndef ICARIANNATIVE_ENABLE_DMA
-                if (isHeadless)
+                switch (bufferType)
                 {
-                    if (!m_swapchain->IsInitialized(m_imageIndex))
+                case VulkanCommandBufferType_Compute:
+                {
+                    ILRETURN vk::PipelineStageFlagBits::eComputeShader;
+                }
+                case VulkanCommandBufferType_VideoDecode:
+                {
+                    ILRETURN vk::PipelineStageFlagBits::eAllCommands;
+                }
+                case VulkanCommandBufferType_Graphics:
+                {
+                    ILRETURN vk::PipelineStageFlagBits::eAllGraphics;
+                }
+                default:
+                {
+                    IERROR("Invalid command buffer type");
+
+                    break;
+                }
+                }
+
+                ILRETURN vk::PipelineStageFlagBits::eNone;
+            });
+
+            const vk::Queue queue = ILAMBDA(
+            {
+                switch (bufferType)
+                {
+                case VulkanCommandBufferType_Compute:
+                {
+                    ILRETURN m_computeQueue;
+                }
+                case VulkanCommandBufferType_VideoDecode:
+                {
+                    ILRETURN m_videoDecodeQueue;
+                }
+                case VulkanCommandBufferType_Graphics:
+                {
+                    ILRETURN m_graphicsQueue;
+                }
+                default:
+                {
+                    IERROR("Invalid command buffer type");
+
+                    break;
+                }
+                }
+
+                ILRETURN m_graphicsQueue;
+            });
+
+            const vk::Fence fence = ILAMBDA(
+            {
+                if (i == endBuffer)
+                {
+#ifndef ICARIANNATIVE_ENABLE_DMA
+                    if (isHeadless)
                     {
-                        fence = m_swapchain->GetFence(m_currentFlightFrame);
+                        if (!m_swapchain->IsInitialized(m_imageIndex))
+                        {
+                            ILRETURN m_swapchain->GetFence(m_currentFlightFrame);
+                        }
+                    }
+                    else
+#endif  
+                    {
+                        ILRETURN m_swapchain->GetFence(m_currentFlightFrame);
                     }
                 }
-                else
-#endif
-                {
-                    fence = m_swapchain->GetFence(m_currentFlightFrame);
-                }
-            }
+
+                ILRETURN vk::Fence(nullptr);
+            });
 
             vk::SubmitInfo submitInfo = vk::SubmitInfo
             (
@@ -1253,7 +1282,7 @@ void VulkanRenderEngineBackend::PushDeletionObject(VulkanDeletionObject* a_objec
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

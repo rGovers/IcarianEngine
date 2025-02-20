@@ -374,8 +374,8 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
             "../deps/glfw/build/GLFW.lib",
             "../deps/miniz/build/miniz.lib",
-            "../deps/KTX-Software/build/ktxc.lib",
-            "../deps/KTX-Software/build/ktxcpp.lib",
+            "../deps/KTX-Software/build/c/ktxc.lib",
+            "../deps/KTX-Software/build/cpp/ktxcpp.lib",
             "../deps/Mono/Windows/lib/mono-2.0-sgen.lib",
             "../deps/Mono/Windows/lib/MonoPosixHelper.lib",
             "../deps/zlib/build/zlib.lib",
@@ -416,8 +416,8 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
             "../deps/glfw/build/libGLFW.a",
             "../deps/miniz/build/libminiz.a",
-            "../deps/KTX-Software/build/libktxc.a",
-            "../deps/KTX-Software/build/libktxcpp.a",
+            "../deps/KTX-Software/build/c/libktxc.a",
+            "../deps/KTX-Software/build/cpp/libktxcpp.a",
             "../deps/Mono/Linux/lib/libmonosgen-2.0.a",
             "../deps/zlib/build/libzlib.a",
             "../deps/assimp/build/libassimp.a",

@@ -1,5 +1,7 @@
 #define CUBE_IMPLEMENTATION
-#define CUBE_PRINT_COMMANDS
+#define CUBE_PRETTY_PRINT
+#define CUBE_PRINT_COLOUR
+// #define CUBE_PRINT_COMMANDS
 #include "CUBE/CUBE.h"
 
 #include <stdio.h>
@@ -53,6 +55,7 @@ int main(int a_argc, char** a_argv)
     CUBE_String* lines;
 
     CBBOOL ret;
+    CBBOOL rebuild;
 
     CBBOOL enableTrace;
     CBBOOL enableProfiler;
@@ -76,6 +79,7 @@ int main(int a_argc, char** a_argv)
     enableProfiler = CBFALSE;
     enableMod = CBTRUE;
     remoteMode = CBFALSE;
+    rebuild = CBFALSE;
 
     printf("IcarianEngine Build\n");
     printf("\n");
@@ -158,6 +162,10 @@ int main(int a_argc, char** a_argv)
 
                 return 1;
             }
+        }
+        else if (strncmp(a_argv[i], RebuildString, RebuildStringLen) == 0)
+        {
+            rebuild = CBTRUE;
         }
         else if (strncmp(a_argv[i], EnableTraceString, EnableTraceStringLen) == 0)
         {
@@ -275,18 +283,11 @@ int main(int a_argc, char** a_argv)
         return 1;
     }
 
-    PrintHeader("Building Dependencies");
-
-    printf("Creating Dependencies projects...\n");
-
     dependencyProjects = BuildDependencies(&dependencyProjectCount, targetPlatform, buildConfiguration);
 
-    printf("Compiling Dependencies...\n");
     for (CBUINT32 i = 0; i < dependencyProjectCount; ++i)
     {
-        printf("Compiling %s...\n", dependencyProjects[i].Project.Name.Data);
-
-        ret = CUBE_CProject_MultiCompile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, jobThreads, &lines, &lineCount);
+        ret = CUBE_CProject_MultiCompile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, jobThreads, &lines, &lineCount, rebuild);
 
         FlushLines(&lines, &lineCount);
 
@@ -297,20 +298,14 @@ int main(int a_argc, char** a_argv)
             return 1;
         }
 
-        printf("Compiled %s\n", dependencyProjects[i].Project.Name.Data);
-
         CUBE_CProject_Destroy(&dependencyProjects[i].Project);
     }
 
     free(dependencyProjects);
 
-    PrintHeader("Building IcarianCore");
-
-    printf("Creating IcarianCore project...\n");
     icarianCoreProject = BuildIcarianCoreProject(CBTRUE, targetPlatform, buildConfiguration);
 
-    printf("Compiling IcarianCore...\n");
-    ret = CUBE_CProject_MultiCompile(&icarianCoreProject, compiler, "IcarianCore", CBNULL, jobThreads, &lines, &lineCount);
+    ret = CUBE_CProject_MultiCompile(&icarianCoreProject, compiler, "IcarianCore", CBNULL, jobThreads, &lines, &lineCount, rebuild);
 
     FlushLines(&lines, &lineCount);
 
@@ -323,10 +318,6 @@ int main(int a_argc, char** a_argv)
         return 1;
     }
 
-    printf("IcarianCore Compiled!\n");
-
-    PrintHeader("Building IcarianCS");
-
     printf("Writing imports to Header files...\n");
     if (!WriteIcarianCSImportsToHeader("IcarianCS"))
     {
@@ -335,10 +326,8 @@ int main(int a_argc, char** a_argv)
         return 1;
     }
 
-    printf("Creating IcarianCS project...\n");
     icarianCSProject = BuildIcarianCSProject(CBTRUE, CBFALSE);
 
-    printf("Compiling IcarianCS...\n");
     ret = CUBE_CSProject_PreProcessCompile(&icarianCSProject, "IcarianCS", "../deps/Mono/Linux/bin/csc", compiler, CBNULL, &lines, &lineCount);
 
     FlushLines(&lines, &lineCount);
@@ -352,10 +341,6 @@ int main(int a_argc, char** a_argv)
         return 1;
     }
 
-    printf("IcarianCS Compiled!\n");
-
-    PrintHeader("Building IcarianNative");
-
     printf("Writing shaders to Header files...\n");
     if (!WriteIcarianNativeShadersToHeader("IcarianNative"))
     {
@@ -364,15 +349,11 @@ int main(int a_argc, char** a_argv)
         return 1;
     }
 
-    printf("Creating IcarianNative Dependencies projects...\n");
     dependencyProjects = BuildIcarianNativeDependencies(&dependencyProjectCount, targetPlatform, buildConfiguration);
 
-    printf("Compiling IcarianNative Dependencies...\n");
     for (CBUINT32 i = 0; i < dependencyProjectCount; ++i)
     {
-        printf("Compiling %s...\n", dependencyProjects[i].Project.Name.Data);
-
-        ret = CUBE_CProject_MultiCompile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, jobThreads, &lines, &lineCount);
+        ret = CUBE_CProject_MultiCompile(&dependencyProjects[i].Project, compiler, dependencyProjects[i].WorkingDirectory, CBNULL, jobThreads, &lines, &lineCount, rebuild);
 
         FlushLines(&lines, &lineCount);
 
@@ -383,18 +364,14 @@ int main(int a_argc, char** a_argv)
             return 1;
         }
 
-        printf("Compiled %s\n", dependencyProjects[i].Project.Name.Data);
-
         CUBE_CProject_Destroy(&dependencyProjects[i].Project);
     }
 
     free(dependencyProjects);
 
-    printf("Creating IcarianNative project...\n");
     icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration, enableTrace, enableProfiler, CBFALSE, remoteMode);
 
-    printf("Compiling IcarianNative...\n");
-    ret = CUBE_CProject_MultiCompile(&icarianNativeProject, compiler, "IcarianNative", CBNULL, jobThreads, &lines, &lineCount);
+    ret = CUBE_CProject_MultiCompile(&icarianNativeProject, compiler, "IcarianNative", CBNULL, jobThreads, &lines, &lineCount, rebuild);
 
     FlushLines(&lines, &lineCount);
 
@@ -407,15 +384,11 @@ int main(int a_argc, char** a_argv)
 
     CUBE_CProject_Destroy(&icarianNativeProject);
 
-    printf("IcarianNative Compiled!\n");
-
     if (enableMod)
     {
-        PrintHeader("Building IcarianModManager");
-
         icarianModManagerProject = BuildIcarianModManagerProject(targetPlatform, buildConfiguration);
     
-        ret = CUBE_CProject_MultiCompile(&icarianModManagerProject, compiler, "IcarianModManager", CBNULL, jobThreads, &lines, &lineCount);
+        ret = CUBE_CProject_MultiCompile(&icarianModManagerProject, compiler, "IcarianModManager", CBNULL, jobThreads, &lines, &lineCount, rebuild);
     
         FlushLines(&lines, &lineCount);
     
@@ -427,8 +400,6 @@ int main(int a_argc, char** a_argv)
         }
     
         CUBE_CProject_Destroy(&icarianModManagerProject);
-    
-        printf("IcarianModManager Compiled!\n");
     }
 
     PrintHeader("Copying Files");
@@ -477,7 +448,7 @@ int main(int a_argc, char** a_argv)
     }
     }
 
-    printf("Done!\n");
+    printf("\nDone!\n");
 
     return 0;
 }

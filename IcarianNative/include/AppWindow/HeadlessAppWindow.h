@@ -19,6 +19,7 @@
 #include "Profiler.h"
 
 class Config;
+class RingAllocator;
 
 class HeadlessAppWindow : public AppWindow
 {
@@ -56,15 +57,18 @@ private:
     char*                                          m_frameData;
 #endif
 
+    RingAllocator*                                 m_msgAllocator;
+
     uint32_t                                       m_width;
     uint32_t                                       m_height;
-
-    uint8_t                                        m_flags;
 
     std::chrono::high_resolution_clock::time_point m_prevTime;
    
     double                                         m_delta;
     double                                         m_time;
+
+    uint8_t                                        m_flags;
+    SpinLock                                       m_msgAllocatorLock;
 
     void PushMessageQueue();
 
