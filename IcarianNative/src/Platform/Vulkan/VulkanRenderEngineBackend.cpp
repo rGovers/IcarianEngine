@@ -12,6 +12,7 @@
 #include "Config.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
+#include "Core/IcarianPragma.h"
 #include "Core/StringUtils.h"
 #include "Logger.h"
 #include "Profiler.h"
@@ -31,8 +32,12 @@
 // #define VMA_DEBUG_LOG_FORMAT(format, ...) do { char buffer[4096]; sprintf(buffer, format, __VA_ARGS__); Logger::Message(buffer); } while (0)
 #endif
 
+// Not mine so not much I can do
+ICARIAN_WARNINGPUSH
+ICARIAN_WARNINGSUPPRESS("-Wunused-variable")
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
+ICARIAN_WARNINGPOP
 
 constexpr const char* ValidationLayers[] = 
 {
@@ -566,7 +571,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         if (IsDeviceSuitable(m_instance, device, extensions, window))
         {
             const uint32_t score = GetDeviceScore(device);
-            if (score < deviceScore && deviceScore != -1)
+            if (score < deviceScore && deviceScore != uint32_t(-1))
             {
                 continue;
             }
@@ -608,10 +613,6 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
 
     // Did for testing but leaving to make sure nothing weird is happening
     Logger::Message(std::string("Selected GPU: ") + props.deviceName.data());
-
-    const uint64_t id = MakeDeviceID(props.vendorID, props.deviceID);
-
-    constexpr uint32_t AMDVendorID = 0x1002;
 
     if constexpr (AMDDebuggerFix)
     {
@@ -655,7 +656,7 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
                     // Want graphics queue to be last resort
                     if (i == m_graphicsQueueIndex)
                     {
-                        if (m_presentQueueIndex == -1)
+                        if (m_presentQueueIndex == uint32_t(-1))
                         {
                             m_presentQueueIndex = i;
                         }
@@ -673,7 +674,7 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
                 // Have it wanting to use the present queue on NVIDIA cards so this is needed
                 if (i == m_presentQueueIndex)
                 {
-                    if (m_computeQueueIndex == -1)
+                    if (m_computeQueueIndex == uint32_t(-1))
                     {
                         m_computeQueueIndex = i;
                     }
@@ -687,19 +688,19 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
     }
 
     std::set<uint32_t, std::less<uint32_t>, STLRenderScratchAlloc<uint32_t>> uniqueQueueFamilies;
-    if (m_computeQueueIndex != -1)
+    if (m_computeQueueIndex != uint32_t(-1))
     {
         uniqueQueueFamilies.emplace(m_computeQueueIndex);
     }
-    if (m_videoDecodeQueueIndex != -1)
+    if (m_videoDecodeQueueIndex != uint32_t(-1))
     {
         uniqueQueueFamilies.emplace(m_videoDecodeQueueIndex);
     }
-    if (m_graphicsQueueIndex != -1)
+    if (m_graphicsQueueIndex != uint32_t(-1))
     {
         uniqueQueueFamilies.emplace(m_graphicsQueueIndex);
     }
-    if (m_presentQueueIndex != -1)
+    if (m_presentQueueIndex != uint32_t(-1))
     {
         uniqueQueueFamilies.emplace(m_presentQueueIndex);
     }
@@ -788,19 +789,19 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
 
     // By what I can tell most devices use the same queue for graphics and compute this is for correctness shold not affect much
     // Not fussed if it shares with graphics as long as it is not the present queue
-    if (m_computeQueueIndex != -1)
+    if (m_computeQueueIndex != uint32_t(-1))
     {
         m_lDevice.getQueue(m_computeQueueIndex, 0, &m_computeQueue);
     }
-    if (m_videoDecodeQueueIndex != -1)
+    if (m_videoDecodeQueueIndex != uint32_t(-1))
     {
         m_lDevice.getQueue(m_videoDecodeQueueIndex, 0, &m_videoDecodeQueue);
     }
-    if (m_graphicsQueueIndex != -1)
+    if (m_graphicsQueueIndex != uint32_t(-1))
     {
         m_lDevice.getQueue(m_graphicsQueueIndex, 0, &m_graphicsQueue);    
     }
-    if (m_presentQueueIndex != -1)
+    if (m_presentQueueIndex != uint32_t(-1))
     {
         m_lDevice.getQueue(m_presentQueueIndex, 0, &m_presentQueue);
     }
@@ -964,7 +965,6 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     LibRenderDoc::StartFrame();
     IDEFER(LibRenderDoc::EndFrame());
 
-    const bool isHeadless = window->IsHeadless();
     const bool init = m_swapchain != nullptr;
 
     vk::Semaphore lastSemaphore;
@@ -1113,7 +1113,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
                 if (i == endBuffer)
                 {
 #ifndef ICARIANNATIVE_ENABLE_DMA
-                    if (isHeadless)
+                    if (window->IsHeadless())
                     {
                         if (!m_swapchain->IsInitialized(m_imageIndex))
                         {
@@ -1255,7 +1255,7 @@ TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::CreateCommandB
         1
     );
 
-    TLockObj<vk::CommandBuffer, SpinLock>* lockObj = new TLockObj<vk::CommandBuffer, SpinLock>(&m_graphicsQueueLock); 
+    TLockObj<vk::CommandBuffer, SpinLock>* lockObj = m_blockAllocator->Create<TLockObj<vk::CommandBuffer, SpinLock>>(&m_graphicsQueueLock); 
 
     vk::CommandBuffer cmdBuffer;
     VKRESERRMSG(m_lDevice.allocateCommandBuffers(&allocInfo, &cmdBuffer), "Failed to Allocate Command Buffer");
@@ -1266,7 +1266,7 @@ TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::CreateCommandB
 }
 void VulkanRenderEngineBackend::DestroyCommandBuffer(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer, e_CommandIndex a_index)
 {
-    IDEFER(delete a_buffer);
+    IDEFER(m_blockAllocator->Destroy(a_buffer));
     IVERIFY(a_index < CommandIndex_Last);
 
     const vk::CommandBuffer buffer = a_buffer->Get();

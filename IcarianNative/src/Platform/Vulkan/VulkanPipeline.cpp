@@ -77,7 +77,7 @@ static Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> GetStageInfo
 {
     Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> stages;
 
-    if (a_program.VertexShader != -1)
+    if (a_program.VertexShader != uint32_t(-1))
     {
         switch (a_program.MaterialMode) 
         {
@@ -109,7 +109,7 @@ static Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> GetStageInfo
                 "main"
             ));
 
-            if (a_program.ExtraShader != -1)
+            if (a_program.ExtraShader != uint32_t(-1))
             {
                 const VulkanTaskShader* taskShader = a_gEngine->GetTaskShader(a_program.ExtraShader);
                 IVERIFY(taskShader != nullptr);
@@ -134,7 +134,7 @@ static Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> GetStageInfo
         }
     }
 
-    if (a_program.PixelShader != -1)
+    if (a_program.PixelShader != uint32_t(-1))
     {
         const VulkanShader* pixelShader = a_gEngine->GetPixelShader(a_program.PixelShader);
         IVERIFY(pixelShader != nullptr);
@@ -352,6 +352,12 @@ void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) c
     case VulkanPipelineType_Shadow:
     {
         data->BindShadow(a_index, a_commandBuffer);
+
+        break;
+    }
+    default:
+    {
+        IERROR("Invalid bind type");
 
         break;
     }
@@ -573,7 +579,7 @@ void VulkanPipeline::CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGra
     const vk::Device device = a_builder.Engine->GetLogicalDevice();
     const RenderProgram program = a_builder.GraphicsEngine->GetRenderProgram(a_builder.ProgramAddr);
     IVERIFY(program.Data != nullptr);
-    IVERIFY(program.ShadowVertexShader != -1);
+    IVERIFY(program.ShadowVertexShader != uint32_t(-1));
 
     const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
 
@@ -722,7 +728,7 @@ void VulkanPipeline::CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGra
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

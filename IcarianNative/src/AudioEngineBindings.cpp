@@ -125,8 +125,8 @@ uint32_t AudioEngineBindings::GetAudioClipChannelCount(uint32_t a_addr) const
 
 uint32_t AudioEngineBindings::GenerateAudioSource(uint32_t a_transformAddr, uint32_t a_clipAddr) const
 {
-    IVERIFY(a_transformAddr != -1);
-    IVERIFY(a_clipAddr != -1);
+    IVERIFY(a_transformAddr != uint32_t(-1));
+    IVERIFY(a_clipAddr != uint32_t(-1));
 
     TRACE("Creating AudioSource");
     const AudioSourceBuffer buffer 
@@ -147,7 +147,7 @@ void AudioEngineBindings::DestroyAudioSource(uint32_t a_addr) const
     AudioSourceBuffer buffer = m_engine->m_audioSources[a_addr];
     IDEFER(
     {
-        if (buffer.AudioStream != -1)
+        if (buffer.AudioStream != uint32_t(-1))
         {
             IDEFER(buffer.AudioStream = -1);
 
@@ -259,7 +259,7 @@ void AudioEngineBindings::DestroyAudioListener(uint32_t a_addr) const
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

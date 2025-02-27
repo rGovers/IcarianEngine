@@ -61,7 +61,7 @@ void RenderAssetStore::Update()
             }
 
             RenderAsset& asset = a[i];
-            if (asset.InternalAddress == -1)
+            if (asset.InternalAddress == uint32_t(-1))
             {
                 continue;
             }
@@ -97,7 +97,7 @@ void RenderAssetStore::Update()
             }
 
             RenderAsset& asset = a[i];
-            if (asset.InternalAddress == -1)
+            if (asset.InternalAddress == uint32_t(-1))
             {
                 continue;
             }
@@ -135,13 +135,13 @@ void RenderAssetStore::Flush()
             }
 
             RenderAsset& asset = a[i];
-            if (asset.InternalAddress == -1)
+            if (asset.InternalAddress == uint32_t(-1))
             {
                 continue;
             }
 
             m_renderEngine->DestroyModel(asset.InternalAddress);
-            asset.InternalAddress = -1;;
+            asset.InternalAddress = -1;
         }
     }
     
@@ -158,7 +158,7 @@ void RenderAssetStore::Flush()
             }
 
             RenderAsset& asset = a[i];
-            if (asset.InternalAddress == -1)
+            if (asset.InternalAddress == uint32_t(-1))
             {
                 continue;
             }
@@ -438,15 +438,13 @@ static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_dat
         std::unordered_map<std::string, int> boneMap;
 
         const aiSkeleton* skeleton = scene->mSkeletons[0];
-        for (int i = 0; i < skeleton->mNumBones; ++i)
+        for (unsigned int i = 0; i < skeleton->mNumBones; ++i)
         {
             const aiSkeletonBone* bone = skeleton->mBones[i];
             const std::string name = bone->mNode->mName.C_Str();
 
             boneMap.emplace(name, i);
         }
-
-        const aiNode* root = scene->mRootNode;
 
         Array<SkinnedVertex> vertices;
         Array<uint32_t> indices;
@@ -504,7 +502,7 @@ void RenderAssetStore::DestroyModel(uint32_t a_addr)
 
     const RenderAsset asset = m_models[a_addr];
     IDEFER(
-    if (asset.InternalAddress != -1)
+    if (asset.InternalAddress != uint32_t(-1))
     {
         m_renderEngine->DestroyModel(asset.InternalAddress);
     });
@@ -520,7 +518,7 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
     TLockArray<RenderAsset> a = m_models.ToLockArray();
 
     RenderAsset& asset = a[a_addr];
-    if (asset.InternalAddress == -1)
+    if (asset.InternalAddress == uint32_t(-1))
     {
         const std::filesystem::path path = asset.Path;
 
@@ -559,7 +557,7 @@ void RenderAssetStore::DestroyTexture(uint32_t a_addr)
 
     const RenderAsset asset = m_textures[a_addr];
     IDEFER(
-    if (asset.InternalAddress != -1)
+    if (asset.InternalAddress != uint32_t(-1))
     {
         m_renderEngine->DestroyTexture(asset.InternalAddress);
     });
@@ -649,7 +647,7 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
     TLockArray<RenderAsset> a = m_textures.ToLockArray();
 
     RenderAsset& asset = a[a_addr];
-    if (asset.InternalAddress == -1)
+    if (asset.InternalAddress == uint32_t(-1))
     {
         const std::filesystem::path path = asset.Path;
         const std::filesystem::path ext = path.extension();
@@ -779,7 +777,7 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

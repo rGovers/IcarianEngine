@@ -254,7 +254,7 @@ static void AddEdge(uint32_t a_lhs, uint32_t a_rhs, std::unordered_map<uint64_t,
 
 static uint32_t AddSideVertex(uint32_t a_index, uint32_t a_offset, Array<Vertex>* a_vertices, uint32_t* a_indexMap)
 {
-    if (a_indexMap[a_index] != -1)
+    if (a_indexMap[a_index] != uint32_t(-1))
     {
         return a_indexMap[a_index];
     }
@@ -493,7 +493,7 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
                         }
 
                         const uint32_t triTableOffset = bitSet * 12;
-                        for (uint32_t i = 0; i < 12 && TriTable[triTableOffset + i] != -1; i += 3)
+                        for (uint32_t i = 0; i < 12 && TriTable[triTableOffset + i] != uint32_t(-1); i += 3)
                         {
                             model.Vertices.Push(vertTable[TriTable[triTableOffset + i + 0]]);
                             model.Vertices.Push(vertTable[TriTable[triTableOffset + i + 1]]);
@@ -661,7 +661,7 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -68,6 +68,8 @@ protected:
     }
 
 public:
+    virtual ~Allocator() { }
+
     constexpr static uint32_t BaseAlignment = sizeof(void*);
 
     // C++ spec has this as undefined behaviour to my knowledge so alignment is necessary
@@ -117,7 +119,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

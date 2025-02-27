@@ -139,7 +139,6 @@ VulkanDepthCubeRenderTexture::VulkanDepthCubeRenderTexture(VulkanRenderEngineBac
     m_width = a_width;
     m_height = a_height;
 
-    const VmaAllocator allocator = m_engine->GetAllocator();
     const vk::Device device = m_engine->GetLogicalDevice();
     const vk::PhysicalDevice physicalDevice = m_engine->GetPhysicalDevice();
 
@@ -385,7 +384,7 @@ void VulkanDepthCubeRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

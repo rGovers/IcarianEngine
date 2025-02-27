@@ -382,9 +382,9 @@ static void PushVulkanShaderBufferInput(Array<VulkanShaderInput, RenderScratchAl
 
 VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const RenderProgram& a_program, Allocator* a_allocator)
 {
-    TRACE("Creating Shader Data");
     RENDERSCRATCHFRAME;
-
+    
+    TRACE("Creating Shader Data");
     m_allocator = a_allocator;
 
     m_engine = a_engine;
@@ -401,7 +401,7 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
 
     Array<VulkanShaderInput, RenderScratchAlloc> vulkanInputs;
 
-    if (a_program.VertexShader != -1)
+    if (a_program.VertexShader != uint32_t(-1))
     {
         switch (a_program.MaterialMode) 
         {
@@ -433,7 +433,7 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
                 PushVulkanShaderBufferInput(&vulkanInputs, input, vk::ShaderStageFlagBits::eMeshEXT);
             }
 
-            if (a_program.ExtraShader != -1)
+            if (a_program.ExtraShader != uint32_t(-1))
             {
                 const VulkanTaskShader* taskShader = m_gEngine->GetTaskShader(a_program.ExtraShader);
                 IVERIFY(taskShader != nullptr);
@@ -452,7 +452,7 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
         }
     }
 
-    if (a_program.PixelShader != -1)
+    if (a_program.PixelShader != uint32_t(-1))
     {
         const VulkanPixelShader* pixelShader = m_gEngine->GetPixelShader(a_program.PixelShader);
         IVERIFY(pixelShader != nullptr);
@@ -498,7 +498,7 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
     TRACE("Creating Pipeline Layout");
     VKRESERRMSG(device.createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_layout), "Failed to create PipelineLayout");
 
-    if (a_program.ShadowVertexShader != -1)
+    if (a_program.ShadowVertexShader != uint32_t(-1))
     {
         const VulkanVertexShader* vertexShader = m_gEngine->GetVertexShader(a_program.ShadowVertexShader);
 
@@ -688,6 +688,8 @@ void VulkanShaderData::PushTexture(vk::CommandBuffer a_commandBuffer, uint32_t a
 }
 void VulkanShaderData::PushTextures(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const TextureSamplerBuffer* a_samplers, uint32_t a_count, uint32_t a_index) const
 {
+    RENDERSCRATCHFRAME;
+
     const vk::Device device = m_engine->GetLogicalDevice();
 
     for (const VulkanPushDescriptor& d : m_pushDescriptors)
@@ -703,8 +705,7 @@ void VulkanShaderData::PushTextures(vk::CommandBuffer a_commandBuffer, uint32_t 
 
             const uint32_t min = glm::min(size, a_count);
 
-            vk::DescriptorImageInfo* imageInfos = new vk::DescriptorImageInfo[min];
-            IDEFER(delete[] imageInfos);
+            vk::DescriptorImageInfo* imageInfos = RenderScratchAlloc::TAllocate<vk::DescriptorImageInfo>(min);
             
             for (uint32_t i = 0; i < min; ++i)
             {
@@ -1132,7 +1133,7 @@ bool VulkanShaderData::GetShadowShaderBufferInput(e_ShaderBufferType a_bufferTyp
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

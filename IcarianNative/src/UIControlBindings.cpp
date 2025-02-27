@@ -87,7 +87,7 @@ void UIControlBindings::AddCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr
                     return;
                 }
 
-                if (buffer.ChildElements[i] == -1)
+                if (buffer.ChildElements[i] == uint32_t(-1))
                 {
                     buffer.ChildElements[i] = a_uiElementAddr;
 
@@ -421,7 +421,7 @@ void UIControlBindings::SetImageElementSampler(uint32_t a_addr, uint32_t a_sampl
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

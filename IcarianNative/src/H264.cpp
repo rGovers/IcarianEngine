@@ -19,6 +19,7 @@ namespace H264
         IVERIFY(a_bitstream != nullptr);
 
         const uint32_t fBit = a_bitstream->u1();
+        (void)fBit;
         IVERIFY(fBit == 0);
 
         const NALHeader header =
@@ -531,22 +532,6 @@ namespace H264
         return pps;
     }
 
-    static bool IsSliceType(e_SliceHeaderType a_lhs, e_SliceHeaderType a_rhs)
-    {
-        uint32_t lVal = a_lhs;
-        uint32_t rVal = a_rhs;
-        if (lVal >= 5) 
-        {
-            lVal -= 5;
-        }
-        if (rVal >= 5)
-        {
-            rVal -= 5;
-        }
-
-        return lVal == rVal;
-    }
-
     static SliceReorder ReadSliceReorder(BitStream* a_bitstream)
     {
         SliceReorder reorder = { 0 };
@@ -910,7 +895,7 @@ namespace H264
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

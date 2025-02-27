@@ -69,6 +69,8 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
     );
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
+    CUBE_CProject_AppendCFlag(&project, "-Wall");
+    CUBE_CProject_AppendCFlag(&project, "-Werror");
 
     switch (a_configuration)
     {

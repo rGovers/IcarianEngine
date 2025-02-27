@@ -167,7 +167,7 @@ public:
         {
             DestroyData();
 
-            memset(m_data, 0, m_capacity * sizeof(T));
+            memset((void*)m_data, 0, m_capacity * sizeof(T));
         }
 
         m_size = 0;
@@ -244,11 +244,11 @@ public:
             const uint32_t diff = a_size - m_capacity;
 
             T* newData = (T*)Alloc::Allocate(sizeof(T) * a_size, alignof(T));
-            memcpy(newData, m_data, m_capacity * sizeof(T));
+            memcpy((void*)newData, m_data, m_capacity * sizeof(T));
             Alloc::Free(m_data);
             m_data = newData;
 
-            memset(m_data + m_capacity, 0, diff * sizeof(T));
+            memset((void*)(m_data + m_capacity), 0, diff * sizeof(T));
         }
     }
 
@@ -277,7 +277,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -83,7 +83,7 @@ float UIElement::GetXPosition(const CanvasBuffer& a_canvas, const glm::vec2& a_s
         const float halfSize = GetXSize(a_canvas, a_screenSize) * 0.5f;
         const float finalPos = scaledPos - halfSize;
 
-        if (m_parent != -1)
+        if (m_parent != uint32_t(-1))
         {
             const UIElement* parent = UIControl::GetUIElement(m_parent);
 
@@ -98,7 +98,7 @@ float UIElement::GetXPosition(const CanvasBuffer& a_canvas, const glm::vec2& a_s
         const float size = GetXSize(a_canvas, a_screenSize);
         const float finalPos = scaledPos - size;
 
-        if (m_parent != -1)
+        if (m_parent != uint32_t(-1))
         {
             const UIElement* parent = UIControl::GetUIElement(m_parent);
 
@@ -130,7 +130,7 @@ float UIElement::GetYPosition(const CanvasBuffer& a_canvas, const glm::vec2& a_s
         const float halfSize = GetYSize(a_canvas, a_screenSize);
         const float finalPos = scaledPos - halfSize;
 
-        if (m_parent != -1)
+        if (m_parent != uint32_t(-1))
         {
             const UIElement* parent = UIControl::GetUIElement(m_parent);
 
@@ -145,7 +145,7 @@ float UIElement::GetYPosition(const CanvasBuffer& a_canvas, const glm::vec2& a_s
         const float size = GetYSize(a_canvas, a_screenSize);
         const float finalPos = scaledPos - size;
 
-        if (m_parent != -1)
+        if (m_parent != uint32_t(-1))
         {
             const UIElement* parent = UIControl::GetUIElement(m_parent);
 
@@ -217,7 +217,7 @@ glm::vec2 UIElement::GetCanvasPosition(const CanvasBuffer& a_canvas, const glm::
         GetYPosition(a_canvas, a_screenSize)
     );
 
-    if (m_parent != -1)
+    if (m_parent != uint32_t(-1))
     {
         const UIElement* parent = UIControl::GetUIElement(m_parent);
         const glm::vec2 parentPos = parent->GetCanvasPosition(a_canvas, a_screenSize);
@@ -243,7 +243,7 @@ void UIElement::Update(RenderEngine* a_renderEngine)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

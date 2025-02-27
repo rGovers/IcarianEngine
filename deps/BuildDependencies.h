@@ -844,7 +844,7 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
         "./contrib/unzip",
         "./contrib/utf8cpp/source",
 
-	"../zlib",
+	    "../zlib",
         "../gen/assimp"
     );
 
@@ -968,16 +968,26 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
-        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
-        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
+
+        if (a_targetPlatform != TargetPlatform_LinuxSteam)
+        {
+            CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+            CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
+        }
+
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
-        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
-        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
+
+        // TODO: That is weird may need to investigate further as linking fails for the Steam container build if LTO is enabled
+        if (a_targetPlatform != TargetPlatform_LinuxSteam)
+        {
+            CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+            CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
+        }
 
         break;
     }

@@ -210,7 +210,7 @@ DesDisconnectEnd:;
                             break;
                         }
 
-                        memcpy(&msg, packet->data, PipeMessage::Size);
+                        memcpy((char*)&msg, packet->data, PipeMessage::Size);
 
                         a_pipe->m_writeQueue.emplace(msg);
 

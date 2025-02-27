@@ -199,7 +199,6 @@ ma_result AudioEngine::DataSourceRead(ma_data_source* a_dataSource, void* a_fram
     TLockArray<AudioClip*> clips = m_audioClips.ToLockArray();
     AudioClip* clip = clips[buffer.AudioClipAddr];
 
-    const uint64_t size = clip->GetSampleSize();
     const uint32_t formatSize = GetFormatSize(clip->GetAudioFormat());
     const uint32_t channelCount = clip->GetChannelCount();
     const uint32_t stride = formatSize * channelCount;
@@ -541,7 +540,7 @@ void AudioEngine::Update()
         {
             const AudioListenerBuffer& buffer = a[i];
 
-            IVERIFY(buffer.TransformAddr != -1);
+            IVERIFY(buffer.TransformAddr != uint32_t(-1));
 
             const glm::mat4 mat = ObjectManager::GetGlobalMatrix(buffer.TransformAddr);
 
@@ -582,11 +581,11 @@ void AudioEngine::Update()
                 ICLEARBIT(buffer.Flags, AudioSourceBuffer::PlayBitOffset);
                 buffer.SampleOffset = 0;
 
-                IVERIFY(buffer.AudioClipAddr != -1);
+                IVERIFY(buffer.AudioClipAddr != uint32_t(-1));
 
                 const AudioClip* clip = clips[buffer.AudioClipAddr];
 
-                if (buffer.AudioStream != -1)
+                if (buffer.AudioStream != uint32_t(-1))
                 {
                     IDEFER(buffer.AudioStream = -1);
 
@@ -674,7 +673,7 @@ void AudioEngine::Update()
             }
 
             float gain = 1.0f;
-            if (buffer.AudioMixerAddr != -1)
+            if (buffer.AudioMixerAddr != uint32_t(-1))
             {
                 IVERIFY(m_audioMixers.Exists(buffer.AudioMixerAddr));
 

@@ -89,7 +89,7 @@ Array<glm::vec3> NavigationBindings::GetNavigationPath(const glm::vec3& a_startP
         const uint32_t startIndex = mesh->GetIndex(a_startPoint);
         const uint32_t endIndex = mesh->GetIndex(a_endPoint);
 
-        if (startIndex != -1 && endIndex != -1)
+        if (startIndex != uint32_t(-1) && endIndex != uint32_t(-1))
         {
             return mesh->GeneratePath(a_startPoint, a_endPoint, startIndex, endIndex, a_agentRadius);
         }
@@ -100,7 +100,7 @@ Array<glm::vec3> NavigationBindings::GetNavigationPath(const glm::vec3& a_startP
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

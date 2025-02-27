@@ -29,7 +29,7 @@ public:
         m_slider = m_memory;
         m_end = (void*)((char*)m_memory + a_size);
     }
-    ~RingAllocator()
+    virtual ~RingAllocator()
     {
         UnmapMemory(m_memory, GetSize());
     }

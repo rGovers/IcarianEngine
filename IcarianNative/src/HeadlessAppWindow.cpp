@@ -24,7 +24,7 @@
 #include "Rendering/UI/UIControl.h"
 #include "Trace.h"
 
-static std::string GetAddr(const std::string_view& a_addr)
+[[maybe_unused]] static std::string GetAddr(const std::string_view& a_addr)
 {
     return (std::filesystem::temp_directory_path() / a_addr).string();
 }

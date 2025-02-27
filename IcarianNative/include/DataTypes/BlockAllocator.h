@@ -292,7 +292,7 @@ public:
         m_blockSize = a_blockSize;
         m_block = AllocateBlock();
     }
-    ~BlockAllocator()
+    virtual ~BlockAllocator()
     {
         BlockHeader* block = m_block;
         while (block != NULL)

@@ -149,7 +149,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "../deps/gen/assimp",
         "../deps/glfw/include",
         "../deps/flare-glm",
-        "../deps/flare-stb",
+        "../deps/stb",
         "../deps/KTX-Software/include",
         "../deps/flare-tinyxml2",
 	    "../deps/Vulkan-Headers/include",
@@ -281,6 +281,9 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     }
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
+
+    CUBE_CProject_AppendCFlag(&project, "-Wall");
+    CUBE_CProject_AppendCFlag(&project, "-Werror");
 
     switch (a_configuration)
     {

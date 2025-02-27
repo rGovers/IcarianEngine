@@ -72,8 +72,8 @@ void VulkanDecalShader::CreateFromFShader(VulkanDecalShader* a_out, const Vulkan
         }
     }
 
-    IVERIFY(camSlot != -1);
-    IVERIFY(modelSlot != -1);
+    IVERIFY(camSlot != uint32_t(-1));
+    IVERIFY(modelSlot != uint32_t(-1));
 
     inputs.clear();
     const std::string vertexStr = IcarianCore::CreateDecalVertexShader(&inputs, IcarianCore::ShaderPlatform_Vulkan, camSlot, modelSlot, &error);
@@ -95,7 +95,7 @@ void VulkanDecalShader::CreateFromFShader(VulkanDecalShader* a_out, const Vulkan
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -28,7 +28,7 @@ public:
         m_stackSlider = m_memory;
 
     }
-    ~StackAllocator()
+    virtual ~StackAllocator()
     {
         UnmapMemory(m_memory, GetSize());
     }
@@ -48,8 +48,8 @@ public:
 
     void PushStackPointer()
     {
-        const uintptr_t oldStackSlider = (uintptr_t)m_stackSlider;
-
+        [[maybe_unused]] const uintptr_t oldStackSlider = (uintptr_t)m_stackSlider;
+        
         uintptr_t* oldPtr = TAllocate<uintptr_t>();
         *oldPtr = (uintptr_t)m_stackPointer;
 

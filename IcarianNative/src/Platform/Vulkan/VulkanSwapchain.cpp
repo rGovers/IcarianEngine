@@ -54,27 +54,11 @@ void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height)
 
     const vk::PresentModeKHR presentMode = ILAMBDA(
     {
-        uint32_t presentModeCount;
-        if (pDevice.getSurfacePresentModesKHR(surface, &presentModeCount, nullptr) != vk::Result::eSuccess)
-        {
-            Logger::Warning("Failed to get present mode count falling back to FIFO");
-
-            ILRETURN vk::PresentModeKHR::eFifo;
-        }
-
-        vk::PresentModeKHR* modes = RenderScratchAlloc::TAllocate<vk::PresentModeKHR>(presentModeCount);
-        if (pDevice.getSurfacePresentModesKHR(surface, &presentModeCount, modes) != vk::Result::eSuccess)
-        {
-            Logger::Warning("Failed to get present modes falling back to FIFO");
-
-            ILRETURN vk::PresentModeKHR::eFifo;
-        }
-
         if (m_vSync)
         {
-            for (uint32_t i = 0; i < presentModeCount; ++i)
+            for (const vk::PresentModeKHR& p : info.PresentModes)
             {
-                if (modes[i] == vk::PresentModeKHR::eMailbox)
+                if (p == vk::PresentModeKHR::eMailbox)
                 {
                     ILRETURN vk::PresentModeKHR::eMailbox;
                 }
@@ -82,9 +66,9 @@ void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height)
         }
         else
         {
-            for (uint32_t i = 0; i < presentModeCount; ++i)
+            for (const vk::PresentModeKHR& p : info.PresentModes)
             {
-                if (modes[i] == vk::PresentModeKHR::eImmediate)
+                if (p == vk::PresentModeKHR::eImmediate)
                 {
                     ILRETURN vk::PresentModeKHR::eImmediate;
                 }
@@ -246,7 +230,7 @@ void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height)
         VulkanSwapchainImage swapImage = { };
 
         VkImage image;
-        VmaAllocationInfo info;
+        [[maybe_unused]] VmaAllocationInfo info;
         VKRESERRMSG(vmaCreateImage
         (
             allocator, 
@@ -433,10 +417,10 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
     const bool headless = a_window->IsHeadless() || ForceHeadless;
 
 #ifdef WIN32
-    constexpr vk::ExportSemaphoreCreateInfo SemaphoreExportInfo = vk::ExportSemaphoreCreateInfo
-    (
-        vk::ExternalSemaphoreHandleTypeFlagBits::eOpaqueWin32
-    );
+    // constexpr vk::ExportSemaphoreCreateInfo SemaphoreExportInfo = vk::ExportSemaphoreCreateInfo
+    // (
+    //     vk::ExternalSemaphoreHandleTypeFlagBits::eOpaqueWin32
+    // );
 #else
     constexpr vk::ExportSemaphoreCreateInfo SemaphoreExportInfo = vk::ExportSemaphoreCreateInfo
     (
@@ -743,8 +727,7 @@ SwapChainSupportInfo VulkanSwapchain::QuerySwapChainSupport(const vk::PhysicalDe
     VKRESERR(a_device.getSurfaceFormatsKHR(a_surface, &formatCount, nullptr));
     if (formatCount > 0)
     {
-        vk::SurfaceFormatKHR* formats = new vk::SurfaceFormatKHR[formatCount];
-        IDEFER(delete[] formats);
+        vk::SurfaceFormatKHR* formats = RenderScratchAlloc::TAllocate<vk::SurfaceFormatKHR>(formatCount);
 
         VKRESERR(a_device.getSurfaceFormatsKHR(a_surface, &formatCount, formats));
 
@@ -755,8 +738,7 @@ SwapChainSupportInfo VulkanSwapchain::QuerySwapChainSupport(const vk::PhysicalDe
     VKRESERR(a_device.getSurfacePresentModesKHR(a_surface, &presentModeCount, nullptr));
     if (presentModeCount > 0)
     {
-        vk::PresentModeKHR* modes = new vk::PresentModeKHR[presentModeCount];
-        IDEFER(delete[] modes);
+        vk::PresentModeKHR* modes = RenderScratchAlloc::TAllocate<vk::PresentModeKHR>();
 
         VKRESERR(a_device.getSurfacePresentModesKHR(a_surface, &presentModeCount, modes));
 
@@ -787,7 +769,9 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaph
 {
     *a_semaphore = nullptr;
 
+#ifndef ICARIANNATIVE_ENABLE_DMA
     const VmaAllocator allocator = m_engine->GetAllocator();
+#endif
     const vk::Device device = m_engine->GetLogicalDevice();
     const uint32_t flightFrame = m_engine->GetCurrentFlightFrame();
     const uint32_t winWidth = m_window->GetWidth();
@@ -916,9 +900,6 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaph
 }
 void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
 {
-    const vk::Device device = m_engine->GetLogicalDevice();
-    const vk::Queue presentQueue = m_engine->GetPresentQueue();
-    const vk::Queue graphicsQueue = m_engine->GetGraphicsQueue();
     const uint32_t flightFrame = m_engine->GetCurrentFlightFrame();
 
     const bool headless = m_window->IsHeadless() || ForceHeadless;
@@ -929,6 +910,8 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
 
         window->DMASwap();
 #else
+        const vk::Queue graphicsQueue = m_engine->GetGraphicsQueue();
+
         if (!IISBITSET(m_init, a_imageIndex))
         {
             ISETBIT(m_init, a_imageIndex);
@@ -986,6 +969,8 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
     }
     else
     {
+        const vk::Queue presentQueue = m_engine->GetPresentQueue();
+
         const vk::SwapchainKHR swapChains[] = { m_swapchain };
 
         const vk::PresentInfoKHR presentInfo = vk::PresentInfoKHR

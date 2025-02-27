@@ -17,10 +17,15 @@
 
 static int ReadCallback(int64_t a_offset, void* a_buffer, size_t a_size, void* a_token)
 {
+    if (a_offset < 0)
+    {
+        return -1;
+    }
+
     FileHandle* handle = (FileHandle*)a_token;
 
     const uint64_t fileOffset = handle->GetOffset();
-    if (a_offset != fileOffset)
+    if ((uint64_t)a_offset != fileOffset)
     {
         handle->Ignore(a_offset - fileOffset);
     }
@@ -113,7 +118,7 @@ bool VideoClip::GetVideoClipData(uint32_t a_startIndex, uint32_t a_endIndex, uin
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

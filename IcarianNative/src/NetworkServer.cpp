@@ -43,7 +43,7 @@ NetworkServer::~NetworkServer()
 {
     for (uint32_t i = 0; i < m_maxClients; ++i)
     {
-        if (m_peers[i].Addr != -1)
+        if (m_peers[i].Addr != uint32_t(-1))
         {
             m_manager->DestroyNetworkClient(m_peers[i].Addr);
         }
@@ -97,7 +97,7 @@ void NetworkServer::Update()
         {
             for (uint32_t i = 0; i < m_maxClients; ++i)
             {
-                if (m_peers[i].Addr == -1)
+                if (m_peers[i].Addr == uint32_t(-1))
                 {
                     const uint32_t addr = m_manager->CreateNetworkClientConnection(m_addr, event);
 
@@ -146,6 +146,10 @@ void NetworkServer::Update()
 
             break;
         }
+        default:
+        {
+            break;
+        }
         }
 
         ret = enet_host_service(m_host, &event, 0);
@@ -176,7 +180,7 @@ void NetworkServer::Update()
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -30,8 +30,6 @@ void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer)
     const std::string pShaderStr = VulkanParticleShaderGenerator::GeneratePixelShader(a_buffer, &slot, &m_inputs);
     const uint32_t pixelShader = m_gEngine->GenerateFPixelShader(pShaderStr);
 
-    const uint32_t inputCount = m_inputs.Size();
-
     const RenderProgram program = 
     {
         .VertexShader = meshShader,
@@ -47,7 +45,7 @@ void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer)
 }
 void VulkanGraphicsParticle2D::Destroy()
 {
-    if (m_renderProgramAddr != -1)
+    if (m_renderProgramAddr != uint32_t(-1))
     {
         m_gEngine->DestroyRenderProgram(m_renderProgramAddr);
 
@@ -97,7 +95,7 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
         m_cEngine->SetParticleBuffer(m_computeBufferAddr, buffer);
     }
 
-    const bool valid = m_renderProgramAddr != -1;
+    const bool valid = m_renderProgramAddr != uint32_t(-1);
     if (!valid)
     {
         Build(buffer);
@@ -163,7 +161,7 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

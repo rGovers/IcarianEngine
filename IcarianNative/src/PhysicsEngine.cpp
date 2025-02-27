@@ -38,7 +38,7 @@ static void TraceImpl(const char* inFMT, ...)
     TRACE(buffer);
 }
 
-static bool AssertImpl(const char* a_expression, const char* a_message, const char* a_file, JPH::uint a_line)
+[[maybe_unused]] static bool AssertImpl(const char* a_expression, const char* a_message, const char* a_file, JPH::uint a_line)
 {
     std::stringstream ss;
 
@@ -162,7 +162,7 @@ static void TransformObject(uint32_t a_transformAddr, const glm::vec3& a_transla
     glm::vec3 iTranslation = glm::vec3(0.0f);
     glm::quat iRotation = glm::identity<glm::quat>();
 
-    if (buffer.ParentAddr != -1)
+    if (buffer.ParentAddr != uint32_t(-1))
     {
         glm::vec3 s;
         glm::vec3 sk;
@@ -278,7 +278,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
 
                 const BodyBinding binding = m_bodyBindings[iter->second];
 
-                const bool valid = binding.TransformAddr != -1;
+                const bool valid = binding.TransformAddr != uint32_t(-1);
                 if (!valid)
                 {
                     continue;
@@ -316,7 +316,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

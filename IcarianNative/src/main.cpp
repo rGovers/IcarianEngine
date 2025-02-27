@@ -15,6 +15,7 @@
 #include "Config.h"
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianPragma.h"
 #include "Core/StringUtils.h"
 
 #define STBI_ASSERT(x) ICARIAN_ASSERT_MSG(x, "STBI Assert")
@@ -30,8 +31,14 @@
 #include <stb_truetype.h>
 #include <stb_vorbis.c>
 
+// Not mine so not much I can do about it
+ICARIAN_WARNINGPUSH
+ICARIAN_WARNINGSUPPRESS("-Wsign-compare")
+ICARIAN_WARNINGSUPPRESS("-Wunused-variable")
+ICARIAN_WARNINGSUPPRESS("-Wunused-function")
 #define MINIMP4_IMPLEMENTATION
 #include <minimp4.h>
+ICARIAN_WARNINGPOP
 
 #define MINIAUDIO_IMPLEMENTATION
 #include "Audio/IcarianMiniaudio.h"

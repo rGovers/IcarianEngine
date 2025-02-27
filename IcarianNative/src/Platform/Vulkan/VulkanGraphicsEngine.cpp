@@ -102,7 +102,7 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     };
 
     const uint32_t decodeIndex = m_vulkanEngine->GetVideoDecodeIndex();
-    if (decodeIndex != -1)
+    if (decodeIndex != uint32_t(-1))
     {
         TRACE("Allocating video decode command pools");
         const vk::CommandPoolCreateInfo poolInfo = vk::CommandPoolCreateInfo
@@ -261,7 +261,7 @@ void VulkanGraphicsEngine::Cleanup()
     }
 
     const uint32_t decodeIndex = m_vulkanEngine->GetVideoDecodeIndex();
-    if (decodeIndex != -1)
+    if (decodeIndex != uint32_t(-1))
     {
         for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
         {
@@ -285,7 +285,8 @@ void VulkanGraphicsEngine::Cleanup()
         {
             Logger::Warning("Particle emitter was not destroyed");
 
-            delete m_particleEmitters[i];
+            allocator->Destroy(m_particleEmitters[i]);
+            m_particleEmitters[i] = nullptr;
         }
     }
 
@@ -296,7 +297,7 @@ void VulkanGraphicsEngine::Cleanup()
         {
             Logger::Warning("Model was not destroyed");
 
-            delete m_models[i];
+            allocator->Destroy(m_models[i]);
             m_models[i] = nullptr;
         }
     }
@@ -304,7 +305,7 @@ void VulkanGraphicsEngine::Cleanup()
     TRACE("Checking camera buffer health");
     for (uint32_t i = 0; i < m_cameraBuffers.Size(); ++i)
     {
-        if (m_cameraBuffers[i].TransformAddr != -1)
+        if (m_cameraBuffers[i].TransformAddr != uint32_t(-1))
         {
             Logger::Warning("Camera was not destroyed");
         }
@@ -316,6 +317,9 @@ void VulkanGraphicsEngine::Cleanup()
         if (m_renderTextures.Exists(i))
         {
             Logger::Warning("Render Texture was not destroyed");
+
+            allocator->Destroy(m_renderTextures[i]);
+            m_renderTextures[i] = nullptr;
         }
     }
     for (uint32_t i = 0; i < m_depthCubeRenderTextures.Size(); ++i)
@@ -323,6 +327,9 @@ void VulkanGraphicsEngine::Cleanup()
         if (m_depthCubeRenderTextures.Exists(i))
         {
             Logger::Warning("Depth Cube Render Texture was not destroyed");
+            
+            allocator->Destroy(m_depthCubeRenderTextures[i]);
+            m_depthCubeRenderTextures[i] = nullptr;
         }
     }
     for (uint32_t i = 0; i < m_depthRenderTextures.Size(); ++i)
@@ -330,6 +337,9 @@ void VulkanGraphicsEngine::Cleanup()
         if (m_depthRenderTextures.Exists(i))
         {
             Logger::Warning("Depth Render Texture was not destroyed");
+
+            allocator->Destroy(m_depthRenderTextures[i]);
+            m_depthRenderTextures[i] = nullptr;
         }
     }
 
@@ -367,7 +377,7 @@ void VulkanGraphicsEngine::Cleanup()
         {
             Logger::Warning("Video Texture was not destroyed");
 
-            delete m_videoTextures[i];
+            allocator->Destroy(m_videoTextures[i]);
             m_videoTextures[i] = nullptr;
         }
     }
@@ -522,10 +532,16 @@ uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_prog
     {
         IVERIFY(m_meshShaders.Exists(a_program.VertexShader));
 
-        if (a_program.ExtraShader != -1)
+        if (a_program.ExtraShader != uint32_t(-1))
         {
             IVERIFY(m_taskShaders.Exists(a_program.ExtraShader));
         }
+
+        break;
+    }
+    default:
+    {
+        IERROR("Invalid material mode");
 
         break;
     }
@@ -570,10 +586,16 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
             {
                 DestroyMeshShader(program.VertexShader);
 
-                if (program.ExtraShader != -1)
+                if (program.ExtraShader != uint32_t(-1))
                 {
                     DestroyTaskShader(program.ExtraShader);
                 }
+
+                break;
+            }
+            default:
+            {
+                IERROR("Invalid material mode");
 
                 break;
             }
@@ -581,7 +603,7 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
             
             DestroyPixelShader(program.PixelShader);
             
-            if (program.ShadowVertexShader != -1)
+            if (program.ShadowVertexShader != uint32_t(-1))
             {
                 DestroyVertexShader(program.ShadowVertexShader);
             }
@@ -627,7 +649,7 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
         }
     }
 
-    if (program.ShadowVertexShader != -1)
+    if (program.ShadowVertexShader != uint32_t(-1))
     {
         {
             const ThreadGuard g = ThreadGuard(m_shadowPipeLock);
@@ -840,8 +862,10 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
             continue;
         }
 
-        const VulkanPipeline* pipeline = a_renderCommand->BindMaterial(matAddr);
-        IVERIFY(pipeline != nullptr);
+        if (a_renderCommand->BindMaterial(matAddr) == nullptr)
+        {
+            IERROR("Failed to bind material");
+        }
         const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
         IVERIFY(shaderData != nullptr);
 
@@ -855,7 +879,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                 RENDERSCRATCHFRAME;
 
                 const ModelBuffer& modelBuffer = modelBuffers[i];
-                const bool valid = modelBuffer.ModelAddr != -1;
+                const bool valid = modelBuffer.ModelAddr != uint32_t(-1);
                 if (!valid)
                 {
                     continue;
@@ -875,7 +899,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                     for (uint32_t j = 0; j < modelBuffer.TransformCount; ++j)
                     {
                         const uint32_t transformAddr = modelBuffer.TransformAddr[j];
-                        if (transformAddr != -1)
+                        if (transformAddr != uint32_t(-1))
                         {
                             const glm::mat4 transform = ObjectManager::GetGlobalMatrix(transformAddr);
                             glm::vec3 scale;
@@ -944,7 +968,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
             for (uint32_t i = 0; i < skinnedModelCount; ++i)
             {
                 const SkinnedModelBuffer& modelBuffer = skinnedModelBuffers[i];
-                const bool valid = modelBuffer.ModelAddr != -1;
+                const bool valid = modelBuffer.ModelAddr != uint32_t(-1);
                 if (!valid)
                 {
                     continue;
@@ -964,7 +988,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                     RENDERSCRATCHFRAME;
 
                     const uint32_t transformAddr = modelBuffer.TransformAddr[j];
-                    const bool valid = transformAddr != -1;
+                    const bool valid = transformAddr != uint32_t(-1);
                     if (!valid)
                     {
                         continue;       
@@ -1065,7 +1089,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
 
         VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
 
-        if (a_renderLayer & program.RenderLayer && program.ShadowVertexShader != -1) 
+        if (a_renderLayer & program.RenderLayer && program.ShadowVertexShader != uint32_t(-1)) 
         {
             VulkanPipeline* pipeline = nullptr;
 
@@ -1104,7 +1128,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
 
                     const ModelBuffer& modelBuffer = modelBuffers[i];
                 
-                    if (modelBuffer.ModelAddr != -1) 
+                    if (modelBuffer.ModelAddr != uint32_t(-1)) 
                     {
                         const VulkanModel* model = GetModel(modelBuffer.ModelAddr);
                         IVERIFY(model != nullptr);
@@ -1123,7 +1147,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
                             for (uint32_t j = 0; j < transformCount; ++j) 
                             {
                                 const uint32_t transformAddr = modelBuffer.TransformAddr[j];
-                                if (transformAddr == -1) 
+                                if (transformAddr == uint32_t(-1)) 
                                 {
                                     continue;
                                 }
@@ -1216,7 +1240,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
                 {
                     const SkinnedModelBuffer& modelBuffer = skinnedModelBuffers[i];
 
-                    if (modelBuffer.ModelAddr == -1)
+                    if (modelBuffer.ModelAddr == uint32_t(-1))
                     {
                         continue;
                     }
@@ -1230,7 +1254,7 @@ void VulkanGraphicsEngine::DrawShadow(const glm::mat4& a_lvp, float a_split, con
                     for (uint32_t j = 0; j < objectCont; ++j)
                     {
                         const uint32_t transformAddr = modelBuffer.TransformAddr[j];
-                        if (transformAddr == -1)
+                        if (transformAddr == uint32_t(-1))
                         {
                             continue;
                         }
@@ -1387,7 +1411,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
         }
 
         const DirectionalLightBuffer& buffer = lights[i];
-        if (buffer.TransformAddr == -1 || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Intensity <= 0.0f)
+        if (buffer.TransformAddr == uint32_t(-1) || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Intensity <= 0.0f)
         {
             continue;
         }
@@ -1494,7 +1518,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Point Shadow Pass", 255, 0, 0);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
-    VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
+    m_lightData.Push(VulkanLightData());
 
     e_LightType lightType = LightType_Point;
 
@@ -1519,7 +1543,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
 
     for (const PointLightBuffer& buffer : lights)
     {
-        if (buffer.TransformAddr == -1 || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Radius <= 0.0f || buffer.Intensity <= 0.0f)
+        if (buffer.TransformAddr == uint32_t(-1) || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Radius <= 0.0f || buffer.Intensity <= 0.0f)
         {
             continue;
         }
@@ -1668,7 +1692,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, ui
         const SpotLightBuffer& buffer = lights[i];
         IVERIFY(buffer.Data != nullptr);
 
-        if (buffer.TransformAddr == -1 || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Intensity <= 0.0f || buffer.Radius <= 0.0f)
+        if (buffer.TransformAddr == uint32_t(-1) || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Intensity <= 0.0f || buffer.Radius <= 0.0f)
         {
             continue;
         }
@@ -1874,7 +1898,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                 const DirectionalLightBuffer& buffer = lights[j];
 
-                const bool isValid = buffer.TransformAddr != -1 && buffer.Intensity > 0.0f;
+                const bool isValid = buffer.TransformAddr != uint32_t(-1) && buffer.Intensity > 0.0f;
                 const bool shareLayer = (camBuffer.RenderLayer & buffer.RenderLayer) != 0;
                 if (!isValid || !shareLayer)
                 {
@@ -1922,8 +1946,6 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                     renderCommand.PushLight(dirLightInput.Slot, LightType_Directional, j);
                 }
 
-                const uint32_t count = lightBuffer->LightRenderTextureCount;
-
                 ShaderBufferInput shadowLightInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_SSShadowLightBuffer, &shadowLightInput))
                 {
@@ -1962,7 +1984,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                 const PointLightBuffer& buffer = lights[j];
 
-                const bool isValid = buffer.TransformAddr != -1 && buffer.Radius > 0.0f && buffer.Intensity > 0.0f;
+                const bool isValid = buffer.TransformAddr != uint32_t(-1) && buffer.Radius > 0.0f && buffer.Intensity > 0.0f;
                 const bool shareLayer = (buffer.RenderLayer & camBuffer.RenderLayer) != 0;
                 if (!isValid || !shareLayer)
                 {
@@ -2079,7 +2101,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                 const SpotLightBuffer& buffer = lights[j];
                 
-                const bool isValid = buffer.TransformAddr != -1 && buffer.Radius > 0 && buffer.Intensity > 0;
+                const bool isValid = buffer.TransformAddr != uint32_t(-1) && buffer.Radius > 0 && buffer.Intensity > 0;
                 const bool shareLayer = (camBuffer.RenderLayer & buffer.RenderLayer) != 0;
                 if (!isValid || !shareLayer)
                 {
@@ -2326,7 +2348,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                         continue;
                     }
 
-                    const bool isValid = dirLight.TransformAddr != -1 && dirLight.Intensity > 0.0f;
+                    const bool isValid = dirLight.TransformAddr != uint32_t(-1) && dirLight.Intensity > 0.0f;
                     if (!isValid)
                     {
                         continue;
@@ -2374,7 +2396,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                         continue;
                     }
 
-                    const bool isValid = dirLight.TransformAddr != -1 && dirLight.Intensity > 0.0f;
+                    const bool isValid = dirLight.TransformAddr != uint32_t(-1) && dirLight.Intensity > 0.0f;
                     if (!isValid)
                     {
                         continue;
@@ -2433,7 +2455,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                         continue;
                     }
 
-                    const bool isValid = pointLight.TransformAddr != -1 && pointLight.Radius > 0.0f && pointLight.Intensity > 0.0f;
+                    const bool isValid = pointLight.TransformAddr != uint32_t(-1) && pointLight.Radius > 0.0f && pointLight.Intensity > 0.0f;
                     if (!isValid)
                     {
                         continue;
@@ -2486,7 +2508,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                         continue;
                     }
 
-                    const bool isValid = pointLight.TransformAddr != -1 && pointLight.Radius > 0.0f && pointLight.Intensity > 0.0f;
+                    const bool isValid = pointLight.TransformAddr != uint32_t(-1) && pointLight.Radius > 0.0f && pointLight.Intensity > 0.0f;
                     if (!isValid)
                     {
                         continue;
@@ -2517,8 +2539,9 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                 if (count > 0)
                 {
-                    const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderPointLightBuffer) * count, count, buffers);
-                    IDEFER(delete storage);
+                    VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
+                    new (storage) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderPointLightBuffer) * count, count, buffers);
+                    IDEFER(storage->~VulkanShaderStorageObject());
 
                     data->PushShaderStorageObject(commandBuffer, pointLightInput.Slot, storage, a_frameIndex);
 
@@ -2549,7 +2572,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                         continue;
                     }
 
-                    const bool isValid = spotLight.TransformAddr != -1 && spotLight.Radius > 0.0f && spotLight.Intensity > 0.0f;
+                    const bool isValid = spotLight.TransformAddr != uint32_t(-1) && spotLight.Radius > 0.0f && spotLight.Intensity > 0.0f;
                     if (!isValid)
                     {
                         continue;
@@ -2604,7 +2627,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                         continue;
                     }
 
-                    const bool isValid = spotLight.TransformAddr != -1 && spotLight.Radius > 0.0f && spotLight.Intensity > 0.0f;
+                    const bool isValid = spotLight.TransformAddr != uint32_t(-1) && spotLight.Radius > 0.0f && spotLight.Intensity > 0.0f;
                     if (!isValid)
                     {
                         continue;
@@ -2639,8 +2662,9 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                 if (count > 0)
                 {
-                    const VulkanShaderStorageObject* storage = new VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderSpotLightBuffer) * count, count, buffers);
-                    IDEFER(delete storage);
+                    VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
+                    new (storage) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderSpotLightBuffer) * count, count, buffers);
+                    IDEFER(storage->~VulkanShaderStorageObject());
 
                     data->PushShaderStorageObject(commandBuffer, spotLightInput.Slot, storage, a_frameIndex);
 
@@ -2772,7 +2796,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t
 
 void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint32_t a_addr, const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize, uint32_t a_index)
 {
-    const bool valid = a_addr != -1;
+    const bool valid = a_addr != uint32_t(-1);
     if (!valid)
     {
         return;
@@ -2947,7 +2971,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
     Array<uint32_t, RenderScratchAlloc> camIndices;
     for (uint32_t i = 0; i < camBufferSize; ++i)
     {
-        if (m_cameraBuffers[i].TransformAddr != -1)
+        if (m_cameraBuffers[i].TransformAddr != uint32_t(-1))
         {
             camIndices.Push(i);
         }
@@ -3126,7 +3150,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
         {
             const CanvasRendererBuffer& canvasRenderer = a[i];
 
-            const bool valid = canvasRenderer.CanvasAddr != -1;
+            const bool valid = canvasRenderer.CanvasAddr != uint32_t(-1);
             if (!valid)
             {
                 continue;
@@ -3278,12 +3302,16 @@ uint32_t VulkanGraphicsEngine::GenerateModel(const void* a_vertices, uint32_t a_
     IVERIFY(a_indexCount > 0);
     IVERIFY(a_vertexStride > 0);
 
-    VulkanModel* model = new VulkanModel(m_vulkanEngine, a_vertexCount, a_vertices, a_vertexStride, a_indexCount, a_indices, a_radius);
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanModel* model = allocator->Create<VulkanModel>(m_vulkanEngine, a_vertexCount, a_vertices, a_vertexStride, a_indexCount, a_indices, a_radius);
 
     return m_models.PushVal(model);
 }
 void VulkanGraphicsEngine::DestroyModel(uint32_t a_addr)
 {
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
     if (ISRENDERASSETSTOREADDR(a_addr))
     {
         const uint32_t addr = FROMRENDERSTOREADDR(a_addr);
@@ -3295,18 +3323,17 @@ void VulkanGraphicsEngine::DestroyModel(uint32_t a_addr)
     }
     else
     {
-        IVERIFY(a_addr < m_models.Size());
         IVERIFY(m_models.Exists(a_addr));
 
-        const VulkanModel* model = m_models[a_addr];
-        IDEFER(delete model);
+        VulkanModel* model = m_models[a_addr];
+        IDEFER(allocator->Destroy(model));
 
         m_models.Erase(a_addr);
     }
 }
 VulkanModel* VulkanGraphicsEngine::GetModel(uint32_t a_addr)
 {
-    if (a_addr == -1)
+    if (a_addr == uint32_t(-1))
     {
         return nullptr;
     }
@@ -3363,7 +3390,7 @@ void VulkanGraphicsEngine::DestroyTexture(uint32_t a_addr)
 }
 VulkanTexture* VulkanGraphicsEngine::GetTexture(uint32_t a_addr)
 {
-    if (a_addr == -1)
+    if (a_addr == uint32_t(-1))
     {
         return nullptr;
     }
@@ -3389,7 +3416,9 @@ uint32_t VulkanGraphicsEngine::GenerateDepthRenderTexture(uint32_t a_width, uint
     IVERIFY(a_width > 0);
     IVERIFY(a_height > 0);
 
-    VulkanDepthRenderTexture* texture = new VulkanDepthRenderTexture(m_vulkanEngine, a_width, a_height);
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanDepthRenderTexture* texture = allocator->Create<VulkanDepthRenderTexture>(m_vulkanEngine, a_width, a_height);
 
     return m_depthRenderTextures.PushVal(texture);
 }
@@ -3397,15 +3426,17 @@ void VulkanGraphicsEngine::DestroyDepthRenderTexture(uint32_t a_addr)
 {
     IVERIFY(m_depthRenderTextures.Exists(a_addr));
 
-    const VulkanDepthRenderTexture* tex = m_depthRenderTextures[a_addr];
-    IDEFER(delete tex);
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanDepthRenderTexture* tex = m_depthRenderTextures[a_addr];
+    IDEFER(allocator->Destroy(tex));
 
     m_depthRenderTextures.Erase(a_addr);
 }
 
 VulkanRenderTexture* VulkanGraphicsEngine::GetRenderTexture(uint32_t a_addr)
 {
-    if (a_addr == -1)
+    if (a_addr == uint32_t(-1))
     {
         return nullptr;
     }
@@ -3416,7 +3447,7 @@ VulkanRenderTexture* VulkanGraphicsEngine::GetRenderTexture(uint32_t a_addr)
 }
 VulkanDepthRenderTexture* VulkanGraphicsEngine::GetDepthRenderTexture(uint32_t a_addr)
 {
-    if (a_addr == -1)
+    if (a_addr == uint32_t(-1))
     {
         return nullptr;
     }
@@ -3427,7 +3458,7 @@ VulkanDepthRenderTexture* VulkanGraphicsEngine::GetDepthRenderTexture(uint32_t a
 }
 VulkanDepthCubeRenderTexture* VulkanGraphicsEngine::GetDepthCubeRenderTexture(uint32_t a_addr)
 {
-    if (a_addr == -1)
+    if (a_addr == uint32_t(-1))
     {
         return nullptr;
     }
@@ -3552,7 +3583,7 @@ TextureSamplerBuffer VulkanGraphicsEngine::GetTextureSampler(uint32_t a_addr)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

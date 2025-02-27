@@ -6,7 +6,6 @@
 
 #include "Rendering/Vulkan/VulkanTexture.h"
 
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
@@ -228,12 +227,6 @@ void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a
     m_channels = a_channels;
     m_format = a_format;
 
-    vk::DeviceSize imageSize = (vk::DeviceSize)a_dataSize;
-    if (imageSize == -1)
-    {
-        imageSize = (vk::DeviceSize)m_width * m_height * m_channels;
-    }
-
     const vk::Device device = m_engine->GetLogicalDevice();
     const VmaAllocator allocator = m_engine->GetAllocator();
     
@@ -284,6 +277,8 @@ void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a
 }
 void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, const void* a_data, vk::Format a_format, uint32_t a_channels, uint64_t a_dataSize)
 {
+    RENDERSCRATCHFRAME;
+
     m_channels = a_channels;
     m_format = a_format;
 
@@ -362,8 +357,7 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
         memcpy(stagingAllocationInfo.pMappedData, a_data, (size_t)a_dataSize);
     }
 
-    vk::BufferImageCopy* copyBuffers = new vk::BufferImageCopy[a_levels];
-    IDEFER(delete[] copyBuffers);
+    vk::BufferImageCopy* copyBuffers = RenderScratchAlloc::TAllocate<vk::BufferImageCopy>(a_levels);
     for (uint32_t i = 0; i < a_levels; ++i)
     {
         const vk::ImageSubresourceLayers layer = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i, 0, 1);
@@ -450,6 +444,8 @@ VulkanTexture* VulkanTexture::CreateTexture(VulkanRenderEngineBackend* a_engine,
 }
 VulkanTexture* VulkanTexture::CreateTextureMipMapped(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, uint32_t a_levels, const uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize)
 {
+    TRACE("Creating mip mapped Texture");
+
     VulkanTexture* texture = new VulkanTexture();
     texture->m_engine = a_engine;
     texture->m_width = a_width;
@@ -559,7 +555,7 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

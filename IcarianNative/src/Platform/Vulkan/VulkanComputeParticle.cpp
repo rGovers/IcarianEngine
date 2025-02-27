@@ -90,19 +90,19 @@ void VulkanComputeParticle::Clear()
         }
     }
 
-    if (m_computeShader != -1) 
+    if (m_computeShader != uint32_t(-1)) 
     {
         m_engine->DestroyComputeShader(m_computeShader);
         m_computeShader = -1;
     }
 
-    if (m_computeLayout != -1)
+    if (m_computeLayout != uint32_t(-1))
     {
         m_engine->DestroyComputePipelineLayout(m_computeLayout);
         m_computeLayout = -1;
     }
 
-    if (m_computePipeline != -1)
+    if (m_computePipeline != uint32_t(-1))
     {
         m_engine->DestroyComputePipeline(m_computePipeline);
         m_computePipeline = -1;
@@ -111,7 +111,7 @@ void VulkanComputeParticle::Clear()
     m_bufferIndex = 0;
 }
 void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
-{
+{   
     Clear();
 
     IDEFER(ICLEARBIT(a_buffer->Flags, ComputeParticleBuffer::RefreshBit));
@@ -298,7 +298,7 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
 
     if (IISBITSET(buffer.Flags, ComputeParticleBuffer::PlayBit))
     {
-        const bool generate = IISBITSET(buffer.Flags, ComputeParticleBuffer::DynamicBit) || m_computeShader == -1;
+        const bool generate = IISBITSET(buffer.Flags, ComputeParticleBuffer::DynamicBit) || m_computeShader == uint32_t(-1);
         if (generate)
         {
             Rebuild(&buffer);
@@ -421,7 +421,7 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

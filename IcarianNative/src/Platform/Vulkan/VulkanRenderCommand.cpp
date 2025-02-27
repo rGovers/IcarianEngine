@@ -71,7 +71,7 @@ VulkanRenderTexture* VulkanRenderCommand::GetRenderTexture() const
 }
 VulkanPipeline* VulkanRenderCommand::GetPipeline() const
 {
-    if (m_materialAddr == -1)
+    if (m_materialAddr == uint32_t(-1))
     {
         return nullptr;
     }
@@ -84,7 +84,7 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr)
     const bool bind = m_materialAddr != a_materialAddr;
 
     m_materialAddr = a_materialAddr;
-    if (m_materialAddr == -1)
+    if (m_materialAddr == uint32_t(-1))
     {
         return nullptr;
     }
@@ -119,7 +119,7 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr)
 
 void VulkanRenderCommand::PushTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler) const
 {
-    IVERIFY(m_materialAddr != -1);
+    IVERIFY(m_materialAddr != uint32_t(-1));
 
     const RenderProgram program = m_gEngine->GetRenderProgram(m_materialAddr);
     IVERIFY(program.Data != nullptr);
@@ -235,8 +235,6 @@ void VulkanRenderCommand::PushLightSplits(uint32_t a_slot, const LightShadowSpli
     IVERIFY(program.Data != nullptr);
     VulkanShaderData* data = (VulkanShaderData*)program.Data;
 
-    VulkanPushPool* pushPool = m_engine->GetPushPool();
-
     IcarianCore::ShaderShadowLightBuffer* shadowLightBuffer = RenderScratchAlloc::TAllocate<IcarianCore::ShaderShadowLightBuffer>(a_splitCount);
 
     for (uint32_t i = 0; i < a_splitCount; ++i)
@@ -299,8 +297,6 @@ void VulkanRenderCommand::PushShadowTextureArray(uint32_t a_slot, uint32_t a_dir
 
 void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTextureBindMode a_bindMode)
 {
-    const RenderEngine* renderEngine = m_engine->GetRenderEngine();
-
     Flush();
 
     SetFlushedState(false);
@@ -388,7 +384,7 @@ void VulkanRenderCommand::BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTe
         m_commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
     }
 
-    if (m_cameraAddr == -1)
+    if (m_cameraAddr == uint32_t(-1))
     {
         return;
     }
@@ -586,7 +582,7 @@ void VulkanRenderCommand::MarkerEnd()
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

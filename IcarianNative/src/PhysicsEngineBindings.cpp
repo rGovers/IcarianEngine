@@ -478,7 +478,7 @@ glm::vec3 PhysicsEngineBindings::GetPhysicsBodyPosition(uint32_t a_addr) const
     const TransformBuffer buffer = ObjectManager::GetTransformBuffer(binding.TransformAddr);
 
     glm::mat4 invMat = glm::identity<glm::mat4>();
-    if (buffer.ParentAddr != -1)
+    if (buffer.ParentAddr != uint32_t(-1))
     {
         const glm::mat4 transformMat = ObjectManager::GetGlobalMatrix(buffer.ParentAddr);
         invMat = glm::inverse(transformMat);
@@ -509,7 +509,7 @@ glm::quat PhysicsEngineBindings::GetPhysicsBodyRotation(uint32_t a_addr) const
     const TransformBuffer buffer = ObjectManager::GetTransformBuffer(binding.TransformAddr);
 
     glm::quat invQuat = glm::identity<glm::quat>();
-    if (buffer.ParentAddr != -1)
+    if (buffer.ParentAddr != uint32_t(-1))
     {
         const glm::mat4 transformMat = ObjectManager::GetGlobalMatrix(buffer.ParentAddr);
         const glm::mat4 inv = glm::inverse(transformMat);
@@ -925,7 +925,7 @@ uint32_t* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

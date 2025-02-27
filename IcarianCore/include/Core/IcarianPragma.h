@@ -4,34 +4,21 @@
 
 #pragma once
 
-#ifndef NDEBUG 
-#ifndef ICARIAN_ENABLE_ASSERT
-#define ICARIAN_ENABLE_ASSERT
-#endif
-#endif
-
-#include <cassert>
-#include <string>
-
-typedef void (*AssertCallback)(std::string);
-
-static void DefaultAssertCallback(const std::string& a_string)
-{
-    printf("%s \n", a_string.c_str());
-}
-
-[[maybe_unused]] static AssertCallback AssertCallbackFunc = (AssertCallback)DefaultAssertCallback;
-
-#ifdef ICARIAN_ENABLE_ASSERT
-#define ICARIAN_ASSERT(val) if (!(val)) { AssertCallbackFunc("IcarianAssert: " #val); assert(0); }
-#define ICARIAN_ASSERT_R(val) if (!(val)) { AssertCallbackFunc("IcarianAssert: " #val); assert(0); }
-#define ICARIAN_ASSERT_MSG(val, msg) if (!(val)) { AssertCallbackFunc("IcarianAssert: " + std::string(msg) + ": " #val); assert(0); }
-#define ICARIAN_ASSERT_MSG_R(val, msg) if (!(val)) { AssertCallbackFunc("IcarianAssert: " + std::string(msg) + ": " #val); assert(0); }
-#else
-#define ICARIAN_ASSERT(val) void(0);
-#define ICARIAN_ASSERT_R(val) if (!(val)) { AssertCallbackFunc("IcarianAssert: " #val); }
-#define ICARIAN_ASSERT_MSG(val, msg) void(0);
-#define ICARIAN_ASSERT_MSG_R(val, msg) if (!(val)) { AssertCallbackFunc("IcarianAssert: " + std::string(msg) + ": " #val); }
+#if defined(__clang__)
+#define ICARIAN_PRAGMA(x) _Pragma(#x)
+#define ICARIAN_WARNINGPUSH ICARIAN_PRAGMA(clang diagnostic push)
+#define ICARIAN_WARNINGPOP ICARIAN_PRAGMA(clang diagnostic pop)
+#define ICARIAN_WARNINGSUPPRESS(x) ICARIAN_PRAGMA(clang diagnostic ignored x)
+#elif defined(__GNUC__)
+#define ICARIAN_PRAGMA(x) _Pragma(#x)
+#define ICARIAN_WARNINGPUSH ICARIAN_PRAGMA(GCC diagnostic push)
+#define ICARIAN_WARNINGPOP ICARIAN_PRAGMA(GCC diagnostic pop)
+#define ICARIAN_WARNINGSUPPRESS(x) ICARIAN_PRAGMA(GCC diagnostic ignored x)
+#elif defined(_MSC_VER)
+#define ICARIAN_PRAGMA(x) __pragma(#x)
+#define ICARIAN_WARNINGPUSH ICARIAN_PRAGMA(warning (push))
+#define ICARIAN_WARNINGPOP ICARIAN_PRAGMA(warning (pop))
+#define ICARIAN_WARNINGSUPPRESS(x) ICARIAN_PRAGMA(warning (disable : x))
 #endif
 
 // MIT License

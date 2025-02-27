@@ -45,17 +45,19 @@ private:
                 }
             }
 
-            memset(m_data, 0, sizeof(T) * m_size);
+            memset((void*)m_data, 0, sizeof(T) * m_size);
         }
     }
 
 protected:
 
 public:
-    constexpr TNCArrayBase() : 
-        m_size(0),
-        m_state(nullptr),
-        m_data(nullptr) { }
+    TNCArrayBase()
+    {
+        m_state = nullptr;
+        m_data = nullptr;
+        m_size = 0;
+    }
     TNCArrayBase(const TNCArrayBase& a_other)
     {
         const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
@@ -437,8 +439,8 @@ public:
         }
 
         // Huh sometimes pays to read the docs apparenty realloc is fine with null pointers
-        m_data = (T*)realloc(m_data, sizeof(T) * newSize);
-        memset(m_data + m_size, 0, sizeof(T));
+        m_data = (T*)realloc((void*)m_data, sizeof(T) * newSize);
+        memset((void*)(m_data + m_size), 0, sizeof(T));
 
         const uint32_t stateIndex = m_size / StateValBitSize;
         const uint32_t stateOffset = m_size % StateValBitSize;
@@ -476,7 +478,7 @@ public:
                 (&(m_data[a_index]))->~T();
             }
             
-            memset(&(m_data[a_index]), 0, sizeof(T));
+            memset((void*)&(m_data[a_index]), 0, sizeof(T));
         }        
     }
     void Erase(uint32_t a_start, uint32_t a_end)
@@ -518,7 +520,7 @@ using TNCArray = TNCArrayBase<T, uint8_t>;
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

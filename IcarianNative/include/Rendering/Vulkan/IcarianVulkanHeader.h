@@ -277,7 +277,7 @@ static constexpr const char* VulkanErrorPrefix = "VkError: ";
 #define VKRESERR(res) VulkanResultError((vk::Result)res, IVKSTR(__FILE__) "," IVKSTR(__LINE__))
 #define VKRESERRMSG(res, msg) VulkanResultError((vk::Result)res, std::string(msg) + ": " IVKSTR(__FILE__) "," IVKSTR(__LINE__))
 
-static void VulkanResultWarning(vk::Result a_result, const std::string_view& a_msg = "")
+[[maybe_unused]] static void VulkanResultWarning(vk::Result a_result, const std::string_view& a_msg = "")
 {
     if (a_result != vk::Result::eSuccess)
     {
@@ -285,7 +285,7 @@ static void VulkanResultWarning(vk::Result a_result, const std::string_view& a_m
     }
 }
 
-static void VulkanResultError(vk::Result a_result, const std::string_view& a_msg = "")
+[[maybe_unused]] static void VulkanResultError(vk::Result a_result, const std::string_view& a_msg = "")
 {
     if (a_result != vk::Result::eSuccess)
     {
@@ -297,7 +297,7 @@ static void VulkanResultError(vk::Result a_result, const std::string_view& a_msg
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

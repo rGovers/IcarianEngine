@@ -36,9 +36,11 @@ private:
 protected:
 
 public:
-    constexpr TArray() :
-        m_size(0),
-        m_data(nullptr) { }
+    TArray() 
+    {
+        m_data = nullptr;
+        m_size = 0;
+    }
     TArray(const TArray& a_other)
     {
         const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
@@ -202,7 +204,7 @@ public:
     {
         const uint32_t newSize = m_size + 1;
         m_data = (T*)realloc(m_data, newSize * sizeof(T));
-        memset(m_data + m_size, 0, sizeof(T));
+        memset((void*)(m_data + m_size), 0, sizeof(T));
 
         m_data[m_size++] = a_data;
     }
@@ -217,7 +219,7 @@ public:
     {
         const uint32_t newSize = m_size + 1;
         m_data = (T*)realloc(m_data, newSize * sizeof(T));
-        memset(m_data + m_size, 0, sizeof(T));
+        memset((void*)(m_data + m_size), 0, sizeof(T));
         m_data[m_size] = a_data;
 
         return m_size++;
@@ -232,7 +234,7 @@ public:
     {
         const uint32_t newSize = m_size + a_count;
         m_data = (T*)realloc(m_data, newSize);
-        memset(m_data + m_size, 0, a_count * sizeof(T));
+        memset((void*)(m_data + m_size), 0, a_count * sizeof(T));
 
         m_size += a_count;
     }
@@ -258,8 +260,6 @@ public:
     }
     void UErase(uint32_t a_index)
     {
-        const uint32_t newSize = m_size - 1;
-
         if constexpr (!std::is_trivially_destructible<T>())
         {
             (&(m_data[a_index]))->~T();
@@ -325,7 +325,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

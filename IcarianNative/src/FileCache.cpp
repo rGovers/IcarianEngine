@@ -131,9 +131,9 @@ FileCache::FileCache(uint32_t a_sizeMiB)
 }
 FileCache::~FileCache()
 {
-    for (const auto iter : m_files)
+    for (const auto& iter : m_files)
     {
-        FileBuffer* buffer = iter.second;
+        const FileBuffer* buffer = iter.second;
         delete[] (uint8_t*)buffer->Data;
         delete buffer;
     }
@@ -188,7 +188,7 @@ FileHandle* FileCache::GenerateFileHandle(const std::string& a_path, FILE* a_fil
     FileBuffer* b = nullptr;
     // Looking for a file to delete that so that the current file can fit
     // No point deleting a file if we cannot fit it
-    for (const auto iter : m_files)
+    for (const auto& iter : m_files)
     {
         FileBuffer* buffer = iter.second;
         if (buffer->Size >= a_size && buffer->Lock == 0)
@@ -266,7 +266,7 @@ void FileCache::Update()
     IDEFER(delete[] keys);
     uint32_t keyCount = 0;
 
-    for (const auto iter : Instance->m_files) 
+    for (const auto& iter : Instance->m_files) 
     {
         const FileBuffer* buffer = iter.second;
         if (buffer->Lock != 0) 
@@ -417,7 +417,7 @@ FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

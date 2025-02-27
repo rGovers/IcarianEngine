@@ -5,7 +5,7 @@
 #include "Rendering/UI/TextUIElement.h"
 
 #include "Core/Bitfield.h"
-#include "Core/IcarianAssert.h"
+#include "IcarianError.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/UI/Font.h"
 
@@ -23,15 +23,15 @@ TextUIElement::TextUIElement() : UIElement()
 }
 TextUIElement::~TextUIElement()
 {
-    if (m_textureAddr != -1)
+    if (m_textureAddr != uint32_t(-1))
     {
-        ICARIAN_ASSERT_MSG(m_lastRenderEngine != nullptr, "TextUIElement last render engine is null");
+        IVERIFY(m_lastRenderEngine != nullptr);
 
         m_lastRenderEngine->DestroyTexture(m_textureAddr);
     }
-    if (m_samplerAddr != -1)
+    if (m_samplerAddr != -uint32_t(1))
     {
-        ICARIAN_ASSERT_MSG(m_lastRenderEngine != nullptr, "TextUIElement last render engine is null");
+        IVERIFY(m_lastRenderEngine != nullptr);
 
         m_lastRenderEngine->DestroyTextureSampler(m_samplerAddr);
     }
@@ -62,15 +62,15 @@ void TextUIElement::SetText(const std::u32string_view& a_text)
 
 void TextUIElement::Update(RenderEngine* a_renderEngine)
 {
-    if (IISBITSET(m_flags, RefreshBit) && m_fontAddr != -1)
+    if (IISBITSET(m_flags, RefreshBit) && m_fontAddr != uint32_t(-1))
     {
         const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
-        if (m_textureAddr != -1)
+        if (m_textureAddr != uint32_t(-1))
         {
             m_lastRenderEngine->DestroyTexture(m_textureAddr);
         }
-        if (m_samplerAddr != -1)
+        if (m_samplerAddr != uint32_t(-1))
         {
             m_lastRenderEngine->DestroyTextureSampler(m_samplerAddr);
         }
@@ -98,7 +98,7 @@ void TextUIElement::Update(RenderEngine* a_renderEngine)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

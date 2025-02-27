@@ -50,7 +50,6 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     m_indexCount = a_indexCount;
     m_radius = a_radius;
 
-    const vk::Device device = m_engine->GetLogicalDevice();
     const VmaAllocator allocator = m_engine->GetAllocator();
 
     const uint32_t vbSize = a_vertexCount * a_vertexSize;
@@ -162,7 +161,7 @@ void VulkanModel::Bind(const vk::CommandBuffer& a_cmdBuffer) const
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

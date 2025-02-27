@@ -8,7 +8,7 @@
 
 // This is not free there is a cost with the macros but it is pretty minimal still would not use it if you do not need it
 // Mostly exists because error cleanup is a pain and not a fan of the goto return pattern
-#define IERRBLOCK bool _iErrVal = false
+#define IERRBLOCK [[maybe_unused]] bool _iErrVal = false
 #define ITRIGGERERR _iErrVal = true; return
 #define ITRIGGERERRRET(val) _iErrVal = true; return val
 #define IERRCHECK(cond) do { if (!(cond)) { ITRIGGERERR; } } while(0)
@@ -17,7 +17,7 @@
 
 // MIT License
 //
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
