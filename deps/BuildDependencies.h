@@ -138,12 +138,16 @@ static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -190,12 +194,16 @@ static CUBE_CProject BuildMINIZ(e_TargetPlatform a_targetPlatform, e_BuildConfig
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -206,6 +214,10 @@ static CUBE_CProject BuildMINIZ(e_TargetPlatform a_targetPlatform, e_BuildConfig
 
 static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
+    // TODO: Patch this so that I can use LTO without warnings/compiler errors
+    // Why does a Khoronos project fucking conflict with Vulkan headers from Khoronos Urgh....
+    // I am really starting to despise KTX this is not the 1st time having to fix compiler errors in it myself
+    // Should I just roll my own GPU compression format?
     CUBE_CProject project = { 0 };
     project.Name = CUBE_StackString_CreateC("ktxc");
     project.Target = CUBE_CProjectTarget_StaticLibrary;
@@ -241,6 +253,7 @@ static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfigu
 
     CUBE_CProject_AppendIncludePaths(&project, 
         "../gen/KTX-Software/",
+        "../Vulkan-Headers/include/",
 
         "./include/",
         "./utils/",
@@ -287,12 +300,16 @@ static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -337,6 +354,7 @@ static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfi
 
     CUBE_CProject_AppendIncludePaths(&project, 
         "../gen/KTX-Software/",
+        "../Vulkan-Headers/include/",
 
         "./include/",
         "./utils/",
@@ -369,12 +387,16 @@ static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfi
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -419,6 +441,7 @@ static CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildCo
 
     CUBE_CProject_AppendIncludePaths(&project, 
         "../gen/KTX-Software/",
+        "../Vulkan-Headers/include/",
 
         "./include/",
         "./utils/",
@@ -467,12 +490,16 @@ static CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildCo
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -517,6 +544,7 @@ static CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_Build
 
     CUBE_CProject_AppendIncludePaths(&project, 
         "../gen/KTX-Software/",
+        "../Vulkan-Headers/include/",
 
         "./include/",
         "./utils/",
@@ -566,12 +594,16 @@ static CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_Build
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -607,7 +639,7 @@ static CUBE_CProject BuildUnzip(e_TargetPlatform a_targetPlatform, e_BuildConfig
 
     CUBE_CProject_AppendIncludePaths(&project, 
         ".",
-	"../../../zlib/"
+	    "../../../zlib/"
     );
 
     CUBE_CProject_AppendSources(&project, 
@@ -627,12 +659,16 @@ static CUBE_CProject BuildUnzip(e_TargetPlatform a_targetPlatform, e_BuildConfig
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -705,12 +741,16 @@ static CUBE_CProject BuildZLib(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -928,12 +968,16 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -999,12 +1043,16 @@ CUBE_CProject BuildENetProject(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }

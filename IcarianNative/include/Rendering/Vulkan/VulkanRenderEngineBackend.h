@@ -212,7 +212,8 @@ private:
     uint32_t                      m_scratchIndex;
     Array<RenderScratchAllocator> m_scratchAllocators;
 
-    Array<bool>                   m_optionalExtensionMask;
+    // Was bugging me taking up 8x the memory needed so.... uint8_t bitmask it is
+    Array<uint8_t>                m_optionalExtensionMask;
                 
     VmaAllocator                  m_allocator;
                 

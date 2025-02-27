@@ -86,6 +86,8 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
 
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -96,6 +98,8 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
 
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }

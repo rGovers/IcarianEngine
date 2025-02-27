@@ -99,12 +99,16 @@ CUBE_CProject BuildGLSLangProject(e_TargetPlatform a_targetPlatform, e_BuildConf
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -165,12 +169,16 @@ CUBE_CProject BuildSPIRVProject(e_TargetPlatform a_targetPlatform, e_BuildConfig
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -410,12 +418,16 @@ CUBE_CProject BuildSPIRVToolsProject(e_TargetPlatform a_targetPlatform, e_BuildC
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -626,6 +638,9 @@ CUBE_CProject BuildJoltPhysicsProject(e_TargetPlatform a_targetPlatform, e_Build
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
 
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
+
         break;
     }
     case BuildConfiguration_Release:
@@ -636,6 +651,9 @@ CUBE_CProject BuildJoltPhysicsProject(e_TargetPlatform a_targetPlatform, e_Build
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
 
         CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }

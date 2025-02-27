@@ -88,6 +88,8 @@ private:
     uint32_t                    m_width;
     uint32_t                    m_height;
 
+    bool                        m_vSync;
+
     void Init(uint32_t a_width, uint32_t a_height);
     void InitHeadless(uint32_t a_width, uint32_t a_height);
     void Destroy();
@@ -161,7 +163,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
