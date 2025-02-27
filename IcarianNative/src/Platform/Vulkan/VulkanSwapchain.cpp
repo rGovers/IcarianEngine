@@ -9,6 +9,7 @@
 #include "AppWindow/AppWindow.h"
 #include "AppWindow/HeadlessAppWindow.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianLambda.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
@@ -40,6 +41,8 @@ static constexpr vk::Extent2D GetSwapExtent(const vk::SurfaceCapabilitiesKHR& a_
 
 void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height)
 {
+    RENDERSCRATCHFRAME;
+
     const vk::Instance instance = m_engine->GetInstance();
     const vk::PhysicalDevice pDevice = m_engine->GetPhysicalDevice();
     const vk::SurfaceKHR surface = m_window->GetSurface(instance);
@@ -49,7 +52,50 @@ void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height)
 
     const SwapChainSupportInfo info = QuerySwapChainSupport(pDevice, surface);
 
-    constexpr vk::PresentModeKHR PresentMode = vk::PresentModeKHR::eFifo;
+    const vk::PresentModeKHR presentMode = ILAMBDA(
+    {
+        uint32_t presentModeCount;
+        if (pDevice.getSurfacePresentModesKHR(surface, &presentModeCount, nullptr) != vk::Result::eSuccess)
+        {
+            Logger::Warning("Failed to get present mode count falling back to FIFO");
+
+            ILRETURN vk::PresentModeKHR::eFifo;
+        }
+
+        vk::PresentModeKHR* modes = RenderScratchAlloc::TAllocate<vk::PresentModeKHR>(presentModeCount);
+        if (pDevice.getSurfacePresentModesKHR(surface, &presentModeCount, modes) != vk::Result::eSuccess)
+        {
+            Logger::Warning("Failed to get present modes falling back to FIFO");
+
+            ILRETURN vk::PresentModeKHR::eFifo;
+        }
+
+        if (m_vSync)
+        {
+            for (uint32_t i = 0; i < presentModeCount; ++i)
+            {
+                if (modes[i] == vk::PresentModeKHR::eMailbox)
+                {
+                    ILRETURN vk::PresentModeKHR::eMailbox;
+                }
+            }
+        }
+        else
+        {
+            for (uint32_t i = 0; i < presentModeCount; ++i)
+            {
+                if (modes[i] == vk::PresentModeKHR::eImmediate)
+                {
+                    ILRETURN vk::PresentModeKHR::eImmediate;
+                }
+            }
+        }
+
+        Logger::Warning("Failed to find suitable present mode falling back to FIFO");
+
+        ILRETURN vk::PresentModeKHR::eFifo;
+    });
+
     const vk::Extent2D extents = GetSwapExtent(info.Capabilites, a_width, a_height);
 
     m_width = extents.width;
@@ -76,8 +122,8 @@ void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height)
         nullptr,
         info.Capabilites.currentTransform,
         vk::CompositeAlphaFlagBitsKHR::eOpaque,
-        PresentMode,
-        VK_TRUE
+        presentMode,
+        vk::True
     );
 
     const uint32_t queueFamilyIndices[] = { m_engine->GetGraphicsQueueIndex(), m_engine->GetPresentQueueIndex() };
@@ -95,9 +141,8 @@ void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height)
     VKRESERR(device.getSwapchainImagesKHR(m_swapchain, &imageCount, nullptr));
 
     m_images.Reserve(imageCount);
-    vk::Image* images = new vk::Image[imageCount];
-    IDEFER(delete[] images);
 
+    vk::Image* images = RenderScratchAlloc::TAllocate<vk::Image>();
     VKRESERR(device.getSwapchainImagesKHR(m_swapchain, &imageCount, images));
 
     TRACE("Creating swapchain framebuffers");

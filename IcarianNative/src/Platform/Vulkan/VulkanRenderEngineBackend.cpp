@@ -12,6 +12,7 @@
 #include "Config.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
+#include "Core/StringUtils.h"
 #include "Logger.h"
 #include "Profiler.h"
 #include "Rendering/LibRenderDoc.h"
@@ -76,6 +77,22 @@ constexpr const char* OptionalDeviceExtensions[] =
 #endif
 };
 constexpr uint32_t OptionalDeviceExtensionCount = sizeof(OptionalDeviceExtensions) / sizeof(*OptionalDeviceExtensions);
+
+constexpr struct OptionalHashes
+{
+    typedef uint32_t HashType;
+
+    HashType Data[OptionalDeviceExtensionCount];
+
+    constexpr OptionalHashes() : Data()
+    {
+        for (uint32_t i = 0; i < OptionalDeviceExtensionCount; ++i)
+        {
+            Data[i] = StringHash<HashType>(OptionalDeviceExtensions[i]);
+        }
+    }
+
+} OptionalDeviceExtensionHashes;
 
 static VulkanRenderEngineBackend* Instance = nullptr;
 
@@ -183,13 +200,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(VkDebugUtilsMessageSeverityF
     return VK_FALSE;
 }
 
-static Array<bool, RenderScratchAlloc> GetDeviceExtensionSupport(const vk::PhysicalDevice& a_device, const Array<const char*, RenderScratchAlloc>& a_extensions)
+static Array<uint8_t, RenderScratchAlloc> GetDeviceExtensionSupport(const vk::PhysicalDevice& a_device, const Array<const char*, RenderScratchAlloc>& a_extensions)
 {
     const uint32_t size = a_extensions.Size();
 
-    Array<bool, RenderScratchAlloc> mask;
+    const uint32_t arraySize = (size / 8) + 1;
+
+    Array<uint8_t, RenderScratchAlloc> mask;
     // Array zeros memory so defaults to false
-    mask.Resize(size);
+    mask.Resize(arraySize);
 
     RENDERSCRATCHFRAME;
 
@@ -205,7 +224,10 @@ static Array<bool, RenderScratchAlloc> GetDeviceExtensionSupport(const vk::Physi
         {
             if (strcmp(a_extensions[i], availableExtensions[j].extensionName) == 0)
             {
-                mask[i] = true;
+                const uint32_t index = i / 8;
+                const uint32_t offset = i % 8;
+
+                ISETBIT(mask[index], offset);
 
                 break;
             }
@@ -219,10 +241,15 @@ static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, cons
 {
     RENDERSCRATCHFRAME;
 
-    const Array<bool, RenderScratchAlloc> support = GetDeviceExtensionSupport(a_device, a_extensions);
-    for (const bool s : support)
+    const uint32_t size = a_extensions.Size();
+
+    const Array<uint8_t, RenderScratchAlloc> support = GetDeviceExtensionSupport(a_device, a_extensions);
+    for (uint32_t i = 0; i < size; ++i)
     {
-        if (!s)
+        const uint32_t index = i / 8;
+        const uint32_t offset = i % 8;
+
+        if (!IISBITSET(support[index], offset))
         {
             return false;
         }
@@ -234,12 +261,15 @@ static uint32_t GetDeviceExtensionScore(const vk::PhysicalDevice& a_device)
 {
     RENDERSCRATCHFRAME;
 
-    const Array<bool, RenderScratchAlloc> support = GetDeviceExtensionSupport(a_device, Array<const char*, RenderScratchAlloc>(OptionalDeviceExtensions, OptionalDeviceExtensionCount));
+    const Array<uint8_t, RenderScratchAlloc> support = GetDeviceExtensionSupport(a_device, Array<const char*, RenderScratchAlloc>(OptionalDeviceExtensions, OptionalDeviceExtensionCount));
 
     uint32_t score = 0;
-    for (const bool s : support)
+    for (uint32_t i = 0; i < OptionalDeviceExtensionCount; ++i)
     {
-        score += s * 20;
+        const uint32_t index = i / 8;
+        const uint32_t offset = i % 8;
+
+        score += IISBITSET(support[index], offset) * 20;
     }
 
     return score;
@@ -558,11 +588,13 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
 
     TRACE("Found Vulkan Physical Device");
 
-    const Array<bool, RenderScratchAlloc> optionalMask = GetDeviceExtensionSupport(m_pDevice, Array<const char*, RenderScratchAlloc>(OptionalDeviceExtensions, OptionalDeviceExtensionCount));
+    const Array<uint8_t, RenderScratchAlloc> optionalMask = GetDeviceExtensionSupport(m_pDevice, Array<const char*, RenderScratchAlloc>(OptionalDeviceExtensions, OptionalDeviceExtensionCount));
     for (uint32_t i = 0; i < OptionalDeviceExtensionCount; ++i)
     {
-        const bool val = optionalMask[i];
+        const uint32_t index = i / 8;
+        const uint32_t offset = i % 8;
 
+        const bool val = IISBITSET(optionalMask[index], offset);
         if (val)
         {
             extensions.Push(OptionalDeviceExtensions[i]);
@@ -907,11 +939,16 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
 
 bool VulkanRenderEngineBackend::IsExtensionEnabled(const std::string_view& a_extension) const
 {
+    const OptionalHashes::HashType hash = StringHash<OptionalHashes::HashType>(a_extension.data());
+
     for (uint32_t i = 0; i < OptionalDeviceExtensionCount; ++i)
     {
-        if (a_extension == OptionalDeviceExtensions[i])
+        if (hash == OptionalDeviceExtensionHashes.Data[i])
         {
-            return m_optionalExtensionMask[i];
+            const uint32_t index = i / 8;
+            const uint32_t offset = i % 8;
+
+            return IISBITSET(m_optionalExtensionMask[index], offset);
         }
     }
 

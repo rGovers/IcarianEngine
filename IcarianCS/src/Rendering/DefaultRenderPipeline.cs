@@ -13,6 +13,10 @@ namespace IcarianEngine.Rendering
 {
     public class DefaultRenderPipeline : RenderPipeline, IDisposable
     {
+        // TODO: Need to make this better handle cameras that do not match the swapchain
+        // Likely need to start storing extra per camera data
+        // Considering a cache as I want cameras to be able to clear it when destroyed but do not want it dependant on RenderPipelines
+
         /// <summary>
         /// The number of cascades to use for <see cref="IcarianEngine.Rendering.Lighting.DirectionalLight" /> shadows
         /// </summary>
@@ -854,7 +858,7 @@ namespace IcarianEngine.Rendering
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
