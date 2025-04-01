@@ -108,14 +108,16 @@ private:
         return (AllocationHeader*)((char*)a_header - a_header->PrevOffset);
     }
 
-    static void VerifyAllocation(const AllocationHeader* a_header)
+    static bool VerifyAllocation(const AllocationHeader* a_header)
     {
 #ifdef DEBUG
         if (a_header->CanaryA != CanaryValue || a_header->CanaryB != CanaryValue)
         {
-            IERROR("Corrupted allocation header");
+            return false;
         }
 #endif
+
+        return true;
     }
 
     static void SetCanary(AllocationHeader* a_header)
@@ -144,6 +146,60 @@ private:
 #endif
     }
 
+    static void PrintAllocationBacktrace(const AllocationHeader* a_header)
+    {
+#ifdef DEBUG
+#ifdef __linux__
+        for (uint32_t i = 0; i < a_header->BacktraceSize; ++i)
+        {
+// #if 1
+#if defined (__GNUC__) && !defined (__clang__)
+            char buffer[256];
+
+            bool write = false;
+
+            char* ptr = a_header->Backtrace[i];
+            uint32_t writeIndex = 0;
+            while (*ptr != 0)
+            {
+                const char chr = *ptr;
+
+                if (chr == ')' || chr == '+')
+                {
+                    buffer[writeIndex] = 0;
+
+                    break;
+                }
+
+                if (write)
+                {
+                    buffer[writeIndex++] = *ptr;
+                }
+
+                if (chr == '(')
+                {
+                    write = true;
+                }
+
+                ++ptr;
+            }
+
+            char* name = abi::__cxa_demangle(buffer, NULL, NULL, NULL);
+            IDEFER(free(name));
+#else
+            char* name = a_header->Backtrace[i];
+#endif
+            if (name == nullptr)
+            {
+                continue;
+            }
+
+            printf("[%d] %s \n", i, name);
+        }
+#endif
+#endif
+    }
+
     static void VerifyBlock(const BlockHeader* a_header)
     {
 #ifdef DEBUG
@@ -153,12 +209,24 @@ private:
         }
 
         const AllocationHeader* allocHeader = GetFirstAllocation(a_header);
+        const AllocationHeader* lastHeader = NULL;
 
         while (allocHeader != NULL)
         {
             IDEFER(allocHeader = NextAllocation(allocHeader));
 
-            VerifyAllocation(allocHeader);
+            if (!VerifyAllocation(allocHeader))
+            {
+                printf(" --------------------------------------- \n\n");
+                printf("    Previous Allocation Callstack \n\n");
+                printf(" --------------------------------------- \n");
+
+                PrintAllocationBacktrace(lastHeader);
+
+                IERROR("Corrupted allocation");
+            }
+
+            lastHeader = allocHeader;
         }
 #endif
     }
@@ -194,53 +262,7 @@ private:
                 printf("    Block Leaked Allocation Callstack \n\n");
                 printf(" --------------------------------------- \n");
 
-                for (uint32_t i = 0; i < allocHeader->BacktraceSize; ++i)
-                {
-// #if 1
-#if defined (__GNUC__) && !defined (__clang__)
-                    char buffer[256];
-
-                    bool write = false;
-
-                    char* ptr = allocHeader->Backtrace[i];
-                    uint32_t writeIndex = 0;
-                    while (*ptr != 0)
-                    {
-                        const char chr = *ptr;
-
-                        if (chr == ')' || chr == '+')
-                        {
-                            buffer[writeIndex] = 0;
-
-                            break;
-                        }
-
-                        if (write)
-                        {
-                            buffer[writeIndex++] = *ptr;
-                        }
-
-                        if (chr == '(')
-                        {
-                            write = true;
-                        }
-
-                        ++ptr;
-                    }
-
-                    char* name = abi::__cxa_demangle(buffer, NULL, NULL, NULL);
-                    IDEFER(free(name));
-#else
-                    char* name = allocHeader->Backtrace[i];
-#endif
-                    if (name == nullptr)
-                    {
-                        continue;
-                    }
-
-                    printf("[%d] %s \n", i, name);
-        
-                }
+                PrintAllocationBacktrace(allocHeader);
             }
         }
 #endif
@@ -454,7 +476,7 @@ public:
 
         void* headerPtr = (char*)a_ptr - sizeof(AllocationHeader);
         AllocationHeader* header = (AllocationHeader*)headerPtr;
-        VerifyAllocation(header);
+        IVERIFY(VerifyAllocation(header));
 
         BlockHeader* blockHeader = header->Block;
         const ThreadGuard g = ThreadGuard(blockHeader->Lock);
@@ -475,7 +497,7 @@ public:
         AllocationHeader* nextNeighbour = NULL;
         if (nextAllocation != NULL && IISBITSET(nextAllocation->Flags, AllocationHeader::FreeFlagBit))
         {
-            VerifyAllocation(nextAllocation);
+            IVERIFY(VerifyAllocation(nextAllocation));
             ClearCanary(nextAllocation);
 
             if (nextAllocation->NextOffset == 0)
@@ -494,7 +516,7 @@ public:
         AllocationHeader* prevAllocation = PrevAllocation(header);
         if (prevAllocation != NULL && IISBITSET(prevAllocation->Flags, AllocationHeader::FreeFlagBit))
         {
-            VerifyAllocation(prevAllocation);
+            IVERIFY(VerifyAllocation(prevAllocation));
             ClearCanary(header);
 
             if (header->NextOffset == 0)
@@ -538,7 +560,7 @@ public:
 
         void* headerPtr = (char*)a_ptr - sizeof(AllocationHeader);
         AllocationHeader* header = (AllocationHeader*)headerPtr;
-        VerifyAllocation(header);
+        IVERIFY(VerifyAllocation(header));
 
         // If the allocation is valid there should be another header after the allocation
         IVERIFY(header->NextOffset >= sizeof(AllocationHeader));

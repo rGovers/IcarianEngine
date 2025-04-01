@@ -20,6 +20,9 @@ struct VulkanComputeGLSLShaderBuilder
 {
     VulkanRenderEngineBackend* Engine;
     std::string String;
+    uint32_t WorkgroupX;
+    uint32_t WorkgroupY;
+    uint32_t WorkgroupZ;
     ShaderBufferInput* Inputs;
     uint32_t InputCount;
     std::string EntryPoint;
@@ -28,13 +31,29 @@ struct VulkanComputeGLSLShaderBuilder
 class VulkanComputeShader : public VulkanShader
 {
 private:
+    uint32_t m_workgroupX;
+    uint32_t m_workgroupY;
+    uint32_t m_workgroupZ;
 
 protected:
 
 public:
     VulkanComputeShader() = delete;
-    VulkanComputeShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator);
+    VulkanComputeShader(VulkanRenderEngineBackend* a_engine, uint32_t a_workgroupX, uint32_t a_workgroupY, uint32_t a_workgroupZ, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator);
     ~VulkanComputeShader();
+
+    inline uint32_t GetWorkgroupX() const
+    {
+        return m_workgroupX;
+    }
+    inline uint32_t GetWorkgroupY() const
+    {
+        return m_workgroupY;
+    }
+    inline uint32_t GetWorkgroupZ() const
+    {
+        return m_workgroupZ;
+    }
 
     static void CreateFromFShader(VulkanComputeShader* a_out, const VulkanComputeFShaderBuilder& a_builder, Allocator* a_allocator);
     static void CreateFromGLSL(VulkanComputeShader* a_out, const VulkanComputeGLSLShaderBuilder& a_builder, Allocator* a_allocator);

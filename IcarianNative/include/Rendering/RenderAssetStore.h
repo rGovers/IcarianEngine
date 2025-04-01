@@ -31,6 +31,8 @@ struct RenderAsset
 #define FROMRENDERSTOREADDR(assetAddr) ((assetAddr) & ~(0b1 << RenderAssetStore::RenderAssetStoreBit))
 #define TORENDERSTOREADDR(assetAddr) ((assetAddr) | 0b1 << RenderAssetStore::RenderAssetStoreBit)
 
+#include "EngineModelInteropStructures.h"
+
 class RenderAssetStore
 {
 public:
@@ -62,8 +64,9 @@ public:
         return m_fonts[a_addr];
     }
 
-    uint32_t LoadModel(const std::filesystem::path& a_path, uint32_t a_index);
-    uint32_t LoadSkinnedModel(const std::filesystem::path& a_path, uint32_t a_index);
+    bool LoadModelData(const std::filesystem::path& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius);
+    uint32_t LoadModel(const std::filesystem::path& a_path, uint8_t a_index);
+    uint32_t LoadSkinnedModel(const std::filesystem::path& a_path, uint8_t a_index);
     void DestroyModel(uint32_t a_addr);
     uint32_t GetModel(uint32_t a_addr);
 
@@ -74,7 +77,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

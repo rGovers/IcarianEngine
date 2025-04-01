@@ -14,6 +14,9 @@ namespace IcarianEngine.Rendering
     public class Model : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static ModelDataStructure GetModelData(string a_path, uint a_index);
+
+        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateModel(Array a_vertices, uint[] a_indices, ushort a_vertexSize, float a_radius); 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateFromFile(string a_path, uint a_modelIndex);
@@ -49,7 +52,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Creates a model from a set of vertices and indices
+        /// Creates a Model from a set of vertices and indices
         /// </summary>
         /// <typeparam name="T">The type of vertex</typeparam>
         /// <param name="a_vertices">The vertices</param>
@@ -70,11 +73,43 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Loads a model from a file
+        /// Loads Model data from a file
         /// </summary>
-        /// <param name="a_path">The path to the model</param>
-        /// <returns>The model. Null on failure.</returns>
-        /// Uses Type Vertex for the model.
+        /// <param name="a_path">The path to the Model</param>
+        /// <param name="a_modelIndex">The <odel index to load in the file</param>
+        /// <param name="a_vertices">The <see cref="IcarianEngine.Rendering.Vertex" /> data of the loaded Model</param>
+        /// <param name="a_indices">The index data of the loaded Model</param>
+        /// <returns>If the data loaded successfully</returns>
+        /// Supported formats: 
+        ///     .obj,
+        ///     .fbx,
+        ///     .dae,
+        ///     .gltf,
+        ///     .glb
+        public static bool LoadModelData(string a_path, byte a_modelIndex, out Vertex[] a_vertices, out uint[] a_indices)
+        {
+            a_vertices = null;
+            a_indices = null;
+
+            ModelDataStructure dat = GetModelData(a_path, (uint)a_modelIndex);
+            if (dat.Vertices != null && dat.Indices != null)
+            {
+                a_vertices = dat.Vertices;
+                a_indices = dat.Indices;
+
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Loads a Model from a file
+        /// </summary>
+        /// <param name="a_path">The path to the Model</param>
+        /// <param name="a_modelIndex">The <odel index to load in the file</param>
+        /// <returns>The Model. Null on failure.</returns>
+        /// Uses Type <see cref="Icarianengine.Rendering.Vertex" /> for the model.
         /// Supported formats: 
         ///     .obj,
         ///     .fbx,
@@ -95,12 +130,14 @@ namespace IcarianEngine.Rendering
 
             return null;
         }
+
         /// <summary>
-        /// Loads a skinned model from a file
+        /// Loads a Skinned Model from a file
         /// </summary>
         /// <param name="a_path">The path to the model</param>
-        /// <returns>The model. Null on failure.</returns>
-        /// Uses Type SkinnedVertex for the model.
+        /// <param name="a_modelIndex">The <odel index to load in the file</param>
+        /// <returns>The Model. Null on failure.</returns>
+        /// Uses Type <see cref="IcarianEngine.Rendering.SkinnedVertex" /> for the Model
         /// Supported formats:
         ///     .dae,
         ///     .fbx,
@@ -122,7 +159,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Disposes the model
+        /// Disposes of the Model
         /// </summary>
         public void Dispose()
         {
@@ -132,9 +169,9 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Called when the model is being disposed
+        /// Called when the Model is being Disposed
         /// </summary>
-        /// <param name="a_disposing">Whether the model is being disposed</param>
+        /// <param name="a_disposing">Whether the Model is being Disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)
@@ -165,7 +202,7 @@ namespace IcarianEngine.Rendering
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

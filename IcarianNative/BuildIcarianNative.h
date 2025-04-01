@@ -249,7 +249,6 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "./src/Platform/Vulkan/VulkanComputeParticle.cpp",
             "./src/Platform/Vulkan/VulkanComputePipeline.cpp",
             "./src/Platform/Vulkan/VulkanComputeShader.cpp",
-            "./src/Platform/Vulkan/VulkanDecalShader.cpp",
             "./src/Platform/Vulkan/VulkanDepthCubeRenderTexture.cpp",
             "./src/Platform/Vulkan/VulkanDepthRenderTexture.cpp",
             "./src/Platform/Vulkan/VulkanGraphicsEngine.cpp",
@@ -376,7 +375,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "_WIN32"
         );
 
-        CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Windows/include");
+        CUBE_CProject_AppendIncludePaths(&project, "../deps/Mono/Windows/include");
 
         CUBE_CProject_AppendSource(&project, "./src/Library/LibXInput.cpp");
 
@@ -420,7 +419,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     case TargetPlatform_LinuxClang:
     case TargetPlatform_LinuxZig:
     {
-        CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Linux/include/mono-2.0");
+        CUBE_CProject_AppendIncludePaths(&project, "../deps/Mono/Linux/include/mono-2.0");
 
         CUBE_CProject_AppendLibraries(&project,
             "../IcarianCore/build/libIcarianCore.a",
@@ -450,7 +449,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     // Can we all agree FUCK CONTAINERS
     case TargetPlatform_LinuxSteam:
     {
-        CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/LinuxSteam/include/mono-2.0");
+        CUBE_CProject_AppendIncludePaths(&project, "../deps/Mono/LinuxSteam/include/mono-2.0");
 
         CUBE_CProject_AppendLibraries(&project,
             "../IcarianCore/build/libIcarianCore.a",

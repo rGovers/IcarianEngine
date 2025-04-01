@@ -14,6 +14,7 @@
     switch (platform) \
     { \
     case ShaderPlatform_Vulkan: \
+    case ShaderPlatform_VulkanCompute: \
     { \
         str = GLSL_VULKAN_UNIFORM_STRING(argA, argB, structure, name); \
         break; \
@@ -34,6 +35,7 @@
     switch (platform) \
     { \
     case ShaderPlatform_Vulkan: \
+    case ShaderPlatform_VulkanCompute: \
     { \
         str = GLSL_VULKAN_SSBO_STRING(argA, argB, structure, name); \
         break; \
@@ -54,6 +56,7 @@
     switch (platform) \
     { \
     case ShaderPlatform_Vulkan: \
+    case ShaderPlatform_VulkanCompute: \
     { \
         str = GLSL_VULKAN_PUSHBUFFER_STRING(name, structure); \
         break; \
@@ -74,6 +77,7 @@
     switch (platform) \
     { \
     case ShaderPlatform_Vulkan: \
+    case ShaderPlatform_VulkanCompute: \
     { \
         str = "layout(set=" + std::string(slot) + ",binding=" + std::string(slot) + ") uniform " #type " " + std::string(name) + ";"; \
         break; \
@@ -237,93 +241,7 @@ namespace IcarianCore
     	return -1;
     }
 
-    std::string CreateDecalVertexShader(std::vector<ShaderBufferInput>* a_inputs, e_ShaderPlatform a_platform, uint32_t a_cameraSlot, uint32_t a_modelSlot, std::string* a_error)
-    {
-        std::string shader = "#version 450";
-
-        shader += "#!structure(CameraBuffer, " + std::to_string(a_cameraSlot) + ", __camBuffer)\n";
-        shader += "#!structure(SSModelBuffer, " + std::to_string(a_modelSlot) + ", __modelBuffer)\n";
-
-        shader += "layout(location=0) out vec4 fragPos;\n"
-
-        "vec3 __positions[] = \n"
-        "{\n"
-        "    vec3(-1, -1, -1), vec3( 1, -1, -1), vec3( 1,  1, -1),\n"
-        "    vec3(-1, -1, -1), vec3( 1,  1, -1), vec3(-1,  1, -1),\n"
-        "    vec3(-1, -1,  1), vec3( 1, -1,  1), vec3( 1,  1,  1),\n"
-        "    vec3(-1, -1,  1), vec3(-1,  1,  1), vec3( 1,  1,  1),\n"
-        "    vec3(-1, -1, -1), vec3(-1, -1,  1), vec3(-1,  1,  1),\n"
-        "    vec3(-1, -1, -1), vec3(-1,  1,  1), vec3(-1,  1, -1),\n"
-        "    vec3( 1, -1, -1), vec3( 1, -1,  1), vec3( 1,  1,  1),\n"
-        "    vec3( 1, -1, -1), vec3( 1,  1,  1), vec3( 1,  1, -1),\n"
-        "    vec3(-1,  1, -1), vec3( 1,  1, -1), vec3( 1,  1,  1),\n"
-        "    vec3(-1,  1, -1), vec3( 1,  1,  1), vec3(-1,  1,  1),\n"
-        "    vec3(-1, -1, -1), vec3(-1, -1,  1), vec3( 1, -1,  1),\n"
-        "    vec3(-1, -1, -1), vec3( 1, -1,  1), vec3( 1, -1, -1)\n"
-        "};\n"
-
-        "void main()\n"
-        "{\n"
-        "   vec4 pos = vec4(__positions[gl_VertexIndex], 1);\n"
-        "   mat4 modelMat = #!instancedstructure(__modelBuffer).Model;\n"
-        "   fragPos = __camBuffer.ViewProj * modelMat * pos;\n"
-        "}\n";
-
-        return GLSLFromFlareShader(shader, a_platform, std::unordered_map<std::string, std::string>(), a_inputs, a_error);
-    }
-
-    std::string DecalShaderFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error)
-    {
-        std::string shader = GLSLFromFlareShader(a_str, a_platform, a_imports, a_inputs, a_error);
-
-        if (!a_error->empty())
-        {
-            return std::string();
-        }
-
-        uint16_t lastSlot = 0;
-        for (const ShaderBufferInput& input : *a_inputs)
-        {
-            if (input.Slot > lastSlot)
-            {
-                lastSlot = input.Slot;
-            }
-        }
-
-        shader += "layout(location=0) in vec4 __fragPos;\n";
-
-        shader += "#!pushtexture(" + std::to_string(++lastSlot) + ", __depthSampler)\n";
-        shader += "#!structure(CameraBuffer, " + std::to_string(++lastSlot) + ", __camBuffer)\n";
-        shader += "#!structure(SSModelBuffer, " + std::to_string(++lastSlot) + ", __modelBuffer)\n";
-
-        shader += "void __fMain()\n"
-        "{\n"
-        // Calculate screen space
-        "   vec2 fC = (__fragPos.xz / __fragPos.w);\n"
-        "   vec2 sC = fC * 0.5 + vec2(0.5);\n"
-        // Sample depth
-        "   float d = texture(__depthSampler, sC);\n"
-        // Transform depth to Model pos
-        "   vec4 vP = __camBuffer.InvProj * vec4(sC, d, 1);\n"
-        "   vP /= vP.w;\n"
-        "   vec4 mP = __camBuffer.InvView * vP;\n"
-        // Calculate bounding box for decal
-        "   mat4 invModelMat = #!instancedstructure(__modelBuffer).InvModel;\n"
-        "   vec4 oP = invModelMat * mP;\n"
-        "   vec3 bB = vec3(0.5) - abs(oP.xyz);\n"
-        // Clip decal
-        "   if (bB.x < 0 || bB.y < 0 || bB.z < 0)\n"
-        "   {\n"
-        "       discard;\n"
-        "   }\n"
-        // Passthrough uv to decal shader
-        "   main(oP.xz + vec2(0.5));\n"
-        "}\n";
-
-        return GLSLFromFlareShader(shader, a_platform, a_imports, a_inputs, a_error);
-    }
-
-    std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error)
+    std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error, ShaderWorkgroups* a_workgroups)
     {
         std::string shader = std::string(a_str);
 
@@ -358,6 +276,26 @@ namespace IcarianCore
             std::string rStr;
             switch (StringHash(defName.c_str()))
             {
+            case StringHash("workgroup"):
+            {
+                if (args.size() != 3)
+                {
+                    *a_error = "Flare Shader workgroup requires 3 arguments";
+
+                    return std::string();
+                }
+
+                rStr = "layout(local_size_x=" + args[0] + ",local_size_y=" + args[1] + ",local_size_z=" + args[2] + ") in;";
+
+                if (a_workgroups != nullptr)
+                {
+                    a_workgroups->GroupX = (uint32_t)std::stoi(args[0]);
+                    a_workgroups->GroupY = (uint32_t)std::stoi(args[1]);
+                    a_workgroups->GroupZ = (uint32_t)std::stoi(args[2]);
+                }
+
+                break;
+            }
             case StringHash("structure"):
             {
                 if (args.size() != 3)
@@ -373,6 +311,28 @@ namespace IcarianCore
                 FSHADER_UBO
                 FSHADER_SSBO
                 }
+
+                break;
+            }
+            case StringHash("buffertexture"):
+            {
+                if (a_platform != ShaderPlatform_VulkanCompute)
+                {
+                    *a_error = "Flare Shader buffer texture not available on non compute platform";
+
+                    return std::string();
+                }
+
+                rStr = "layout(" + args[0] + ",set=" + args[1] + ",binding=" + args[1] + ") uniform image2D" + args[3] + ";";
+
+                const ShaderBufferInput input =
+                {
+                    .Slot = (uint16_t)std::stoi(args[1]),
+                    .BufferType = ShaderBufferType_BufferTexture,
+                    .Count = (uint16_t)std::stoi(args[2])
+                };
+
+                a_inputs->emplace_back(input);
 
                 break;
             }
@@ -471,15 +431,16 @@ namespace IcarianCore
 
                 switch (a_platform) 
                 {
-                case ShaderPlatform_Vulkan: 
+                case ShaderPlatform_Vulkan:
+                case ShaderPlatform_VulkanCompute:
                 {
-                    rStr = "layout(set=" + std::string(args[0]) + ",binding=" + std::string(args[0]) + ") uniform sampler2D " + std::string(args[2]) + "[" + std::string(args[1]) + "];";
+                    rStr = "layout(set=" + args[0] + ",binding=" + args[0] + ") uniform sampler2D " + args[2] + "[" + args[1] + "];";
                     
                     break;
                 }
                 case ShaderPlatform_OpenGL: 
                 {
-                    rStr = "layout(location=" + std::string(args[0]) + ") uniform sampler2D " + std::string(args[2]) + "[" + std::string(args[1]) + "];";
+                    rStr = "layout(location=" + args[0] + ") uniform sampler2D " + args[2] + "[" + args[1] + "];";
 
                     break;
                 }
@@ -514,6 +475,7 @@ namespace IcarianCore
                 switch (a_platform) 
                 {
                 case ShaderPlatform_Vulkan:
+                case ShaderPlatform_VulkanCompute:
                 {
                     rStr = "layout(std140,binding=" + args[0] + ",set=" + args[0] + ") uniform UserBuffer " + args[1] + " " + args[2] + ";";
 
@@ -554,6 +516,12 @@ namespace IcarianCore
 
                 switch (a_platform)
                 {
+                case ShaderPlatform_VulkanCompute:
+                {
+                    *a_error = "Flare Shader instanced structure used in compute mode";
+
+                    return std::string();
+                }
                 case ShaderPlatform_Vulkan:
                 {
                     rStr = args[0] + ".objects[gl_InstanceIndex]";
@@ -597,7 +565,7 @@ namespace IcarianCore
             {
                 if (args.size() != 4)
                 {
-                    *a_error = "Flare Shader pre loop requires 4 arguements";
+                    *a_error = "Flare Shader pre loop requires 4 arguments";
 
                     return std::string();
                 }
@@ -611,8 +579,8 @@ namespace IcarianCore
                 // Therefore there is no cost if you do not break
                 // Do this to allow breaking in preprocessor loops
                 // Potential for no cost with a break but depends on vendor SPIRV compiler so mileage my vary
-                rStr += "switch(0) { \n";
-                rStr += "default: { \n";
+                rStr += "switch(0) { \n"
+                    "default: { \n";
 
                 for (int i = startIndex; i < endIndex; ++i)
                 {

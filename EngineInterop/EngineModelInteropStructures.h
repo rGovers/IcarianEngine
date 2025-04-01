@@ -12,6 +12,12 @@ namespace IcarianEngine.Rendering {
 
 /// @file EngineModelInteropStructures.h
 
+IOP_PACKED IOP_CSINTERNAL struct ModelDataStructure
+{
+    IOP_CSPUBLIC IOP_ARRAY(Vertex[]) Vertices;
+    IOP_CSPUBLIC IOP_ARRAY(uint[]) Indices;
+};
+
 /// <summary>
 /// The type of vertex field
 /// </summary>
@@ -171,7 +177,7 @@ IOP_PACKED IOP_CSPUBLIC struct SkinnedVertex
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -38,8 +38,12 @@ public:
     VulkanGraphicsEngineBindings(VulkanGraphicsEngine* a_graphicsEngine);
     ~VulkanGraphicsEngineBindings();
 
+    uint32_t GenerateFComputeShaderAddr(const std::string_view& a_str) const;
+    void AddComputeShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
+    void DestroyComputeshader(uint32_t a_addr) const;
+
     uint32_t GenerateFVertexShaderAddr(const std::string_view& a_str) const;
-    void AddVertexShaderImport(const std::string_view& a_key, const std::string_view& a_value);
+    void AddVertexShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
     void DestroyVertexShader(uint32_t a_addr) const;
 
     uint32_t GenerateFMeshShaderAddr(const std::string_view& a_str) const;
@@ -47,11 +51,8 @@ public:
     void DestroyMeshShader(uint32_t a_addr) const;
 
     uint32_t GenerateFPixelShaderAddr(const std::string_view& a_str) const;
-    void AddPixelShaderImport(const std::string_view& a_key, const std::string_view& a_value);
+    void AddPixelShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
     void DestroyPixelShader(uint32_t a_addr) const;
-
-    uint32_t GenerateFDecalShaderAddr(const std::filesystem::path& a_path) const;
-    void DestroyDecalShader(uint32_t a_addr) const;
 
     uint32_t GenerateShaderProgram(const RenderProgram& a_program) const;
     void DestroyShaderProgram(uint32_t a_addr) const;

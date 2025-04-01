@@ -22,6 +22,8 @@ VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
 {
     m_engine = a_engine;
 
+    BlockAllocator* allocator = m_engine->GetBlockAllocator();
+
     const vk::Device device = m_engine->GetLogicalDevice();
 
     const vk::CommandPoolCreateInfo poolInfo = vk::CommandPoolCreateInfo
@@ -44,15 +46,17 @@ VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
         VKRESERRMSG(device.allocateCommandBuffers(&commandBufferInfo, &m_buffers[i]), "Failed to create Compute Command Buffer");
     }
 
-    m_timeUniform = new VulkanUniformBuffer(m_engine, sizeof(IcarianCore::ShaderTimeBuffer));
+    m_timeUniform = allocator->Create<VulkanUniformBuffer>(m_engine, sizeof(IcarianCore::ShaderTimeBuffer));
 
-    m_bindings = new VulkanComputeEngineBindings(this);
+    m_bindings = allocator->Create<VulkanComputeEngineBindings>(this);
 }
 VulkanComputeEngine::~VulkanComputeEngine()
 {
-    delete m_bindings;
+    BlockAllocator* allocator = m_engine->GetBlockAllocator();
 
-    delete m_timeUniform;
+    allocator->Destroy(m_bindings);
+
+    allocator->Destroy(m_timeUniform);
 
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -255,7 +259,7 @@ VulkanComputePipeline* VulkanComputeEngine::GetComputePipeline(uint32_t a_addr)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

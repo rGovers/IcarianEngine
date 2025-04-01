@@ -16,6 +16,7 @@ namespace IcarianEngine.Rendering
         // TODO: Need to make this better handle cameras that do not match the swapchain
         // Likely need to start storing extra per camera data
         // Considering a cache as I want cameras to be able to clear it when destroyed but do not want it dependant on RenderPipelines
+        // TODO: Need to start migrating over to using compute based effects over using Quad.fvert with a PixelShader use it relies upon a "magic" shader and not as flexible
 
         /// <summary>
         /// The number of cascades to use for <see cref="IcarianEngine.Rendering.Lighting.DirectionalLight" /> shadows

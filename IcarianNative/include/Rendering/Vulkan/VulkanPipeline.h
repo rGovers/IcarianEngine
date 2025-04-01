@@ -16,9 +16,9 @@ class VulkanShaderData;
 
 enum e_VulkanPipelineType
 {
-    VulkanPipelineType_Decal,
+    VulkanPipelineType_Compute,
     VulkanPipelineType_Graphics,
-    VulkanPipelineType_Shadow
+    VulkanPipelineType_Shadow,
 };
 
 struct VulkanGraphicsPipelineBuilder
@@ -31,13 +31,15 @@ struct VulkanGraphicsPipelineBuilder
     bool Depth;
 };
 
-struct VulkanDecalPipelineBuilder
+struct VulkanGraphicsComputePipelineBuilder
 {
     VulkanRenderEngineBackend* Engine;
-    VulkanGraphicsEngine* GraphicsEngine; 
-    uint32_t DecalAddr;
+    VulkanGraphicsEngine* GraphicsEngine;
+    uint32_t ProgramAddr;
 };
 
+// TODO: It has become apparent I may need to do a great computification moving stuff to Compute Shaders as using the 
+// Graphics pipeline for doing more then generating the G-Buffer and doing the Forward pass is turning into a headache
 class VulkanPipeline
 {
 private:
@@ -70,7 +72,7 @@ public:
 
     void Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
 
-    static void CreateDecalPipeline(VulkanPipeline* a_out, const VulkanDecalPipelineBuilder& a_builder);
+    static void CreateComputePipeline(VulkanPipeline* a_out, const VulkanGraphicsComputePipelineBuilder& a_builder);
     static void CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder);
     static void CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder);
 };
@@ -79,7 +81,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

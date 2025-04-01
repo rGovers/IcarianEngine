@@ -14,10 +14,13 @@
 
 struct FileBuffer
 {
+    static constexpr uint32_t PinnedBit = 0;
+
     uint64_t Size;
     void* Data;
     std::chrono::high_resolution_clock::time_point TimePoint;
     std::atomic<uint32_t> Lock;
+    uint8_t Flags;
 };
 
 class FileHandle
@@ -102,7 +105,12 @@ public:
     static void Init(uint32_t a_sizeMiB);
     static void Destroy();
 
+    static bool ExistsInCache(const std::string_view& a_str);
+
     static void Update();
+
+    static void PushFile(const std::string_view& a_str, uint8_t* a_data, uint32_t a_size, bool a_pin);
+    static FileHandle* LoadCachedFile(const std::string_view& a_str);
 
     static void PreLoad(const std::filesystem::path& a_path);
     static FileHandle* LoadFile(const std::filesystem::path& a_path);
@@ -110,7 +118,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

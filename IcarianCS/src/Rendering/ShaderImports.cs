@@ -14,12 +14,19 @@ namespace IcarianEngine.Rendering
         internal static void Init()
         {
             // May move this to C++ for the default imports need to think about it
+            ComputeShader.AddImport("Camera", CameraImportShader);
+            ComputeShader.AddImport("Maths", MathsImportShader);
+            ComputeShader.AddImport("TBN", TBNImportShader);
+            MeshShader.AddImport("Camera", CameraImportShader);
+            MeshShader.AddImport("Maths", MathsImportShader);
+            MeshShader.AddImport("TBN", TBNImportShader);
+            VertexShader.AddImport("Camera", CameraImportShader);
             VertexShader.AddImport("Maths", MathsImportShader);
             VertexShader.AddImport("TBN", TBNImportShader);
+            PixelShader.AddImport("Camera", CameraImportShader);
             PixelShader.AddImport("Maths", MathsImportShader);
             PixelShader.AddImport("TBN", TBNImportShader);
 
-            PixelShader.AddImport("Camera", CameraImportShader);
             PixelShader.AddImport("PBR", PBRImportShader);
             PixelShader.AddImport("Lighting", LightingImportShader);
             PixelShader.AddImport("DirectionalLight", DirectionalLightImportShader);

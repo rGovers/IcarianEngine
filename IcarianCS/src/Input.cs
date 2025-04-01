@@ -18,6 +18,23 @@ namespace IcarianEngine
 {
     public static class Input
     {
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        extern static Vector2 GetCursorPos(); 
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        extern static uint GetMouseDownState(uint a_button); 
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        extern static uint GetMousePressedState(uint a_button); 
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        extern static uint GetMouseReleasedState(uint a_button); 
+
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        extern static uint GetKeyDownState(uint a_button); 
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        extern static uint GetKeyPressedState(uint a_button); 
+        [MethodImplAttribute(MethodImplOptions.InternalCall)]
+        extern static uint GetKeyReleasedState(uint a_button); 
+
         /// <summary>
         /// Delegate for mouse button events
         /// </summary>
@@ -53,7 +70,7 @@ namespace IcarianEngine
         {
             get
             {
-                return InputInterop.GetCursorPos();
+                return GetCursorPos();
             }
         }
 
@@ -79,7 +96,7 @@ namespace IcarianEngine
         {
             get
             {
-                return InputInterop.GetKeyDownState((uint)KeyCode.LeftShift) != 0 || InputInterop.GetKeyDownState((uint)KeyCode.RightShift) != 0;
+                return GetKeyDownState((uint)KeyCode.LeftShift) != 0 || GetKeyDownState((uint)KeyCode.RightShift) != 0;
             }
         }
         /// <summary>
@@ -89,7 +106,7 @@ namespace IcarianEngine
         {
             get
             {
-                return InputInterop.GetKeyDownState((uint)KeyCode.LeftCtrl) != 0 || InputInterop.GetKeyDownState((uint)KeyCode.RightCtrl) != 0;
+                return GetKeyDownState((uint)KeyCode.LeftCtrl) != 0 || GetKeyDownState((uint)KeyCode.RightCtrl) != 0;
             }
         }
         /// <summary>
@@ -99,7 +116,7 @@ namespace IcarianEngine
         {
             get
             {
-                return InputInterop.GetKeyDownState((uint)KeyCode.LeftAlt) != 0 || InputInterop.GetKeyDownState((uint)KeyCode.RightAlt) != 0;
+                return GetKeyDownState((uint)KeyCode.LeftAlt) != 0 || GetKeyDownState((uint)KeyCode.RightAlt) != 0;
             }
         }
 
@@ -110,7 +127,7 @@ namespace IcarianEngine
         /// <returns>If the mouse button is held down</returns>
         public static bool IsMouseDown(MouseButton a_button)
         {
-            return InputInterop.GetMouseDownState((uint)a_button) != 0;
+            return GetMouseDownState((uint)a_button) != 0;
         }
         /// <summary>
         /// If the mouse button is not held down
@@ -119,7 +136,7 @@ namespace IcarianEngine
         /// <returns>If the mouse button is not held down</returns>
         public static bool IsMouseUp(MouseButton a_button)
         {
-            return InputInterop.GetMouseDownState((uint)a_button) == 0;
+            return GetMouseDownState((uint)a_button) == 0;
         }
         /// <summary>
         /// If the mouse button was pressed this update
@@ -128,7 +145,7 @@ namespace IcarianEngine
         /// <returns>If the mouse button was pressed this update</returns>
         public static bool IsMousePressed(MouseButton a_button)
         {
-            return InputInterop.GetMousePressedState((uint)a_button) != 0;
+            return GetMousePressedState((uint)a_button) != 0;
         }
         /// <summary>
         /// If the mouse button was released this update
@@ -137,7 +154,7 @@ namespace IcarianEngine
         /// <returns>If the mouse button was released this update</returns>
         public static bool IsMouseReleased(MouseButton a_button)
         {
-            return InputInterop.GetMouseReleasedState((uint)a_button) != 0;
+            return GetMouseReleasedState((uint)a_button) != 0;
         }
 
         /// <summary>
@@ -147,7 +164,7 @@ namespace IcarianEngine
         /// <returns>If the keyboard key is held down</returns>
         public static bool IsKeyDown(KeyCode a_keyCode)
         {
-            return InputInterop.GetKeyDownState((uint)a_keyCode) != 0;
+            return GetKeyDownState((uint)a_keyCode) != 0;
         }
         /// <summary>
         /// If the keyboard key is not held down
@@ -156,7 +173,7 @@ namespace IcarianEngine
         /// <returns>If the keyboard key is not held down</returns>
         public static bool IsKeyUp(KeyCode a_keyCode)
         {
-            return InputInterop.GetKeyDownState((uint)a_keyCode) == 0;
+            return GetKeyDownState((uint)a_keyCode) == 0;
         }
         /// <summary>
         /// If the keyboard key was pressed this update
@@ -165,7 +182,7 @@ namespace IcarianEngine
         /// <returns>If the keyboard key was pressed this update</returns>
         public static bool IsKeyPressed(KeyCode a_keyCode)
         {
-            return InputInterop.GetKeyPressedState((uint)a_keyCode) != 0;
+            return GetKeyPressedState((uint)a_keyCode) != 0;
         }
         /// <summary>
         /// If the keyboard key was released this update
@@ -174,7 +191,7 @@ namespace IcarianEngine
         /// <returns>If the keyboard key was released this update</returns>
         public static bool IsKeyReleased(KeyCode a_keyCode)
         {
-            return InputInterop.GetKeyReleasedState((uint)a_keyCode) != 0;
+            return GetKeyReleasedState((uint)a_keyCode) != 0;
         }
 
         /// <summary>
@@ -272,7 +289,7 @@ namespace IcarianEngine
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

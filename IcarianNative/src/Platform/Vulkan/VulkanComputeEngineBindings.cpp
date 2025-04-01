@@ -25,6 +25,16 @@ static VulkanComputeEngineBindings* Instance = nullptr;
 
 VULKANCOMPUTE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
+RUNTIME_FUNCTION(uint32_t, ComputeShader, GenerateComputeFromFile, 
+{
+    // TODO: Implement Me!
+    return -1;
+}, MonoString* a_path)
+RUNTIME_FUNCTION(void, ComputeShader, DestroyComputeShader, 
+{
+    // TODO: Implement Me!
+}, uint32_t a_addr)
+
 VulkanComputeEngineBindings::VulkanComputeEngineBindings(VulkanComputeEngine* a_engine)
 {
     Instance = this;
@@ -32,6 +42,9 @@ VulkanComputeEngineBindings::VulkanComputeEngineBindings(VulkanComputeEngine* a_
     m_engine = a_engine;
 
     VULKANCOMPUTE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
+
+    BIND_FUNCTION(IcarianEngine.Rendering.Shaders, ComputeShader, GenerateComputeFromFile);
+    BIND_FUNCTION(IcarianEngine.Rendering.Shaders, ComputeShader, DestroyComputeShader);
 }
 VulkanComputeEngineBindings::~VulkanComputeEngineBindings()
 {
@@ -112,7 +125,7 @@ void VulkanComputeEngineBindings::DestroyParticleSystem(uint32_t a_addr) const
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -262,7 +262,7 @@ void VulkanDepthRenderTexture::Init(uint32_t a_width, uint32_t a_height)
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
@@ -308,6 +308,25 @@ void VulkanDepthRenderTexture::Init(uint32_t a_width, uint32_t a_height)
         1
     );
     VKRESERRMSG(device.createFramebuffer(&framebufferInfo, nullptr, &m_frameBuffer), "Failed to create depth texture framebuffer");
+
+    TLockObj<vk::CommandBuffer, SpinLock>* l = m_engine->BeginSingleCommand();
+    IDEFER(m_engine->EndSingleCommand(l));
+
+    const vk::CommandBuffer commandBuffer = l->Get();
+
+    const vk::ImageMemoryBarrier memoryBarrier = vk::ImageMemoryBarrier
+    (
+        vk::AccessFlags(),
+        vk::AccessFlagBits::eShaderRead,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+        vk::QueueFamilyIgnored,
+        vk::QueueFamilyIgnored,
+        m_texture,
+        DepthSubresourceRange
+    );
+
+    commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eFragmentShader, vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &memoryBarrier);
 }
 
 void VulkanDepthRenderTexture::Resize(uint32_t a_width, uint32_t a_height)

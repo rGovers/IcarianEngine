@@ -21,7 +21,6 @@
 #include "Rendering/SkinnedMeshRenderBuffer.h"
 #include "Rendering/TextureData.h"
 #include "Rendering/UI/CanvasRendererBuffer.h"
-#include "Rendering/Vulkan/Shaders/VulkanDecalShader.h"
 #include "Rendering/Vulkan/VulkanCommandBuffer.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 
@@ -35,6 +34,7 @@
 struct CanvasBuffer;
 
 class RuntimeFunction;
+class VulkanComputeShader;
 class VulkanDecalShader;
 class VulkanDepthCubeRenderTexture;
 class VulkanDepthRenderTexture;
@@ -96,6 +96,7 @@ private:
     PipelineMap                                   m_pipelines;
     PipelineMap                                   m_shadowPipelines;
     PipelineMap                                   m_cubeShadowPipelines;
+    std::unordered_map<std::string, std::string>  m_computeImports;
     std::unordered_map<std::string, std::string>  m_vertexImports;
     std::unordered_map<std::string, std::string>  m_meshImports;
     std::unordered_map<std::string, std::string>  m_pixelImports;
@@ -109,8 +110,7 @@ private:
     TNCArray<VulkanTaskShader*>                   m_taskShaders;
     TNCArray<VulkanMeshShader*>                   m_meshShaders;
     TNCArray<VulkanPixelShader*>                  m_pixelShaders;
-
-    TNCArray<VulkanDecalShader*>                  m_decalShaders;
+    TNCArray<VulkanComputeShader*>                m_computeShaders;
      
     TNCArray<TextureSamplerBuffer>                m_textureSampler;
 
@@ -196,6 +196,10 @@ public:
     void DestroyPixelShader(uint32_t a_addr);
     VulkanPixelShader* GetPixelShader(uint32_t a_addr);
 
+    uint32_t GenerateFComputeShader(const std::string_view& a_source);
+    void DestroyComputeShader(uint32_t a_addr);
+    VulkanComputeShader* GetComputeShader(uint32_t a_addr);
+
     uint32_t GenerateRenderProgram(const RenderProgram& a_program);
     void DestroyRenderProgram(uint32_t a_addr);
     RenderProgram GetRenderProgram(uint32_t a_addr);
@@ -245,7 +249,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

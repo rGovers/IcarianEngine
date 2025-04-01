@@ -123,9 +123,9 @@ Application::Application(Config* a_config)
         m_appWindow = new GLFWAppWindow(this, a_config);
     }
     
-    FileCache::Init(a_config->GetFileCacheSize());
     DeletionQueue::Init();
     RuntimeManager::Init();
+    FileCache::Init(a_config->GetFileCacheSize());
         
     Logger::Init();
 

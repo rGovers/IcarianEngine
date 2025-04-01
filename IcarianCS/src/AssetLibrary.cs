@@ -31,33 +31,38 @@ namespace IcarianEngine
 
     public static class AssetLibrary
     {
-        static ConcurrentDictionary<string, AudioClipContainer>      s_audioClips;
-#ifdef ENABLE_EXPERIMENTAL
-        static ConcurrentDictionary<string, VideoClipContainer>      s_videoClips;
- #endif
+        static ConcurrentDictionary<string, AudioClipContainer>             s_audioClips;
+#ifdef ENABLE_EXPERIMENTAL      
+        static ConcurrentDictionary<string, VideoClipContainer>             s_videoClips;
+ #endif     
 
-        static ConcurrentDictionary<string, MaterialContainer>       s_materials;
-        static ConcurrentDictionary<string, VertexShaderContainer>   s_vertexShaders;
-        static ConcurrentDictionary<string, PixelShaderContainer>    s_pixelShaders;
+        static ConcurrentDictionary<string, MaterialContainer>              s_materials;
+        static ConcurrentDictionary<string, GraphicsComputeShaderContainer> s_graphicsComputeShaders;
+        static ConcurrentDictionary<string, VertexShaderContainer>          s_vertexShaders;
+        static ConcurrentDictionary<string, PixelShaderContainer>           s_pixelShaders;
    
-        static ConcurrentDictionary<string, TextureContainer>        s_textures;
-        static ConcurrentDictionary<string, TextureSamplerContainer> s_textureSamplers;
+        static ConcurrentDictionary<string, TextureContainer>               s_textures;
+        static ConcurrentDictionary<string, TextureSamplerContainer>        s_textureSamplers;
    
-        static ConcurrentDictionary<string, ModelContainer>          s_models;
-        static ConcurrentDictionary<string, ModelContainer>          s_skinnedModels;
+        static ConcurrentDictionary<string, ModelContainer>                 s_models;
+        static ConcurrentDictionary<string, ModelContainer>                 s_skinnedModels;
   
-        static ConcurrentDictionary<string, AnimationClipContainer>  s_animationClips;
+        static ConcurrentDictionary<string, AnimationClipContainer>         s_animationClips;
  
-        static ConcurrentDictionary<string, SkeletonContainer>       s_skeletons;
+        static ConcurrentDictionary<string, SkeletonContainer>              s_skeletons;
    
-        static ConcurrentDictionary<string, FontContainer>           s_fonts;
+        static ConcurrentDictionary<string, FontContainer>                  s_fonts;
   
-        static ConcurrentDictionary<string, CollisionShapeContainer> s_collisionShapes;
+        static ConcurrentDictionary<string, CollisionShapeContainer>        s_collisionShapes;
 
         /// <summary>
         /// Delegate for loading a <see cref="IcarianEngine.Audio.AudioClip" /> async
         /// </summary>
         public delegate void LoadAudioClipCallback(AudioClip a_clip, LoadStatus a_status);
+        /// <summary>
+        /// Delegate for loading a <cee cref="IcarianEngine.Rendering.Shaders.ComputeShader" /> async in in Graphics mode
+        /// </summary>
+        public delegate void LoadGraphicsComputeShaderCallback(ComputeShader a_shader, LoadStatus a_status);
         /// <summary>
         /// Delegate for loading a <see cref="IcarianEngine.Rendering.Shaders.VertexShader" /> async
         /// </summary>
@@ -109,6 +114,7 @@ namespace IcarianEngine
 
             s_materials = new ConcurrentDictionary<string, MaterialContainer>();
 
+            s_graphicsComputeShaders = new ConcurrentDictionary<string, GraphicsComputeShaderContainer>();
             s_vertexShaders = new ConcurrentDictionary<string, VertexShaderContainer>();
             s_pixelShaders = new ConcurrentDictionary<string, PixelShaderContainer>();
 
@@ -159,6 +165,7 @@ namespace IcarianEngine
                     clip.Clip.Dispose();
                 }
             }
+
 #ifdef ENABLE_EXPERIMENTAL
             foreach (VideoClipContainer clip in s_videoClips.Values)
             {
@@ -179,6 +186,23 @@ namespace IcarianEngine
             }
 #endif
 
+            foreach (GraphicsComputeShaderContainer cShader in s_graphicsComputeShaders.Values)
+            {
+                if (cShader.Status == LoadStatus.Failed)
+                {
+                    continue;
+                }
+
+                if (cShader.Status != LoadStatus.Loaded)
+                {
+                    cShader.WaitHandle.WaitOne();
+                }
+
+                if (cShader.Shader != null && !cShader.Shader.IsDisposed)
+                {
+                    cShader.Shader.Dispose();
+                }
+            }
             foreach (VertexShaderContainer vShader in s_vertexShaders.Values)
             {
                 if (vShader.Status == LoadStatus.Failed)
@@ -562,6 +586,52 @@ namespace IcarianEngine
             return LoadData<VideoClip, VideoClipContainer>(a_path, s_videoClips);
         }
 #endif
+
+        /// <summary>
+        /// Loads a <see cref="IcarianEngine.Rendering.Shaders.ComputeShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> in Graphics mode
+        /// </summary>
+        /// Lifetime managed by AssetLibrary
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Shaders.ComputeShader" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Shaders.ComputeShader" /> if it iwas loaded successfully, null otherwise</returns>
+        /// @see IcarianEngine.Rendering.Shader.ComputeShader.LoadComputeShader
+        public static ComputeShader LoadGraphicsComputeShader(string a_path)
+        {
+            return LoadData<ComputeShader, GraphicsComputeShaderContainer>(a_path, s_graphicsComputeShaders);
+        }
+        /// <summary>
+        /// Loads a <see cref="IcarianEngine.Rendering.Shaders.ComputeShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> in Graphics mode asynchronously
+        /// </summary>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Shaders.ComputeShader" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.Shaders.ComputeShader" /> is loaded</param>
+        /// <param name="a_priority">The priority of the job</param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Shaders.ComputeShader" /> if it iwas loaded successfully, null otherwise</returns>
+        /// @see IcarianEngine.Rendering.Shader.ComputeShader.LoadComputeShader
+        public static void LoadGraphicsComputeShaderAsync(string a_path, LoadGraphicsComputeShaderCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        {
+            if (string.IsNullOrWhiteSpace(a_path))
+            {
+                Logger.IcarianWarning("Null Compute Path");
+
+                if (a_callback != null)
+                {
+                    a_callback(null, LoadStatus.Failed);
+                }
+            }
+
+            s_graphicsComputeShaders.TryAdd(a_path, new GraphicsComputeShaderContainer());
+
+            ThreadPool.PushJob(() =>
+            {
+                LoadStatus status;
+
+                ComputeShader shader = LoadInternalData<ComputeShader, GraphicsComputeShaderContainer>(a_path, s_graphicsComputeShaders, out status);
+
+                if (a_callback != null)
+                {
+                    a_callback(shader, status);
+                }
+            }, a_priority);
+        }
 
         /// <summary>
         /// Loads a <see cref="IcarianEngine.Rendering.Shaders.VertexShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />

@@ -17,6 +17,9 @@ namespace IcarianEngine.Rendering {
 /// </summary>
 IOP_CSPUBLIC enum IOP_ENUM_NAME(RenderTextureBindMode) : IOP_UINT8
 {
+#ifdef CUBE_LANGUAGE_CPP
+    IOP_ENUM_VALUE(RenderTextureBindMode, Null) = UINT8_MAX,
+#endif
     IOP_ENUM_VALUE(RenderTextureBindMode, Clear) = 0,
     IOP_ENUM_VALUE(RenderTextureBindMode, ClearColor) = 1,
     IOP_ENUM_VALUE(RenderTextureBindMode, NoClear) = 2
@@ -40,7 +43,7 @@ IOP_PACKED IOP_CSPUBLIC struct LightShadowSplit
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

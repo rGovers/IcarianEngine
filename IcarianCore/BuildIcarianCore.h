@@ -72,6 +72,35 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
     CUBE_CProject_AppendCFlag(&project, "-Wall");
     CUBE_CProject_AppendCFlag(&project, "-Werror");
 
+    switch (a_targetPlatform)
+    {
+    case TargetPlatform_Windows:
+    {
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32"
+        );
+
+        CUBE_CProject_AppendIncludePath(&project, "../deps/Mono/Windows/include");
+
+        break;
+    }
+    case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
+    {
+        CUBE_CProject_AppendIncludePath(&project, "../deps/Mono/Linux/include/mono-2.0");
+
+        break;
+    }
+    case TargetPlatform_LinuxSteam:
+    {
+        CUBE_CProject_AppendIncludePath(&project, "../deps/Mono/LinuxSteam/include/mono-2.0");
+
+        break;
+    }
+    }
+
     switch (a_configuration)
     {
     case BuildConfiguration_Debug:

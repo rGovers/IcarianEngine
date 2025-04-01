@@ -80,6 +80,35 @@ namespace IcarianEngine.Physics
             }
         }
 
+        /// <summary> 
+        /// Does a Ray Plane intersection test
+        /// </summary>
+        /// <param name="a_pos">The position of the plane</param>
+        /// <param name="a_dir">The direction the plane is facing</param>
+        /// <param name="a_rayPos">The starting point of the ray</param>
+        /// <param name="a_rayDiection">The direction of the ray</param>
+        /// <param name="a_distance">The distance the ray travels</param>
+        /// <param name="a_hitPot">The position the ray hit. Vector3.Zero on miss</param>
+        /// <returns>If the Ray hit the plane</returns>
+        public static bool RayPlaneIntersection(Vector3 a_pos, Vector3 a_normal, Vector3 a_rayPos, Vector3 a_rayDirection, float a_distance, out Vector3 a_hitPos)
+        {
+            a_hitPos = Vector3.Zero;
+
+            float d = Vector3.Dot(a_normal, a_rayDirection);
+            if (Mathf.Abs(d) > 0.0f)
+            {
+                float t = Vector3.Dot(a_pos - a_rayPos, a_normal) / d;
+                if (t >= 0 && t < a_distance)
+                {
+                    a_hitPos = a_rayPos + a_rayDirection * t;
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         /// <summary>
         /// Does a raycast in the physics simulation
         /// </summary>
@@ -170,6 +199,7 @@ namespace IcarianEngine.Physics
 
             return false;
         }
+
         /// <summary>
         /// Does a sphere collision in the physics simulation
         /// </summary>
@@ -307,7 +337,7 @@ namespace IcarianEngine.Physics
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -12,13 +12,13 @@
 
 #include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianError.h"
 #include "Core/StringUtils.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "Rendering/RenderAssetStoreBindings.h"
 #include "Rendering/RenderEngine.h"
-
-#include "EngineModelInteropStructures.h"
+#include "Runtime/RuntimeManager.h"
 
 RenderAssetStore::RenderAssetStore(RenderEngine* a_renderEngine)
 {
@@ -259,12 +259,12 @@ static void LoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint
     }
 }
 
-static uint32_t LoadBaseModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::filesystem::path& a_path)
+bool RenderAssetStore::LoadModelData(const std::filesystem::path& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius)
 {
+    IERRBLOCK;
+
     const std::filesystem::path ext = a_path.extension();
     const std::string extStr = ext.string();
-
-    constexpr uint16_t VertexStride = sizeof(Vertex);
 
     switch (StringHash<uint32_t>(extStr.c_str())) 
     {
@@ -275,48 +275,38 @@ static uint32_t LoadBaseModelFile(RenderEngine* a_renderEngine, uint8_t a_data, 
     case StringHash<uint32_t>(".gltf"):
     {
         FileHandle* handle = FileCache::LoadFile(a_path);
-        IVERIFY(handle != nullptr);
+        IERRCHECKRET(handle != nullptr, false);
         IDEFER(delete handle);
 
         const uint64_t size = handle->GetSize();
         uint8_t* dat = new uint8_t[size];
         IDEFER(delete[] dat);
-        if (handle->Read(dat, size) != size)
-        {
-            IERROR("Failed reading model data: " + a_path.string());
-
-            break;
-        }
+        IERRCHECKRET(handle->Read(dat, size) == size, false);
 
         Assimp::Importer importer;
 
         const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, aiProcess_Triangulate | aiProcess_PreTransformVertices, extStr.c_str() + 1);
-        IVERIFY(scene != nullptr);
-        
-        Array<Vertex> vertices;
-        Array<uint32_t> indices;
+        IERRCHECKRET(scene != nullptr, false);
+
         float radSqr = 0.0f;
 
         if (a_data != std::numeric_limits<uint8_t>::max())
         {
-            IVERIFY(a_data < scene->mNumMeshes);
+            IERRCHECKRET(a_data < scene->mNumMeshes, false);
 
-            LoadMesh(scene->mMeshes[a_data], &vertices, &indices, &radSqr);
+            LoadMesh(scene->mMeshes[a_data], a_vertices, a_indices, &radSqr);
         }
         else
         {
             for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
             {
-                LoadMesh(scene->mMeshes[i], &vertices, &indices, &radSqr);
+                LoadMesh(scene->mMeshes[i], a_vertices, a_indices, &radSqr);
             }
         }
 
-        if (vertices.Empty() || indices.Empty() || radSqr <= 0)
-        {
-            break;
-        }
+        *a_radius = glm::sqrt(radSqr);
 
-        return a_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), VertexStride, indices.Data(), indices.Size(), glm::sqrt(radSqr));
+        return true;
     }
     default:
     {
@@ -326,15 +316,32 @@ static uint32_t LoadBaseModelFile(RenderEngine* a_renderEngine, uint8_t a_data, 
     }
     }
 
-    return -1;
+    return false;
 }
 
-uint32_t RenderAssetStore::LoadModel(const std::filesystem::path& a_path, uint32_t a_index)
+uint32_t RenderAssetStore::LoadModel(const std::filesystem::path& a_path, uint8_t a_index)
 {
+    constexpr uint16_t VertexStride = sizeof(Vertex);
+
+    Array<Vertex> vertices;
+    Array<uint32_t> indices;
+    float radius;
+    if (!LoadModelData(a_path, a_index, &vertices, &indices, &radius))
+    {
+        return -1;
+    }
+
+    if (vertices.Empty() || indices.Empty() || radius <= 0)
+    {
+        return -1;
+    }
+
+    const uint32_t modelAddr = m_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), VertexStride, indices.Data(), indices.Size(), radius);
+
     const RenderAsset asset =
     {
         .Path = a_path.string(),
-        .InternalAddress = LoadBaseModelFile(m_renderEngine, (uint8_t)a_index, a_path),
+        .InternalAddress = modelAddr,
         .Data = (uint8_t)a_index,
     };
 
@@ -482,7 +489,7 @@ static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_dat
 
     return -1;
 }
-uint32_t RenderAssetStore::LoadSkinnedModel(const std::filesystem::path& a_path, uint32_t a_index)
+uint32_t RenderAssetStore::LoadSkinnedModel(const std::filesystem::path& a_path, uint8_t a_index)
 {
     const RenderAsset asset =
     {
@@ -512,7 +519,6 @@ void RenderAssetStore::DestroyModel(uint32_t a_addr)
 
 uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_models.Size());
     IVERIFY(m_models.Exists(a_addr));
 
     TLockArray<RenderAsset> a = m_models.ToLockArray();
@@ -528,7 +534,22 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
         }
         else
         {
-            asset.InternalAddress = LoadBaseModelFile(m_renderEngine, asset.Data, path);
+            constexpr uint16_t VertexStride = sizeof(Vertex);
+
+            Array<Vertex> vertices;
+            Array<uint32_t> indices;
+            float radius;
+            if (!LoadModelData(asset.Path, asset.Data, &vertices, &indices, &radius))
+            {
+                return -1;
+            }
+        
+            if (vertices.Empty() || indices.Empty() || radius <= 0)
+            {
+                return -1;
+            }
+            
+            asset.InternalAddress = m_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), VertexStride, indices.Data(), indices.Size(), radius);
         }
     }
 

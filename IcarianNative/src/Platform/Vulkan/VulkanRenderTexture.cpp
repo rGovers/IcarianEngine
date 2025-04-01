@@ -320,14 +320,18 @@ void VulkanRenderTexture::Setup()
 
         if (hasDepth)
         {
-            vals[m_textureCount].format = depthFormat;
-            vals[m_textureCount].samples = vk::SampleCountFlagBits::e1;
-            vals[m_textureCount].loadOp = vk::AttachmentLoadOp::eLoad;
-            vals[m_textureCount].storeOp = vk::AttachmentStoreOp::eStore;
-            vals[m_textureCount].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-            vals[m_textureCount].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-            vals[m_textureCount].initialLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
-            vals[m_textureCount].finalLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+            vals[m_textureCount] = vk::AttachmentDescription
+            (
+                { },
+                depthFormat,
+                vk::SampleCountFlagBits::e1,
+                vk::AttachmentLoadOp::eLoad,
+                vk::AttachmentStoreOp::eStore,
+                vk::AttachmentLoadOp::eDontCare,
+                vk::AttachmentStoreOp::eDontCare,
+                vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+                vk::ImageLayout::eDepthStencilReadOnlyOptimal
+            );
         }
 
         ILRETURN vals;
@@ -339,8 +343,11 @@ void VulkanRenderTexture::Setup()
 
         for (uint32_t i = 0; i < m_textureCount; ++i)
         {
-            vals[i].attachment = i;
-            vals[i].layout = vk::ImageLayout::eColorAttachmentOptimal;
+            vals[i] = vk::AttachmentReference
+            (
+                i,
+                vk::ImageLayout::eColorAttachmentOptimal
+            );
         }
 
         ILRETURN vals;
@@ -354,51 +361,110 @@ void VulkanRenderTexture::Setup()
         depthLayout
     );
 
-    vk::SubpassDescription subpass = vk::SubpassDescription
-    (
-        { },
-        vk::PipelineBindPoint::eGraphics,
-        0,
-        nullptr,
-        m_textureCount,
-        colorAttachmentRef
-    );
-    if (hasDepth)
+    const vk::SubpassDescription subDesc = ILAMBDA(
     {
-        subpass.pDepthStencilAttachment = &depthAttachmentRef;
-    }
+        if (hasDepth)
+        {
+            ILRETURN vk::SubpassDescription
+            (
+                { },
+                vk::PipelineBindPoint::eGraphics,
+                0,
+                nullptr,
+                m_textureCount,
+                colorAttachmentRef,
+                nullptr,
+                &depthAttachmentRef
+            );
+        }
 
-    vk::SubpassDependency dependencies[2];
-    dependencies[0].srcSubpass = vk::SubpassExternal;
-    dependencies[0].dstSubpass = 0;
-    dependencies[0].srcStageMask = vk::PipelineStageFlagBits::eFragmentShader;
-    dependencies[0].dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    dependencies[0].srcAccessMask = vk::AccessFlagBits::eShaderRead;
-    dependencies[0].dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-    dependencies[0].dependencyFlags = vk::DependencyFlagBits::eByRegion;
-    dependencies[1].srcSubpass = 0;
-    dependencies[1].dstSubpass = vk::SubpassExternal;
-    dependencies[1].srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    dependencies[1].dstStageMask = vk::PipelineStageFlagBits::eFragmentShader;
-    dependencies[1].srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-    dependencies[1].dstAccessMask = vk::AccessFlagBits::eShaderRead;
-    dependencies[1].dependencyFlags = vk::DependencyFlagBits::eByRegion;
-    if (hasDepth)
+        ILRETURN vk::SubpassDescription
+        (
+            { },
+            vk::PipelineBindPoint::eGraphics,
+            0,
+            nullptr,
+            m_textureCount,
+            colorAttachmentRef
+        );
+    });
+
+    const vk::SubpassDescription subpasses[] = 
     {
-        dependencies[0].dstStageMask |= vk::PipelineStageFlagBits::eEarlyFragmentTests;
-        dependencies[0].dstAccessMask |= vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-        dependencies[1].srcStageMask |= vk::PipelineStageFlagBits::eLateFragmentTests;
-        dependencies[1].srcAccessMask |= vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-    }
+        subDesc
+    };
+    constexpr uint32_t SubpassCount = sizeof(subpasses) / sizeof(*subpasses);
+
+    const vk::SubpassDependency dependencies[] = 
+    {
+        ILAMBDA(
+        {
+            if (hasDepth)
+            {
+                ILRETURN vk::SubpassDependency
+                (
+                    vk::SubpassExternal,
+                    0,
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+                    vk::DependencyFlagBits::eByRegion
+                );
+            }
+
+            ILRETURN vk::SubpassDependency
+            (
+                vk::SubpassExternal,
+                0,
+                vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
+                vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
+                { },
+                { },
+                vk::DependencyFlagBits::eByRegion
+            );
+        }),
+        vk::SubpassDependency
+        (
+            vk::SubpassExternal,
+            0,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits::eFragmentShader,
+            vk::AccessFlagBits::eColorAttachmentWrite,
+            vk::AccessFlagBits::eShaderRead,
+            vk::DependencyFlagBits::eByRegion
+        ),
+        vk::SubpassDependency
+        (
+            0,
+            0,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::AccessFlagBits::eColorAttachmentWrite,
+            vk::AccessFlagBits::eColorAttachmentWrite,
+            vk::DependencyFlagBits::eByRegion
+        ),
+        vk::SubpassDependency
+        (
+            0,
+            vk::SubpassExternal,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits::eBottomOfPipe,
+            vk::AccessFlagBits::eColorAttachmentWrite,
+            vk::AccessFlagBits::eMemoryRead,
+            vk::DependencyFlagBits::eByRegion
+        ),
+    };
+    constexpr uint32_t DependencyCount = sizeof(dependencies) / sizeof(*dependencies);
 
     const vk::RenderPassCreateInfo renderPassInfo = vk::RenderPassCreateInfo
     (
         { },
         totalTextureCount,
         attachments,
-        1,
-        &subpass,
-        2,
+        SubpassCount,
+        subpasses,
+        DependencyCount,
         dependencies
     );
     VKRESERRMSG(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass), "Failed to create RenderTexture RenderPass");
@@ -408,9 +474,9 @@ void VulkanRenderTexture::Setup()
         { },
         totalTextureCount,
         attachmentsNoClear,
-        1,
-        &subpass,
-        2,
+        SubpassCount,
+        subpasses,
+        DependencyCount,
         dependencies
     );
     VKRESERRMSG(device.createRenderPass(&renderPassNoClearInfo, nullptr, &m_renderPassNoClear), "Failed to create RenderTexture RenderPass");
@@ -420,9 +486,9 @@ void VulkanRenderTexture::Setup()
         { },
         totalTextureCount,
         attachmentsColorClear,
-        1,
-        &subpass,
-        2,
+        SubpassCount,
+        subpasses,
+        DependencyCount,
         dependencies
     );
     VKRESERRMSG(device.createRenderPass(&renderPassColorClearInfo, nullptr, &m_renderPassColorClear), "Failed to create RenderTexture RenderPass");
@@ -510,6 +576,17 @@ VulkanRenderTexture::~VulkanRenderTexture()
     blockAllocator->Free(m_clearValues);
 }
 
+vk::Image VulkanRenderTexture::GetDepthTexture() const
+{
+    const VulkanDepthRenderTexture* texture = m_gEngine->GetDepthRenderTexture(m_depthHandle);
+    if (texture == nullptr)
+    {
+        return nullptr;
+    }
+
+    return texture->GetTexture();
+}
+
 void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 {
     const vk::Device device = m_engine->GetLogicalDevice();
@@ -537,7 +614,7 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
@@ -610,8 +687,8 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
             vk::AccessFlagBits::eShaderRead,
             vk::ImageLayout::eUndefined,
             vk::ImageLayout::eShaderReadOnlyOptimal,
-            VK_QUEUE_FAMILY_IGNORED,
-            VK_QUEUE_FAMILY_IGNORED,
+            vk::QueueFamilyIgnored,
+            vk::QueueFamilyIgnored,
             m_textures[i],
             SubresourceRange
         );

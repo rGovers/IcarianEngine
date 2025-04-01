@@ -495,7 +495,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         applicationName.c_str(), 
         0U, 
         "IcarianEngine", 
-        VK_MAKE_API_VERSION(0, ICARIANNATIVE_VERSION_MAJOR, ICARIANNATIVE_VERSION_MINOR, ICARIANNATIVE_VERSION_PATCH),
+        VulkanEngineVersion,
         ICARIAN_VULKAN_VERSION, 
         nullptr
     );
@@ -594,6 +594,8 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
     TRACE("Found Vulkan Physical Device");
 
     const Array<uint8_t, RenderScratchAlloc> optionalMask = GetDeviceExtensionSupport(m_pDevice, Array<const char*, RenderScratchAlloc>(OptionalDeviceExtensions, OptionalDeviceExtensionCount));
+
+    m_optionalExtensionMask.Resize(OptionalDeviceExtensionCount / 8 + 1);
     for (uint32_t i = 0; i < OptionalDeviceExtensionCount; ++i)
     {
         const uint32_t index = i / 8;
@@ -603,9 +605,8 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
         if (val)
         {
             extensions.Push(OptionalDeviceExtensions[i]);
+            ISETBIT(m_optionalExtensionMask[index], offset);
         }
-
-        m_optionalExtensionMask.Push(val);
     }
 
     vk::PhysicalDeviceProperties props;

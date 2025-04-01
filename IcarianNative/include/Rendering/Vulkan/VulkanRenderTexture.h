@@ -96,10 +96,7 @@ public:
     {
         return m_textures[a_index];
     }
-    inline vk::Image GetDepthTexture() const
-    {
-        return m_textures[m_textureCount];
-    }
+    vk::Image GetDepthTexture() const;
     inline vk::Image* GetTextures() const
     {
         return m_textures;

@@ -63,6 +63,10 @@ public:
         return m_clearValue;
     }
 
+    inline vk::Image GetTexture() const
+    {
+        return m_texture;
+    }
     inline vk::ImageView GetImageView() const
     {
         return m_textureView;

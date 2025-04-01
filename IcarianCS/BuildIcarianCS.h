@@ -9,13 +9,13 @@ extern "C" {
 
 const static char* IcarianCSGlobalImportsBasePaths[] =
 {
+    "./imports/Global/Camera.import",
     "./imports/Global/Maths.import",
     "./imports/Global/TBN.import"
 };
 
 const static char* IcarianCSPixelImportsBasePaths[] =
 {
-    "./imports/Pixel/Camera.import",
     "./imports/Pixel/PBR.import",
     "./imports/Pixel/Lighting.import",
     "./imports/Pixel/DirectionalLight.import",
@@ -111,6 +111,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/EditorRangeAttribute.cs",
         "./src/EditorTooltipAttribute.cs",
         "./src/Extensions.cs",
+        "./src/FileCache.cs",
         "./src/GameObject.cs",
         "./src/HideInEditorAttribute.cs",
         "./src/IDestroy.cs",
@@ -250,6 +251,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Rendering/PostEffects/PostEffect.cs",
         "./src/Rendering/PostEffects/ToneMapPostEffect.cs",
 
+        "./src/Rendering/Shaders/ComputeShader.cs",
         "./src/Rendering/Shaders/DecalShader.cs",
         "./src/Rendering/Shaders/MeshShader.cs",
         "./src/Rendering/Shaders/PixelShader.cs",

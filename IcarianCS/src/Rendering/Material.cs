@@ -72,6 +72,8 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateMeshProgram(uint a_meshShader, uint a_pixelShader, ushort a_vertexStride, uint a_cullMode, uint a_colorBlendMode, uint a_renderLayer, uint a_shadowVertexShader, uint a_uboSize, IntPtr a_uboBuffer);
         [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GenerateComputeProgram(uint a_computeShader, uint a_uboSize, IntPtr a_uboBuffer);
+        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static RenderProgram GetProgramBuffer(uint a_addr); 
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void SetProgramBuffer(uint a_addr, RenderProgram a_program);
@@ -127,6 +129,7 @@ namespace IcarianEngine.Rendering
         
         /// <summary>
         /// Gets the <see cref="IcarianEngine.Rendering.MaterialMode" /> of the Material
+        /// </summary>
         public MaterialMode MaterialMode
         {
             get
@@ -300,6 +303,57 @@ namespace IcarianEngine.Rendering
             if (a_builder.UBOBuffer != null)
             {
                 mat.m_uboType = a_builder.UBOBuffer.GetType();
+            }
+
+            return mat;
+        }
+
+        public static Material CreateMaterial(ComputeShader a_shader, object a_userUBO)
+        {
+            if (a_shader == null || a_shader.IsDisposed)
+            {
+                Logger.IcarianWarning("Creating Material with null ComputeShader");
+
+                return null;
+            }
+
+            if (a_shader.ComputeMode != ComputeMode.Graphics)
+            {
+                Logger.IcarianError("Creating Compute Material with non Graphics Compute Shader");
+
+                return null;
+            }
+
+            uint uboSize = 0;
+            IntPtr uboBuffer = IntPtr.Zero;
+            if (a_userUBO != null)
+            {
+                uboSize = (uint)Marshal.SizeOf(a_userUBO);
+                uboBuffer = Marshal.AllocHGlobal((int)uboSize);
+                Marshal.StructureToPtr(a_userUBO, uboBuffer, false);
+            }
+
+            uint addr = GenerateComputeProgram(a_shader.InternalAddr, uboSize, uboBuffer);
+
+            // Trust the GC bout as far as I can throw it
+            // Therefore memory stays in the C# domain
+            if (uboBuffer != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(uboBuffer);
+            }
+
+            if (addr == uint.MaxValue)
+            {
+                Logger.IcarianError("Failed to create Compute Material");
+
+                return null;
+            }
+
+            Material mat = new Material(addr);
+
+            if (a_userUBO != null)
+            {
+                mat.m_uboType = a_userUBO.GetType();
             }
 
             return mat;

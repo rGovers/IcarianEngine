@@ -6,6 +6,8 @@
 
 #include "Rendering/Vulkan/VulkanPipeline.h"
 
+#include "Core/IcarianLambda.h"
+#include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
 #include "Rendering/Vulkan/Shaders/VulkanMeshShader.h"
 #include "Rendering/Vulkan/Shaders/VulkanPixelShader.h"
 #include "Rendering/Vulkan/Shaders/VulkanVertexShader.h"
@@ -83,7 +85,7 @@ static Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> GetStageInfo
         {
         case MaterialMode_BaseVertex:
         {
-            const VulkanShader* vertexShader = a_gEngine->GetVertexShader(a_program.VertexShader);
+            const VulkanVertexShader* vertexShader = a_gEngine->GetVertexShader(a_program.VertexShader);
             IVERIFY(vertexShader != nullptr);
 
             stages.Push(vk::PipelineShaderStageCreateInfo
@@ -125,6 +127,21 @@ static Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> GetStageInfo
 
             break;
         }
+        case MaterialMode_Compute:
+        {
+            const VulkanComputeShader* computeShader = a_gEngine->GetComputeShader(a_program.ExtraShader);
+            IVERIFY(computeShader != nullptr);
+
+            stages.Push(vk::PipelineShaderStageCreateInfo
+            (
+                { },
+                vk::ShaderStageFlagBits::eCompute,
+                computeShader->GetShaderModule(),
+                "main"
+            ));
+
+            break;
+        }
         default:
         {
             IERROR("Invalid MaterialMode");
@@ -136,7 +153,7 @@ static Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> GetStageInfo
 
     if (a_program.PixelShader != uint32_t(-1))
     {
-        const VulkanShader* pixelShader = a_gEngine->GetPixelShader(a_program.PixelShader);
+        const VulkanPixelShader* pixelShader = a_gEngine->GetPixelShader(a_program.PixelShader);
         IVERIFY(pixelShader != nullptr);
 
         stages.Push(vk::PipelineShaderStageCreateInfo
@@ -174,32 +191,6 @@ constexpr static vk::CullModeFlags GetCullingMode(e_CullMode a_mode)
     }
 
     IERROR("Invalid Culling mode");
-
-    return vk::CullModeFlagBits::eNone;
-}
-constexpr static vk::CullModeFlags GetInvCullingMode(e_CullMode a_mode)
-{
-    switch (a_mode)
-    {
-    case CullMode_Front:
-    {
-        return vk::CullModeFlagBits::eBack;
-    }
-    case CullMode_Back:
-    {
-        return vk::CullModeFlagBits::eFront;
-    }
-    case CullMode_Both:
-    {
-        return vk::CullModeFlagBits::eFrontAndBack;
-    }
-    case CullMode_None:
-    {
-        return vk::CullModeFlagBits::eNone;
-    }
-    }
-    
-    IERROR("Invalid Inverse Culling mode");
 
     return vk::CullModeFlagBits::eNone;
 }
@@ -334,6 +325,7 @@ VulkanShaderData* VulkanPipeline::GetShaderData() const
     
     return (VulkanShaderData*)program.Data;
 }
+
 void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
 {
     const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
@@ -355,6 +347,12 @@ void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) c
 
         break;
     }
+    case VulkanPipelineType_Compute:
+    {
+        data->BindCompute(a_index, a_commandBuffer);
+
+        break;
+    }
     default:
     {
         IERROR("Invalid bind type");
@@ -363,7 +361,66 @@ void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) c
     }
     }
 
-    a_commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_pipeline);
+    const vk::PipelineBindPoint bindPoint = ILAMBDA(
+    {
+        switch (m_type)
+        {
+        case VulkanPipelineType_Graphics:
+        case VulkanPipelineType_Shadow:
+        {
+            ILRETURN vk::PipelineBindPoint::eGraphics;
+        }
+        case VulkanPipelineType_Compute:
+        {
+            ILRETURN vk::PipelineBindPoint::eCompute;
+        }
+        default:
+        {
+            break;
+        }
+        }
+
+        IERROR("Invalid pipeline type");
+
+        ILRETURN vk::PipelineBindPoint::eGraphics;
+    });
+
+    a_commandBuffer.bindPipeline(bindPoint, m_pipeline);
+}
+
+void VulkanPipeline::CreateComputePipeline(VulkanPipeline* a_out, const VulkanGraphicsComputePipelineBuilder& a_builder)
+{
+    const vk::Device device = a_builder.Engine->GetLogicalDevice();
+    const RenderProgram program = a_builder.GraphicsEngine->GetRenderProgram(a_builder.ProgramAddr);
+    IVERIFY(program.Data != nullptr);
+    IVERIFY(program.ExtraShader != uint32_t(-1));
+
+    const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
+
+    const VulkanComputeShader* computeShader = a_builder.GraphicsEngine->GetComputeShader(program.ExtraShader);
+    IVERIFY(computeShader != nullptr);
+
+    const vk::ShaderModule module = computeShader->GetShaderModule();
+    const vk::PipelineShaderStageCreateInfo computeStage = vk::PipelineShaderStageCreateInfo
+    (
+        { },
+        vk::ShaderStageFlagBits::eCompute,
+        module,
+        "main"
+    );
+
+    const vk::PipelineLayout layout = shaderData->GetLayout();
+    const vk::ComputePipelineCreateInfo createInfo = vk::ComputePipelineCreateInfo
+    (
+        { },
+        computeStage,
+        layout
+    );
+
+    vk::Pipeline pipeline;
+    VKRESERRMSG(device.createComputePipelines(nullptr, 1, &createInfo, nullptr, &pipeline), "Failed to create Vulkan Graphics Compute Pipeline");
+
+    new (a_out) VulkanPipeline(pipeline, a_builder.Engine, a_builder.GraphicsEngine, a_builder.ProgramAddr, VulkanPipelineType_Compute);
 }
 
 void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder)

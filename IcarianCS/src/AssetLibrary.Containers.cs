@@ -126,6 +126,48 @@ namespace IcarianEngine
     }
 #endif
 
+    class GraphicsComputeShaderContainer : IAssetContainer
+    {
+        public LoadStatus Status
+        {
+            get;
+            set;
+        }
+        public EventWaitHandle WaitHandle
+        {
+            get;
+            set;
+        }
+        public ComputeShader Shader
+        {
+            get;
+            set;
+        }
+
+        public object Value
+        {
+            get
+            {
+                return Shader;
+            }
+            set
+            {
+                Shader = value as ComputeShader;
+            }
+        }
+
+        public GraphicsComputeShaderContainer()
+        {
+            Status = LoadStatus.Unloaded;
+            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            Shader = null;
+        }
+
+        public object LoadValue(string a_input)
+        {
+            return ComputeShader.LoadComputeShader(a_input, ComputeMode.Graphics);
+        }
+    }
     class VertexShaderContainer : IAssetContainer
     {
         public LoadStatus Status

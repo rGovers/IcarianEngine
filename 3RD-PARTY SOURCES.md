@@ -109,7 +109,7 @@ Original Project:
 
 https://github.com/g-truc/glm
 
-### stb Fork
+### stb
 License: MIT or Public Domain
 
 Original Project:

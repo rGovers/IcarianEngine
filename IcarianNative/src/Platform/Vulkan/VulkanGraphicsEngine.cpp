@@ -10,8 +10,8 @@
 #include <glm/gtx/matrix_decompose.hpp>
 #include <vulkan/vulkan_handles.hpp>
 
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianLambda.h"
 #include "Core/ShaderBuffers.h"
 #include "Logger.h"
 #include "ObjectManager.h"
@@ -23,6 +23,7 @@
 #include "Rendering/UI/TextUIElement.h"
 #include "Rendering/UI/UIControl.h"
 #include "Rendering/UI/UIElement.h"
+#include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
 #include "Rendering/Vulkan/Shaders/VulkanMeshShader.h"
 #include "Rendering/Vulkan/Shaders/VulkanPixelShader.h"
 #include "Rendering/Vulkan/Shaders/VulkanTaskShader.h"
@@ -518,6 +519,40 @@ void VulkanGraphicsEngine::DestroyPixelShader(uint32_t a_addr)
     m_pixelShaders.Erase(a_addr);
 }
 
+uint32_t VulkanGraphicsEngine::GenerateFComputeShader(const std::string_view& a_source)
+{
+    IVERIFY(!a_source.empty());
+
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanComputeShader* shader = blockAllocator->TAllocate<VulkanComputeShader>();
+
+    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
+
+    const VulkanComputeFShaderBuilder builder =
+    {
+        .Engine = m_vulkanEngine,
+        .String = std::string(a_source),
+        .Imports = m_computeImports,
+        .EntryPoint = "main",
+    };
+
+    VulkanComputeShader::CreateFromFShader(shader, builder, blockAllocator);
+
+    return m_computeShaders.PushVal(shader);
+}
+void VulkanGraphicsEngine::DestroyComputeShader(uint32_t a_addr)
+{
+    IVERIFY(m_computeShaders.Exists(a_addr));
+    
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanComputeShader* shader = m_computeShaders[a_addr];
+    IDEFER(blockAllocator->Destroy(shader));
+
+    m_computeShaders.Erase(a_addr);
+}
+
 uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_program)
 {
     switch (a_program.MaterialMode) 
@@ -525,6 +560,7 @@ uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_prog
     case MaterialMode_BaseVertex:
     {
         IVERIFY(m_vertexShaders.Exists(a_program.VertexShader));
+        IVERIFY(m_pixelShaders.Exists(a_program.PixelShader));
 
         break;
     }
@@ -537,6 +573,14 @@ uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_prog
             IVERIFY(m_taskShaders.Exists(a_program.ExtraShader));
         }
 
+        IVERIFY(m_pixelShaders.Exists(a_program.PixelShader));
+
+        break;
+    }
+    case MaterialMode_Compute:
+    {
+        IVERIFY(m_computeShaders.Exists(a_program.ExtraShader));
+
         break;
     }
     default:
@@ -546,8 +590,7 @@ uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_prog
         break;
     }
     }
-    IVERIFY(m_pixelShaders.Exists(a_program.PixelShader));
-
+    
     BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
 
     TRACE("Creating Shader Program");
@@ -789,36 +832,86 @@ VulkanPipeline* VulkanGraphicsEngine::GetPipeline(uint32_t a_renderTexture, uint
         return iter->second;
     }
 
-    TRACE("Allocating Vulkan Pipeline");
-    vk::RenderPass pass = m_swapchain->GetRenderPass();
-    bool hasDepth = false;
-    uint32_t textureCount = 1;
-
     const VulkanRenderTexture* tex = GetRenderTexture(a_renderTexture);
-    if (tex != nullptr)
+    const RenderProgram program = m_shaderPrograms[a_pipeline];
+
+    TRACE("Allocating Vulkan Pipeline");
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
+
+    switch (program.MaterialMode) 
     {
-        pass = tex->GetRenderPass();
-        hasDepth = tex->HasDepthTexture();
-        textureCount = tex->GetTextureCount();
+    case MaterialMode_BaseMesh:
+    case MaterialMode_BaseVertex:
+    {
+        const vk::RenderPass renderPass = ILAMBDA(
+        {
+            if (tex != nullptr)
+            {
+                ILRETURN tex->GetRenderPass();
+            }
+    
+            ILRETURN m_swapchain->GetRenderPass();
+        });
+        
+        const bool hasDepth = ILAMBDA(
+        {
+            if (tex != nullptr)
+            {
+                ILRETURN tex->HasDepthTexture();
+            }
+    
+            ILRETURN false;
+        });
+        
+        const uint32_t textureCount = ILAMBDA(
+        {
+            if (tex != nullptr)
+            {
+                ILRETURN tex->GetTextureCount();
+            }
+    
+            ILRETURN uint32_t(1);
+        });
+        
+        const VulkanGraphicsPipelineBuilder builder =
+        {
+            .Engine = m_vulkanEngine,
+            .GraphicsEngine = this,
+            .RenderPass = renderPass,
+            .TextureCount = textureCount,
+            .ProgramAddr = a_pipeline,
+            .Depth = hasDepth,
+        };
+        
+
+        VulkanPipeline::CreatePipeline(pipeline, builder);
+        
+        break;
+    }
+    case MaterialMode_Compute:
+    {
+        const VulkanGraphicsComputePipelineBuilder builder = 
+        {
+            .Engine = m_vulkanEngine,
+            .GraphicsEngine = this,
+            .ProgramAddr = a_pipeline
+        };
+
+        VulkanPipeline::CreateComputePipeline(pipeline, builder);
+
+        break;
+    }
+    default:
+    {
+        IERROR("Invalid material mode");
+
+        break;
+    }
     }
 
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
-
-    const VulkanGraphicsPipelineBuilder builder =
-    {
-        .Engine = m_vulkanEngine,
-        .GraphicsEngine = this,
-        .RenderPass = pass,
-        .TextureCount = textureCount,
-        .ProgramAddr = a_pipeline,
-        .Depth = hasDepth,
-    };
-
-    VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
-    VulkanPipeline::CreatePipeline(pipeline, builder);
-
     m_pipelines.emplace(addr, pipeline);
-
+        
     return pipeline;
 }
 
@@ -862,7 +955,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
             continue;
         }
 
-        if (a_renderCommand->BindMaterial(matAddr) == nullptr)
+        if (a_renderCommand->BindMaterial(matAddr, true) == nullptr)
         {
             IERROR("Failed to bind material");
         }
@@ -2288,7 +2381,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     data->PushUniformBuffer(commandBuffer, ambientLightInput.Slot, uniformBuffer, a_frameIndex);
 
-                    commandBuffer.draw(4, 1, 0, 0);
+                    renderCommand.DrawMaterial();
                 }
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSAmbientLightBuffer, &ambientLightInput))
@@ -2321,7 +2414,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     data->PushShaderStorageObject(commandBuffer, ambientLightInput.Slot, storage, a_frameIndex);
 
-                    commandBuffer.draw(4, 1, 0, 0);
+                    renderCommand.DrawMaterial();
                 }
             }
 
@@ -2378,7 +2471,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                         
                     data->PushUniformBuffer(commandBuffer, dirLightInput.Slot, uniformBuffer, a_frameIndex);
 
-                    commandBuffer.draw(4, 1, 0, 0);
+                    renderCommand.DrawMaterial();
                 }
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSDirectionalLightBuffer, &dirLightInput))
@@ -2428,7 +2521,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     data->PushShaderStorageObject(commandBuffer, dirLightInput.Slot, storage, a_frameIndex);
 
-                    commandBuffer.draw(4, 1, 0, 0);
+                    renderCommand.DrawMaterial();
                 }
             }
             
@@ -2490,7 +2583,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     data->PushUniformBuffer(commandBuffer, pointLightInput.Slot, uniformBuffer, a_frameIndex);
 
-                    commandBuffer.draw(4, 1, 0, 0);
+                    renderCommand.DrawMaterial();
                 }
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSPointLightBuffer, &pointLightInput))
@@ -2545,7 +2638,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     data->PushShaderStorageObject(commandBuffer, pointLightInput.Slot, storage, a_frameIndex);
 
-                    commandBuffer.draw(4, 1, 0, 0);
+                    renderCommand.DrawMaterial();
                 }
             }
 
@@ -2610,7 +2703,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     data->PushUniformBuffer(commandBuffer, spotLightInput.Slot, uniformBuffer, a_frameIndex);
 
-                    commandBuffer.draw(4, 1, 0, 0);
+                    renderCommand.DrawMaterial();
                 }
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSSpotLightBuffer, &spotLightInput))
@@ -2668,7 +2761,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     data->PushShaderStorageObject(commandBuffer, spotLightInput.Slot, storage, a_frameIndex);
 
-                    commandBuffer.draw(4, 1, 0, 0);
+                    renderCommand.DrawMaterial();
                 }
             }
 
@@ -3285,6 +3378,12 @@ VulkanPixelShader* VulkanGraphicsEngine::GetPixelShader(uint32_t a_addr)
     IVERIFY(m_pixelShaders.Exists(a_addr));
 
     return m_pixelShaders[a_addr];
+}
+VulkanComputeShader* VulkanGraphicsEngine::GetComputeShader(uint32_t a_addr)
+{
+    IVERIFY(m_computeShaders.Exists(a_addr));
+
+    return m_computeShaders[a_addr];
 }
 
 CameraBuffer VulkanGraphicsEngine::GetCameraBuffer(uint32_t a_addr)

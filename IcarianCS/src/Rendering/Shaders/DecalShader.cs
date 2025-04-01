@@ -5,20 +5,29 @@
 using System;
 using System.Runtime.CompilerServices;
 
+#ifdef ENABLE_EXPERIMENTAL
 namespace IcarianEngine.Rendering.Shaders
 {
     public class DecalShader
     {
+        // So the original plan went south.
+        // Turns original plan for implementing it turns out was undefined behaviour because tiled GPUs cannot do it despite the fact it worked on desktop GPUs.
+        // So after diving into the Vulkan spec turn out to do it as defined behaviour need a barrier after every draw call which sounds terrible but it gets worse.
+        // Turns out Vulkan the spec state you will still get a race condition when 2 or more triangle intersect which is bad.
+        // After further digging turns out this was one of the few points that GLES branched from OpenGL.
+        // Gonna be dropped till the next project and going to have to move Decals to Compute.
+
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateFromFile(string a_path);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyShader(uint a_addr);
     }
 }
+#endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

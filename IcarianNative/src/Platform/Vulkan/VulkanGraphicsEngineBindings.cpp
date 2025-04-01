@@ -40,10 +40,10 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
 // The lazy part of me won against the part that wants to write clean code
 // My apologies to the poor soul that has to decipher this definition
 #define VULKANGRAPHICS_BINDING_FUNCTION_TABLE(F) \
+    F(void, IcarianEngine.Rendering.Shaders, ComputeShader, DestroyGraphicsShader, { IPUSHDELETIONFUNC(Instance->DestroyComputeshader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Shaders, VertexShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyVertexShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Shaders, MeshShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyMeshShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Shaders, PixelShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyPixelShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering.Shaders, DecalShader, DestroyShader, { IPUSHDELETIONFUNC(Instance->DestroyDecalShader(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     \
     F(RenderProgram, IcarianEngine.Rendering, Material, GetProgramBuffer, { return Instance->GetRenderProgram(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, Material, SetProgramBuffer, { Instance->SetRenderProgram(a_addr, a_program); }, uint32_t a_addr, RenderProgram a_program) \
@@ -153,10 +153,58 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
 
 VULKANGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
+RUNTIME_FUNCTION(uint32_t, ComputeShader, GenerateGraphicsFromFile,
+{
+    IERRBLOCK;
+    RENDERSCRATCHFRAME;
+
+    char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
+
+    const std::filesystem::path p = std::filesystem::path(str);
+    const std::filesystem::path ext = p.extension();
+
+    const std::string extStr = ext.string();
+
+    switch (StringHash<uint32_t>(extStr.c_str())) 
+    {
+    case StringHash<uint32_t>(".fcomp"):
+    {
+        FileHandle* handle = FileCache::LoadFile(p);
+        IERRCHECKRET(handle != nullptr, -1);
+        IDEFER(delete handle);
+
+        const uint64_t size = handle->GetSize();
+
+        char* str = RenderScratchAlloc::TAllocate<char>(size);
+        IERRCHECKRET(handle->Read(str, size) == size, -1);
+        
+        return Instance->GenerateFComputeShaderAddr(std::string_view(str, size));
+    }
+    default:
+    {
+        IWARN(std::string("ComputeShader invalid file format: ") + str);
+
+        break;
+    }
+    }
+
+    return -1;
+}, MonoString* a_path)
+RUNTIME_FUNCTION(void, ComputeShader, AddImport, 
+{
+    char* key = mono_string_to_utf8(a_key);
+    IDEFER(mono_free(key));
+    char* value = mono_string_to_utf8(a_value);
+    IDEFER(mono_free(value));
+
+    Instance->AddComputeShaderImport(key, value);
+}, MonoString* a_key, MonoString* a_value)
+
 RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile, 
 {
-    RENDERSCRATCHFRAME;
     IERRBLOCK;
+    RENDERSCRATCHFRAME;
 
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
@@ -215,8 +263,8 @@ RUNTIME_FUNCTION(void, VertexShader, AddImport,
 
 RUNTIME_FUNCTION(uint32_t, MeshShader, GenerateFromFile, 
 {
-    RENDERSCRATCHFRAME;
     IERRBLOCK;
+    RENDERSCRATCHFRAME;
 
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
@@ -264,8 +312,8 @@ RUNTIME_FUNCTION(void, MeshShader, AddImport,
 
 RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile, 
 {
-    RENDERSCRATCHFRAME;
     IERRBLOCK;
+    RENDERSCRATCHFRAME;
 
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
@@ -321,15 +369,6 @@ RUNTIME_FUNCTION(void, PixelShader, AddImport,
 
     Instance->AddPixelShaderImport(key, value);
 }, MonoString* a_key, MonoString* a_value)
-
-// TODO: Implement me!~
-[[maybe_unused]] RUNTIME_FUNCTION(uint32_t, DecalShader, GenerateFromFile, 
-{
-    char* str = mono_string_to_utf8(a_path);
-    IDEFER(mono_free(str));
-
-    return Instance->GenerateFDecalShaderAddr(str);
-}, MonoString* a_path)
 
 RUNTIME_FUNCTION(MonoArray*, Camera, GetProjectionMatrix, 
 {
@@ -436,6 +475,24 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateMeshProgram,
 
     return Instance->GenerateShaderProgram(program);
 }, uint32_t a_meshShader, uint32_t a_pixelShader, uint16_t a_vertexStride, uint32_t a_cullMode, uint32_t a_colorBlendMode, uint32_t a_renderLayer, uint32_t a_shadowVertexShader, uint32_t a_uboSize, void* a_uboData)
+RUNTIME_FUNCTION(uint32_t, Material, GenerateComputeProgram, 
+{
+    RenderProgram program;
+    memset(&program, 0, sizeof(RenderProgram));
+    program.ExtraShader = a_computeShader;
+    program.MaterialMode = MaterialMode_Compute;
+
+    if (a_uboData != NULL)
+    {
+        program.UBODataSize = a_uboSize;
+        program.UBOData = malloc((size_t)program.UBODataSize);
+
+        memcpy(program.UBOData, a_uboData, (size_t)program.UBODataSize);
+    }
+
+    return Instance->GenerateShaderProgram(program);
+}, uint32_t a_computeShader, uint32_t a_uboSize, void* a_uboData)
+
 RUNTIME_FUNCTION(void, Material, DestroyProgram, 
 {
     IPUSHDELETIONFUNC(
@@ -527,6 +584,8 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(VulkanGraphicsEngine*
     TRACE("Binding Vulkan functions to C#");
     VULKANGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH)
 
+    BIND_FUNCTION(IcarianEngine.Rendering.Shaders, ComputeShader, GenerateGraphicsFromFile);
+    BIND_FUNCTION(IcarianEngine.Rendering.Shaders, ComputeShader, AddImport);
     BIND_FUNCTION(IcarianEngine.Rendering.Shaders, VertexShader, GenerateFromFile);
     BIND_FUNCTION(IcarianEngine.Rendering.Shaders, VertexShader, AddImport);
     BIND_FUNCTION(IcarianEngine.Rendering.Shaders, MeshShader, GenerateFromFile);
@@ -541,6 +600,7 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(VulkanGraphicsEngine*
 
     BIND_FUNCTION(IcarianEngine.Rendering, Material, GenerateProgram);
     BIND_FUNCTION(IcarianEngine.Rendering, Material, GenerateMeshProgram);
+    BIND_FUNCTION(IcarianEngine.Rendering, Material, GenerateComputeProgram);
     BIND_FUNCTION(IcarianEngine.Rendering, Material, DestroyProgram);
 
     BIND_FUNCTION(IcarianEngine.Rendering, Model, GenerateModel);
@@ -554,11 +614,40 @@ VulkanGraphicsEngineBindings::~VulkanGraphicsEngineBindings()
 
 }
 
+uint32_t VulkanGraphicsEngineBindings::GenerateFComputeShaderAddr(const std::string_view& a_str) const
+{
+    return m_graphicsEngine->GenerateFComputeShader(a_str);
+}
+void VulkanGraphicsEngineBindings::AddComputeShaderImport(const std::string_view& a_key, const std::string_view& a_value) const
+{
+    IVERIFY(!a_key.empty());
+    IVERIFY(!a_value.empty());
+
+    const std::string k = std::string(a_key);
+    const std::string v = std::string(a_value);
+
+    const ThreadGuard g = ThreadGuard(m_graphicsEngine->m_importLock);
+
+    auto iter = m_graphicsEngine->m_computeImports.find(k);
+    if (iter != m_graphicsEngine->m_computeImports.end())
+    {
+        iter->second = v;
+
+        return;
+    }
+
+    m_graphicsEngine->m_computeImports.emplace(k, v);
+}
+void VulkanGraphicsEngineBindings::DestroyComputeshader(uint32_t a_addr) const
+{
+    m_graphicsEngine->DestroyComputeShader(a_addr);
+}
+
 uint32_t VulkanGraphicsEngineBindings::GenerateFVertexShaderAddr(const std::string_view& a_str) const
 {
     return m_graphicsEngine->GenerateFVertexShader(a_str);
 }
-void VulkanGraphicsEngineBindings::AddVertexShaderImport(const std::string_view& a_key, const std::string_view& a_value)
+void VulkanGraphicsEngineBindings::AddVertexShaderImport(const std::string_view& a_key, const std::string_view& a_value) const
 {
     IVERIFY(!a_key.empty());
     IVERIFY(!a_value.empty());
@@ -616,7 +705,7 @@ uint32_t VulkanGraphicsEngineBindings::GenerateFPixelShaderAddr(const std::strin
 {
     return m_graphicsEngine->GenerateFPixelShader(a_str);
 }
-void VulkanGraphicsEngineBindings::AddPixelShaderImport(const std::string_view& a_key, const std::string_view& a_value)
+void VulkanGraphicsEngineBindings::AddPixelShaderImport(const std::string_view& a_key, const std::string_view& a_value) const
 {
     IVERIFY(!a_key.empty());
     IVERIFY(!a_value.empty());
@@ -639,14 +728,6 @@ void VulkanGraphicsEngineBindings::AddPixelShaderImport(const std::string_view& 
 void VulkanGraphicsEngineBindings::DestroyPixelShader(uint32_t a_addr) const
 {
     m_graphicsEngine->DestroyPixelShader(a_addr);
-}
-uint32_t VulkanGraphicsEngineBindings::GenerateFDecalShaderAddr(const std::filesystem::path& a_path) const
-{
-    return -1;
-}
-void VulkanGraphicsEngineBindings::DestroyDecalShader(uint32_t a_addr) const
-{
-    
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateShaderProgram(const RenderProgram& a_program) const
