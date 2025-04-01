@@ -8,10 +8,15 @@
 #include <glm/glm.hpp>
 
 #include <cstring>
+#include <thread>
 
+#include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianError.h"
+#include "Core/IcarianLambda.h"
 #include "DataTypes/ThreadGuard.h"
 #include "IcarianError.h"
+#include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
 static FileCache* Instance = nullptr;
@@ -35,6 +40,66 @@ static FileCache* Instance = nullptr;
 // 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128 | 256 | 512 | 1024 | 2048 | 4096 | 8192 | 16384 | 32768 | 65536 | 131072 | 262144 | 524288 | 1048576
 // 0 | 1 | 2 | 3 | 4  | 5  | 6  | 7   | 8   | 9   | 10   | 11   | 12   | 13   | 14    | 15    | 16    | 17     | 18     | 19     | 20
 constexpr uint32_t MiBToByteShift = 20;
+
+RUNTIME_FUNCTION(uint32_t, FileCache, CachedFile,
+{
+    char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
+
+    return FileCache::ExistsInCache(str);
+}, MonoString* a_path)
+RUNTIME_FUNCTION(MonoArray*, FileCache, ReadFileData, 
+{
+    IERRBLOCK;
+    
+    char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
+
+    FileHandle* handle = FileCache::LoadFile(str);
+    IERRCHECKRET(handle != nullptr, NULL);
+    IDEFER(delete handle);
+
+    const uint64_t size = handle->GetSize();
+
+    uint8_t* dat = new uint8_t[size];
+    IDEFER(delete[] dat);
+
+    IERRCHECKRET(handle->Read(dat, size) == size, NULL);
+
+    MonoArray* arr = mono_array_new(mono_domain_get(), mono_get_byte_class(), (uintptr_t)size);
+    for (uint64_t i = 0; i < size; ++i)
+    {
+        mono_array_set(arr, mono_byte, i, dat[i]);
+    }
+
+    return arr;
+}, MonoString* a_path)
+RUNTIME_FUNCTION(void, FileCache, WriteFileData, 
+{
+    char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
+
+    const uint64_t size = mono_array_length(a_data);
+    uint8_t* dat = new uint8_t[size];
+
+    for (uint64_t i = 0; i < size; ++i)
+    {
+        dat[i] = mono_array_get(a_data, uint8_t, i);
+    }
+
+    if (a_writeFile)
+    {
+        FILE* file = fopen(str, "wb");
+        if (file != NULL)
+        {
+            IDEFER(fclose(file));
+
+            fwrite(dat, 1, size, file);
+        }
+    }
+
+    FileCache::PushFile(str, dat, (uint32_t)size, (bool)a_pinFile);
+}, MonoString* a_path, MonoArray* a_data, uint32_t a_writeFile, uint32_t a_pinFile)
 
 CacheFileHandle::CacheFileHandle(FileBuffer* a_buffer)
 {
@@ -131,9 +196,9 @@ FileCache::FileCache(uint32_t a_sizeMiB)
 }
 FileCache::~FileCache()
 {
-    for (const auto iter : m_files)
+    for (const auto& iter : m_files)
     {
-        FileBuffer* buffer = iter.second;
+        const FileBuffer* buffer = iter.second;
         delete[] (uint8_t*)buffer->Data;
         delete buffer;
     }
@@ -144,6 +209,10 @@ void FileCache::Init(uint32_t a_sizeMB)
     if (Instance == nullptr)
     {
         Instance = new FileCache(a_sizeMB);
+
+        BIND_FUNCTION(IcarianEngine, FileCache, CachedFile);
+        BIND_FUNCTION(IcarianEngine, FileCache, ReadFileData);
+        BIND_FUNCTION(IcarianEngine, FileCache, WriteFileData);
     }
 }
 void FileCache::Destroy()
@@ -163,15 +232,71 @@ static FileBuffer* GenerateFileBuffer(FILE* a_file, uint64_t a_size)
     fread(buffer->Data, (size_t)a_size, 1, a_file);
     buffer->TimePoint = std::chrono::high_resolution_clock::now();
     buffer->Lock = 0;
+    buffer->Flags = 0;
 
     return buffer;
 }
 
-FileHandle* FileCache::GenerateFileHandle(const std::filesystem::path& a_path, FILE* a_file, uint64_t a_size)
+bool FileCache::ExistsInCache(const std::string_view& a_str)
 {
-    const uint64_t remaining = m_size - m_allocated;
+    const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
 
-    if (a_size < remaining)
+    return Instance->m_files.find(std::string(a_str)) != Instance->m_files.end();
+}
+
+void FileCache::PushFile(const std::string_view& a_path, uint8_t* a_data, uint32_t a_size, bool a_pin)
+{
+    const std::string str = std::string(a_path);
+
+    const ThreadGuard g = ThreadGuard(Instance->m_lock);
+
+    const auto iter = Instance->m_files.find(str);
+    if (iter != Instance->m_files.end())
+    {
+        FileBuffer* buffer = iter->second;
+        while (buffer->Lock > 0)
+        {
+            std::this_thread::yield();
+        }
+
+        Instance->m_allocated -= buffer->Size;
+        Instance->m_allocated += a_size;
+
+        delete[] (uint8_t*)buffer->Data;
+
+        buffer->Size = a_size;
+        buffer->Data = a_data;
+        buffer->TimePoint = std::chrono::high_resolution_clock::now();
+        buffer->Flags = 0;
+
+        if (a_pin)
+        {
+            ISETBIT(buffer->Flags, FileBuffer::PinnedBit);
+        }
+
+        return;
+    }
+
+    Instance->m_allocated += a_size;
+
+    FileBuffer* buffer = new FileBuffer();
+    buffer->Size = a_size;
+    buffer->Data = a_data;
+    buffer->TimePoint = std::chrono::high_resolution_clock::now();
+    buffer->Lock = 0;
+    buffer->Flags = 0;
+
+    if (a_pin)
+    {
+        ISETBIT(buffer->Flags, FileBuffer::PinnedBit);
+    }
+
+    Instance->m_files.emplace(str, buffer);
+}
+
+FileHandle* FileCache::GenerateFileHandle(const std::string& a_path, FILE* a_file, uint64_t a_size)
+{
+    if (m_allocated < m_size && a_size < m_size - m_allocated)
     {
         IDEFER(fclose(a_file));
 
@@ -184,14 +309,26 @@ FileHandle* FileCache::GenerateFileHandle(const std::filesystem::path& a_path, F
         return new CacheFileHandle(buffer);
     }
 
-    std::filesystem::path key;
+    const uint64_t offsetSize = ILAMBDA(
+    {
+        if (m_allocated > m_size)
+        {
+            ILRETURN m_allocated - m_size;
+        }
+
+        ILRETURN uint64_t(0);
+    });
+
+    const uint64_t finalSize = offsetSize + a_size;
+
+    std::string key;
     FileBuffer* b = nullptr;
     // Looking for a file to delete that so that the current file can fit
     // No point deleting a file if we cannot fit it
-    for (const auto iter : m_files)
+    for (const auto& iter : m_files)
     {
         FileBuffer* buffer = iter.second;
-        if (buffer->Size >= a_size && buffer->Lock == 0)
+        if (buffer->Size >= finalSize && buffer->Lock == 0)
         {
             if (b == nullptr)
             {
@@ -262,11 +399,11 @@ void FileCache::Update()
         return;
     }
 
-    std::filesystem::path* keys = new std::filesystem::path[mapSize];
+    std::string* keys = new std::string[mapSize];
     IDEFER(delete[] keys);
     uint32_t keyCount = 0;
 
-    for (const auto iter : Instance->m_files) 
+    for (const auto& iter : Instance->m_files) 
     {
         const FileBuffer* buffer = iter.second;
         if (buffer->Lock != 0) 
@@ -287,12 +424,12 @@ void FileCache::Update()
     }
 
     TRACE("Flushing File Cache");
-
     for (uint32_t i = 0; i < keyCount; ++i)
     {
-        const std::filesystem::path& key = keys[i];
+        const std::string& key = keys[i];
 
-        const FileBuffer* buffer = Instance->m_files[key];
+        // Use at otherwise does not compile in the Steam Sniper runtime
+        const FileBuffer* buffer = Instance->m_files.at(key);
         IDEFER(
         {
             delete[] (uint8_t*)buffer->Data;
@@ -310,10 +447,12 @@ void FileCache::PreLoad(const std::filesystem::path& a_path)
         return;
     }
 
+    const std::string s = a_path.string();
+
     {
         const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
 
-        const auto iter = Instance->m_files.find(a_path);
+        const auto iter = Instance->m_files.find(s);
         if (iter != Instance->m_files.end())
         {
             return;
@@ -322,7 +461,6 @@ void FileCache::PreLoad(const std::filesystem::path& a_path)
 
     const ThreadGuard g = ThreadGuard(Instance->m_lock);
 
-    const std::string s = a_path.string();
     const uint64_t maxSize = Instance->m_size >> 3;
 
     FILE* fp = fopen(s.c_str(), "rb");
@@ -340,7 +478,7 @@ void FileCache::PreLoad(const std::filesystem::path& a_path)
         }
 
         // Not the most efficent but I am lazy
-        FileHandle* handle = Instance->GenerateFileHandle(a_path, fp, size);
+        FileHandle* handle = Instance->GenerateFileHandle(s, fp, size);
         IDEFER(delete handle);
     }
     else
@@ -350,12 +488,14 @@ void FileCache::PreLoad(const std::filesystem::path& a_path)
 }
 FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
 {
+    const std::string s = a_path.string();
+
     if (Instance != nullptr)
     {
         {
             const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
 
-            const auto iter = Instance->m_files.find(a_path);
+            const auto iter = Instance->m_files.find(s);
             if (iter != Instance->m_files.end())
             {
                 return new CacheFileHandle(iter->second);
@@ -364,7 +504,6 @@ FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
         
         const ThreadGuard g = ThreadGuard(Instance->m_lock);
 
-        const std::string s = a_path.string();
         // Do not want the whole cache taken up by a single file otherwise it eliminates the point
         const uint64_t maxSize = Instance->m_size >> 3;
 
@@ -385,7 +524,7 @@ FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
                 return new ReadFileHandle(fp, size);
             }
 
-            return Instance->GenerateFileHandle(a_path, fp, size);
+            return Instance->GenerateFileHandle(s, fp, size);
         }
         else
         {
@@ -395,8 +534,6 @@ FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
     // May not want cache on all platforms but still need file IO and prefer minimize duplicate code
     else
     {
-        const std::string s = a_path.string();
-
         FILE* fp = fopen(s.c_str(), "rb");
         if (fp != NULL)
         {
@@ -417,7 +554,7 @@ FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

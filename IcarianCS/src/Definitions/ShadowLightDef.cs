@@ -20,6 +20,12 @@ namespace IcarianEngine.Definitions
         [EditorTooltip("The depth slope for the ShadowLight")]
         public float ShadowBiasSlope;
 
+        /// <summary>
+        /// The size of the Shadow Map
+        /// </summary>
+        [EditorTooltip("The size of the Shadow Map. 0 for none")]
+        public uint ShadowMapSize;
+
         public ShadowLightDef()
         {
             ComponentType = typeof(ShadowLight);

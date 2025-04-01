@@ -6,15 +6,14 @@
 
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "Core/ShaderBuffers.h"
 #include "Logger.h"
+#include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
 #include "Rendering/Vulkan/VulkanComputeEngineBindings.h"
 #include "Rendering/Vulkan/VulkanComputeLayout.h"
 #include "Rendering/Vulkan/VulkanComputeParticle.h"
 #include "Rendering/Vulkan/VulkanComputePipeline.h"
-#include "Rendering/Vulkan/VulkanComputeShader.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanUniformBuffer.h"
 #include "Trace.h"
@@ -22,6 +21,8 @@
 VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
 {
     m_engine = a_engine;
+
+    BlockAllocator* allocator = m_engine->GetBlockAllocator();
 
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -45,15 +46,17 @@ VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
         VKRESERRMSG(device.allocateCommandBuffers(&commandBufferInfo, &m_buffers[i]), "Failed to create Compute Command Buffer");
     }
 
-    m_timeUniform = new VulkanUniformBuffer(m_engine, sizeof(IcarianCore::ShaderTimeBuffer));
+    m_timeUniform = allocator->Create<VulkanUniformBuffer>(m_engine, sizeof(IcarianCore::ShaderTimeBuffer));
 
-    m_bindings = new VulkanComputeEngineBindings(this);
+    m_bindings = allocator->Create<VulkanComputeEngineBindings>(this);
 }
 VulkanComputeEngine::~VulkanComputeEngine()
 {
-    delete m_bindings;
+    BlockAllocator* allocator = m_engine->GetBlockAllocator();
 
-    delete m_timeUniform;
+    allocator->Destroy(m_bindings);
+
+    allocator->Destroy(m_timeUniform);
 
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -131,6 +134,8 @@ VulkanCommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, u
     cmdBuffer.begin(BeginInfo);
     IDEFER(cmdBuffer.end());
 
+    VULKAN_MARKER_COL(m_engine, cmdBuffer, "Compute Pass", 128, 128, 128);
+
     const Array<ComputeParticleBuffer> particleBuffers = m_particleBuffers.ToActiveArray();
     for (const ComputeParticleBuffer& buffer : particleBuffers)
     {
@@ -172,23 +177,34 @@ vk::Buffer VulkanComputeEngine::GetParticleBufferData(uint32_t a_addr)
 
 uint32_t VulkanComputeEngine::GenerateComputeFShader(const std::string_view& a_str)
 {
-    VulkanComputeShader* shader = VulkanComputeShader::CreateFromFShader(m_engine, a_str);
+    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+
+    const VulkanComputeFShaderBuilder builder =
+    {
+        .Engine = m_engine,
+        .String = std::string(a_str),
+        .EntryPoint = "main"
+    };
+
+    // TODO: Imports for compute shaders
+    VulkanComputeShader* shader = blockAllocator->TAllocate<VulkanComputeShader>();
+    VulkanComputeShader::CreateFromFShader(shader, builder, blockAllocator);
 
     return m_shaders.PushVal(shader);
 }
 void VulkanComputeEngine::DestroyComputeShader(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_shaders.Size());
     IVERIFY(m_shaders.Exists(a_addr));
 
-    const VulkanComputeShader* shader = m_shaders[a_addr];
-    IDEFER(delete shader);
+    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+
+    VulkanComputeShader* shader = m_shaders[a_addr];
+    IDEFER(blockAllocator->Destroy(shader));
 
     m_shaders.Erase(a_addr);
 }
 VulkanComputeShader* VulkanComputeEngine::GetComputeShader(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_shaders.Size());
     IVERIFY(m_shaders.Exists(a_addr));
 
     return m_shaders[a_addr];
@@ -202,7 +218,6 @@ uint32_t VulkanComputeEngine::GenerateComputePipelineLayout(const ShaderBufferIn
 }
 void VulkanComputeEngine::DestroyComputePipelineLayout(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_layouts.Size());
     IVERIFY(m_layouts.Exists(a_addr));
 
     const VulkanComputeLayout* layout = m_layouts[a_addr];
@@ -212,7 +227,6 @@ void VulkanComputeEngine::DestroyComputePipelineLayout(uint32_t a_addr)
 }
 VulkanComputeLayout* VulkanComputeEngine::GetComputePipelineLayout(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_layouts.Size());
     IVERIFY(m_layouts.Exists(a_addr));
 
     return m_layouts[a_addr];
@@ -227,7 +241,6 @@ uint32_t VulkanComputeEngine::GenerateComputePipeline(uint32_t a_shaderAddr, uin
 }
 void VulkanComputeEngine::DestroyComputePipeline(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_pipelines.Size());
     IVERIFY(m_pipelines.Exists(a_addr));
 
     const VulkanComputePipeline* pipeline = m_pipelines[a_addr];
@@ -237,7 +250,6 @@ void VulkanComputeEngine::DestroyComputePipeline(uint32_t a_addr)
 }
 VulkanComputePipeline* VulkanComputeEngine::GetComputePipeline(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_pipelines.Size());
     IVERIFY(m_pipelines.Exists(a_addr));
 
     return m_pipelines[a_addr];
@@ -247,7 +259,7 @@ VulkanComputePipeline* VulkanComputeEngine::GetComputePipeline(uint32_t a_addr)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -273,6 +273,78 @@ namespace IcarianEngine.Maths
                 }
             }
         }
+        /// <summary>
+        /// Indexer for the vector, int.MaxValue returned for invalid index
+        /// </summary>
+        public int this[uint a_key]
+        {
+            get
+            {
+                switch (a_key)
+                {
+                case 0:
+                {
+                    return X;
+                }
+                case 1:
+                {
+                    return Y;
+                }
+                case 2:
+                {
+                    return Z;
+                }
+                case 3:
+                {
+                    return W;
+                }
+                default:
+                {
+                    Logger.IcarianError("Invalid Vector4 index");
+
+                    break;
+                }
+                }
+
+                return int.MaxValue;
+            }
+            set
+            {
+                switch (a_key)
+                {
+                case 0:
+                {
+                    X = value;
+                    
+                    break;
+                }
+                case 1:
+                {
+                    Y = value;
+
+                    break;
+                }
+                case 2:
+                {
+                    Z = value;
+
+                    break;
+                }
+                case 3:
+                {
+                    W = value;
+
+                    break;
+                }
+                default:
+                {
+                    Logger.IcarianError("Invalid Vector4 index");
+
+                    break;
+                }
+                }
+            }
+        }
 
         /// <summary>
         /// The squared magnitude of the vector
@@ -510,7 +582,7 @@ namespace IcarianEngine.Maths
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

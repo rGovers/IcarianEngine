@@ -22,7 +22,13 @@ namespace IcarianCore
         PipeMessageType_ProfileScope,
         PipeMessageType_UnlockFrame,
         PipeMessageType_PushFrame,
+        PipeMessageType_PushDMASwapFDBuffer,
+        PipeMessageType_FlushDMASwapFDBuffer,
+        PipeMessageType_PushDMASwapHandleBuffer,
+        PipeMessageType_FlushDMASwapHandleBuffer,
+        PipeMessageType_DMASwap,
         PipeMessageType_Message,
+        PipeMessageType_CaptureFrame,
         PipeMessageType_End
     };
 

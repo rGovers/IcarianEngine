@@ -23,9 +23,11 @@ private:
     vk::ImageView              m_imageView;
     VmaAllocation              m_allocation;
 
+    uint32_t                   m_arraySize;
     uint32_t                   m_width;
     uint32_t                   m_height;
 
+    void InitEmpty(vk::Format a_format, uint32_t a_channels);
     void InitBase(const void* a_data, vk::Format a_format, uint32_t a_channels, uint64_t a_dataSize);
     void InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, const void* a_data, vk::Format a_format, uint32_t a_channels, uint64_t a_dataSize);
 
@@ -34,6 +36,7 @@ private:
 protected:
 
 public:
+    VulkanTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, uint32_t a_arraySize);
     ~VulkanTexture();
 
     static VulkanTexture* CreateTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize = -1);

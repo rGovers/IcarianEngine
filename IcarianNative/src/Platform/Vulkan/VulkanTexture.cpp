@@ -6,7 +6,6 @@
 
 #include "Rendering/Vulkan/VulkanTexture.h"
 
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
@@ -99,6 +98,10 @@ constexpr static vk::Format ToVulkanFormat(e_TextureFormat a_format)
     {
         return vk::Format::eBc7UnormBlock;
     }
+    case TextureFormat_NV12:
+    {
+        return vk::Format::eG8B8R82Plane420Unorm;
+    }
     }
 
     return vk::Format::eR8G8B8A8Srgb;
@@ -123,21 +126,106 @@ constexpr static uint32_t ToChannels(e_TextureFormat a_format)
     {
         return 4;
     }
+    case TextureFormat_NV12:
+    {
+        return 3;
+    }
     }
 
     return 4;
 }
 
-void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a_channels, uint64_t a_dataSize)
+void VulkanTexture::InitEmpty(vk::Format a_format, uint32_t a_channels)
 {
     m_channels = a_channels;
     m_format = a_format;
 
-    vk::DeviceSize imageSize = (vk::DeviceSize)a_dataSize;
-    if (imageSize == -1)
+    const vk::Extent3D extent = vk::Extent3D(m_width, m_height, 1);
+
+    const vk::Device device = m_engine->GetLogicalDevice();
+    const VmaAllocator allocator = m_engine->GetAllocator();
+
+    const bool isVideoTexture = a_format == vk::Format::eG8B8R82Plane420Unorm;
+
+    VkImageCreateInfo imageInfo = 
+    { 
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = (VkFormat)m_format,
+        .extent = extent,
+        .mipLevels = 1,
+        .arrayLayers = m_arraySize,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+
+    if (isVideoTexture)
     {
-        imageSize = (vk::DeviceSize)m_width * m_height * m_channels;
+        // I should probably clean this up however it works for now... 
+        // This whole class is becoming a mess and could propably use a refactor....
+        imageInfo.flags |= VK_IMAGE_CREATE_VIDEO_PROFILE_INDEPENDENT_BIT_KHR;
+        imageInfo.usage |= VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR | VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR;
     }
+
+    const VmaAllocationCreateInfo allocInfo = 
+    { 
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
+    };
+
+    VkImage image;
+    VKRESERRMSG(vmaCreateImage(allocator, &imageInfo, &allocInfo, &image, &m_allocation, NULL), "Failed to create VulkanTexture image");
+    m_image = image;
+#ifdef DEBUG
+    vmaSetAllocationName(allocator, m_allocation, "Texture");
+#endif
+
+    const vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, m_arraySize);
+
+    constexpr vk::ComponentMapping ComponentMapping = vk::ComponentMapping(vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity);
+
+    vk::ImageViewCreateInfo viewInfo = vk::ImageViewCreateInfo
+    (
+        { }, 
+        m_image, 
+        vk::ImageViewType::e2D, 
+        m_format,
+        ComponentMapping,
+        subresourceRange
+    );
+
+    // Nevermind the solution was the conversion needed to be wrapped in a conversioninfo to fix the validation error
+    vk::SamplerYcbcrConversionInfo conversionInfo;
+
+    if (isVideoTexture)
+    {
+        vk::SamplerYcbcrConversion conversion;
+
+        constexpr vk::SamplerYcbcrConversionCreateInfo CreateInfo = vk::SamplerYcbcrConversionCreateInfo
+        (
+            vk::Format::eG8B8R82Plane420Unorm,
+            vk::SamplerYcbcrModelConversion::eYcbcr709,
+            vk::SamplerYcbcrRange::eItuFull,
+            ComponentMapping,
+            vk::ChromaLocation::eMidpoint,
+            vk::ChromaLocation::eMidpoint,
+            vk::Filter::eLinear
+        );
+
+        VKRESERR(device.createSamplerYcbcrConversion(&CreateInfo, nullptr, &conversion));
+        conversionInfo.conversion = conversion;
+
+        viewInfo.pNext = &conversionInfo;
+    }
+
+    VKRESERRMSG(device.createImageView(&viewInfo, nullptr, &m_imageView), "Failed to create VulkanTexture image view");
+}
+void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a_channels, uint64_t a_dataSize)
+{
+    m_channels = a_channels;
+    m_format = a_format;
 
     const vk::Device device = m_engine->GetLogicalDevice();
     const VmaAllocator allocator = m_engine->GetAllocator();
@@ -151,7 +239,7 @@ void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a
         .format = (VkFormat)m_format,
         .extent = extent,
         .mipLevels = 1,
-        .arrayLayers = 1,
+        .arrayLayers = m_arraySize,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
         .usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -189,6 +277,8 @@ void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a
 }
 void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, const void* a_data, vk::Format a_format, uint32_t a_channels, uint64_t a_dataSize)
 {
+    RENDERSCRATCHFRAME;
+
     m_channels = a_channels;
     m_format = a_format;
 
@@ -256,19 +346,18 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
 
     VmaAllocationInfo stagingAllocationInfo;
     VKRESERRMSG(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo), "Failed to create staging texture");
-    IDEFER(m_engine->PushDeletionObject(new VulkanTextureBufferDeletionObject(m_engine, stagingBuffer, stagingAllocation)));
+    IDEFER(m_engine->PushDeletionObject<VulkanTextureBufferDeletionObject>(m_engine, stagingBuffer, stagingAllocation));
 #ifdef DEBUG
     vmaSetAllocationName(allocator, stagingAllocation, "StagingMipTexture");
 #endif
 
     if (a_data != nullptr)
     {
-        IDEFER(ICARIAN_ASSERT_R(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)a_dataSize) == VK_SUCCESS));
+        IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)a_dataSize)));
         memcpy(stagingAllocationInfo.pMappedData, a_data, (size_t)a_dataSize);
     }
 
-    vk::BufferImageCopy* copyBuffers = new vk::BufferImageCopy[a_levels];
-    IDEFER(delete[] copyBuffers);
+    vk::BufferImageCopy* copyBuffers = RenderScratchAlloc::TAllocate<vk::BufferImageCopy>(a_levels);
     for (uint32_t i = 0; i < a_levels; ++i)
     {
         const vk::ImageSubresourceLayers layer = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, i, 0, 1);
@@ -325,10 +414,19 @@ VulkanTexture::VulkanTexture()
 {
 
 }
+VulkanTexture::VulkanTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, uint32_t a_arraySize)
+{
+    m_engine = a_engine;
+    m_width = a_width;
+    m_height = a_height;
+    m_arraySize = a_arraySize;
+
+    InitEmpty(ToVulkanFormat(a_format), ToChannels(a_format));
+}
 VulkanTexture::~VulkanTexture()
 {
     TRACE("Queueing Texture Deletion");
-    m_engine->PushDeletionObject(new VulkanTextureDeletionObject(m_engine, m_image, m_imageView, m_allocation));
+    m_engine->PushDeletionObject<VulkanTextureDeletionObject>(m_engine, m_image, m_imageView, m_allocation);
 }
 
 VulkanTexture* VulkanTexture::CreateTexture(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize)
@@ -339,16 +437,20 @@ VulkanTexture* VulkanTexture::CreateTexture(VulkanRenderEngineBackend* a_engine,
     texture->m_engine = a_engine;
     texture->m_width = a_width;
     texture->m_height = a_height;
+    texture->m_arraySize = 1;
     texture->InitBase(a_data, ToVulkanFormat(a_format), ToChannels(a_format), a_dataSize);
 
     return texture;
 }
 VulkanTexture* VulkanTexture::CreateTextureMipMapped(VulkanRenderEngineBackend* a_engine, uint32_t a_width, uint32_t a_height, uint32_t a_levels, const uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize)
 {
+    TRACE("Creating mip mapped Texture");
+
     VulkanTexture* texture = new VulkanTexture();
     texture->m_engine = a_engine;
     texture->m_width = a_width;
     texture->m_height = a_height;
+    texture->m_arraySize = 1;
     texture->InitMipMapped(a_levels, a_offsets, a_data, ToVulkanFormat(a_format), ToChannels(a_format), a_dataSize);
 
     return texture;
@@ -356,6 +458,8 @@ VulkanTexture* VulkanTexture::CreateTextureMipMapped(VulkanRenderEngineBackend* 
 
 void VulkanTexture::WriteData(const void* a_data, bool a_init)
 {
+    IVERIFY(a_data != nullptr);
+
     const VmaAllocator allocator = m_engine->GetAllocator();
 
     const vk::DeviceSize imageSize = (vk::DeviceSize)m_width * m_height * m_channels;
@@ -384,16 +488,13 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
     VmaAllocation stagingAllocation;
     VmaAllocationInfo stagingAllocationInfo;
     VKRESERRMSG(vmaCreateBuffer(allocator, &stagingBufferInfo, &stagingBufferAllocInfo, &stagingBuffer, &stagingAllocation, &stagingAllocationInfo), "Failed to create staging texture");
-    IDEFER(m_engine->PushDeletionObject(new VulkanTextureBufferDeletionObject(m_engine, stagingBuffer, stagingAllocation)));
+    IDEFER(m_engine->PushDeletionObject<VulkanTextureBufferDeletionObject>(m_engine, stagingBuffer, stagingAllocation));
+    IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)imageSize)));
 #ifdef DEBUG
     vmaSetAllocationName(allocator, stagingAllocation, "StagingTexture");
 #endif
 
-    if (a_data != nullptr)
-    {
-        IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAllocation, 0, (VkDeviceSize)imageSize)));
-        memcpy(stagingAllocationInfo.pMappedData, a_data, (size_t)imageSize);
-    }
+    memcpy(stagingAllocationInfo.pMappedData, a_data, (size_t)imageSize);
 
     constexpr vk::ImageSubresourceLayers SubresourceLayers = vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1);
 
@@ -454,7 +555,7 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -11,45 +11,10 @@ layout(location = 0) in vec2 vUV;
 #!structure(CameraBuffer, 5, camBuffer)
 #!structure(SSDirectionalLightBuffer, 6, dirLightBuffer)
 
+#!import(Camera)
+#!import(DirectionalLight)
+
 layout(location = 0) out vec4 fragColor;
-
-const float pi = 3.14159265359;
-
-vec3 FreS(float a_cos, vec3 a_f0)
-{
-    return a_f0 + (1.0 - a_f0) * pow(clamp(1.0 - a_cos, 0.0, 1.0), 5.0);
-}
-
-float DistGGX(vec3 a_n, vec3 a_h, float a_rough)
-{
-    float r2 = a_rough * a_rough;
-    float r4 = r2 * r2;
-    float d = max(dot(a_n, a_h), 0.0);
-    float d2 = d * d;
-
-    float de = (d2 * (r4 - 1.0) + 1.0);
-    float s = pi * de * de;
-
-    return r4 / s;
-}
-float SchGGX(float a_d, float a_rough)
-{
-    float r = a_rough + 1.0;
-    float k = (r * r) / 8.0;
-
-    float de = a_d * (1.0 - k) + k;
-
-    return a_d / de;
-}
-float Smi(vec3 a_n, vec3 a_v, vec3 a_l, float a_rough)
-{
-    float dV = max(dot(a_n, a_v), 0.0);
-    float dL = max(dot(a_n, a_l), 0.0);
-    float gxA = SchGGX(dV, a_rough);
-    float gxB = SchGGX(dL, a_rough);
-
-    return gxA * gxB;
-}
 
 void main()
 {
@@ -58,53 +23,23 @@ void main()
     {
         discard;
     }
+    
     vec4 color = texture(colorSampler, vUV);
     vec4 spec = texture(specSampler, vUV);
     float depth = texture(depthSampler, vUV).x;
 
-    vec4 cP = vec4(vUV * 2.0 + -1.0, depth, 1.0);
-    vec4 vP = camBuffer.InvProj * cP;
-    vP /= vP.w;
-    vec4 mP = camBuffer.InvView * vP;
+    vec4 mP = ScreenToWorld(vec3(vUV * 2.0 + -1.0, depth), camBuffer);
 
     vec3 p = camBuffer.InvView[3].xyz;
     vec3 cV = normalize(p - mP.xyz);
 
     float rough = spec.x;
     float metal = spec.y;
-    float invMetal = 1.0 - metal;
 
     vec4 finalColor = vec4(0.0, 0.0, 0.0, 0.0);
     for (int i = 0; i < dirLightBuffer.Count; i++)
     {
-        vec4 lD = dirLightBuffer.objects[i].LightDir;
-        vec4 lCr = dirLightBuffer.objects[i].LightColor;
-
-        vec3 h = normalize(lD.xyz + cV);
-        float dV = max(dot(h, cV), 0.0);
-        float dS = max(dot(normal.xyz, cV), 0.0);
-        float dL = max(dot(normal.xyz, lD.xyz), 0.0);
-
-        // Light
-        vec3 lC = color.xyz * lCr.xyz * lD.w;
-
-        // Metal
-        vec3 f0 = mix(vec3(0.04), color.xyz, metal);
-        vec3 f = FreS(dV, f0);
-
-        // Rough
-        float ndf = DistGGX(normal.xyz, h, rough);
-        float g = Smi(normal.xyz, cV, lD.xyz, rough);
-        vec3 nu = ndf * g * f;
-        float de = 4.0 * dS * dL + 0.0001;
-        vec3 s = nu / de;
-
-        // Reflectance
-        vec3 kD = (vec3(1.0) - f) * invMetal;
-
-        vec3 lo = kD * color.xyz / pi + s;
-
-        finalColor += vec4(lo * lC * dL, 1.0);
+        finalColor += DirectionalLightShading(color, cV, normal.xyz, rough, metal, dirLightBuffer.objects[i]);
     }
     
     fragColor = vec4(finalColor.xyz, 1.0);

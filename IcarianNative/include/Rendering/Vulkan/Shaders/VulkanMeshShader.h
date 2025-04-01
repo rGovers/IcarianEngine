@@ -1,0 +1,65 @@
+// Icarian Engine - C# Game Engine
+// 
+// License at end of file.
+
+#pragma once
+
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
+#include "Rendering/Vulkan/Shaders/VulkanShader.h"
+
+struct VulkanMeshFShaderBuilder
+{
+    VulkanRenderEngineBackend* Engine;
+    std::string String;
+    std::unordered_map<std::string, std::string> Imports;
+    std::string EntryPoint;
+};
+
+struct VulkanMeshGLSLShaderBuilder
+{
+    VulkanRenderEngineBackend* Engine;
+    std::string String;
+    ShaderBufferInput* Inputs;
+    uint32_t InputCount;
+    std::string EntryPoint;
+};
+
+class VulkanMeshShader : public VulkanShader
+{
+private:
+
+protected:
+
+public:
+    VulkanMeshShader() = delete;
+    VulkanMeshShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator);
+    virtual ~VulkanMeshShader();
+
+    static void CreateFromFShader(VulkanMeshShader* a_out, const VulkanMeshFShaderBuilder& a_builder, Allocator* a_allocator);
+    static void CreateFromGLSL(VulkanMeshShader* a_out, const VulkanMeshGLSLShaderBuilder& a_builder, Allocator* a_allocator);
+};
+
+#endif
+
+// MIT License
+// 
+// Copyright (c) 2024 River Govers
+// 
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+// 
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+// 
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.

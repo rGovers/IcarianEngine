@@ -43,6 +43,10 @@ NetworkClient::~NetworkClient()
             {
                 goto End;
             }
+            default:
+            {
+                break;
+            }
             }
         }
 
@@ -51,7 +55,7 @@ NetworkClient::~NetworkClient()
 End:;
     }
 
-    const bool isServerSocket = m_server != -1;
+    const bool isServerSocket = m_server != uint32_t(-1);
     if (!isServerSocket && m_host != NULL)
     {
         enet_host_destroy(m_host);
@@ -125,7 +129,7 @@ void NetworkClient::Send(const uint8_t* a_data, uint32_t a_size, e_PacketFlags a
 
 void NetworkClient::Update()
 {
-    const bool isServerSocket = m_server != -1;
+    const bool isServerSocket = m_server != uint32_t(-1);
     if (isServerSocket)
     {
         return;
@@ -158,6 +162,10 @@ void NetworkClient::Update()
 
             break;
         }
+        default:
+        {
+            break;
+        }
         }
 
         result = enet_host_service(m_host, &event, 0);
@@ -176,7 +184,7 @@ void NetworkClient::Update()
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

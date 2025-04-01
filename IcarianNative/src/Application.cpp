@@ -25,12 +25,12 @@
 #include "Rendering/UI/UIControl.h"
 #include "Rendering/Video/VideoManager.h"
 #include "Runtime/RuntimeManager.h"
-#include "Scribe.h"
 #include "Trace.h"
 #include "ThreadPool.h"
 
 #include "EngineApplicationInteropStructures.h"
 #include "EngineInputInterop.h"
+#include "EngineTimeInterop.h"
 
 static Application* Instance = nullptr;
 
@@ -46,7 +46,8 @@ static Application* Instance = nullptr;
 
 APPLICATION_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
-ENGINEAPPINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_APPINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_TIME_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 RUNTIME_FUNCTION(MonoArray*, Application, GetMonitors,
 {
@@ -106,6 +107,7 @@ Application::Application(Config* a_config)
     Instance = this;
 
     m_close = false;
+    m_timeScale = 1.0f;
 
     TRACE("Starting Application");
     m_config = a_config;
@@ -114,16 +116,16 @@ Application::Application(Config* a_config)
 
     if (a_config->IsHeadless())
     {
-        m_appWindow = new HeadlessAppWindow(this);
+        m_appWindow = new HeadlessAppWindow(this, a_config);
     }
     else
     {
         m_appWindow = new GLFWAppWindow(this, a_config);
     }
     
-    FileCache::Init(a_config->GetFileCacheSize());
     DeletionQueue::Init();
     RuntimeManager::Init();
+    FileCache::Init(a_config->GetFileCacheSize());
         
     Logger::Init();
 
@@ -131,7 +133,6 @@ Application::Application(Config* a_config)
     
     Random::Init();
     Profiler::Init();
-    Scribe::Init();
 
     UIControl::Init();
 
@@ -150,7 +151,8 @@ Application::Application(Config* a_config)
 
     APPLICATION_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 
-    ENGINEAPPINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_APPINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_TIME_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 
     BIND_FUNCTION(IcarianEngine, Application, GetMonitors);
     BIND_FUNCTION(IcarianEngine, Application, SetFullscreenState);
@@ -187,7 +189,6 @@ Application::~Application()
 
     Random::Destroy();
     Profiler::Destroy();
-    Scribe::Destroy();
 
     ThreadPool::Destroy();
     DeletionQueue::Destroy();
@@ -268,7 +269,7 @@ void Application::Run(int32_t a_argc, char* a_argv[])
             {
                 PROFILESTACK("Physics");
                 
-                m_physicsEngine->Update(delta);
+                m_physicsEngine->Update(delta, m_timeScale);
             }
 
             RuntimeManager::LateUpdate();
@@ -284,7 +285,7 @@ void Application::Run(int32_t a_argc, char* a_argv[])
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

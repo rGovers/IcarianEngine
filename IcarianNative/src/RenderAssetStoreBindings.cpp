@@ -26,6 +26,37 @@ RENDERASSETSTORE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 ENGINE_FONT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
+RUNTIME_FUNCTION(ModelDataStructure, Model, GetModelData, 
+{
+    char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
+    
+    ModelDataStructure s = { 0 };
+
+    Array<Vertex> vertices;
+    Array<uint32_t> indices;
+    if (Instance->LoadModelData(str, a_index, &vertices, &indices))
+    {
+        MonoClass* vertexClass = RuntimeManager::GetClass("IcarianEngine.Rendering", "Vertex");
+
+        const uint32_t vertexCount = vertices.Size();
+        s.Vertices = mono_array_new(mono_domain_get(), vertexClass, (uintptr_t)vertexCount);
+        for (uint32_t i = 0; i < vertexCount; ++i)
+        {
+            mono_array_set(s.Vertices, Vertex, i, vertices[i]);
+        }
+
+        const uint32_t indexCount = indices.Size();
+        s.Indices = mono_array_new(mono_domain_get(), mono_get_uint32_class(), (uintptr_t)indexCount);
+        for (uint32_t i = 0; i < indexCount; ++i)
+        {
+            mono_array_set(s.Indices, uint32_t, i, indices[i]);
+        }
+    }
+
+    return s;
+}, MonoString* a_path, uint32_t a_index)
+
 RenderAssetStoreBindings::RenderAssetStoreBindings(RenderAssetStore* a_store)
 {
     Instance = this;
@@ -35,6 +66,8 @@ RenderAssetStoreBindings::RenderAssetStoreBindings(RenderAssetStore* a_store)
     RENDERASSETSTORE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 
     ENGINE_FONT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+
+    BIND_FUNCTION(IcarianEngine.Rendering, Model, GetModelData);
 }
 RenderAssetStoreBindings::~RenderAssetStoreBindings()
 {
@@ -77,6 +110,13 @@ uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, cons
     return -1;
 }
 
+bool RenderAssetStoreBindings::LoadModelData(const std::filesystem::path& a_path, uint32_t a_index, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices) const
+{
+    float rad;
+
+    return m_store->LoadModelData(a_path, (uint8_t)a_index, a_vertices, a_indices, &rad);
+}
+
 uint32_t RenderAssetStoreBindings::GenerateModel(const std::filesystem::path& a_path, uint32_t a_index) const
 {
     return m_store->LoadModel(a_path, a_index);
@@ -93,7 +133,7 @@ uint32_t RenderAssetStoreBindings::GenerateTexture(const std::filesystem::path& 
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

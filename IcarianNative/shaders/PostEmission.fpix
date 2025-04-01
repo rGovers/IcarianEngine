@@ -4,33 +4,15 @@ layout(location = 0) in vec2 vUV;
 
 #!pushtexture(0, colorSampler)
 #!pushtexture(1, emissionSampler)
+#!pushtexture(2, blurSampler)
 
 layout(location = 0) out vec4 fragColor;
-
-const int directions = 5;
-const float emissionRadius = 0.001;
-const int quality = 3;
-const float pi2 = 6.2831850718;
 
 void main()
 {
     vec4 color = texture(colorSampler, vUV);
     vec4 emissive = texture(emissionSampler, vUV);
+    vec4 blur = texture(blurSampler, vUV);
 
-    #!preloop(dirIter, 0, 5,
-    {
-        float d = (dirIter / float(directions)) * pi2;
-        vec2 dr = vec2(cos(d), sin(d)) * emissionRadius;
-        #!preloop(qualIter, 0, 3, 
-        {
-            // Constants so only the samples remain after optimization
-            // Compiler fails to realise that if it unrolls the values become constants therefore operations can be removed from the loop
-            // TLDR: preloop good normal loop bad
-            emissive += texture(emissionSampler, vUV + dr * ((qualIter + 1) / float(quality)));
-        })
-    })
-
-    emissive /= quality * directions;
-
-    fragColor = color + emissive;
+    fragColor = color + emissive + blur;
 }

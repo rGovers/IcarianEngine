@@ -10,8 +10,15 @@
 
 #include "EngineTextureSamplerInteropStructures.h"
 
+class Allocator;
 class VulkanGraphicsEngine;
 class VulkanRenderEngineBackend;
+
+struct VulkanTextureSamplerBuilder
+{
+    VulkanRenderEngineBackend* Engine; 
+    TextureSamplerBuffer Sampler;
+};
 
 class VulkanTextureSampler
 {
@@ -20,14 +27,14 @@ private:
 
     vk::Sampler                m_sampler;
 
-    VulkanTextureSampler(VulkanRenderEngineBackend* a_engine);
+    VulkanTextureSampler(VulkanRenderEngineBackend* a_engine, vk::Sampler a_sampler);
 
 protected:
 
 public:
     ~VulkanTextureSampler();
     
-    static VulkanTextureSampler* GenerateFromBuffer(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const TextureSamplerBuffer& a_sampler);
+    static void GenerateFromBuffer(VulkanTextureSampler* a_out, const VulkanTextureSamplerBuilder& a_builder);
 
     inline vk::Sampler GetSampler() const
     {

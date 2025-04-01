@@ -12,23 +12,25 @@ extern "C" {
 
 const static char* IcarianNativeShaderBasePaths[] =
 {
-    "shaders/AmbientOcclusion.fpix",
-    "shaders/AmbientOcclusionFilter.fpix",
-    "shaders/AmbientLight.fpix",
-    "shaders/Blend.fpix",
-    "shaders/DirectionalLight.fpix",
-    "shaders/PointLight.fpix",
-    "shaders/PostAtmosphere.fpix",
-    "shaders/PostEmission.fpix",
-    "shaders/PostToneMap.fpix",
-    "shaders/Quad.vert",
-    "shaders/ShadowDirectionalLight.fpix",
-    "shaders/ShadowPointLight.fpix",
-    "shaders/ShadowSpotLight.fpix",
-    "shaders/SpotLight.fpix",
-    "shaders/UI.fvert",
-    "shaders/UIImage.fpix",
-    "shaders/UIText.fpix"
+    "./shaders/AmbientOcclusion.fpix",
+    "./shaders/AmbientOcclusionFilter.fpix",
+    "./shaders/AmbientLight.fpix",
+    "./shaders/Blend.fpix",
+    "./shaders/DirectionalLight.fpix",
+    "./shaders/PointLight.fpix",
+    "./shaders/PostAtmosphere.fpix",
+    "./shaders/PostEmission.fpix",
+    "./shaders/PostEmissionBlur.fpix",
+    "./shaders/PostToneMap.fpix",
+    "./shaders/Quad.vert",
+    "./shaders/ShadowDirectionalLight.fpix",
+    "./shaders/ShadowPointLight.fpix",
+    "./shaders/ShadowSpotLight.fpix",
+    "./shaders/SpotLight.fpix",
+    "./shaders/UI.fvert",
+    "./shaders/UIImage.fpix",
+    "./shaders/UIText.fpix",
+    "./shaders/Particle.ftask"
 };
 
 const static CBUINT32 IcarianNativeShaderBasePathCount = sizeof(IcarianNativeShaderBasePaths) / sizeof(*IcarianNativeShaderBasePaths);
@@ -62,7 +64,7 @@ static CBBOOL WriteIcarianNativeShadersToHeader(const char* a_workingPath)
     return ret;
 }
 
-static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, CBBOOL a_enableTrace, CBBOOL a_enableProfiler)
+static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, CBBOOL a_enableTrace, CBBOOL a_enableProfiler, CBBOOL a_enableMarkers, CBBOOL a_remoteMode)
 {
     CUBE_CProject project = { 0 };
 
@@ -80,14 +82,21 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         CUBE_CProject_AppendDefine(&project, "NDEBUG");
     }
 
-    CUBE_StackString commitHash = CUBE_Git_GetCommitHashShort();
+    CUBE_String commitDefine = CUBE_String_CreateC("ICARIANNATIVE_COMMIT_HASH="); 
+    if (a_targetPlatform != TargetPlatform_LinuxSteam)
+    {
+        CUBE_StackString commitHash = CUBE_Git_GetCommitHashShort();
 
-    CUBE_String commitDefine = CUBE_String_CreateC("ICARIANNATIVE_COMMIT_HASH=");
-    CUBE_String_AppendSS(&commitDefine, &commitHash);
+        CUBE_String_AppendSS(&commitDefine, &commitHash);
+    }
+    else
+    {
+        CUBE_String_AppendC(&commitDefine, "Steam");
+    }
 
     CUBE_CProject_AppendDefines(&project,
         "ICARIANNATIVE_VERSION_MAJOR=2024",
-        "ICARIANNATIVE_VERSION_MINOR=1",
+        "ICARIANNATIVE_VERSION_MINOR=2",
         "ICARIANNATIVE_VERSION_PATCH=0",
         commitDefine.Data,
         "ICARIANNATIVE_VERSION_TAG=DEV",
@@ -106,6 +115,10 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
     CUBE_String_Destroy(&commitDefine);
 
+    if (a_enableMarkers)
+    {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_MARKERS");
+    }
     if (a_enableTrace)
     {
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_TRACE");
@@ -113,6 +126,16 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     if (a_enableProfiler)
     {
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_PROFILER");
+    }
+
+    // This is still an experimental feature but enabling it to start testing
+    // We do want this feature is it allows a 4x to 10x speed up with the swapchain in headless mode when running on the same system
+    // (We mostly use headless mode when using the editors window and not our own and the performance hit is due to process boundaries and data transfer)
+    // Windows is still giving me issues and not setup to test properly on Windows
+    // And disabling in remote mode because well it is a remote system so DMA is imposible
+    if (!a_remoteMode && a_targetPlatform != TargetPlatform_Windows)
+    {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_DMA");
     }
 
     CUBE_CProject_AppendIncludePaths(&project, 
@@ -126,23 +149,26 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "../deps/gen/assimp",
         "../deps/glfw/include",
         "../deps/flare-glm",
-        "../deps/flare-stb",
+        "../deps/stb",
         "../deps/KTX-Software/include",
         "../deps/flare-tinyxml2",
 	    "../deps/Vulkan-Headers/include",
+        "../deps/renderdoc/app/",
+        "../deps/enet/include",
 
-        "./lib/enet/include",
         "./lib/glslang",
         "./lib/glslang/External/spirv-tools/include",
         "./lib/JoltPhysics",
         "./lib/minimp4",
-        "./lib/openal-soft/include",
         "./lib/SPIRV-Tools/include",
-        "./lib/VulkanMemoryAllocator/include"
+        "./lib/VulkanMemoryAllocator/include",
+        "./lib/miniaudio"
     );
 
     CUBE_CProject_AppendSources(&project, 
         "../deps/flare-tinyxml2/tinyxml2.cpp",
+
+        "./src/main.cpp",
 
         "./src/AnimationController.cpp",
         "./src/AnimationControllerBindings.cpp",
@@ -156,6 +182,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "./src/GamePad.cpp",
         "./src/GLFWAppWindow.cpp",
         "./src/H264.cpp",
+        "./src/H264VideoInfo.cpp",
         "./src/HeadlessAppWindow.cpp",
         "./src/IcarianError.cpp",
         "./src/IcBodyActivationListener.cpp",
@@ -168,7 +195,6 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "./src/ImageUIElement.cpp",
         "./src/InputManager.cpp",
         "./src/Logger.cpp",
-        "./src/main.cpp",
         "./src/MaterialRenderStack.cpp",
         "./src/Navigation.cpp",
         "./src/NavigationBindings.cpp",
@@ -189,7 +215,6 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "./src/RuntimeFunction.cpp",
         "./src/RuntimeManager.cpp",
         "./src/RuntimeThreadJob.cpp",
-        "./src/Scribe.cpp",
         "./src/ShaderTable.cpp",
         "./src/SPIRVTools.cpp",
         "./src/TextUIElement.cpp",
@@ -203,6 +228,14 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         
         "./src/WAVAudioClip.cpp"
     );
+
+    // Should probably make this separate but works for now
+    if (!a_remoteMode)
+    {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_GRAPHICS_RENDERDOC");
+    }
+    
+    CUBE_CProject_AppendSource(&project, "./src/Library/LibRenderDoc.cpp");
 
     // Keeping it on for now just breaking it out in preperation for platform configuration
     if (1)
@@ -222,6 +255,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "./src/Platform/Vulkan/VulkanGraphicsEngineBindings.cpp",
             "./src/Platform/Vulkan/VulkanGraphicsParticle2D.cpp",
             "./src/Platform/Vulkan/VulkanLightData.cpp",
+            "./src/Platform/Vulkan/VulkanMeshShader.cpp",
             "./src/Platform/Vulkan/VulkanModel.cpp",
             "./src/Platform/Vulkan/VulkanParticleShaderGenerator.cpp",
             "./src/Platform/Vulkan/VulkanPipeline.cpp",
@@ -234,6 +268,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "./src/Platform/Vulkan/VulkanShaderData.cpp",
             "./src/Platform/Vulkan/VulkanShaderStorageObject.cpp",
             "./src/Platform/Vulkan/VulkanSwapchain.cpp",
+            "./src/Platform/Vulkan/VulkanTaskShader.cpp",
             "./src/Platform/Vulkan/VulkanTexture.cpp",
             "./src/Platform/Vulkan/VulkanTextureSampler.cpp",
             "./src/Platform/Vulkan/VulkanUniformBuffer.cpp",
@@ -246,6 +281,9 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
 
+    CUBE_CProject_AppendCFlag(&project, "-Wall");
+    CUBE_CProject_AppendCFlag(&project, "-Werror");
+
     switch (a_configuration)
     {
     case BuildConfiguration_Debug:
@@ -255,6 +293,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         if (a_targetPlatform != TargetPlatform_Windows)
         {
             CUBE_CProject_AppendCFlag(&project, "-fsanitize=address");
+            CUBE_CProject_AppendCFlag(&project, "-rdynamic");
         }
 
         if (a_targetPlatform == TargetPlatform_LinuxZig)
@@ -270,7 +309,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
 
-        CUBE_CProject_AppendCFlag(&project, "-flto");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
         CUBE_CProject_AppendCFlag(&project, "-fwhole-program");
 
         if (a_targetPlatform == TargetPlatform_LinuxZig)
@@ -303,7 +342,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
         
-        CUBE_CProject_AppendCFlag(&project, "-flto");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
         CUBE_CProject_AppendCFlag(&project, "-fwhole-program");
 
         if (a_targetPlatform == TargetPlatform_LinuxZig)
@@ -336,7 +375,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "_WIN32"
         );
 
-        CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Windows/include");
+        CUBE_CProject_AppendIncludePaths(&project, "../deps/Mono/Windows/include");
 
         CUBE_CProject_AppendSource(&project, "./src/Library/LibXInput.cpp");
 
@@ -345,20 +384,19 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
             "../deps/glfw/build/GLFW.lib",
             "../deps/miniz/build/miniz.lib",
-            "../deps/KTX-Software/build/ktxc.lib",
-            "../deps/KTX-Software/build/ktxcpp.lib",
+            "../deps/KTX-Software/build/c/ktxc.lib",
+            "../deps/KTX-Software/build/cpp/ktxcpp.lib",
             "../deps/Mono/Windows/lib/mono-2.0-sgen.lib",
             "../deps/Mono/Windows/lib/MonoPosixHelper.lib",
             "../deps/zlib/build/zlib.lib",
             "../deps/assimp/build/assimp.lib",
             "../deps/assimp/contrib/unzip/build/unzip.lib",
+            "../deps/enet/build/enet.lib",
 
-            "./lib/enet/build/enet.lib",
             "./lib/glslang/build/glslang.lib",
             "./lib/glslang/build/SPIRV.lib",
             "./lib/glslang/External/spirv-tools/build/SPIRV-Tools.lib",
-            "./lib/JoltPhysics/build/Jolt.lib",
-            "./lib/openal-soft/build/OpenALSoft.lib"
+            "./lib/JoltPhysics/build/Jolt.lib"
         );
 
         CUBE_CProject_AppendReference(&project, "gdi32");
@@ -370,7 +408,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         // Magic string to get std library to link with MinGW
         CUBE_CProject_AppendCFlag(&project, "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic");
 
-        if (a_configuration == BuildConfiguration_Release)
+        if (a_configuration == BuildConfiguration_Release && !a_remoteMode)
         {
             CUBE_CProject_AppendCFlag(&project, "-Wl,-subsystem,windows");
         }
@@ -381,28 +419,61 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     case TargetPlatform_LinuxClang:
     case TargetPlatform_LinuxZig:
     {
-        CUBE_CProject_AppendSystemIncludePath(&project, "../deps/Mono/Linux/include/mono-2.0");
+        CUBE_CProject_AppendIncludePaths(&project, "../deps/Mono/Linux/include/mono-2.0");
 
         CUBE_CProject_AppendLibraries(&project,
             "../IcarianCore/build/libIcarianCore.a",
 
             "../deps/glfw/build/libGLFW.a",
             "../deps/miniz/build/libminiz.a",
-            "../deps/KTX-Software/build/libktxc.a",
-            "../deps/KTX-Software/build/libktxcpp.a",
+            "../deps/KTX-Software/build/c/libktxc.a",
+            "../deps/KTX-Software/build/cpp/libktxcpp.a",
             "../deps/Mono/Linux/lib/libmonosgen-2.0.a",
             "../deps/zlib/build/libzlib.a",
             "../deps/assimp/build/libassimp.a",
             "../deps/assimp/contrib/unzip/build/libunzip.a",
+            "../deps/enet/build/libenet.a",
 
-            "./lib/enet/build/libenet.a",
             "./lib/glslang/build/libglslang.a",
             "./lib/glslang/build/libSPIRV.a",
             "./lib/glslang/External/spirv-tools/build/libSPIRV-Tools.a",
-            "./lib/JoltPhysics/build/libJolt.a",
-            "./lib/openal-soft/build/libOpenALSoft.a"
+            "./lib/JoltPhysics/build/libJolt.a"
         );
 
+        CUBE_CProject_AppendReference(&project, "stdc++");
+        CUBE_CProject_AppendReference(&project, "atomic");
+        CUBE_CProject_AppendReference(&project, "m");
+
+        break;
+    }
+    // Can we all agree FUCK CONTAINERS
+    case TargetPlatform_LinuxSteam:
+    {
+        CUBE_CProject_AppendIncludePaths(&project, "../deps/Mono/LinuxSteam/include/mono-2.0");
+
+        CUBE_CProject_AppendLibraries(&project,
+            "../IcarianCore/build/libIcarianCore.a",
+
+            "../deps/glfw/build/libGLFW.a",
+            "../deps/miniz/build/libminiz.a",
+            "../deps/KTX-Software/build/c/libktxc.a",
+            "../deps/KTX-Software/build/cpp/libktxcpp.a",
+            "../deps/Mono/LinuxSteam/lib/libmonosgen-2.0.a",
+            "../deps/zlib/build/libzlib.a",
+            "../deps/assimp/build/libassimp.a",
+            "../deps/assimp/contrib/unzip/build/libunzip.a",
+            "../deps/enet/build/libenet.a",
+
+            "./lib/glslang/build/libglslang.a",
+            "./lib/glslang/build/libSPIRV.a",
+            "./lib/glslang/External/spirv-tools/build/libSPIRV-Tools.a",
+            "./lib/JoltPhysics/build/libJolt.a"
+        );
+
+        CUBE_CProject_AppendCFlag(&project, "-pthread");
+
+        CUBE_CProject_AppendReference(&project, "dl");
+        CUBE_CProject_AppendReference(&project, "rt");
         CUBE_CProject_AppendReference(&project, "stdc++");
         CUBE_CProject_AppendReference(&project, "atomic");
         CUBE_CProject_AppendReference(&project, "m");

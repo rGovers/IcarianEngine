@@ -82,20 +82,25 @@ public:
     {
         while (true)
         {
-            if (!m_write.exchange(true, std::memory_order_acquire))
+            while (true)
             {
-                break;
+                if (!m_write.exchange(true, std::memory_order_acquire))
+                {
+                    break;
+                }
+
+                while (m_write.load(std::memory_order_relaxed)) 
+                {
+                    ISPINPAUSE;
+                }
             }
 
-            while (m_write.load(std::memory_order_relaxed)) 
-            {
-                ISPINPAUSE;
+            if (m_read.load(std::memory_order_seq_cst) <= 0) 
+            { 
+                return;
             }
-        }
 
-        while (m_read.load(std::memory_order_seq_cst) > 0) 
-        { 
-            ISPINPAUSE; 
+            m_write.store(false, std::memory_order_release);
         }
     }
     inline void Unlock()
@@ -107,22 +112,21 @@ public:
     {
         while (true)
         {
-            while (m_write.load(std::memory_order_seq_cst)) 
+            if (m_write.exchange(true, std::memory_order_acquire))
             {
-                ISPINPAUSE;
-            }
+                while (m_write.load(std::memory_order_relaxed))
+                {
+                    ISPINPAUSE;
+                }
+
+                continue;
+            }            
 
             m_read.fetch_add(1, std::memory_order_acquire);
 
-            // Aquired while writing value
-            if (m_write.load(std::memory_order_seq_cst))
-            {
-                m_read.fetch_sub(1, std::memory_order_release);
-            }
-            else
-            {
-                return;
-            }
+            m_write.store(false, std::memory_order_release);
+
+            break;
         }
     }
     inline void UnlockShared()

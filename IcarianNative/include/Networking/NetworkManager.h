@@ -19,8 +19,6 @@ struct NetworkPeer;
 class NetworkManager
 {
 private:
-    bool                     m_initialized;
-
     TNCArray<NetworkClient*> m_clients;
     TNCArray<NetworkServer*> m_servers;
 
@@ -34,11 +32,6 @@ protected:
 public:
     NetworkManager();
     ~NetworkManager();
-
-    inline bool IsInitialized() const
-    {
-        return m_initialized;
-    }
 
     uint32_t CreateNetworkClient(const NetworkAddress& a_address);
     uint32_t CreateNetworkClientConnection(uint32_t a_hostAddr, const ENetEvent& a_event);
@@ -62,7 +55,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

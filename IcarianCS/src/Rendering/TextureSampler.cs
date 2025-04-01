@@ -74,7 +74,7 @@ namespace IcarianEngine.Rendering
         /// <param name="a_filter">Filter to use for the sampler</param>
         /// <param name="a_addressMode">Address mode to use for the sampler</param>
         /// <returns>Texture sampler. Null on failure.</returns>
-        public static TextureSampler GenerateTextureSampler(Texture a_texture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
+        public static TextureSampler GenerateTextureSampler(Texture a_texture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.ClampToEdge)
         {
             if (a_texture == null)
             {
@@ -92,7 +92,7 @@ namespace IcarianEngine.Rendering
         /// <param name="a_filter">Filter to use for the sampler</param>
         /// <param name="a_addressMode">Address mode to use for the sampler</param>
         /// <returns>Texture sampler. Null on failure.</returns>
-        public static TextureSampler GenerateRenderTextureSampler(RenderTexture a_renderTexture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
+        public static TextureSampler GenerateRenderTextureSampler(RenderTexture a_renderTexture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.ClampToEdge)
         {
             if (a_renderTexture == null)
             {
@@ -111,7 +111,7 @@ namespace IcarianEngine.Rendering
         /// <param name="a_filter">Filter to use for the sampler</param>
         /// <param name="a_addressMode">Address mode to use for the sampler</param>
         /// <returns>Texture sampler. Null on failure.</returns>
-        public static TextureSampler GenerateRenderTextureSampler(MultiRenderTexture a_renderTexture, uint a_index, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
+        public static TextureSampler GenerateRenderTextureSampler(MultiRenderTexture a_renderTexture, uint a_index, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.ClampToEdge)
         {
             if (a_renderTexture == null)
             {
@@ -129,7 +129,7 @@ namespace IcarianEngine.Rendering
         /// <param name="a_filter">Filter to use for the sampler</param>
         /// <param name="a_addressMode">Address mode to use for the sampler</param>
         /// <returns>Texture sampler for depth. Null on failure.</returns>
-        public static TextureSampler GenerateRenderTextureDepthSampler(IRenderTexture a_renderTexture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
+        public static TextureSampler GenerateRenderTextureDepthSampler(IRenderTexture a_renderTexture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.ClampToEdge)
         {
             if (a_renderTexture == null)
             {
@@ -154,7 +154,7 @@ namespace IcarianEngine.Rendering
         /// <param name="a_filter">Filter to use for the sampler</param>
         /// <param name="a_addressMode">Address mode to use for the sampler</param>
         /// <returns>Texture sampler for depth. Null on failure.</returns>
-        public static TextureSampler GenerateRenderTextureDepthSampler(DepthRenderTexture a_renderTexture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.Repeat)
+        public static TextureSampler GenerateRenderTextureDepthSampler(DepthRenderTexture a_renderTexture, TextureFilter a_filter = TextureFilter.Linear, TextureAddress a_addressMode = TextureAddress.ClampToEdge)
         {
             if (a_renderTexture == null)
             {

@@ -15,6 +15,8 @@
 #include "Config.h"
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianPragma.h"
+#include "Core/StringUtils.h"
 
 #define STBI_ASSERT(x) ICARIAN_ASSERT_MSG(x, "STBI Assert")
 
@@ -29,17 +31,84 @@
 #include <stb_truetype.h>
 #include <stb_vorbis.c>
 
+// Not mine so not much I can do about it
+ICARIAN_WARNINGPUSH
+ICARIAN_WARNINGSUPPRESS("-Wsign-compare")
+ICARIAN_WARNINGSUPPRESS("-Wunused-variable")
+ICARIAN_WARNINGSUPPRESS("-Wunused-function")
 #define MINIMP4_IMPLEMENTATION
 #include <minimp4.h>
+ICARIAN_WARNINGPOP
+
+#define MINIAUDIO_IMPLEMENTATION
+#include "Audio/IcarianMiniaudio.h"
 
 #define ICARIANNATIVE_VERSION_STRX(x) #x
 #define ICARIANNATIVE_VERSION_STRI(x) ICARIANNATIVE_VERSION_STRX(x)
 #define ICARIANNATIVE_VERSION_TAGSTR ICARIANNATIVE_VERSION_STRI(ICARIANNATIVE_VERSION_TAG)
 #define ICARIANNATIVE_COMMIT_HASHSTR ICARIANNATIVE_VERSION_STRI(ICARIANNATIVE_COMMIT_HASH)
 
-void PrintVersion()
+static void PrintVersion()
 {
     printf("IcarianEngine %d.%d.%d.%s %s \n", ICARIANNATIVE_VERSION_MAJOR, ICARIANNATIVE_VERSION_MINOR, ICARIANNATIVE_VERSION_PATCH, ICARIANNATIVE_COMMIT_HASHSTR, ICARIANNATIVE_VERSION_TAGSTR);
+}
+
+static void ChangeConfig(const char* a_arg, Config* a_config)
+{
+    constexpr char RemotePortStr[] = "--remote-port";
+    constexpr uint32_t RemotePortStrLen = sizeof(RemotePortStr) - 1;
+
+    switch (StringHash(a_arg))
+    {
+    case StringHash("--headless"):
+    {
+        a_config->SetHeadless(true);
+
+        break;
+    }
+    case StringHash("--remote-headless"):
+    {
+        a_config->SetHeadless(true);
+        a_config->SetRemote(true);
+
+        break;
+    }
+    case StringHash("--unlockups"):
+    {
+        a_config->SetUPSUnlocked(true);
+
+        break;
+    }
+    case StringHash("--nowayland"):
+    {
+        a_config->SetDisableWayland(true);
+
+        break;
+    }
+    default:
+    {
+        if (strncmp(a_arg, RemotePortStr, RemotePortStrLen) == 0)
+        {
+            const char* slider = a_arg;
+            while (*slider != ' ' && *slider != 0) 
+            {
+                ++slider;
+            }
+    
+            if (*slider == 0)
+            {
+                return;
+            }
+            ++slider;
+    
+            const int val = std::stoi(slider);
+    
+            a_config->SetRemotePort((uint16_t)val);
+        }
+
+        break;
+    }
+    }
 }
 
 #ifdef WIN32
@@ -47,6 +116,21 @@ void PrintVersion()
 int APIENTRY WinMain(HINSTANCE a_hInstance, HINSTANCE a_hPrevInstance, LPSTR a_lpCmdLine, int a_nCmdShow)
 {
     PrintVersion();
+
+    // Whatever enet needs we will do ourselves
+    // We need a newer version and enet does not allow overriding
+    WSADATA wsaData;
+    if (WSAStartup (MAKEWORD(2, 0), & wsaData))
+    {
+        return 1;
+    }
+    timeBeginPeriod(1);
+
+    IDEFER(
+    {
+        timeEndPeriod(1);
+        WSACleanup();
+    });
 
     Config* config = new Config("./config.xml");
 
@@ -71,11 +155,7 @@ int APIENTRY WinMain(HINSTANCE a_hInstance, HINSTANCE a_hPrevInstance, LPSTR a_l
         cargv[i] = new char[len];
         WideCharToMultiByte(CP_UTF8, 0, argv[i], -1, cargv[i], len, NULL, NULL);
 
-        const char* arg = cargv[i];
-        if (strcmp(arg, "--headless") == 0)
-        {
-            config->SetHeadless(true);
-        }
+        ChangeConfig(cargv[i], config);
     }
 
     srand(time(NULL));
@@ -96,11 +176,7 @@ int main(int a_argc, char* a_argv[])
 
     for (int i = 0; i < a_argc; ++i)
     {
-        const char* arg = a_argv[i];
-        if (strcmp(arg, "--headless") == 0)
-        {
-            config->SetHeadless(true);
-        }
+        ChangeConfig(a_argv[i], config);
     }
 
     srand(time(NULL));
@@ -115,7 +191,7 @@ int main(int a_argc, char* a_argv[])
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

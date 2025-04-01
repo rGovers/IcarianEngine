@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /mono/build/bin/mono --gc-params=nursery-size=64m $MONO_OPTIONS /mono/build/lib/mono/4.5/csi.exe "$@"

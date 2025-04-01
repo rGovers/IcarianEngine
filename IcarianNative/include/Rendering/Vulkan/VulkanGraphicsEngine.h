@@ -4,6 +4,7 @@
 
 #pragma once
 
+
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
@@ -21,6 +22,7 @@
 #include "Rendering/TextureData.h"
 #include "Rendering/UI/CanvasRendererBuffer.h"
 #include "Rendering/Vulkan/VulkanCommandBuffer.h"
+#include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 
 #include "EngineAmbientLightInteropStructures.h"
 #include "EngineDirectionalLightInteropStructures.h"
@@ -32,18 +34,21 @@
 struct CanvasBuffer;
 
 class RuntimeFunction;
+class VulkanComputeShader;
+class VulkanDecalShader;
 class VulkanDepthCubeRenderTexture;
 class VulkanDepthRenderTexture;
 class VulkanGraphicsEngineBindings;
 class VulkanGraphicsParticle2D;
 class VulkanLightData;
+class VulkanMeshShader;
 class VulkanModel;
 class VulkanPipeline;
 class VulkanPixelShader;
 class VulkanRenderCommand;
-class VulkanRenderEngineBackend;
 class VulkanRenderTexture;
 class VulkanSwapchain;
+class VulkanTaskShader;
 class VulkanTexture;
 class VulkanUniformBuffer;
 class VulkanVertexShader;
@@ -55,6 +60,14 @@ private:
     friend class VulkanGraphicsEngineBindings;
 
     static constexpr uint32_t DrawingPassCount = 7;
+
+    typedef std::unordered_map
+    <
+        uint64_t, VulkanPipeline*, 
+        std::hash<uint64_t>, 
+        std::equal_to<uint64_t>, 
+        STLRenderBlockAlloc<std::pair<const uint64_t, VulkanPipeline*>>
+    > PipelineMap;
 
     VulkanGraphicsEngineBindings*                 m_runtimeBindings;
     VulkanSwapchain*                              m_swapchain;
@@ -76,13 +89,17 @@ private:
     VulkanRenderEngineBackend*                    m_vulkanEngine;
 
     SharedSpinLock                                m_pipeLock;
-    std::unordered_map<uint64_t, VulkanPipeline*> m_pipelines;
-
     SharedSpinLock                                m_shadowPipeLock;
-    std::unordered_map<uint64_t, VulkanPipeline*> m_shadowPipelines;
-
     SharedSpinLock                                m_cubeShadowPipeLock;
-    std::unordered_map<uint64_t, VulkanPipeline*> m_cubeShadowPipelines;
+    SharedSpinLock                                m_importLock;
+
+    PipelineMap                                   m_pipelines;
+    PipelineMap                                   m_shadowPipelines;
+    PipelineMap                                   m_cubeShadowPipelines;
+    std::unordered_map<std::string, std::string>  m_computeImports;
+    std::unordered_map<std::string, std::string>  m_vertexImports;
+    std::unordered_map<std::string, std::string>  m_meshImports;
+    std::unordered_map<std::string, std::string>  m_pixelImports;
 
     TStatic<VulkanRenderCommand>                  m_renderCommands;
     TStatic<VulkanLightData>                      m_lightData;
@@ -90,7 +107,10 @@ private:
     TNCArray<RenderProgram>                       m_shaderPrograms;
      
     TNCArray<VulkanVertexShader*>                 m_vertexShaders;
+    TNCArray<VulkanTaskShader*>                   m_taskShaders;
+    TNCArray<VulkanMeshShader*>                   m_meshShaders;
     TNCArray<VulkanPixelShader*>                  m_pixelShaders;
+    TNCArray<VulkanComputeShader*>                m_computeShaders;
      
     TNCArray<TextureSamplerBuffer>                m_textureSampler;
 
@@ -114,15 +134,15 @@ private:
     TNCArray<SpotLightBuffer>                     m_spotLights;
 
     TArray<CameraBuffer>                          m_cameraBuffers;
-    Array<VulkanUniformBuffer*>                   m_cameraUniforms;
+    Array<VulkanUniformBuffer*, RenderBlockAlloc> m_cameraUniforms;
 
     VulkanUniformBuffer*                          m_timeUniform;
 
     vk::CommandPool                               m_decodePool[VulkanFlightPoolSize];
     vk::CommandBuffer                             m_decodeBuffer[VulkanFlightPoolSize];
 
-    Array<vk::CommandPool>                        m_commandPool[VulkanFlightPoolSize];
-    Array<vk::CommandBuffer>                      m_commandBuffers[VulkanFlightPoolSize];
+    Array<vk::CommandPool, RenderBlockAlloc>      m_commandPool[VulkanFlightPoolSize];
+    Array<vk::CommandBuffer, RenderBlockAlloc>    m_commandBuffers[VulkanFlightPoolSize];
     
     TNCArray<CanvasRendererBuffer>                m_canvasRenderers;
 
@@ -165,9 +185,20 @@ public:
     void DestroyVertexShader(uint32_t a_addr);
     VulkanVertexShader* GetVertexShader(uint32_t a_addr);
 
+    uint32_t GenerateFTaskShader(const std::string_view& a_source);
+    void DestroyTaskShader(uint32_t a_addr);
+    VulkanTaskShader* GetTaskShader(uint32_t a_addr);
+    uint32_t GenerateFMeshShader(const std::string_view& a_source);
+    void DestroyMeshShader(uint32_t a_addr);
+    VulkanMeshShader* GetMeshShader(uint32_t a_addr);
+
     uint32_t GenerateFPixelShader(const std::string_view& a_source);
     void DestroyPixelShader(uint32_t a_addr);
     VulkanPixelShader* GetPixelShader(uint32_t a_addr);
+
+    uint32_t GenerateFComputeShader(const std::string_view& a_source);
+    void DestroyComputeShader(uint32_t a_addr);
+    VulkanComputeShader* GetComputeShader(uint32_t a_addr);
 
     uint32_t GenerateRenderProgram(const RenderProgram& a_program);
     void DestroyRenderProgram(uint32_t a_addr);
@@ -218,7 +249,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

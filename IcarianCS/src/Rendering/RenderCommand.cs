@@ -26,6 +26,8 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void RTRTBlit(uint a_srcAddr, uint a_dstAddr);
         [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void MTRTBlit(uint a_srcAddr, uint a_index, uint a_dstAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DrawModel(Matrix4 a_transform, uint a_modelAddr);
 
         /// <summary>
@@ -36,6 +38,18 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         public extern static void PushShadowSplits(uint a_slot, LightShadowSplit[] a_splits);
         
+        /// <summary>
+        /// Adds a marker region for use by graphics debuggers if enabled in build settings
+        /// </summary>
+        /// <param name="a_name">The name of the marker</param>
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public extern static void MarkerStart(string a_name);
+        /// <summary>
+        /// Ends a marker region
+        /// </summary>
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        public extern static void MarkerEnd();
+
         /// <summary>
         /// Draws the currently bound <see cref="IcarianEngine.Rendering.Material" />
         /// </summary>
@@ -159,6 +173,7 @@ namespace IcarianEngine.Rendering
         {
             BindRenderTexture(RenderTextureCmd.GetTextureAddr(a_renderTexture), (uint)a_bindMode);
         }
+        
         /// <summary>
         /// Copies the contents of a <see cref="IcarianEngine.Rendering.IRenderTexture" /> to another <see cref="IcarianEngine.Rendering.IRenderTexture" />
         /// </summary>
@@ -168,6 +183,17 @@ namespace IcarianEngine.Rendering
         {
             RTRTBlit(RenderTextureCmd.GetTextureAddr(a_srcTexture), RenderTextureCmd.GetTextureAddr(a_dstTexture));
         }
+        /// <summary>
+        /// Copies the contents of a <see cref="IcarianEngine.Rendering.MultiRenderTexture" /> to another <see cref="IcarianEngine.Rendering.IRenderTexture" />
+        /// </summary>
+        /// <param name="a_srcTexture">The <see cref="IcarianEngine.Rendering.MultiRenderTexture" /> to use as the source</param>
+        /// <param name="a_index">The index in the source to Blit</param>
+        /// <param name="a_dstTexture">The <see cref="IcarianEngine.Rendering.IRenderTexture" /> to use as the destination. Null writes to the swapchain</param>
+        public static void Blit(MultiRenderTexture a_srcTexture, uint a_index, IRenderTexture a_dstTexture)
+        {
+            MTRTBlit(a_srcTexture.BufferAddr, a_index, RenderTextureCmd.GetTextureAddr(a_dstTexture));
+        }
+
         /// <summary>
         /// Draws a Model
         /// </summary>

@@ -8,6 +8,7 @@
 
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
+class Allocator;
 class VulkanGraphicsEngine;
 class VulkanRenderEngineBackend;
 class VulkanRenderPass;
@@ -15,22 +16,41 @@ class VulkanShaderData;
 
 enum e_VulkanPipelineType
 {
+    VulkanPipelineType_Compute,
     VulkanPipelineType_Graphics,
-    VulkanPipelineType_Shadow
+    VulkanPipelineType_Shadow,
 };
 
+struct VulkanGraphicsPipelineBuilder
+{
+    VulkanRenderEngineBackend* Engine; 
+    VulkanGraphicsEngine* GraphicsEngine; 
+    vk::RenderPass RenderPass;
+    uint32_t TextureCount; 
+    uint32_t ProgramAddr;
+    bool Depth;
+};
+
+struct VulkanGraphicsComputePipelineBuilder
+{
+    VulkanRenderEngineBackend* Engine;
+    VulkanGraphicsEngine* GraphicsEngine;
+    uint32_t ProgramAddr;
+};
+
+// TODO: It has become apparent I may need to do a great computification moving stuff to Compute Shaders as using the 
+// Graphics pipeline for doing more then generating the G-Buffer and doing the Forward pass is turning into a headache
 class VulkanPipeline
 {
 private:
     VulkanRenderEngineBackend* m_engine;
     VulkanGraphicsEngine*      m_gEngine;
-
-    uint32_t                   m_programAddr;
     
     vk::Pipeline               m_pipeline;
 
+    uint32_t                   m_programAddr;
     e_VulkanPipelineType       m_type;
-
+    
     VulkanPipeline(vk::Pipeline a_pipeline, VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_programAddr, e_VulkanPipelineType a_type);
     
 protected:
@@ -52,15 +72,16 @@ public:
 
     void Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
 
-    static VulkanPipeline* CreatePipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const vk::RenderPass& a_renderPass, bool a_depth, uint32_t a_textureCount, uint32_t a_programAddr);
-    static VulkanPipeline* CreateShadowPipeline(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const vk::RenderPass& a_renderPass, uint32_t a_programAddr);
+    static void CreateComputePipeline(VulkanPipeline* a_out, const VulkanGraphicsComputePipelineBuilder& a_builder);
+    static void CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder);
+    static void CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder);
 };
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

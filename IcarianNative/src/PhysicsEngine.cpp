@@ -38,7 +38,7 @@ static void TraceImpl(const char* inFMT, ...)
     TRACE(buffer);
 }
 
-static bool AssertImpl(const char* a_expression, const char* a_message, const char* a_file, JPH::uint a_line)
+[[maybe_unused]] static bool AssertImpl(const char* a_expression, const char* a_message, const char* a_file, JPH::uint a_line)
 {
     std::stringstream ss;
 
@@ -162,7 +162,7 @@ static void TransformObject(uint32_t a_transformAddr, const glm::vec3& a_transla
     glm::vec3 iTranslation = glm::vec3(0.0f);
     glm::quat iRotation = glm::identity<glm::quat>();
 
-    if (buffer.ParentAddr != -1)
+    if (buffer.ParentAddr != uint32_t(-1))
     {
         glm::vec3 s;
         glm::vec3 sk;
@@ -182,8 +182,13 @@ static void TransformObject(uint32_t a_transformAddr, const glm::vec3& a_transla
     ObjectManager::SetTransformBuffer(a_transformAddr, buffer);
 }
 
-void PhysicsEngine::Update(double a_delta)
+void PhysicsEngine::Update(double a_delta, float a_timeScale)
 {
+    if (a_timeScale <= 0.0f)
+    {
+        return;
+    }
+
     {
         PROFILESTACK("Physics Sim");
 
@@ -192,7 +197,8 @@ void PhysicsEngine::Update(double a_delta)
         // Done some digging and found a note about stability above 60hz needing to be done in steps
         constexpr double JoltStepMagicNumber = 1.0 / 60.0;
 
-        const int steps = (int)(m_fixedTimeStep / JoltStepMagicNumber + 1);
+        const int steps = (int)((m_fixedTimeStep * a_timeScale) / JoltStepMagicNumber + 1);
+        const float timeStep = (float)(m_fixedTimeStep * a_timeScale);
 
         while (m_fixedTimeTimer >= m_fixedTimeStep)
         {
@@ -223,10 +229,10 @@ void PhysicsEngine::Update(double a_delta)
                     .mWalkStairsStepUp = up * 0.2f
                 };
 
-                c->ExtendedUpdate((float)m_fixedTimeStep, gravity, updateSettings, broadFilter, objectFilter, { }, { }, *m_allocator);
+                c->ExtendedUpdate(timeStep, gravity, updateSettings, broadFilter, objectFilter, { }, { }, *m_allocator);
             }
 
-            m_physicsSystem->Update((float)m_fixedTimeStep, steps, m_allocator, m_jobSystem);
+            m_physicsSystem->Update(timeStep, steps, m_allocator, m_jobSystem);
         }
     }
 
@@ -240,11 +246,30 @@ void PhysicsEngine::Update(double a_delta)
             const SharedThreadGuard g = SharedThreadGuard(m_bodyMapLock);
 
             // Should not need but doing just incase for good practice as it multithreaded app
-            const JPH::BodyLockInterfaceLocking& interface = m_physicsSystem->GetBodyLockInterface();
+            // FFS something in WIN32 means that I can no longer call this interface without a compiler error bodyInterface it is 
+            const JPH::BodyLockInterfaceLocking& bodyinterface = m_physicsSystem->GetBodyLockInterface();
 
             // Need to sync the physics transform to the transform
             for (const JPH::BodyID id : bodies)
             {
+                const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(id, bodyinterface);
+
+                const JPH::Body* body = bodyinterface.TryGetBody(id);
+                if (body == nullptr)
+                {
+                    continue;
+                }
+
+                constexpr float Min = std::numeric_limits<float>::min();
+
+                // TODO: This is a hack should probably improve this
+                // Needed when regenerating Rigidbodies
+                const JPH::RVec3 jPos = body->GetPosition();
+                if (jPos == JPH::RVec3(Min, Min, Min))
+                {
+                    continue;
+                }
+
                 const auto iter = m_bodyMap.find(id.GetIndex());
                 if (iter == m_bodyMap.end())
                 {
@@ -253,21 +278,13 @@ void PhysicsEngine::Update(double a_delta)
 
                 const BodyBinding binding = m_bodyBindings[iter->second];
 
-                const bool valid = binding.TransformAddr != -1;
+                const bool valid = binding.TransformAddr != uint32_t(-1);
                 if (!valid)
                 {
                     continue;
                 }
 
-                const JPH::Body* body = interface.TryGetBody(id);
-                if (body == nullptr)
-                {
-                    continue;
-                }
-
-                const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(id, interface);
-
-                const JPH::RVec3 jTranslation = body->GetPosition() + body->GetLinearVelocity() * m_fixedTimeTimer;
+                const JPH::RVec3 jTranslation = jPos + body->GetLinearVelocity() * m_fixedTimeTimer;
                 const JPH::Quat jRotation = body->GetRotation();
 
                 const glm::vec3 translation = glm::vec3(jTranslation.GetX(), jTranslation.GetY(), jTranslation.GetZ());
@@ -299,7 +316,7 @@ void PhysicsEngine::Update(double a_delta)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

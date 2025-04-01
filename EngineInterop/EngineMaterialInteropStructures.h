@@ -28,6 +28,16 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(MaterialBlendMode) : IOP_UINT8
 };
 
 /// <summary>
+/// Material mode enumeration
+/// </summary>
+IOP_CSPUBLIC enum IOP_ENUM_NAME(MaterialMode) : IOP_UINT8
+{
+    IOP_ENUM_VALUE(MaterialMode, BaseVertex) = 0,
+    IOP_ENUM_VALUE(MaterialMode, BaseMesh) = 1,
+    IOP_ENUM_VALUE(MaterialMode, Compute) = 2,
+};
+
+/// <summary>
 /// Shader buffer type enumeration.
 /// </summary>
 IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
@@ -42,21 +52,22 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
     IOP_ENUM_VALUE(ShaderBufferType, PointLightBuffer) = 6,
     IOP_ENUM_VALUE(ShaderBufferType, SpotLightBuffer) = 7,
     IOP_ENUM_VALUE(ShaderBufferType, AmbientLightBuffer) = 8,
-    IOP_ENUM_VALUE(ShaderBufferType, Texture) = 9,
-    IOP_ENUM_VALUE(ShaderBufferType, PushTexture) = 10,
-    IOP_ENUM_VALUE(ShaderBufferType, ShadowLightBuffer) = 11,
-    IOP_ENUM_VALUE(ShaderBufferType, ShadowTexture2D) = 12, 
-    IOP_ENUM_VALUE(ShaderBufferType, ShadowTextureCube) = 13,
-    IOP_ENUM_VALUE(ShaderBufferType, UserUBO) = 14,
-    IOP_ENUM_VALUE(ShaderBufferType, SSModelBuffer) = 15,
-    IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 16,
-    IOP_ENUM_VALUE(ShaderBufferType, SSDirectionalLightBuffer) = 17,
-    IOP_ENUM_VALUE(ShaderBufferType, SSPointLightBuffer) = 18,
-    IOP_ENUM_VALUE(ShaderBufferType, SSSpotLightBuffer) = 19,
-    IOP_ENUM_VALUE(ShaderBufferType, SSAmbientLightBuffer) = 20,
-    IOP_ENUM_VALUE(ShaderBufferType, SSShadowLightBuffer) = 21,
-    IOP_ENUM_VALUE(ShaderBufferType, SSParticleBuffer) = 22,
-    IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 23
+    IOP_ENUM_VALUE(ShaderBufferType, BufferTexture) = 9,
+    IOP_ENUM_VALUE(ShaderBufferType, Texture) = 10,
+    IOP_ENUM_VALUE(ShaderBufferType, PushTexture) = 11,
+    IOP_ENUM_VALUE(ShaderBufferType, ShadowLightBuffer) = 12,
+    IOP_ENUM_VALUE(ShaderBufferType, ShadowTexture2D) = 13, 
+    IOP_ENUM_VALUE(ShaderBufferType, ShadowTextureCube) = 14,
+    IOP_ENUM_VALUE(ShaderBufferType, UserUBO) = 15,
+    IOP_ENUM_VALUE(ShaderBufferType, SSModelBuffer) = 16,
+    IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 17,
+    IOP_ENUM_VALUE(ShaderBufferType, SSDirectionalLightBuffer) = 18,
+    IOP_ENUM_VALUE(ShaderBufferType, SSPointLightBuffer) = 19,
+    IOP_ENUM_VALUE(ShaderBufferType, SSSpotLightBuffer) = 20,
+    IOP_ENUM_VALUE(ShaderBufferType, SSAmbientLightBuffer) = 21,
+    IOP_ENUM_VALUE(ShaderBufferType, SSShadowLightBuffer) = 22,
+    IOP_ENUM_VALUE(ShaderBufferType, SSParticleBuffer) = 23,
+    IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 24
 };
 
 /// <summary>
@@ -100,19 +111,22 @@ IOP_PACKED IOP_CSINTERNAL struct ShaderBufferInput
 
 IOP_PACKED IOP_CSINTERNAL struct RenderProgram
 {
-    IOP_CSPUBLIC IOP_UINT32 VertexShader;
-    IOP_CSPUBLIC IOP_UINT32 PixelShader;
-    IOP_CSPUBLIC IOP_UINT32 ShadowVertexShader;
-    IOP_CSPUBLIC IOP_UINT32 RenderLayer;
+    // May have to start storing stuff out of band if I need to make this any larger
     IOP_POINTER(VertexInputAttribute*) VertexAttributes;
-    IOP_UINT16 VertexInputCount;
-    IOP_CSPUBLIC IOP_UINT16 VertexStride;
-    IOP_UINT32 UBODataSize;
     IOP_POINTER(void*) UBOData;
     IOP_POINTER(void*) Data;
+    IOP_CSPUBLIC IOP_UINT32 VertexShader;
+    IOP_CSPUBLIC IOP_UINT32 PixelShader;
+    IOP_CSPUBLIC IOP_UINT32 ExtraShader;
+    IOP_CSPUBLIC IOP_UINT32 ShadowVertexShader;
+    IOP_CSPUBLIC IOP_UINT32 RenderLayer;
+    IOP_UINT32 UBODataSize;
+    IOP_UINT16 VertexInputCount;
+    IOP_CSPUBLIC IOP_UINT16 VertexStride;
     IOP_CSPUBLIC IOP_ENUM_NAME(MaterialBlendMode) ColorBlendMode;
     IOP_CSPUBLIC IOP_ENUM_NAME(CullMode) CullingMode;
     IOP_CSPUBLIC IOP_ENUM_NAME(PrimitiveMode) PrimitiveMode;
+    IOP_CSPUBLIC IOP_ENUM_NAME(MaterialMode) MaterialMode;
     IOP_UINT8 Flags;
 
 #ifdef CUBE_LANGUAGE_CPP
@@ -121,12 +135,12 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
 
     bool operator ==(const RenderProgram& a_other) const
     {
-        if (VertexShader != a_other.VertexShader || PixelShader != a_other.PixelShader)
+        if (VertexShader != a_other.VertexShader || PixelShader != a_other.PixelShader || ExtraShader != a_other.ExtraShader)
         {
             return false;
         }
 
-        if (CullingMode != a_other.CullingMode || PrimitiveMode != a_other.PrimitiveMode)
+        if (CullingMode != a_other.CullingMode || PrimitiveMode != a_other.PrimitiveMode || MaterialMode != a_other.MaterialMode)
         {
             return false;
         }
@@ -147,6 +161,11 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
         }
 
         if (VertexInputCount != a_other.VertexInputCount)
+        {
+            return false;
+        }
+
+        if (UBODataSize != a_other.UBODataSize)
         {
             return false;
         }
@@ -176,7 +195,7 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

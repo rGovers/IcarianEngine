@@ -9,8 +9,8 @@
 
 class AudioEngine;
 
-#include "Audio/AudioSourceBuffer.h"
-#include "Audio/AudioMixerBuffer.h"
+#include "EngineAudioMixerInteropStructures.h"
+#include "EngineAudioSourceInteropStructures.h"
 
 class AudioEngineBindings
 {

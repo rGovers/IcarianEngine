@@ -4,6 +4,11 @@
 
 #pragma once
 
+#ifdef WIN32
+// Windows being annoying again if it is not included first
+#include "Core/WindowsHeaders.h"
+#endif
+
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
@@ -94,7 +99,7 @@ public:
 
     bool CanObjectLayersCollide(uint32_t a_lhs, uint32_t a_rhs) const;
 
-    void Update(double a_delta);
+    void Update(double a_delta, float a_timeScale);
 
     uint32_t GetBodyAddr(JPH::uint32 a_joltIndex);
 };

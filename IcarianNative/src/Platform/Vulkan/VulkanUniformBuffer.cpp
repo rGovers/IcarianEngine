@@ -57,16 +57,20 @@ VulkanUniformBuffer::VulkanUniformBuffer(VulkanRenderEngineBackend* a_engine, ui
 
     const VmaAllocator allocator = m_engine->GetAllocator();
 
-    VkBufferCreateInfo bufferInfo = { };
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = (VkDeviceSize)a_uniformSize;
-    bufferInfo.usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    const VkBufferCreateInfo bufferInfo = 
+    { 
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = (VkDeviceSize)a_uniformSize,
+        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
 
-    VmaAllocationCreateInfo bufferAllocInfo = { 0 };
-    bufferAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    bufferAllocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    bufferAllocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    const VmaAllocationCreateInfo bufferAllocInfo = 
+    {  
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO,
+        .requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+    };
     
     for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
     {
@@ -81,7 +85,7 @@ VulkanUniformBuffer::VulkanUniformBuffer(VulkanRenderEngineBackend* a_engine, ui
 VulkanUniformBuffer::~VulkanUniformBuffer()
 {
     TRACE("Queueing UBO for deletion");
-    m_engine->PushDeletionObject(new VulkanUBOBufferDeletionObject(m_engine, m_buffers, m_allocations));
+    m_engine->PushDeletionObject<VulkanUBOBufferDeletionObject>(m_engine, m_buffers, m_allocations);
 }
 
 void VulkanUniformBuffer::SetData(uint32_t a_index, const void* a_data)

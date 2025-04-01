@@ -29,6 +29,7 @@
 #define IOP_UINT8 byte
 #define IOP_UINT16 ushort
 #define IOP_UINT32 uint
+#define IOP_UINT64 ulong
 #define IOP_ARRAY(type) type
 
 #define IOP_PACKED [StructLayout(LayoutKind.Sequential, Pack = 0)]
@@ -54,6 +55,7 @@
 
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <mono/metadata/object.h>
 
 #include <cstdint>
 
@@ -72,6 +74,7 @@
 #define IOP_UINT8 uint8_t
 #define IOP_UINT16 uint16_t
 #define IOP_UINT32 uint32_t
+#define IOP_UINT64 uint64_t
 #define IOP_ARRAY(type) MonoArray*
 
 #define IOP_PACKED
@@ -95,7 +98,7 @@
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

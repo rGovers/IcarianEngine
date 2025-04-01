@@ -47,26 +47,59 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
     }
 
     CUBE_CProject_AppendIncludePaths(&project, 
-        "include",
+        "./include",
+
         "../deps/flare-glm",
         "../deps/flare-tinyxml2",
         "../deps/OpenFBX/src",
         "../deps/tinygltf",
+        "../deps/enet/include",
+
         "../EngineInterop"
     );
 
     CUBE_CProject_AppendSources(&project,
         "../deps/flare-tinyxml2/tinyxml2.cpp",
 
-        "src/FlareShader.cpp",
-        "src/InputBindings.cpp",
-        "src/IPCPipe.cpp",
-        "src/MonoNativeImpl.cpp"
+        "./src/FlareShader.cpp",
+        "./src/InputBindings.cpp",
+        "./src/IPCPipe.cpp",
+        "./src/MonoNativeImpl.cpp",
+        "./src/SocketPipe.cpp"
     );
-    
-    CUBE_CProject_AppendReference(&project, "stdc++");
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
+    CUBE_CProject_AppendCFlag(&project, "-Wall");
+    CUBE_CProject_AppendCFlag(&project, "-Werror");
+
+    switch (a_targetPlatform)
+    {
+    case TargetPlatform_Windows:
+    {
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32"
+        );
+
+        CUBE_CProject_AppendIncludePath(&project, "../deps/Mono/Windows/include");
+
+        break;
+    }
+    case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
+    {
+        CUBE_CProject_AppendIncludePath(&project, "../deps/Mono/Linux/include/mono-2.0");
+
+        break;
+    }
+    case TargetPlatform_LinuxSteam:
+    {
+        CUBE_CProject_AppendIncludePath(&project, "../deps/Mono/LinuxSteam/include/mono-2.0");
+
+        break;
+    }
+    }
 
     switch (a_configuration)
     {
@@ -84,6 +117,8 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
 
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -94,6 +129,8 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
 
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }

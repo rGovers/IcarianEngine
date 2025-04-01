@@ -2,10 +2,19 @@
 // 
 // License at end of file.
 
+using System.Runtime.CompilerServices;
+
+#include "EngineTimeInterop.h"
+#include "InteropBinding.h"
+
+ENGINE_TIME_EXPORT_TABLE(IOP_BIND_FUNCTION);
+
 namespace IcarianEngine
 {
     public static class Time
     {
+        static float s_timeScale = 1.0f;
+
         static double s_deltaTime = 0.0;
         static double s_time = 0.0;
 
@@ -15,14 +24,31 @@ namespace IcarianEngine
         static double s_frameDeltaTime = 0.0;
         static double s_frameTime = 0.0;
 
+        public static float TimeScale
+        {
+            get
+            {
+                return s_timeScale;
+            }
+            set
+            {
+                if (s_timeScale != value)
+                {
+                    s_timeScale = value;
+
+                    TimeInterop.SetTimeScale(s_timeScale);
+                }
+            }
+        }
+
         /// <summary>
-        /// Delta time in seconds as a double.
+        /// Delta time in seconds as a double scaled by TimeScale
         /// </summary>
         public static double DDeltaTime
         {
             get
             {
-                return s_deltaTime;
+                return s_deltaTime * s_timeScale;
             }
             internal set
             {
@@ -45,17 +71,25 @@ namespace IcarianEngine
         }
 
         /// <summary>
-        /// Delta time in seconds as a float.
+        /// Delta time in seconds as a float scaled by TimeScale
         /// </summary>
         public static float DeltaTime
+        {
+            get
+            {
+                return (float)s_deltaTime * s_timeScale;
+            }
+        }
+        public static float UnscaledDeltaTime
         {
             get
             {
                 return (float)s_deltaTime;
             }
         }
+
         /// <summary>
-        /// Time passed in seconds as a float.
+        /// Time passed in seconds as a float
         /// </summary>
         public static float TimePassed
         {
@@ -66,13 +100,13 @@ namespace IcarianEngine
         }
 
         /// <summary>
-        /// Fixed delta time in seconds as a double.
+        /// Fixed delta time in seconds as a double scaled by TimeScale
         /// </summary>
         public static double DFixedDeltaTime
         {
             get
             {
-                return s_fixedDeltaTime;
+                return s_fixedDeltaTime * s_timeScale;
             }
             internal set
             {
@@ -80,13 +114,13 @@ namespace IcarianEngine
             }
         }
         /// <summary>
-        /// Fixed time passed in seconds as a double.
+        /// Fixed time passed in seconds as a double
         /// </summary>
         public static double DFixedTimePassed
         {
             get
             {
-                return s_fixedTime;
+                return s_fixedTime * s_timeScale;
             }
             internal set
             {
@@ -95,17 +129,25 @@ namespace IcarianEngine
         }
 
         /// <summary>
-        /// Fixed delta time in seconds as a float.
+        /// Fixed delta time in seconds as a float scaled by TimeScale
         /// </summary>
         public static float FixedDeltaTime
+        {
+            get
+            {
+                return (float)s_fixedDeltaTime * s_timeScale;
+            }
+        }
+        public static float UnscaledFixedDeltaTime
         {
             get
             {
                 return (float)s_fixedDeltaTime;
             }
         }
+
         /// <summary>
-        /// Fixed time passed in seconds as a float.
+        /// Fixed time passed in seconds as a float
         /// </summary>
         public static float FixedTimePassed
         {
@@ -116,13 +158,13 @@ namespace IcarianEngine
         }
 
         /// <summary>
-        /// Frame delta time in seconds as a double.
+        /// Frame delta time in seconds as a double scaled by TimeScale
         /// </summary>
         public static double DFrameDeltaTime
         {
             get
             {
-                return s_frameDeltaTime;
+                return s_frameDeltaTime * s_timeScale;
             }
             internal set
             {
@@ -130,7 +172,7 @@ namespace IcarianEngine
             }
         }
         /// <summary>
-        /// Frame time passed in seconds as a double.
+        /// Frame time passed in seconds as a double
         /// </summary>
         public static double DFrameTimePassed
         {
@@ -145,17 +187,25 @@ namespace IcarianEngine
         }
 
         /// <summary>
-        /// Frame delta time in seconds as a float.
+        /// Frame delta time in seconds as a float scaled by TimeScale
         /// </summary>
         public static float FrameDeltaTime
+        {
+            get
+            {
+                return (float)s_frameDeltaTime * s_timeScale;
+            }
+        }
+        public static float UnscaledFrameDeltaTime
         {
             get
             {
                 return (float)s_frameDeltaTime;
             }
         }
+
         /// <summary>
-        /// Frame time passed in seconds as a float.
+        /// Frame time passed in seconds as a float
         /// </summary>
         public static float FrameTimePassed
         {

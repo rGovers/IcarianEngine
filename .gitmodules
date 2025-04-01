@@ -7,9 +7,6 @@
 [submodule "deps/flare-glm"]
 	path = deps/flare-glm
 	url = https://github.com/rGovers/flare-glm.git
-[submodule "deps/flare-stb"]
-	path = deps/flare-stb
-	url = https://github.com/rGovers/flare-stb.git
 [submodule "deps/flare-tinyxml2"]
 	path = deps/flare-tinyxml2
 	url = https://github.com/rGovers/flare-tinyxml2.git
@@ -19,15 +16,9 @@
 [submodule "deps/CUBE"]
 	path = deps/CUBE
 	url = https://github.com/rGovers/CUBE.git
-[submodule "IcarianNative/lib/openal-soft"]
-	path = IcarianNative/lib/openal-soft
-	url = https://github.com/kcat/openal-soft.git
 [submodule "deps/miniz"]
 	path = deps/miniz
 	url = https://github.com/richgel999/miniz.git
-[submodule "IcarianNative/lib/enet"]
-	path = IcarianNative/lib/enet
-	url = https://github.com/lsalzman/enet.git
 [submodule "deps/KTX-Software"]
 	path = deps/KTX-Software
 	url = https://github.com/rGovers/KTX-Software.git
@@ -49,3 +40,12 @@
 [submodule "deps/Vulkan-Headers"]
 	path = deps/Vulkan-Headers
 	url = https://github.com/KhronosGroup/Vulkan-Headers
+[submodule "IcarianNative/lib/miniaudio"]
+	path = IcarianNative/lib/miniaudio
+	url = https://github.com/mackron/miniaudio.git
+[submodule "deps/enet"]
+	path = deps/enet
+	url = https://github.com/lsalzman/enet.git
+[submodule "deps/stb"]
+	path = deps/stb
+	url = https://github.com/nothings/stb.git

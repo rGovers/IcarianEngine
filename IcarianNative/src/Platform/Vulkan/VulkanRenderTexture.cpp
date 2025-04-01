@@ -6,6 +6,7 @@
 
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
 
+#include "Core/IcarianLambda.h"
 #include "Rendering/Vulkan/VulkanDepthRenderTexture.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
@@ -33,9 +34,11 @@ public:
 
         m_textureCount = a_textureCount;
 
-        m_images = new vk::Image[m_textureCount];
-        m_views = new vk::ImageView[m_textureCount];
-        m_allocations = new VmaAllocation[m_textureCount];
+        BlockAllocator* allocator = m_engine->GetDeletionAllocator();
+
+        m_images = allocator->TAllocate<vk::Image>(m_textureCount);
+        m_views = allocator->TAllocate<vk::ImageView>(m_textureCount);
+        m_allocations = allocator->TAllocate<VmaAllocation>(m_textureCount);
 
         for (uint32_t i = 0; i < m_textureCount; ++i)
         {
@@ -48,9 +51,11 @@ public:
     }
     virtual ~VulkanRenderTextureDeletionObject()
     {
-        delete[] m_images;
-        delete[] m_views;
-        delete[] m_allocations;
+        BlockAllocator* allocator = m_engine->GetDeletionAllocator();
+
+        allocator->Free(m_images);
+        allocator->Free(m_views);
+        allocator->Free(m_allocations);
     }
 
     virtual void Destroy()
@@ -192,10 +197,13 @@ static constexpr vk::ImageLayout GetDepthLayout(vk::Format a_format)
 
 void VulkanRenderTexture::Setup()
 {
+    RENDERSCRATCHFRAME;
+
     TRACE("Creating Render Texture");
-    const VmaAllocator allocator = m_engine->GetAllocator();
     const vk::Device device = m_engine->GetLogicalDevice();
     const vk::PhysicalDevice physicalDevice = m_engine->GetPhysicalDevice();
+
+    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
 
     const bool hdr = IsHDR();
     const bool hasDepth = HasDepthTexture();
@@ -206,130 +214,257 @@ void VulkanRenderTexture::Setup()
     const vk::Format depthFormat = GetValidDepthFormat(physicalDevice);
 
     TRACE("Creating Attachments");
-    vk::AttachmentDescription* attachments = new vk::AttachmentDescription[totalTextureCount];
-    IDEFER(delete[] attachments);
-    vk::AttachmentDescription* attachmentsNoClear = new vk::AttachmentDescription[totalTextureCount];
-    IDEFER(delete[] attachmentsNoClear);
-    vk::AttachmentDescription* attachmentsColorClear = new vk::AttachmentDescription[totalTextureCount];
-    IDEFER(delete[] attachmentsColorClear);
-    for (uint32_t i = 0; i < m_textureCount; ++i)
+    const vk::AttachmentDescription* attachments = ILAMBDA(
     {
-        attachments[i].format = format;
-        attachments[i].samples = vk::SampleCountFlagBits::e1;
-        attachments[i].loadOp = vk::AttachmentLoadOp::eClear;
-        attachments[i].storeOp = vk::AttachmentStoreOp::eStore;
-        attachments[i].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-        attachments[i].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachments[i].initialLayout = vk::ImageLayout::eUndefined;
-        attachments[i].finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        vk::AttachmentDescription* vals = RenderScratchAlloc::TAllocate<vk::AttachmentDescription>(totalTextureCount);
 
-        attachmentsNoClear[i].format = format;
-        attachmentsNoClear[i].samples = vk::SampleCountFlagBits::e1;
-        attachmentsNoClear[i].loadOp = vk::AttachmentLoadOp::eLoad;
-        attachmentsNoClear[i].storeOp = vk::AttachmentStoreOp::eStore;
-        attachmentsNoClear[i].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-        attachmentsNoClear[i].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachmentsNoClear[i].initialLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-        attachmentsNoClear[i].finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
+        const vk::AttachmentDescription desc = vk::AttachmentDescription
+        (
+            { },
+            format,
+            vk::SampleCountFlagBits::e1,
+            vk::AttachmentLoadOp::eClear,
+            vk::AttachmentStoreOp::eStore,
+            vk::AttachmentLoadOp::eDontCare,
+            vk::AttachmentStoreOp::eDontCare,
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eShaderReadOnlyOptimal
+        );
 
-        attachmentsColorClear[i].format = format;
-        attachmentsColorClear[i].samples = vk::SampleCountFlagBits::e1;
-        attachmentsColorClear[i].loadOp = vk::AttachmentLoadOp::eClear;
-        attachmentsColorClear[i].storeOp = vk::AttachmentStoreOp::eStore;
-        attachmentsColorClear[i].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-        attachmentsColorClear[i].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachmentsColorClear[i].initialLayout = vk::ImageLayout::eUndefined;
-        attachmentsColorClear[i].finalLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
-    }
-    if (hasDepth)
+        for (uint32_t i = 0; i < m_textureCount; ++i)
+        {
+            vals[i] = desc;
+        }
+
+        if (hasDepth)
+        {
+            vals[m_textureCount] = vk::AttachmentDescription
+            (
+                { },
+                depthFormat,
+                vk::SampleCountFlagBits::e1,
+                vk::AttachmentLoadOp::eClear,
+                vk::AttachmentStoreOp::eStore,
+                vk::AttachmentLoadOp::eDontCare,
+                vk::AttachmentStoreOp::eDontCare,
+                vk::ImageLayout::eUndefined,
+                vk::ImageLayout::eDepthStencilReadOnlyOptimal
+            );
+        }
+
+        ILRETURN vals;
+    });
+
+    const vk::AttachmentDescription* attachmentsNoClear = ILAMBDA(
     {
-        attachments[m_textureCount].format = depthFormat;
-        attachments[m_textureCount].samples = vk::SampleCountFlagBits::e1;
-        attachments[m_textureCount].loadOp = vk::AttachmentLoadOp::eClear;
-        attachments[m_textureCount].storeOp = vk::AttachmentStoreOp::eStore;
-        attachments[m_textureCount].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-        attachments[m_textureCount].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachments[m_textureCount].initialLayout = vk::ImageLayout::eUndefined;
-        attachments[m_textureCount].finalLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+        vk::AttachmentDescription* vals = RenderScratchAlloc::TAllocate<vk::AttachmentDescription>(totalTextureCount);
 
-        attachmentsNoClear[m_textureCount].format = depthFormat;
-        attachmentsNoClear[m_textureCount].samples = vk::SampleCountFlagBits::e1;
-        attachmentsNoClear[m_textureCount].loadOp = vk::AttachmentLoadOp::eLoad;
-        attachmentsNoClear[m_textureCount].storeOp = vk::AttachmentStoreOp::eStore;
-        attachmentsNoClear[m_textureCount].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-        attachmentsNoClear[m_textureCount].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachmentsNoClear[m_textureCount].initialLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
-        attachmentsNoClear[m_textureCount].finalLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
+        const vk::AttachmentDescription desc = vk::AttachmentDescription
+        (
+            { },
+            format,
+            vk::SampleCountFlagBits::e1,
+            vk::AttachmentLoadOp::eLoad,
+            vk::AttachmentStoreOp::eStore,
+            vk::AttachmentLoadOp::eDontCare,
+            vk::AttachmentStoreOp::eDontCare,
+            vk::ImageLayout::eShaderReadOnlyOptimal,
+            vk::ImageLayout::eShaderReadOnlyOptimal
+        );
 
-        attachmentsColorClear[m_textureCount].format = depthFormat;
-        attachmentsColorClear[m_textureCount].samples = vk::SampleCountFlagBits::e1;
-        attachmentsColorClear[m_textureCount].loadOp = vk::AttachmentLoadOp::eLoad;
-        attachmentsColorClear[m_textureCount].storeOp = vk::AttachmentStoreOp::eStore;
-        attachmentsColorClear[m_textureCount].stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-        attachmentsColorClear[m_textureCount].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-        attachmentsColorClear[m_textureCount].initialLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
-        attachmentsColorClear[m_textureCount].finalLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
-    }
+        for (uint32_t i = 0; i < m_textureCount; ++i)
+        {
+            vals[i] = desc;
+        }
 
-    vk::AttachmentReference* colorAttachmentRef = new vk::AttachmentReference[m_textureCount];
-    IDEFER(delete[] colorAttachmentRef);
-    for (uint32_t i = 0; i < m_textureCount; ++i)
+        if (hasDepth)
+        {
+            vals[m_textureCount] = vk::AttachmentDescription
+            (
+                { },
+                depthFormat,
+                vk::SampleCountFlagBits::e1,
+                vk::AttachmentLoadOp::eLoad,
+                vk::AttachmentStoreOp::eStore,
+                vk::AttachmentLoadOp::eDontCare,
+                vk::AttachmentStoreOp::eDontCare,
+                vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+                vk::ImageLayout::eDepthStencilReadOnlyOptimal
+            );
+        }
+
+        ILRETURN vals;
+    });
+
+    const vk::AttachmentDescription* attachmentsColorClear = ILAMBDA(
     {
-        colorAttachmentRef[i].attachment = i;
-        colorAttachmentRef[i].layout = vk::ImageLayout::eColorAttachmentOptimal;
-    }
+        vk::AttachmentDescription* vals = RenderScratchAlloc::TAllocate<vk::AttachmentDescription>(totalTextureCount);
+
+        const vk::AttachmentDescription desc = vk::AttachmentDescription
+        (
+            { },
+            format,
+            vk::SampleCountFlagBits::e1,
+            vk::AttachmentLoadOp::eClear,
+            vk::AttachmentStoreOp::eStore,
+            vk::AttachmentLoadOp::eDontCare,
+            vk::AttachmentStoreOp::eDontCare,
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eShaderReadOnlyOptimal
+        );
+
+        for (uint32_t i = 0; i < m_textureCount; ++i)
+        {
+            vals[i] = desc;
+        }
+
+        if (hasDepth)
+        {
+            vals[m_textureCount] = vk::AttachmentDescription
+            (
+                { },
+                depthFormat,
+                vk::SampleCountFlagBits::e1,
+                vk::AttachmentLoadOp::eLoad,
+                vk::AttachmentStoreOp::eStore,
+                vk::AttachmentLoadOp::eDontCare,
+                vk::AttachmentStoreOp::eDontCare,
+                vk::ImageLayout::eDepthStencilReadOnlyOptimal,
+                vk::ImageLayout::eDepthStencilReadOnlyOptimal
+            );
+        }
+
+        ILRETURN vals;
+    });
+
+    const vk::AttachmentReference* colorAttachmentRef = ILAMBDA(
+    {
+        vk::AttachmentReference* vals = RenderScratchAlloc::TAllocate<vk::AttachmentReference>(m_textureCount);
+
+        for (uint32_t i = 0; i < m_textureCount; ++i)
+        {
+            vals[i] = vk::AttachmentReference
+            (
+                i,
+                vk::ImageLayout::eColorAttachmentOptimal
+            );
+        }
+
+        ILRETURN vals;
+    });
+
+    const vk::ImageLayout depthLayout = GetDepthLayout(depthFormat);
 
     const vk::AttachmentReference depthAttachmentRef = vk::AttachmentReference
     (
         m_textureCount,
-        GetDepthLayout(depthFormat)
+        depthLayout
     );
 
-    vk::SubpassDescription subpass = vk::SubpassDescription
-    (
-        { },
-        vk::PipelineBindPoint::eGraphics,
-        0,
-        nullptr,
-        m_textureCount,
-        colorAttachmentRef
-    );
-    if (hasDepth)
+    const vk::SubpassDescription subDesc = ILAMBDA(
     {
-        subpass.pDepthStencilAttachment = &depthAttachmentRef;
-    }
+        if (hasDepth)
+        {
+            ILRETURN vk::SubpassDescription
+            (
+                { },
+                vk::PipelineBindPoint::eGraphics,
+                0,
+                nullptr,
+                m_textureCount,
+                colorAttachmentRef,
+                nullptr,
+                &depthAttachmentRef
+            );
+        }
 
-    vk::SubpassDependency dependencies[2];
-    dependencies[0].srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependencies[0].dstSubpass = 0;
-    dependencies[0].srcStageMask = vk::PipelineStageFlagBits::eFragmentShader;
-    dependencies[0].dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    dependencies[0].srcAccessMask = vk::AccessFlagBits::eShaderRead;
-    dependencies[0].dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-    dependencies[0].dependencyFlags = vk::DependencyFlagBits::eByRegion;
-    dependencies[1].srcSubpass = 0;
-    dependencies[1].dstSubpass = VK_SUBPASS_EXTERNAL;
-    dependencies[1].srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    dependencies[1].dstStageMask = vk::PipelineStageFlagBits::eFragmentShader;
-    dependencies[1].srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-    dependencies[1].dstAccessMask = vk::AccessFlagBits::eShaderRead;
-    dependencies[1].dependencyFlags = vk::DependencyFlagBits::eByRegion;
-    if (hasDepth)
+        ILRETURN vk::SubpassDescription
+        (
+            { },
+            vk::PipelineBindPoint::eGraphics,
+            0,
+            nullptr,
+            m_textureCount,
+            colorAttachmentRef
+        );
+    });
+
+    const vk::SubpassDescription subpasses[] = 
     {
-        dependencies[0].dstStageMask |= vk::PipelineStageFlagBits::eEarlyFragmentTests;
-        dependencies[0].dstAccessMask |= vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-        dependencies[1].srcStageMask |= vk::PipelineStageFlagBits::eLateFragmentTests;
-        dependencies[1].srcAccessMask |= vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
-    }
+        subDesc
+    };
+    constexpr uint32_t SubpassCount = sizeof(subpasses) / sizeof(*subpasses);
+
+    const vk::SubpassDependency dependencies[] = 
+    {
+        ILAMBDA(
+        {
+            if (hasDepth)
+            {
+                ILRETURN vk::SubpassDependency
+                (
+                    vk::SubpassExternal,
+                    0,
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
+                    vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+                    vk::DependencyFlagBits::eByRegion
+                );
+            }
+
+            ILRETURN vk::SubpassDependency
+            (
+                vk::SubpassExternal,
+                0,
+                vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
+                vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests,
+                { },
+                { },
+                vk::DependencyFlagBits::eByRegion
+            );
+        }),
+        vk::SubpassDependency
+        (
+            vk::SubpassExternal,
+            0,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits::eFragmentShader,
+            vk::AccessFlagBits::eColorAttachmentWrite,
+            vk::AccessFlagBits::eShaderRead,
+            vk::DependencyFlagBits::eByRegion
+        ),
+        vk::SubpassDependency
+        (
+            0,
+            0,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::AccessFlagBits::eColorAttachmentWrite,
+            vk::AccessFlagBits::eColorAttachmentWrite,
+            vk::DependencyFlagBits::eByRegion
+        ),
+        vk::SubpassDependency
+        (
+            0,
+            vk::SubpassExternal,
+            vk::PipelineStageFlagBits::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits::eBottomOfPipe,
+            vk::AccessFlagBits::eColorAttachmentWrite,
+            vk::AccessFlagBits::eMemoryRead,
+            vk::DependencyFlagBits::eByRegion
+        ),
+    };
+    constexpr uint32_t DependencyCount = sizeof(dependencies) / sizeof(*dependencies);
 
     const vk::RenderPassCreateInfo renderPassInfo = vk::RenderPassCreateInfo
     (
         { },
         totalTextureCount,
         attachments,
-        1,
-        &subpass,
-        2,
+        SubpassCount,
+        subpasses,
+        DependencyCount,
         dependencies
     );
     VKRESERRMSG(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass), "Failed to create RenderTexture RenderPass");
@@ -339,9 +474,9 @@ void VulkanRenderTexture::Setup()
         { },
         totalTextureCount,
         attachmentsNoClear,
-        1,
-        &subpass,
-        2,
+        SubpassCount,
+        subpasses,
+        DependencyCount,
         dependencies
     );
     VKRESERRMSG(device.createRenderPass(&renderPassNoClearInfo, nullptr, &m_renderPassNoClear), "Failed to create RenderTexture RenderPass");
@@ -351,17 +486,17 @@ void VulkanRenderTexture::Setup()
         { },
         totalTextureCount,
         attachmentsColorClear,
-        1,
-        &subpass,
-        2,
+        SubpassCount,
+        subpasses,
+        DependencyCount,
         dependencies
     );
     VKRESERRMSG(device.createRenderPass(&renderPassColorClearInfo, nullptr, &m_renderPassColorClear), "Failed to create RenderTexture RenderPass");
 
-    m_textures = new vk::Image[m_textureCount];
-    m_textureAllocations = new VmaAllocation[m_textureCount];
-    m_textureViews = new vk::ImageView[totalTextureCount];
-    m_clearValues = new vk::ClearValue[totalTextureCount];
+    m_textures = blockAllocator->TAllocate<vk::Image>(m_textureCount);
+    m_textureAllocations = blockAllocator->TAllocate<VmaAllocation>(m_textureCount);
+    m_textureViews = blockAllocator->TAllocate<vk::ImageView>(totalTextureCount);
+    m_clearValues = blockAllocator->TAllocate<vk::ClearValue>(totalTextureCount);
     for (uint32_t i = 0; i < m_textureCount; ++i)
     {
         m_clearValues[i] = vk::ClearValue({ 0.0f, 0.0f, 0.0f, 0.0f });
@@ -424,31 +559,42 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, Vu
 }
 VulkanRenderTexture::~VulkanRenderTexture()
 {
+    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+
     TRACE("Queueing Render Texture for Deletion");
-    m_engine->PushDeletionObject(new VulkanRenderTextureDeletionObject(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer));
-    m_engine->PushDeletionObject(new VulkanRenderTextureRenderPassDeletionObject(m_engine, m_renderPass, m_renderPassColorClear, m_renderPassNoClear));
+    m_engine->PushDeletionObject<VulkanRenderTextureDeletionObject>(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer);
+    m_engine->PushDeletionObject<VulkanRenderTextureRenderPassDeletionObject>(m_engine, m_renderPass, m_renderPassColorClear, m_renderPassNoClear);
 
     if (IISBITSET(m_flags, OwnsDepthTextureFlag))
     {
         m_gEngine->DestroyDepthRenderTexture(m_depthHandle);
     }
 
-    delete[] m_textures;
-    delete[] m_textureViews;
-    delete[] m_textureAllocations;
-    delete[] m_clearValues;
+    blockAllocator->Free(m_textures);
+    blockAllocator->Free(m_textureViews);
+    blockAllocator->Free(m_textureAllocations);
+    blockAllocator->Free(m_clearValues);
+}
+
+vk::Image VulkanRenderTexture::GetDepthTexture() const
+{
+    const VulkanDepthRenderTexture* texture = m_gEngine->GetDepthRenderTexture(m_depthHandle);
+    if (texture == nullptr)
+    {
+        return nullptr;
+    }
+
+    return texture->GetTexture();
 }
 
 void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 {
     const vk::Device device = m_engine->GetLogicalDevice();
-    const vk::PhysicalDevice physicalDevice = m_engine->GetPhysicalDevice();
     const VmaAllocator allocator = m_engine->GetAllocator();
 
     const bool isHDR = IsHDR();
 
     const vk::Format format = GetFormat(isHDR, m_channelCount);
-    const vk::Format depthFormat = GetValidDepthFormat(physicalDevice);
 
     const uint32_t totalTextureCount = GetTotalTextureCount();
 
@@ -468,7 +614,7 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
         .arrayLayers = 1,
         .samples = VK_SAMPLE_COUNT_1_BIT,
         .tiling = VK_IMAGE_TILING_OPTIMAL,
-        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+        .usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
@@ -541,8 +687,8 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
             vk::AccessFlagBits::eShaderRead,
             vk::ImageLayout::eUndefined,
             vk::ImageLayout::eShaderReadOnlyOptimal,
-            VK_QUEUE_FAMILY_IGNORED,
-            VK_QUEUE_FAMILY_IGNORED,
+            vk::QueueFamilyIgnored,
+            vk::QueueFamilyIgnored,
             m_textures[i],
             SubresourceRange
         );
@@ -554,7 +700,7 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 void VulkanRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 {
     TRACE("Resizing Render Texture");
-    m_engine->PushDeletionObject(new VulkanRenderTextureDeletionObject(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer));
+    m_engine->PushDeletionObject<VulkanRenderTextureDeletionObject>(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer);
 
     if (IISBITSET(m_flags, OwnsDepthTextureFlag))
     {
@@ -572,7 +718,7 @@ void VulkanRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

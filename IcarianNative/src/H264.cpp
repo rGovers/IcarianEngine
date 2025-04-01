@@ -19,6 +19,7 @@ namespace H264
         IVERIFY(a_bitstream != nullptr);
 
         const uint32_t fBit = a_bitstream->u1();
+        (void)fBit;
         IVERIFY(fBit == 0);
 
         const NALHeader header =
@@ -390,8 +391,8 @@ namespace H264
 
         PPS pps = { 0 };
 
-        pps.PICParameterSetID = a_bitstream->ue();
-        pps.SEQParameterSetID = a_bitstream->ue();
+        pps.PICParameterSetID = (uint8_t)a_bitstream->ue();
+        pps.SEQParameterSetID = (uint8_t)a_bitstream->ue();
 
         const uint8_t entropy = a_bitstream->u1();
         if (entropy)
@@ -460,8 +461,8 @@ namespace H264
             }
         }
 
-        pps.NumRefIdxl0ActiveMinus1 = a_bitstream->ue();
-        pps.NumRefIdxl1ActiveMinus1 = a_bitstream->ue();
+        pps.NumRefIdxl0ActiveMinus1 = (uint8_t)a_bitstream->ue();
+        pps.NumRefIdxl1ActiveMinus1 = (uint8_t)a_bitstream->ue();
 
         const uint8_t weightedPred = a_bitstream->u1();
         if (weightedPred)
@@ -470,9 +471,9 @@ namespace H264
         }
 
         pps.WeightedBipredIDC = a_bitstream->u<uint8_t>(2);
-        pps.PICInitQPMinus26 = a_bitstream->se();
-        pps.PICInitQSMinus26 = a_bitstream->se();
-        pps.ChromaQPIndexOffset = a_bitstream->se();
+        pps.PICInitQPMinus26 = (int8_t)a_bitstream->se();
+        pps.PICInitQSMinus26 = (int8_t)a_bitstream->se();
+        pps.ChromaQPIndexOffset = (int8_t)a_bitstream->se();
 
         const uint8_t deblockingFilter = a_bitstream->u1();
         if (deblockingFilter)
@@ -521,7 +522,7 @@ namespace H264
                 }
             }
 
-            pps.SecondChromaQPIndexOffset = a_bitstream->se();
+            pps.SecondChromaQPIndexOffset = (int8_t)a_bitstream->se();
         }
 
         a_bitstream->Ignore(1);
@@ -529,22 +530,6 @@ namespace H264
         a_bitstream->Ignore(a_bitstream->BitsLeft);
 
         return pps;
-    }
-
-    static bool IsSliceType(e_SliceHeaderType a_lhs, e_SliceHeaderType a_rhs)
-    {
-        uint32_t lVal = a_lhs;
-        uint32_t rVal = a_rhs;
-        if (lVal >= 5) 
-        {
-            lVal -= 5;
-        }
-        if (rVal >= 5)
-        {
-            rVal -= 5;
-        }
-
-        return lVal == rVal;
     }
 
     static SliceReorder ReadSliceReorder(BitStream* a_bitstream)
@@ -753,18 +738,18 @@ namespace H264
         return marking;
     }
 
-    SliceHeader ReadSliceHeader(BitStream* a_bitStream, const NALHeader& a_nal, const Array<PPS>& a_pps, const Array<SPS>& a_sps)
+    SliceHeader ReadSliceHeader(BitStream* a_bitStream, const NALHeader& a_nal, const PPS* a_pps, const SPS* a_sps)
     {
         SliceHeader header = { 0 };
 
         header.FirstMBInSlice = a_bitStream->ue();
         header.SliceType = (e_SliceHeaderType)a_bitStream->ue();
-        header.PICParameterSetID = a_bitStream->ue();
+        header.PICParameterSetID = (uint8_t)a_bitStream->ue();
 
         const PPS& pps = a_pps[header.PICParameterSetID];
         const SPS& sps = a_sps[pps.SEQParameterSetID];
 
-        header.FrameNum = a_bitStream->u(sps.Log2MaxFrameNumMinus4 + 4);
+        header.FrameNum = (uint16_t)a_bitStream->u(sps.Log2MaxFrameNumMinus4 + 4);
 
         if (sps.Flags & SPSFlags_FrameMBSOnly)
         {
@@ -783,7 +768,7 @@ namespace H264
 
         if (a_nal.Type == NALUnitType_CodedSliceIDR)
         {
-            header.IDRPICID = a_bitStream->ue();
+            header.IDRPICID = (uint16_t)a_bitStream->ue();
         }
 
         if (sps.PICOrderCNTType == 0)
@@ -910,7 +895,7 @@ namespace H264
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

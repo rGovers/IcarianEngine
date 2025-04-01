@@ -4,19 +4,21 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include "Rendering/Vulkan/VulkanComputeShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
 
-#include "Core/IcarianAssert.h"
 #include "Core/FlareShader.h"
 #include "Rendering/SPIRVTools.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
-VulkanComputeShader::VulkanComputeShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data) : VulkanShader(a_engine, a_inputs, a_inputCount)
+VulkanComputeShader::VulkanComputeShader(VulkanRenderEngineBackend* a_engine, uint32_t a_workgroupX, uint32_t a_workgroupY, uint32_t a_workgroupZ, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator) : VulkanShader(a_engine, a_inputs, a_inputCount, a_allocator)
 {
     TRACE("Creating ComputeShader");
-    
     const vk::Device device = m_engine->GetLogicalDevice();
+
+    m_workgroupX = a_workgroupX;
+    m_workgroupY = a_workgroupY;
+    m_workgroupZ = a_workgroupZ;
 
     const vk::ShaderModuleCreateInfo createInfo = vk::ShaderModuleCreateInfo
     (
@@ -25,7 +27,7 @@ VulkanComputeShader::VulkanComputeShader(VulkanRenderEngineBackend* a_engine, co
         (uint32_t*)a_data.data()
     );
 
-    ICARIAN_ASSERT_MSG_R(device.createShaderModule(&createInfo, nullptr, &m_module) == vk::Result::eSuccess, "Failed to create ComputeShader");
+    VKRESERRMSG(device.createShaderModule(&createInfo, nullptr, &m_module), "Failed to create ComputeShader");
 }
 VulkanComputeShader::~VulkanComputeShader()
 {
@@ -34,40 +36,57 @@ VulkanComputeShader::~VulkanComputeShader()
     device.destroyShaderModule(m_module);
 }
 
-VulkanComputeShader* VulkanComputeShader::CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::string_view& a_str)
+void VulkanComputeShader::CreateFromFShader(VulkanComputeShader* a_out, const VulkanComputeFShaderBuilder& a_builder, Allocator* a_allocator)
 {
+    IVERIFY(a_out != nullptr);
+    IVERIFY(a_builder.Engine != nullptr);
+    IVERIFY(!a_builder.EntryPoint.empty());
+    IVERIFY(!a_builder.String.empty());
+
     std::string error;
     std::vector<ShaderBufferInput> inputs;
-    const std::string glsl = IcarianCore::GLSLFromFlareShader(a_str, IcarianCore::ShaderPlatform_Vulkan, &inputs, &error);
-    if (glsl.empty())
+    IcarianCore::ShaderWorkgroups workgroups;
+    const std::string str = IcarianCore::GLSLFromFlareShader(a_builder.String, IcarianCore::ShaderPlatform_VulkanCompute, a_builder.Imports, &inputs, &error, &workgroups);
+    if (str.empty())
     {
-        IERROR("Flare compute shader error: " + error);
-
-        return nullptr;
+        IERROR("Flare Compute shader error: " + error);
     }
 
-    return CreateFromGLSL(a_engine, inputs.data(), (uint32_t)inputs.size(), glsl);
-}
-VulkanComputeShader* VulkanComputeShader::CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str)
-{
-    ICARIAN_ASSERT_MSG(!a_str.empty(), "Empty compute shader string");
+    const VulkanComputeGLSLShaderBuilder glslBuilder =
+    {
+        .Engine = a_builder.Engine,
+        .String = str,
+        .WorkgroupX = workgroups.GroupX,
+        .WorkgroupY = workgroups.GroupY,
+        .WorkgroupZ = workgroups.GroupZ,
+        .Inputs = inputs.data(),
+        .InputCount = (uint32_t)inputs.size(),
+        .EntryPoint = a_builder.EntryPoint,
+    };
 
-    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangCompute, a_str, true);
+    return CreateFromGLSL(a_out, glslBuilder, a_allocator);
+}
+void VulkanComputeShader::CreateFromGLSL(VulkanComputeShader* a_out, const VulkanComputeGLSLShaderBuilder& a_builder, Allocator* a_allocator)
+{
+    IVERIFY(a_out != nullptr);
+    IVERIFY(a_builder.Engine != nullptr);
+    IVERIFY(!a_builder.EntryPoint.empty());
+    IVERIFY(!a_builder.String.empty());
+
+    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangCompute, a_builder.String, true, a_builder.EntryPoint);
     if (spirv.empty())
     {
-        IERROR("Failed to compile compute shader");
-
-        return nullptr;
+        IERROR("Failed to compile Compute shader");
     }
 
-    return new VulkanComputeShader(a_engine, a_inputs, a_inputCount, spirv);
+    new (a_out) VulkanComputeShader(a_builder.Engine, a_builder.WorkgroupX, a_builder.WorkgroupY, a_builder.WorkgroupZ, a_builder.Inputs, a_builder.InputCount, spirv, a_allocator);
 }
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

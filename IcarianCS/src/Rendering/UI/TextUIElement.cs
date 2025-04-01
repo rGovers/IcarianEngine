@@ -29,7 +29,7 @@ namespace IcarianEngine.Rendering.UI
         }
 
         /// <summary>
-        /// The <see cref="IcarianEngine.Rendering.UI.Font" /> of the TextUIElement
+        /// The <see cref="IcarianEngine.Rendering.Font" /> of the TextUIElement
         /// </summary>
         public Font Font
         {

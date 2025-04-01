@@ -10,10 +10,11 @@
 #include <type_traits>
 
 #include "Core/IcarianDefer.h"
+#include "DataTypes/Allocator.h"
 
 // This only exists because they STL only dictates the interface and not how it is implemented
 // This should be more predictable then the std::vector on different platforms
-template<typename T>
+template<typename T, typename Alloc = MallocAllocator>
 class Array
 {
 private:
@@ -42,14 +43,34 @@ public:
     {
         m_size = 0;
         m_capacity = 1;
-        m_data = (T*)calloc(1, sizeof(T));
+        m_data = (T*)Alloc::Allocate(1 * sizeof(T), alignof(T));
     }
     Array(const Array& a_other)
     {
         m_size = a_other.m_size;
-        m_capacity = a_other.m_capacity;
+        m_capacity = a_other.m_size;
+        if (m_capacity < 1)
+        {
+            m_capacity = 1;
+        }
 
-        m_data = (T*)calloc(m_capacity, sizeof(T));
+        m_data = (T*)Alloc::Allocate(m_capacity * sizeof(T), alignof(T));
+        for (uint32_t i = 0; i < m_size; ++i)
+        {
+            m_data[i] = a_other.m_data[i];
+        }
+    }
+    template<typename OAlloc>
+    Array(const Array<T, OAlloc>& a_other)
+    {
+        m_size = a_other.m_size;
+        m_capacity = a_other.m_size;
+        if (m_capacity < 1)
+        {
+            m_capacity = 1;
+        }
+
+        m_data = (T*)Alloc::Allocate(m_capacity * sizeof(T), alignof(T));
         for (uint32_t i = 0; i < m_size; ++i)
         {
             m_data[i] = a_other.m_data[i];
@@ -64,7 +85,7 @@ public:
             m_capacity = 1;
         }
 
-        m_data = (T*)calloc(m_capacity, sizeof(T));
+        m_data = (T*)Alloc::Allocate(m_capacity * sizeof(T), alignof(T));
         for (uint32_t i = 0; i < m_size; ++i)
         {
             m_data[i] = a_data[i];
@@ -76,7 +97,7 @@ public:
         {
             DestroyData();
 
-            free(m_data);
+            Alloc::Free(m_data);
         }
     }
 
@@ -86,12 +107,12 @@ public:
         {
             DestroyData();
 
-            free(m_data);
+            Alloc::Free(m_data);
         }
 
         m_size = a_other.m_size;
         m_capacity = a_other.m_capacity;
-        m_data = (T*)calloc(m_capacity, sizeof(T));
+        m_data = (T*)Alloc::Allocate(m_capacity * sizeof(T), alignof(T));
         for (uint32_t i = 0; i < m_size; ++i)
         {
             m_data[i] = a_other.m_data[i];
@@ -146,7 +167,7 @@ public:
         {
             DestroyData();
 
-            memset(m_data, 0, m_capacity * sizeof(T));
+            memset((void*)m_data, 0, m_capacity * sizeof(T));
         }
 
         m_size = 0;
@@ -159,12 +180,7 @@ public:
 
         if (aSize > m_capacity)
         {
-            const uint32_t cap = m_capacity << 1;
-            const uint32_t diff = cap - m_capacity;
-            IDEFER(m_capacity = cap);
-
-            m_data = (T*)realloc(m_data, sizeof(T) * cap);
-            memset(m_data + m_capacity, 0, diff * sizeof(T));
+            Reserve(m_capacity << 1);
         }
 
         m_data[m_size] = a_data;
@@ -176,12 +192,7 @@ public:
 
         if (aSize > m_capacity)
         {
-            const uint32_t cap = m_capacity << 1;
-            const uint32_t diff = cap - m_capacity;
-            IDEFER(m_capacity = cap);
-
-            m_data = (T*)realloc(m_data, sizeof(T) * cap);
-            memset(m_data + m_capacity, 0, diff * sizeof(T));
+            Reserve(m_capacity << 1);
         }
 
         memmove(m_data + a_index + 1, m_data + a_index, (m_size - a_index) * sizeof(T));
@@ -214,15 +225,7 @@ public:
     {
         IDEFER(m_size = a_size);
 
-        if (a_size > m_capacity)
-        {
-            const uint32_t cap = a_size;
-            const uint32_t diff = cap - m_capacity;
-            IDEFER(m_capacity = cap);
-
-            m_data = (T*)realloc(m_data, sizeof(T) * cap);
-            memset(m_data + m_capacity, 0, diff * sizeof(T));
-        }
+        Reserve(a_size);
 
         if constexpr (std::is_constructible<T>())
         {
@@ -234,14 +237,18 @@ public:
     }
     void Reserve(uint32_t a_size)
     {
-        IDEFER(m_capacity = a_size);
-
         if (a_size > m_capacity)
         {
+            IDEFER(m_capacity = a_size);
+
             const uint32_t diff = a_size - m_capacity;
 
-            m_data = (T*)realloc(m_data, sizeof(T) * a_size);
-            memset(m_data + m_capacity, 0, diff * sizeof(T));
+            T* newData = (T*)Alloc::Allocate(sizeof(T) * a_size, alignof(T));
+            memcpy((void*)newData, m_data, m_capacity * sizeof(T));
+            Alloc::Free(m_data);
+            m_data = newData;
+
+            memset((void*)(m_data + m_capacity), 0, diff * sizeof(T));
         }
     }
 
@@ -270,7 +277,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -152,6 +152,15 @@ static constexpr int GLFWKeyTable[] =
 
 GLFWAppWindow::GLFWAppWindow(Application* a_app, Config* a_config) : AppWindow(a_app)
 {
+#ifndef WIN32
+    if (a_config->DisableWayland())
+    {
+        glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+    }
+#endif
+
+    m_unlockUPS = a_config->IsUPSUnlocked();
+
     glfwInit();
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -219,6 +228,15 @@ void GLFWAppWindow::SetCursorState(e_CursorState a_state)
             glfwSetInputMode(m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
         }
 
+        glfwSetCursorPos(m_window, 0.0, 0.0);
+
+        m_lastCursorPos = glm::dvec2(0.0);
+
+        const Application* app = GetApplication();
+
+        InputManager* inputManager = app->GetInputManager();
+        inputManager->SetCursorPos(glm::vec2(0.0f));
+
         break;
     }
     }
@@ -226,20 +244,31 @@ void GLFWAppWindow::SetCursorState(e_CursorState a_state)
 
 void GLFWAppWindow::Update()
 {
-    glfwPollEvents();
-
-    m_prevTime = m_time;
-    m_time = glfwGetTime();
-
-    // Putting a 1KHz limit in place cause dont need to hit 16KHz on a 5950x on Linux
-    // Still probably a little high
-    // This feels so wrong that this is needed in the standalone app
-    while (GetDelta() < 0.001f)
     {
-        std::this_thread::yield();
+        PROFILESTACK("Polling");
 
         glfwPollEvents();
+    }
+
+    {
+        PROFILESTACK("Waiting");
+
+        m_prevTime = m_time;
         m_time = glfwGetTime();
+
+        // Putting a 1KHz limit in place cause dont need to hit 16KHz on a 5950x on Linux
+        // Still probably a little high
+        // This feels so wrong that this is needed in the standalone app
+        if (!m_unlockUPS)
+        {
+            while (GetDelta() < 0.001f)
+            {
+                std::this_thread::yield();
+
+                glfwPollEvents();
+                m_time = glfwGetTime();
+            }
+        }
     }
 
     m_shouldClose = glfwWindowShouldClose(m_window);
@@ -304,13 +333,21 @@ void GLFWAppWindow::Update()
     }  
 }
 
-glm::ivec2 GLFWAppWindow::GetSize() const
+uint32_t GLFWAppWindow::GetWidth() const
 {
     glm::ivec2 winSize;
     glfwGetWindowSize(m_window, &winSize.x, &winSize.y);
 
-    return winSize;
+    return (uint32_t)winSize.x;
 }
+uint32_t GLFWAppWindow::GetHeight() const
+{
+    glm::ivec2 winSize;
+    glfwGetWindowSize(m_window, &winSize.x, &winSize.y);
+
+    return (uint32_t)winSize.y;
+}
+
 void GLFWAppWindow::Resize(uint32_t a_width, uint32_t a_height)
 {
     glfwSetWindowSize(m_window, (int)a_width, (int)a_height);

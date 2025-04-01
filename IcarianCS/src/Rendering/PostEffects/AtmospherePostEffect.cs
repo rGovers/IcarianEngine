@@ -3,6 +3,7 @@
 // License at end of file.
 
 using IcarianEngine.Maths;
+using IcarianEngine.Rendering.Shaders;
 using System;
 using System.Runtime.InteropServices;
 
@@ -189,8 +190,11 @@ namespace IcarianEngine.Rendering.PostEffects
         /// </summary>
         /// <param name="a_renderTexture">The target <see cref="IcarianEngine.Rendering.IRenderTexture" /></param>
         /// <param name="a_samplers">Samplers used by the RenderPipeline</param>
-        public override void Run(IRenderTexture a_renderTexture, TextureSampler[] a_samplers)
+        /// <param name="a_gBuffer">The Deffered <see cref="IcarianEngine.Rendering.MultiRenderTexture" /> used for rendering</param>
+        public override void Run(IRenderTexture a_renderTexture, TextureSampler[] a_samplers, MultiRenderTexture a_gBuffer)
         {
+            RenderCommand.MarkerStart("Atmosphere");
+
             RenderCommand.BindRenderTexture(a_renderTexture);
             RenderCommand.BindMaterial(m_material);
 
@@ -198,6 +202,8 @@ namespace IcarianEngine.Rendering.PostEffects
             RenderCommand.PushTexture(1, a_samplers[3]);
 
             RenderCommand.DrawMaterial();
+
+            RenderCommand.MarkerEnd();
         }
         
         /// <summary>

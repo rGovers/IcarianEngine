@@ -20,7 +20,7 @@ namespace IcarianCore
 {
     IPCPipe::IPCPipe()
     {
-#if WIN32
+#ifdef WIN32
         m_pipeSock = INVALID_SOCKET;
 #else
         m_pipeSock = -1;
@@ -28,7 +28,7 @@ namespace IcarianCore
     }
     IPCPipe::~IPCPipe()
     {
-#if WIN32
+#ifdef WIN32
         if (m_pipeSock != INVALID_SOCKET)
         {
             closesocket(m_pipeSock);
@@ -43,7 +43,7 @@ namespace IcarianCore
 
     IPCPipe* IPCPipe::Accept() const
     {
-#if WIN32
+#ifdef WIN32
         struct timeval timeout;
         timeout.tv_sec = 5;
         timeout.tv_usec = 0;
@@ -105,7 +105,7 @@ namespace IcarianCore
 
     IPCPipe* IPCPipe::Connect(const std::string_view& a_pipeName)
     {
-#if WIN32
+#ifdef WIN32
         const SOCKET clientSock = socket(AF_UNIX, SOCK_STREAM, 0);
 
         struct sockaddr_un serverAddr;
@@ -119,9 +119,6 @@ namespace IcarianCore
 
             return nullptr;
         }
-
-        IPCPipe* pipe = new IPCPipe();
-        pipe->m_pipeSock = clientSock;
 #else
         const int clientSock = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -136,16 +133,16 @@ namespace IcarianCore
 
             return nullptr;
         }
+#endif
 
         IPCPipe* pipe = new IPCPipe();
         pipe->m_pipeSock = clientSock;
-#endif
 
         return pipe;
     }
     IPCPipe* IPCPipe::Create(const std::string_view& a_pipeName)
     {
-#if WIN32
+#ifdef WIN32
         // Failsafe to ensure the pipe is deleted
         DeleteFileA(a_pipeName.data());
 
@@ -216,9 +213,35 @@ namespace IcarianCore
         return pipe;
     }
 
-    bool IPCPipe::Send(const PipeMessage& a_msg) const
+    bool IPCPipe::IsAlive() const
     {
-#if WIN32
+#ifdef WIN32
+        // TODO: Change this
+        return true;
+#else
+        if (m_pipeSock < 0)
+        {
+            return false;
+        }
+
+        struct pollfd pfd = 
+        {
+            .fd = m_pipeSock,
+            .events = POLLOUT,
+        };
+
+        if (poll(&pfd, 1, 1) < 0) 
+        {
+            return true;
+        }
+
+        return (pfd.revents & POLLERR) == 0;
+#endif
+    }
+
+    bool IPCPipe::Send(const PipeMessage& a_msg)
+    {
+#ifdef WIN32
         const int bytesSent = send(m_pipeSock, (const char*)&a_msg, PipeMessage::Size, 0);
         if (bytesSent < 0)
         {
@@ -271,9 +294,9 @@ namespace IcarianCore
 
         return true;
     }
-    bool IPCPipe::Receive(std::queue<PipeMessage>* a_messages) const
+    bool IPCPipe::Receive(std::queue<PipeMessage>* a_messages)
     {
-#if WIN32
+#ifdef WIN32
         struct timeval timeout;
         timeout.tv_sec = 0;
         timeout.tv_usec = 5;
@@ -312,9 +335,11 @@ namespace IcarianCore
             }
         }
 #else
-        struct pollfd pollFd;
-        pollFd.fd = m_pipeSock;
-        pollFd.events = POLLIN;
+        struct pollfd pollFd =
+        {
+            .fd = m_pipeSock,
+            .events = POLLIN
+        };
 
         while (poll(&pollFd, 1, 1) > 0)
         {
@@ -375,7 +400,7 @@ namespace IcarianCore
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

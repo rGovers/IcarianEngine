@@ -118,7 +118,7 @@ NavigationMesh::NavigationMesh(const std::filesystem::path& a_path)
             {
                 const uint32_t index = face.mIndices[j];
                 const uint32_t vMapIndex = vertexMap[index];
-                if (vMapIndex != -1)
+                if (vMapIndex != uint32_t(-1))
                 {
                     navFace.Indicies[j] = vMapIndex;
                     
@@ -178,7 +178,7 @@ NavigationMesh::NavigationMesh(const std::filesystem::path& a_path)
             const uint32_t indexA = table.Index[0];
             const uint32_t indexB = table.Index[1];
 
-            if (indexA == -1 || indexB == -1)
+            if (indexA == uint32_t(-1) || indexB == uint32_t(-1))
             {
                 continue;
             }
@@ -264,7 +264,7 @@ static void PushPathValue(uint32_t a_index, const NavigationFace* a_faces, const
     for (uint32_t i = 0; i < 3; ++i)
     {
         const uint32_t con = face.Connections[i];
-        if (con == -1)
+        if (con == uint32_t(-1))
         {
             continue;
         }
@@ -318,12 +318,12 @@ static float TriToAreaSqr(const glm::vec3& a_vertA, const glm::vec3& a_vertB, co
 Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const
 {
     const uint32_t indexA = GetIndex(a_startPoint);
-    if (indexA == -1)
+    if (indexA == uint32_t(-1))
     {
         return Array<glm::vec3>();
     }
     const uint32_t indexB = GetIndex(a_endPoint);
-    if (indexB == -1)
+    if (indexB == uint32_t(-1))
     {
         return Array<glm::vec3>();
     }
@@ -333,7 +333,7 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
 // 2.5D Pathfinding
 Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, uint32_t a_startIndex, uint32_t a_endIndex, float a_agentRadius) const
 {
-    if (a_startIndex == -1 || a_endIndex == -1)
+    if (a_startIndex == uint32_t(-1) || a_endIndex == uint32_t(-1))
     {
         return Array<glm::vec3>();
     }
@@ -536,7 +536,7 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

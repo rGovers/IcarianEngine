@@ -9,19 +9,24 @@ namespace IcarianEngine.Definitions
     public class AudioSourceDef : ComponentDef
     {   
         /// <summary>
-        /// The AudioClip to play.
+        /// The <see cref="IcarianEngine.Audio.AudioClip" /> to play
         /// </summary>
         [EditorTooltip("The AudioClip to play"), EditorPathString(new string[] { ".wav", ".ogg" })]
         public string AudioClipPath;
         /// <summary>
-        /// Whether or not the AudioClip should loop.
+        /// Whether the AudioSource should loop
         /// </summary>
-        [EditorTooltip("Whether or not the AudioClip should loop")]
+        [EditorTooltip("Whether the AudioSource should loop")]
         public bool Loop = false;
         /// <summary>
-        /// Whether or not the AudioClip should play on creation.
+        /// Whether the AudioSource is spatial
         /// </summary>
-        [EditorTooltip("Whether or not the AudioClip should play on creation")]
+        [EditorTooltip("Whether the AudioSource is spatial")]
+        public bool Is3D = false;
+        /// <summary>
+        /// Whether the AudioClip should play on creation
+        /// </summary>
+        [EditorTooltip("Whether the AudioClip should play on creation")]
         public bool PlayOnCreation = false;
 
         public AudioSourceDef()

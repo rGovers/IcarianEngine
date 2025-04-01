@@ -67,7 +67,7 @@ public:
     }
     inline bool HasDepthTexture() const
     {
-        return m_depthHandle != -1;
+        return m_depthHandle != uint32_t(-1);
     }
 
     inline uint32_t GetTextureCount() const
@@ -96,10 +96,7 @@ public:
     {
         return m_textures[a_index];
     }
-    inline vk::Image GetDepthTexture() const
-    {
-        return m_textures[m_textureCount];
-    }
+    vk::Image GetDepthTexture() const;
     inline vk::Image* GetTextures() const
     {
         return m_textures;
@@ -135,7 +132,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

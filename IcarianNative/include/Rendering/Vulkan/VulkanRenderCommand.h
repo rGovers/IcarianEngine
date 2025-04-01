@@ -11,8 +11,6 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include "Core/Bitfield.h"
-
 #include "EngineLightInteropStructures.h"
 #include "EngineRenderCommandInteropStructures.h"
 #include "EngineTextureSamplerInteropStructures.h"
@@ -26,7 +24,10 @@ class VulkanSwapchain;
 class VulkanRenderCommand
 {
 private:
-    constexpr static uint32_t FlushedBit = 0;
+    constexpr static uint32_t RenderTextureBoundBit = 0;
+    constexpr static uint32_t MaterialBoundBit = 1;
+    constexpr static uint32_t ComputeLayoutBit = 2;
+    constexpr static uint32_t ComputeResourceBit = 3;
 
     VulkanRenderEngineBackend* m_engine;
     VulkanGraphicsEngine*      m_gEngine;
@@ -40,9 +41,13 @@ private:
 
     vk::CommandBuffer          m_commandBuffer;
 
+    e_RenderTextureBindMode    m_renderBindMode;
+
     uint8_t                    m_flags;
 
-    void SetFlushedState(bool a_value);
+    void SetRenderTextureCompute();
+    void ClearRenderTextureCompute();
+    void BindResources();
 
 protected:
 
@@ -52,7 +57,7 @@ public:
 
     inline bool IsFlushed() const
     {
-        return IISBITSET(m_flags, FlushedBit);
+        return m_renderTexAddr == uint32_t(-1) && m_materialAddr == uint32_t(-1);
     }
 
     void Flush();
@@ -74,26 +79,30 @@ public:
         return m_commandBuffer;
     }
 
-    VulkanPipeline* BindMaterial(uint32_t a_materialAddr);
+    VulkanPipeline* BindMaterial(uint32_t a_materialAddr, bool a_immediate = false);
 
-    void PushTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler) const;
-    void PushLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr) const;
-    void PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount) const;
-    void PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr) const;
+    void PushTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler);
+    void PushLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr);
+    void PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount);
+    void PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr);
 
     void BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTextureBindMode a_bindMode);
     
     void Blit(const VulkanRenderTexture* a_src, const VulkanRenderTexture* a_dst);
+    void Blit(const VulkanRenderTexture* a_src, uint32_t a_index, const VulkanRenderTexture* a_dst);
 
     void DrawMaterial();
     void DrawModel(const glm::mat4& a_transform, uint32_t a_addr);
+
+    void MarkerStart(const std::string_view& a_name);
+    void MarkerEnd();
 };
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

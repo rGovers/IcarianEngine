@@ -6,9 +6,9 @@
 
 #include "Rendering/Vulkan/VulkanComputePipeline.h"
 
+#include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanComputeLayout.h"
-#include "Rendering/Vulkan/VulkanComputeShader.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
@@ -49,7 +49,7 @@ VulkanComputePipeline::~VulkanComputePipeline()
     VulkanRenderEngineBackend* backend = m_engine->GetRenderEngineBackend();
 
     TRACE("Queueing Compute Pipeline for deletion");
-    backend->PushDeletionObject(new VulkanComputePipelineDeletionObject(backend, m_pipeline));
+    backend->PushDeletionObject<VulkanComputePipelineDeletionObject>(backend, m_pipeline);
 }
 
 VulkanComputePipeline* VulkanComputePipeline::CreatePipeline(VulkanComputeEngine* a_engine, uint32_t a_layoutAddr, uint32_t a_shaderAddr)

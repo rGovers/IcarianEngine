@@ -79,8 +79,8 @@ static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     case TargetPlatform_LinuxZig:
     {
         CUBE_CProject_AppendDefines(&project, 
-            "_GLFW_X11",
-            "_GLFW_WAYLAND"
+            "_GLFW_WAYLAND",
+            "_GLFW_X11"
         );
         
         CUBE_CProject_AppendSources(&project, 
@@ -94,6 +94,27 @@ static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfigu
             "./src/wl_init.c",
             "./src/wl_monitor.c",
             "./src/wl_window.c",
+
+            "./src/x11_init.c",
+            "./src/x11_monitor.c",
+            "./src/x11_window.c",
+            "./src/xkb_unicode.c"
+        );
+
+        break;
+    }
+    case TargetPlatform_LinuxSteam:
+    {
+        // Been having issues with the Steam runtime environment so X11 it is
+        CUBE_CProject_AppendDefine(&project, "_GLFW_X11");
+
+        CUBE_CProject_AppendSources(&project, 
+            "./src/glx_context.c",
+            "./src/linux_joystick.c",
+            "./src/posix_poll.c",
+            "./src/posix_module.c",
+            "./src/posix_time.c",
+            "./src/posix_thread.c",
 
             "./src/x11_init.c",
             "./src/x11_monitor.c",
@@ -117,12 +138,16 @@ static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -169,12 +194,16 @@ static CUBE_CProject BuildMINIZ(e_TargetPlatform a_targetPlatform, e_BuildConfig
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -185,11 +214,15 @@ static CUBE_CProject BuildMINIZ(e_TargetPlatform a_targetPlatform, e_BuildConfig
 
 static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
+    // TODO: Patch this so that I can use LTO without warnings/compiler errors
+    // Why does a Khoronos project fucking conflict with Vulkan headers from Khoronos Urgh....
+    // I am really starting to despise KTX this is not the 1st time having to fix compiler errors in it myself
+    // Should I just roll my own GPU compression format?
     CUBE_CProject project = { 0 };
     project.Name = CUBE_StackString_CreateC("ktxc");
     project.Target = CUBE_CProjectTarget_StaticLibrary;
     project.Language = CUBE_CProjectLanguage_C;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
+    project.OutputPath = CUBE_Path_CreateC("./build/c/");
 
     if (a_configuration == BuildConfiguration_Debug)
     {
@@ -220,6 +253,7 @@ static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfigu
 
     CUBE_CProject_AppendIncludePaths(&project, 
         "../gen/KTX-Software/",
+        "../Vulkan-Headers/include/",
 
         "./include/",
         "./utils/",
@@ -266,12 +300,16 @@ static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -285,7 +323,7 @@ static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfi
     project.Name = CUBE_StackString_CreateC("ktxcpp");
     project.Target = CUBE_CProjectTarget_StaticLibrary;
     project.Language = CUBE_CProjectLanguage_CPP;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
+    project.OutputPath = CUBE_Path_CreateC("./build/cpp/");
 
     if (a_configuration == BuildConfiguration_Debug)
     {
@@ -316,6 +354,7 @@ static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfi
 
     CUBE_CProject_AppendIncludePaths(&project, 
         "../gen/KTX-Software/",
+        "../Vulkan-Headers/include/",
 
         "./include/",
         "./utils/",
@@ -348,12 +387,16 @@ static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfi
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -367,7 +410,7 @@ static CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildCo
     project.Name = CUBE_StackString_CreateC("ktxwritec");
     project.Target = CUBE_CProjectTarget_StaticLibrary;
     project.Language = CUBE_CProjectLanguage_C;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
+    project.OutputPath = CUBE_Path_CreateC("./build/writec/");
 
     if (a_configuration == BuildConfiguration_Debug)
     {
@@ -398,6 +441,7 @@ static CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildCo
 
     CUBE_CProject_AppendIncludePaths(&project, 
         "../gen/KTX-Software/",
+        "../Vulkan-Headers/include/",
 
         "./include/",
         "./utils/",
@@ -446,12 +490,16 @@ static CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildCo
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -465,7 +513,7 @@ static CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_Build
     project.Name = CUBE_StackString_CreateC("ktxwritecpp");
     project.Target = CUBE_CProjectTarget_StaticLibrary;
     project.Language = CUBE_CProjectLanguage_CPP;
-    project.OutputPath = CUBE_Path_CreateC("./build/");
+    project.OutputPath = CUBE_Path_CreateC("./build/writecpp");
 
     if (a_configuration == BuildConfiguration_Debug)
     {
@@ -496,6 +544,7 @@ static CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_Build
 
     CUBE_CProject_AppendIncludePaths(&project, 
         "../gen/KTX-Software/",
+        "../Vulkan-Headers/include/",
 
         "./include/",
         "./utils/",
@@ -545,12 +594,16 @@ static CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_Build
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        // CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        // CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -586,7 +639,7 @@ static CUBE_CProject BuildUnzip(e_TargetPlatform a_targetPlatform, e_BuildConfig
 
     CUBE_CProject_AppendIncludePaths(&project, 
         ".",
-	"../../../zlib/"
+	    "../../../zlib/"
     );
 
     CUBE_CProject_AppendSources(&project, 
@@ -606,12 +659,16 @@ static CUBE_CProject BuildUnzip(e_TargetPlatform a_targetPlatform, e_BuildConfig
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -684,12 +741,16 @@ static CUBE_CProject BuildZLib(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -783,7 +844,7 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
         "./contrib/unzip",
         "./contrib/utf8cpp/source",
 
-	"../zlib",
+	    "../zlib",
         "../gen/assimp"
     );
 
@@ -908,11 +969,100 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
 
+        if (a_targetPlatform != TargetPlatform_LinuxSteam)
+        {
+            CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+            CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
+        }
+
+
         break;
     }
     case BuildConfiguration_Release:
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
+
+        // TODO: That is weird may need to investigate further as linking fails for the Steam container build if LTO is enabled
+        if (a_targetPlatform != TargetPlatform_LinuxSteam)
+        {
+            CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+            CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
+        }
+
+        break;
+    }
+    }
+
+    return project;
+}
+
+CUBE_CProject BuildENetProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    CUBE_CProject project = { 0 };
+    project.Name = CUBE_StackString_CreateC("enet");
+    project.Target = CUBE_CProjectTarget_StaticLibrary;
+    project.Language = CUBE_CProjectLanguage_C;
+    project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    CUBE_CProject_AppendDefine(&project, "HAS_SOCKLEN_T");
+
+    CUBE_CProject_AppendIncludePath(&project, "./include");
+
+    switch (a_targetPlatform)
+    {
+    case TargetPlatform_Windows:
+    {
+        CUBE_CProject_AppendDefines(&project, 
+            "WIN32",
+            "_WIN32"
+        );
+
+        CUBE_CProject_AppendSource(&project, "./win32.c");
+
+        break;
+    }
+    case TargetPlatform_Linux:
+    case TargetPlatform_LinuxClang:
+    case TargetPlatform_LinuxZig:
+    {
+        CUBE_CProject_AppendSource(&project, "./unix.c");
+
+        break;
+    }
+    }
+
+    CUBE_CProject_AppendSources(&project, 
+        "./callbacks.c",
+        "./compress.c",
+        "./host.c",
+        "./list.c",
+        "./packet.c",
+        "./peer.c",
+        "./protocol.c"
+    );
+
+    switch (a_configuration)
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
 
         break;
     }
@@ -923,7 +1073,7 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
 
 DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
-    *a_count = 9;
+    *a_count = 10;
 
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * (*a_count));
 
@@ -968,6 +1118,10 @@ DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targe
     projects[8].Project = BuildAssimp(a_targetPlatform, a_configuration);
     projects[8].WorkingDirectory = "deps/assimp";
     projects[8].Export = CBTRUE;
+
+    projects[9].Project = BuildENetProject(a_targetPlatform, a_configuration);
+    projects[9].WorkingDirectory = "deps/enet";
+    projects[9].Export = CBTRUE;
 
     return projects;
 }

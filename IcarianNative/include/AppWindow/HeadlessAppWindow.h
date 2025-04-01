@@ -10,11 +10,16 @@
 #include <cstdint>
 #include <mutex>
 
-#include "Core/IPCPipe.h"
+#include "Core/Bitfield.h"
+#include "Core/DMASwapBuffer.h"
+#include "Core/CommunicationPipe.h"
 #include "Core/PipeMessage.h"
 #include "DataTypes/TArray.h"
 #include "Logger.h"
 #include "Profiler.h"
+
+class Config;
+class RingAllocator;
 
 class HeadlessAppWindow : public AppWindow
 {
@@ -37,17 +42,22 @@ private:
     };
 
     static constexpr char PipeName[] = "IcarianEngine-IPC";
+    static constexpr uint32_t CloseBit = 0;
+    static constexpr uint32_t RemoteBit = 1;
 
-    IcarianCore::IPCPipe*                          m_pipe;
-
-    volatile bool                                  m_unlockWindow;    
-    bool                                           m_close;
-
-    std::mutex                                     m_fLock;
+    IcarianCore::CommunicationPipe*                m_pipe;
 
     TArray<IcarianCore::PipeMessage>               m_queuedMessages;
 
+#ifndef ICARIANNATIVE_ENABLE_DMA
+    std::mutex                                     m_fLock;
+    volatile bool                                  m_unlockWindow;    
+    uint64_t                                       m_windowFrame;
+    uint64_t                                       m_gpuFrame;
     char*                                          m_frameData;
+#endif
+
+    RingAllocator*                                 m_msgAllocator;
 
     uint32_t                                       m_width;
     uint32_t                                       m_height;
@@ -56,6 +66,9 @@ private:
    
     double                                         m_delta;
     double                                         m_time;
+
+    uint8_t                                        m_flags;
+    SpinLock                                       m_msgAllocatorLock;
 
     void PushMessageQueue();
 
@@ -67,7 +80,7 @@ private:
 protected:
 
 public:
-    HeadlessAppWindow(Application* a_app);
+    HeadlessAppWindow(Application* a_app, Config* a_config);
     ~HeadlessAppWindow();
 
     virtual bool ShouldClose() const;
@@ -79,30 +92,53 @@ public:
 
     virtual void Update();
 
-    virtual glm::ivec2 GetSize() const;
+    virtual uint32_t GetWidth() const
+    {
+        return m_width;
+    }
+    virtual uint32_t GetHeight() const
+    {
+        return m_height;
+    }
 
     virtual bool IsHeadless() const
     {
         return true;
     }
 
-#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-    virtual Array<const char*> GetRequiredVulkanExtenions() const
+    inline bool IsRemote() const
     {
-        return Array<const char*>();
+        return IISBITSET(m_flags, RemoteBit);
     }
+
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+    virtual Array<const char*> GetRequiredVulkanExtenions() const;
     virtual vk::SurfaceKHR GetSurface(const vk::Instance& a_instance)
     {
         return vk::SurfaceKHR();
     }
 #endif
 
-    void PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer, double a_delta, double a_time);
+    void PushFrameInfo(double a_delta, double a_time);
+
+#ifdef ICARIANNATIVE_ENABLE_DMA
+    void PushSwapBufferFD(const DMASwapBufferFD& a_swapbuffer);
+    void FlushSwapBufferFD();
+
+#ifdef WIN32
+    void PushSwapBufferHandle(const DMASwapBufferHandle& a_swapBuffer);
+#endif
+    void FlushSwapBufferHandle();
+
+    void DMASwap();
+#else
+    void PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer);
+#endif
 };
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

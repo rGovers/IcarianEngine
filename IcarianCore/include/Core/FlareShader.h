@@ -6,6 +6,7 @@
 
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "EngineMaterialInteropStructures.h"
@@ -16,15 +17,23 @@ namespace IcarianCore
     {
         ShaderPlatform_Null = -1,
         ShaderPlatform_Vulkan,
+        ShaderPlatform_VulkanCompute,
         ShaderPlatform_OpenGL
     };
 
-    std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error);
+    struct ShaderWorkgroups
+    {
+        uint32_t GroupX;
+        uint32_t GroupY;
+        uint32_t GroupZ;
+    };
+
+    std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error, ShaderWorkgroups* a_workgroups = nullptr);
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

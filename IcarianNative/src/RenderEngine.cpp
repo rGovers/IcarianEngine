@@ -4,8 +4,9 @@
 
 #include "Rendering/RenderEngine.h"
 
+#include "Application.h"
+#include "AppWindow/HeadlessAppWindow.h"
 #include "Config.h"
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "DeletionQueue.h"
 #include "Profiler.h"
@@ -45,14 +46,14 @@ RenderEngine::RenderEngine(AppWindow* a_window, Config* a_config)
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
         m_backend = new VulkanRenderEngineBackend(this);
 #else
-        ICARIAN_ASSERT_MSG_R(0, "Vulkan is not enabled");
+        IcarianError("Vulkan is not enabled");
 #endif
 
         break;
     }
     default:
     {
-        ICARIAN_ASSERT_MSG_R(0, "Failed to create RenderEngine");
+        IERROR("Failed to create RenderEngine");
 
         break;
     }
@@ -113,6 +114,8 @@ void RenderEngine::Run()
     double timePassed = 0.0;
     std::chrono::time_point prevTime = std::chrono::high_resolution_clock::now();
 
+    const Application* app = m_window->GetApplication();
+
     while (!m_shutdown)
     {
         Profiler::Start("Render Thread");
@@ -120,11 +123,48 @@ void RenderEngine::Run()
         
         {
             PROFILESTACK("Update");
+            const float timeScale = app->GetTimeScale();
 
-            const std::chrono::time_point time = std::chrono::high_resolution_clock::now();
+            double delta = 0.0f;
 
-            double delta = std::chrono::duration<double>(time - prevTime).count();
-            timePassed += delta;
+            {
+                PROFILESTACK("Timing");
+
+                if (m_window->IsHeadless())
+                {
+                    const HeadlessAppWindow* headless = (HeadlessAppWindow*)m_window;
+    
+                    constexpr float RemoteTargetFPS = 60.0f;
+    
+                    std::chrono::high_resolution_clock::time_point time;
+
+                    while (true)
+                    {
+                        time = std::chrono::high_resolution_clock::now();
+                        delta = std::chrono::duration<double>(time - prevTime).count();
+    
+                        if (!headless->IsRemote() || delta > 1.0 / RemoteTargetFPS)
+                        {
+                            break;
+                        }
+    
+                        std::this_thread::yield();
+                    }
+
+                    prevTime = time;
+                }
+                else
+                {
+                    const std::chrono::high_resolution_clock::time_point time = std::chrono::high_resolution_clock::now();
+    
+                    delta = std::chrono::duration<double>(time - prevTime).count();
+                    prevTime = time;
+                }
+
+                timePassed += delta;
+            }
+
+            const double scaledDelta = delta * timeScale;
 
             {
                 PROFILESTACK("Asset Store");
@@ -135,30 +175,28 @@ void RenderEngine::Run()
             {
                 PROFILESTACK("Animators");
                 
-                AnimationController::UpdateAnimators(AnimationUpdateMode_FrameUpdate, (float)delta);
+                AnimationController::UpdateAnimators(AnimationUpdateMode_FrameUpdate, (float)scaledDelta);
             }
-
-            void* args[] =
-            {
-                &delta,
-                &timePassed
-            };
 
             {
                 PROFILESTACK("Frame Update");
+
+                void* args[] =
+                {
+                    &delta,
+                    &timePassed
+                };
                 
                 m_frameUpdateFunction->Exec(args);
             }
 
-            m_backend->Update(delta, timePassed);
+            m_backend->Update(scaledDelta, timePassed);
 
             {
                 PROFILESTACK("Deletion Queue");
 
                 DeletionQueue::Flush(DeletionIndex_Render);
             }
-
-            prevTime = time;
         }   
     }
     

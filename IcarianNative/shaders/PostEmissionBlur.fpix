@@ -1,0 +1,26 @@
+#version 450
+
+layout(location = 0) in vec2 vUV;
+
+#!pushtexture(0, emissionSampler)
+
+layout(location = 0) out vec4 fragColor;
+
+const float step = 0.005;
+
+void main()
+{
+    vec4 m = texture(emissionSampler, vUV) * 0.25;
+
+    vec4 t = texture(emissionSampler, vUV + vec2(0.0,    step)) * 0.125;
+    vec4 b = texture(emissionSampler, vUV + vec2(0.0,   -step)) * 0.125;
+    vec4 l = texture(emissionSampler, vUV + vec2( step, 0.0))   * 0.125;
+    vec4 r = texture(emissionSampler, vUV + vec2(-step, 0.0))   * 0.125;
+
+    vec4 tl = texture(emissionSampler, vUV + vec2(-step,  step)) * 0.0625;
+    vec4 tr = texture(emissionSampler, vUV + vec2( step,  step)) * 0.0625;
+    vec4 br = texture(emissionSampler, vUV + vec2( step, -step)) * 0.0625;
+    vec4 bl = texture(emissionSampler, vUV + vec2(-step, -step)) * 0.0625;
+
+    fragColor = m + t + b + l + r + tl + tr + br + bl;
+}

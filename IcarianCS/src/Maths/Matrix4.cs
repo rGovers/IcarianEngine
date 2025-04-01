@@ -111,6 +111,79 @@ namespace IcarianEngine.Maths
             }
         }
 
+        /// <summary>
+        /// Returns the row at the specified index
+        /// </summary>
+        public Vector4 this[uint a_key]
+        {
+            get
+            {
+                switch (a_key)
+                {
+                case 0:
+                {
+                    return new Vector4(M00, M01, M02, M03);
+                }
+                case 1:
+                {
+                    return new Vector4(M10, M11, M12, M13);
+                }
+                case 2:
+                {
+                    return new Vector4(M20, M21, M22, M23);
+                }
+                case 3:
+                {
+                    return new Vector4(M30, M31, M32, M33);
+                }
+                }
+
+                return new Vector4(float.NaN);
+            }
+            set
+            {
+                switch (a_key)
+                {
+                case 0:
+                {
+                    M00 = value.X;
+                    M01 = value.Y;
+                    M02 = value.Z;
+                    M03 = value.W;
+
+                    break;
+                }
+                case 1:
+                {
+                    M10 = value.X;
+                    M11 = value.Y;
+                    M12 = value.Z;
+                    M13 = value.W;
+
+                    break;
+                }
+                case 2:
+                {
+                    M20 = value.X;
+                    M21 = value.Y;
+                    M22 = value.Z;
+                    M23 = value.W;
+
+                    break;
+                }
+                case 3:
+                {
+                    M30 = value.X;
+                    M31 = value.Y;
+                    M32 = value.Z;
+                    M33 = value.W;
+
+                    break;
+                }
+                }
+            }
+        }
+
         public Matrix4(float a_val) : this(a_val, 0.0f, 0.0f, 0.0f,
                                            0.0f, a_val, 0.0f, 0.0f,
                                            0.0f, 0.0f, a_val, 0.0f,
@@ -335,16 +408,14 @@ namespace IcarianEngine.Maths
         public static Matrix4 CreatePerspective(float a_fov, float a_aspect, float a_near, float a_far)
         {
             float halfFov = a_fov * 0.5f;
-            float f = Mathf.Cos(halfFov) / Mathf.Sin(halfFov);
+            float tanHalf = Mathf.Tan(halfFov);
 
-            // Apparently no projection matrix is correct and had to eyeball until the view projection matrix looked right
-            // No idea if this is correct but looks right
             return new Matrix4
             (
-                a_aspect * f, 0.0f,  0.0f,                                 0.0f,
-                0.0f,         f,     0.0f,                                 0.0f,
-                0.0f,         0.0f,  a_far / (a_near - a_far),             -1.0f,
-                0.0f,         0.0f,  -(a_far * a_near) / (a_far - a_near), 0.0f
+                1.0f / (a_aspect * tanHalf), 0.0f,           0.0f,                                 0.0f,
+                0.0f,                        1.0f / tanHalf, 0.0f,                                 0.0f,
+                0.0f,                        0.0f,           a_far / (a_near - a_far),             -1.0f,
+                0.0f,                        0.0f,           -(a_far * a_near) / (a_far - a_near), 0.0f
             );
         }
 
@@ -490,7 +561,7 @@ namespace IcarianEngine.Maths
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

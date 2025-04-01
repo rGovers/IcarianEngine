@@ -6,19 +6,19 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineAudioListenerInterop.h"
+#include "InteropBinding.h"
+
+ENGINE_AUDIOLISTENER_EXPORT_TABLE(IOP_BIND_FUNCTION);
+
 namespace IcarianEngine.Audio
 {
     public class AudioListener : Component, IDestroy
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateAudioListener(uint a_transformAddr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void DestroyAudioListener(uint a_addr);
-
         uint m_bufferAddr = uint.MaxValue;
 
         /// <summary>
-        /// Whether or not the AudioListener has been disposed.
+        /// Whether the AudioListener has been Disposed/Finalized
         /// </summary>
         public bool IsDisposed
         {
@@ -29,15 +29,15 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Called when the AudioListener is created.
+        /// Called when the AudioListener is created
         /// </summary>
         public override void Init()
         {
-            m_bufferAddr = GenerateAudioListener(Transform.InternalAddr);
+            m_bufferAddr = AudioListenerInterop.GenerateAudioListener(Transform.InternalAddr);
         }
 
         /// <summary>
-        /// Destroys the AudioListener.
+        /// Disposes of the AudioListener
         /// </summary>
         public void Dispose()
         {
@@ -45,18 +45,17 @@ namespace IcarianEngine.Audio
 
             GC.SuppressFinalize(this);
         }
-
         /// <summary>
-        /// Called when the AudioListener is destroyed.
+        /// Called when the AudioListener is being Disposed/Finalized.
         /// </summary>
-        /// <param name="a_disposing">Whether or not the AudioListener is being disposed.</param>
+        /// <param name="a_disposing">Whether the AudioListener is being Disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_bufferAddr != uint.MaxValue)
             {
                 if (a_disposing)
                 {
-                    DestroyAudioListener(m_bufferAddr);
+                    AudioListenerInterop.DestroyAudioListener(m_bufferAddr);
                 }
                 else
                 {
@@ -70,7 +69,6 @@ namespace IcarianEngine.Audio
                 Logger.IcarianError("AudioListener already Disposed");
             }
         }
-
         ~AudioListener()
         {
             Dispose(false);

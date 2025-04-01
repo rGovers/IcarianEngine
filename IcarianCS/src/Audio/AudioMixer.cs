@@ -6,26 +6,16 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#include "EngineAudioMixerInterop.h"
+#include "EngineAudioMixerInteropStructures.h"
+#include "InteropBinding.h"
+
+ENGINE_AUDIOMIXER_EXPORT_TABLE(IOP_BIND_FUNCTION);
+
 namespace IcarianEngine.Audio
 {
-    [StructLayout(LayoutKind.Sequential, Pack = 0)]
-    struct AudioMixerBuffer
-    {
-        public float Gain;
-    };
-
     public class AudioMixer : IDestroy
     {
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static uint GenerateAudioMixer();
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void DestroyAudioMixer(uint a_addr);
-
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static AudioMixerBuffer GetAudioMixerBuffer(uint a_addr);
-        [MethodImpl(MethodImplOptions.InternalCall)]
-        extern static void SetAudioMixerBuffer(uint a_addr, AudioMixerBuffer a_buffer);
-
         string m_name = string.Empty;
 
         uint   m_bufferAddr = uint.MaxValue;
@@ -39,7 +29,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// Whether or not the AudioMixer has been disposed.
+        /// Whether the AudioMixer has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -50,7 +40,7 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// The name of the AudioMixer.
+        /// The name of the AudioMixer
         /// </summary>
         public string Name
         {
@@ -61,39 +51,35 @@ namespace IcarianEngine.Audio
         }
 
         /// <summary>
-        /// The gain of the AudioMixer.
+        /// The gain of the AudioMixer
         /// </summary>
         public float Gain
         {
             get
             {
-                AudioMixerBuffer buffer = GetAudioMixerBuffer(m_bufferAddr);
+                AudioMixerBuffer buffer = AudioMixerInterop.GetAudioMixerBuffer(m_bufferAddr);
 
                 return buffer.Gain;
             }
             set
             {
-                AudioMixerBuffer buffer = GetAudioMixerBuffer(m_bufferAddr);
+                AudioMixerBuffer buffer = AudioMixerInterop.GetAudioMixerBuffer(m_bufferAddr);
 
                 buffer.Gain = value;
 
-                SetAudioMixerBuffer(m_bufferAddr, buffer);
+                AudioMixerInterop.SetAudioMixerBuffer(m_bufferAddr, buffer);
             }
         }
 
-        /// <summary>
-        /// Creates a new AudioMixer.
-        /// </summary>
-        /// <param name="a_name">The name of the AudioMixer.</param>
         public AudioMixer(string a_name = "")
         {
             m_name = a_name;
 
-            m_bufferAddr = GenerateAudioMixer();
+            m_bufferAddr = AudioMixerInterop.GenerateAudioMixer();
         }
 
         /// <summary>
-        /// Destroys the AudioMixer.
+        /// Disposes of the AudioMixer
         /// </summary>
         public void Dispose()
         {
@@ -101,18 +87,17 @@ namespace IcarianEngine.Audio
 
             GC.SuppressFinalize(this);
         }
-
         /// <summary>
-        /// Called when the AudioMixer is destroyed.
+        /// Called when the AudioMixer is Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether or not the AudioMixer is being disposed.</param>
+        /// <param name="a_disposing">Whether the AudioMixer is being Disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_bufferAddr != uint.MaxValue)
             {
                 if (a_disposing)
                 {
-                    DestroyAudioMixer(m_bufferAddr);
+                    AudioMixerInterop.DestroyAudioMixer(m_bufferAddr);
                 }
                 else
                 {
@@ -126,7 +111,6 @@ namespace IcarianEngine.Audio
                 Logger.IcarianError("AudioMixer has already been Disposed");
             }
         }
-
         ~AudioMixer()
         {
             Dispose(false);

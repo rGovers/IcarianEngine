@@ -139,7 +139,6 @@ VulkanDepthCubeRenderTexture::VulkanDepthCubeRenderTexture(VulkanRenderEngineBac
     m_width = a_width;
     m_height = a_height;
 
-    const VmaAllocator allocator = m_engine->GetAllocator();
     const vk::Device device = m_engine->GetLogicalDevice();
     const vk::PhysicalDevice physicalDevice = m_engine->GetPhysicalDevice();
 
@@ -237,17 +236,17 @@ VulkanDepthCubeRenderTexture::VulkanDepthCubeRenderTexture(VulkanRenderEngineBac
         Dependencies
     );
 
-    ICARIAN_ASSERT_MSG_R(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass) == vk::Result::eSuccess, "Failed to create render pass");
-    ICARIAN_ASSERT_MSG_R(device.createRenderPass(&renderPassInfoNoClear, nullptr, &m_renderPassNoClear) == vk::Result::eSuccess, "Failed to create render pass");
+    VKRESERRMSG(device.createRenderPass(&renderPassInfo, nullptr, &m_renderPass), "Failed to create render pass");
+    VKRESERRMSG(device.createRenderPass(&renderPassInfoNoClear, nullptr, &m_renderPassNoClear), "Failed to create render pass");
 
     Init(m_width, m_height);
 }
 VulkanDepthCubeRenderTexture::~VulkanDepthCubeRenderTexture()
 {
     TRACE("Queueing Depth Cube Render Texture Deletion");
-    m_engine->PushDeletionObject(new VulkanDepthCubeRenderTextureTextureDeletionObject(m_engine, m_texture, m_textureView, m_textureViewFramebuffer, m_frameBuffer, m_textureAllocation));
+    m_engine->PushDeletionObject<VulkanDepthCubeRenderTextureTextureDeletionObject>(m_engine, m_texture, m_textureView, m_textureViewFramebuffer, m_frameBuffer, m_textureAllocation);
 
-    m_engine->PushDeletionObject(new VulkanDepthCubeRenderTextureDeletionObject(m_engine, m_renderPass, m_renderPassNoClear));
+    m_engine->PushDeletionObject<VulkanDepthCubeRenderTextureDeletionObject>(m_engine, m_renderPass, m_renderPassNoClear);
 }
 
 void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
@@ -261,30 +260,32 @@ void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 
     const vk::Format depthFormat = GetValidDepthFormat(physicalDevice);
 
-    TRACE("Creating Depth Texture");
-    VkImageCreateInfo imageInfo = { };
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.format = (VkFormat)depthFormat;
-    imageInfo.extent.width = m_width;
-    imageInfo.extent.height = m_height;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 6;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    // After driver update crash and validation error for this missing
-    imageInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+    const vk::Extent3D extents = vk::Extent3D(m_width, m_height, 1);
 
-    VmaAllocationCreateInfo imageAllocInfo = { };
-    imageAllocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    imageAllocInfo.preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    imageAllocInfo.flags = 0;
+    TRACE("Creating Depth Texture");
+    const VkImageCreateInfo imageInfo = 
+    { 
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = (VkFormat)depthFormat,
+        .extent = extents,
+        .mipLevels = 1,
+        .arrayLayers = 6,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+    };
+
+    const VmaAllocationCreateInfo imageAllocInfo = 
+    { 
+        .usage = VMA_MEMORY_USAGE_AUTO,
+        .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    };
 
     VkImage image;
-    ICARIAN_ASSERT_MSG_R(vmaCreateImage(allocator, &imageInfo, &imageAllocInfo, &image, &m_textureAllocation, nullptr) == VK_SUCCESS, "Failed to create depth texture");
+    VKRESERRMSG(vmaCreateImage(allocator, &imageInfo, &imageAllocInfo, &image, &m_textureAllocation, nullptr), "Failed to create depth texture");
     m_texture = image;
 
     constexpr vk::ImageSubresourceRange DepthSubresourceRange = vk::ImageSubresourceRange
@@ -305,7 +306,7 @@ void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
         { },
         DepthSubresourceRange
     );
-    ICARIAN_ASSERT_MSG_R(device.createImageView(&imageViewInfo, nullptr, &m_textureView) == vk::Result::eSuccess, "Failed to create depth texture view");
+    VKRESERRMSG(device.createImageView(&imageViewInfo, nullptr, &m_textureView), "Failed to create depth texture view");
 
     TRACE("Creating Frame Buffer");
     for (int i = 0; i < 6; ++i)
@@ -329,7 +330,7 @@ void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
             depthSubresourceRangeFramebuffer
         );
 
-        ICARIAN_ASSERT_MSG_R(device.createImageView(&imageViewInfoFramebuffer, nullptr, &m_textureViewFramebuffer[i]) == vk::Result::eSuccess, "Failed to create depth texture view");
+        VKRESERRMSG(device.createImageView(&imageViewInfoFramebuffer, nullptr, &m_textureViewFramebuffer[i]), "Failed to create depth texture view");
 
         const vk::FramebufferCreateInfo frameBufferInfo = vk::FramebufferCreateInfo
         (
@@ -342,7 +343,7 @@ void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
             1
         );
 
-        ICARIAN_ASSERT_MSG_R(device.createFramebuffer(&frameBufferInfo, nullptr, &m_frameBuffer[i]) == vk::Result::eSuccess, "Failed to create frame buffer");
+        VKRESERRMSG(device.createFramebuffer(&frameBufferInfo, nullptr, &m_frameBuffer[i]), "Failed to create frame buffer");
     }
 
     // Due to optimization this is needed as all faces may not be wrote to by point lights triggering the transition
@@ -374,7 +375,7 @@ void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 
 void VulkanDepthCubeRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 {
-    m_engine->PushDeletionObject(new VulkanDepthCubeRenderTextureTextureDeletionObject(m_engine, m_texture, m_textureView, m_textureViewFramebuffer, m_frameBuffer, m_textureAllocation));
+    m_engine->PushDeletionObject<VulkanDepthCubeRenderTextureTextureDeletionObject>(m_engine, m_texture, m_textureView, m_textureViewFramebuffer, m_frameBuffer, m_textureAllocation);
 
     Init(a_width, a_height);
 }
@@ -383,7 +384,7 @@ void VulkanDepthCubeRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

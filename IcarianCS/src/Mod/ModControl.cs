@@ -133,6 +133,10 @@ namespace IcarianEngine.Mod
             }
         }
 
+        // Can probably re jig this as this is run after engine setup and just before the game runs
+        // Problem is that sometime the game will change stuff after the engine has setup the default environment
+        // Think we can add a PreInit so the engine just skips setup on stuff that will just be changed by the game
+        // Not high priority just bugs me that it is wasteful
         internal static void InitAssemblies()
         {
             CoreAssembly.AssemblyControl.Init();
@@ -393,28 +397,63 @@ namespace IcarianEngine.Mod
         /// <returns>The full path of the asset. Null if failed</returns>
         public static string GetAssetPath(string a_path)
         {
-            if (File.Exists(a_path))
+            if (string.IsNullOrWhiteSpace(a_path))
             {
+                return null;
+            }
+
+            if (File.Exists(a_path))
+            {   
                 return a_path;
             }
 
             for (int i = Assemblies.Count - 1; i >= 0; --i)
             {
                 string mPath = Assemblies[i].GetAssetPath(a_path);
-                if (!string.IsNullOrEmpty(mPath))
+                if (!string.IsNullOrWhiteSpace(mPath))
                 {
                     return mPath;
                 }
             }
 
             string cPath = CoreAssembly.GetAssetPath(a_path);
-            if (!string.IsNullOrEmpty(cPath))
+            if (!string.IsNullOrWhiteSpace(cPath))
             {
                 return cPath;
             }
 
             return null;
         } 
+
+        /// <summary>
+        /// Gets the path of a mod asset
+        /// </summary>
+        /// <param name="a_path">The path of the asset</param>
+        /// <param name="a_modID">The Mod it is located in</param>
+        /// <returns>The full path of the asset. Null if failed</returns>
+        public static string GetAssetPath(string a_path, string a_modID)
+        {
+            if (string.IsNullOrWhiteSpace(a_path))
+            {
+                return null;
+            }
+
+            if (CoreAssembly.AssemblyInfo.ID == a_modID)
+            {
+                return Path.Combine(CoreAssembly.AssemblyInfo.Path, "Assets", a_path);
+            }
+
+            foreach (IcarianAssembly asm in Assemblies)
+            {
+                if (asm.AssemblyInfo.ID == a_modID)
+                {
+                    return Path.Combine(asm.AssemblyInfo.Path, "Assets", a_path);
+                }
+            }
+
+            return null;
+        }
+
         /// <summary>
         /// Gets the full path of a mod scene in a specific mod.
         /// </summary>
@@ -472,7 +511,7 @@ namespace IcarianEngine.Mod
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -17,6 +17,7 @@
 
 #undef min
 #undef max
+#undef ERROR
 #endif
 
 // MIT License

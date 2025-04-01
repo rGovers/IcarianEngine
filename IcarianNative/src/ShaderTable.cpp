@@ -77,6 +77,10 @@ const char* GetPixelShaderString(const std::string_view& a_str)
     {
         return PostEmissionPixelShader;
     }
+    case StringHash("PostEmissionBlur"):
+    {
+        return PostEmissionBlurPixelShader;
+    }
     case StringHash("PostToneMap"):
     {
         return PostToneMapPixelShader;

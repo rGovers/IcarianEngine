@@ -14,10 +14,13 @@
 
 struct FileBuffer
 {
+    static constexpr uint32_t PinnedBit = 0;
+
     uint64_t Size;
     void* Data;
     std::chrono::high_resolution_clock::time_point TimePoint;
     std::atomic<uint32_t> Lock;
+    uint8_t Flags;
 };
 
 class FileHandle
@@ -82,16 +85,17 @@ public:
 class FileCache
 {
 private:
-    SharedSpinLock                                         m_lock;
-    uint64_t                                               m_size;
-    uint64_t                                               m_allocated;
-    uint32_t                                               m_updateFrame;
+    SharedSpinLock                               m_lock;
+    uint64_t                                     m_size;
+    uint64_t                                     m_allocated;
+    uint32_t                                     m_updateFrame;
 
-    std::unordered_map<std::filesystem::path, FileBuffer*> m_files;
+    // Use string as compilers seem to be hit or miss as to path as a key
+    std::unordered_map<std::string, FileBuffer*> m_files;
 
     FileCache(uint32_t a_sizeMiB);
 
-    FileHandle* GenerateFileHandle(const std::filesystem::path& a_path, FILE* a_file, uint64_t a_size);
+    FileHandle* GenerateFileHandle(const std::string& a_path, FILE* a_file, uint64_t a_size);
 
 protected:
 
@@ -101,7 +105,12 @@ public:
     static void Init(uint32_t a_sizeMiB);
     static void Destroy();
 
+    static bool ExistsInCache(const std::string_view& a_str);
+
     static void Update();
+
+    static void PushFile(const std::string_view& a_str, uint8_t* a_data, uint32_t a_size, bool a_pin);
+    static FileHandle* LoadCachedFile(const std::string_view& a_str);
 
     static void PreLoad(const std::filesystem::path& a_path);
     static FileHandle* LoadFile(const std::filesystem::path& a_path);
@@ -109,7 +118,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -316,21 +316,19 @@ uint32_t AnimationControllerBindings::GenerateAnimatorBuffer() const
 }
 void AnimationControllerBindings::DestroyAnimatorBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_controller->m_animators.Size(), "DestroyAnimatorBuffer out of bounds");
+    IVERIFY(m_controller->m_animators.Exists(a_addr));
 
     m_controller->m_animators.Erase(a_addr);
 }
 e_AnimationUpdateMode AnimationControllerBindings::GetAnimatorUpdateMode(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_controller->m_animators.Size(), "GetAnimatorUpdateMode out of bounds");
-    ICARIAN_ASSERT_MSG(m_controller->m_animators.Exists(a_addr), "GetAnimatorUpdateMode value does not exist");
+    IVERIFY(m_controller->m_animators.Exists(a_addr));
 
     return m_controller->m_animators[a_addr];
 }
 void AnimationControllerBindings::SetAnimatorUpdateMode(uint32_t a_addr, e_AnimationUpdateMode a_updateMode) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_controller->m_animators.Size(), "SetAnimatorUpdateMode out of bounds");
-    ICARIAN_ASSERT_MSG(m_controller->m_animators.Exists(a_addr), "SetAnimatorUpdateMode value does not exist");
+    IVERIFY(m_controller->m_animators.Exists(a_addr));
 
     m_controller->m_animators.LockSet(a_addr, a_updateMode);
 }
@@ -343,20 +341,20 @@ uint32_t AnimationControllerBindings::CreateSkeletonBuffer() const
 }
 void AnimationControllerBindings::DestroySkeletonBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_controller->m_skeletons.Size(), "DestroySkeletonBuffer out of bounds");
+    IVERIFY(m_controller->m_skeletons.Exists(a_addr));
 
     m_controller->m_skeletons.Erase(a_addr);
 }
 void AnimationControllerBindings::ClearSkeletonBuffer(uint32_t a_addr) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_controller->m_skeletons.Size(), "ClearSkeletonBuffer out of bounds");
+    IVERIFY(m_controller->m_skeletons.Exists(a_addr));
 
     TLockArray<SkeletonData> a = m_controller->m_skeletons.ToLockArray();
     a[a_addr].BoneData.clear();
 }
 void AnimationControllerBindings::PushSkeletonBoneData(uint32_t a_addr, uint32_t a_transformIndex, const glm::mat4& a_inverseBindPose) const
 {
-    ICARIAN_ASSERT_MSG(a_addr < m_controller->m_skeletons.Size(), "PushSkeletonBoneData out of bounds");
+    IVERIFY(m_controller->m_skeletons.Exists(a_addr));
 
     BoneTransformData data;
     data.TransformIndex = a_transformIndex;
@@ -368,7 +366,7 @@ void AnimationControllerBindings::PushSkeletonBoneData(uint32_t a_addr, uint32_t
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

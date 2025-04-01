@@ -8,11 +8,12 @@
 
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
+#include "DataTypes/BlockAllocator.h"
+#include "DataTypes/SpinLock.h"
+#include "DataTypes/StackAllocator.h"
 #include "DataTypes/TArray.h"
 #include "DataTypes/TLockObj.h"
-#include "DataTypes/SpinLock.h"
 #include "Rendering/RenderEngineBackend.h"
-#include "Rendering/Vulkan/VulkanCommandBuffer.h"
 
 class AppWindow;
 class LibVulkan;
@@ -29,6 +30,142 @@ struct VulkanVideoDecodeCapabilities
     vk::VideoDecodeH264CapabilitiesKHR DecodeH264Capabilities;
 };
 
+// Wrapper to use scratch allocator with engine types
+struct RenderScratchAlloc
+{
+    static void* Allocate(uint64_t a_value, uint64_t a_alignment);
+    static void Free(void* a_ptr);
+
+    template<typename T>
+    static T* TAllocate()
+    {
+        return (T*)Allocate(sizeof(T), alignof(T));
+    }
+    template<typename T>
+    static T* TAllocate(uint32_t a_count)
+    {
+        return (T*)Allocate(sizeof(T) * a_count, alignof(T));
+    }
+
+    static void PushFrame();
+    static void PopFrame();
+};
+
+struct RenderBlockAlloc
+{
+    static void* Allocate(uint64_t a_value, uint32_t a_alignment);
+    static void Free(void* a_ptr);
+};
+
+#define RENDERSCRATCHFRAME RenderScratchAlloc::PushFrame(); IDEFER(RenderScratchAlloc::PopFrame())
+
+// Wrapper to use STL types with the scratch allocator
+template<typename T>
+struct STLRenderScratchAlloc
+{
+public:
+    typedef uint64_t size_type;
+    typedef uint64_t difference_type;
+    typedef T* pointer;
+    typedef const T* const_pointer;
+    typedef T& reference;
+    typedef const T& const_reference;
+    typedef T value_type;
+
+    pointer allocate(size_type a_n, const void* a_hint = 0)
+    {
+        return (pointer)RenderScratchAlloc::TAllocate<value_type>(a_n);
+    }
+    void deallocate(pointer a_p, size_type a_n)
+    {
+        
+    }
+
+    void construct(pointer a_p, const_reference a_val)
+    {
+        new (a_p) value_type(a_val);
+    }
+    template<typename U, typename ... Args>
+    void construct(U* a_p, Args&&... a_args)
+    {
+        new (a_p) U(std::forward<Args>(a_args)...);
+    }
+    void destroy(pointer p)
+    {
+        p->~value_type();
+    }
+
+    STLRenderScratchAlloc()
+    {
+
+    }
+    STLRenderScratchAlloc(const STLRenderScratchAlloc& a_other) noexcept
+    {
+
+    }
+    template<typename U>
+    STLRenderScratchAlloc(const STLRenderScratchAlloc<U>& a_other) noexcept
+    {
+        
+    }
+};
+
+template<typename T>
+struct STLRenderBlockAlloc
+{
+public:
+    typedef uint64_t size_type;
+    typedef uint64_t difference_type;
+    typedef T* pointer;
+    typedef const T* const_pointer;
+    typedef T& reference;
+    typedef const T& const_reference;
+    typedef T value_type;
+
+    pointer allocate(size_type a_n, const void* a_hint = 0)
+    {
+        return (pointer)RenderBlockAlloc::Allocate(a_n * sizeof(value_type), alignof(value_type));
+    }
+    void deallocate(pointer a_p, size_type a_n)
+    {
+        RenderBlockAlloc::Free(a_p);
+    }
+
+    void construct(pointer a_p, const_reference a_val)
+    {
+        new (a_p) value_type(a_val);
+    }
+    template<typename U, typename ... Args>
+    void construct(U* a_p, Args&&... a_args)
+    {
+        new (a_p) U(std::forward<Args>(a_args)...);
+    }
+    void destroy(pointer p)
+    {
+        p->~value_type();
+    }
+
+    STLRenderBlockAlloc()
+    {
+
+    }
+    STLRenderBlockAlloc(const STLRenderBlockAlloc& a_other) noexcept
+    {
+
+    }
+    template<typename U>
+    STLRenderBlockAlloc(const STLRenderBlockAlloc<U>& a_other) noexcept
+    {
+        
+    }
+};
+
+struct RenderScratchAllocator
+{
+    volatile uint32_t Count;
+    StackAllocator* Allocator;
+};
+
 class VulkanDeletionObject
 {
 private:
@@ -41,9 +178,21 @@ public:
     virtual void Destroy() = 0;
 };
 
+enum e_CommandIndex
+{
+    CommandIndex_Present,
+    CommandIndex_Graphics,
+    CommandIndex_Compute,
+    CommandIndex_VideoDecode,
+    CommandIndex_Last
+};
+
 class VulkanRenderEngineBackend : public RenderEngineBackend
 {
 private:
+    // Doing 1MB need to investigate later
+    constexpr static uint64_t ScratchAllocatorSize = 1 << 20;
+
     constexpr static vk::VideoDecodeH264ProfileInfoKHR DecodeProfile = vk::VideoDecodeH264ProfileInfoKHR
     (
         STD_VIDEO_H264_PROFILE_IDC_HIGH,
@@ -52,12 +201,19 @@ private:
 
     LibVulkan*                    m_vulkanLib;
 
+    BlockAllocator*               m_blockAllocator;
+    BlockAllocator*               m_deletionAllocator;
+
     VulkanComputeEngine*          m_computeEngine;
     VulkanGraphicsEngine*         m_graphicsEngine;
     VulkanSwapchain*              m_swapchain = nullptr;
     VulkanPushPool*               m_pushPool;
 
-    Array<bool>                   m_optionalExtensionMask;
+    uint32_t                      m_scratchIndex;
+    Array<RenderScratchAllocator> m_scratchAllocators;
+
+    // Was bugging me taking up 8x the memory needed so.... uint8_t bitmask it is
+    Array<uint8_t>                m_optionalExtensionMask;
                 
     VmaAllocator                  m_allocator;
                 
@@ -75,10 +231,8 @@ private:
     TArray<VulkanDeletionObject*> m_deletionObjects[VulkanDeletionQueueSize];
 
     Array<vk::Semaphore>          m_interSemaphore[VulkanMaxFlightFrames];
-    vk::Semaphore                 m_imageAvailable[VulkanMaxFlightFrames];
-    vk::Fence                     m_inFlight[VulkanMaxFlightFrames];
             
-    vk::CommandPool               m_commandPool;
+    vk::CommandPool               m_commandPools[CommandIndex_Last];
 
     uint32_t                      m_imageIndex = -1;
     uint32_t                      m_currentFrame = 0;
@@ -92,7 +246,10 @@ private:
 
     VulkanVideoDecodeCapabilities m_videoDecodeCapabilities;
 
+    SharedSpinLock                m_scratchLock;
     SpinLock                      m_graphicsQueueLock;
+
+    void InternalPushDeletionObject(VulkanDeletionObject* a_object);
 
 protected:
 
@@ -104,11 +261,11 @@ public:
 
     virtual void Update(double a_delta, double a_time);
 
-    TLockObj<vk::CommandBuffer, SpinLock>* CreateCommandBuffer(vk::CommandBufferLevel a_level);
-    void DestroyCommandBuffer(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer);
+    TLockObj<vk::CommandBuffer, SpinLock>* CreateCommandBuffer(vk::CommandBufferLevel a_level, e_CommandIndex a_index = CommandIndex_Graphics);
+    void DestroyCommandBuffer(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer, e_CommandIndex a_index = CommandIndex_Graphics);
 
-    TLockObj<vk::CommandBuffer, SpinLock>* BeginSingleCommand();
-    void EndSingleCommand(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer);
+    TLockObj<vk::CommandBuffer, SpinLock>* BeginSingleCommand(e_CommandIndex a_index = CommandIndex_Graphics);
+    void EndSingleCommand(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer, e_CommandIndex a_index = CommandIndex_Graphics);
 
     virtual e_RenderDeviceType GetDeviceType() const;
 
@@ -124,7 +281,16 @@ public:
 
     virtual uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     virtual void DestroyTextureSampler(uint32_t a_addr);
-    
+
+    inline BlockAllocator* GetBlockAllocator() const
+    {
+        return m_blockAllocator;
+    }
+    inline BlockAllocator* GetDeletionAllocator() const
+    {
+        return m_deletionAllocator;
+    }
+
     inline VulkanComputeEngine* GetComputeEngine() const
     {
         return m_computeEngine;
@@ -144,15 +310,32 @@ public:
         return &m_videoDecodeCapabilities;
     }
 
-    void PushDeletionObject(VulkanDeletionObject* a_object);
+    inline void IncrementScratchFrame(uint32_t a_index)
+    {
+        if (m_scratchAllocators[a_index].Count == 0)
+        {
+            const SharedThreadGuard g = SharedThreadGuard(m_scratchLock);
 
-    inline vk::Fence GetCurrentFlightFence() const
-    {
-        return m_inFlight[m_currentFlightFrame];
+            ++m_scratchAllocators[a_index].Count;
+
+            return;
+        }
+
+        ++m_scratchAllocators[a_index].Count;
     }
-    inline vk::Semaphore GetImageSemaphore(uint32_t a_index) const
+    inline void DecrementScratchFrame(uint32_t a_index)
     {
-        return m_imageAvailable[a_index];
+        --m_scratchAllocators[a_index].Count;
+    }
+
+    StackAllocator* GetStackAllocator(uint32_t* a_index = nullptr);
+
+    template<typename T, typename ... Args>
+    void PushDeletionObject(Args&&... a_args)
+    {
+        VulkanDeletionObject* deletionObject = m_deletionAllocator->Create<T>(a_args...);
+
+        InternalPushDeletionObject(deletionObject);
     }
 
     inline VmaAllocator GetAllocator() const
@@ -219,6 +402,11 @@ public:
     inline uint32_t GetCurrentFlightFrame() const
     {
         return m_currentFlightFrame;
+    }
+
+    inline bool IsVideoEnabled() const
+    {
+        return IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME) && IsExtensionEnabled(VK_KHR_VIDEO_MAINTENANCE_1_EXTENSION_NAME);
     }
 };
 

@@ -6,7 +6,6 @@
 
 #include "Rendering/Vulkan/VulkanComputeLayout.h"
 
-#include "Core/IcarianAssert.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
@@ -29,7 +28,9 @@ public:
         m_layoutCount = a_layoutCount;
         m_layout = a_layout;
 
-        m_descLayouts = new vk::DescriptorSetLayout[m_layoutCount];
+        BlockAllocator* allocator = m_engine->GetDeletionAllocator();
+
+        m_descLayouts = allocator->TAllocate<vk::DescriptorSetLayout>(m_layoutCount);
         for (uint32_t i = 0; i < m_layoutCount; ++i)
         {
             m_descLayouts[i] = a_descLayouts[i];
@@ -37,7 +38,9 @@ public:
     }
     virtual ~VulkanComputeLayoutDeletionObject()
     {
-        delete[] m_descLayouts;
+        BlockAllocator* allocator = m_engine->GetDeletionAllocator();
+
+        allocator->Free(m_descLayouts);
     }
 
     virtual void Destroy()
@@ -67,7 +70,7 @@ constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_buffe
     }
     }
 
-    ICARIAN_ASSERT(0);
+    IERROR("Invalid ShaderBufferType");
 
     return vk::DescriptorType::eStorageBuffer;
 }
@@ -104,7 +107,7 @@ VulkanComputeLayout::VulkanComputeLayout(VulkanRenderEngineBackend* a_engine, co
             &bind
         );
 
-        ICARIAN_ASSERT_MSG_R(device.createDescriptorSetLayout(&layoutInfo, nullptr, &m_descLayouts[i]) == vk::Result::eSuccess, "Failed to create Compute Desctiptor Layout");
+        VKRESERRMSG(device.createDescriptorSetLayout(&layoutInfo, nullptr, &m_descLayouts[i]), "Failed to create Compute Desctiptor Layout");
     }
 
     const vk::PipelineLayoutCreateInfo pipelineLayoutInfo = vk::PipelineLayoutCreateInfo
@@ -115,12 +118,12 @@ VulkanComputeLayout::VulkanComputeLayout(VulkanRenderEngineBackend* a_engine, co
     );
 
     TRACE("Creating Compute Pipeline Layout");
-    ICARIAN_ASSERT_MSG_R(device.createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_layout) == vk::Result::eSuccess, "Failed to create Compute Pipeline Layout");
+    VKRESERRMSG(device.createPipelineLayout(&pipelineLayoutInfo, nullptr, &m_layout), "Failed to create Compute Pipeline Layout");
 }
 VulkanComputeLayout::~VulkanComputeLayout()
 {
     TRACE("Queueing Compute Pipeline Layout for deletion");
-    m_engine->PushDeletionObject(new VulkanComputeLayoutDeletionObject(m_engine, m_descLayouts, m_inputCount, m_layout));
+    m_engine->PushDeletionObject<VulkanComputeLayoutDeletionObject>(m_engine, m_descLayouts, m_inputCount, m_layout);
 
     delete[] m_descLayouts;
     delete[] m_slotInputs;

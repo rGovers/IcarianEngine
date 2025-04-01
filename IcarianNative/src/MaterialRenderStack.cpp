@@ -4,8 +4,8 @@
 
 #include "Rendering/MaterialRenderStack.h"
 
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "IcarianError.h"
 #include "Rendering/MeshRenderBuffer.h"
 #include "Rendering/SkinnedMeshRenderBuffer.h"
 
@@ -84,7 +84,7 @@ void MaterialRenderStack::InsertTransform(uint32_t a_addr, uint32_t a_transformA
     const uint32_t transformCount = buffer.TransformCount;
     for (uint32_t i = 0; i < transformCount; ++i)
 	{
-		if (buffer.TransformAddr[i] == -1)
+		if (buffer.TransformAddr[i] == uint32_t(-1))
 		{
             buffer.TransformAddr[i] = a_transformAddr;
 
@@ -181,7 +181,7 @@ bool MaterialRenderStack::Remove(const MeshRenderBuffer& a_renderBuffer)
 
                     for (uint32_t k = 0; k < transformCount; ++k)
                     {
-                        if (m_modelBuffers[i].TransformAddr[k] != -1)
+                        if (m_modelBuffers[i].TransformAddr[k] != uint32_t(-1))
                         {
                             return true;
                         }
@@ -208,9 +208,9 @@ void MaterialRenderStack::InsertSkinned(uint32_t a_addr, uint32_t a_transformAdd
 
     for (uint32_t i = 0; i < objectCount; ++i)
     {
-        if (buffer.TransformAddr[i] == -1)
+        if (buffer.TransformAddr[i] == uint32_t(-1))
         {
-            ICARIAN_ASSERT_MSG(buffer.SkeletonAddr[i] == -1, "Skeleton address is not -1");
+            IVERIFY(buffer.SkeletonAddr[i] == uint32_t(-1));
 
             buffer.TransformAddr[i] = a_transformAddr;
             buffer.SkeletonAddr[i] = a_skeletonAddr;
@@ -312,7 +312,7 @@ bool MaterialRenderStack::Remove(const SkinnedMeshRenderBuffer& a_renderBuffer)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

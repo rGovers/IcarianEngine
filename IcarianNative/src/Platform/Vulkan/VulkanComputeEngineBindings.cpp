@@ -7,7 +7,6 @@
 #include "Rendering/Vulkan/VulkanComputeEngineBindings.h"
 
 #include "DeletionQueue.h"
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanComputeParticle.h"
@@ -26,6 +25,16 @@ static VulkanComputeEngineBindings* Instance = nullptr;
 
 VULKANCOMPUTE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
+RUNTIME_FUNCTION(uint32_t, ComputeShader, GenerateComputeFromFile, 
+{
+    // TODO: Implement Me!
+    return -1;
+}, MonoString* a_path)
+RUNTIME_FUNCTION(void, ComputeShader, DestroyComputeShader, 
+{
+    // TODO: Implement Me!
+}, uint32_t a_addr)
+
 VulkanComputeEngineBindings::VulkanComputeEngineBindings(VulkanComputeEngine* a_engine)
 {
     Instance = this;
@@ -33,6 +42,9 @@ VulkanComputeEngineBindings::VulkanComputeEngineBindings(VulkanComputeEngine* a_
     m_engine = a_engine;
 
     VULKANCOMPUTE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
+
+    BIND_FUNCTION(IcarianEngine.Rendering.Shaders, ComputeShader, GenerateComputeFromFile);
+    BIND_FUNCTION(IcarianEngine.Rendering.Shaders, ComputeShader, DestroyComputeShader);
 }
 VulkanComputeEngineBindings::~VulkanComputeEngineBindings()
 {
@@ -45,8 +57,13 @@ uint32_t VulkanComputeEngineBindings::GenerateParticleSystemBuffer(uint32_t a_tr
     { 
         .TransformAddr = a_transformAddr,
         .RenderLayer = 1,
+        .Lifetime = 5.0f,
+        .StartSize = 1.0f,
+        .EndSize = 1.0f,
+        .EmitterVelocityScale = 1.0f,
         .Gravity = glm::vec3(0.0f, 9.807f, 0.0f),
-        .Colour = glm::vec4(1.0),
+        .StartColour = glm::vec4(1.0),
+        .EndColour = glm::vec4(1.0f)
     };
 
     return m_engine->m_particleBuffers.PushVal(buffer);
@@ -108,7 +125,7 @@ void VulkanComputeEngineBindings::DestroyParticleSystem(uint32_t a_addr) const
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

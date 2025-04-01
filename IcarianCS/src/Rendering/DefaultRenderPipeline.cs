@@ -5,6 +5,7 @@
 using IcarianEngine.Maths;
 using IcarianEngine.Rendering.Lighting;
 using IcarianEngine.Rendering.PostEffects;
+using IcarianEngine.Rendering.Shaders;
 using System;
 using System.Collections.Generic;
 
@@ -12,6 +13,11 @@ namespace IcarianEngine.Rendering
 {
     public class DefaultRenderPipeline : RenderPipeline, IDisposable
     {
+        // TODO: Need to make this better handle cameras that do not match the swapchain
+        // Likely need to start storing extra per camera data
+        // Considering a cache as I want cameras to be able to clear it when destroyed but do not want it dependant on RenderPipelines
+        // TODO: Need to start migrating over to using compute based effects over using Quad.fvert with a PixelShader use it relies upon a "magic" shader and not as flexible
+
         /// <summary>
         /// The number of cascades to use for <see cref="IcarianEngine.Rendering.Lighting.DirectionalLight" /> shadows
         /// </summary>
@@ -570,6 +576,8 @@ namespace IcarianEngine.Rendering
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the light setup is for</param>
         public override void LightSetup(Camera a_camera)
         {
+            RenderCommand.MarkerStart("AO");
+
             RenderCommand.BindRenderTexture(m_aoRenderTexture);
 
             RenderCommand.BindMaterial(m_aoMaterial);
@@ -579,6 +587,8 @@ namespace IcarianEngine.Rendering
 
             RenderCommand.BindMaterial(m_aoFilterMaterial);
             RenderCommand.DrawMaterial();
+
+            RenderCommand.MarkerEnd();
 
             RenderCommand.BindRenderTexture(m_lightRenderTexture);
         }
@@ -735,8 +745,17 @@ namespace IcarianEngine.Rendering
 
                 return;
             }
-            
-            int size = m_postEffects.Count;
+
+            List<PostEffect> effects = new List<PostEffect>();
+            foreach (PostEffect e in m_postEffects)
+            {
+                if (e.ShouldRun)
+                {
+                    effects.Add(e);
+                }
+            }
+
+            int size = effects.Count;
             if (size == 0)
             {
                 RenderCommand.Blit(m_colorRenderTexture, a_camera.RenderTexture);
@@ -750,20 +769,17 @@ namespace IcarianEngine.Rendering
             int end = size - 1;
             for (int i = 0; i < size; ++i)
             {
-                if (m_postEffects[i].ShouldRun)
+                IRenderTexture renderTexture = m_postRenderTextures[textureIndex];
+                if (i >= end)
                 {
-                    IRenderTexture renderTexture = m_postRenderTextures[textureIndex];
-                    if (i >= end)
-                    {
-                        renderTexture = a_camera.RenderTexture;
-                    }
-
-                    m_postEffects[i].Run(renderTexture, new TextureSampler[] { sampler, m_normalSampler, m_emissionSampler, m_depthSampler });
-
-                    sampler = m_postTextureSamplers[textureIndex];
-
-                    textureIndex = (textureIndex + 1) % 2;
+                    renderTexture = a_camera.RenderTexture;
                 }
+
+                effects[i].Run(renderTexture, new TextureSampler[] { sampler, m_normalSampler, m_emissionSampler, m_depthSampler }, m_drawRenderTexture);
+
+                sampler = m_postTextureSamplers[textureIndex];
+
+                textureIndex = (textureIndex + 1) % 2;
             }
         }
 
@@ -843,7 +859,7 @@ namespace IcarianEngine.Rendering
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

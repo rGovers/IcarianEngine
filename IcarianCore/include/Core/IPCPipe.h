@@ -4,15 +4,19 @@
 
 #pragma once
 
-#include "Core/PipeMessage.h"
+#ifdef WIN32
 #include "Core/WindowsHeaders.h"
+#endif
+
+#include "Core/CommunicationPipe.h"
+#include "Core/PipeMessage.h"
 
 #include <queue>
 #include <string_view>
 
 namespace IcarianCore
 {   
-    class IPCPipe
+    class IPCPipe : public CommunicationPipe
     {
     private:
 #if WIN32
@@ -26,21 +30,23 @@ namespace IcarianCore
     protected:
 
     public:
-        ~IPCPipe();
+        virtual ~IPCPipe();
 
         IPCPipe* Accept() const;
 
         static IPCPipe* Connect(const std::string_view& a_pipeName);
         static IPCPipe* Create(const std::string_view& a_pipeName);
 
-        bool Send(const PipeMessage& a_msg) const;
-        bool Receive(std::queue<PipeMessage>* a_messages) const;
+        virtual bool IsAlive() const;
+
+        virtual bool Send(const PipeMessage& a_msg);
+        virtual bool Receive(std::queue<PipeMessage>* a_messages);
     };
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

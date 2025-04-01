@@ -89,17 +89,15 @@ namespace IcarianEngine.Physics
             }
             set
             {
-                CollisionShapeSet(m_collisionShape, value);
-
-                m_collisionShape = value;
-
-                if (s_bodies.ContainsKey(m_internalAddr))
+                if (m_collisionShape != value)
                 {
-                    s_bodies[m_internalAddr] = this;
-                }
-                else
-                {
-                    s_bodies.TryAdd(m_internalAddr, this);
+                    m_collisionShape = value;
+
+                    RebuildBody();
+                    if (m_internalAddr != uint.MaxValue)
+                    {
+                        SetBody(m_internalAddr, this);
+                    }
                 }
             }
         }
@@ -108,10 +106,27 @@ namespace IcarianEngine.Physics
         {
             if (s_bodies.ContainsKey(a_addr))
             {
-                return s_bodies[a_addr];
+                PhysicsBody body = s_bodies[a_addr];
+
+                // May be a rebuilt body and a lingering call so we need to check
+                if (body.m_internalAddr == a_addr)
+                {
+                    return body;
+                }
             }
 
             return null;
+        }
+        internal static void SetBody(uint a_addr, PhysicsBody a_body)
+        {
+            if (s_bodies.ContainsKey(a_addr))
+            {
+                s_bodies[a_addr] = a_body;
+            }
+            else
+            {
+                s_bodies.TryAdd(a_addr, a_body);
+            }
         }
 
         /// <summary>
@@ -128,7 +143,7 @@ namespace IcarianEngine.Physics
             }
         }
 
-        protected internal virtual void CollisionShapeSet(CollisionShape a_oldShape, CollisionShape a_newShape)
+        protected internal virtual void RebuildBody()
         {
             if (m_internalAddr != uint.MaxValue)
             {
@@ -137,9 +152,9 @@ namespace IcarianEngine.Physics
                 m_internalAddr = uint.MaxValue;
             }
 
-            if (a_newShape != null)
+            if (m_collisionShape != null)
             {
-                m_internalAddr = PhysicsBodyInterop.CreatePhysicsBody(Transform.InternalAddr, a_newShape.InternalAddr);
+                m_internalAddr = PhysicsBodyInterop.CreatePhysicsBody(Transform.InternalAddr, m_collisionShape.InternalAddr);
             }
         }
 
@@ -150,6 +165,8 @@ namespace IcarianEngine.Physics
         public void SetPosition(Vector3 a_pos)
         {
             PhysicsBodyInterop.SetPosition(m_internalAddr, a_pos);
+
+            Transform.Translation = a_pos;
         }
         /// <summary>
         /// Gets the position of the PhysicsBody
@@ -166,6 +183,8 @@ namespace IcarianEngine.Physics
         public void SetRotation(Quaternion a_rotation)
         {
             PhysicsBodyInterop.SetRotation(m_internalAddr, a_rotation);
+
+            Transform.Rotation = a_rotation;
         }
         /// <summary>
         /// Gets the rotation of the PhysicsBody
@@ -177,15 +196,22 @@ namespace IcarianEngine.Physics
 
         static void OnCollisionEnter(CollisionDataBuffer a_data)
         {
-            if (!s_bodies.ContainsKey(a_data.BodyAddrA) && !s_bodies.ContainsKey(a_data.BodyAddrB))
+            // Because of defered deletion there can be some lingering references should be resolved at the end of the update
+            // But we need to return as they have been "deleted"
+            // Also my dumbass did an and instead of or
+            if (!s_bodies.ContainsKey(a_data.BodyAddrA) || !s_bodies.ContainsKey(a_data.BodyAddrB))
             {
-                Logger.IcarianError("Bad Collision Enter dispatch");
-
                 return;
             }
 
             PhysicsBody bodyA = s_bodies[a_data.BodyAddrA];
             PhysicsBody bodyB = s_bodies[a_data.BodyAddrB];
+            if (bodyA == null || bodyB == null)
+            {
+                Logger.IcarianWarning("Null collision body");
+
+                return;
+            }
 
             if (a_data.IsTrigger == 0)
             {
@@ -198,7 +224,17 @@ namespace IcarianEngine.Physics
                         Depth = a_data.Depth  
                     };
 
-                    rBodyA.OnCollisionStartCallback(bodyB, data);
+                    // Mostly an API safety thing to clean up user code want as minimal locks in user code as possible
+                    // Redispatched the call as I kept shooting myself in the foot and decided to just fix the gun
+                    // I may need to change the locks to NativeLock down the line as it may interfere with user code
+                    lock (rBodyA)
+                    {
+                        // It is not impossible for it to be deleted so recheck once the lock is aquired
+                        if (rBodyA != null && rBodyA.OnCollisionStartCallback != null)
+                        {
+                            rBodyA.OnCollisionStartCallback(bodyB, data);
+                        }
+                    }
                 }
 
                 if (bodyB is RigidBody rBodyB && rBodyB.OnCollisionStartCallback != null)
@@ -210,33 +246,59 @@ namespace IcarianEngine.Physics
                         Depth = a_data.Depth
                     };
 
-                    rBodyB.OnCollisionStartCallback(bodyA, data);
+                    lock (rBodyB)
+                    {
+                        if (rBodyB != null && rBodyB.OnCollisionStartCallback != null)
+                        {
+                            rBodyB.OnCollisionStartCallback(bodyA, data);
+                        }
+                    }
+
                 }
             }
             else
             {
                 if (bodyA is TriggerBody tBodyA && tBodyA.OnTriggerStartCallback != null)
                 {
-                    tBodyA.OnTriggerStartCallback(bodyB);
+                    lock (tBodyA)
+                    {
+                        if (tBodyA != null && tBodyA.OnTriggerStartCallback != null)
+                        {
+                            tBodyA.OnTriggerStartCallback(bodyB);
+                        }
+                    }
                 }
 
                 if (bodyB is TriggerBody tBodyB && tBodyB.OnTriggerStartCallback != null)
                 {
-                    tBodyB.OnTriggerStartCallback(bodyA);
+                    lock (tBodyB)
+                    {
+                        if (tBodyB != null && tBodyB.OnTriggerStartCallback != null)
+                        {
+                            tBodyB.OnTriggerStartCallback(bodyA);
+                        }
+                    }
                 }
             }
         }
         static void OnCollisionStay(CollisionDataBuffer a_data)
         {
-            if (!s_bodies.ContainsKey(a_data.BodyAddrA) && !s_bodies.ContainsKey(a_data.BodyAddrB))
+            // Because of defered deletion there can be some lingering references should be resolved at the end of the update
+            // But we need to return as they have been "deleted"
+            // Also my dumbass did an and instead of or
+            if (!s_bodies.ContainsKey(a_data.BodyAddrA) || !s_bodies.ContainsKey(a_data.BodyAddrB))
             {
-                Logger.IcarianError("Bad Collision Stay dispatch");
-
                 return;
             }
 
             PhysicsBody bodyA = s_bodies[a_data.BodyAddrA];
             PhysicsBody bodyB = s_bodies[a_data.BodyAddrB];
+            if (bodyA == null || bodyB == null)
+            {
+                Logger.IcarianWarning("Null collision body");
+
+                return;
+            }
 
             if (a_data.IsTrigger == 0)
             {
@@ -248,7 +310,13 @@ namespace IcarianEngine.Physics
                         Depth = a_data.Depth
                     };
 
-                    rBodyA.OnCollisionStayCallback(bodyB, data);
+                    lock (rBodyA)
+                    {
+                        if (rBodyA != null && rBodyA.OnCollisionStayCallback != null)
+                        {
+                            rBodyA.OnCollisionStayCallback(bodyB, data);
+                        }
+                    }
                 }
 
                 if (bodyB is RigidBody rBodyB && rBodyB.OnCollisionStayCallback != null)
@@ -259,56 +327,105 @@ namespace IcarianEngine.Physics
                         Depth = a_data.Depth
                     };
 
-                    rBodyB.OnCollisionStayCallback(bodyA, data);
+                    lock (rBodyB)
+                    {
+                        if (rBodyB != null && rBodyB.OnCollisionStayCallback != null)
+                        {
+                            rBodyB.OnCollisionStayCallback(bodyA, data);
+                        }
+                    }
                 }
             }
             else
             {
                 if (bodyA is TriggerBody tBodyA && tBodyA.OnTriggerStayCallback != null)
                 {
-                    tBodyA.OnTriggerStayCallback(bodyB);
+                    lock (tBodyA)
+                    {
+                        if (tBodyA != null && tBodyA.OnTriggerStayCallback != null)
+                        {
+                            tBodyA.OnTriggerStayCallback(bodyB);
+                        }
+                    }
                 }
 
                 if (bodyB is TriggerBody tBodyB && tBodyB.OnTriggerStayCallback != null)
                 {
-                    tBodyB.OnTriggerStayCallback(bodyA);
+                    lock (tBodyB)
+                    {
+                        if (tBodyB != null && tBodyB.OnTriggerStayCallback != null)
+                        {
+                            tBodyB.OnTriggerStayCallback(bodyA);
+                        }
+                    }
                 }
             }
         }
         static void OnCollisionExit(CollisionDataBuffer a_data)
         {
-            if (!s_bodies.ContainsKey(a_data.BodyAddrA) && !s_bodies.ContainsKey(a_data.BodyAddrB))
+            // Because of defered deletion there can be some lingering references should be resolved at the end of the update
+            // But we need to return as they have been "deleted"
+            // Also my dumbass did an and instead of or
+            if (!s_bodies.ContainsKey(a_data.BodyAddrA) || !s_bodies.ContainsKey(a_data.BodyAddrB))
             {
-                Logger.IcarianError("Bad Collision Exit dispatch");
-
                 return;
             }
 
             PhysicsBody bodyA = s_bodies[a_data.BodyAddrA];
             PhysicsBody bodyB = s_bodies[a_data.BodyAddrB];
+            if (bodyA == null || bodyB == null)
+            {
+                Logger.IcarianWarning("Null collision body");
+
+                return;
+            }
 
             if (a_data.IsTrigger == 0)
             {
                 if (bodyA is RigidBody rBodyA && rBodyA.OnCollisionEndCallback != null)
                 {
-                    rBodyA.OnCollisionEndCallback(bodyB);
+                    lock (rBodyA)
+                    {
+                        if (rBodyA != null && rBodyA.OnCollisionEndCallback != null)
+                        {
+                            rBodyA.OnCollisionEndCallback(bodyB);
+                        }
+                    }
                 }
 
                 if (bodyB is RigidBody rBodyB && rBodyB.OnCollisionEndCallback != null)
                 {
-                    rBodyB.OnCollisionEndCallback(bodyA);
+                    lock (rBodyB)
+                    {
+                        if (rBodyB != null && rBodyB.OnCollisionEndCallback != null)
+                        {
+                            rBodyB.OnCollisionEndCallback(bodyA);
+                        }
+                    }
                 }
             }
             else
             {
                 if (bodyA is TriggerBody tBodyA && tBodyA.OnTriggerEndCallback != null)
                 {
-                    tBodyA.OnTriggerEndCallback(bodyB);
+                    lock (tBodyA)
+                    {
+                        if (tBodyA != null && tBodyA.OnTriggerEndCallback != null)
+                        {
+                            tBodyA.OnTriggerEndCallback(bodyB);
+                        }
+                    }
                 }
 
                 if (bodyB is TriggerBody tBodyB && tBodyB.OnTriggerEndCallback != null)
                 {
-                    tBodyB.OnTriggerEndCallback(bodyA);
+                    lock (tBodyB)
+                    {
+                        if (tBodyB != null && tBodyB.OnTriggerEndCallback != null)
+                        {
+                            tBodyB.OnTriggerEndCallback(bodyA);
+                        }
+                    }
                 }
             }
         }

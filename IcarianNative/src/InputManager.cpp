@@ -16,9 +16,21 @@
 #include "EngineInputInterop.h"
 #include "EngineInputInteropStructures.h"
 
+#define INPUTMANAGER_BINDING_FUNCTION_TABLE(F) \
+    F(glm::vec2, IcarianEngine, Input, GetCursorPos, { return Instance->GetCursorPos(); }) \
+    \
+    F(uint32_t, IcarianEngine, Input, GetMouseDownState, { return (uint32_t)Instance->IsMouseDown((e_MouseButton)a_button); }, uint32_t a_button) \
+    F(uint32_t, IcarianEngine, Input, GetMousePressedState, { return (uint32_t)Instance->IsMousePressed((e_MouseButton)a_button); }, uint32_t a_button) \
+    F(uint32_t, IcarianEngine, Input, GetMouseReleasedState, { return (uint32_t)Instance->IsMouseReleased((e_MouseButton)a_button); }, uint32_t a_button) \
+    \
+    F(uint32_t, IcarianEngine, Input, GetKeyDownState, { return (uint32_t)Instance->IsKeyDown((e_KeyCode)a_keyCode); }, uint32_t a_keyCode) \
+    F(uint32_t, IcarianEngine, Input, GetKeyPressedState, { return (uint32_t)Instance->IsKeyPressed((e_KeyCode)a_keyCode); }, uint32_t a_keyCode) \
+    F(uint32_t, IcarianEngine, Input, GetKeyReleasedState, { return (uint32_t)Instance->IsKeyReleased((e_KeyCode)a_keyCode); }, uint32_t a_keyCode) \
+
 static InputManager* Instance = nullptr;
 
-ENGINEINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_INPUT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+INPUTMANAGER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 InputManager::InputManager()
 {
@@ -35,7 +47,8 @@ InputManager::InputManager()
 
     m_gamePadDeadZone = 0.1f;
 
-    ENGINEINPUT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_INPUT_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    INPUTMANAGER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 
     m_mousePressedFunc = RuntimeManager::GetFunction("IcarianEngine", "Input", ":MousePressedEvent(uint)");
     m_mouseReleasedFunc = RuntimeManager::GetFunction("IcarianEngine", "Input", ":MouseReleasedEvent(uint)");
@@ -264,7 +277,7 @@ void InputManager::Update()
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

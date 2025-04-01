@@ -785,12 +785,12 @@ namespace IcarianEngine.Definitions
                     {
                         IEnumerable enumer = (IEnumerable)listObj;
 
+                        MethodInfo methodInfo = fieldType.GetMethod("Add");
+                        object list = Activator.CreateInstance(fieldType);
+
                         Type genericType = fieldType.GetGenericArguments()[0];
                         if (genericType.IsSubclassOf(typeof(Def)))
                         {
-                            MethodInfo methodInfo = fieldType.GetMethod("Add");
-                            object list = Activator.CreateInstance(fieldType);
-
                             foreach (object obj in enumer)
                             {
                                 if (obj is Def stub)
@@ -800,21 +800,23 @@ namespace IcarianEngine.Definitions
                                         Logger.IcarianError("Invalid def stub");
 
                                         continue;
-                                    }
+                                    }                               
 
                                     methodInfo.Invoke(list, new object[] { GetDef(stub.DefName) });
                                 }
                             }
-
-                            info.SetValue(a_obj, list);
                         }
                         else
                         {
                             foreach (object obj in enumer)
                             {
                                 ResolveDefs(obj);
+
+                                methodInfo.Invoke(list, new object[] { obj });
                             }
                         }
+
+                        info.SetValue(a_obj, list);
                     }
                 }
                 else
@@ -825,6 +827,8 @@ namespace IcarianEngine.Definitions
                     {
                         ResolveDefs(val);
                     }
+
+                    info.SetValue(a_obj, val);
                 }
             }
         }

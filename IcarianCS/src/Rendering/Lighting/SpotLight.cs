@@ -32,6 +32,7 @@ namespace IcarianEngine.Rendering.Lighting
         static ConcurrentDictionary<uint, SpotLight> s_lightMap = new ConcurrentDictionary<uint, SpotLight>();
 
         uint m_bufferAddr = uint.MaxValue;
+        bool m_ownsMap = false;
 
         /// <summary>
         /// Determines if the SpotLight has been Disposed/Finalised
@@ -318,6 +319,8 @@ namespace IcarianEngine.Rendering.Lighting
 
             m_bufferAddr = GenerateBuffer(Transform.InternalAddr);
 
+            DepthRenderTexture shadowMap = null;
+
             LightDef lightDef = LightDef;
             if (lightDef != null)
             {
@@ -334,6 +337,12 @@ namespace IcarianEngine.Rendering.Lighting
                 {
                     buffer.ShadowBias = new Vector2(shadowDef.ShadowBiasConstant, shadowDef.ShadowBiasSlope);
 
+                    if (shadowDef.ShadowMapSize > 0)
+                    {
+                        shadowMap = new DepthRenderTexture(shadowDef.ShadowMapSize, shadowDef.ShadowMapSize);
+                        m_ownsMap = true;
+                    }
+
                     SpotLightDef spotDef = SpotLightDef;
                     if (spotDef != null)
                     {
@@ -343,6 +352,11 @@ namespace IcarianEngine.Rendering.Lighting
                 }
 
                 SetBuffer(m_bufferAddr, buffer);
+            }
+
+            if (shadowMap != null)
+            {
+                ShadowMap = shadowMap;
             }
 
             s_lightMap.TryAdd(m_bufferAddr, this);
@@ -357,10 +371,6 @@ namespace IcarianEngine.Rendering.Lighting
             return light;
         }
 
-        ~SpotLight()
-        {
-            Dispose(false);
-        }
         /// <summary>
         /// Disposes of the SpotLight
         /// </summary>
@@ -380,6 +390,14 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 if(a_disposing)
                 {
+                    if (m_ownsMap)
+                    {
+                        if (ShadowMap != null && !ShadowMap.IsDisposed)
+                        {
+                            ShadowMap.Dispose();
+                        }
+                    }
+
                     DestroyBuffer(m_bufferAddr);
 
                     s_lightMap.TryRemove(m_bufferAddr, out SpotLight _);
@@ -395,6 +413,10 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 Logger.IcarianError("Multiple SpotLight Dispose");
             }
+        }
+        ~SpotLight()
+        {
+            Dispose(false);
         }
     }
 }

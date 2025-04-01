@@ -59,7 +59,8 @@ public:
         return m_app;
     }
 
-    virtual glm::ivec2 GetSize() const = 0;
+    virtual uint32_t GetWidth() const = 0;
+    virtual uint32_t GetHeight() const = 0;
 
     virtual bool IsHeadless() const = 0;
 

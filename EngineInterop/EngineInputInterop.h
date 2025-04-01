@@ -14,38 +14,7 @@
 #include "DeletionQueue.h"
 #endif
 
-#define ENGINEINPUT_EXPORT_TABLE(F) \
-    F(IOP_VEC2, IcarianEngine, InputInterop, GetCursorPos, \
-    { \
-        return Instance->GetCursorPos(); \
-    }) \
-    \
-    F(IOP_UINT32, IcarianEngine, InputInterop, GetMouseDownState, \
-    { \
-        return (uint32_t)Instance->IsMouseDown((e_MouseButton)a_button); \
-    }, IOP_UINT32 a_button) \
-    F(IOP_UINT32, IcarianEngine, InputInterop, GetMousePressedState, \
-    { \
-        return (uint32_t)Instance->IsMousePressed((e_MouseButton)a_button); \
-    }, IOP_UINT32 a_button) \
-    F(IOP_UINT32, IcarianEngine, InputInterop, GetMouseReleasedState, \
-    { \
-        return (uint32_t)Instance->IsMouseReleased((e_MouseButton)a_button); \
-    }, IOP_UINT32 a_button) \
-    \
-    F(IOP_UINT32, IcarianEngine, InputInterop, GetKeyDownState, \
-    { \
-        return (uint32_t)Instance->IsKeyDown((e_KeyCode)a_keyCode); \
-    }, IOP_UINT32 a_keyCode) \
-    F(IOP_UINT32, IcarianEngine, InputInterop, GetKeyPressedState, \
-    { \
-        return (uint32_t)Instance->IsKeyPressed((e_KeyCode)a_keyCode); \
-    }, IOP_UINT32 a_keyCode) \
-    F(IOP_UINT32, IcarianEngine, InputInterop, GetKeyReleasedState, \
-    { \
-        return (uint32_t)Instance->IsKeyReleased((e_KeyCode)a_keyCode); \
-    }, IOP_UINT32 a_keyCode) \
-    \
+#define ENGINE_INPUT_EXPORT_TABLE(F) \
     F(IOP_UINT32, IcarianEngine, InputInterop, GetGamePadConnected, \
     { \
         return (uint32_t)Instance->IsGamePadConnected((e_GamePadSlot)a_slot); \
@@ -67,7 +36,7 @@
         return (uint32_t)Instance->IsGamePadButtonReleased((e_GamePadSlot)a_slot, (e_GamePadButton)a_button); \
     }, IOP_UINT32 a_slot, IOP_UINT32 a_button) \
 
-#define ENGINEAPPINPUT_EXPORT_TABLE(F) \
+#define ENGINE_APPINPUT_EXPORT_TABLE(F) \
     F(IOP_UINT32, IcarianEngine, InputInterop, GetCursorState, \
     { \
         return (uint32_t)Instance->GetCursorState(); \
@@ -84,7 +53,7 @@
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

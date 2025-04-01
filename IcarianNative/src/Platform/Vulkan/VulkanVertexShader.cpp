@@ -4,16 +4,16 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include "Rendering/Vulkan/VulkanVertexShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanVertexShader.h"
 
-#include "Core/IcarianAssert.h"
 #include "Core/FlareShader.h"
 #include "Rendering/SPIRVTools.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Trace.h"
 
-VulkanVertexShader::VulkanVertexShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data) : VulkanShader(a_engine, a_inputs, a_inputCount)
+VulkanVertexShader::VulkanVertexShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator) : VulkanShader(a_engine, a_inputs, a_inputCount, a_allocator)
 {
+    TRACE("Creating Vertex Shader");
     const vk::Device device = m_engine->GetLogicalDevice();
 
     const vk::ShaderModuleCreateInfo createInfo = vk::ShaderModuleCreateInfo
@@ -23,9 +23,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanRenderEngineBackend* a_engine, cons
         (uint32_t*)a_data.data()
     );
 
-    ICARIAN_ASSERT_MSG_R(device.createShaderModule(&createInfo, nullptr, &m_module) == vk::Result::eSuccess, "Failed to create VertexShader");
-
-    TRACE("Created VertexShader");
+    VKRESERRMSG(device.createShaderModule(&createInfo, nullptr, &m_module), "Failed to create VertexShader");
 }
 VulkanVertexShader::~VulkanVertexShader()
 {
@@ -34,32 +32,47 @@ VulkanVertexShader::~VulkanVertexShader()
     device.destroyShaderModule(m_module);
 }
 
-VulkanVertexShader* VulkanVertexShader::CreateFromFShader(VulkanRenderEngineBackend* a_engine, const std::string_view& a_str)
+void VulkanVertexShader::CreateFromFShader(VulkanVertexShader* a_out, const VulkanVertexFShaderBuilder& a_builder, Allocator* a_allocator)
 {
+    IVERIFY(a_out != nullptr);
+    IVERIFY(a_builder.Engine != nullptr);
+    IVERIFY(!a_builder.EntryPoint.empty());
+    IVERIFY(!a_builder.String.empty());
+
     std::string error;
     std::vector<ShaderBufferInput> inputs;
-    const std::string glsl = IcarianCore::GLSLFromFlareShader(a_str, IcarianCore::ShaderPlatform_Vulkan, &inputs, &error);
+    const std::string str = IcarianCore::GLSLFromFlareShader(a_builder.String, IcarianCore::ShaderPlatform_Vulkan, a_builder.Imports, &inputs, &error);
 
-    if (glsl.empty())
+    if (str.empty())
     {
-        IERROR("Flare vertex shader error: " + error);
-
-        return nullptr;
+        IERROR("Flare Vertex shader error: " + error);
     }
 
-    return CreateFromGLSL(a_engine, inputs.data(), (uint32_t)inputs.size(), glsl);
+    const VulkanVertexGLSLShaderBuilder glslBuilder =
+    {
+        .Engine = a_builder.Engine,
+        .String = str,
+        .Inputs = inputs.data(),
+        .InputCount = (uint32_t)inputs.size(),
+        .EntryPoint = a_builder.EntryPoint,
+    };
+
+    CreateFromGLSL(a_out, glslBuilder, a_allocator);
 }
-VulkanVertexShader* VulkanVertexShader::CreateFromGLSL(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::string_view& a_str)
+void VulkanVertexShader::CreateFromGLSL(VulkanVertexShader* a_out, const VulkanVertexGLSLShaderBuilder& a_builder, Allocator* a_allocator)
 {
-    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangVertex, a_str, true);
+    IVERIFY(a_out != nullptr);
+    IVERIFY(a_builder.Engine != nullptr);
+    IVERIFY(!a_builder.EntryPoint.empty());
+    IVERIFY(!a_builder.String.empty());
+
+    const std::vector<uint32_t> spirv = spirv_fromGLSL(EShLangVertex, a_builder.String, true, a_builder.EntryPoint);
     if (spirv.empty())
     {
-        IERROR("Failed to compile vertex shader");
-
-        return nullptr;
+        IERROR("Failed to compile Vertex shader");
     }    
 
-    return new VulkanVertexShader(a_engine, a_inputs, a_inputCount, spirv);
+    new (a_out) VulkanVertexShader(a_builder.Engine, a_builder.Inputs, a_builder.InputCount, spirv, a_allocator);
 }
 
 #endif

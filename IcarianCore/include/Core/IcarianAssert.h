@@ -20,7 +20,7 @@ static void DefaultAssertCallback(const std::string& a_string)
     printf("%s \n", a_string.c_str());
 }
 
-static AssertCallback AssertCallbackFunc = (AssertCallback)DefaultAssertCallback;
+[[maybe_unused]] static AssertCallback AssertCallbackFunc = (AssertCallback)DefaultAssertCallback;
 
 #ifdef ICARIAN_ENABLE_ASSERT
 #define ICARIAN_ASSERT(val) if (!(val)) { AssertCallbackFunc("IcarianAssert: " #val); assert(0); }
@@ -36,7 +36,7 @@ static AssertCallback AssertCallbackFunc = (AssertCallback)DefaultAssertCallback
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

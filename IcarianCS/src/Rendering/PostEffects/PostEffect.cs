@@ -18,18 +18,19 @@ namespace IcarianEngine.Rendering.PostEffects
         }
 
         /// <summary>
-        /// Called when the swapchain is resized
+        /// Called when the Swapchain is resized
         /// </summary>
         /// <param name="a_width">The new width of the swapchain</param>
         /// <param name="a_height">The new height of the swapchain</param>
         public virtual void Resize(uint a_width, uint a_height) { } 
 
         /// <summary>
-        /// Called when the post effect need to be run
+        /// Called when the PostEffect needs to be run
         /// </summary>
         /// <param name="a_renderTexture">The target <see cref="IcarianEngine.Rendering.IRenderTexture" /></param>
         /// <param name="a_samplers">Samplers used by the RenderPipeline</param>
-        public abstract void Run(IRenderTexture a_renderTexture, TextureSampler[] a_samplers);
+        /// <param name="a_gBuffer">The Deffered <see cref="IcarianEngine.Rendering.MultiRenderTexture" /> used for rendering</param>
+        public abstract void Run(IRenderTexture a_renderTexture, TextureSampler[] a_samplers, MultiRenderTexture a_gBuffer);
     }
 }
 

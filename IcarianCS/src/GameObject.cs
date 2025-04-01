@@ -257,7 +257,7 @@ namespace IcarianEngine
             {
                 GameObject obj = null;
                 s_objAddQueue.TryDequeue(out obj);
-                if (obj != null)
+                if (!(obj is null))
                 {
                     s_objs.Add(obj);
                     if (!string.IsNullOrWhiteSpace(obj.m_tag))
@@ -287,7 +287,7 @@ namespace IcarianEngine
 
                 s_scriptableAddQueue.TryDequeue(out script);
 
-                if (script != null)
+                if (!(script is null))
                 {
                     s_scriptableComps.Add(script);
                 }
@@ -304,13 +304,6 @@ namespace IcarianEngine
                 if (script == null)
                 {
                     continue;
-                }
-                else if (script is IDestroy destroy)
-                {
-                    if (destroy.IsDisposed)
-                    {
-                        continue;
-                    }
                 }
 
                 script.Update();
@@ -392,19 +385,20 @@ namespace IcarianEngine
         public T AddComponent<T>() where T : Component
         {
             T comp = Activator.CreateInstance<T>();
-            comp.GameObject = this;
 
-            if (comp != null)
+            if (!(comp is null))
             {
+                comp.GameObject = this;
+
                 m_components.Add(comp);
-            }
 
-            if (comp is Scriptable script)
-            {
-                s_scriptableAddQueue.Enqueue(script);
-            }
+                if (comp is Scriptable script)
+                {
+                    s_scriptableAddQueue.Enqueue(script);
+                }
 
-            comp.Init();
+                comp.Init();
+            }
 
             return comp; 
         }
@@ -416,14 +410,17 @@ namespace IcarianEngine
         public Component AddComponent(ComponentDef a_def)
         {
             Component comp = AddComponentN(a_def);
-            
-            if (comp is Scriptable script)
+
+            if (!(comp is null))
             {
-                s_scriptableAddQueue.Enqueue(script);
+                if (comp is Scriptable script)
+                {
+                    s_scriptableAddQueue.Enqueue(script);
+                }
+
+                comp.Init();
             }
-
-            comp.Init();
-
+            
             return comp;
         }
         /// <summary>
@@ -598,6 +595,8 @@ namespace IcarianEngine
             {
                 disp.Dispose();
             }
+
+            a_component.GameObject = null;
         }
         /// <summary>
         /// Removes the <see cref="IcarianEngine.Component" /> of the <see cref="IcarianEngine.Definitions.ComponentDef" /> from the GameObject
@@ -610,21 +609,6 @@ namespace IcarianEngine
                 if (comp.Def == a_def)
                 {
                     RemoveComponent(comp);
-
-                    if (comp is IDestroy dest)
-                    {
-                        if (!dest.IsDisposed)
-                        {
-                            dest.Dispose();
-                        }
-
-                        return;
-                    }
-
-                    if (comp is IDisposable disp)
-                    {
-                        disp.Dispose();
-                    }
 
                     return;
                 }
@@ -850,28 +834,25 @@ namespace IcarianEngine
 
             // Want to defer initialization until the hierarchy is built so that GetComponent works properly and can get parents and children
             GameObject obj = ChildDef(a_def, ref comps, ref objs);
-
-            foreach (Component comp in comps)
+            if (!(obj is null))
             {
-                comp.Init();
-
-                if (comp is Scriptable script)
+                foreach (Component comp in comps)
                 {
-                    s_scriptableAddQueue.Enqueue(script);
+                    comp.Init();
+
+                    if (comp is Scriptable script)
+                    {
+                        s_scriptableAddQueue.Enqueue(script);
+                    }
+                }
+
+                foreach (GameObject gameObject in objs)
+                {
+                    s_objAddQueue.Enqueue(gameObject);
                 }
             }
-
-            foreach (GameObject gameObject in objs)
-            {
-                s_objAddQueue.Enqueue(gameObject);
-            }
-
-            if (obj != null)
-            {
-                return obj;
-            }
             
-            return null;
+            return obj;
         }
         /// <summary>
         /// Creates a GameObject of type T from a <see cref="IcarianEngine.Definitions.GameObjectDef"/>
@@ -917,14 +898,14 @@ namespace IcarianEngine
                 }
                 else
                 {
-                    Logger.IcarianWarning("GameObject Failed to Dispose");
+                    Logger.IcarianWarning($"GameObject {m_name}:{m_tag} failed to Dispose");
                 }
 
                 m_disposed = true;
             }
             else
             {
-                Logger.IcarianError("GameObject Multiple Dispose");
+                Logger.IcarianError($"GameObject {m_name}:{m_tag} multiple Dispose");
             }
         }
         ~GameObject()
@@ -941,7 +922,7 @@ namespace IcarianEngine
 
             if (a_obj == null)
             {
-                if (IsDisposed)
+                if (m_disposed)
                 {
                     return true;
                 }

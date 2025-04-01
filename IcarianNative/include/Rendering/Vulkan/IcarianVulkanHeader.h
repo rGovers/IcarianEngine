@@ -5,19 +5,34 @@
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+
+#if defined(WIN32) && defined(ICARIANNATIVE_ENABLE_DMA)
+#include "Core/WindowsHeaders.h"
+#define VK_USE_PLATFORM_WIN32_KHR
+#endif
 #include <vulkan/vulkan.hpp>
 
-#define ICARIAN_VMA_VULKAN_VERSION 1001000
-#define ICARIAN_VULKAN_VERSION VK_API_VERSION_1_1
+// Nvidia driver was being weird about SPIRV 1.4 on Vulkan 1.1 bumping to Vulkan 1.2 seems to have fixed it
+// Weird that the extension was being odd but not gonna question it
+// Validation layer was quiet just the driver complaining
+#define ICARIAN_VMA_VULKAN_VERSION 1002000
+#define ICARIAN_VULKAN_VERSION VK_API_VERSION_1_2
 
 #define VMA_VULKAN_VERSION ICARIAN_VMA_VULKAN_VERSION
 #include <vk_mem_alloc.h>
 
+#include "Core/StringUtils.h"
 #include "IcarianError.h"
+
+#define ICARIAN_VULKANVERSION_STRX(x) #x
+#define ICARIAN_VULKANVERSION_STRI(x) ICARIAN_VULKANVERSION_STRX(x)
 
 static constexpr uint32_t VulkanMaxFlightFrames = 2;
 static constexpr uint32_t VulkanFlightPoolSize = VulkanMaxFlightFrames + 1;
 static constexpr uint32_t VulkanDeletionQueueSize = VulkanFlightPoolSize + 1;
+static constexpr uint16_t VulkanVersionHash = StringHash<uint16_t>(ICARIAN_VULKANVERSION_STRI(ICARIANNATIVE_VERSION_PATCH) "." ICARIAN_VULKANVERSION_STRI(ICARIANNATIVE_COMMIT_HASH) "." ICARIAN_VULKANVERSION_STRI(ICARIANNATIVE_VERSION_TAG));
+
+static constexpr uint32_t VulkanEngineVersion = VK_MAKE_API_VERSION(0, ICARIANNATIVE_VERSION_MAJOR, ICARIANNATIVE_VERSION_MINOR, VulkanVersionHash);
 
 // AMD debuggers do not support multi queue so switch this to true when you need to do graphics debugging with AMD tools
 // AMD GPUs run just fine it is just their debuggers
@@ -28,6 +43,30 @@ static constexpr bool AMDDebuggerFix = false;
 static constexpr bool VulkanEnableValidationLayers = false;
 #else
 static constexpr bool VulkanEnableValidationLayers = true;
+#endif
+
+#ifdef ICARIANNATIVE_ENABLE_MARKERS
+#define VULKAN_MARKER_COL(engine, cmdBuffer, name, r, g, b) \
+    const bool _markersEnabled = engine->IsExtensionEnabled(VK_EXT_DEBUG_MARKER_EXTENSION_NAME); \
+    if (_markersEnabled) \
+    { \
+        const vk::DebugMarkerMarkerInfoEXT markerInfo = vk::DebugMarkerMarkerInfoEXT \
+        ( \
+            name, \
+            { r / 255.0f, g / 255.0f, b / 255.0f, 1.0f } \
+        ); \
+        cmdBuffer.debugMarkerBeginEXT(markerInfo); \
+    } \
+    IDEFER( \
+    if (_markersEnabled) \
+    { \
+        cmdBuffer.debugMarkerEndEXT(); \
+    }); \
+    void(0)
+#define VULKAN_MARKER(engine, cmdBuffer, name) VULKAN_MARKER_COL(engine, cmdBuffer, name, 0, 0, 0)
+#else
+#define VULKAN_MARKER_COL(engine, cmdBuffer, name, r, g, b) void(0)
+#define VULKAN_MARKER(engine, cmdBuffer, name) void(0)
 #endif
 
 // While there are existing functions seems to be inconsitent, therefore my own.
@@ -245,7 +284,7 @@ static constexpr const char* VulkanErrorPrefix = "VkError: ";
 #define VKRESERR(res) VulkanResultError((vk::Result)res, IVKSTR(__FILE__) "," IVKSTR(__LINE__))
 #define VKRESERRMSG(res, msg) VulkanResultError((vk::Result)res, std::string(msg) + ": " IVKSTR(__FILE__) "," IVKSTR(__LINE__))
 
-static void VulkanResultWarning(vk::Result a_result, const std::string_view& a_msg = "")
+[[maybe_unused]] static void VulkanResultWarning(vk::Result a_result, const std::string_view& a_msg = "")
 {
     if (a_result != vk::Result::eSuccess)
     {
@@ -253,7 +292,7 @@ static void VulkanResultWarning(vk::Result a_result, const std::string_view& a_m
     }
 }
 
-static void VulkanResultError(vk::Result a_result, const std::string_view& a_msg = "")
+[[maybe_unused]] static void VulkanResultError(vk::Result a_result, const std::string_view& a_msg = "")
 {
     if (a_result != vk::Result::eSuccess)
     {
@@ -265,7 +304,7 @@ static void VulkanResultError(vk::Result a_result, const std::string_view& a_msg
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

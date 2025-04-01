@@ -4,15 +4,18 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include "Rendering/Vulkan/VulkanShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
-VulkanShader::VulkanShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount)
+#include "DataTypes/Allocator.h"
+
+VulkanShader::VulkanShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, Allocator* a_allocator)
 {
     m_module = nullptr;
     m_engine = a_engine;
     m_inputCount = a_inputCount;
+    m_allocator = a_allocator;
 
-    m_inputs = new ShaderBufferInput[m_inputCount];
+    m_inputs = m_allocator->TAllocate<ShaderBufferInput>(m_inputCount);
     for (uint32_t i = 0; i < m_inputCount; ++i)
     {
         m_inputs[i] = a_inputs[i];
@@ -20,7 +23,7 @@ VulkanShader::VulkanShader(VulkanRenderEngineBackend* a_engine, const ShaderBuff
 }
 VulkanShader::~VulkanShader()
 {
-    delete[] m_inputs;
+    m_allocator->Free(m_inputs);
 }
 
 #endif

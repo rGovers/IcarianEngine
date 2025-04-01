@@ -33,6 +33,8 @@ namespace IcarianEngine.Rendering.Lighting
 
         uint m_bufferAddr = uint.MaxValue;
 
+        bool m_ownsMap = false;
+
         internal uint InternalAddr
         {
             get
@@ -246,6 +248,8 @@ namespace IcarianEngine.Rendering.Lighting
 
             m_bufferAddr = GenerateBuffer(Transform.InternalAddr);
 
+            DepthCubeRenderTexture shadowMap = null;
+
             LightDef lightDef = LightDef;
             if (lightDef != null)
             {
@@ -260,6 +264,12 @@ namespace IcarianEngine.Rendering.Lighting
                 {
                     buffer.ShadowBias = new Vector2(shadowDef.ShadowBiasConstant, shadowDef.ShadowBiasSlope);
 
+                    if (shadowDef.ShadowMapSize > 0)
+                    {
+                        m_ownsMap = true;
+                        shadowMap = new DepthCubeRenderTexture(shadowDef.ShadowMapSize, shadowDef.ShadowMapSize);
+                    }
+
                     PointLightDef pointDef = PointLightDef;
                     if (pointDef != null)
                     {
@@ -268,6 +278,11 @@ namespace IcarianEngine.Rendering.Lighting
                 }
                 
                 SetBuffer(m_bufferAddr, buffer);
+            }
+
+            if (shadowMap != null)
+            {
+                ShadowMap = shadowMap;
             }
 
             s_lightMap.TryAdd(m_bufferAddr, this);
@@ -302,6 +317,14 @@ namespace IcarianEngine.Rendering.Lighting
             {
                 if(a_disposing)
                 {
+                    if (m_ownsMap)
+                    {
+                        if (ShadowMap != null && !ShadowMap.IsDisposed)
+                        {
+                            ShadowMap.Dispose();
+                        }
+                    }
+
                     DestroyBuffer(m_bufferAddr);
 
                     s_lightMap.TryRemove(m_bufferAddr, out PointLight _);

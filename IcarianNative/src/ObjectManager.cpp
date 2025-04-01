@@ -6,7 +6,7 @@
 
 #include <glm/gtx/matrix_decompose.hpp>
 
-#include "Core/IcarianAssert.h"
+#include "IcarianError.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
@@ -107,13 +107,13 @@ uint32_t ObjectManager::CreateTransformBuffer()
 }
 TransformBuffer ObjectManager::GetTransformBuffer(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < Instance->m_transformBuffer.Size(), "GetTransformBuffer out of bounds");
+    IVERIFY(a_addr < Instance->m_transformBuffer.Size());
 
     return Instance->m_transformBuffer[a_addr];
 }
 void ObjectManager::SetTransformBuffer(uint32_t a_addr, const TransformBuffer& a_buffer)
 {
-    ICARIAN_ASSERT_MSG(a_addr < Instance->m_transformBuffer.Size(), "SetTransformBuffer out of bounds");
+    IVERIFY(a_addr < Instance->m_transformBuffer.Size());
 
     Instance->m_transformBuffer.LockSet(a_addr, a_buffer);
 }
@@ -126,7 +126,7 @@ void ObjectManager::DestroyTransformBuffer(uint32_t a_addr)
 
 glm::mat4 ObjectManager::GetMatrix(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < Instance->m_transformBuffer.Size(), "GetMatrix out of bounds");
+    IVERIFY(a_addr < Instance->m_transformBuffer.Size());
 
     TLockArray<TransformBuffer> a = Instance->m_transformBuffer.ToLockArray();
 
@@ -136,14 +136,14 @@ glm::mat4 ObjectManager::GetMatrix(uint32_t a_addr)
 }
 glm::mat4 ObjectManager::GetGlobalMatrix(uint32_t a_addr)
 {
-    ICARIAN_ASSERT_MSG(a_addr < Instance->m_transformBuffer.Size(), "GetGlobalMatrix out of bounds");
+    IVERIFY(a_addr < Instance->m_transformBuffer.Size());
 
     TLockArray<TransformBuffer> a = Instance->m_transformBuffer.ToLockArray();
 
     TransformBuffer buffer = a[a_addr];
     glm::mat4 transform = buffer.ToMat4();
 
-    while (buffer.ParentAddr != -1)
+    while (buffer.ParentAddr != uint32_t(-1))
     {
         buffer = a[buffer.ParentAddr];
 
@@ -155,7 +155,7 @@ glm::mat4 ObjectManager::GetGlobalMatrix(uint32_t a_addr)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

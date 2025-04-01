@@ -4,24 +4,16 @@
 
 #pragma once
 
-#include <cstdint>
+#include "DataTypes/Allocator.h"
 
 #include "Core/IcarianDefer.h"
-
-#ifdef WIN32
-#include "Core/WindowsHeaders.h"
-#elif defined(__linux__)
-#include <sys/mman.h>
-#else
-#include <cstdlib>
-#endif
 
 // A no deallocation allocator
 // Loops back to the start when it runs out of memory
 // Note that this allocator has no bounds checking or sanitizer so overflows will write to future allocations
 // Not to be used as a main allocator used in performance critical areas where allocations are known to be small, frequent and short lived where general purpose allocators are too slow
 // People forget that there are 100s of ways to allocate memory and you do not need to pick just one
-class RingAllocator
+class RingAllocator : public Allocator
 {
 private:
     void* m_memory;
@@ -33,26 +25,13 @@ protected:
 public:
     RingAllocator(uint64_t a_size)
     {
-#ifdef WIN32
-        m_memory = VirtualAlloc(nullptr, a_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-#elif defined(__linux__)
-        m_memory = mmap(nullptr, a_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-#else
-        // Fall back to malloc
-        m_memory = malloc(a_size);
-#endif
+        m_memory = MapMemory(a_size);
         m_slider = m_memory;
         m_end = (void*)((char*)m_memory + a_size);
     }
-    ~RingAllocator()
+    virtual ~RingAllocator()
     {
-#ifdef WIN32
-        VirtualFree(m_memory, 0, MEM_RELEASE);
-#elif defined(__linux__)
-        munmap(m_memory, GetSize());
-#else
-        free(m_memory);
-#endif
+        UnmapMemory(m_memory, GetSize());
     }
 
     inline uint64_t GetSize() const
@@ -60,9 +39,11 @@ public:
         return (uint64_t)((char*)m_end - (char*)m_memory);
     }
 
-    void* Allocate(uint64_t a_size)
+    virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
     {
-        if ((char*)m_slider + a_size > (char*)m_end)
+        void* next = Align((char*)m_slider + a_size, a_alignment);
+
+        if (next > (char*)m_end)
         {
             m_slider = m_memory;
         }
@@ -71,21 +52,11 @@ public:
 
         return m_slider;
     }
-    template<typename T>
-    T* Allocate()
-    {
-        return (T*)Allocate(sizeof(T));
-    }
-    template<typename T>
-    T* Allocate(uint64_t a_count)
-    {
-        return (T*)Allocate(sizeof(T) * a_count);
-    }
 };
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

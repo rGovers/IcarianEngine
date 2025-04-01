@@ -304,6 +304,68 @@ namespace IcarianEngine.Maths
                 }
             }
         }
+        /// <summary>
+        /// Indexer for the vector, int.MaxValue is returned if the key is invalid
+        /// </summary>
+        public int this[uint a_key]
+        {
+            get
+            {
+                switch (a_key)
+                {
+                case 0:
+                {
+                    return X;
+                }
+                case 1:
+                {
+                    return Y;
+                }
+                case 2:
+                {
+                    return Z;
+                }
+                default:
+                {
+                    Logger.IcarianError("Invalid Vector3 index");
+
+                    break;
+                }
+                }
+
+                return int.MaxValue;
+            }
+            set
+            {
+                switch (a_key)
+                {
+                case 0:
+                {
+                    X = value;
+                    
+                    break;
+                }
+                case 1:
+                {
+                    Y = value;
+
+                    break;
+                }
+                case 2:
+                {
+                    Z = value;
+
+                    break;
+                }
+                default:
+                {
+                    Logger.IcarianError("Invalid Vector3 index");
+
+                    break;
+                }
+                }
+            }
+        }
 
         /// <summary>
         /// The squared magnitude of the vector
@@ -501,7 +563,7 @@ namespace IcarianEngine.Maths
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -4,21 +4,24 @@
 
 #include "Core/FlareShader.h"
 
+#include <set>
+
 #include "Core/IcarianAssert.h"
 #include "Core/ShaderBuffers.h"
 #include "Core/StringUtils.h"
 
-#define FSHADER_PLATFORM_UBOSTR(str, platform, argA, argB, structure) \
+#define FSHADER_PLATFORM_UBOSTR(str, platform, argA, argB, structure, name) \
     switch (platform) \
     { \
     case ShaderPlatform_Vulkan: \
+    case ShaderPlatform_VulkanCompute: \
     { \
-        str = GLSL_VULKAN_UNIFORM_STRING(argA, argB, structure); \
+        str = GLSL_VULKAN_UNIFORM_STRING(argA, argB, structure, name); \
         break; \
     } \
     case ShaderPlatform_OpenGL: \
     { \
-        str = GLSL_OPENGL_UNIFORM_STRING(argA, argB, structure); \
+        str = GLSL_OPENGL_UNIFORM_STRING(argA, argB, structure, name); \
         break; \
     } \
     default: \
@@ -32,6 +35,7 @@
     switch (platform) \
     { \
     case ShaderPlatform_Vulkan: \
+    case ShaderPlatform_VulkanCompute: \
     { \
         str = GLSL_VULKAN_SSBO_STRING(argA, argB, structure, name); \
         break; \
@@ -52,6 +56,7 @@
     switch (platform) \
     { \
     case ShaderPlatform_Vulkan: \
+    case ShaderPlatform_VulkanCompute: \
     { \
         str = GLSL_VULKAN_PUSHBUFFER_STRING(name, structure); \
         break; \
@@ -72,6 +77,7 @@
     switch (platform) \
     { \
     case ShaderPlatform_Vulkan: \
+    case ShaderPlatform_VulkanCompute: \
     { \
         str = "layout(set=" + std::string(slot) + ",binding=" + std::string(slot) + ") uniform " #type " " + std::string(name) + ";"; \
         break; \
@@ -108,14 +114,14 @@
     F(ParticleBuffer, GLSL_PARTICLE_SSBO_STRUCTURE) \
 
 #define FSHADER_PUSHBUFFER_STRUCTURETABLE(F) \
-    F(ModelBuffer, GLSL_MODEL_SHADER_STRUCTURE) \
-    F(UIBuffer, GLSL_UI_SHADER_STRUCTURE) \
-    F(ShadowLightBuffer, GLSL_SHADOW_LIGHT_SHADER_STRUCTURE) \
+    F(ModelBuffer, GLSL_MODEL_PUSH_STRUCTURE) \
+    F(UIBuffer, GLSL_UI_PUSH_STRUCTURE) \
+    F(ShadowLightBuffer, GLSL_SHADOW_LIGHT_PUSH_STRUCTURE) \
 
 #define FSHADER_UBO_DEFINITION(str, structure) \
     case StringHash(#str): \
     { \
-        FSHADER_PLATFORM_UBOSTR(rStr, a_platform, args[1], args[2], structure); \
+        FSHADER_PLATFORM_UBOSTR(rStr, a_platform, args[1], args[2], structure, #str); \
         const ShaderBufferInput input = \
         { \
             .Slot = (uint16_t)std::stoi(args[1]), \
@@ -235,9 +241,11 @@ namespace IcarianCore
     	return -1;
     }
 
-    std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error)
+    std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error, ShaderWorkgroups* a_workgroups)
     {
         std::string shader = std::string(a_str);
+
+        std::set<std::string> imported;
 
         *a_error = std::string();
 
@@ -268,6 +276,26 @@ namespace IcarianCore
             std::string rStr;
             switch (StringHash(defName.c_str()))
             {
+            case StringHash("workgroup"):
+            {
+                if (args.size() != 3)
+                {
+                    *a_error = "Flare Shader workgroup requires 3 arguments";
+
+                    return std::string();
+                }
+
+                rStr = "layout(local_size_x=" + args[0] + ",local_size_y=" + args[1] + ",local_size_z=" + args[2] + ") in;";
+
+                if (a_workgroups != nullptr)
+                {
+                    a_workgroups->GroupX = (uint32_t)std::stoi(args[0]);
+                    a_workgroups->GroupY = (uint32_t)std::stoi(args[1]);
+                    a_workgroups->GroupZ = (uint32_t)std::stoi(args[2]);
+                }
+
+                break;
+            }
             case StringHash("structure"):
             {
                 if (args.size() != 3)
@@ -283,6 +311,28 @@ namespace IcarianCore
                 FSHADER_UBO
                 FSHADER_SSBO
                 }
+
+                break;
+            }
+            case StringHash("buffertexture"):
+            {
+                if (a_platform != ShaderPlatform_VulkanCompute)
+                {
+                    *a_error = "Flare Shader buffer texture not available on non compute platform";
+
+                    return std::string();
+                }
+
+                rStr = "layout(" + args[0] + ",set=" + args[1] + ",binding=" + args[1] + ") uniform image2D" + args[3] + ";";
+
+                const ShaderBufferInput input =
+                {
+                    .Slot = (uint16_t)std::stoi(args[1]),
+                    .BufferType = ShaderBufferType_BufferTexture,
+                    .Count = (uint16_t)std::stoi(args[2])
+                };
+
+                a_inputs->emplace_back(input);
 
                 break;
             }
@@ -381,15 +431,16 @@ namespace IcarianCore
 
                 switch (a_platform) 
                 {
-                case ShaderPlatform_Vulkan: 
+                case ShaderPlatform_Vulkan:
+                case ShaderPlatform_VulkanCompute:
                 {
-                    rStr = "layout(set=" + std::string(args[0]) + ",binding=" + std::string(args[0]) + ") uniform sampler2D " + std::string(args[2]) + "[" + std::string(args[1]) + "];";
+                    rStr = "layout(set=" + args[0] + ",binding=" + args[0] + ") uniform sampler2D " + args[2] + "[" + args[1] + "];";
                     
                     break;
                 }
                 case ShaderPlatform_OpenGL: 
                 {
-                    rStr = "layout(location=" + std::string(args[0]) + ") uniform sampler2D " + std::string(args[2]) + "[" + std::string(args[1]) + "];";
+                    rStr = "layout(location=" + args[0] + ") uniform sampler2D " + args[2] + "[" + args[1] + "];";
 
                     break;
                 }
@@ -424,6 +475,7 @@ namespace IcarianCore
                 switch (a_platform) 
                 {
                 case ShaderPlatform_Vulkan:
+                case ShaderPlatform_VulkanCompute:
                 {
                     rStr = "layout(std140,binding=" + args[0] + ",set=" + args[0] + ") uniform UserBuffer " + args[1] + " " + args[2] + ";";
 
@@ -464,6 +516,12 @@ namespace IcarianCore
 
                 switch (a_platform)
                 {
+                case ShaderPlatform_VulkanCompute:
+                {
+                    *a_error = "Flare Shader instanced structure used in compute mode";
+
+                    return std::string();
+                }
                 case ShaderPlatform_Vulkan:
                 {
                     rStr = args[0] + ".objects[gl_InstanceIndex]";
@@ -507,7 +565,7 @@ namespace IcarianCore
             {
                 if (args.size() != 4)
                 {
-                    *a_error = "Flare Shader pre loop requires 4 arguements";
+                    *a_error = "Flare Shader pre loop requires 4 arguments";
 
                     return std::string();
                 }
@@ -521,8 +579,8 @@ namespace IcarianCore
                 // Therefore there is no cost if you do not break
                 // Do this to allow breaking in preprocessor loops
                 // Potential for no cost with a break but depends on vendor SPIRV compiler so mileage my vary
-                rStr += "switch(0) { \n";
-                rStr += "default: { \n";
+                rStr += "switch(0) { \n"
+                    "default: { \n";
 
                 for (int i = startIndex; i < endIndex; ++i)
                 {
@@ -544,12 +602,36 @@ namespace IcarianCore
 
                 break;
             }
-            }
-
-            std::size_t next = 1;
-            if (!rStr.empty())
+            case StringHash("import"):
             {
-                next = rStr.size();
+                if (args.size() != 1)
+                {
+                    *a_error = "Flare Shader import requires 1 argument";
+
+                    return std::string();
+                }
+
+                const std::string val = args[0];
+
+                if (imported.find(val) != imported.end())
+                {
+                    break;
+                }
+
+                const auto iter = a_imports.find(val);
+                if (iter != a_imports.end())
+                {
+                    rStr = iter->second;
+
+                    imported.emplace(val);
+
+                    break;
+                }
+
+                *a_error = "Flare Shader no import found: " + val;
+
+                return std::string();
+            }
             }
 
             shader.replace(sPos, eAPos - sPos + 1, rStr);
@@ -561,7 +643,7 @@ namespace IcarianCore
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

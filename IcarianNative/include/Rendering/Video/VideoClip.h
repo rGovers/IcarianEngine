@@ -6,37 +6,12 @@
 
 #include <filesystem>
 
-#include "DataTypes/Array.h"
-#include "Rendering/Video/H264.h"
+class VideoInfo;
 
-enum e_VideoProfile
+enum e_VideoUpdateMode
 {
-    VideoProfile_Null,
-    VideoProfile_H264,
-};
-
-enum e_VideoFrameType
-{
-    VideoFrameType_Intra,
-    VideoFrameType_Predictive
-};
-
-struct VideoFrameInfo
-{
-    e_VideoFrameType Type;
-    union
-    {
-        uint64_t Priority;
-
-        struct 
-        {
-            uint32_t POC;
-            uint32_t GOP;
-        };
-    } PrioData;
-    uint32_t Size;
-    double TimeStamp;
-    uint64_t Offset;
+    VideoUpdateMode_Audio,
+    VideoUpdateMode_Video
 };
 
 class VideoClip
@@ -44,22 +19,11 @@ class VideoClip
 private:
     std::filesystem::path m_path;
 
-    e_VideoProfile        m_videoProfile;
+    VideoInfo*            m_videoInfo;
 
-    uint32_t              m_width;
-    uint32_t              m_height;
+    e_VideoUpdateMode     m_updateMode;
 
-    uint32_t              m_paddedWidth;
-    uint32_t              m_paddedHeight;
-
-    Array<H264::SPS>      m_sps;
-    Array<H264::PPS>      m_pps;
-
-    uint32_t              m_frameCount;
-    VideoFrameInfo*       m_frames;
-
-    double                m_duration;
-    float                 m_fps;
+    double                m_time;
 
 protected:
 
@@ -67,66 +31,31 @@ public:
     VideoClip(const std::filesystem::path& a_path);
     ~VideoClip();
 
-    inline e_VideoProfile GetVideoProfile() const
+    inline bool IsValid() const
     {
-        return m_videoProfile;
+        return m_videoInfo != nullptr;
     }
 
-    inline uint32_t GetFrameCount() const
+    inline e_VideoUpdateMode GetUpdateMode() const
     {
-        return m_frameCount;
-    }
-    inline const VideoFrameInfo* GetFrameInfo() const
-    {
-        return m_frames;
+        return m_updateMode;
     }
 
-    inline uint32_t GetWidth() const
+    inline const VideoInfo* GetVideoInfo() const
     {
-        return m_width;
-    }
-    inline uint32_t GetHeight() const
-    {
-        return m_height;
+        return m_videoInfo;
     }
 
-    inline uint32_t GetPaddedWidth() const
+    inline double GetTime() const
     {
-        return m_paddedWidth;
+        return m_time;
     }
-    inline uint32_t GetPaddedHeight() const
+    inline void SetTime(double a_time)
     {
-        return m_paddedHeight;
-    }
-
-    inline double GetDuration() const
-    {
-        return m_duration;
-    }
-    inline float GetFPS() const
-    {
-        return m_fps;
+        m_time = a_time;
     }
 
-    inline const H264::PPS* GetPPSData() const
-    {
-        return m_pps.Data();
-    }
-    inline uint32_t GetPPSCount() const
-    {
-        return m_pps.Size();
-    }
-
-    inline const H264::SPS* GetSPSData() const
-    {
-        return m_sps.Data();
-    }
-    inline uint32_t GetSPSCount() const
-    {
-        return m_sps.Size();
-    }
-
-    bool GetVideoClipData(double a_inTimeStamp, uint32_t* a_startIndex, uint32_t* a_endIndex, uint8_t** a_data, uint32_t* a_size) const;
+    bool GetVideoClipData(uint32_t a_startIndex, uint32_t a_endIndex, uint32_t a_alignment, uint8_t** a_data, uint32_t* a_size) const;
 };
 
 // MIT License

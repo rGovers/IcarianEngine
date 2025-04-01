@@ -202,6 +202,11 @@ namespace IcarianEngine.Mod
 
         internal string GetAssetPath(string a_path)
         {
+            if (string.IsNullOrWhiteSpace(a_path))
+            {
+                return null;
+            }
+
             if (m_aliases.ContainsKey(a_path))
             {
                 string ap = Path.Combine(AssemblyInfo.Path, "Assets", m_aliases[a_path]);
@@ -260,7 +265,7 @@ namespace IcarianEngine.Mod
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
