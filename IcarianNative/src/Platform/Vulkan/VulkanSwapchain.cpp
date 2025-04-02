@@ -404,6 +404,8 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
     m_renderPass = nullptr;
     m_renderPassNoClear = nullptr;
     
+    m_vSync = true;
+
     m_resizeFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":ResizeS(uint,uint)");
 
     const vk::Instance instance = m_engine->GetInstance();

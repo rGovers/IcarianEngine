@@ -1,6 +1,6 @@
-# IcarianEngine
 
-![image](resources/Icarian_Logo_White.svg)
+
+# <img src="resources/Icarian_Logo_White.svg" width="32"/> Icarian Engine
 
 Icarian Engine is a cross platform game engine to allow ease of modding.
 
@@ -22,9 +22,12 @@ Icarian Engine is a cross platform game engine to allow ease of modding.
 
 Building is done via CUBE.
 
-The project can be built by running build.sh.
+Building can be done by running the following
+```
+./build.sh
+```
 
-For extra options refer to --help on setup.sh.
+For extra options refer to --help on build.sh
 
 Output is in the build folder.
 
