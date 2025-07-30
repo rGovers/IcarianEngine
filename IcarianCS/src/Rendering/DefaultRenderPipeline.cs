@@ -211,18 +211,18 @@ namespace IcarianEngine.Rendering
                 m_postTextureSamplers[i] = TextureSampler.GenerateRenderTextureSampler(m_postRenderTextures[i]);
             }
 
-            m_quadVert = VertexShader.LoadVertexShader("[INTERNAL]Quad");
+            m_quadVert = VertexShader.LoadVertexShader("internal://Quad");
 
-            m_aoPixel = PixelShader.LoadPixelShader("[INTERNAL]AmbientOcclusion");
-            m_aoFilterPixel = PixelShader.LoadPixelShader("[INTERNAL]AmbientOcclusionFilter");
-            m_ambientLightPixel = PixelShader.LoadPixelShader("[INTERNAL]AmbientLight");
-            m_directionalLightPixel = PixelShader.LoadPixelShader("[INTERNAL]DirectionalLight");
-            m_pointLightPixel = PixelShader.LoadPixelShader("[INTERNAL]PointLight");
-            m_spotLightPixel = PixelShader.LoadPixelShader("[INTERNAL]SpotLight");
-            m_directionalLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]DirectionalLightShadow");
-            m_pointLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]PointLightShadow");
-            m_spotLightShadowPixel = PixelShader.LoadPixelShader("[INTERNAL]SpotLightShadow");
-            m_blendPixel = PixelShader.LoadPixelShader("[INTERNAL]Blend");
+            m_aoPixel = PixelShader.LoadPixelShader("internal://AmbientOcclusion");
+            m_aoFilterPixel = PixelShader.LoadPixelShader("internal://AmbientOcclusionFilter");
+            m_ambientLightPixel = PixelShader.LoadPixelShader("internal://AmbientLight");
+            m_directionalLightPixel = PixelShader.LoadPixelShader("internal://DirectionalLight");
+            m_pointLightPixel = PixelShader.LoadPixelShader("internal://PointLight");
+            m_spotLightPixel = PixelShader.LoadPixelShader("internal://SpotLight");
+            m_directionalLightShadowPixel = PixelShader.LoadPixelShader("internal://DirectionalLightShadow");
+            m_pointLightShadowPixel = PixelShader.LoadPixelShader("internal://PointLightShadow");
+            m_spotLightShadowPixel = PixelShader.LoadPixelShader("internal://SpotLightShadow");
+            m_blendPixel = PixelShader.LoadPixelShader("internal://Blend");
 
             MaterialBuilder aoBuilder = new MaterialBuilder()
             {
@@ -727,10 +727,7 @@ namespace IcarianEngine.Rendering
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the forward pass is for</param>
         public override void PostForward(Camera a_camera)
         {
-            RenderCommand.BindRenderTexture(m_colorRenderTexture);
-            RenderCommand.BindMaterial(m_blendMaterial);
 
-            RenderCommand.DrawMaterial();
         }
 
         /// <summary>
@@ -739,14 +736,21 @@ namespace IcarianEngine.Rendering
         /// <param name="a_camera">The <see cref="IcarianEngine.Rendering.Camera" /> the post processing pass is for</param>
         public override void PostProcess(Camera a_camera)
         {
+            RenderCommand.MarkerStart("Composite");
+
             if (m_postEffects == null || !a_camera.ApplyPost)
             {
-                RenderCommand.Blit(m_colorRenderTexture, a_camera.RenderTexture);
+                RenderCommand.BindRenderTexture(a_camera.RenderTexture);
+                RenderCommand.BindMaterial(m_blendMaterial);
+
+                RenderCommand.DrawMaterial();
+
+                RenderCommand.MarkerEnd();
 
                 return;
             }
 
-            List<PostEffect> effects = new List<PostEffect>();
+            List<PostEffect> effects = new List<PostEffect>(m_postEffects.Count);
             foreach (PostEffect e in m_postEffects)
             {
                 if (e.ShouldRun)
@@ -755,32 +759,51 @@ namespace IcarianEngine.Rendering
                 }
             }
 
-            int size = effects.Count;
+            uint size = (uint)effects.Count;
             if (size == 0)
             {
-                RenderCommand.Blit(m_colorRenderTexture, a_camera.RenderTexture);
+                RenderCommand.BindRenderTexture(a_camera.RenderTexture);
+                RenderCommand.BindMaterial(m_blendMaterial);
+
+                RenderCommand.DrawMaterial();
+
+                RenderCommand.MarkerEnd();
 
                 return;
             }
 
-            TextureSampler sampler = m_colorSampler;
-            uint textureIndex = 0;
+            RenderCommand.BindRenderTexture(m_postRenderTextures[0]);
+            RenderCommand.BindMaterial(m_blendMaterial);
 
-            int end = size - 1;
-            for (int i = 0; i < size; ++i)
+            RenderCommand.DrawMaterial();
+
+            RenderCommand.MarkerEnd();
+
+            RenderCommand.MarkerStart("Post");
+
+            TextureSampler sampler = m_postTextureSamplers[0];
+
+            uint samplerIndex = 1;
+
+            uint end = size - 1;
+            for (uint i = 0; i < size; ++i)
             {
-                IRenderTexture renderTexture = m_postRenderTextures[textureIndex];
+                // IRenderTexture renderTexture = m_postRenderTextures[i % 2];
+                IRenderTexture renderTexture = m_postRenderTextures[samplerIndex];
                 if (i >= end)
                 {
                     renderTexture = a_camera.RenderTexture;
                 }
 
-                effects[i].Run(renderTexture, new TextureSampler[] { sampler, m_normalSampler, m_emissionSampler, m_depthSampler }, m_drawRenderTexture);
+                effects[(int)i].Run(renderTexture, new TextureSampler[] { sampler, m_normalSampler, m_emissionSampler, m_depthSampler }, m_drawRenderTexture);
 
-                sampler = m_postTextureSamplers[textureIndex];
+                // sampler = m_postTextureSamplers[i % 2];
+                sampler = m_postTextureSamplers[samplerIndex];
 
-                textureIndex = (textureIndex + 1) % 2;
+                samplerIndex = (samplerIndex + 1) % 2;
             }
+
+            RenderCommand.MarkerEnd();
         }
 
         /// <summary>

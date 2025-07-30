@@ -5,7 +5,8 @@
 #pragma once
 
 #include <cstdint>
-#include <filesystem>
+#include <string>
+#include <string_view>
 
 #include "DataTypes/TNCArray.h"
 
@@ -64,13 +65,13 @@ public:
         return m_fonts[a_addr];
     }
 
-    bool LoadModelData(const std::filesystem::path& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius);
-    uint32_t LoadModel(const std::filesystem::path& a_path, uint8_t a_index);
-    uint32_t LoadSkinnedModel(const std::filesystem::path& a_path, uint8_t a_index);
+    bool LoadModelData(const std::string_view& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius);
+    uint32_t LoadModel(const std::string_view& a_path, uint8_t a_index);
+    uint32_t LoadSkinnedModel(const std::string_view& a_path, uint8_t a_index);
     void DestroyModel(uint32_t a_addr);
     uint32_t GetModel(uint32_t a_addr);
 
-    uint32_t LoadTexture(const std::filesystem::path& a_path);
+    uint32_t LoadTexture(const std::string_view& a_path);
     void DestroyTexture(uint32_t a_addr);
     uint32_t GetTexture(uint32_t a_addr);
 };

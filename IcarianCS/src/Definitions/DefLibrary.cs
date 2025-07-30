@@ -862,13 +862,15 @@ namespace IcarianEngine.Definitions
 
         public static void ResolveDefs()
         {
+            Logger.IcarianMessage("Resolving Defs");
+
             List<Def> defs = new List<Def>();
 
             lock (s_defs)
             {
                 defs.AddRange(s_defs);
             }
-            
+
             foreach (Def def in defs)
             {
                 ResolveDefs(def);

@@ -116,6 +116,12 @@ void RenderEngine::Run()
 
     const Application* app = m_window->GetApplication();
 
+    double pastDeltas[PastDeltaCount];
+    double targetFrameTime = 1 / 60.0;
+
+    uint32_t pastDeltaCount = 0;
+    uint32_t pastDeltaIndex = 0;
+
     while (!m_shutdown)
     {
         Profiler::Start("Render Thread");
@@ -125,40 +131,83 @@ void RenderEngine::Run()
             PROFILESTACK("Update");
             const float timeScale = app->GetTimeScale();
 
-            double delta = 0.0f;
+            double delta = 0.0;
 
             {
                 PROFILESTACK("Timing");
 
-                if (m_window->IsHeadless())
                 {
-                    const HeadlessAppWindow* headless = (HeadlessAppWindow*)m_window;
-    
-                    constexpr float RemoteTargetFPS = 60.0f;
-    
-                    std::chrono::high_resolution_clock::time_point time;
+                    PROFILESTACK("DynamicCal");
+
+                    // We are a generic engine so we do not have much control over frametimes
+                    // To get around that we lock the engine to a target FPS based off historic info
+                    // This should not have worked as well as it did but turned a spiky as fuck graph flat
+                    // TODO: Probably want to account for GPU frametimes down the line
+                    const std::chrono::high_resolution_clock::time_point time = std::chrono::high_resolution_clock::now();
+                    const double curDelta = std::chrono::duration<double>(time - prevTime).count();
+
+                    pastDeltas[pastDeltaIndex] = curDelta;
+
+                    if (pastDeltaCount <= PastDeltaCount)
+                    {
+                        ++pastDeltaCount;
+                    }
+                    else
+                    {
+                        double max = std::numeric_limits<double>::min();
+                        double min = std::numeric_limits<double>::max();
+
+                        for (double d : pastDeltas)
+                        {
+                            max = glm::max(d, max);
+                            min = glm::min(d, min);
+                        }
+
+                        const double diff = max - min;
+                        // Sit just below the max frame time as we want to keep frametimes stable
+                        const double target = max - diff * 0.1f;
+
+                        targetFrameTime += glm::min((target - targetFrameTime) * 0.5f, (double)MaxFrameTimeAdjustment);
+                        targetFrameTime = glm::min(targetFrameTime, (double)MaxFrameTime);
+                    }
+
+                    if (m_window->IsHeadless())
+                    {
+                        const HeadlessAppWindow* headless = (HeadlessAppWindow*)m_window;
+
+                        if (headless->IsRemote())
+                        {
+                            targetFrameTime = glm::max(targetFrameTime, (double)RemoteFrameTime);
+                        }
+                    }
+
+                    // Above 500 FPS frame times get to variable so unless the user disables the cap just cap it
+                    // Also no reason to waste system resources at this point
+                    if (m_config->IsFPSUnlocked())
+                    {
+                        targetFrameTime = glm::max(targetFrameTime, (double)MinFrameTime);
+                    }
+
+                    pastDeltaIndex = (pastDeltaIndex + 1) % PastDeltaCount;
+                }
+
+                {
+                    PROFILESTACK("Wait");
 
                     while (true)
                     {
-                        time = std::chrono::high_resolution_clock::now();
+                        const std::chrono::high_resolution_clock::time_point time = std::chrono::high_resolution_clock::now();
                         delta = std::chrono::duration<double>(time - prevTime).count();
-    
-                        if (!headless->IsRemote() || delta > 1.0 / RemoteTargetFPS)
+
+                        if (delta >= targetFrameTime || m_shutdown)
                         {
+                            prevTime = time;
+
                             break;
                         }
-    
+
                         std::this_thread::yield();
                     }
-
-                    prevTime = time;
-                }
-                else
-                {
-                    const std::chrono::high_resolution_clock::time_point time = std::chrono::high_resolution_clock::now();
-    
-                    delta = std::chrono::duration<double>(time - prevTime).count();
-                    prevTime = time;
                 }
 
                 timePassed += delta;
@@ -260,7 +309,7 @@ Font* RenderEngine::GetFont(uint32_t a_addr) const
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

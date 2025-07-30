@@ -14,17 +14,19 @@
 #define GLSL_PUSH_DEFINITION(name) uniform name
 #define F_DEFINITION(name) struct Shader##name
 
-#define GLSL_MAT4(name) mat4 name;
-#define F_MAT4(name) alignas(16) glm::mat4 name;
+#define GLSL_FLOAT(name) float name
+#define GLSL_VEC2(name) vec2 name
+#define GLSL_VEC3(name) vec3 name
+#define GLSL_VEC4(name) vec4 name
+#define GLSL_UVEC4(name) uvec4 name
+#define GLSL_MAT4(name) mat4 name
 
-#define GLSL_FLOAT(name) float name;
-#define GLSL_VEC2(name) vec2 name;
-#define GLSL_VEC3(name) vec3 name;
-#define GLSL_VEC4(name) vec4 name;
-#define F_FLOAT(name) alignas(16) float name;
-#define F_VEC2(name) alignas(16) glm::vec2 name;
-#define F_VEC3(name) alignas(16) glm::vec3 name;
-#define F_VEC4(name) alignas(16) glm::vec4 name;
+#define F_FLOAT(name) alignas(16) float name
+#define F_VEC2(name) alignas(16) glm::vec2 name
+#define F_VEC3(name) alignas(16) glm::vec3 name
+#define F_VEC4(name) alignas(16) glm::vec4 name
+#define F_UVEC4(name) alignas(16) glm::uvec4 name
+#define F_MAT4(name) alignas(16) glm::mat4 name
 
 #define GLSL_VULKAN_UNIFORM_STRING(slot, name, structure, structureName) std::string(SHADER_UNIFORM_STR(structure)) + "; layout(std140,binding=" + (slot) + ",set=" + (slot) + ") uniform " + (structureName) + "{ " + (structureName) + "Data " + (name) + "; };" 
 #define GLSL_VULKAN_SSBO_STRING(slot, name, structure, structureName) std::string(SHADER_UNIFORM_STR(structure)) + "; layout(std140,binding=" + (slot) + ",set=" + (slot) + ") readonly buffer " + (structureName) + " { int Count; " + (structureName) + "Data objects[]; } " + (name) + ";" 
@@ -34,30 +36,37 @@
 #define GLSL_OPENGL_SSBO_STRING(slot, name, structure, structureName) std::string(SHADER_UNIFORM_STR(structure)) + "; layout(std140,binding=" + (slot) + ") readonly buffer " + (structureName) + " { int Count; " + (structureName) + "Data objects[]; } " + (name) + ";" 
 #define GLSL_OPENGL_PUSHBUFFER_STRING(name, structure) std::string("layout(binding=64,std140) " SHADER_UNIFORM_STR(structure) " ") + (name) + ";"
 
+#define MESHLET_SHADER_STRUCTURE(D, UV4, VEC4) \
+D(MeshletBuffer) \
+{ \
+    UV4(Data); \
+    VEC4(Bounds); \
+}
+
 #define CAMERA_SHADER_STRUCTURE(D, M4) \
 D(CameraBuffer) \
 { \
-M4(View) \
-M4(Proj) \
-M4(InvView) \
-M4(InvProj) \
-M4(ViewProj) \
+M4(View); \
+M4(Proj); \
+M4(InvView); \
+M4(InvProj); \
+M4(ViewProj); \
 }
 #define GLSL_CAMERA_SHADER_STRUCTURE CAMERA_SHADER_STRUCTURE(GLSL_DEFINITION, GLSL_MAT4)
 
 #define PARTICLE_SHADER_STRUCTURE(D, V3, V4) \
 D(ParticleBuffer) \
 { \
-V4(Position) \
-V3(Velocity) \
+V4(Position); \
+V3(Velocity); \
 }
 #define GLSL_PARTICLE_SSBO_STRUCTURE PARTICLE_SHADER_STRUCTURE(GLSL_SSBO_DEFINITION, GLSL_VEC3, GLSL_VEC4)
 
 #define SHADOW_LIGHT_SHADER_STRUCTURE(D, M4, F) \
 D(ShadowLightBuffer) \
 { \
-M4(LVP) \
-F(Split) \
+M4(LVP); \
+F(Split); \
 }
 #define GLSL_SHADOW_LIGHT_SHADER_STRUCTURE SHADOW_LIGHT_SHADER_STRUCTURE(GLSL_DEFINITION, GLSL_MAT4, GLSL_FLOAT)
 #define GLSL_SHADOW_LIGHT_PUSH_STRUCTURE SHADOW_LIGHT_SHADER_STRUCTURE(GLSL_PUSH_DEFINITION, GLSL_MAT4, GLSL_FLOAT)
@@ -66,7 +75,7 @@ F(Split) \
 #define AMBIENT_LIGHT_SHADER_STRUCTURE(D, V4) \
 D(AmbientLightBuffer) \
 { \
-V4(LightColor) \
+V4(LightColor); \
 }
 #define GLSL_AMBIENT_LIGHT_SHADER_STRUCTURE AMBIENT_LIGHT_SHADER_STRUCTURE(GLSL_DEFINITION, GLSL_VEC4)
 #define GLSL_AMBIENT_LIGHT_SSBO_STRUCTURE AMBIENT_LIGHT_SHADER_STRUCTURE(GLSL_SSBO_DEFINITION, GLSL_VEC4)
@@ -74,8 +83,8 @@ V4(LightColor) \
 #define DIRECTIONAL_LIGHT_SHADER_STRUCTURE(D, V4) \
 D(DirectionalLightBuffer) \
 { \
-V4(LightDir) \
-V4(LightColor) \
+V4(LightDir); \
+V4(LightColor); \
 }
 #define GLSL_DIRECTIONAL_LIGHT_SHADER_STRUCTURE DIRECTIONAL_LIGHT_SHADER_STRUCTURE(GLSL_DEFINITION, GLSL_VEC4)
 #define GLSL_DIRECTIONAL_LIGHT_SSBO_STRUCTURE DIRECTIONAL_LIGHT_SHADER_STRUCTURE(GLSL_SSBO_DEFINITION, GLSL_VEC4)
@@ -83,9 +92,9 @@ V4(LightColor) \
 #define POINT_LIGHT_SHADER_STRUCTURE(D, FL, V4) \
 D(PointLightBuffer) \
 { \
-V4(LightPos) \
-V4(LightColor) \
-FL(Radius) \
+V4(LightPos); \
+V4(LightColor); \
+FL(Radius); \
 }
 #define GLSL_POINT_LIGHT_SHADER_STRUCTURE POINT_LIGHT_SHADER_STRUCTURE(GLSL_DEFINITION, GLSL_FLOAT, GLSL_VEC4)
 #define GLSL_POINT_LIGHT_SSBO_STRUCTURE POINT_LIGHT_SHADER_STRUCTURE(GLSL_SSBO_DEFINITION, GLSL_FLOAT, GLSL_VEC4)
@@ -93,10 +102,10 @@ FL(Radius) \
 #define SPOT_LIGHT_SHADER_STRUCTURE(D, V3, V4) \
 D(SpotLightBuffer) \
 { \
-V3(LightPos) \
-V4(LightDir) \
-V4(LightColor) \
-V3(CutoffAngle) \
+V3(LightPos); \
+V4(LightDir); \
+V4(LightColor); \
+V3(CutoffAngle); \
 }
 #define GLSL_SPOT_LIGHT_SHADER_STRUCTURE SPOT_LIGHT_SHADER_STRUCTURE(GLSL_DEFINITION, GLSL_VEC3, GLSL_VEC4)
 #define GLSL_SPOT_LIGHT_SSBO_STRUCTURE SPOT_LIGHT_SHADER_STRUCTURE(GLSL_SSBO_DEFINITION, GLSL_VEC3, GLSL_VEC4)
@@ -104,8 +113,8 @@ V3(CutoffAngle) \
 #define MODEL_SHADER_STRUCTURE(D, M4) \
 D(ModelBuffer) \
 { \
-M4(Model) \
-M4(InvModel) \
+M4(Model); \
+M4(InvModel); \
 }
 #define GLSL_MODEL_SHADER_STRUCTURE MODEL_SHADER_STRUCTURE(GLSL_DEFINITION, GLSL_MAT4)
 #define GLSL_MODEL_PUSH_STRUCTURE MODEL_SHADER_STRUCTURE(GLSL_PUSH_DEFINITION, GLSL_MAT4)
@@ -114,7 +123,7 @@ M4(InvModel) \
 #define BONE_SHADER_STRUCTURE(D, M4) \
 D(BoneBuffer) \
 { \
-M4(BoneMatrix) \
+M4(BoneMatrix); \
 }
 #define GLSL_BONE_SHADER_STRUCTURE BONE_SHADER_STRUCTURE(GLSL_DEFINITION, GLSL_MAT4)
 #define GLSL_BONE_SSBO_STRUCTURE BONE_SHADER_STRUCTURE(GLSL_SSBO_DEFINITION, GLSL_MAT4)
@@ -122,7 +131,7 @@ M4(BoneMatrix) \
 #define UI_SHADER_STRUCTURE(D, V4) \
 D(UIBuffer) \
 { \
-V4(Color) \
+V4(Color); \
 }
 #define GLSL_UI_SHADER_STRUCTURE UI_SHADER_STRUCTURE(GLSL_DEFINITION, GLSL_VEC4)
 #define GLSL_UI_PUSH_STRUCTURE UI_SHADER_STRUCTURE(GLSL_PUSH_DEFINITION, GLSL_VEC4)
@@ -130,12 +139,13 @@ V4(Color) \
 #define TIME_SHADER_BUFFER(D, V2) \
 D(TimeBuffer) \
 { \
-V2(Time) \
+V2(Time); \
 }
 #define GLSL_TIME_SHADER_STRUCTURE TIME_SHADER_BUFFER(GLSL_DEFINITION, GLSL_VEC2)
 
 namespace IcarianCore 
 {
+    MESHLET_SHADER_STRUCTURE(F_DEFINITION, F_UVEC4, F_VEC4);
     CAMERA_SHADER_STRUCTURE(F_DEFINITION, F_MAT4);
     PARTICLE_SHADER_STRUCTURE(F_DEFINITION, F_VEC3, F_VEC4);
     SHADOW_LIGHT_SHADER_STRUCTURE(F_DEFINITION, F_MAT4, F_FLOAT);
@@ -151,7 +161,7 @@ namespace IcarianCore
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -8,17 +8,24 @@ namespace IcarianEngine.Definitions
 {
     public class MeshRendererDef : RendererDef
     {
-        /// <summary>
-        /// Path relative to the project for the model file to be used
-        /// </summary>
-        [EditorTooltip("Path relative to the project for the model file to be used"), EditorPathString(new string[] { ".obj", ".dae", ".fbx", ".glb", ".gltf"})]
-        public string ModelPath;        
+        // TODO: Implement Mesh loading
+        // /// <summary>
+        // /// Path relative to the project for the mesh file to be used
+        // /// </summary>
+        // [EditorTooltip("Path relative to the project for the mesh file to be used"), EditorPathString(new string[] { ".obj", ".dae", ".fbx", ".glb", ".gltf"})]
+        // public string MeshPath;
+
+        // /// <summary>
+        // /// The mesh index to load
+        // /// </summary>
+        // [EditorTooltip("Mesh index to load")]
+        // public byte Index = byte.MaxValue;
 
         /// <summary>
-        /// The mesh index to load 
-        /// </summary> 
-        [EditorTooltip("Mesh index to load")]
-        public byte Index = byte.MaxValue;
+        /// The number of indices to draw
+        /// </summary>
+        /// uint.MaxValue to use the Mesh Meshlet count
+        public uint IndexCount = uint.MaxValue;
 
         public MeshRendererDef()
         {
@@ -31,22 +38,17 @@ namespace IcarianEngine.Definitions
 
             if (ComponentType != typeof(MeshRenderer) && !ComponentType.IsSubclassOf(typeof(MeshRenderer)))
             {
-                Logger.IcarianError($"MeshRendererDef {DefName} Invalid ComponentType: {ComponentType}");
+                Logger.IcarianError($"MeshRendererDef {DefName} invalid ComponentType: {ComponentType}");
 
                 return;
             }
-
-            if (string.IsNullOrWhiteSpace(ModelPath))
-            {
-                Logger.IcarianWarning($"MeshRendererDef {DefName} Invalid ModelPath");
-            }            
         }
     }
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

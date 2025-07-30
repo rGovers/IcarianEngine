@@ -5,6 +5,10 @@
 using System;
 using System.Runtime.CompilerServices;
 
+#ifdef ENABLE_STACKTRACE
+using System.Diagnostics;
+#endif
+
 namespace IcarianEngine.Rendering
 {
     public class MultiRenderTexture : IRenderTexture
@@ -12,7 +16,11 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GetTextureCount(uint a_addr);
 
-        uint m_bufferAddr = uint.MaxValue;
+        uint       m_bufferAddr = uint.MaxValue;
+
+#ifdef ENABLE_STACKTRACE
+        StackTrace m_stackTrace;
+#endif
 
         /// <summary>
         /// Whether or not the MultiRenderTexture had been disposed/finalised
@@ -93,6 +101,10 @@ namespace IcarianEngine.Rendering
             m_bufferAddr = RenderTextureCmd.GenerateRenderTexture(a_count, a_width, a_height, depthVal, hdrVal, a_channelCount);
 
             RenderTextureCmd.PushRenderTexture(m_bufferAddr, this);
+
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
         public MultiRenderTexture(uint a_count, uint a_width, uint a_height, DepthRenderTexture a_depthTexture, bool a_hdr = false, uint a_channelCount = 4)
         {
@@ -106,6 +118,10 @@ namespace IcarianEngine.Rendering
             }
 
             RenderTextureCmd.PushRenderTexture(m_bufferAddr, this);
+
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
 
         /// <summary>
@@ -130,7 +146,7 @@ namespace IcarianEngine.Rendering
         /// <summary>
         /// Called when the MultiRenderTexture is being Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether this has called from Dispose</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_bufferAddr != uint.MaxValue)
@@ -143,14 +159,18 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.IcarianWarning("MultiRenderTexture Failed to Dispose");
+                    Logger.IcarianWarning("MultiRenderTexture not Disposed");
+                    
+#ifdef ENABLE_STACKTRACE
+                    CallStack.PrintStackTrace(m_stackTrace);
+#endif  
                 }
 
                 m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple MultiRenderTexture Dispose");
+                Logger.IcarianError("MultiRenderTexture already Disposed");
             }
         }
         ~MultiRenderTexture()
@@ -162,7 +182,7 @@ namespace IcarianEngine.Rendering
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

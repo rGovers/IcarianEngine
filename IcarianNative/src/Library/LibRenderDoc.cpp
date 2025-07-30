@@ -4,9 +4,10 @@
 
 #include "Rendering/LibRenderDoc.h"
 
+#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_RENDERDOC
+
 static LibRenderDoc* Instance = nullptr;
 
-#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_RENDERDOC
 #include <cstddef>
 
 #ifdef WIN32

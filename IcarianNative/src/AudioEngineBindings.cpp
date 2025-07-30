@@ -45,17 +45,24 @@ AudioEngineBindings::~AudioEngineBindings()
     
 }
 
-uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const std::filesystem::path& a_path) const
+uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const std::string_view& a_path) const
 {
     IERRBLOCK;
 
     TRACE("Creating AudioClip");
-    IERRCHECKRET(std::filesystem::exists(a_path), -1);
 
-    const std::filesystem::path ext = a_path.extension();
+    const std::filesystem::path p = std::filesystem::path(a_path);
+    const std::filesystem::path ext = p.extension();
 
     BlockAllocator* allocator = m_engine->GetBlockAllocator();
     AudioClip* clip = nullptr;
+    IERRDEFER(
+    {
+        if (clip != nullptr)
+        {
+            allocator->Destroy(clip);
+        }
+    });
 
     const std::string extStr = ext.string();
     switch (StringHash<uint32_t>(extStr.c_str()))
@@ -63,8 +70,7 @@ uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const std::filesystem::p
     case StringHash<uint32_t>(".ogg"):
     {
         clip = allocator->Create<OGGAudioClip>(a_path);
-        IERRDEFER(allocator->Destroy(clip));
-        
+
         IERRCHECKRET(clip->GetSampleSize() > 0, -1);
 
         break;
@@ -72,7 +78,6 @@ uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const std::filesystem::p
     case StringHash<uint32_t>(".wav"):
     {
         clip = allocator->Create<WAVAudioClip>(a_path);
-        IERRDEFER(allocator->Destroy(clip));
 
         IERRCHECKRET(clip->GetSampleSize() > 0, -1);
 

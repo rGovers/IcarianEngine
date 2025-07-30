@@ -9,9 +9,11 @@
 #include "Core/Bitfield.h"
 #include "Core/IcarianLambda.h"
 #include "Core/ShaderBuffers.h"
+#include "IcarianError.h"
 #include "ObjectManager.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
+#include "Rendering/Vulkan/Shaders/VulkanMeshShader.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanLightBuffer.h"
 #include "Rendering/Vulkan/VulkanModel.h"
@@ -96,7 +98,8 @@ void VulkanRenderCommand::SetRenderTextureCompute()
                 );
             }
 
-            if (renderTexture->HasDepthTexture())
+            const bool hasDepthTexture = renderTexture->HasDepthTexture();
+            if (hasDepthTexture)
             {
                 constexpr vk::ImageSubresourceRange DepthSubResourceRange = vk::ImageSubresourceRange
                 (
@@ -290,14 +293,10 @@ void VulkanRenderCommand::ClearRenderTextureCompute()
         ICLEARBIT(m_flags, ComputeLayoutBit);
     }
 }
-void VulkanRenderCommand::BindResources()
-{
-    IVERIFY(m_materialAddr != uint32_t(-1));
 
+void VulkanRenderCommand::BindRenderTexturePass()
+{
     const VulkanRenderTexture* renderTexture = m_gEngine->GetRenderTexture(m_renderTexAddr);
-    const VulkanPipeline* pipeline = m_gEngine->GetPipeline(m_renderTexAddr, m_materialAddr);
-    const VulkanShaderData* shaderData = pipeline->GetShaderData();
-    const e_MaterialMode materialMode = shaderData->GetMaterialMode();
 
     const uint32_t screenWidth = ILAMBDA(
     {
@@ -318,9 +317,129 @@ void VulkanRenderCommand::BindResources()
         ILRETURN m_swapchain->GetHeight();
     });
 
+    if (renderTexture == nullptr)
+    {
+        constexpr vk::ClearValue ClearColor = vk::ClearValue(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f));
+
+        const uint32_t imageIndex = m_engine->GetImageIndex();
+
+        const vk::Rect2D rect = vk::Rect2D({ 0, 0 }, { screenWidth, screenHeight });
+        const vk::RenderPass renderPass = m_swapchain->GetRenderPass();
+        const vk::Framebuffer framebuffer = m_swapchain->GetFramebuffer(imageIndex);
+
+        const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
+        (
+            renderPass,
+            framebuffer,
+            rect,
+            1,
+            &ClearColor
+        );
+    
+        m_commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+    }
+    else
+    {
+        // TODO: There are edge cases that may get users and feels like bad design
+        // Might switch to using no clear and doing a software clear in RenderCommands to make behaviour more predictable
+        // Would not have this issue if we did not have to figure out if will be used in a Compute or Graphics context
+        // Could also track more state but more surface area for bugs
+        const vk::RenderPass renderPass = ILAMBDA
+        (
+            switch (m_renderBindMode) 
+            {
+            case RenderTextureBindMode_Clear:
+            {
+                ILRETURN renderTexture->GetRenderPass();
+            }
+            case RenderTextureBindMode_ClearColor:
+            {
+                ILRETURN renderTexture->GetRenderPassColorClear();
+            }
+            case RenderTextureBindMode_NoClear:
+            {
+                ILRETURN renderTexture->GetRenderPassNoClear();
+            }
+            default:
+            {
+                break;
+            }
+            }
+
+            IERROR("Invalid RenderTextureBindMode");
+
+            ILRETURN vk::RenderPass(nullptr);
+        );
+
+        const vk::Rect2D rect = vk::Rect2D({ 0, 0 }, { screenWidth, screenHeight });
+        const vk::Framebuffer framebuffer = renderTexture->GetFramebuffer();
+
+        const uint32_t clearCount = renderTexture->GetTotalTextureCount();
+        const vk::ClearValue* clearValues = renderTexture->GetClearValues();
+
+        const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
+        (
+            renderPass,
+            framebuffer,
+            rect,
+            clearCount,
+            clearValues
+        );
+
+        m_commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
+    }
+
+    if (m_cameraAddr != uint32_t(-1))
+    {
+        const CameraBuffer camBuffer = m_gEngine->GetCameraBuffer(m_cameraAddr);
+
+        const uint32_t screenWidth = ILAMBDA(
+        {
+            if (renderTexture != nullptr)
+            {
+                ILRETURN renderTexture->GetWidth();
+            }
+
+            ILRETURN m_swapchain->GetWidth();
+        });
+        const uint32_t screenHeight = ILAMBDA(
+        {
+            if (renderTexture != nullptr)
+            {
+                ILRETURN renderTexture->GetHeight();
+            }
+
+            ILRETURN m_swapchain->GetHeight();
+        });
+
+        const glm::vec2 screenSize = glm::vec2((float)screenWidth, (float)screenHeight);
+        const glm::vec2 viewPos = camBuffer.View.Position * screenSize;
+        const glm::vec2 viewSize = camBuffer.View.Size * screenSize;
+
+        const vk::Rect2D scissor = vk::Rect2D({ (int32_t)viewPos.x, (int32_t)viewPos.y }, { (uint32_t)viewSize.x, (uint32_t)viewSize.y });
+        m_commandBuffer.setScissor(0, 1, &scissor);
+
+        const vk::Viewport viewport = vk::Viewport(viewPos.x, viewPos.y, viewSize.x, viewSize.y, camBuffer.View.MinDepth, camBuffer.View.MaxDepth);
+        m_commandBuffer.setViewport(0, 1, &viewport);
+    }
+}
+
+void VulkanRenderCommand::BindResources()
+{
+    IVERIFY(m_materialAddr != uint32_t(-1));
+
+    const VulkanPipeline* pipeline = m_gEngine->GetPipeline(m_renderTexAddr, m_materialAddr);
+    const VulkanShaderData* shaderData = pipeline->GetShaderData();
+    const e_MaterialMode materialMode = shaderData->GetMaterialMode();
+    const VulkanRenderTexture* renderTexture = m_gEngine->GetRenderTexture(m_renderTexAddr);
+
+    const bool meshEnabled = m_engine->IsMeshEnabled();
+
+    const bool isEmulatedMesh = materialMode == MaterialMode_BaseMesh && !meshEnabled;
+    const bool isCompute = materialMode == MaterialMode_Compute;
+
     switch (materialMode)
     {
-    case MaterialMode_BaseMesh:
     case MaterialMode_BaseVertex:
     {
         if (IISBITSET(m_flags, ComputeLayoutBit))
@@ -330,75 +449,41 @@ void VulkanRenderCommand::BindResources()
 
         if (!IISBITSET(m_flags, RenderTextureBoundBit))
         {
-            if (renderTexture == nullptr)
-            {
-                constexpr vk::ClearValue ClearColor = vk::ClearValue(vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f));
-            
-                const uint32_t imageIndex = m_engine->GetImageIndex();
-            
-                const vk::Rect2D rect = vk::Rect2D({ 0, 0 }, { screenWidth, screenHeight });
-                const vk::RenderPass renderPass = m_swapchain->GetRenderPass();
-                const vk::Framebuffer framebuffer = m_swapchain->GetFramebuffer(imageIndex);
-            
-                const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
-                (
-                    renderPass,
-                    framebuffer,
-                    rect,
-                    1,
-                    &ClearColor
-                );
-            
-                m_commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
-            }
-            else
-            {
-                const vk::RenderPass renderPass = ILAMBDA
-                (
-                    switch (m_renderBindMode) 
-                    {
-                    case RenderTextureBindMode_Clear:
-                    {
-                        ILRETURN renderTexture->GetRenderPass();
-                    }
-                    case RenderTextureBindMode_ClearColor:
-                    {
-                        ILRETURN renderTexture->GetRenderPassColorClear();
-                    }
-                    case RenderTextureBindMode_NoClear:
-                    {
-                        ILRETURN renderTexture->GetRenderPassNoClear();
-                    }
-                    default:
-                    {
-                        break;
-                    }
-                    }
-
-                    IERROR("Invalid RenderTextureBindMode");
-
-                    ILRETURN vk::RenderPass(nullptr);
-                );
-            
-                const vk::Rect2D rect = vk::Rect2D({ 0, 0 }, { screenWidth, screenHeight });
-                const vk::Framebuffer framebuffer = renderTexture->GetFramebuffer();
-            
-                const uint32_t clearCount = renderTexture->GetTotalTextureCount();
-                const vk::ClearValue* clearValues = renderTexture->GetClearValues();
-            
-                const vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo
-                (
-                    renderPass,
-                    framebuffer,
-                    rect,
-                    clearCount,
-                    clearValues
-                );
-            
-                m_commandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
-            }
+            BindRenderTexturePass();
 
             ISETBIT(m_flags, RenderTextureBoundBit);
+        }
+
+        break;
+    }
+    case MaterialMode_BaseMesh:
+    {
+        if (IISBITSET(m_flags, ComputeLayoutBit))
+        {
+            ClearRenderTextureCompute();
+        }
+
+        if (!isEmulatedMesh)
+        {
+            if (!IISBITSET(m_flags, RenderTextureBoundBit))
+            {
+                BindRenderTexturePass();
+
+                ISETBIT(m_flags, RenderTextureBoundBit);
+            }
+        }
+        else
+        {
+            if (IISBITSET(m_flags, RenderTextureBoundBit))
+            {
+                // We are in emulated mode and Vulkan is annoying as we cannot run Compute in a Render Pass
+                // Because of this we will bind it as needed
+                // Yes this is a lot of over head and state changes however Vulkan does not give us much choice
+                // That went out the window when we had to do 1-2 dispatches and 1 draw call to achieve the same functionality
+                m_commandBuffer.endRenderPass();
+
+                ICLEARBIT(m_flags, RenderTextureBoundBit);
+            }
         }
 
         break;
@@ -426,27 +511,35 @@ void VulkanRenderCommand::BindResources()
         break;
     }
     }
-    
+
     if (m_cameraAddr != uint32_t(-1))
     {
-        const glm::vec2 screenSize = glm::vec2(screenWidth, screenHeight);
-
         const CameraBuffer camBuffer = m_gEngine->GetCameraBuffer(m_cameraAddr);
-        const glm::vec2 viewSize = camBuffer.View.Size * screenSize;
-        
-        if (materialMode != MaterialMode_Compute)
-        {
-            const glm::vec2 viewPos = camBuffer.View.Position * screenSize;
 
-            const vk::Rect2D scissor = vk::Rect2D({ (int32_t)viewPos.x, (int32_t)viewPos.y }, { (uint32_t)viewSize.x, (uint32_t)viewSize.y });
-            m_commandBuffer.setScissor(0, 1, &scissor);
-        
-            const vk::Viewport viewport = vk::Viewport(viewPos.x, viewPos.y, viewSize.x, viewSize.y, camBuffer.View.MinDepth, camBuffer.View.MaxDepth);
-            m_commandBuffer.setViewport(0, 1, &viewport);
-        }
-    
+        const uint32_t screenWidth = ILAMBDA(
+        {
+            if (renderTexture != nullptr)
+            {
+                ILRETURN renderTexture->GetWidth();
+            }
+
+            ILRETURN m_swapchain->GetWidth();
+        });
+        const uint32_t screenHeight = ILAMBDA(
+        {
+            if (renderTexture != nullptr)
+            {
+                ILRETURN renderTexture->GetHeight();
+            }
+
+            ILRETURN m_swapchain->GetHeight();
+        });
+
+        const glm::vec2 screenSize = glm::vec2((float)screenWidth, (float)screenHeight);
+        const glm::vec2 viewSize = camBuffer.View.Size * screenSize;
+
         const glm::mat4 mat = ObjectManager::GetGlobalMatrix(camBuffer.TransformAddr);
-    
+
         const IcarianCore::ShaderCameraBuffer cameraShaderData =
         {
             .View = glm::inverse(mat),
@@ -455,7 +548,7 @@ void VulkanRenderCommand::BindResources()
             .InvProj = glm::inverse(cameraShaderData.Proj),
             .ViewProj = cameraShaderData.Proj * cameraShaderData.View
         };
-    
+
         const uint32_t curFrame = m_engine->GetCurrentFrame();
 
         VulkanUniformBuffer* cameraUniformBuffer = m_gEngine->GetCameraUniformBuffer(m_bufferIndex);
@@ -484,7 +577,7 @@ void VulkanRenderCommand::BindResources()
             shaderData->PushUniformBuffer(m_commandBuffer, timeInput.Slot, timeBuffer, currentFrame);
         }
 
-        if (materialMode == MaterialMode_Compute)
+        if (isCompute)
         {
             const Array<ShaderBufferInput, RenderScratchAlloc> bufferInputs = shaderData->GetShaderBufferInputs(ShaderBufferType_BufferTexture);
             for (const ShaderBufferInput s : bufferInputs) 
@@ -575,6 +668,8 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr, bool 
 
     if (m_materialAddr == uint32_t(-1))
     {
+        ICLEARBIT(m_flags, MaterialBoundBit);
+
         return nullptr;
     }
 
@@ -941,6 +1036,13 @@ void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, uint32_t a_inde
 
 void VulkanRenderCommand::DrawMaterial()
 {
+    if (m_materialAddr == uint32_t(-1))
+    {
+        IERROR("Drawing Material with no Material");
+
+        return;
+    }
+
     BindResources();
 
     const RenderProgram program = m_gEngine->GetRenderProgram(m_materialAddr);
@@ -998,23 +1100,167 @@ void VulkanRenderCommand::DrawMaterial()
     }
     }
 }
-void VulkanRenderCommand::DrawModel(const glm::mat4& a_transform, uint32_t a_addr)
+void VulkanRenderCommand::DrawModel(const glm::mat4& a_transform, uint32_t a_modelAddr)
 {
-    IVERIFY(m_materialAddr != uint32_t(-1));
+    if (m_materialAddr == uint32_t(-1))
+    {
+        IERROR("Drawing Model with no Material");
+
+        return;
+    }
 
     BindResources();
 
-    const VulkanModel* model = m_gEngine->GetModel(a_addr);
-
+    const VulkanModel* model = m_gEngine->GetModel(a_modelAddr);
     model->Bind(m_commandBuffer);
 
     const uint32_t indexCount = model->GetIndexCount();
 
     const VulkanPipeline* pipeline = GetPipeline();
+    IVERIFY(pipeline != nullptr);
     const VulkanShaderData* shaderData = pipeline->GetShaderData();
-    shaderData->UpdateTransformBuffer(m_commandBuffer, a_transform);
+    const e_MaterialMode materialMode = shaderData->GetMaterialMode();
+    if (materialMode != MaterialMode_BaseVertex)
+    {
+        IERROR("Drawing non vertex Material with DrawModel");
+
+        return;
+    }
+
+    ShaderBufferInput input;
+    if (shaderData->GetShaderBufferInput(ShaderBufferType_SSModelBuffer, &input))
+    {
+        // TODO: I can probably batch these calls need to investigate if it is even worthwhile
+        RENDERSCRATCHFRAME;
+
+        const IcarianCore::ShaderModelBuffer buffer = 
+        {
+            .Model = a_transform,
+            .InvModel = glm::inverse(a_transform)
+        };
+
+        void* storagePtr = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
+        const VulkanShaderStorageObject* storage = new (storagePtr) VulkanShaderStorageObject(m_engine, sizeof(IcarianCore::ShaderModelBuffer), 1, &buffer);
+        IDEFER(storage->~VulkanShaderStorageObject());
+
+        const uint32_t frameIndex = m_engine->GetCurrentFlightFrame();
+
+        shaderData->PushShaderStorageObject(m_commandBuffer, input.Slot, storage, frameIndex);
+    }
+    else
+    {
+        shaderData->UpdateTransformBuffer(m_commandBuffer, a_transform);
+    }
 
     m_commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
+}
+void VulkanRenderCommand::DrawMesh(const glm::mat4& a_transform, uint32_t a_meshAddr, uint32_t a_indexCount)
+{
+    if (m_materialAddr == uint32_t(-1))
+    {
+        IERROR("Drawing Mesh with no Material");
+
+        return;
+    }
+
+    BindResources();
+
+    const VulkanPipeline* pipeline = GetPipeline();
+    IVERIFY(pipeline != nullptr);
+    const VulkanShaderData* shaderData = pipeline->GetShaderData();
+    const e_MaterialMode materialMode = shaderData->GetMaterialMode();
+    if (materialMode != MaterialMode_BaseMesh)
+    {
+        IERROR("Drawing non Mesh Material with DrawMesh");
+
+        return;
+    }
+
+    // TODO: Implement Mesh binding support
+
+    ShaderBufferInput input;
+    if (shaderData->GetShaderBufferInput(ShaderBufferType_SSModelBuffer, &input))
+    {
+        RENDERSCRATCHFRAME;
+
+        const IcarianCore::ShaderModelBuffer buffer =
+        {
+            .Model = a_transform,
+            .InvModel = glm::inverse(a_transform)
+        };
+
+        void* storagePtr = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
+        const VulkanShaderStorageObject* storage = new (storagePtr) VulkanShaderStorageObject(m_engine, sizeof(IcarianCore::ShaderModelBuffer), 1, &buffer);
+        IDEFER(storage->~VulkanShaderStorageObject());
+
+        const uint32_t frameIndex = m_engine->GetCurrentFlightFrame();
+
+        shaderData->PushShaderStorageObject(m_commandBuffer, input.Slot, storage, frameIndex);
+    }
+    else
+    {
+        shaderData->UpdateTransformBuffer(m_commandBuffer, a_transform);
+    }
+
+    const bool isMeshEnabled = m_engine->IsMeshEnabled();
+    if (isMeshEnabled)
+    {
+        // We do have native mesh support so we can just directly dispatch the call no questions asked
+        m_commandBuffer.drawMeshTasksEXT(a_indexCount, 1, 1);
+    }
+    else
+    {
+        const RenderProgram program = m_gEngine->GetRenderProgram(m_materialAddr);
+        IVERIFY(program.Data != nullptr);
+
+        // We do not have native mesh support so we need to emulate the functionality
+        // Note Vulkan is annoying as you cannot dispatch Compute in an active RenderPass
+        // To get around this when RenderCommands are in emulated mode we have to manually bind the RenderPass
+        // when it is a Mesh Material
+        const VulkanMeshEmulationData* emulationData = m_gEngine->GetMeshEmulationData();
+        IVERIFY(emulationData != nullptr);
+
+        const bool hasTask = program.ExtraShader != uint32_t(-1);
+
+        // Start the process of zero filling the old buffer
+        // We do not need a barrier yet will insert a barrier just before we start writing to it
+        // Starting the process now as we know we will need to clear it as we are drawing now
+        // If the GPU decides to actually start filling the buffer with zeros before the barrier is a seperate matter
+        // We have presented the opportunity to fill the buffer in the backgroud so we have done our job
+        m_commandBuffer.fillBuffer(emulationData->IndexBuffer, 0, vk::WholeSize, 0);
+
+        // const VulkanMeshShader* meshShader = m_gEngine->GetMeshShader(program.VertexShader);
+
+        // TODO: We need to properly handle Task Shaders
+        // This will likely end up a Dispatch->IndirectMultiDispatch still figuring out details however
+        if (hasTask)
+        {
+
+        }
+
+        const vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier
+        (
+            vk::AccessFlagBits::eTransferWrite,
+            vk::AccessFlagBits::eShaderWrite,
+            vk::QueueFamilyIgnored,
+            vk::QueueFamilyIgnored,
+            emulationData->IndexBuffer,
+            0,
+            vk::WholeSize
+        );
+
+        m_commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eComputeShader, { }, 0, nullptr, 1, &barrier, 0, nullptr);
+
+        if (hasTask)
+        {
+            // TODO: Implement me!~
+        }
+        else
+        {
+            // const uint32_t computeAddr =
+            // m_commandBuffer.dispatch()
+        }
+    }
 }
 
 void VulkanRenderCommand::MarkerStart(const std::string_view& a_name)
@@ -1027,6 +1273,7 @@ void VulkanRenderCommand::MarkerStart(const std::string_view& a_name)
         ( 
             a_name.data()
         ); 
+
         m_commandBuffer.debugMarkerBeginEXT(markerInfo); 
     }
 #endif

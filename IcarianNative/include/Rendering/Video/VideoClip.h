@@ -4,7 +4,9 @@
 
 #pragma once
 
-#include <filesystem>
+#include <cstdint>
+#include <string>
+#include <string_view>
 
 class VideoInfo;
 
@@ -17,18 +19,18 @@ enum e_VideoUpdateMode
 class VideoClip
 {
 private:
-    std::filesystem::path m_path;
+    std::string       m_path;
 
-    VideoInfo*            m_videoInfo;
+    VideoInfo*        m_videoInfo;
 
-    e_VideoUpdateMode     m_updateMode;
+    e_VideoUpdateMode m_updateMode;
 
-    double                m_time;
+    double            m_time;
 
 protected:
 
 public:
-    VideoClip(const std::filesystem::path& a_path);
+    VideoClip(const std::string_view& a_path);
     ~VideoClip();
 
     inline bool IsValid() const
@@ -60,7 +62,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

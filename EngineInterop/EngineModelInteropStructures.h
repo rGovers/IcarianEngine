@@ -69,7 +69,8 @@ IOP_PACKED IOP_CSPUBLIC struct Vertex
     /// <summary>
     /// The normal of the Vertex
     /// </summary>
-    IOP_CSPUBLIC IOP_VEC3 Normal;
+    // An old bug from 30 years ago with alignment has resurfaced so use a vec4 instead of a vec3
+    IOP_CSPUBLIC IOP_VEC4 Normal;
     /// <summary>
     /// The color of the Vertex
     /// </summary>
@@ -94,7 +95,7 @@ IOP_PACKED IOP_CSPUBLIC struct Vertex
         return new VertexInputAttribute[]
         {
             new VertexInputAttribute() { Location = 0, Type = VertexType.Float, Count = 4, Offset = (ushort)Marshal.OffsetOf<Vertex>("Position") },
-            new VertexInputAttribute() { Location = 1, Type = VertexType.Float, Count = 3, Offset = (ushort)Marshal.OffsetOf<Vertex>("Normal") },
+            new VertexInputAttribute() { Location = 1, Type = VertexType.Float, Count = 4, Offset = (ushort)Marshal.OffsetOf<Vertex>("Normal") },
             new VertexInputAttribute() { Location = 2, Type = VertexType.Float, Count = 4, Offset = (ushort)Marshal.OffsetOf<Vertex>("Color") },
             new VertexInputAttribute() { Location = 3, Type = VertexType.Float, Count = 2, Offset = (ushort)Marshal.OffsetOf<Vertex>("TexCoordsA") },
             new VertexInputAttribute() { Location = 4, Type = VertexType.Float, Count = 2, Offset = (ushort)Marshal.OffsetOf<Vertex>("TexCoordsB") }
@@ -103,7 +104,7 @@ IOP_PACKED IOP_CSPUBLIC struct Vertex
 #else
     constexpr Vertex(const glm::vec4& a_pos = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), const glm::vec3& a_normal = glm::vec3(0.0f), const glm::vec4& a_color = glm::vec4(1.0f), const glm::vec2& a_texCoordsA = glm::vec2(0.0f), const glm::vec2& a_texCoordsB = glm::vec2(0.0f)) :
             Position(a_pos),
-            Normal(a_normal),
+            Normal(a_normal, 0.0f),
             Color(a_color),
             TexCoordsA(a_texCoordsA),
             TexCoordsB(a_texCoordsB)

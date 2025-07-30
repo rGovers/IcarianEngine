@@ -6,7 +6,7 @@ using IcarianEngine.Rendering.Animation;
 
 namespace IcarianEngine.Definitions
 {
-    public class SkinnedMeshRendererDef : RendererDef
+    public class SkinnedModelRendererDef : RendererDef
     {
         /// <summary>
         /// Path relative to the project for the skeleton file to be used
@@ -26,30 +26,30 @@ namespace IcarianEngine.Definitions
         [EditorTooltip("The mesh index to load")]
         public byte Index;
 
-        public SkinnedMeshRendererDef()
+        public SkinnedModelRendererDef()
         {
-            ComponentType = typeof(SkinnedMeshRenderer);
+            ComponentType = typeof(SkinnedModelRenderer);
         }
 
         public override void PostResolve()
         {
             base.PostResolve();
 
-            if (ComponentType != typeof(SkinnedMeshRenderer) && !ComponentType.IsSubclassOf(typeof(SkinnedMeshRenderer)))
+            if (ComponentType != typeof(SkinnedModelRenderer) && !ComponentType.IsSubclassOf(typeof(SkinnedModelRenderer)))
             {
-                Logger.IcarianError($"SkinnedMeshRendererDef Invalid ComponentType: {ComponentType}");
+                Logger.IcarianError($"SkinnedModelRendererDef {DefName} invalid ComponentType: {ComponentType}");
 
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(ModelPath))
             {
-                Logger.IcarianWarning("SkinnedMeshRendererDef Invalid ModelPath");
+                Logger.IcarianWarning($"SkinnedModelRendererDef {DefName} invalid ModelPath");
             }
 
             if (string.IsNullOrWhiteSpace(SkeletonPath))
             {
-                Logger.IcarianWarning("SkinnedMeshRendererDef Invalid SkeletonPath");
+                Logger.IcarianWarning($"SkinnedModelRendererDef {DefName} invalid SkeletonPath");
             }
         }
     }

@@ -64,7 +64,16 @@ static CBBOOL WriteIcarianNativeShadersToHeader(const char* a_workingPath)
     return ret;
 }
 
-static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, CBBOOL a_enableTrace, CBBOOL a_enableProfiler, CBBOOL a_enableMarkers, CBBOOL a_remoteMode)
+typedef struct
+{
+    CBBOOL EnableTrace;
+    CBBOOL EnableProfiler;
+    CBBOOL EnableMarkers;
+    CBBOOL RemoteMode;
+    CBBOOL EnablePipeFile;
+} IcarianNativeProjectFlags;
+
+static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, IcarianNativeProjectFlags a_flags)
 {
     CUBE_CProject project = { 0 };
 
@@ -95,8 +104,8 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     }
 
     CUBE_CProject_AppendDefines(&project,
-        "ICARIANNATIVE_VERSION_MAJOR=2024",
-        "ICARIANNATIVE_VERSION_MINOR=2",
+        "ICARIANNATIVE_VERSION_MAJOR=2025",
+        "ICARIANNATIVE_VERSION_MINOR=0",
         "ICARIANNATIVE_VERSION_PATCH=0",
         commitDefine.Data,
         "ICARIANNATIVE_VERSION_TAG=DEV",
@@ -115,17 +124,21 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
     CUBE_String_Destroy(&commitDefine);
 
-    if (a_enableMarkers)
+    if (a_flags.EnableMarkers)
     {
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_MARKERS");
     }
-    if (a_enableTrace)
+    if (a_flags.EnableTrace)
     {
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_TRACE");
     }
-    if (a_enableProfiler)
+    if (a_flags.EnableProfiler)
     {
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_PROFILER");
+    }
+    if (a_flags.EnablePipeFile)
+    {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_PIPEFILE");
     }
 
     // This is still an experimental feature but enabling it to start testing
@@ -133,7 +146,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     // (We mostly use headless mode when using the editors window and not our own and the performance hit is due to process boundaries and data transfer)
     // Windows is still giving me issues and not setup to test properly on Windows
     // And disabling in remote mode because well it is a remote system so DMA is imposible
-    if (!a_remoteMode && a_targetPlatform != TargetPlatform_Windows)
+    if (!a_flags.RemoteMode && a_targetPlatform != TargetPlatform_Windows)
     {
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_DMA");
     }
@@ -155,6 +168,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 	    "../deps/Vulkan-Headers/include",
         "../deps/renderdoc/app/",
         "../deps/enet/include",
+        "../deps/meshoptimizer/src",
 
         "./lib/glslang",
         "./lib/glslang/External/spirv-tools/include",
@@ -175,6 +189,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "./src/Application.cpp",
         "./src/AudioEngine.cpp",
         "./src/AudioEngineBindings.cpp",
+        "./src/CacheFileHandle.cpp",
         "./src/Config.cpp",
         "./src/DeletionQueue.cpp",
         "./src/FileCache.cpp",
@@ -207,8 +222,10 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "./src/OGGAudioClip.cpp",
         "./src/PhysicsEngine.cpp",
         "./src/PhysicsEngineBindings.cpp",
+        "./src/PipeFileHandle.cpp",
         "./src/Profiler.cpp",
         "./src/Random.cpp",
+        "./src/ReadFileHandle.cpp",
         "./src/RenderAssetStore.cpp",
         "./src/RenderAssetStoreBindings.cpp",
         "./src/RenderEngine.cpp",
@@ -229,8 +246,158 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "./src/WAVAudioClip.cpp"
     );
 
+    CUBE_CProject_AppendRebuildSources(&project,
+        "../IcarianCore/include/Core/Bitfield.h",
+        "../IcarianCore/include/Core/CommunicationPipe.h",
+        "../IcarianCore/include/Core/CRC.h",
+        "../IcarianCore/include/Core/DMASwapBuffer.h",
+        "../IcarianCore/include/Core/Endian.h",
+        "../IcarianCore/include/Core/FlareShader.h",
+        "../IcarianCore/include/Core/IcarianAssert.h",
+        "../IcarianCore/include/Core/IcarianDefer.h",
+        "../IcarianCore/include/Core/IcarianError.h",
+        "../IcarianCore/include/Core/IcarianLambda.h",
+        "../IcarianCore/include/Core/IcarianPragma.h",
+        "../IcarianCore/include/Core/InputBindings.h",
+        "../IcarianCore/include/Core/IPCPipe.h",
+        "../IcarianCore/include/Core/MonoNativeImpl.h",
+        "../IcarianCore/include/Core/Pipefile.h",
+        "../IcarianCore/include/Core/PipeMessage.h",
+        "../IcarianCore/include/Core/ShaderBuffers.h",
+        "../IcarianCore/include/Core/SharedMemoryBuffer.h",
+        "../IcarianCore/include/Core/SocketPipe.h",
+        "../IcarianCore/include/Core/StringUtils.h",
+        "../IcarianCore/include/Core/WindowsHeaders.h",
+
+        "./include/AI/Navigation.h",
+        "./include/AI/NavigationBindings.h",
+        "./include/AI/NavigationMesh.h",
+
+        "./include/AppWindow/AppWindow.h",
+        "./include/AppWindow/GLFWAppWindow.h",
+        "./include/AppWindow/HeadlessAppWindow.h",
+
+        "./include/Audio/AudioClips/AudioClip.h",
+        "./include/Audio/AudioClips/OGGAudioClip.h",
+        "./include/Audio/AudioClips/WAVAudioClip.h",
+
+        "./include/Audio/AudioEngine.h",
+        "./include/Audio/AudioEngineBindings.h",
+        "./include/Audio/AudioListenerBuffer.h",
+        "./include/Audio/IcarianMiniaudio.h",
+
+        "./include/DataTypes/Allocator.h",
+        "./include/DataTypes/Array.h",
+        "./include/DataTypes/BlockAllocator.h",
+        "./include/DataTypes/RingAllocator.h",
+        "./include/DataTypes/SpinLock.h",
+        "./include/DataTypes/StackAllocator.h",
+        "./include/DataTypes/TArray.h",
+        "./include/DataTypes/ThreadGuard.h",
+        "./include/DataTypes/TLockArray.h",
+        "./include/DataTypes/TLockObj.h",
+        "./include/DataTypes/TNCArray.h",
+        "./include/DataTypes/TStatic.h",
+
+        "./include/FileHandles/CacheFileHandle.h",
+        "./include/FileHandles/FileHandle.h",
+        "./include/FileHandles/PipeFileHandle",
+        "./include/FileHandles/ReadFileHandle.h",
+
+        "./include/Networking/NetworkClient.h",
+        "./include/Networking/NetworkManager.h",
+        "./include/Networking/NetworkServer.h",
+
+        "./include/Physics/IcBodyActivationListener.h",
+        "./include/Physics/IcBroadPhaseLayerInterface.h",
+        "./include/Physics/IcCharacterListener.h",
+        "./include/Physics/IcContactListener.h",
+        "./include/Physics/IcObjectLayerPairFilter.h",
+        "./include/Physics/IcObjectVsBroadPhaseLayerFilter.h",
+        "./include/Physics/IcPhysicsJobSystem.h",
+        "./include/Physics/InterfaceLock.h",
+        "./include/Physics/PhysicsEngine.h",
+        "./include/Physics/PhysicsEngineBindings.h",
+
+        "./include/Rendering/Null/NullRenderEngineBackend.h",
+
+        "./include/Rendering/UI/CanvasRendererBuffer.h",
+        "./include/Rendering/UI/Font.h",
+        "./include/Rendering/UI/ImageUIElement.h",
+        "./include/Rendering/UI/TextUIElement.h",
+        "./include/Rendering/UI/UIControl.h",
+        "./include/Rendering/UI/UIControlBindings.h",
+        "./include/Rendering/UI/UIElement.h",
+
+        "./include/Rendering/Video/VideoInfo/H264VideoInfo.h",
+        "./include/Rendering/Video/VideoInfo/VideoInfo.h",
+
+        "./include/Rendering/Video/H264.h",
+        "./include/Rendering/Video/VideoClip.h",
+        "./include/Rendering/Video/VideoManager.h",
+        "./include/Rendering/Video/VideoManagerBindings.h",
+
+        "./include/Rendering/AnimationController.h",
+        "./include/Rendering/AnimationControllerBindings.h",
+        "./include/Rendering/CameraBuffer.h",
+        "./include/Rendering/LibRenderDoc.h",
+        "./include/Rendering/MaterialRenderStack.h",
+        "./include/Rendering/RenderAssetStore.h",
+        "./include/Rendering/RenderAssetStoreBindings.h",
+        "./include/Rendering/RenderBuffers.h",
+        "./include/Rendering/RenderDeviceInfo.h",
+        "./include/Rendering/RenderEngine.h",
+        "./include/Rendering/RenderEngineBackend.h",
+        "./include/Rendering/ShaderTable.h",
+        "./include/Rendering/SPIRVTools.h",
+        "./include/Rendering/TextureData.h",
+        "./include/Rendering/Viewport.h",
+
+        "./include/Runtime/RuntimeFunction.h",
+        "./include/Runtime/RuntimeManager.h",
+
+        "./include/Application.h",
+        "./include/Config.h",
+        "./include/DeletionQueue.h",
+        "./include/FileCache.h",
+        "./include/Frustum.h",
+        "./include/GamePad.h",
+        "./include/IcarianError.h",
+        "./include/InputManager.h",
+        "./include/LibXInput.h",
+        "./include/Logger.h",
+        "./include/Memory.h",
+        "./include/ObjectManager.h",
+        "./include/Profiler.h",
+        "./include/Random.h",
+        "./include/RuntimeThreadJob.h",
+        "./include/ThreadJob.h",
+        "./include/ThreadPool.h",
+        "./include/Trace.h",
+
+        "./shaders/AmbientLight.fpix",
+        "./shaders/AmbientOcclusion.fpix",
+        "./shaders/AmbientOcclusionFilter.fpix",
+        "./shaders/Blend.fpix",
+        "./shaders/DirectionalLight.fpix",
+        "./shaders/Particle.ftask",
+        "./shaders/PointLight.fpix",
+        "./shaders/PostAtmosphere.fpix",
+        "./shaders/PostEmission.fpix",
+        "./shaders/PostEmissionBlur.fpix",
+        "./shaders/PostToneMap.fpix",
+        "./shaders/Quad.vert",
+        "./shaders/ShadowDirectionalLight.fpix",
+        "./shaders/ShadowPointLight.fpix",
+        "./shaders/ShadowSpotLight.fpix",
+        "./shaders/SpotLight.fpix",
+        "./shaders/UI.fvert",
+        "./shaders/UIImage.fpix",
+        "./shaders/UIText.fpix"
+    );
+
     // Should probably make this separate but works for now
-    if (!a_remoteMode)
+    if (!a_flags.RemoteMode)
     {
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_GRAPHICS_RENDERDOC");
     }
@@ -255,6 +422,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "./src/Platform/Vulkan/VulkanGraphicsEngineBindings.cpp",
             "./src/Platform/Vulkan/VulkanGraphicsParticle2D.cpp",
             "./src/Platform/Vulkan/VulkanLightData.cpp",
+            "./src/Platform/Vulkan/VulkanMesh.cpp",
             "./src/Platform/Vulkan/VulkanMeshShader.cpp",
             "./src/Platform/Vulkan/VulkanModel.cpp",
             "./src/Platform/Vulkan/VulkanParticleShaderGenerator.cpp",
@@ -277,12 +445,58 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
             "./src/Library/LibVulkan.cpp"
         );
+
+        CUBE_CProject_AppendRebuildSources(&project,
+            "./include/Rendering/Vulkan/Shaders/VulkanComputeShader.h",
+            "./include/Rendering/Vulkan/Shaders/VulkanMeshShader.h",
+            "./include/Rendering/Vulkan/Shaders/VulkanPixelShader.h",
+            "./include/Rendering/Vulkan/Shaders/VulkanShader.h",
+            "./include/Rendering/Vulkan/Shaders/VulkanTaskShader.h",
+            "./include/Rendering/Vulkan/Shaders/VulkanVertexShader.h",
+
+            "./include/Rendering/Vulkan/IcarianVulkanHeader.h",
+            "./include/Rendering/Vulkan/LibVulkan.h",
+            "./include/Rendering/Vulkan/VulkanCommandBuffer.h",
+            "./include/Rendering/Vulkan/VulkanComputeEngine.h",
+            "./include/Rendering/Vulkan/VulkanComputeEngineBindings.h",
+            "./include/Rendering/Vulkan/VulkanComputeLayout.h",
+            "./include/Rendering/Vulkan/VulkanComputeParticle.h",
+            "./include/Rendering/Vulkan/VulkanComputePipeline.h",
+            "./include/Rendering/Vulkan/VulkanDepthCubeRenderTexture.h",
+            "./include/Rendering/Vulkan/VulkanDepthRenderTexture.h",
+            "./include/Rendering/Vulkan/VulkanGraphicsEngine.h",
+            "./include/Rendering/Vulkan/VulkanGraphicsEngineBindings.h",
+            "./include/Rendering/Vulkan/VulkanGraphicsParticle2D.h",
+            "./include/Rendering/Vulkan/VulkanLightBuffer.h",
+            "./include/Rendering/Vulkan/VulkanLightData.h",
+            "./include/Rendering/Vulkan/VulkanMesh.h",
+            "./include/Rendering/Vulkan/VulkanModel.h",
+            "./include/Rendering/Vulkan/VulkanParticleShaderGenerator.h",
+            "./include/Rendering/Vulkan/VulkanPipeline.h",
+            "./include/Rendering/Vulkan/VulkanPushPool.h",
+            "./include/Rendering/Vulkan/VulkanRenderCommand.h",
+            "./include/Rendering/Vulkan/VulkanRenderEngineBackend.h",
+            "./include/Rendering/Vulkan/VulkanRenderTexture.h",
+            "./include/Rendering/Vulkan/VulkanShaderData.h",
+            "./include/Rendering/Vulkan/VulkanShaderStorageObject.h",
+            "./include/Rendering/Vulkan/VulkanSwapchain.h",
+            "./include/Rendering/Vulkan/VulkanTexture.h",
+            "./include/Rendering/Vulkan/VulkanTextureSampler.h",
+            "./include/Rendering/Vulkan/VulkanUniformBuffer.h",
+            "./include/Rendering/Vulkan/VulkanVideoTexture.h"
+        );
     }
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
-
+    // TODO: Should probably make changes so we can also use "-Wextra" do not as we use list initializers for structs currently
+    // It is one of the annoying things that was supported by C for ages and because of that all major compilers support it but took C++ a while to catch up therefore a warning
     CUBE_CProject_AppendCFlag(&project, "-Wall");
-    CUBE_CProject_AppendCFlag(&project, "-Werror");
+    if (a_targetPlatform == TargetPlatform_Linux)
+    {
+        // Should probably only turn this on with the Linux GCC version
+        // This is the source of truth for us as it is the main compiler
+        CUBE_CProject_AppendCFlag(&project, "-Werror");
+    }
 
     switch (a_configuration)
     {
@@ -392,6 +606,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "../deps/assimp/build/assimp.lib",
             "../deps/assimp/contrib/unzip/build/unzip.lib",
             "../deps/enet/build/enet.lib",
+            "../deps/meshoptimizer/build/meshoptimizer.lib",
 
             "./lib/glslang/build/glslang.lib",
             "./lib/glslang/build/SPIRV.lib",
@@ -408,7 +623,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         // Magic string to get std library to link with MinGW
         CUBE_CProject_AppendCFlag(&project, "-static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic");
 
-        if (a_configuration == BuildConfiguration_Release && !a_remoteMode)
+        if (!a_flags.RemoteMode && a_configuration == BuildConfiguration_Release)
         {
             CUBE_CProject_AppendCFlag(&project, "-Wl,-subsystem,windows");
         }
@@ -433,6 +648,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "../deps/assimp/build/libassimp.a",
             "../deps/assimp/contrib/unzip/build/libunzip.a",
             "../deps/enet/build/libenet.a",
+            "../deps/meshoptimizer/build/libmeshoptimizer.a",
 
             "./lib/glslang/build/libglslang.a",
             "./lib/glslang/build/libSPIRV.a",
@@ -463,6 +679,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
             "../deps/assimp/build/libassimp.a",
             "../deps/assimp/contrib/unzip/build/libunzip.a",
             "../deps/enet/build/libenet.a",
+            "../deps/meshoptimizer/build/libmeshoptimizer.a",
 
             "./lib/glslang/build/libglslang.a",
             "./lib/glslang/build/libSPIRV.a",

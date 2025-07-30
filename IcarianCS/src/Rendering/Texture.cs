@@ -5,6 +5,10 @@
 using System;
 using System.Runtime.CompilerServices;
 
+#ifdef ENABLE_STACKTRACE
+using System.Diagnostics;
+#endif
+
 namespace IcarianEngine.Rendering
 {
     public class Texture : IDestroy
@@ -14,7 +18,11 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyTexture(uint a_addr);
 
-        uint m_bufferAddr = uint.MaxValue;
+        uint       m_bufferAddr = uint.MaxValue;
+
+#ifdef ENABLE_STACKTRACE
+        StackTrace m_stackTrace;
+#endif
 
         /// <summary>
         /// Whether the texture has been <see cref="Disposed" />
@@ -38,6 +46,10 @@ namespace IcarianEngine.Rendering
         Texture(uint a_addr)
         {
             m_bufferAddr = a_addr;
+    
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
         
         /// <summary>
@@ -63,7 +75,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Disposes of the texture
+        /// Disposes of the Texture
         /// </summary>
         public void Dispose()
         {
@@ -72,9 +84,9 @@ namespace IcarianEngine.Rendering
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// Called when the texture is being disposed
+        /// Called when the Texture is being Disposed/Finalized
         /// </summary>
-        /// <param name="a_disposing">Whether the texture is being Disposed or Finalized</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)
@@ -85,14 +97,18 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.IcarianWarning("Texture Failed to Dispose");
+                    Logger.IcarianError("Texture not Disposed");
+
+#ifdef ENABLE_STACKTRACE
+                    CallStack.PrintStackTrace(m_stackTrace);
+#endif  
                 }
 
                 m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple Texture Dispose");
+                Logger.IcarianWarning("Texture already Disposed");
             }
         }
         ~Texture()
@@ -104,7 +120,7 @@ namespace IcarianEngine.Rendering
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

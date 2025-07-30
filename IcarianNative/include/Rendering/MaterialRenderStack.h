@@ -5,37 +5,42 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 
+class Allocator;
 struct MeshRenderBuffer;
-struct SkinnedMeshRenderBuffer;
+struct ModelRenderBuffer;
+struct SkinnedModelRenderBuffer;
 
 struct ModelBuffer
 {
+    uint32_t IndexCount;
     uint32_t ModelAddr;
-    uint32_t* TransformAddr;
     uint32_t TransformCount;
-};
-struct SkinnedModelBuffer
-{
-    uint32_t ModelAddr;
-    uint32_t ObjectCount;
     uint32_t* TransformAddr;
     uint32_t* SkeletonAddr;
+};
+
+enum e_RenderStackMode
+{
+    RenderStackMode_Null,
+    RenderStackMode_Model,
+    RenderStackMode_Skinned,
+    RenderStackMode_Mesh
 };
 
 class MaterialRenderStack
 {
 private:
-    uint32_t            m_materialAddr;
-
-    uint32_t            m_size;
+    Allocator*          m_allocator;
 
     ModelBuffer*        m_modelBuffers;
+    
+    uint32_t            m_materialAddr;
+    
+    uint32_t            m_size;
     uint32_t            m_modelBufferCount;
-
-    SkinnedModelBuffer* m_skinnedModelBuffers;
-    uint32_t            m_skinnedModelBufferCount;
+    
+    e_RenderStackMode   m_renderStackMode;
 
     void InsertTransform(uint32_t a_addr, uint32_t a_transformAddr);
     void InsertSkinned(uint32_t a_addr, uint32_t a_transformAddr, uint32_t a_skeletonAddr);
@@ -45,13 +50,19 @@ private:
 protected:
 
 public:
-    MaterialRenderStack(const MeshRenderBuffer& a_renderBuffer);
-    MaterialRenderStack(const SkinnedMeshRenderBuffer& a_renderBuffer);
+    MaterialRenderStack(Allocator* a_allocator, const ModelRenderBuffer& a_renderBuffer);
+    MaterialRenderStack(Allocator* a_allocator, const SkinnedModelRenderBuffer& a_renderBuffer);
+    MaterialRenderStack(Allocator* a_allocator, const MeshRenderBuffer& a_renderBuffer);
     ~MaterialRenderStack();
 
     inline bool Empty()
     {
         return m_size == 0;
+    }
+
+    inline e_RenderStackMode GetRenderStackMode() const
+    {
+        return m_renderStackMode;
     }
 
     inline uint32_t GetMaterialAddr() const
@@ -68,25 +79,19 @@ public:
         return m_modelBufferCount;
     }
 
-    inline const SkinnedModelBuffer* GetSkinnedModelBuffers() const
-    {
-        return m_skinnedModelBuffers;
-    }
-    inline uint32_t GetSkinnedModelBufferCount() const
-    {
-        return m_skinnedModelBufferCount;
-    }
+    bool Add(const ModelRenderBuffer& a_renderBuffer);
+    bool Remove(const ModelRenderBuffer& a_renderBuffer);
+
+    bool Add(const SkinnedModelRenderBuffer& a_renderBuffer);
+    bool Remove(const SkinnedModelRenderBuffer& a_renderBuffer);
 
     bool Add(const MeshRenderBuffer& a_renderBuffer);
     bool Remove(const MeshRenderBuffer& a_renderBuffer);
-
-    bool Add(const SkinnedMeshRenderBuffer& a_renderBuffer);
-    bool Remove(const SkinnedMeshRenderBuffer& a_renderBuffer);
 };
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

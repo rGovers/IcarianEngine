@@ -1,9 +1,8 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
-
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
@@ -17,8 +16,7 @@
 #include "DataTypes/TStatic.h"
 #include "Rendering/CameraBuffer.h"
 #include "Rendering/MaterialRenderStack.h"
-#include "Rendering/MeshRenderBuffer.h"
-#include "Rendering/SkinnedMeshRenderBuffer.h"
+#include "Rendering/RenderBuffers.h"
 #include "Rendering/TextureData.h"
 #include "Rendering/UI/CanvasRendererBuffer.h"
 #include "Rendering/Vulkan/VulkanCommandBuffer.h"
@@ -42,6 +40,7 @@ class VulkanGraphicsEngineBindings;
 class VulkanGraphicsParticle2D;
 class VulkanLightData;
 class VulkanMeshShader;
+class VulkanMesh;
 class VulkanModel;
 class VulkanPipeline;
 class VulkanPixelShader;
@@ -54,6 +53,16 @@ class VulkanUniformBuffer;
 class VulkanVertexShader;
 class VulkanVideoTexture;
 
+struct VulkanMeshEmulationData
+{
+    vk::Buffer VertexBuffer;
+    vk::Buffer IndexBuffer;
+    // vk::Buffer TaskBuffer;
+    VmaAllocation VertexAllocation;
+    VmaAllocation IndexAllocation;
+    // VmaAllocation TaskAllocation;
+};
+
 class VulkanGraphicsEngine
 {
 private:
@@ -63,9 +72,9 @@ private:
 
     typedef std::unordered_map
     <
-        uint64_t, VulkanPipeline*, 
-        std::hash<uint64_t>, 
-        std::equal_to<uint64_t>, 
+        uint64_t, VulkanPipeline*,
+        std::hash<uint64_t>,
+        std::equal_to<uint64_t>,
         STLRenderBlockAlloc<std::pair<const uint64_t, VulkanPipeline*>>
     > PipelineMap;
 
@@ -88,6 +97,8 @@ private:
 
     VulkanRenderEngineBackend*                    m_vulkanEngine;
 
+    VulkanMeshEmulationData*                      m_meshEmulationData;
+
     SharedSpinLock                                m_pipeLock;
     SharedSpinLock                                m_shadowPipeLock;
     SharedSpinLock                                m_cubeShadowPipeLock;
@@ -105,16 +116,17 @@ private:
     TStatic<VulkanLightData>                      m_lightData;
 
     TNCArray<RenderProgram>                       m_shaderPrograms;
-     
+
     TNCArray<VulkanVertexShader*>                 m_vertexShaders;
     TNCArray<VulkanTaskShader*>                   m_taskShaders;
     TNCArray<VulkanMeshShader*>                   m_meshShaders;
     TNCArray<VulkanPixelShader*>                  m_pixelShaders;
     TNCArray<VulkanComputeShader*>                m_computeShaders;
-     
+
     TNCArray<TextureSamplerBuffer>                m_textureSampler;
 
     TNCArray<VulkanModel*>                        m_models;
+    TNCArray<VulkanMesh*>                         m_meshes;
     TNCArray<VulkanTexture*>                      m_textures;
     TNCArray<VulkanVideoTexture*>                 m_videoTextures;
 
@@ -122,8 +134,9 @@ private:
     TNCArray<VulkanDepthCubeRenderTexture*>       m_depthCubeRenderTextures;
     TNCArray<VulkanDepthRenderTexture*>           m_depthRenderTextures;
 
-    TNCArray<MeshRenderBuffer>                    m_renderBuffers;
-    TNCArray<SkinnedMeshRenderBuffer>             m_skinnedRenderBuffers;
+    TNCArray<ModelRenderBuffer>                   m_renderBuffers;
+    TNCArray<SkinnedModelRenderBuffer>            m_skinnedRenderBuffers;
+    TNCArray<MeshRenderBuffer>                    m_meshRenderBuffers;
     TArray<MaterialRenderStack*>                  m_renderStacks;
 
     TNCArray<VulkanGraphicsParticle2D*>           m_particleEmitters;
@@ -143,7 +156,7 @@ private:
 
     Array<vk::CommandPool, RenderBlockAlloc>      m_commandPool[VulkanFlightPoolSize];
     Array<vk::CommandBuffer, RenderBlockAlloc>    m_commandBuffers[VulkanFlightPoolSize];
-    
+
     TNCArray<CanvasRendererBuffer>                m_canvasRenderers;
 
     uint32_t                                      m_textUIPipelineAddr;
@@ -163,7 +176,7 @@ private:
     VulkanCommandBuffer PostPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
 
     void DrawUIElement(vk::CommandBuffer a_commandBuffer, uint32_t a_addr, const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize, uint32_t a_index);
-    
+
 protected:
 
 public:
@@ -179,35 +192,40 @@ public:
         m_swapchain = a_swapchain;
     }
 
+    inline VulkanMeshEmulationData* GetMeshEmulationData() const
+    {
+        return m_meshEmulationData;
+    }
+
     Array<VulkanCommandBuffer> Update(double a_delta, double a_time, uint32_t a_index);
 
-    uint32_t GenerateFVertexShader(const std::string_view& a_source);
+    [[nodiscard]] uint32_t GenerateFVertexShader(const std::string_view& a_source);
     void DestroyVertexShader(uint32_t a_addr);
     VulkanVertexShader* GetVertexShader(uint32_t a_addr);
 
-    uint32_t GenerateFTaskShader(const std::string_view& a_source);
+    [[nodiscard]] uint32_t GenerateFTaskShader(const std::string_view& a_source);
     void DestroyTaskShader(uint32_t a_addr);
     VulkanTaskShader* GetTaskShader(uint32_t a_addr);
-    uint32_t GenerateFMeshShader(const std::string_view& a_source);
+    [[nodiscard]] uint32_t GenerateFMeshShader(const std::string_view& a_source);
     void DestroyMeshShader(uint32_t a_addr);
     VulkanMeshShader* GetMeshShader(uint32_t a_addr);
 
-    uint32_t GenerateFPixelShader(const std::string_view& a_source);
+    [[nodiscard]] uint32_t GenerateFPixelShader(const std::string_view& a_source);
     void DestroyPixelShader(uint32_t a_addr);
     VulkanPixelShader* GetPixelShader(uint32_t a_addr);
 
-    uint32_t GenerateFComputeShader(const std::string_view& a_source);
+    [[nodiscard]] uint32_t GenerateFComputeShader(const std::string_view& a_source);
     void DestroyComputeShader(uint32_t a_addr);
     VulkanComputeShader* GetComputeShader(uint32_t a_addr);
 
-    uint32_t GenerateRenderProgram(const RenderProgram& a_program);
+   [[nodiscard]]  uint32_t GenerateRenderProgram(const RenderProgram& a_program);
     void DestroyRenderProgram(uint32_t a_addr);
     RenderProgram GetRenderProgram(uint32_t a_addr);
 
     VulkanPipeline* GetShadowPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
     VulkanPipeline* GetCubeShadowPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
     VulkanPipeline* GetPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
-    
+
     CameraBuffer GetCameraBuffer(uint32_t a_addr);
     inline VulkanUniformBuffer* GetCameraUniformBuffer(uint32_t a_addr) const
     {
@@ -219,16 +237,16 @@ public:
         return m_timeUniform;
     }
 
-    uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius);
+    [[nodiscard]] uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius);
     void DestroyModel(uint32_t a_addr);
     VulkanModel* GetModel(uint32_t a_addr);
 
-    uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);
-    uint32_t GenerateMipMappedTexture(uint32_t a_width, uint32_t a_height, uint32_t a_levels, const uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize);
+    [[nodiscard]] uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);
+    [[nodiscard]] uint32_t GenerateMipMappedTexture(uint32_t a_width, uint32_t a_height, uint32_t a_levels, const uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize);
     void DestroyTexture(uint32_t a_addr);
     VulkanTexture* GetTexture(uint32_t a_addr);
 
-    uint32_t GenerateDepthRenderTexture(uint32_t a_width, uint32_t a_height);
+    [[nodiscard]] uint32_t GenerateDepthRenderTexture(uint32_t a_width, uint32_t a_height);
     void DestroyDepthRenderTexture(uint32_t a_addr);
 
     VulkanRenderTexture* GetRenderTexture(uint32_t a_addr);
@@ -240,7 +258,7 @@ public:
     PointLightBuffer GetPointLight(uint32_t a_addr);
     SpotLightBuffer GetSpotLight(uint32_t a_addr);
 
-    uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
+    [[nodiscard]] uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     void DestroyTextureSampler(uint32_t a_addr);
     TextureSamplerBuffer GetTextureSampler(uint32_t a_addr);
 };
@@ -248,19 +266,19 @@ public:
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2025 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

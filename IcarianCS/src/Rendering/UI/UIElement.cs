@@ -9,6 +9,10 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#ifdef ENABLE_STACKTRACE
+using System.Diagnostics;
+#endif
+
 #include "EngineUIElementInterop.h"
 #include "EngineUIElementInteropStuctures.h"
 #include "InteropBinding.h"
@@ -28,8 +32,12 @@ namespace IcarianEngine.Rendering.UI
         /// <param name="a_element">The <see cref="IcarianEngine.Rendering.UI.UIElement" /> the event is for</param>
         public delegate void UIEvent(Canvas a_canvas, UIElement a_element);
 
-        uint   m_bufferAddr = uint.MaxValue;
-        string m_name;
+        uint       m_bufferAddr = uint.MaxValue;
+        string     m_name;
+
+#ifdef ENABLE_STACKTRACE
+        StackTrace m_stackTrace;
+#endif
 
         /// <summary>
         /// Delegate for normal events
@@ -208,12 +216,20 @@ namespace IcarianEngine.Rendering.UI
             m_bufferAddr = UIElementInterop.CreateUIElement();
 
             AddLookup(m_bufferAddr, this);
+
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
         protected internal UIElement(uint a_bufferAddr)
         {
             m_bufferAddr = a_bufferAddr;
 
             AddLookup(m_bufferAddr, this);
+
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
 
         /// @cond INTERNAL
@@ -356,7 +372,7 @@ namespace IcarianEngine.Rendering.UI
         /// <summary>
         /// Called when the UIElement is Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether or not it is called from Dispose</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_bufferAddr != uint.MaxValue)
@@ -374,14 +390,18 @@ namespace IcarianEngine.Rendering.UI
                 }
                 else
                 {
-                    Logger.IcarianWarning("UIElement failed to Dispose");
+                    Logger.IcarianError("UIElement not DisposeD");
+
+#ifdef ENABLE_STACKTRACE
+                    CallStack.PrintStackTrace(m_stackTrace);
+#endif  
                 }
 
                 m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple Dispose calls on UIElement");
+                Logger.IcarianWarning("UIElement already Disposed");
             }
         }
         ~UIElement()
@@ -393,7 +413,7 @@ namespace IcarianEngine.Rendering.UI
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

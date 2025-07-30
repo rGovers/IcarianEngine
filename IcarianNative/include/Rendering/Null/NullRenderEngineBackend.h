@@ -9,12 +9,38 @@
 class NullRenderEngineBackend : public RenderEngineBackend
 {
 private:
+    uint32_t m_materialAddr;
+    uint32_t m_modelAddr;
+    uint32_t m_textureAddr;
+    uint32_t m_textureSamplerAddr;
+    uint32_t m_renderTextureAddr;
 
 protected:
 
 public:
     NullRenderEngineBackend(RenderEngine* a_engine);
     virtual ~NullRenderEngineBackend();
+
+    inline uint32_t CreateMaterialAddr()
+    {
+        return m_materialAddr++;
+    }
+    inline uint32_t CreateModelAddr()
+    {
+        return m_modelAddr++;
+    }
+    inline uint32_t CreateTextureAddr()
+    {
+        return m_textureAddr++;
+    }
+    inline uint32_t CreateTextureSamplerAddr()
+    {
+        return m_textureSamplerAddr++;
+    }
+    inline uint32_t CreateRenderTextureAddr()
+    {
+        return m_renderTextureAddr++;
+    }
 
     virtual uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius);
     virtual void DestroyModel(uint32_t a_addr);

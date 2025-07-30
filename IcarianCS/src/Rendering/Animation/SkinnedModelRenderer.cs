@@ -10,7 +10,7 @@ using IcarianEngine.Maths;
 
 namespace IcarianEngine.Rendering.Animation
 {
-    public class SkinnedMeshRenderer : Renderer, IDestroy
+    public class SkinnedModelRenderer : Renderer, IDestroy
     {   
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint CreateSkeletonBuffer();
@@ -52,7 +52,7 @@ namespace IcarianEngine.Rendering.Animation
         Model      m_model = null;
 
         /// <summary>
-        /// Whether the SkinnedMeshRenderer has been disposed
+        /// Whether the SkinnedModelRenderer has been Disposed/Finalized
         /// </summary>
         public bool IsDisposed 
         {
@@ -62,18 +62,18 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
         /// <summary>
-        /// The SkinnedMeshRendererDef used to create this SkinnedMeshRenderer
+        /// The <see cref="IcarianEngine.Defintions.SkinnedModelRendererDef" /> used to create this SkinnedModelRenderer
         /// </summary>
-        public SkinnedMeshRendererDef SkinnedMeshRendererDef
+        public SkinnedModelRendererDef SkinnedModelRendererDef
         {
             get
             {
-                return Def as SkinnedMeshRendererDef;
+                return Def as SkinnedModelRendererDef;
             }
         }
 
         /// <summary>
-        /// Whether the SkinnedMeshRenderer is visible
+        /// Whether the SkinnedModelRenderer is visible
         /// </summary>
         public override bool Visible 
         {
@@ -101,7 +101,7 @@ namespace IcarianEngine.Rendering.Animation
         }
 
         /// <summary>
-        /// The Material used by the SkinnedMeshRenderer
+        /// The Material used by the SkinnedModelRenderer
         /// </summary>
         public override Material Material 
         {
@@ -121,7 +121,7 @@ namespace IcarianEngine.Rendering.Animation
         }
 
         /// <summary>
-        /// The Skeleton used by the SkinnedMeshRenderer
+        /// The Skeleton used by the SkinnedModelRenderer
         /// </summary>
         public Skeleton Skeleton
         {
@@ -131,7 +131,7 @@ namespace IcarianEngine.Rendering.Animation
             }
         }
         /// <summary>
-        /// The Model used by the SkinnedMeshRenderer
+        /// The Model used by the SkinnedModelRenderer
         /// </summary>
         public Model Model
         {
@@ -176,7 +176,7 @@ namespace IcarianEngine.Rendering.Animation
         }
 
         /// <summary>
-        /// Called when the SkinnedMeshRenderer is created
+        /// Called when the SkinnedModelRenderer is created
         /// </summary>
         public override void Init()
         {
@@ -184,7 +184,7 @@ namespace IcarianEngine.Rendering.Animation
 
             m_skeletonBufferAddr = CreateSkeletonBuffer();
 
-            SkinnedMeshRendererDef def = SkinnedMeshRendererDef;
+            SkinnedModelRendererDef def = SkinnedModelRendererDef;
             if (def != null)
             {
                 if (!string.IsNullOrWhiteSpace(def.SkeletonPath))
@@ -227,7 +227,7 @@ namespace IcarianEngine.Rendering.Animation
         }
 
         /// <summary>
-        /// Sets the Skeleton used by the SkinnedMeshRenderer
+        /// Sets the Skeleton used by the SkinnedModelRenderer
         /// </summary>
         /// <param name="a_skeleton">The Skeleton to use</param>
         public void SetSkeleton(Skeleton a_skeleton)
@@ -271,7 +271,7 @@ namespace IcarianEngine.Rendering.Animation
         }
 
         /// <summary>
-        /// Disposes the SkinnedMeshRenderer
+        /// Disposes the SkinnedModelRenderer
         /// </summary>
         public void Dispose()
         {
@@ -280,9 +280,9 @@ namespace IcarianEngine.Rendering.Animation
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// Called when the SkinnedMeshRenderer is disposed
+        /// Called when the SkinnedModelRenderer is Disposed/Finalized
         /// </summary>
-        /// <param name="a_disposing">Whether the SkinnedMeshRenderer is being disposed</param>
+        /// <param name="a_disposing">Whether the SkinnedModelRenderer is being Disposed</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_skeletonBufferAddr != uint.MaxValue)
@@ -302,17 +302,17 @@ namespace IcarianEngine.Rendering.Animation
                 }
                 else
                 {
-                    Logger.IcarianWarning("SkinnedMeshRenderer Failed to Dispose");
+                    Logger.IcarianWarning("SkinnedModelRenderer Failed to Dispose");
                 }
 
                 m_skeletonBufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple SkinnedMeshRenderer Dispose");
+                Logger.IcarianError("Multiple SkinnedModelRenderer Dispose");
             }
         }
-        ~SkinnedMeshRenderer()
+        ~SkinnedModelRenderer()
         {
             Dispose(false);
         }
@@ -321,7 +321,7 @@ namespace IcarianEngine.Rendering.Animation
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

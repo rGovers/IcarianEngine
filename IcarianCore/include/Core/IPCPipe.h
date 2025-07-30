@@ -19,11 +19,13 @@ namespace IcarianCore
     class IPCPipe : public CommunicationPipe
     {
     private:
-#if WIN32
+#ifdef WIN32
         SOCKET m_pipeSock;
 #else
         int    m_pipeSock;
 #endif
+
+        bool   m_closed;
 
         IPCPipe();
 

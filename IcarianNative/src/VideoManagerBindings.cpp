@@ -28,7 +28,7 @@ VideoManagerBindings::~VideoManagerBindings()
 
 }
 
-uint32_t VideoManagerBindings::GenerateVideoClipFromFile(const std::filesystem::path& a_path) const
+uint32_t VideoManagerBindings::GenerateVideoClipFromFile(const std::string_view& a_path) const
 {
     VideoClip* clip = new VideoClip(a_path);
 
@@ -47,7 +47,7 @@ void VideoManagerBindings::DestroyVideoClip(uint32_t a_addr) const
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

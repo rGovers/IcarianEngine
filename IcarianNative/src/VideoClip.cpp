@@ -33,11 +33,11 @@ static int ReadCallback(int64_t a_offset, void* a_buffer, size_t a_size, void* a
     return handle->Read(a_buffer, a_size) != a_size;
 }
 
-VideoClip::VideoClip(const std::filesystem::path& a_path)
+VideoClip::VideoClip(const std::string_view& a_path)
 {
     IERRBLOCK;
 
-    m_path = a_path;
+    m_path = std::string(a_path);
     m_videoInfo = nullptr;
 
     m_time = 0.0;

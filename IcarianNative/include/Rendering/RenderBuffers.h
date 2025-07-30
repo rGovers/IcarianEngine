@@ -4,25 +4,34 @@
 
 #pragma once
 
-#include "InteropTypes.h"
+#include <cstdint>
 
-/// @file EngineMeshCollisionShapeInterop.h
+struct ModelRenderBuffer
+{
+    uint32_t MaterialAddr;
+    uint32_t ModelAddr;
+    uint32_t TransformAddr;
+};
 
-/// @cond INTERNAL
+struct SkinnedModelRenderBuffer
+{
+    uint32_t SkeletonAddr;
+    uint32_t MaterialAddr;
+    uint32_t ModelAddr;
+    uint32_t TransformAddr;
+};
 
-#define ENGINE_MESHCOLLISIONSHAPE_EXPORT_TABLE(F) \
-    F(IOP_UINT32, IcarianEngine.Physics.Shapes, MeshCollisionShapeInterop, CreateMesh, \
-    { \
-        char* str = mono_string_to_utf8(a_path); \
-        IDEFER(mono_free(str)); \
-        return Instance->CreateMeshShape(str); \
-    }, IOP_STRING a_path) \
-
-/// @endcond
+struct MeshRenderBuffer
+{
+    uint32_t MaterialAddr;
+    uint32_t MeshAddr;
+    uint32_t TransformAddr;
+    uint32_t IndexCount;
+};
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

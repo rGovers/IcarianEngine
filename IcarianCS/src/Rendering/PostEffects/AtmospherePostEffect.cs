@@ -170,8 +170,8 @@ namespace IcarianEngine.Rendering.PostEffects
                 HazeColor = new Vector4(0.8f, 0.5f, 0.25f, 0.0f)
             };
 
-            m_quadVertex = VertexShader.LoadVertexShader("[INTERNAL]Quad");
-            m_atmospherePixel = PixelShader.LoadPixelShader("[INTERNAL]PostAtmosphere");
+            m_quadVertex = VertexShader.LoadVertexShader("internal://Quad");
+            m_atmospherePixel = PixelShader.LoadPixelShader("internal://PostAtmosphere");
 
             MaterialBuilder material = new MaterialBuilder()
             {
@@ -251,7 +251,7 @@ namespace IcarianEngine.Rendering.PostEffects
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -125,7 +125,10 @@ Application::Application(Config* a_config)
     
     DeletionQueue::Init();
     RuntimeManager::Init();
-    FileCache::Init(a_config->GetFileCacheSize());
+
+    const uint32_t cacheSize = a_config->GetFileCacheSize();
+    const uint32_t pipefileID = a_config->GetPipefileID();
+    FileCache::Init(cacheSize, pipefileID);
         
     Logger::Init();
 

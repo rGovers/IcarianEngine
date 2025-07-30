@@ -7,6 +7,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <meshoptimizer.h>
 #include <ktx.h>
 #include <stb_image.h>
 
@@ -190,7 +191,7 @@ static void LoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint
         if (hasNormals) 
         {
             const aiVector3D& norm = a_mesh->mNormals[i];
-            v.Normal = glm::vec3(norm.x, -norm.y, norm.z);
+            v.Normal = glm::vec4(norm.x, -norm.y, norm.z, 0.0f);
         }
 
         if (hasTexCoordA) 
@@ -237,9 +238,9 @@ static void LoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint
 
             const glm::vec3 norm = glm::cross(diffA, diffB);
 
-            a_vertices->Ref(startIndex + indexA).Normal += norm;
-            a_vertices->Ref(startIndex + indexB).Normal += norm;
-            a_vertices->Ref(startIndex + indexC).Normal += norm;
+            (*a_vertices)[startIndex + indexA].Normal += glm::vec4(norm, 0.0f);
+            (*a_vertices)[startIndex + indexB].Normal += glm::vec4(norm, 0.0f);
+            (*a_vertices)[startIndex + indexC].Normal += glm::vec4(norm, 0.0f);
         }
 
         a_indices->Push(indexA);
@@ -252,20 +253,23 @@ static void LoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint
         const uint32_t count = a_vertices->Size();
         for (uint32_t i = startIndex; i < count; ++i)
         {
-            glm::vec3& norm = a_vertices->Ref(i).Normal;
+            glm::vec4& norm = (*a_vertices)[i].Normal;
 
-            norm = glm::normalize(norm);
+            norm = glm::vec4(glm::normalize(norm.xyz()), 0.0f);
         }
     }
 }
 
-bool RenderAssetStore::LoadModelData(const std::filesystem::path& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius)
+bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius)
 {
     IERRBLOCK;
 
-    const std::filesystem::path ext = a_path.extension();
+    const std::filesystem::path p = std::filesystem::path(a_path);
+
+    const std::filesystem::path ext = p.extension();
     const std::string extStr = ext.string();
 
+    // TODO: Create and handle pre optimized files
     switch (StringHash<uint32_t>(extStr.c_str())) 
     {
     case StringHash<uint32_t>(".obj"):
@@ -304,13 +308,47 @@ bool RenderAssetStore::LoadModelData(const std::filesystem::path& a_path, uint8_
             }
         }
 
+        constexpr uint32_t VertexSize = sizeof(Vertex);
+
+        const uint32_t indexCount = a_indices->Size();
+        const uint32_t vertexCount = a_vertices->Size();
+
+        meshopt_optimizeVertexCache
+        (
+            a_indices->Data(), 
+            a_indices->Data(), 
+            indexCount, 
+            vertexCount
+        );
+        meshopt_optimizeOverdraw
+        (
+            a_indices->Data(), 
+            a_indices->Data(), 
+            indexCount, 
+            &((*a_vertices)[0].Position.x), 
+            vertexCount, 
+            VertexSize, 
+            1.05f
+        );
+        const size_t newVertexCount = meshopt_optimizeVertexFetch
+        (
+            a_vertices->Data(),
+            a_indices->Data(), 
+            indexCount, 
+            a_vertices->Data(), 
+            vertexCount, 
+            VertexSize
+        );
+
+        a_vertices->Resize((uint32_t)newVertexCount);
+
         *a_radius = glm::sqrt(radSqr);
 
         return true;
     }
     default:
     {
-        IERROR("Invalid model file extension: " + a_path.string());
+        IERROR("Invalid model file extension: " + std::string(a_path));
 
         break;
     }
@@ -319,7 +357,7 @@ bool RenderAssetStore::LoadModelData(const std::filesystem::path& a_path, uint8_
     return false;
 }
 
-uint32_t RenderAssetStore::LoadModel(const std::filesystem::path& a_path, uint8_t a_index)
+uint32_t RenderAssetStore::LoadModel(const std::string_view& a_path, uint8_t a_index)
 {
     constexpr uint16_t VertexStride = sizeof(Vertex);
 
@@ -337,10 +375,14 @@ uint32_t RenderAssetStore::LoadModel(const std::filesystem::path& a_path, uint8_
     }
 
     const uint32_t modelAddr = m_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), VertexStride, indices.Data(), indices.Size(), radius);
+    if (modelAddr == uint32_t(-1))
+    {
+        return -1;
+    }
 
     const RenderAsset asset =
     {
-        .Path = a_path.string(),
+        .Path = std::string(a_path),
         .InternalAddress = modelAddr,
         .Data = (uint8_t)a_index,
     };
@@ -408,9 +450,11 @@ static void LoadSkinnedMesh(const aiMesh* a_mesh, Array<SkinnedVertex>* a_vertic
     }
 }
 
-static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::filesystem::path& a_path)
+static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::string_view& a_path)
 {
-    const std::filesystem::path ext = a_path.extension();
+    IERRBLOCK;
+
+    const std::filesystem::path ext = std::filesystem::path(a_path);
     const std::string extStr = ext.string();
 
     constexpr uint16_t VertexStride = sizeof(SkinnedVertex);
@@ -423,24 +467,20 @@ static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_dat
     case StringHash<uint32_t>(".gltf"):
     {
         FileHandle* handle = FileCache::LoadFile(a_path);
-        IVERIFY(handle != nullptr);
+        IERRCHECKRET(handle != nullptr, -1);
         IDEFER(delete handle);
 
         const uint64_t size = handle->GetSize();
         uint8_t* dat = new uint8_t[size];
         IDEFER(delete[] dat);
-        if (handle->Read(dat, size) != size)
-        {
-            IERROR("Failed reading skinned model data: " + a_path.string());
 
-            break;
-        }
+        IERRCHECKRET(handle->Read(dat, size) != size, -1);
 
         Assimp::Importer importer;
 
         const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, aiProcess_Triangulate | aiProcess_PreTransformVertices, extStr.c_str() + 1);
-        IVERIFY(scene != nullptr);
-        IVERIFY(scene->mNumSkeletons > 0);
+        IERRCHECKRET(scene != nullptr, -1);
+        IERRCHECKRET(scene->mNumSkeletons > 0, -1);
 
         std::unordered_map<std::string, int> boneMap;
 
@@ -458,7 +498,7 @@ static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_dat
         float radSqr = 0.0f;
         if (a_data != std::numeric_limits<uint8_t>::max())
         {
-            IVERIFY(a_data < scene->mNumMeshes);
+            IERRCHECKRET(a_data < scene->mNumMeshes, -1);
 
             LoadSkinnedMesh(scene->mMeshes[a_data], &vertices, &indices, boneMap, &radSqr);
         }
@@ -472,7 +512,7 @@ static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_dat
 
         if (vertices.Empty() || indices.Empty() || radSqr <= 0)
         {
-            IWARN("Empty Model: " + a_path.string());
+            IWARN("Empty Model: " + std::string(a_path));
 
             break;
         }
@@ -481,20 +521,25 @@ static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_dat
     }
     default:
     {
-        IERROR("Invalid skinned model file extension: " + a_path.string());
-
         break;
     }
     }
 
     return -1;
 }
-uint32_t RenderAssetStore::LoadSkinnedModel(const std::filesystem::path& a_path, uint8_t a_index)
+uint32_t RenderAssetStore::LoadSkinnedModel(const std::string_view& a_path, uint8_t a_index)
 {
+    const uint32_t internalAddr = LoadSkinnedModelFile(m_renderEngine, (uint8_t)a_index, a_path);
+
+    if (internalAddr == uint32_t(-1))
+    {
+        return -1;
+    }
+
     const RenderAsset asset =
     {
-        .Path = a_path.string(),
-        .InternalAddress = LoadSkinnedModelFile(m_renderEngine, (uint8_t)a_index, a_path),
+        .Path = std::string(a_path),
+        .InternalAddress = internalAddr,
         .Data = (uint8_t)a_index,
         .Flags = 0b1 << RenderAsset::SkinnedBit
     };
@@ -526,11 +571,9 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
     RenderAsset& asset = a[a_addr];
     if (asset.InternalAddress == uint32_t(-1))
     {
-        const std::filesystem::path path = asset.Path;
-
         if (IISBITSET(asset.Flags, RenderAsset::SkinnedBit))
         {
-            asset.InternalAddress = LoadSkinnedModelFile(m_renderEngine, asset.Data, path);
+            asset.InternalAddress = LoadSkinnedModelFile(m_renderEngine, asset.Data, asset.Path);
         }
         else
         {
@@ -559,13 +602,11 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
     return asset.InternalAddress;
 }
 
-uint32_t RenderAssetStore::LoadTexture(const std::filesystem::path& a_path)
+uint32_t RenderAssetStore::LoadTexture(const std::string_view& a_path)
 {
-    FileCache::PreLoad(a_path);
-
     const RenderAsset asset =
     {
-        .Path = a_path.string(),
+        .Path = std::string(a_path),
         .InternalAddress = uint32_t(-1),
     };
 
@@ -678,10 +719,10 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
         {
         case StringHash<uint32_t>(".png"):
         {
-            FileHandle* handle = FileCache::LoadFile(path);
+            FileHandle* handle = FileCache::LoadFile(asset.Path);
             if (handle == nullptr)
             {
-                IERROR("GetTexture failed to load file: " + path.string());
+                IERROR("GetTexture failed to load file: " + asset.Path);
 
                 break;
             }
@@ -707,17 +748,17 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
             }
             else
             {
-                IERROR("GetTexture failed to parse file: " + path.string());
+                IERROR("GetTexture failed to parse file: " + asset.Path);
             }
 
             break;
         }
         case StringHash<uint32_t>(".ktx2"):
         {
-            FileHandle* handle = FileCache::LoadFile(path);
+            FileHandle* handle = FileCache::LoadFile(asset.Path);
             if (handle == nullptr)
             {
-                IERROR("GetTexture failed to load file: " + path.string());
+                IERROR("GetTexture failed to load file: " + asset.Path);
 
                 break;
             }

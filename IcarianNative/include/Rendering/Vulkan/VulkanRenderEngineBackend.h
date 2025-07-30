@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -78,7 +78,7 @@ public:
     }
     void deallocate(pointer a_p, size_type a_n)
     {
-        
+
     }
 
     void construct(pointer a_p, const_reference a_val)
@@ -106,7 +106,7 @@ public:
     template<typename U>
     STLRenderScratchAlloc(const STLRenderScratchAlloc<U>& a_other) noexcept
     {
-        
+
     }
 };
 
@@ -156,7 +156,7 @@ public:
     template<typename U>
     STLRenderBlockAlloc(const STLRenderBlockAlloc<U>& a_other) noexcept
     {
-        
+
     }
 };
 
@@ -214,15 +214,15 @@ private:
 
     // Was bugging me taking up 8x the memory needed so.... uint8_t bitmask it is
     Array<uint8_t>                m_optionalExtensionMask;
-                
+
     VmaAllocator                  m_allocator;
-                
+
     vk::Instance                  m_instance;
     vk::DebugUtilsMessengerEXT    m_messenger;
 
     vk::PhysicalDevice            m_pDevice;
     vk::Device                    m_lDevice;
-                        
+
     vk::Queue                     m_computeQueue = nullptr;
     vk::Queue                     m_videoDecodeQueue = nullptr;
     vk::Queue                     m_graphicsQueue = nullptr;
@@ -231,7 +231,7 @@ private:
     TArray<VulkanDeletionObject*> m_deletionObjects[VulkanDeletionQueueSize];
 
     Array<vk::Semaphore>          m_interSemaphore[VulkanMaxFlightFrames];
-            
+
     vk::CommandPool               m_commandPools[CommandIndex_Last];
 
     uint32_t                      m_imageIndex = -1;
@@ -404,6 +404,11 @@ public:
         return m_currentFlightFrame;
     }
 
+    inline bool IsMeshEnabled() const
+    {
+        return !VulkanForceMeshEmulation && IsExtensionEnabled(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+    }
+
     inline bool IsVideoEnabled() const
     {
         return IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME) && IsExtensionEnabled(VK_KHR_VIDEO_MAINTENANCE_1_EXTENSION_NAME);
@@ -413,19 +418,19 @@ public:
 #endif
 
 // MIT License
-// 
-// Copyright (c) 2024 River Govers
-// 
+//
+// Copyright (c) 2025 River Govers
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

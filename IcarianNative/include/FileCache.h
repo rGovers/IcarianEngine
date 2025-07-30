@@ -1,83 +1,25 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
-#include <atomic>
-#include <chrono>
 #include <cstdint>
-#include <filesystem>
+#include <mutex>
+#include <string>
+#include <string_view>
 #include <unordered_map>
 
+#include "Core/SharedMemoryBuffer.h"
+#include "Core/Pipefile.h"
 #include "DataTypes/SpinLock.h"
+#include "FileHandles/CacheFileHandle.h"
 
-struct FileBuffer
+enum e_PipeFileError
 {
-    static constexpr uint32_t PinnedBit = 0;
-
-    uint64_t Size;
-    void* Data;
-    std::chrono::high_resolution_clock::time_point TimePoint;
-    std::atomic<uint32_t> Lock;
-    uint8_t Flags;
-};
-
-class FileHandle
-{
-private:
-
-protected:
-
-public:
-    virtual ~FileHandle() { }
-
-    virtual uint64_t GetSize() const = 0;
-    virtual uint64_t GetOffset() const = 0;
-    virtual uint64_t Read(void* a_data, uint64_t a_size) = 0;
-    virtual bool Seek(uint64_t a_offset) = 0;
-    virtual bool Ignore(uint64_t a_size) = 0;
-    virtual bool EndOfFile() const = 0;
-};
-
-class CacheFileHandle : public FileHandle
-{
-private:
-    FileBuffer* m_buffer;
-    uint64_t    m_offset;
-
-protected:
-
-public:
-    CacheFileHandle(FileBuffer* a_buffer);
-    virtual ~CacheFileHandle();
-
-    virtual uint64_t GetSize() const;
-    virtual uint64_t GetOffset() const;
-    virtual uint64_t Read(void* a_data, uint64_t a_size);
-    virtual bool Seek(uint64_t a_offset);
-    virtual bool Ignore(uint64_t a_size);
-    virtual bool EndOfFile() const;
-};
-
-class ReadFileHandle : public FileHandle
-{
-private:
-    FILE*    m_file;
-    uint64_t m_size;
-
-protected:
-
-public:
-    ReadFileHandle(FILE* a_file, uint64_t a_size);
-    virtual ~ReadFileHandle();
-
-    virtual uint64_t GetSize() const;
-    virtual uint64_t GetOffset() const;
-    virtual uint64_t Read(void* a_data, uint64_t a_size);
-    virtual bool Seek(uint64_t a_offset);
-    virtual bool Ignore(uint64_t a_size);
-    virtual bool EndOfFile() const;
+    PipeFileError_Success,
+    PipeFileError_Partial,
+    PipeFileError_Invalid
 };
 
 // RAM is incredibly slow but spinning rust is much slower then RAM,
@@ -93,7 +35,28 @@ private:
     // Use string as compilers seem to be hit or miss as to path as a key
     std::unordered_map<std::string, FileBuffer*> m_files;
 
-    FileCache(uint32_t a_sizeMiB);
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+#ifndef WIN32
+    static constexpr char CommandBufferName[] = "IcarianEditorAssetCommand";
+    static constexpr char DataBufferName[] = "IcarianEditorAssetData";
+#endif
+
+    static constexpr uint32_t SharedBufferSize = 10 << 10;
+
+    uint32_t                                     m_pipefileID;
+
+    // May be a while so just use a mutex over a spinlock
+    std::mutex                                   m_commandPipelock;
+    std::mutex                                   m_dataPipelock;
+    std::mutex                                   m_readLock;
+
+    IcarianCore::SharedMemoryBuffer*             m_commandBuffer;
+    IcarianCore::SharedMemoryBuffer*             m_dataBuffer;
+
+    void*                                        m_readBuffer;
+#endif
+
+    FileCache(uint32_t a_sizeMiB, uint32_t a_pipefileID);
 
     FileHandle* GenerateFileHandle(const std::string& a_path, FILE* a_file, uint64_t a_size);
 
@@ -102,9 +65,18 @@ protected:
 public:
     ~FileCache();
 
-    static void Init(uint32_t a_sizeMiB);
+    static void Init(uint32_t a_sizeMiB, uint32_t a_pipefileID);
     static void Destroy();
 
+    // I am not a fan of this there is a very bad flaw that can result in getting the data of an unrelated request for now but just ignoring it
+    // Either way this has awful code smell and not happy with it
+    // TOOD: Fix this may need to unify this into a single function with blocking depending on shit
+    static void SubmitPipeRequest(IcarianCore::e_PipefileDataType a_type, const std::string_view& a_path, uint32_t a_size = 0, uint32_t a_offset = 0);
+    static e_PipeFileError AwaitPipeData(IcarianCore::e_PipefileDataType a_type, const std::string_view& a_path, uint32_t* a_bufferSize, uint8_t** a_data);
+    static e_PipeFileError AwaitPipeData(IcarianCore::e_PipefileDataType a_type, const std::string_view& a_path, uint32_t a_offset, uint32_t* a_bufferSize, uint8_t** a_data);
+    static void FreePipeData();
+
+    static bool Exists(const std::string_view& a_str);
     static bool ExistsInCache(const std::string_view& a_str);
 
     static void Update();
@@ -112,8 +84,7 @@ public:
     static void PushFile(const std::string_view& a_str, uint8_t* a_data, uint32_t a_size, bool a_pin);
     static FileHandle* LoadCachedFile(const std::string_view& a_str);
 
-    static void PreLoad(const std::filesystem::path& a_path);
-    static FileHandle* LoadFile(const std::filesystem::path& a_path);
+    static FileHandle* LoadFile(const std::string_view& a_path);
 };
 
 // MIT License

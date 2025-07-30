@@ -4,11 +4,19 @@
 
 using System;
 
+#ifdef ENABLE_STACKTRACE
+using System.Diagnostics;
+#endif
+
 namespace IcarianEngine.Rendering
 {
     public class RenderTexture : IRenderTexture
     {
-        uint m_bufferAddr = uint.MaxValue;
+        uint       m_bufferAddr = uint.MaxValue;
+
+#ifdef ENABLE_STACKTRACE
+        StackTrace m_stackTrace;
+#endif
 
         /// <summary>
         /// Whether or not the RenderTexture has been disposed/finalised
@@ -77,6 +85,10 @@ namespace IcarianEngine.Rendering
             m_bufferAddr = RenderTextureCmd.GenerateRenderTexture(1, a_width, a_height, depthVal, hdrVal, a_channelCount);
 
             RenderTextureCmd.PushRenderTexture(m_bufferAddr, this);
+
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
         public RenderTexture(uint a_width, uint a_height, DepthRenderTexture a_depthTexture, bool a_hdr = false, uint a_channelCount = 4)
         {
@@ -90,6 +102,10 @@ namespace IcarianEngine.Rendering
             }
 
             RenderTextureCmd.PushRenderTexture(m_bufferAddr, this);
+
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
 
         /// <summary>
@@ -114,7 +130,7 @@ namespace IcarianEngine.Rendering
         /// <summary>
         /// Called when the RenderTexture is being Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether this has called from Dispose</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_bufferAddr != uint.MaxValue)
@@ -128,13 +144,17 @@ namespace IcarianEngine.Rendering
                 else
                 {
                     Logger.IcarianError("RenderTexture Failed to Dispose");
+
+#ifdef ENABLE_STACKTRACE
+                    CallStack.PrintStackTrace(m_stackTrace);
+#endif  
                 }
 
                 m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple RenderTexture Dispose");
+                Logger.IcarianWarning("Multiple RenderTexture Dispose");
             }
         }
         ~RenderTexture()
@@ -146,7 +166,7 @@ namespace IcarianEngine.Rendering
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -6,6 +6,8 @@
 
 #include "Rendering/Vulkan/LibVulkan.h"
 
+#include "Core/IcarianError.h"
+
 #ifdef WIN32
 #include "Core/WindowsHeaders.h"
 
@@ -18,55 +20,35 @@ constexpr const char VulkanLib[] = "libvulkan.so";
 
 LibVulkan::LibVulkan()
 {
+    IERRBLOCK;
+
+    IERRDEFER(IcarianError
+        (
+"Icarian Engine failed to load Vulkan. \n\
+\n\
+Please ensure you have a Vulkan 1.2 capable GPU and drivers are upto date."
+        ));
+
+    // Yes I am aware there are more efficent ways to deal with Vulkan and can directly load driver bindings over going through vulkan-1.dll however until it is an issue KISS
+    // If it is a good implementation vulkan-1.dll vkGetInstanceProcAddr should give the driver bindings anyway atleast in theory drivers/Windows are a bitch so cannot be certain
 #ifdef WIN32
     HMODULE lib = LoadLibraryA(VulkanLib);
     m_lib = lib;
-    if (m_lib == NULL)
-    {
-        goto Error;
-    }
+    IERRCHECK(m_lib != NULL);
 
     vkGetInstanceProcAddr = (void*)GetProcAddress(lib, "vkGetInstanceProcAddr");
-    if (vkGetInstanceProcAddr == NULL)
-    {
-        goto Error;
-    }
-
+    IERRCHECK(vkGetInstanceProcAddr != NULL);
     vkGetDeviceProcAddr = (void*)GetProcAddress(lib, "vkGetDeviceProcAddr");
-    if (vkGetDeviceProcAddr == NULL)
-    {
-        goto Error;
-    }
-
-    return;
+    IERRCHECK(vkGetDeviceProcAddr != NULL);
 #else
     m_lib = dlopen(VulkanLib, RTLD_LAZY | RTLD_LOCAL);
-    if (m_lib == NULL)
-    {
-        goto Error;
-    }
+    IERRCHECK(m_lib != NULL);
 
     vkGetInstanceProcAddr = dlsym(m_lib, "vkGetInstanceProcAddr");
-    if (vkGetInstanceProcAddr == NULL)
-    {
-        goto Error;
-    }
+    IERRCHECK(vkGetInstanceProcAddr != NULL);
     vkGetDeviceProcAddr = dlsym(m_lib, "vkGetDeviceProcAddr");
-    if (vkGetDeviceProcAddr == NULL)
-    {
-        goto Error;
-    }
-
-    return;
+    IERRCHECK(vkGetDeviceProcAddr != NULL);
 #endif
-
-Error:;
-    IcarianError
-        (
-"Icarian Engine failed to load Vulkan. \
-\
-Please ensure you have a Vulkan 1.2 capable GPU and drivers are upto date."
-        );
 }
 LibVulkan::~LibVulkan()
 {

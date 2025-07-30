@@ -31,7 +31,7 @@ constexpr static uint32_t GetFormatSize(e_AudioFormat a_format)
 }
 
 // Not accounting for endian not an issue currently but may become an issue down the line
-WAVAudioClip::WAVAudioClip(const std::filesystem::path& a_path)
+WAVAudioClip::WAVAudioClip(const std::string_view& a_path)
 {
     m_path = a_path;
 
@@ -210,7 +210,7 @@ uint8_t* WAVAudioClip::GetAudioData(RingAllocator* a_allocator, uint64_t a_sampl
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

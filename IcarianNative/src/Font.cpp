@@ -14,6 +14,7 @@
 
 #include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianError.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "Trace.h"
@@ -33,28 +34,22 @@ Font::~Font()
     delete[] m_data;
 }
 
-Font* Font::LoadFont(const std::filesystem::path& a_path)
+Font* Font::LoadFont(const std::string_view& a_path)
 {
+    IERRBLOCK;
+
     TRACE("Loading font");
     FileHandle* fileHandle = FileCache::LoadFile(a_path);
-    if (fileHandle != nullptr)
-    {
-        const uint32_t size = (uint32_t)fileHandle->GetSize();
+    IERRCHECKRET(fileHandle != nullptr, nullptr);
 
-        uint8_t* dat = new uint8_t[size];
-        if (fileHandle->Read(dat, size) != size)
-        {
-            IERROR("Error reading file");
-        }
+    const uint32_t size = (uint32_t)fileHandle->GetSize();
 
-        return new Font(dat);
-    }
-    else
-    {
-        IERROR("Unable to open font file");
-    }
+    uint8_t* dat = new uint8_t[size];
+    IERRDEFER(delete[] dat);
 
-    return nullptr;
+    IERRCHECKRET(fileHandle->Read(dat, size) != size, nullptr);
+
+    return new Font(dat);
 }
 
 struct CodePointTexture
@@ -264,7 +259,7 @@ static uint32_t AddSideVertex(uint32_t a_index, uint32_t a_offset, Array<Vertex>
 
     Vertex vert = a_vertices->Get(a_index);
 
-    vert.Normal = glm::vec3(0.0f);
+    vert.Normal = glm::vec4(0.0f);
     a_vertices->Push(vert);
 
     vert.Position.z = -vert.Position.z;
@@ -295,10 +290,10 @@ static void AddSideEdge(uint32_t a_indexA, uint32_t a_indexB, uint32_t a_sideVer
 
     const glm::vec3 norm = glm::cross(dirB, dirA);
 
-    vertA.Normal += norm;
-    vertB.Normal += norm;
-    vertC.Normal += norm;
-    vertD.Normal += norm;
+    vertA.Normal += glm::vec4(norm, 0.0f);
+    vertB.Normal += glm::vec4(norm, 0.0f);
+    vertC.Normal += glm::vec4(norm, 0.0f);
+    vertD.Normal += glm::vec4(norm, 0.0f);
 
     a_indices->Push(qIndexB);
     a_indices->Push(qIndexA);

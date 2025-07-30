@@ -117,6 +117,8 @@ VulkanComputeEngine::~VulkanComputeEngine()
 
 VulkanCommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, uint32_t a_index)
 {
+    RENDERSCRATCHFRAME;
+
     const vk::Device device = m_engine->GetLogicalDevice();
 
     device.resetCommandPool(m_pools[a_index]);
@@ -136,7 +138,7 @@ VulkanCommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, u
 
     VULKAN_MARKER_COL(m_engine, cmdBuffer, "Compute Pass", 128, 128, 128);
 
-    const Array<ComputeParticleBuffer> particleBuffers = m_particleBuffers.ToActiveArray();
+    const Array<ComputeParticleBuffer, RenderScratchAlloc> particleBuffers = m_particleBuffers.ToActiveArray<RenderScratchAlloc>();
     for (const ComputeParticleBuffer& buffer : particleBuffers)
     {
         VulkanComputeParticle* pSys = (VulkanComputeParticle*)buffer.Data;
@@ -146,7 +148,7 @@ VulkanCommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, u
         }
     }
 
-    return VulkanCommandBuffer(cmdBuffer, VulkanCommandBufferType_Compute);
+    return VulkanCommandBuffer(cmdBuffer, VulkanCommandBufferType_Compute, VulkanCommandBufferStage_ComputePass);
 }
 
 ComputeParticleBuffer VulkanComputeEngine::GetParticleBuffer(uint32_t a_addr)

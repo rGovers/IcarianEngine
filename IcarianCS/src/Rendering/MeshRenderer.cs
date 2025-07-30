@@ -10,9 +10,8 @@ namespace IcarianEngine.Rendering
 {
     public class MeshRenderer : Renderer, IDestroy
     {
-        // NOTE: This was fine at the time of writing but now is starting to seem like code smell consider moving these 4 functions down the line
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        internal extern static uint GenerateBuffer(uint a_transformAddr, uint a_materialAddr, uint a_modelAddr); 
+        internal extern static uint GenerateBuffer(uint a_transformAddr, uint a_materialAddr, uint a_meshAddr, uint a_indexCount); 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
         internal extern static void DestroyBuffer(uint a_addr);
 
@@ -22,17 +21,17 @@ namespace IcarianEngine.Rendering
         internal extern static void DestroyRenderStack(uint a_addr); 
 
         bool     m_disposed = false;
-
         bool     m_visible = true;
 
         uint     m_bufferAddr = uint.MaxValue;
+        uint     m_indexCount = 0;
 
-        Model    m_model = null;
+        Mesh     m_mesh = null;
 
         Material m_material = null;
 
         /// <summary>
-        /// Whether the MeshRenderer has been Disposed/Finalised
+        /// Whether the MeshRenderer has been Disposed/Finalized
         /// </summary>
         public bool IsDisposed
         {
@@ -43,7 +42,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// The Def used to create this MeshRenderer
+        /// The <see cref="IcarianEngine.Defintion.MeshRenderDef" /> used to create this MeshRenderer
         /// </summary>
         public MeshRendererDef MeshRendererDef
         {
@@ -54,7 +53,7 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Whether the MeshRender is visible
+        /// Whether the MeshRenderer is visible
         /// </summary>
         public override bool Visible
         {
@@ -92,6 +91,20 @@ namespace IcarianEngine.Rendering
             }
             set
             {
+                if (value != null)
+                {
+                    if (value.MaterialMode != MaterialMode.BaseMesh)
+                    {
+                        Logger.IcarianError($"Invalid MaterialMode of Material assigned to MeshRenderer: {value.MaterialMode}");
+
+                        m_material = null;
+
+                        PushData();
+
+                        return;
+                    }
+                }
+
                 if (m_material != value)
                 {
                     m_material = value;
@@ -102,19 +115,40 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// The <see cref="IcarianEngine.Rendering.Model" /> of the MeshRenderer
+        /// The <see cref="IcarianEngine.Rendering.Mesh" /> of the MeshRenderer
         /// </summary>
-        public Model Model
+        public Mesh Mesh
         {
             get
             {
-                return m_model;
+                return m_mesh;
             }
             set
             {
-                if (m_model != value)
+                if (m_mesh != value)
                 {
-                    m_model = value;
+                    m_mesh = value;
+
+                    PushData();
+                }
+            }
+        }
+
+        /// <summary>
+        /// The number of indices for the MeshRenderer to draw
+        /// </summary
+        /// uint.MaxValue is used for the MeshletCount to be used
+        public uint IndexCount
+        {
+            get
+            {
+                return m_indexCount;
+            }
+            set
+            {
+                if (m_indexCount != value)
+                {
+                    m_indexCount = value;
 
                     PushData();
                 }
@@ -135,9 +169,15 @@ namespace IcarianEngine.Rendering
                 m_bufferAddr = uint.MaxValue;
             }
 
-            if (m_model != null && m_material != null)
+            if (m_material != null && m_indexCount > 0)
             {
-                m_bufferAddr = GenerateBuffer(Transform.InternalAddr, m_material.InternalAddr, m_model.InternalAddr);
+                uint meshAddr = uint.MaxValue;
+                if (m_mesh != null)
+                {
+                    meshAddr = m_mesh.InternalAddr;
+                }
+
+                m_bufferAddr = GenerateBuffer(Transform.InternalAddr, m_material.InternalAddr, meshAddr, m_indexCount);
 
                 if (m_visible)
                 {
@@ -155,14 +195,14 @@ namespace IcarianEngine.Rendering
 
             RendererDef def = RendererDef;
             if (def != null)
-            {   
-                Material = AssetLibrary.GetMaterial(def.MaterialDef);
-
-                MeshRendererDef meshDef = MeshRendererDef;
-                if (meshDef != null && !string.IsNullOrWhiteSpace(meshDef.ModelPath))
+            {
+                MeshRendererDef meshDef = def as MeshRendererDef;
+                if (meshDef != null)
                 {
-                    Model = AssetLibrary.LoadModel(meshDef.ModelPath, meshDef.Index);
-                }   
+                    IndexCount = meshDef.IndexCount;
+                }
+
+                Material = AssetLibrary.GetMaterial(def.MaterialDef);
             }
         }
 
@@ -178,14 +218,13 @@ namespace IcarianEngine.Rendering
         /// <summary>
         /// Called when the MeshRenderer is Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether it was called from Dispose</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(!m_disposed)
             {
                 if(a_disposing)
                 {
-                    m_model = null;
                     m_material = null;
 
                     if (m_bufferAddr != uint.MaxValue)
@@ -202,26 +241,26 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.IcarianWarning("MeshRenderer Failed to Dispose");
+                    Logger.IcarianWarning("MeshRenderer not Disposed");
                 }
 
                 m_disposed = true;
             }
             else
             {
-                Logger.IcarianError("Multiple MeshRenderer Dispose");
+                Logger.IcarianError("MeshRenderer already Disposed");
             }
         }
         ~MeshRenderer()
         {
             Dispose(false);
         }
-    }
+    }   
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

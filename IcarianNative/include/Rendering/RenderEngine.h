@@ -33,6 +33,12 @@ private:
     friend class VulkanRenderEngineBackend;
 #endif
 
+    static constexpr uint32_t PastDeltaCount = 10;
+    static constexpr float MinFrameTime = 1 / 500.0f;
+    static constexpr float MaxFrameTime = 1 / 50.0f;
+    static constexpr float RemoteFrameTime = 1 / 60.0f;
+    static constexpr float MaxFrameTimeAdjustment = 0.001f;
+
     std::thread          m_thread;
 
     Config*              m_config;
@@ -60,6 +66,11 @@ public:
     void Start();
     void Stop();
 
+    inline Config* GetConfig() const
+    {
+        return m_config;
+    }
+
     inline RenderAssetStore* GetRenderAssetStore() const
     {
         return m_assets;
@@ -85,7 +96,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -51,12 +51,11 @@ void IcCharacterListener::OnAdjustBodyVelocity(const JPH::CharacterVirtual* a_ch
     a_velocity = JPH::Vec3(vel.x, vel.y, vel.z);
     a_angularVelocity = JPH::Vec3(angularVel.x, angularVel.y, angularVel.z);
 }
-bool IcCharacterListener::OnContactValidate(const JPH::CharacterVirtual* a_character, const JPH::Body& a_body, const JPH::SubShapeID& a_shapeId)
+bool IcCharacterListener::OnContactValidate(const JPH::CharacterVirtual* a_character, const JPH::BodyID& a_body, const JPH::SubShapeID& a_shapeId)
 {
     uint32_t addr = (uint32_t)(a_character->GetUserData() >> 32);
 
-    const JPH::BodyID id = a_body.GetID();
-    uint32_t bodyAddr = m_engine->GetBodyAddr(id.GetIndex());
+    uint32_t bodyAddr = m_engine->GetBodyAddr(a_body.GetIndex());
 
     int32_t state = 1;
     int32_t* statePtr = &state;
@@ -121,7 +120,7 @@ void IcCharacterListener::OnContactSolve(const JPH::CharacterVirtual* a_characte
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -186,16 +186,73 @@ CBBOOL ShadersToHeader(const CUBE_Path* a_shaderPaths, CBUINT32 a_shaderCount, c
 
             char line[1024];
 
+            // ~3KiB decrease in binary size just trimming the shaders
+            // Down the line may precompile the engine shaders to SPIRV but for now this works
+            // Probably will be a .fspv file for the non builtin ones as we want some extra metadata
             while (*s != '\0')
             {
                 if (*s == '\n')
                 {
-                    memcpy(line, e, s - e);
-                    line[s - e] = '\0';
+                    // Trim comments
+                    if (e[0] == '/' && e[1] == '/')
+                    {
+                        e = s + 1;
+                        ++s;
 
-                    // Me brain no worky
-                    // String shananigans to get the line to print correctly
-                    fprintf(outputFile, "%s\\n\\\n", line);
+                        continue;
+                    }
+
+                    // Trim extra lines
+                    if (e == s)
+                    {
+                        e = s + 1;
+                        ++s;
+
+                        continue;
+                    }
+                    if (e - s == 1 && e[0] == '\r')
+                    {
+                        e = s + 1;
+                        ++s;
+
+                        continue;
+                    }
+
+                    // Passed the intial checks so scan the line
+                    CBBOOL copy = CBTRUE;
+                    const char* scan = e;
+                    while (s - scan > 1)
+                    {
+                        // Trim excess whitespace at the start of the line
+                        if (scan == e && (*scan == ' ' || *scan == 9))
+                        {
+                            ++e;
+                        }
+
+                        if (*scan != ' ' && *scan != '/' && *scan != 9)
+                        {
+                            break;
+                        }
+
+                        if (scan[0] == '/' && scan[1] == '/')
+                        {
+                            copy = CBFALSE;
+
+                            break;
+                        }
+
+                        ++scan;
+                    }
+
+                    if (copy)
+                    {
+                        memcpy(line, e, s - e);
+                        line[s - e] = '\0';
+
+                        // Me brain no worky
+                        // String shananigans to get the line to print correctly
+                        fprintf(outputFile, "%s\\n\\\n", line);
+                    }
 
                     e = s + 1;
                 }

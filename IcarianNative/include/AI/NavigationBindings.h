@@ -8,7 +8,7 @@
 #include <glm/glm.hpp>
 
 #include <cstdint>
-#include <filesystem>
+#include <string_view>
 
 #include "DataTypes/Array.h"
 
@@ -25,7 +25,7 @@ public:
     NavigationBindings(Navigation* a_navigation);
     ~NavigationBindings();
 
-    uint32_t CreateNavMesh(const std::filesystem::path& a_path) const;
+    uint32_t CreateNavMesh(const std::string_view& a_path) const;
     void DestroyNavMesh(uint32_t a_addr) const;
     Array<glm::vec3> GetNavMeshPath(uint32_t a_addr, const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const;
 

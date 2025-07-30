@@ -6,13 +6,14 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include <filesystem>
 #include <string_view>
 
+class RuntimeFunction;
 class VulkanGraphicsEngine;
 class VulkanPixelShader;
 class VulkanVertexShader;
 
+#include "Core/ShaderBuffers.h"
 #include "Rendering/CameraBuffer.h"
 
 #include "EngineAmbientLightInteropStructures.h"
@@ -32,11 +33,18 @@ class VulkanGraphicsEngineBindings
 private:
     VulkanGraphicsEngine* m_graphicsEngine;
 
+    RuntimeFunction*      m_userArrayCallback;
+
 protected:
 
 public:
     VulkanGraphicsEngineBindings(VulkanGraphicsEngine* a_graphicsEngine);
     ~VulkanGraphicsEngineBindings();
+
+    inline RuntimeFunction* GetUserArrayCallback() const
+    {
+        return m_userArrayCallback;
+    }
 
     uint32_t GenerateFComputeShaderAddr(const std::string_view& a_str) const;
     void AddComputeShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
@@ -57,7 +65,8 @@ public:
     uint32_t GenerateShaderProgram(const RenderProgram& a_program) const;
     void DestroyShaderProgram(uint32_t a_addr) const;
     void RenderProgramSetTexture(uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr) const;
-    void RenderProgramSetUserUBO(uint32_t a_addr, uint32_t a_uboSize, const void* a_uboData) const;
+    void RenderProgramSetUserUBO(uint32_t a_addr, uint32_t a_uboSize, void* a_uboData) const;
+    void RenderProgramSetUserArray(uint32_t a_addr, void* a_data, uint32_t a_count, uint32_t a_stride) const;
     RenderProgram GetRenderProgram(uint32_t a_addr) const;
     void SetRenderProgram(uint32_t a_addr, const RenderProgram& a_program) const;
 
@@ -72,15 +81,35 @@ public:
     uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, const uint32_t* a_indices, uint32_t a_indexCount, uint16_t a_vertexStride, float a_radius) const;
     void DestroyModel(uint32_t a_addr) const;
 
-    uint32_t GenerateMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr) const;
-    void DestroyMeshRenderBuffer(uint32_t a_addr) const;
-    void GenerateRenderStack(uint32_t a_meshAddr) const;
-    void DestroyRenderStack(uint32_t a_meshAddr) const;
+    uint32_t GenerateMeshFromModel
+    (
+        const void* a_vertices,
+        uint32_t a_vertexCount,
+        uint16_t a_vertexStride,
+        const uint32_t* a_meshletVertices,
+        uint32_t a_meshletVertexCount,
+        const uint8_t* a_meshletTriangles,
+        uint32_t a_meshletTriangleCount,
+        const IcarianCore::ShaderMeshletBuffer* a_meshlets,
+        uint32_t a_meshletCount,
+        float a_radius
+    ) const;
+    void DestroyMesh(uint32_t a_addr) const;
 
-    uint32_t GenerateSkinnedMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr, uint32_t a_skeletonAddr) const;
-    void DestroySkinnedMeshRenderBuffer(uint32_t a_addr) const;
-    void GenerateSkinnedRenderStack(uint32_t a_addr) const;
-    void DestroySkinnedRenderStack(uint32_t a_addr) const;
+    uint32_t GenerateModelRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr) const;
+    void DestroyModelRenderBuffer(uint32_t a_addr) const;
+    void GenerateModelRenderStack(uint32_t a_modelAddr) const;
+    void DestroyModelRenderStack(uint32_t a_modelAddr) const;
+
+    uint32_t GenerateSkinnedModelRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr, uint32_t a_skeletonAddr) const;
+    void DestroySkinnedModelRenderBuffer(uint32_t a_addr) const;
+    void GenerateSkinnedModelRenderStack(uint32_t a_addr) const;
+    void DestroySkinnedModelRenderStack(uint32_t a_addr) const;
+
+    uint32_t GenerateMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr, uint32_t a_indexCount) const;
+    void DestroyMeshRenderBuffer(uint32_t a_addr) const;
+    void GenerateMeshRenderStack(uint32_t a_modelAddr) const;
+    void DestroyMeshRenderStack(uint32_t a_modelAddr) const;
 
     uint32_t GenerateGraphicsParticle2D(uint32_t a_computeBufferAddr) const;
     void DestroyGraphicsParticle2D(uint32_t a_addr) const;
@@ -173,7 +202,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

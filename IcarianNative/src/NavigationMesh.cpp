@@ -7,6 +7,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <filesystem>
 #include <glm/gtx/norm.hpp>
 
 #include "Core/IcarianDefer.h"
@@ -15,7 +16,7 @@
 #include "IcarianError.h"
 #include "Trace.h"
 
-NavigationMesh::NavigationMesh(const std::filesystem::path& a_path)
+NavigationMesh::NavigationMesh(const std::string_view& a_path)
 {
     m_vertexCount = 0;
     m_vertices = nullptr;
@@ -23,7 +24,9 @@ NavigationMesh::NavigationMesh(const std::filesystem::path& a_path)
     m_faces = nullptr;
 
     TRACE("Creating Nav Mesh");
-    const std::filesystem::path ext = a_path.extension();
+    const std::filesystem::path p = std::filesystem::path(a_path);
+
+    const std::filesystem::path ext = p.extension();
     const std::string extStr = ext.string();
 
     switch (StringHash<uint32_t>(extStr.c_str()))
@@ -43,7 +46,7 @@ NavigationMesh::NavigationMesh(const std::filesystem::path& a_path)
         IDEFER(delete[] dat);
         if (handle->Read(dat, size) != size)
         {
-            IERROR("Failed reading mesh data: " + a_path.string());
+            IERROR("Failed reading mesh data: " + std::string(a_path));
 
             break;
         }
@@ -196,7 +199,7 @@ NavigationMesh::NavigationMesh(const std::filesystem::path& a_path)
     }
     default:
     {
-        IERROR("Invalid model file extension: " + a_path.string());
+        IERROR("Invalid model file extension: " + std::string(a_path));
 
         break;
     }

@@ -176,36 +176,7 @@ namespace IcarianEngine.Maths
 
                 return a_a * invV + a_b * v;
             }
-            
         }
-        /// <summary>
-        /// Gets the maximum of 2 values
-        /// </summary>
-        /// <param name="a_a">The first value to get the maximum of</param>
-        /// <param name="a_b">The second value to get the maximum of</param>
-        /// <returns>The maximum of the values</returns>
-        public static float Max(float a_a, float a_b)
-        {
-            unchecked
-            {
-                int v = -((a_b - a_a).GetHashCode() >> 31);
-                int invV = 1 - v;
-
-                return a_a * v + a_b * invV;
-            }
-        }
-        /// <summary>
-        /// Clamps a value in a range
-        /// </summary>
-        /// <param name="a_a">The value to clamp</param>
-        /// <param name="a_min">The minimum value for the value</param>
-        /// <param name="a_max">The maximum value for the value</param>
-        /// <returns>The value clamped to the range</returns>
-        public static float Clamp(float a_a, float a_min, float a_max)
-        {
-            return Mathf.Min(a_max, Mathf.Max(a_a, a_min));
-        }
-
         /// <summary>
         /// Gets the minimum of 2 values
         /// </summary>
@@ -220,7 +191,7 @@ namespace IcarianEngine.Maths
                 int invV = 1 - v;
 
                 return a_a * invV + a_b * v;
-            }   
+            }
         }
         /// <summary>
         /// Gets the minimum of 2 values
@@ -237,6 +208,23 @@ namespace IcarianEngine.Maths
             }
 
             return a_b;
+        }
+
+        /// <summary>
+        /// Gets the maximum of 2 values
+        /// </summary>
+        /// <param name="a_a">The first value to get the maximum of</param>
+        /// <param name="a_b">The second value to get the maximum of</param>
+        /// <returns>The maximum of the values</returns>
+        public static float Max(float a_a, float a_b)
+        {
+            unchecked
+            {
+                int v = -((a_b - a_a).GetHashCode() >> 31);
+                int invV = 1 - v;
+
+                return a_a * v + a_b * invV;
+            }
         }
         /// <summary>
         /// Gets the maximum of 2 values
@@ -270,6 +258,18 @@ namespace IcarianEngine.Maths
 
             return a_b;
         }
+
+        /// <summary>
+        /// Clamps a value in a range
+        /// </summary>
+        /// <param name="a_a">The value to clamp</param>
+        /// <param name="a_min">The minimum value for the value</param>
+        /// <param name="a_max">The maximum value for the value</param>
+        /// <returns>The value clamped to the range</returns>
+        public static float Clamp(float a_a, float a_min, float a_max)
+        {
+            return Mathf.Min(a_max, Mathf.Max(a_a, a_min));
+        }
         /// <summary>
         /// Clamps a value in a range
         /// </summary>
@@ -278,6 +278,17 @@ namespace IcarianEngine.Maths
         /// <param name="a_max">The maximum value for the value</param>
         /// <returns>The value clamped to the range</returns>
         public static int Clamp(int a_a, int a_min, int a_max)
+        {
+            return Mathf.Min(a_max, Mathf.Max(a_a, a_min));
+        }
+        /// <summary>
+        /// Clamps a value in a range
+        /// </summary>
+        /// <param name="a_a">The value to clamp</param>
+        /// <param name="a_min">The minimum value for the value</param>
+        /// <param name="a_max">The maximum value for the value</param>
+        /// <returns>The value clamped to the range</returns>
+        public static uint Clamp(uint a_a, uint a_min, uint a_max)
         {
             return Mathf.Min(a_max, Mathf.Max(a_a, a_min));
         }

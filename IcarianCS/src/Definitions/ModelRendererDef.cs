@@ -2,40 +2,41 @@
 // 
 // License at end of file.
 
-using IcarianEngine.Physics.Shapes;
+using IcarianEngine.Rendering;
 
 namespace IcarianEngine.Definitions
 {
-    public class MeshCollisionShapeDef : CollisionShapeDef
+    public class ModelRendererDef : RendererDef
     {
         /// <summary>
         /// Path relative to the project for the model file to be used
         /// </summary>
         [EditorTooltip("Path relative to the project for the model file to be used"), EditorPathString(new string[] { ".obj", ".dae", ".fbx", ".glb", ".gltf"})]
-        public string MeshPath;
-
-        public MeshCollisionShapeDef()
-        {
-            CollisionShapeType = typeof(MeshCollisionShape);
-        }
+        public string ModelPath;        
 
         /// <summary>
-        /// Called after final resolution of the Def
-        /// </summary>
+        /// The mesh index to load
+        /// </summary> 
+        [EditorTooltip("Mesh index to load")]
+        public byte Index = byte.MaxValue;
+
+        public ModelRendererDef()
+        {
+            ComponentType = typeof(ModelRenderer);
+        }
+
         public override void PostResolve()
         {
             base.PostResolve();
 
-            if (string.IsNullOrWhiteSpace(MeshPath))
+            if (string.IsNullOrWhiteSpace(ModelPath))
             {
-                Logger.IcarianWarning($"MeshCollisionShape {DefName} null MeshPath");
+                Logger.IcarianWarning($"ModelRendererDef {DefName} invalid ModelPath");
+            }   
 
-                return;
-            }
-
-            if (CollisionShapeType != typeof(MeshCollisionShape) && !CollisionShapeType.IsSubclassOf(typeof(MeshCollisionShape)))
+            if (ComponentType != typeof(ModelRenderer) && !ComponentType.IsSubclassOf(typeof(ModelRenderer)))
             {
-                Logger.IcarianWarning($"MeshCollisionShape {DefName} invalid CollisionShapeType: {CollisionShapeType}");
+                Logger.IcarianError($"ModelRendererDef {DefName} invalid ComponentType: {ComponentType}");
 
                 return;
             }
@@ -45,7 +46,7 @@ namespace IcarianEngine.Definitions
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -38,7 +38,7 @@ namespace IcarianEngine
                 new Vertex() 
                 {
                     Position = new Vector4(-1.0f, -1.0f, -1.0f, 1.0f),
-                    Normal = new Vector3(-1.0f, 0.0f, 0.0f),
+                    Normal = new Vector4(-1.0f, 0.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -46,7 +46,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(-1.0f, -1.0f, -1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, -1.0f, 0.0f),
+                    Normal = new Vector4(0.0f, -1.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -54,7 +54,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(-1.0f, -1.0f, -1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, 0.0f, -1.0f),
+                    Normal = new Vector4(0.0f, 0.0f, -1.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -64,7 +64,7 @@ namespace IcarianEngine
                 new Vertex() 
                 {
                     Position = new Vector4(1.0f, -1.0f, -1.0f, 1.0f),
-                    Normal = new Vector3(1.0f, 0.0f, 0.0f),
+                    Normal = new Vector4(1.0f, 0.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -72,7 +72,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(1.0f, -1.0f, -1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, -1.0f, 0.0f),
+                    Normal = new Vector4(0.0f, -1.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -80,7 +80,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(1.0f, -1.0f, -1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, 0.0f, -1.0f),
+                    Normal = new Vector4(0.0f, 0.0f, -1.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -90,7 +90,7 @@ namespace IcarianEngine
                 new Vertex() 
                 {
                     Position = new Vector4(-1.0f, -1.0f, 1.0f, 1.0f),
-                    Normal = new Vector3(-1.0f, 0.0f, 0.0f),
+                    Normal = new Vector4(-1.0f, 0.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -98,7 +98,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(-1.0f, -1.0f, 1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, -1.0f, 0.0f),
+                    Normal = new Vector4(0.0f, -1.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -106,7 +106,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(-1.0f, -1.0f, 1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, 0.0f, 1.0f),
+                    Normal = new Vector4(0.0f, 0.0f, 1.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -116,7 +116,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(1.0f, -1.0f, 1.0f, 1.0f),
-                    Normal = new Vector3(1.0f, 0.0f, 0.0f),
+                    Normal = new Vector4(1.0f, 0.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -124,7 +124,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(1.0f, -1.0f, 1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, -1.0f, 0.0f),
+                    Normal = new Vector4(0.0f, -1.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -132,7 +132,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(1.0f, -1.0f, 1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, 0.0f, 1.0f),
+                    Normal = new Vector4(0.0f, 0.0f, 1.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -142,7 +142,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(-1.0f, 1.0f, -1.0f, 1.0f),
-                    Normal = new Vector3(-1.0f, 0.0f, 0.0f),
+                    Normal = new Vector4(-1.0f, 0.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -150,7 +150,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(-1.0f, 1.0f, -1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, 1.0f, 0.0f),
+                    Normal = new Vector4(0.0f, 1.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -158,7 +158,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(-1.0f, 1.0f, -1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, 0.0f, -1.0f),
+                    Normal = new Vector4(0.0f, 0.0f, -1.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -168,7 +168,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(1.0f, 1.0f, -1.0f, 1.0f),
-                    Normal = new Vector3(1.0f, 0.0f, 0.0f),
+                    Normal = new Vector4(1.0f, 0.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -176,7 +176,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(1.0f, 1.0f, -1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, 1.0f, 0.0f),
+                    Normal = new Vector4(0.0f, 1.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -184,7 +184,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(1.0f, 1.0f, -1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, 0.0f, -1.0f),
+                    Normal = new Vector4(0.0f, 0.0f, -1.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -194,7 +194,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(-1.0f, 1.0f, 1.0f, 1.0f),
-                    Normal = new Vector3(-1.0f, 0.0f, 0.0f),
+                    Normal = new Vector4(-1.0f, 0.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -202,7 +202,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(-1.0f, 1.0f, 1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, 1.0f, 0.0f),
+                    Normal = new Vector4(0.0f, 1.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -210,7 +210,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(-1.0f, 1.0f, 1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, 0.0f, 1.0f),
+                    Normal = new Vector4(0.0f, 0.0f, 1.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -220,7 +220,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(1.0f, 1.0f, 1.0f, 1.0f),
-                    Normal = new Vector3(1.0f, 0.0f, 0.0f),
+                    Normal = new Vector4(1.0f, 0.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -228,7 +228,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(1.0f, 1.0f, 1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, 1.0f, 0.0f),
+                    Normal = new Vector4(0.0f, 1.0f, 0.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -236,7 +236,7 @@ namespace IcarianEngine
                 new Vertex()
                 {
                     Position = new Vector4(1.0f, 1.0f, 1.0f, 1.0f),
-                    Normal = new Vector3(0.0f, 0.0f, 1.0f),
+                    Normal = new Vector4(0.0f, 0.0f, 1.0f, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -343,7 +343,7 @@ namespace IcarianEngine
                 verts[i] = new Vertex()
                 {
                     Position = new Vector4(point, 1.0f),
-                    Normal = point,
+                    Normal = new Vector4(point, 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero
@@ -395,7 +395,7 @@ namespace IcarianEngine
                     Vertex v;
 
                     v.Position = new Vector4(rot * (ringOffset + new Vector3(0.0f, loopVertices[j].Y, loopVertices[j].X)), 1);
-                    v.Normal = rot * new Vector3(0.0f, loopNormals[j].Y, loopNormals[j].X);
+                    v.Normal = rot * new Vector4(0.0f, loopNormals[j].Y, loopNormals[j].X, 0.0f);
                     v.Color = Vector4.One;
                     v.TexCoordsA = Vector2.Zero;
                     v.TexCoordsB = Vector2.Zero;
@@ -509,7 +509,7 @@ namespace IcarianEngine
                 vertices[i] = new Vertex()
                 {
                     Position = new Vector4(positions[i], 1.0f),
-                    Normal = normals[i],
+                    Normal = new Vector4(normals[i], 0.0f),
                     Color = Vector4.One,
                     TexCoordsA = Vector2.Zero,
                     TexCoordsB = Vector2.Zero

@@ -20,7 +20,7 @@
     const struct ICARIAN_DEFER_NAME(_defer_struct) \
     { \
         ICARIAN_DEFER_NAME(_t) m_val; \
-        ICARIAN_DEFER_NAME(_defer_struct)(ICARIAN_DEFER_NAME(_t) a_val) : m_val(a_val) { } \
+        explicit ICARIAN_DEFER_NAME(_defer_struct)(ICARIAN_DEFER_NAME(_t) a_val) : m_val(a_val) { } \
         ~ICARIAN_DEFER_NAME(_defer_struct)() \
         { \
             m_val(); \

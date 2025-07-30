@@ -136,7 +136,7 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
         }
         case ShaderBufferType_SSParticleBuffer:
         {
-            data->PushShaderStorageObject(a_commandBuffer, input.Slot, computeParticleBuffer, a_index);
+            data->PushShaderStorageObject(a_commandBuffer, input.Slot, computeParticleBuffer, 0, a_index);
 
             break;
         }

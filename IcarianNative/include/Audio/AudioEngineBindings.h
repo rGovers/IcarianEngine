@@ -5,7 +5,7 @@
 #pragma once
 
 #include <cstdint>
-#include <filesystem>
+#include <string_view>
 
 class AudioEngine;
 
@@ -23,7 +23,7 @@ public:
     AudioEngineBindings(AudioEngine* a_engine);
     ~AudioEngineBindings();
 
-    uint32_t GenerateAudioClipFromFile(const std::filesystem::path& a_path) const;
+    uint32_t GenerateAudioClipFromFile(const std::string_view& a_path) const;
     void DestroyAudioClip(uint32_t a_addr) const;
     float GetAudioClipDuration(uint32_t a_addr) const;
     uint32_t GetAudioClipSampleRate(uint32_t a_addr) const;
@@ -48,7 +48,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

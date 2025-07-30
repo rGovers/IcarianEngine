@@ -10,7 +10,21 @@
 #include "Core/WindowsHeaders.h"
 #define VK_USE_PLATFORM_WIN32_KHR
 #endif
+
+#include "Core/IcarianPragma.h"
+
+// TODO: Need to further investigate but GCC is complaining about Vulkan using a header that is deprecated in C++17
+// Seems to contradict documentation by what I can tell but as iso646 was not removed until C++20 by what I can tell
+// Supressing for now to get it to compile again as I am not sure what tree to bark up about it
+// Probably have to poke the Khronos Group about it
+// This get trickier as too my knowledge the header in question that includes iso646 is generated for the Vulkan spec and not hand rolled
+// That may mean the generator need to change or the spec and cannot just patch it
+// Seems to compile if you use <version> over <ciso646> so not sure if spec issue or GCC issue
+ICARIAN_WARNINGPUSH
+// Yes this is a weird warning that you hardly see because it is relating to the CPP spec
+ICARIAN_WARNINGSUPPRESS("-Wcpp")
 #include <vulkan/vulkan.hpp>
+ICARIAN_WARNINGPOP
 
 // Nvidia driver was being weird about SPIRV 1.4 on Vulkan 1.1 bumping to Vulkan 1.2 seems to have fixed it
 // Weird that the extension was being odd but not gonna question it
@@ -38,6 +52,9 @@ static constexpr uint32_t VulkanEngineVersion = VK_MAKE_API_VERSION(0, ICARIANNA
 // AMD GPUs run just fine it is just their debuggers
 // There is an active issue that has not been fixed yet
 static constexpr bool AMDDebuggerFix = false;
+
+// Debug flag to force enable Mesh Shader emulation
+static constexpr bool VulkanForceMeshEmulation = false;
 
 #ifdef NDEBUG
 static constexpr bool VulkanEnableValidationLayers = false;

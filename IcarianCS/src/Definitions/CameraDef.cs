@@ -11,20 +11,23 @@ namespace IcarianEngine.Definitions
     public struct RenderTextureData
     {
         /// <summary>
-        /// The width of the <see cref="IcarianEngine.Rendering.IRenderTexture" />
-        /// </summary>
-        public uint Width;
-        /// <summary>
-        /// The height of the <see cref="IcarianEngine.Rendering.IRenderTexture" />
-        /// </summary>
-        public uint Height;
-        /// <summary>
         /// The number of textures in <see cref="IcarianEngine.Rendering.IRenderTexture" />
         /// </summary>
         public uint Count;
         /// <summary>
+        /// The width of the <see cref="IcarianEngine.Rendering.IRenderTexture" />
+        /// </summary>
+        [EditorFieldConditional(FieldConditionalType.GreaterThan, "Count", 0U)]
+        public uint Width;
+        /// <summary>
+        /// The height of the <see cref="IcarianEngine.Rendering.IRenderTexture" />
+        /// </summary>
+        [EditorFieldConditional(FieldConditionalType.GreaterThan, "Count", 0U)]
+        public uint Height;
+        /// <summary>
         /// If the <see cref="IcarianEngine.Rendering.IRenderTexture" /> is HDR
         /// </summary>
+        [EditorFieldConditional(FieldConditionalType.GreaterThan, "Count", 0U)]
         public bool HDR;
     }
 

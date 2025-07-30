@@ -12,11 +12,18 @@ namespace IcarianEngine
     public static class FileCache
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint ExistingFile(string a_path);
+        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint CachedFile(string a_path);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static byte[] ReadFileData(string a_path);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void WriteFileData(string a_path, byte[] a_data, uint a_writeFile, uint a_pinFile);
+
+        public static bool FileExists(string a_path)
+        {
+            return ExistingFile(a_path) != 0;
+        }
 
         /// <summary>
         /// Whether a file is loaded in the FileCache
@@ -24,29 +31,17 @@ namespace IcarianEngine
         /// <returns>If the file is loaded in the FileCache</returns>
         public static bool IsFileCached(string a_path)
         {
-            string path = a_path;
-            if (!Application.IsEditor)
-            {
-                path = ModControl.GetAssetPath(a_path);
-            }
-
-            return CachedFile(path) != 0;   
+            return CachedFile(a_path) != 0;
         }
 
         /// <summary>
         /// Loads file data from the FileCache
         /// </summary>
-        /// <param name="a_path">The path to the Asset in a <see cref="IcarianEngine.Mod.IcarianAssembly" /></param>
+        /// <param name="a_path">The path to the Asset</param>
         /// <returns>The file data. Null on failure</returns>
         public static byte[] LoadData(string a_path)
         {
-            string path = a_path;
-            if (!Application.IsEditor)
-            {
-                path = ModControl.GetAssetPath(a_path);
-            }
-
-            return ReadFileData(path);
+            return ReadFileData(a_path);
         }
 
         /// <summary>

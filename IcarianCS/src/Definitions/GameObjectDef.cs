@@ -12,22 +12,25 @@ namespace IcarianEngine.Definitions
     {
         public Type ObjectType = typeof(GameObject);
 
-        [EditorTooltip("GameObject name.")]
+        [EditorTooltip("GameObject name")]
         public string Name;
 
-        [EditorTooltip("GameObject position offset.")]
+        [EditorTooltip("GameObject position offset")]
         public Vector3 Translation = Vector3.Zero;
-        [EditorTooltip("GameObject rotation offset.")]
+        [EditorTooltip("GameObject rotation offset")]
         public Quaternion Rotation = Quaternion.Identity;
-        [EditorTooltip("GameObject scale offset.")]
+        [EditorTooltip("GameObject scale offset")]
         public Vector3 Scale = Vector3.One;        
 
-        [EditorTooltip("List of components the GameObject is composed of.")]
+        [EditorTooltip("List of Components the GameObject is composed of")]
         public List<ComponentDef> Components = new List<ComponentDef>();
 
-        [EditorTooltip("GameObject children.")]
+        [EditorTooltip("GameObject children")]
         public List<GameObjectDef> Children = new List<GameObjectDef>();
 
+        /// <summary>
+        /// Called after all the <see cref="IcarianEngine.Definitions.Def" /> are loaded and resolved
+        /// </summary>
         public override void PostResolve()
         {
             base.PostResolve();
@@ -39,12 +42,34 @@ namespace IcarianEngine.Definitions
                 return;
             }
         }
+
+        /// <summary>
+        /// Gets a <see cref="IcarianEngine.Definition.ComponentDef" /> of Type T from the GameObjectDef
+        /// </summary>
+        /// <returns>The <see cref="IcarianEngine.Definition.ComponentDef" /> of Type T. Null on failure</returns>
+        public T GetComponentDef<T>() where T : ComponentDef
+        {
+            if (Components == null)
+            {
+                return null;
+            }
+
+            foreach (ComponentDef c in Components)
+            {
+                if (c is T val)
+                {
+                    return val;
+                }
+            }
+
+            return null;
+        }
     }
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

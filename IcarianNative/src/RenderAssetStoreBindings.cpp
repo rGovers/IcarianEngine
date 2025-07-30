@@ -74,7 +74,7 @@ RenderAssetStoreBindings::~RenderAssetStoreBindings()
 
 }
 
-uint32_t RenderAssetStoreBindings::GenerateFont(const std::filesystem::path& a_path) const
+uint32_t RenderAssetStoreBindings::GenerateFont(const std::string_view& a_path) const
 {
     Font* font = Font::LoadFont(a_path);
     IVERIFY(font != nullptr);
@@ -110,23 +110,23 @@ uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, cons
     return -1;
 }
 
-bool RenderAssetStoreBindings::LoadModelData(const std::filesystem::path& a_path, uint32_t a_index, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices) const
+bool RenderAssetStoreBindings::LoadModelData(const std::string_view& a_path, uint32_t a_index, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices) const
 {
     float rad;
 
     return m_store->LoadModelData(a_path, (uint8_t)a_index, a_vertices, a_indices, &rad);
 }
 
-uint32_t RenderAssetStoreBindings::GenerateModel(const std::filesystem::path& a_path, uint32_t a_index) const
+uint32_t RenderAssetStoreBindings::GenerateModel(const std::string_view& a_path, uint32_t a_index) const
 {
     return m_store->LoadModel(a_path, a_index);
 }
-uint32_t RenderAssetStoreBindings::GenerateSkinnedModel(const std::filesystem::path& a_path, uint32_t a_index) const
+uint32_t RenderAssetStoreBindings::GenerateSkinnedModel(const std::string_view& a_path, uint32_t a_index) const
 {
     return m_store->LoadSkinnedModel(a_path, a_index);
 }
 
-uint32_t RenderAssetStoreBindings::GenerateTexture(const std::filesystem::path& a_path) const
+uint32_t RenderAssetStoreBindings::GenerateTexture(const std::string_view& a_path) const
 {
     return m_store->LoadTexture(a_path);
 }

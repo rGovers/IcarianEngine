@@ -63,14 +63,14 @@ namespace IcarianEngine.Rendering
                 {
                     if (m_visible && m_bufferAddr != uint.MaxValue)
                     {
-                        MeshRenderer.DestroyRenderStack(m_bufferAddr);
+                        ModelRenderer.DestroyRenderStack(m_bufferAddr);
                     }
 
                     m_visible = value;
 
                     if (m_visible && m_bufferAddr != uint.MaxValue)
                     {
-                        MeshRenderer.GenerateRenderStack(m_bufferAddr);
+                        ModelRenderer.GenerateRenderStack(m_bufferAddr);
                     }
                 }
             }
@@ -197,11 +197,11 @@ namespace IcarianEngine.Rendering
         {
             if (m_model != null && m_material != null)
             {
-                m_bufferAddr = MeshRenderer.GenerateBuffer(Transform.InternalAddr, m_material.InternalAddr, m_model.InternalAddr);
+                m_bufferAddr = ModelRenderer.GenerateBuffer(Transform.InternalAddr, m_material.InternalAddr, m_model.InternalAddr);
 
                 if (m_visible)
                 {
-                    MeshRenderer.GenerateRenderStack(m_bufferAddr);
+                    ModelRenderer.GenerateRenderStack(m_bufferAddr);
                 }
             }
         }
@@ -211,10 +211,10 @@ namespace IcarianEngine.Rendering
             {
                 if (m_visible)
                 {
-                    MeshRenderer.DestroyRenderStack(m_bufferAddr);
+                    ModelRenderer.DestroyRenderStack(m_bufferAddr);
                 }
 
-                MeshRenderer.DestroyBuffer(m_bufferAddr);
+                ModelRenderer.DestroyBuffer(m_bufferAddr);
 
                 m_bufferAddr = uint.MaxValue;
             }
@@ -290,7 +290,7 @@ namespace IcarianEngine.Rendering
         /// <summary>
         /// Called when the TextRenderer is Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether is was called from Disposed</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (!m_disposed)
@@ -305,12 +305,16 @@ namespace IcarianEngine.Rendering
                         m_model = null;
                     }
                 }
+                else
+                {
+                    Logger.IcarianError("TextRenderer not Disposed");
+                }
 
                 m_disposed = true;
             }
             else
             {
-                Logger.IcarianError("Multiple TextRenderer Dispose");
+                Logger.IcarianError("TextRenderer already Disposed");
             }
         }
         ~TextRenderer()
@@ -322,7 +326,7 @@ namespace IcarianEngine.Rendering
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

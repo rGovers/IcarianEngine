@@ -5,6 +5,10 @@
 using System;
 using System.Runtime.CompilerServices;
 
+#ifdef ENABLE_STACKTRACE
+using System.Diagnostics;
+#endif
+
 namespace IcarianEngine.Rendering.Shaders
 {
     public enum ComputeMode
@@ -34,6 +38,10 @@ namespace IcarianEngine.Rendering.Shaders
 
         uint        m_internalAddr;
         ComputeMode m_computeMode;
+
+#ifdef ENABLE_STACKTRACE
+        StackTrace  m_stackTrace;
+#endif
 
         /// <summary>
         /// Whether the ComputeShader has been Disposed
@@ -69,6 +77,10 @@ namespace IcarianEngine.Rendering.Shaders
         {
             m_internalAddr = a_addr;
             m_computeMode = a_computeMode;
+
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
 
         /// <summary>
@@ -126,7 +138,7 @@ namespace IcarianEngine.Rendering.Shaders
         /// <summary>
         /// Called when the ComputeShader is being Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether it is being called from Dispose</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_internalAddr != uint.MaxValue)
@@ -151,14 +163,18 @@ namespace IcarianEngine.Rendering.Shaders
                 }
                 else
                 {
-                    Logger.IcarianWarning("ComputeShader failed to Dispose");
+                    Logger.IcarianError("ComputeShader not Disposed");
+
+#ifdef ENABLE_STACKTRACE
+                    CallStack.PrintStackTrace(m_stackTrace);
+#endif  
                 }
 
                 m_internalAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple ComputeShader Dispose");
+                Logger.IcarianWarning("ComputeShader already Disposed");
             }
         }
         ~ComputeShader()

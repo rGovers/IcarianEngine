@@ -47,6 +47,9 @@ private:
 
     void SetRenderTextureCompute();
     void ClearRenderTextureCompute();
+
+    void BindRenderTexturePass();
+
     void BindResources();
 
 protected:
@@ -59,6 +62,8 @@ public:
     {
         return m_renderTexAddr == uint32_t(-1) && m_materialAddr == uint32_t(-1);
     }
+
+    vk::RenderPassBeginInfo GetRenderPassInfo() const;
 
     void Flush();
 
@@ -92,7 +97,8 @@ public:
     void Blit(const VulkanRenderTexture* a_src, uint32_t a_index, const VulkanRenderTexture* a_dst);
 
     void DrawMaterial();
-    void DrawModel(const glm::mat4& a_transform, uint32_t a_addr);
+    void DrawModel(const glm::mat4& a_transform, uint32_t a_modelAddr);
+    void DrawMesh(const glm::mat4& a_transform, uint32_t a_meshAddr, uint32_t a_indexCount);
 
     void MarkerStart(const std::string_view& a_name);
     void MarkerEnd();

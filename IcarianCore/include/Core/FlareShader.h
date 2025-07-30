@@ -21,6 +21,35 @@ namespace IcarianCore
         ShaderPlatform_OpenGL
     };
 
+#define IC_MESHOUT_TABLE(F) \
+    F(int, 4) \
+    F(uint, 4) \
+    F(float, 4) \
+    F(vec2, 8) \
+    F(vec3, 12) \
+    F(vec4, 16) \
+
+#define IC_MESHOUT_ENUMVAL(value) MeshOutType_##value
+
+#define IC_MESHOUT_ENUM(value, size) IC_MESHOUT_ENUMVAL(value),
+
+    constexpr static uint32_t MeshShaderEmulationVertexBufferOutput = 65;
+    constexpr static uint32_t MeshShaderEmulationIndexBufferOutput = 66;
+
+    enum e_MeshOutType
+    {
+        IC_MESHOUT_TABLE(IC_MESHOUT_ENUM)
+
+        MeshOutType_Last
+    };
+
+    struct MeshShaderOut
+    {
+        std::string Identifier;
+        uint32_t Slot;
+        e_MeshOutType Type;
+    };
+
     struct ShaderWorkgroups
     {
         uint32_t GroupX;
@@ -28,7 +57,38 @@ namespace IcarianCore
         uint32_t GroupZ;
     };
 
-    std::string GLSLFromFlareShader(const std::string_view& a_str, e_ShaderPlatform a_platform, const std::unordered_map<std::string, std::string>& a_imports, std::vector<ShaderBufferInput>* a_inputs, std::string* a_error, ShaderWorkgroups* a_workgroups = nullptr);
+    enum e_MeshShaderPrimitive
+    {
+        MeshShaderPrimitive_Null,
+        MeshShaderPrimitive_Point,
+        MeshShaderPrimitive_Line,
+        MeshShaderPrimitive_Triangle,
+    };
+
+    struct MeshShaderData
+    {
+        e_MeshShaderPrimitive PrimitiveType;
+        uint32_t MaxPrimitives;
+        uint32_t MaxVertices;
+    };
+
+    struct ShaderOutput
+    {
+        ShaderWorkgroups Workgroups;
+        MeshShaderData MeshData;
+        std::vector<MeshShaderOut> MeshOutputs;
+    };
+
+    std::string GLSLFromFlareShader
+    (
+        const std::string_view& a_str,
+        e_ShaderPlatform a_platform,
+        const std::unordered_map<std::string, std::string>& a_imports,
+        std::vector<ShaderBufferInput>* a_inputs,
+        std::string* a_error,
+        ShaderOutput* a_out = nullptr
+    );
+    std::string GenerateMeshVertexStub(const std::vector<MeshShaderOut>& a_outputs);
 }
 
 // MIT License

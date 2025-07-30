@@ -13,6 +13,10 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Xml;
 
+#ifdef ENABLE_STACKTRACE
+using System.Diagnostics;
+#endif
+
 #include "EngineCanvasInterop.h"
 #include "EngineCanvasInteropStructures.h"
 #include "InteropBinding.h"
@@ -25,7 +29,11 @@ namespace IcarianEngine.Rendering.UI
     {
         static ConcurrentDictionary<uint, Canvas> s_canvasLookup = new ConcurrentDictionary<uint, Canvas>();
 
-        uint m_bufferAddr;
+        uint       m_bufferAddr;
+
+#ifdef ENABLE_STACKTRACE
+        StackTrace m_stackTrace;
+#endif
 
         /// <summary>
         /// Whether or not the Canvas has been Disposed/Finalised
@@ -117,6 +125,10 @@ namespace IcarianEngine.Rendering.UI
             m_bufferAddr = a_bufferAddr;
 
             s_canvasLookup.TryAdd(m_bufferAddr, this);
+
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
         public Canvas(Vector2 a_refResolution) : this(CanvasInterop.CreateCanvas(a_refResolution))
         {
@@ -626,7 +638,7 @@ namespace IcarianEngine.Rendering.UI
         /// <summary>
         /// Called when the Canvas is being Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether or not it is called from Dispose</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)
@@ -644,14 +656,18 @@ namespace IcarianEngine.Rendering.UI
                 }
                 else
                 {
-                    Logger.IcarianWarning("Canvas Failed to Dispose");
+                    Logger.IcarianWarning("Canvas not Disposed");
+
+#ifdef ENABLE_STACKTRACE
+                    CallStack.PrintStackTrace(m_stackTrace);
+#endif               
                 }
 
                 m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple Canvas Dispose");
+                Logger.IcarianError("Canvas already Disposed");
             }
         }
         ~Canvas()
@@ -663,7 +679,7 @@ namespace IcarianEngine.Rendering.UI
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -15,22 +15,32 @@ VulkanShader::VulkanShader(VulkanRenderEngineBackend* a_engine, const ShaderBuff
     m_inputCount = a_inputCount;
     m_allocator = a_allocator;
 
-    m_inputs = m_allocator->TAllocate<ShaderBufferInput>(m_inputCount);
-    for (uint32_t i = 0; i < m_inputCount; ++i)
+    // We can now pass this is null sometimes as Shaders can now contain Shaders
+    m_inputs = nullptr;
+    if (a_inputCount > 0 && a_inputs != nullptr)
     {
-        m_inputs[i] = a_inputs[i];
+        m_inputs = m_allocator->TAllocate<ShaderBufferInput>(m_inputCount);
+        for (uint32_t i = 0; i < m_inputCount; ++i)
+        {
+            m_inputs[i] = a_inputs[i];
+        }
     }
 }
 VulkanShader::~VulkanShader()
 {
-    m_allocator->Free(m_inputs);
+    if (m_inputs != nullptr)
+    {
+        m_allocator->Free(m_inputs);
+        // Virtual so null for safety
+        m_inputs = nullptr;
+    }
 }
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

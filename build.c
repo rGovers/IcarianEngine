@@ -331,7 +331,7 @@ int main(int a_argc, char** a_argv)
         return 1;
     }
 
-    icarianCSProject = BuildIcarianCSProject(CBTRUE, CBFALSE);
+    icarianCSProject = BuildIcarianCSProject(CBTRUE, CBFALSE, CBFALSE, CBFALSE);
 
     printf("Compiling IcarianCS...\n");
     switch (targetPlatform) 
@@ -389,7 +389,13 @@ int main(int a_argc, char** a_argv)
 
     free(dependencyProjects);
 
-    icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration, enableTrace, enableProfiler, CBFALSE, remoteMode);
+    const IcarianNativeProjectFlags nativeFlags =
+    {
+        .EnableTrace = enableTrace,
+        .EnableProfiler = enableProfiler,
+        .RemoteMode = remoteMode,
+    };
+    icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration, nativeFlags);
 
     ret = CUBE_CProject_MultiCompile(&icarianNativeProject, compiler, "IcarianNative", CBNULL, jobThreads, &lines, &lineCount, rebuild);
 

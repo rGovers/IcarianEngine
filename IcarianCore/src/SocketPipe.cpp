@@ -83,6 +83,9 @@ DesDisconnectEnd:;
 
         uint32_t attempts = 0;
 
+        // TODO: Been having issues with gettings Windows->Windows connection on localhost
+        // Unix->Unix works on localhost, Unix->Windows and Windows->Windows works over the network but being weird and just failing with success on Windows->Windows
+        // I am 90% sure it is not ENet as I have also had weirdness with raw sockets on Windows
         // Been having issues getting a connection so spin a couple times before we give up
         // We do not give up right away as sometimes once the connection is established we are fine just getting the connection is fun
         ENetPeer* peer = NULL;

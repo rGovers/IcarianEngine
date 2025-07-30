@@ -6,6 +6,10 @@ using System;
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
+#ifdef ENABLE_STACKTRACE
+using System.Diagnostics;
+#endif
+
 namespace IcarianEngine.Rendering
 {
     public class DepthCubeRenderTexture : IRenderTexture
@@ -25,7 +29,11 @@ namespace IcarianEngine.Rendering
 
         static ConcurrentDictionary<uint, DepthCubeRenderTexture> s_bufferLookup = new ConcurrentDictionary<uint, DepthCubeRenderTexture>();
 
-        uint m_bufferAddr = uint.MaxValue;
+        uint       m_bufferAddr = uint.MaxValue;
+
+#ifdef ENABLE_STACKTRACE
+        StackTrace m_stackTrace;
+#endif
 
         /// <summary>
         /// Whether or not the Depth Render Texture has been disposed
@@ -88,6 +96,10 @@ namespace IcarianEngine.Rendering
             m_bufferAddr = GenerateRenderTexture(a_width, a_height);
 
             s_bufferLookup.TryAdd(m_bufferAddr, this);
+
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
 
         internal static DepthCubeRenderTexture GetDepthCubeRenderTexture(uint a_addr)
@@ -118,9 +130,9 @@ namespace IcarianEngine.Rendering
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// Called when the Depth Render Texture is disposed
+        /// Called when the DepthRenderTexture is Disposed/Finalized
         /// </summary>
-        /// <param name="a_disposing">Whether or not the Depth Render Texture is being disposed</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if (m_bufferAddr != uint.MaxValue)
@@ -133,14 +145,18 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.IcarianWarning("DepthCubeRenderTexture not disposed");
+                    Logger.IcarianWarning("DepthCubeRenderTexture not Disposed");
+
+#ifdef ENABLE_STACKTRACE
+                    CallStack.PrintStackTrace(m_stackTrace);
+#endif  
                 }
 
                 m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianWarning("DepthCubeRenderTexture already disposed");
+                Logger.IcarianWarning("DepthCubeRenderTexture already Disposed");
             }
         }
         ~DepthCubeRenderTexture()

@@ -4,6 +4,12 @@
 
 using System.Runtime.CompilerServices;
 
+#ifdef ENABLE_STACKTRACE
+using System;
+using System.Diagnostics;
+using System.Reflection;
+#endif
+
 namespace IcarianEngine
 {
     public static class Logger
@@ -25,39 +31,68 @@ namespace IcarianEngine
         {
             if (Application.IsEditor)
             {
-                Message($"IcarianCSE: {a_message}");
+                Message($"Editor: {a_message}");
             }
             else
             {
-                Message($"IcarianCS: {a_message}");
+                Message(a_message);
             }
         }
         internal static void IcarianWarning(string a_message)
         {
             if (Application.IsEditor)
             {
-                Warning($"IcarianCSE: {a_message}");
+                Warning($"Editor: {a_message}");
             }
             else
             {
-                Warning($"IcarianCS: {a_message}");
+                Warning(a_message);
             }
         }
         internal static void IcarianError(string a_message)
         {
             if (Application.IsEditor)
             {
-                Error($"IcarianCSE: {a_message}");
+                Error($"Editor: {a_message}");
             }
             else
             {
-                Error($"IcarianCS: {a_message}");
+                Error(a_message);
             }
+        }
+
+        static string DisplayMessage(string a_msg)
+        {
+#ifdef ENABLE_STACKTRACE
+            StackTrace stackTrace = new StackTrace(true);
+
+            // for (int i = stackTrace.FrameCount - 1; i >=0; --i)
+            for (int i = 0; i < stackTrace.FrameCount; ++i)
+            {
+                StackFrame sf = stackTrace.GetFrame(i);
+
+                MethodBase method = sf.GetMethod();
+                Type decType = method.DeclaringType;
+                if (decType == typeof(Logger))
+                {
+                    continue;
+                }
+
+                Assembly asm = decType.Assembly;
+                AssemblyName name = asm.GetName();
+
+                return $"[{name.Name}] {a_msg}: {decType}:{method.Name}";
+            }
+#endif
+
+            return a_msg;
         }
 
         public static void Message(string a_message)
         {
-            PushMessage(a_message);
+            string pMsg = DisplayMessage(a_message);
+
+            PushMessage(pMsg);
             if (MessageCallback != null)
             {
                 MessageCallback(a_message);
@@ -65,7 +100,9 @@ namespace IcarianEngine
         }
         public static void Warning(string a_message)
         {
-            PushWarning(a_message);
+            string pMsg = DisplayMessage(a_message);
+
+            PushWarning(pMsg);
             if (WarningCallback != null)
             {
                 WarningCallback(a_message);
@@ -73,7 +110,9 @@ namespace IcarianEngine
         }
         public static void Error(string a_message)
         {
-            PushError(a_message);
+            string pMsg = DisplayMessage(a_message);
+
+            PushError(pMsg);
             if (ErrorCallback != null)
             {
                 ErrorCallback(a_message);
@@ -84,7 +123,7 @@ namespace IcarianEngine
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

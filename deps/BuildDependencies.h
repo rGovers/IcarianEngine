@@ -790,6 +790,7 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
         "ASSIMP_BUILD_NO_EXPORT",
         "ASSIMP_BUILD_NO_OWN_ZLIB",
 
+        "ASSIMP_BUILD_NO_USD_IMPORTER",
         "ASSIMP_BUILD_NO_X_IMPORTER",
         "ASSIMP_BUILD_NO_3D_IMPORTER",
         "ASSIMP_BUILD_NO_M3D_IMPORTER",
@@ -969,12 +970,11 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
         CUBE_CProject_AppendCFlag(&project, "-g");
         CUBE_CProject_AppendCFlag(&project, "-O3");
 
-        if (a_targetPlatform != TargetPlatform_LinuxSteam)
-        {
-            CUBE_CProject_AppendCFlag(&project, "-flto=auto");
-            CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
-        }
-
+        // if (a_targetPlatform != TargetPlatform_LinuxSteam)
+        // {
+        //     CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        //     CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
+        // }
 
         break;
     }
@@ -982,12 +982,13 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
     {
         CUBE_CProject_AppendCFlag(&project, "-O3");
 
-        // TODO: That is weird may need to investigate further as linking fails for the Steam container build if LTO is enabled
-        if (a_targetPlatform != TargetPlatform_LinuxSteam)
-        {
-            CUBE_CProject_AppendCFlag(&project, "-flto=auto");
-            CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
-        }
+        // TODO: This has got worse was 1st just the Steam container version of GCC now happens in normal GCC aswell
+        // // TODO: That is weird may need to investigate further as linking fails for the Steam container build if LTO is enabled
+        // if (a_targetPlatform != TargetPlatform_LinuxSteam)
+        // {
+        //     CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        //     CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
+        // }
 
         break;
     }
@@ -996,7 +997,7 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
     return project;
 }
 
-CUBE_CProject BuildENetProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+static CUBE_CProject BuildENetProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
     CUBE_CProject project = { 0 };
     project.Name = CUBE_StackString_CreateC("enet");
@@ -1024,6 +1025,7 @@ CUBE_CProject BuildENetProject(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     case TargetPlatform_Linux:
     case TargetPlatform_LinuxClang:
     case TargetPlatform_LinuxZig:
+    case TargetPlatform_LinuxSteam:
     {
         CUBE_CProject_AppendSource(&project, "./unix.c");
 
@@ -1071,9 +1073,74 @@ CUBE_CProject BuildENetProject(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     return project;
 }
 
+static CUBE_CProject BuildMeshOptimizer(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+{
+    // Huh... that was probably the easiest build system port so far I am suspicious....
+    // Regardless kudos to meshoptimizer just copy pasted the sources part of the CMake file and it compiled 1st try
+    // Did not even have to fix warnings what is this
+    // The only other things that have not given me headaches are header only libraries
+    // Only other library comparable for simplicity to compile is GLFW only issues compiling is WIN32 abomination and Wayland being a pain
+    CUBE_CProject project = { 0 };
+    project.Name = CUBE_StackString_CreateC("meshoptimizer");
+    project.Target = CUBE_CProjectTarget_StaticLibrary;
+    project.Language = CUBE_CProjectLanguage_CPP;
+    project.OutputPath = CUBE_Path_CreateC("./build/");
+
+    CUBE_CProject_AppendSources(&project, 
+        "./src/allocator.cpp",
+        "./src/clusterizer.cpp",
+        "./src/indexanalyzer.cpp",
+        "./src/indexcodec.cpp",
+        "./src/indexgenerator.cpp",
+        "./src/overdrawoptimizer.cpp",
+        "./src/partition.cpp",
+        "./src/quantization.cpp",
+        "./src/rasterizer.cpp",
+        "./src/simplifier.cpp",
+        "./src/spatialorder.cpp",
+        "./src/stripifier.cpp",
+        "./src/vcacheoptimizer.cpp",
+        "./src/vertexcodec.cpp",
+        "./src/vertexfilter.cpp",
+        "./src/vfetchoptimizer.cpp"
+    );
+
+    // I see C++11 so just adding this for correctness has not given me issues
+    CUBE_CProject_AppendCFlag(&project, "-std=c++11");
+
+    switch (a_configuration)
+    {
+    case BuildConfiguration_Debug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_ReleaseWithDebug:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
+
+        break;
+    }
+    case BuildConfiguration_Release:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-O3");
+        CUBE_CProject_AppendCFlag(&project, "-flto=auto");
+        CUBE_CProject_AppendCFlag(&project, "-ffat-lto-objects");
+
+        break;
+    }
+    }
+
+    return project;
+}
+
 DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
-    *a_count = 10;
+    *a_count = 11;
 
     DependencyProject* projects = (DependencyProject*)malloc(sizeof(DependencyProject) * (*a_count));
 
@@ -1122,6 +1189,10 @@ DependencyProject* BuildDependencies(CBUINT32* a_count, e_TargetPlatform a_targe
     projects[9].Project = BuildENetProject(a_targetPlatform, a_configuration);
     projects[9].WorkingDirectory = "deps/enet";
     projects[9].Export = CBTRUE;
+
+    projects[10].Project = BuildMeshOptimizer(a_targetPlatform, a_configuration);
+    projects[10].WorkingDirectory = "deps/meshoptimizer";
+    projects[10].Export = CBTRUE;
 
     return projects;
 }

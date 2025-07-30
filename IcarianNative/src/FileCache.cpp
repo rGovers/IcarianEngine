@@ -4,20 +4,32 @@
 
 #include "FileCache.h"
 
-#define GLM_FORCE_SWIZZLE
-#include <glm/glm.hpp>
-
 #include <cstring>
 #include <thread>
+
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+#ifndef WIN32
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#endif
+#endif
 
 #include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
 #include "Core/IcarianLambda.h"
+#include "Core/StringUtils.h"
 #include "DataTypes/ThreadGuard.h"
+#include "FileHandles/ReadFileHandle.h"
 #include "IcarianError.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
+
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+#include "FileHandles/PipeFileHandle.h"
+#endif
 
 static FileCache* Instance = nullptr;
 
@@ -41,6 +53,13 @@ static FileCache* Instance = nullptr;
 // 0 | 1 | 2 | 3 | 4  | 5  | 6  | 7   | 8   | 9   | 10   | 11   | 12   | 13   | 14    | 15    | 16    | 17     | 18     | 19     | 20
 constexpr uint32_t MiBToByteShift = 20;
 
+RUNTIME_FUNCTION(uint32_t, FileCache, ExistingFile,
+{
+    char* str = mono_string_to_utf8(a_path);
+    IDEFER(mono_free(str));
+
+    return FileCache::Exists(str);
+}, MonoString* a_path)
 RUNTIME_FUNCTION(uint32_t, FileCache, CachedFile,
 {
     char* str = mono_string_to_utf8(a_path);
@@ -101,119 +120,134 @@ RUNTIME_FUNCTION(void, FileCache, WriteFileData,
     FileCache::PushFile(str, dat, (uint32_t)size, (bool)a_pinFile);
 }, MonoString* a_path, MonoArray* a_data, uint32_t a_writeFile, uint32_t a_pinFile)
 
-CacheFileHandle::CacheFileHandle(FileBuffer* a_buffer)
+FileCache::FileCache(uint32_t a_sizeMiB, uint32_t a_pipefileID)
 {
-    m_offset = 0;
+    IERRBLOCK;
 
-    m_buffer = a_buffer;
-    m_buffer->Lock.fetch_add(1);
-}
-CacheFileHandle::~CacheFileHandle()
-{
-    if (m_buffer->Lock.fetch_sub(1) <= 1)
-    {
-        m_buffer->TimePoint = std::chrono::high_resolution_clock::now();
-    }
-}
-
-uint64_t CacheFileHandle::GetSize() const
-{
-    return m_buffer->Size;
-}
-uint64_t CacheFileHandle::GetOffset() const
-{
-    return m_offset;
-}
-uint64_t CacheFileHandle::Read(void* a_data, uint64_t a_size)
-{
-    const uint64_t remaining = m_buffer->Size - m_offset;
-    const uint64_t read = glm::min(a_size, remaining);
-    IDEFER(m_offset += read);
-
-    memcpy(a_data, (uint8_t*)m_buffer->Data + m_offset, read);
-
-    return read;
-}
-bool CacheFileHandle::Seek(uint64_t a_offset)
-{
-    m_offset = glm::min(a_offset, m_buffer->Size);
-
-    return true;
-}
-bool CacheFileHandle::Ignore(uint64_t a_size)
-{
-    const uint64_t remaining = m_buffer->Size - m_offset;
-    m_offset += glm::min(remaining, a_size);
-
-    return true;
-}
-bool CacheFileHandle::EndOfFile() const
-{
-    const uint64_t remaining = m_buffer->Size - m_offset;
-
-    return remaining == 0;
-}
-
-ReadFileHandle::ReadFileHandle(FILE* a_file, uint64_t a_size)
-{
-    m_file = a_file;
-    m_size = a_size;
-}
-ReadFileHandle::~ReadFileHandle()
-{
-    fclose(m_file);
-}
-
-uint64_t ReadFileHandle::GetSize() const
-{
-    return m_size;
-}
-uint64_t ReadFileHandle::GetOffset() const
-{
-    return (uint64_t)ftell(m_file);
-}
-uint64_t ReadFileHandle::Read(void* a_data, uint64_t a_size)
-{
-    return (uint64_t)fread(a_data, 1, (size_t)a_size, m_file);
-}
-bool ReadFileHandle::Seek(uint64_t a_offset)
-{
-    return fseek(m_file, (long)a_offset, SEEK_SET) == 0;
-}
-bool ReadFileHandle::Ignore(uint64_t a_size)
-{
-    return fseek(m_file, (long)a_size, SEEK_CUR) == 0;
-}
-bool ReadFileHandle::EndOfFile() const
-{
-    return feof(m_file) != 0;
-}
-
-FileCache::FileCache(uint32_t a_sizeMiB)
-{
     m_size = (uint64_t)a_sizeMiB << MiBToByteShift;
     m_allocated = 0;
+
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+    TRACE("Initializing pipefile");
+    m_pipefileID = a_pipefileID;
+
+    m_readBuffer = malloc(SharedBufferSize);
+
+    m_commandBuffer = NULL;
+    m_dataBuffer = NULL;
+
+    const std::string idStr = std::to_string(m_pipefileID);
+
+    const std::string cmdStr = CommandBufferName + idStr;
+    const std::string dataStr = DataBufferName + idStr;
+
+    // TODO: Implement Windows version of this
+#ifndef WIN32
+    const int commandFd = shm_open(cmdStr.c_str(), O_RDWR, 0);
+    if (commandFd < 0)
+    {
+        Logger::Error("Failed to initialize Pipefile falling back to FileIO");
+
+        ITRIGGERERR;
+    }
+    IDEFER(close(commandFd));
+    IERRDEFER(shm_unlink(cmdStr.c_str()));
+
+    m_commandBuffer = (IcarianCore::SharedMemoryBuffer*)mmap(NULL, (size_t)SharedBufferSize, PROT_READ | PROT_WRITE, MAP_SHARED, commandFd, 0);
+    if (m_commandBuffer == MAP_FAILED || m_commandBuffer == NULL)
+    {
+        IERROR("Failed to map pipefile command shared memory buffer");
+    }
+    IERRDEFER(
+    {
+        munmap(m_commandBuffer, SharedBufferSize);
+        m_commandBuffer = NULL;
+    });
+
+    const int dataFd = shm_open(dataStr.c_str(), O_RDWR, 0);
+    if (dataFd < 0)
+    {
+        Logger::Error("Failed to initialize Pipefile falling back to FileIO");
+
+        ITRIGGERERR;
+    }
+    IDEFER(close(dataFd));
+    IERRDEFER(shm_unlink(dataStr.c_str()));
+
+    m_dataBuffer = (IcarianCore::SharedMemoryBuffer*)mmap(NULL, (size_t)SharedBufferSize, PROT_READ | PROT_WRITE, MAP_SHARED, dataFd, 0);
+    if (m_dataBuffer == MAP_FAILED || m_dataBuffer == NULL)
+    {
+        IERROR("Failed to map pipefile data shared memory buffer");
+    }
+    IERRDEFER(
+    {
+        munmap(m_dataBuffer, SharedBufferSize);
+        m_dataBuffer = NULL;
+    });
+#endif
+#endif
 }
 FileCache::~FileCache()
 {
     for (const auto& iter : m_files)
     {
         const FileBuffer* buffer = iter.second;
+
         delete[] (uint8_t*)buffer->Data;
         delete buffer;
     }
+
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+    free(m_readBuffer);
+
+    const std::string idStr = std::to_string(m_pipefileID);
+
+    const std::string cmdStr = CommandBufferName + idStr;
+    const std::string dataStr = DataBufferName + idStr;
+
+#ifndef WIN32
+    if (m_commandBuffer != NULL)
+    {
+        munmap(m_commandBuffer, SharedBufferSize);
+        m_commandBuffer = NULL;
+
+        shm_unlink(cmdStr.c_str());
+    }
+
+    if (m_dataBuffer != NULL)
+    {
+        munmap(m_dataBuffer, SharedBufferSize);
+        m_dataBuffer = NULL;
+
+        shm_unlink(dataStr.c_str());
+    }
+#endif
+#endif
 }
 
-void FileCache::Init(uint32_t a_sizeMB)
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+static IcarianCore::PipefileHeader* GetPipefileHeader(const IcarianCore::SharedMemoryBuffer* a_buffer)
+{
+    return (IcarianCore::PipefileHeader*)((uint8_t*)a_buffer + sizeof(IcarianCore::SharedMemoryBuffer));
+}
+static uint8_t* GetDataSection(const IcarianCore::PipefileHeader* a_header)
+{
+    return (uint8_t*)a_header + sizeof(IcarianCore::PipefileHeader);
+}
+#endif
+
+void FileCache::Init(uint32_t a_sizeMB, uint32_t a_pipefileID)
 {
     if (Instance == nullptr)
     {
-        Instance = new FileCache(a_sizeMB);
-
-        BIND_FUNCTION(IcarianEngine, FileCache, CachedFile);
-        BIND_FUNCTION(IcarianEngine, FileCache, ReadFileData);
-        BIND_FUNCTION(IcarianEngine, FileCache, WriteFileData);
+        Instance = new FileCache(a_sizeMB, a_pipefileID);
     }
+
+    // Not having a FileCache is valid so init the functions out here
+    BIND_FUNCTION(IcarianEngine, FileCache, ExistingFile);
+    BIND_FUNCTION(IcarianEngine, FileCache, CachedFile);
+    BIND_FUNCTION(IcarianEngine, FileCache, ReadFileData);
+    BIND_FUNCTION(IcarianEngine, FileCache, WriteFileData);
 }
 void FileCache::Destroy()
 {
@@ -224,12 +258,17 @@ void FileCache::Destroy()
     }
 }
 
-static FileBuffer* GenerateFileBuffer(FILE* a_file, uint64_t a_size)
+static FileBuffer* GenerateFileBuffer(FileHandle* a_file)
 {
+    const uint64_t size = a_file->GetSize();
+
     FileBuffer* buffer = new FileBuffer();
-    buffer->Size = a_size;
-    buffer->Data = new uint8_t[a_size];
-    fread(buffer->Data, (size_t)a_size, 1, a_file);
+    buffer->Size = size;
+    buffer->Data = new uint8_t[size];
+    if (a_file->Read(buffer->Data, size) != size)
+    {
+        IERROR("Failed to read FileHandle into FileBuffer");
+    }
     buffer->TimePoint = std::chrono::high_resolution_clock::now();
     buffer->Lock = 0;
     buffer->Flags = 0;
@@ -237,6 +276,218 @@ static FileBuffer* GenerateFileBuffer(FILE* a_file, uint64_t a_size)
     return buffer;
 }
 
+void FileCache::SubmitPipeRequest(IcarianCore::e_PipefileDataType a_type, const std::string_view& a_path, uint32_t a_size, uint32_t a_offset)
+{
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+    if (Instance == nullptr)
+    {
+        IERROR("Making pipe request with no FileCache");
+    }
+
+    if (Instance->m_commandBuffer == NULL || Instance->m_dataBuffer == NULL)
+    {
+        IERROR("Making pipe request with no pipe");
+    }
+
+    // TODO: I should probably build a work queue so I can be smarter about awaiting
+    const size_t pathSize = a_path.size();
+    if (pathSize <= 0)
+    {
+        IERROR("Pipe request with empty string");
+    }
+
+    if (pathSize >= (IcarianCore::PipefileHeader::MaxPathSize - 1))
+    {
+        IERROR("Pipe path size greater then max path size");
+    }
+
+    const std::unique_lock g = std::unique_lock(Instance->m_commandPipelock);
+
+    while (Instance->m_commandBuffer->State != IcarianCore::SharedMemoryBufferState_Write)
+    {
+        // The other side of the buffer is probably busy so just wait for it to be populated
+        // This is mostly so the other process can get access to resources incase it is us hogging them
+        std::this_thread::yield();
+    }
+
+    IVERIFY(Instance->m_commandBuffer->Size >= sizeof(IcarianCore::PipefileHeader));
+    IDEFER(Instance->m_commandBuffer->State = IcarianCore::SharedMemoryBufferState_Read);
+
+    IcarianCore::PipefileHeader* header = GetPipefileHeader(Instance->m_commandBuffer);
+    header->Type = a_type;
+    header->Size = a_size;
+    header->Offset = a_offset;
+    header->Partial = false;
+    a_path.copy(header->Path, pathSize, 0);
+    header->Path[pathSize] = 0;
+#endif
+}
+e_PipeFileError FileCache::AwaitPipeData(IcarianCore::e_PipefileDataType a_type, const std::string_view& a_path, uint32_t* a_bufferSize, uint8_t** a_data)
+{
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+    return AwaitPipeData(a_type, a_path, 0, a_bufferSize, a_data);
+#else
+    return PipeFileError_Invalid;
+#endif
+}
+e_PipeFileError FileCache::AwaitPipeData(IcarianCore::e_PipefileDataType a_type, const std::string_view& a_path, uint32_t a_offset, uint32_t* a_bufferSize, uint8_t** a_data)
+{
+    IVERIFY(a_bufferSize != nullptr);
+    IVERIFY(a_data != nullptr);
+
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+    if (Instance == nullptr)
+    {
+        IERROR("Awaiting pipe data with no FileCache");
+    }
+
+    if (Instance->m_commandBuffer == NULL || Instance->m_dataBuffer == NULL)
+    {
+        IERROR("Awaiting pipe data with no pipe");
+    }
+
+    *a_data = nullptr;
+
+    // TODO: This is fucking terrible need a way for it to fail as there is edge cases that this can stall out and be stuck in an infinite loop
+    // Good news I am not short on rugs or brooms atleast so not high priority
+    while (true)
+    {
+        {
+            const std::unique_lock g = std::unique_lock(Instance->m_dataPipelock);
+
+            if (Instance->m_dataBuffer->State == IcarianCore::SharedMemoryBufferState_Read)
+            {
+                IVERIFY(Instance->m_dataBuffer->Size > sizeof(IcarianCore::PipefileHeader));
+
+                IcarianCore::PipefileHeader* header = GetPipefileHeader(Instance->m_dataBuffer);
+
+                if (header->Type == IcarianCore::PipefileDataType_Invalid)
+                {
+                    IVERIFY(header->Size == sizeof(IcarianCore::PipefileHeader));
+
+                    volatile IcarianCore::PipefileHeader* invalidHeader = (IcarianCore::PipefileHeader*)GetDataSection(header);
+
+                    if (invalidHeader->Type == a_type && invalidHeader->Offset == a_offset && header->Path == a_path)
+                    {
+                        return PipeFileError_Invalid;
+                    }
+                }
+
+                if (header->Type == a_type && header->Offset == a_offset && header->Path == a_path)
+                {
+                    Instance->m_readLock.lock();
+
+                    IDEFER(Instance->m_dataBuffer->State = IcarianCore::SharedMemoryBufferState_Write);
+
+                    const uint32_t size = header->Size;
+                    if (size > SharedBufferSize - sizeof(IcarianCore::PipefileHeader) - sizeof(IcarianCore::SharedMemoryBuffer))
+                    {
+                        IERROR("Pipe await overflow");
+                    }
+
+                    volatile uint8_t* data = GetDataSection(header);
+
+                    // TODO: Look into having the FileCache hold a buffer and handing it back to the FileCache when done over allocating and deallocating
+                    // We know the max size ahead of time so probably an effective stratergy
+                    *a_data = (uint8_t*)Instance->m_readBuffer;
+
+                    for (uint32_t i = 0; i < size; ++i)
+                    {
+                        (*a_data)[i] = data[i];
+                    }
+                    *a_bufferSize = size;
+
+                    if (header->Partial)
+                    {
+                        // Want to inform the user it is a partial header to get them to recall this function
+                        return PipeFileError_Partial;
+                    }
+
+                    return PipeFileError_Success;
+                }
+            }
+        }
+
+        // Either we are busy on another thread or the other process is busy
+        // Both instances release the thread to reduce contention
+        std::this_thread::yield();
+    }
+#endif
+
+    return PipeFileError_Invalid;
+}
+void FileCache::FreePipeData()
+{
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+    Instance->m_readLock.unlock();
+#endif
+}
+
+bool FileCache::Exists(const std::string_view& a_str)
+{
+    if (Instance != nullptr)
+    {
+        const size_t protocolIndex = a_str.find("://");
+        if (protocolIndex != std::string_view::npos)
+        {
+            constexpr uint32_t BufferSize = 16;
+            if (protocolIndex >= (BufferSize - 1))
+            {
+                IERROR("Protocol buffer would overflow");
+            }
+
+            char buffer[BufferSize];
+
+            a_str.copy(buffer, protocolIndex, 0);
+            buffer[protocolIndex] = 0;
+
+            switch (StringHash<uint32_t>(buffer))
+            {
+            case StringHash<uint32_t>("pipe"):
+            {
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+                if (Instance->m_dataBuffer == NULL || Instance->m_commandBuffer == NULL)
+                {
+                    return false;
+                }
+
+                const std::string_view str = a_str.substr(protocolIndex + 3);
+
+                SubmitPipeRequest(IcarianCore::PipefileDataType_Exists, str);
+
+                uint8_t* data;
+                uint32_t dataSize;
+                const e_PipeFileError error = AwaitPipeData(IcarianCore::PipefileDataType_Exists, str, &dataSize, &data);
+
+                IVERIFY(data != nullptr);
+                IDEFER(FreePipeData());
+
+                if (error != PipeFileError_Success)
+                {
+                    return false;
+                }
+
+                IVERIFY(dataSize == sizeof(uint8_t));
+
+                return *data != 0;
+#else
+                return false;
+#endif
+
+                break;
+            }
+            default:
+            {
+                IERROR("Invalid protocol");
+
+                break;
+            }
+            }
+        }
+    }
+
+    return std::filesystem::exists(a_str);
+}
 bool FileCache::ExistsInCache(const std::string_view& a_str)
 {
     const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
@@ -294,80 +545,6 @@ void FileCache::PushFile(const std::string_view& a_path, uint8_t* a_data, uint32
     Instance->m_files.emplace(str, buffer);
 }
 
-FileHandle* FileCache::GenerateFileHandle(const std::string& a_path, FILE* a_file, uint64_t a_size)
-{
-    if (m_allocated < m_size && a_size < m_size - m_allocated)
-    {
-        IDEFER(fclose(a_file));
-
-        FileBuffer* buffer = GenerateFileBuffer(a_file, a_size);        
-
-        m_allocated += a_size;
-
-        m_files.emplace(a_path, buffer);
-
-        return new CacheFileHandle(buffer);
-    }
-
-    const uint64_t offsetSize = ILAMBDA(
-    {
-        if (m_allocated > m_size)
-        {
-            ILRETURN m_allocated - m_size;
-        }
-
-        ILRETURN uint64_t(0);
-    });
-
-    const uint64_t finalSize = offsetSize + a_size;
-
-    std::string key;
-    FileBuffer* b = nullptr;
-    // Looking for a file to delete that so that the current file can fit
-    // No point deleting a file if we cannot fit it
-    for (const auto& iter : m_files)
-    {
-        FileBuffer* buffer = iter.second;
-        if (buffer->Size >= finalSize && buffer->Lock == 0)
-        {
-            if (b == nullptr)
-            {
-                key = iter.first;
-                b = buffer;
-
-                continue;
-            }
-
-            if (buffer->TimePoint > b->TimePoint)
-            {
-                continue;
-            }
-
-            key = iter.first;
-            b = buffer;
-        }
-    }
-
-    if (b == nullptr)
-    {
-        return new ReadFileHandle(a_file, a_size);
-    }
-
-    IDEFER(fclose(a_file));
-
-    m_files.erase(key);
-    m_allocated -= b->Size;
-    delete[] (uint8_t*)b->Data;
-    delete b;
-
-    b = GenerateFileBuffer(a_file, a_size);
-
-    m_files.emplace(a_path, b);
-    m_allocated += b->Size;
-
-    return new CacheFileHandle(b);
-}
-
 void FileCache::Update()
 {
     if (Instance == nullptr)
@@ -406,7 +583,12 @@ void FileCache::Update()
     for (const auto& iter : Instance->m_files) 
     {
         const FileBuffer* buffer = iter.second;
-        if (buffer->Lock != 0) 
+        if (IISBITSET(buffer->Flags, FileBuffer::PinnedBit))
+        {
+            continue;
+        }
+
+        if (buffer->Lock != 0)
         {
             continue;
         }
@@ -440,116 +622,150 @@ void FileCache::Update()
     }
 }
 
-void FileCache::PreLoad(const std::filesystem::path& a_path)
+FileHandle* FileCache::LoadFile(const std::string_view& a_path)
 {
     if (Instance == nullptr)
     {
-        return;
+        return ReadFileHandle::OpenFile(a_path);
     }
 
-    const std::string s = a_path.string();
+    const std::string pathStr = std::string(a_path);
 
     {
         const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
 
-        const auto iter = Instance->m_files.find(s);
+        const auto iter = Instance->m_files.find(pathStr);
         if (iter != Instance->m_files.end())
         {
-            return;
+            return new CacheFileHandle(iter->second);
         }
     }
 
     const ThreadGuard g = ThreadGuard(Instance->m_lock);
 
+    FileHandle* handle = ILAMBDA(
+    {
+        const size_t protocolIndex = a_path.find("://");
+        if (protocolIndex != std::string_view::npos)
+        {
+            constexpr uint32_t BufferSize = 16;
+            if (protocolIndex >= (BufferSize - 1))
+            {
+                IERROR("Protocol buffer would overflow");
+            }
+
+            char buffer[BufferSize];
+
+            a_path.copy(buffer, protocolIndex, 0);
+            buffer[protocolIndex] = 0;
+
+            switch (StringHash<uint32_t>(buffer))
+            {
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+            case StringHash<uint32_t>("pipe"):
+            {
+                const std::string_view str = a_path.substr(protocolIndex + 3);
+
+                ILRETURN (FileHandle*)new PipeFileHandle(str.data());
+            }
+#endif
+            default:
+            {
+                ILRETURN (FileHandle*)nullptr;
+            }
+            }
+        }
+
+        ILRETURN (FileHandle*)ReadFileHandle::OpenFile(a_path);
+    });
+
+    if (handle == nullptr)
+    {
+        return nullptr;
+    }
+
     const uint64_t maxSize = Instance->m_size >> 3;
-
-    FILE* fp = fopen(s.c_str(), "rb");
-    if (fp != NULL)
+    const uint64_t size = handle->GetSize();
+    if (size >= maxSize)
     {
-        fseek(fp, 0L, SEEK_END);
-        const uint64_t size = (uint64_t)ftell(fp);
-        rewind(fp);
+        return handle;
+    }
 
-        if (size >= maxSize)
-        {
-            IDEFER(fclose(fp));
-
-            return;
-        }
-
-        // Not the most efficent but I am lazy
-        FileHandle* handle = Instance->GenerateFileHandle(s, fp, size);
+    if (Instance->m_allocated < Instance->m_size && size < Instance->m_size - Instance->m_allocated)
+    {
         IDEFER(delete handle);
-    }
-    else
-    {
-        IERROR("Unable to open file: " + s);
-    }
-}
-FileHandle* FileCache::LoadFile(const std::filesystem::path& a_path)
-{
-    const std::string s = a_path.string();
 
-    if (Instance != nullptr)
+        FileBuffer* buffer = GenerateFileBuffer(handle);
+
+        Instance->m_allocated += size;
+
+        Instance->m_files.emplace(a_path, buffer);
+
+        return new CacheFileHandle(buffer);
+    }
+
+    const uint64_t offsetSize = ILAMBDA(
     {
+        if (Instance->m_allocated > Instance->m_size)
         {
-            const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
+            ILRETURN Instance-> m_allocated - Instance->m_size;
+        }
 
-            const auto iter = Instance->m_files.find(s);
-            if (iter != Instance->m_files.end())
+        ILRETURN uint64_t(0);
+    });
+
+    const uint64_t finalSize = offsetSize + size;
+
+    std::string key;
+    FileBuffer* b = nullptr;
+    // Looking for a file to delete that so that the current file can fit
+    // No point deleting a file if we cannot fit it
+    for (const auto& iter : Instance->m_files)
+    {
+        FileBuffer* buffer = iter.second;
+        if (IISBITSET(buffer->Flags, FileBuffer::PinnedBit))
+        {
+            continue;
+        }
+
+        if (buffer->Size >= finalSize && buffer->Lock == 0)
+        {
+            if (b == nullptr)
             {
-                return new CacheFileHandle(iter->second);
+                key = iter.first;
+                b = buffer;
+
+                continue;
             }
-        }
-        
-        const ThreadGuard g = ThreadGuard(Instance->m_lock);
 
-        // Do not want the whole cache taken up by a single file otherwise it eliminates the point
-        const uint64_t maxSize = Instance->m_size >> 3;
-
-        // I am aware the there is a C++ version for file handles, however been having issues on 
-        // Windows so minimizing the layers of abstraction to reduce points of failure.
-        // Yes I am aware of what I am saying, I am implementing a layer of abstraction hush.
-        // Have only had issues on Windows, Linux has been fine.
-        FILE* fp = fopen(s.c_str(), "rb");
-        if (fp != NULL)
-        {
-            fseek(fp, 0L, SEEK_END);
-            const uint64_t size = (uint64_t)ftell(fp);
-            rewind(fp);
-
-            // If the file is massive dont bother storing it in the cache just pass it through
-            if (size >= maxSize)
+            if (buffer->TimePoint > b->TimePoint)
             {
-                return new ReadFileHandle(fp, size);
+                continue;
             }
 
-            return Instance->GenerateFileHandle(s, fp, size);
-        }
-        else
-        {
-            IERROR("Unable to open file: " + s);
+            key = iter.first;
+            b = buffer;
         }
     }
-    // May not want cache on all platforms but still need file IO and prefer minimize duplicate code
-    else
+
+    if (b == nullptr)
     {
-        FILE* fp = fopen(s.c_str(), "rb");
-        if (fp != NULL)
-        {
-            fseek(fp, 0L, SEEK_END);
-            const uint64_t size = (uint64_t)ftell(fp);
-            rewind(fp);
-
-            return new ReadFileHandle(fp, size);
-        }
-        else 
-        {
-            IERROR("Unable to open file: " + s);
-        }
+        return handle;
     }
 
-    return nullptr;
+    IDEFER(delete handle);
+
+    Instance->m_files.erase(key);
+    Instance->m_allocated -= b->Size;
+    delete[] (uint8_t*)b->Data;
+    delete b;
+
+    b = GenerateFileBuffer(handle);
+
+    Instance->m_files.emplace(a_path, b);
+    Instance->m_allocated += b->Size;
+
+    return new CacheFileHandle(b);
 }
 
 // MIT License

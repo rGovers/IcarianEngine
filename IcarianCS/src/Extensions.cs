@@ -8,6 +8,7 @@ namespace IcarianEngine
     public static class Extensions
     {
         public static readonly string[] VertexShaderExtensions = new string[] { ".fvert" };
+        public static readonly string[] MeshShaderExtensions = new string[] { ".fmesh" };
         public static readonly string[] PixelShaderExtensions = new string[] { ".fpix", ".ffrag" };
         public static readonly string[] AudioSourceExtensions = new string[] { ".wav", ".ogg" };
         public static readonly string[] TextureExtensions = new string[] { ".png", ".ktx2" };

@@ -7,28 +7,28 @@ using IcarianEngine.Mod;
 using System;
 using System.Runtime.CompilerServices;
 
-#include "EngineMeshCollisionShapeInterop.h"
+#include "EngineModelCollisionShapeInterop.h"
 #include "InteropBinding.h"
 
-ENGINE_MESHCOLLISIONSHAPE_EXPORT_TABLE(IOP_BIND_FUNCTION);
+ENGINE_MODELCOLLISIONSHAPE_EXPORT_TABLE(IOP_BIND_FUNCTION);
 
 namespace IcarianEngine.Physics.Shapes
 {
-    public class MeshCollisionShape : CollisionShape, IDestroy
+    public class ModelCollisionShape : CollisionShape, IDestroy
     {
         /// <summary>
-        /// The Def used to create the MeshCollisionShape
+        /// The Def used to create the ModelCollisionShape
         /// </summary>
-        public MeshCollisionShapeDef MeshDef
+        public ModelCollisionShapeDef ModelDef
         {
             get
             {
-                return Def as MeshCollisionShapeDef;
+                return Def as ModelCollisionShapeDef;
             }
         }
 
         /// <summary>
-        /// Whether the MeshCollisionShape has been Disposed/Finalised
+        /// Whether the ModelCollisionShape has been Disposed/Finalised
         /// </summary>
         public bool IsDisposed
         {
@@ -38,35 +38,35 @@ namespace IcarianEngine.Physics.Shapes
             }
         }
 
-        MeshCollisionShape()
+        ModelCollisionShape()
         {
             InternalAddr = uint.MaxValue;
         }
 
         internal override void Init()
         {
-            MeshCollisionShapeDef def = MeshDef;
+            ModelCollisionShapeDef def = ModelDef;
 
             if (def != null)
             {
-                string path = ModControl.GetAssetPath(def.MeshPath);
+                string path = ModControl.GetAssetPath(def.ModelPath);
                 if (string.IsNullOrEmpty(path))
                 {
-                    Logger.IcarianError("MeshCollisionShape failed to find mesh path: " + def.MeshPath);
+                    Logger.IcarianError("ModelCollisionShape failed to find model path: " + def.ModelPath);
 
                     return;
                 }
 
-                InternalAddr = MeshCollisionShapeInterop.CreateMesh(path);
+                InternalAddr = ModelCollisionShapeInterop.CreateModel(path);
             }
             else
             {
-                Logger.IcarianError($"MeshCollisionShape null Def");
+                Logger.IcarianError($"ModelCollisionShape null Def");
             }
         }
         
         /// <summary>
-        /// Disposes of the MeshCollisionShape
+        /// Disposes of the ModelCollisionShape
         /// </summary>
         public void Dispose()
         {
@@ -75,7 +75,7 @@ namespace IcarianEngine.Physics.Shapes
             GC.SuppressFinalize(this);
         }
         /// <summary>
-        /// Called when the MeshCollisionShape is being Disposed/Finalised
+        /// Called when the ModelCollisionShape is being Disposed/Finalised
         /// </summary>
         /// <param name="a_disposing">Whether it is being Disposed</param>
         protected virtual void Dispose(bool a_disposing)
@@ -88,17 +88,17 @@ namespace IcarianEngine.Physics.Shapes
                 }
                 else
                 {
-                    Logger.IcarianWarning("MeshCollisionShape failed to Dispose");
+                    Logger.IcarianWarning("ModelCollisionShape failed to Dispose");
                 }
 
                 InternalAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple MeshColllisionShape Dispose");
+                Logger.IcarianError("Multiple ModelCollisionShape Dispose");
             }
         }
-        ~MeshCollisionShape()
+        ~ModelCollisionShape()
         {
             Dispose(false);
         }
@@ -107,7 +107,7 @@ namespace IcarianEngine.Physics.Shapes
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

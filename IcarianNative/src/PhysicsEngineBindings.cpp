@@ -48,7 +48,7 @@
 #include "EngineCollisionShapeInterop.h"
 #include "EngineCylinderCollisionShapeInterop.h"
 #include "EngineCharacterControllerInterop.h"
-#include "EngineMeshCollisionShapeInterop.h"
+#include "EngineModelCollisionShapeInterop.h"
 #include "EnginePhysicsBodyInterop.h"
 #include "EnginePhysicsInterop.h"
 #include "EngineRigidBodyInterop.h"
@@ -62,7 +62,7 @@ ENGINE_COLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 ENGINE_BOXCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 ENGINE_CAPSULECOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 ENGINE_CYLINDERCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
-ENGINE_MESHCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
+ENGINE_MODELCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 ENGINE_SPHERECOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 ENGINE_CHARACTERCONTROLLER_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
@@ -86,7 +86,7 @@ PhysicsEngineBindings::PhysicsEngineBindings(PhysicsEngine* a_engine)
     ENGINE_BOXCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
     ENGINE_CAPSULECOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
     ENGINE_CYLINDERCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
-    ENGINE_MESHCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
+    ENGINE_MODELCOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
     ENGINE_SPHERECOLLISIONSHAPE_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 
     ENGINE_CHARACTERCONTROLLER_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
@@ -242,13 +242,14 @@ float PhysicsEngineBindings::GetCylinderShapeRadius(uint32_t a_addr) const
     return cShape->GetRadius();
 }
 
-uint32_t PhysicsEngineBindings::CreateMeshShape(const std::filesystem::path& a_path) const
+uint32_t PhysicsEngineBindings::CreateMeshShape(const std::string_view& a_path) const
 {
     IERRBLOCK;
 
     TRACE("Creating Mesh Shape");
 
-    const std::filesystem::path ext = a_path.extension();
+    const std::filesystem::path p = std::filesystem::path(a_path);
+    const std::filesystem::path ext = p.extension();
     const std::string extStr = ext.string();
 
     switch (StringHash<uint32_t>(extStr.c_str()))

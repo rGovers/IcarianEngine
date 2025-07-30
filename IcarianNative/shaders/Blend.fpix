@@ -12,5 +12,5 @@ void main()
     vec4 colorA = texture(samplerA, vUV);
     vec4 colorB = texture(samplerB, vUV);
     
-    fragColor = colorA + colorB;
+    fragColor = colorA * (1 - colorB.a) + colorB * colorB.a;
 }

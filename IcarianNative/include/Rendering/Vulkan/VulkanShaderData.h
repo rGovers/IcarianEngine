@@ -19,8 +19,8 @@
 
 class Allocator;
 class UIElement;
-class VulkanDecalShader;
 class VulkanGraphicsEngine;
+class VulkanMesh;
 class VulkanRenderTexture;
 class VulkanShaderStorageObject;
 class VulkanUniformBuffer;
@@ -57,6 +57,7 @@ private:
     VulkanGraphicsEngine*                         m_gEngine;
  
     VulkanUniformBuffer*                          m_userUniformBuffer;
+    VulkanShaderStorageObject*                    m_userArray;
  
     vk::PipelineLayout                            m_layout;
     vk::PipelineLayout                            m_shadowLayout;
@@ -106,21 +107,24 @@ public:
     void PushTextures(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const TextureSamplerBuffer* a_samplers, uint32_t a_count, uint32_t a_index) const;
     void PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
     void PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanShaderStorageObject* a_object, uint32_t a_index) const;
-    void PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, vk::Buffer a_object, uint32_t a_index) const;
+    void PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, vk::Buffer a_object, vk::DeviceSize a_offset, uint32_t a_index) const;
 
     void PushShadowTexture(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const TextureSamplerBuffer& a_sampler, uint32_t a_index) const;
     void PushShadowUniformBuffer(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
     void PushShadowShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanShaderStorageObject* a_object, uint32_t a_index) const;
 
+    void PushMeshBuffers(vk::CommandBuffer a_commandBuffer, const VulkanMesh* a_mesh, uint32_t a_index) const
+    ;
     void UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_transform) const;
     void UpdateShadowTransformBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_transform) const;
-    
+
     void UpdateUIBuffer(vk::CommandBuffer a_commandBuffer, const UIElement* a_element) const;
 
     void UpdateShadowLightBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_lvp, float a_split) const;
 
     void Update(uint32_t a_index, const RenderProgram& a_program);
     void Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
+    void BindEmulatedMesh(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
     void BindShadow(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
     void BindCompute(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
     void UnbindCompute(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;

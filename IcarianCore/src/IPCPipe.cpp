@@ -14,7 +14,7 @@
 #include <unistd.h>
 #endif
 
-#include "Core/IcarianDefer.h"
+#include "Core/IcarianError.h"
 
 namespace IcarianCore
 {
@@ -25,6 +25,8 @@ namespace IcarianCore
 #else
         m_pipeSock = -1;
 #endif
+
+        m_closed = false;
     }
     IPCPipe::~IPCPipe()
     {
@@ -215,6 +217,11 @@ namespace IcarianCore
 
     bool IPCPipe::IsAlive() const
     {
+        if (m_closed)
+        {
+            return false;
+        }
+
 #ifdef WIN32
         // TODO: Change this
         return true;
@@ -235,7 +242,7 @@ namespace IcarianCore
             return true;
         }
 
-        return (pfd.revents & POLLERR) == 0;
+        return (pfd.revents & (POLLERR | POLLNVAL | POLLHUP)) == 0;
 #endif
     }
 
@@ -296,6 +303,8 @@ namespace IcarianCore
     }
     bool IPCPipe::Receive(std::queue<PipeMessage>* a_messages)
     {
+        IERRBLOCK;
+
 #ifdef WIN32
         struct timeval timeout;
         timeout.tv_sec = 0;
@@ -315,19 +324,23 @@ namespace IcarianCore
                 {
                     perror("recv");
 
-                    return false;
+                    ITRIGGERERRRET(false);
                 }
+
+                IERRCHECKRET(msg.Type < PipeMessageType_End, false);
+                IERRCHECKRET(bytesReceived == PipeMessage::Size, false);
 
                 if (msg.Length > 0)
                 {
                     msg.Data = new char[msg.Length];
+                    IERRDEFER(delete[] msg.Data);
 
                     const int bytesReceived = recv(m_pipeSock, msg.Data, msg.Length, 0);
                     if (bytesReceived < 0)
                     {
                         perror("recv");
 
-                        return false;
+                        ITRIGGERERRRET(false);
                     }
                 }
 
@@ -343,9 +356,52 @@ namespace IcarianCore
 
         while (poll(&pollFd, 1, 1) > 0)
         {
-            if (pollFd.revents & (POLLERR | POLLHUP | POLLNVAL))
+            if (pollFd.revents & (POLLNVAL | POLLERR))
             {
-                return false;
+                ITRIGGERERRRET(false);
+            }
+
+            if (pollFd.revents & POLLHUP)
+            {
+                // So I found out that this event can come out of order from the rest of the events
+                // Because of that we need to just set a flag and continue
+                m_closed = true;
+
+                while (true)
+                {
+                    PipeMessage msg;
+
+                    const int bytesReceived = read(m_pipeSock, &msg, PipeMessage::Size);
+                    if (bytesReceived <= 0)
+                    {
+                        break;
+                    }
+
+                    IERRCHECKRET(msg.Type < PipeMessageType_End, false);
+                    IERRCHECKRET(bytesReceived == PipeMessage::Size, false);
+
+                    if (msg.Length > 0)
+                    {
+                        msg.Data = new char[msg.Length];
+                        IERRDEFER(delete[] msg.Data);
+
+                        uint32_t bytesReceived = 0;
+                        while (bytesReceived < msg.Length)
+                        {
+                            const int bytes = read(m_pipeSock, msg.Data + bytesReceived, msg.Length - bytesReceived);
+                            if (bytes <= 0)
+                            {
+                                ITRIGGERERRRET(false);
+                            }
+
+                            bytesReceived += (uint32_t)bytes;
+                        }
+                    }
+
+                    a_messages->push(msg);
+                }
+
+                return true;
             }
 
             if (pollFd.revents & POLLIN)
@@ -357,22 +413,16 @@ namespace IcarianCore
                 {
                     perror("read");
 
-                    return false;
+                    ITRIGGERERRRET(false);
                 }
 
-                if (msg.Type >= PipeMessageType_End)
-                {
-                    return false;
-                }
-
-                if (bytesReceived != PipeMessage::Size)
-                {
-                    return false;
-                }
+                IERRCHECKRET(msg.Type < PipeMessageType_End, false);
+                IERRCHECKRET(bytesReceived == PipeMessage::Size, false);
 
                 if (msg.Length > 0)
                 {
                     msg.Data = new char[msg.Length];
+                    IERRDEFER(delete[] msg.Data);
 
                     uint32_t bytesReceived = 0;
                     while (bytesReceived < msg.Length)
@@ -382,11 +432,11 @@ namespace IcarianCore
                         {
                             perror("read");
 
-                            return false;
+                            ITRIGGERERRRET(false);
                         }
 
                         bytesReceived += (uint32_t)bytes;
-                    }                    
+                    }
                 }
 
                 a_messages->push(msg);

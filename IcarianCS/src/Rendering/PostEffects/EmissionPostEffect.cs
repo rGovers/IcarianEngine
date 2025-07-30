@@ -34,9 +34,9 @@ namespace IcarianEngine.Rendering.PostEffects
 
         public EmissionPostEffect()
         {
-            m_quadVertex = VertexShader.LoadVertexShader("[INTERNAL]Quad");
-            m_emissionPixel = PixelShader.LoadPixelShader("[INTERNAL]PostEmission");
-            m_blurPixel = PixelShader.LoadPixelShader("[INTERNAL]PostEmissionBlur");
+            m_quadVertex = VertexShader.LoadVertexShader("internal://Quad");
+            m_emissionPixel = PixelShader.LoadPixelShader("internal://PostEmission");
+            m_blurPixel = PixelShader.LoadPixelShader("internal://PostEmissionBlur");
 
             MaterialBuilder material = new MaterialBuilder()
             {
@@ -173,7 +173,7 @@ namespace IcarianEngine.Rendering.PostEffects
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

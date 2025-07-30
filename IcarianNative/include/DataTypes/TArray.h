@@ -133,11 +133,12 @@ public:
         return *this;
     }
 
-    Array<T> ToArray()
+    template<typename Alloc = MallocAllocator>
+    Array<T, Alloc> ToArray()
     {
         const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
-        return Array<T>(m_data, m_size);
+        return Array<T, Alloc>(m_data, m_size);
     }
     std::vector<T> ToVector() 
     {

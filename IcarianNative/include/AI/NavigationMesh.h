@@ -7,7 +7,7 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include <filesystem>
+#include <string_view>
 
 #include "DataTypes/Array.h"
 
@@ -32,7 +32,7 @@ private:
 protected:
 
 public:
-    NavigationMesh(const std::filesystem::path& a_path);
+    NavigationMesh(const std::string_view& a_path);
     ~NavigationMesh();
 
     uint32_t GetIndex(const glm::vec3& a_point) const;
@@ -43,7 +43,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

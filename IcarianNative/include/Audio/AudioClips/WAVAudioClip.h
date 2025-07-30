@@ -6,25 +6,26 @@
 
 #include "Audio/AudioClips/AudioClip.h"
 
-#include <filesystem>
+#include <string>
+#include <string_view>
 
 class WAVAudioClip : public AudioClip
 {
 private:
-    std::filesystem::path m_path;
+    std::string   m_path;
 
-    uint64_t              m_dataOffset;
-    uint64_t              m_dataSize;
+    uint64_t      m_dataOffset;
+    uint64_t      m_dataSize;
 
-    uint32_t              m_sampleRate;
-    uint32_t              m_channelCount;
+    uint32_t      m_sampleRate;
+    uint32_t      m_channelCount;
 
-    e_AudioFormat         m_format;
+    e_AudioFormat m_format;
 
 protected:
 
 public:
-    WAVAudioClip(const std::filesystem::path& a_path);
+    WAVAudioClip(const std::string_view& a_path);
     virtual ~WAVAudioClip();
 
     virtual float GetDuration() const;
@@ -40,7 +41,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

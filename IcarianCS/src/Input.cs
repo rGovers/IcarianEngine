@@ -92,7 +92,7 @@ namespace IcarianEngine
         /// <summary>
         /// If either shift key is pressed
         /// </summary>
-        public static bool ShiftModifer
+        public static bool ShiftModifier
         {
             get
             {

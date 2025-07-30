@@ -33,6 +33,7 @@ namespace IcarianEngine
             }
 
             ShaderImports.Init();
+            Material.InternalInit();
 
             RenderPipeline.SetPipeline(new DefaultRenderPipeline(new PostEffect[] 
             { 
@@ -47,7 +48,12 @@ namespace IcarianEngine
             ModControl.Init();
 
             DefLibrary.ResolveDefs();
+
+            Logger.IcarianMessage("Loading default Localization");
+
             Scribe.SetLanguage("en-us");
+
+            Logger.IcarianMessage("Initializing");
 
             ModControl.InitAssemblies();
 
@@ -63,6 +69,7 @@ namespace IcarianEngine
 
             GameObject.DestroyObjects();
 
+            Material.InternalDestroy();
             RenderPipeline.Destroy();
 
             Logger.IcarianMessage("Shutdown");

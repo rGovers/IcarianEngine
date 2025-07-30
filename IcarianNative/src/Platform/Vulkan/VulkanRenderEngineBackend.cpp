@@ -27,14 +27,19 @@
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
+// Now that I better understand memory allocators I am tempted to rip out VMA and implement my own
+// Yes VMA can defrag but can have tighter integration if I roll my own
+// Can also do less hacky stuff for DMA
+// Not sure still if it is something I want to commit to but
+// Upside if I roll my own I can make it graphics API agnostic so it can work with DX12 aswell possibly
+// Not mine so not much I can do have to suppress the warnings in the library for it to compile
+ICARIAN_WARNINGPUSH
+ICARIAN_WARNINGSUPPRESS("-Wunused-variable")
 #ifdef DEBUG
+ICARIAN_WARNINGSUPPRESS("-Wformat");
 // #define VMA_DEBUG_LOG(str) Logger::Message(str)
 // #define VMA_DEBUG_LOG_FORMAT(format, ...) do { char buffer[4096]; sprintf(buffer, format, __VA_ARGS__); Logger::Message(buffer); } while (0)
 #endif
-
-// Not mine so not much I can do
-ICARIAN_WARNINGPUSH
-ICARIAN_WARNINGSUPPRESS("-Wunused-variable")
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 ICARIAN_WARNINGPOP
@@ -42,12 +47,6 @@ ICARIAN_WARNINGPOP
 constexpr const char* ValidationLayers[] = 
 {
     "VK_LAYER_KHRONOS_validation"
-};
-
-constexpr const char* DeviceExtensions[] = 
-{
-    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
-    VK_EXT_MESH_SHADER_EXTENSION_NAME
 };
 
 constexpr const char* StandaloneDeviceExtensions[] =
@@ -71,6 +70,7 @@ constexpr const char* HeadlessDeviceExtensions[] =
 
 constexpr const char* OptionalDeviceExtensions[] = 
 {
+    VK_EXT_MESH_SHADER_EXTENSION_NAME,
     VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
     VK_KHR_VIDEO_QUEUE_EXTENSION_NAME,
     VK_KHR_VIDEO_MAINTENANCE_1_EXTENSION_NAME,
@@ -471,6 +471,9 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     const RenderEngine* renderEngine = GetRenderEngine();
     AppWindow* window = renderEngine->m_window;
 
+    const Config* config = renderEngine->GetConfig();
+    const bool forceMesh = config->ForceMesh();
+
     Array<const char*, RenderScratchAlloc> enabledLayers;
 
     const bool headless = window->IsHeadless();
@@ -536,7 +539,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         VKRESERRMSG(m_instance.createDebugUtilsMessengerEXT(&DebugCreateInfo, nullptr, &m_messenger), "Failed to create Vulkan Debug Printing");
     }
 
-    Array<const char*, RenderScratchAlloc> extensions = Array<const char*, RenderScratchAlloc>(DeviceExtensions, sizeof(DeviceExtensions) / sizeof(*DeviceExtensions));
+    Array<const char*, RenderScratchAlloc> extensions;
     if (headless)
     {
         for (const char* ext : HeadlessDeviceExtensions)
@@ -549,6 +552,15 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         for (const char* ext : StandaloneDeviceExtensions)
         {
             extensions.Push(ext);
+        }
+    }
+
+    // We have a mesh compatibility layer however may want to always run native mesh shaders so have a flag to force it
+    if constexpr (!VulkanForceMeshEmulation)
+    {
+        if (forceMesh)
+        {
+            extensions.Push(VK_EXT_MESH_SHADER_EXTENSION_NAME);
         }
     }
 
@@ -595,7 +607,8 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
 
     const Array<uint8_t, RenderScratchAlloc> optionalMask = GetDeviceExtensionSupport(m_pDevice, Array<const char*, RenderScratchAlloc>(OptionalDeviceExtensions, OptionalDeviceExtensionCount));
 
-    m_optionalExtensionMask.Resize(OptionalDeviceExtensionCount / 8 + 1);
+    constexpr uint32_t OptionalMaskSize = OptionalDeviceExtensionCount / 8 + 1;
+    m_optionalExtensionMask.Resize(OptionalMaskSize);
     for (uint32_t i = 0; i < OptionalDeviceExtensionCount; ++i)
     {
         const uint32_t index = i / 8;
@@ -604,9 +617,20 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
         const bool val = IISBITSET(optionalMask[index], offset);
         if (val)
         {
-            extensions.Push(OptionalDeviceExtensions[i]);
             ISETBIT(m_optionalExtensionMask[index], offset);
+
+            for (const char* str : extensions)
+            {
+                if (strcmp(str, OptionalDeviceExtensions[i]) == 0)
+                {
+                    goto NextExtension;
+                }
+            }
+
+            extensions.Push(OptionalDeviceExtensions[i]);
         }
+
+NextExtension:;
     }
 
     vk::PhysicalDeviceProperties props;
@@ -651,7 +675,7 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
             {
                 vk::Bool32 presentSupport = vk::False;
                 VKRESERR(m_pDevice.getSurfaceSupportKHR(i, surface, &presentSupport));
-                
+
                 if (presentSupport)
                 {
                     // Want graphics queue to be last resort
@@ -735,17 +759,19 @@ Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM 
         nextChain = &videoMaintance1Features.pNext;
     }
 
-    vk::PhysicalDeviceMeshShaderFeaturesEXT meshShaderFeature = vk::PhysicalDeviceMeshShaderFeaturesEXT
-    (
-        vk::True,
-        vk::True,
-        vk::False,
-        vk::False,
-        vk::False
-    );
-
-    *nextChain = &meshShaderFeature;
-    nextChain = &meshShaderFeature.pNext;
+    vk::PhysicalDeviceMeshShaderFeaturesEXT meshShaderFeature;
+    const bool isMeshEnabled = IsMeshEnabled();
+    if (isMeshEnabled)
+    {
+        meshShaderFeature.taskShader = vk::True;
+        meshShaderFeature.meshShader = vk::True;
+        meshShaderFeature.multiviewMeshShader = vk::False;
+        meshShaderFeature.primitiveFragmentShadingRateMeshShader = vk::False;
+        meshShaderFeature.meshShaderQueries = vk::False;
+    
+        *nextChain = &meshShaderFeature;
+        nextChain = &meshShaderFeature.pNext;
+    }
 
     vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo
     (
@@ -934,7 +960,7 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
     m_blockAllocator->Destroy(m_deletionAllocator);
     delete m_blockAllocator;
 
-    LibRenderDoc::Destroy();
+    LibRenderDoc::Destroy();;
 
     TRACE("Vulkan cleaned up");
 }
@@ -988,31 +1014,27 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
     m_pushPool->Reset(m_currentFrame);
 
-    Array<VulkanCommandBuffer, RenderScratchAlloc> commandBuffers;
+    ;
 
     // TODO: Down the line setup the compute and graphics engine to return VulkanCommandBuffers
     const VulkanCommandBuffer computeCommandBuffer = m_computeEngine->Update(a_delta, a_time, m_currentFrame);
-    commandBuffers.Push(computeCommandBuffer);
+    const vk::CommandBuffer vulkanComputeBuffer = computeCommandBuffer.GetCommandBuffer();
 
-    {
-        const Array<VulkanCommandBuffer> buffers = m_graphicsEngine->Update(a_delta, a_time, m_currentFrame);
-        for (const VulkanCommandBuffer& b : buffers)
-        {
-            commandBuffers.Push(b);
-        }
-    }
+    const Array<VulkanCommandBuffer> commandBuffers = m_graphicsEngine->Update(a_delta, a_time, m_currentFrame);
     
     Profiler::StartFrame("Render Setup");
 
+    // TODO: This can probably be updated to account for buckets over command buffers
     const uint32_t buffersSize = commandBuffers.Size();
+    const uint32_t targetSemaphores = buffersSize + 3;
 
     const uint32_t semaphoreCount = m_interSemaphore[m_currentFlightFrame].Size();
-    const uint32_t endBuffer = buffersSize - 1;
+    // const uint32_t endBuffer = buffersSize - 1;
 
-    if (buffersSize > semaphoreCount)
+    if (targetSemaphores > semaphoreCount)
     {
         TRACE("Allocating inter semaphores");
-        const uint32_t diff = buffersSize - semaphoreCount;
+        const uint32_t diff = targetSemaphores - semaphoreCount;
 
         constexpr vk::SemaphoreCreateInfo SemaphoreInfo;
 
@@ -1030,126 +1052,227 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     Profiler::StartFrame("Render Submit");
 
     {
-        // TODO: Redo command buffer submission, can probably get benefits from allowing GPUs with multli queue to do stuff at the same time.
-        // Also just generally a bit of a mess
-        // Alot of benefit comes from allowing video at the same time.
-        // Not a lot of benefit atleast for the GPUs I have compute and graphics is the same queue and it they do have seperate queues compute is shared with the present queue annoyingly
-        // May consider allowing present and compute to share need to do further investigation
-        const ThreadGuard l = ThreadGuard(m_graphicsQueueLock);
+        // Urgh got hit by an it depends again as to if submiting a single command buffer sequentially or grouping command buffers is faster
+        // Seems vary from GPU and driver wildly got a regression on some hardware and an improvement on others.....
+        // Why can things not be simple things always seem to turn into its complicated and it depends
+        // Need to see if there is a reliable way of seeing and adapting based off it but probably a rabbit hole on its own
+        // I have seen a worst case of a drop from ~1.1ms to ~1.4ms frame times
+        // TODO: Investigate why it is a regression on some and an improvement on others suspect resource contention
 
-        for (uint32_t i = 0; i < buffersSize; ++i)
+        RENDERSCRATCHFRAME;
+
+        Array<Array<VulkanCommandBuffer, RenderScratchAlloc>, RenderScratchAlloc> commandBuckets;
+        commandBuckets.Reserve(buffersSize);
+
+        Array<VulkanCommandBuffer, RenderScratchAlloc> currentBucket;
+        uint32_t currentBucketSlot = -1;
+        for (const VulkanCommandBuffer& buffer : commandBuffers)
         {
-            const vk::Semaphore curSemaphore = ILAMBDA(
+            const e_VulkanCommandBufferStage stage = buffer.GetBufferStage();
+
+            const uint32_t bucketSlot = ILAMBDA(
             {
-                if (i == endBuffer)
+                switch (stage)
                 {
-                    ILRETURN m_swapchain->GetEndSemaphore(m_currentFlightFrame);
+                case VulkanCommandBufferStage_ShadowPass:
+                case VulkanCommandBufferStage_DeferredPass:
+                {
+                    ILRETURN 0;
                 }
-
-                ILRETURN m_interSemaphore[m_currentFlightFrame][i];
-            });
-            IDEFER(lastSemaphore = curSemaphore);
-
-            const VulkanCommandBuffer& buffer = commandBuffers[i];
-            const vk::CommandBuffer cmdBuffer = buffer.GetCommandBuffer();
-            
-            const e_VulkanCommandBufferType bufferType = buffer.GetBufferType();
-
-            const vk::PipelineStageFlags waitStages = ILAMBDA(
-            {
-                switch (bufferType)
+                case VulkanCommandBufferStage_LightingPass:
+                case VulkanCommandBufferStage_ForwardPass:
                 {
-                case VulkanCommandBufferType_Compute:
-                {
-                    ILRETURN vk::PipelineStageFlagBits::eComputeShader;
+                    ILRETURN 1;
                 }
-                case VulkanCommandBufferType_VideoDecode:
+                case VulkanCommandBufferStage_PostPass:
                 {
-                    ILRETURN vk::PipelineStageFlagBits::eAllCommands;
+                    ILRETURN 2;
                 }
-                case VulkanCommandBufferType_Graphics:
+                case VulkanCommandBufferStage_UIPass:
                 {
-                    ILRETURN vk::PipelineStageFlagBits::eAllGraphics;
+                    ILRETURN 3;
                 }
                 default:
                 {
-                    IERROR("Invalid command buffer type");
-
                     break;
                 }
                 }
 
-                ILRETURN vk::PipelineStageFlagBits::eNone;
+                IERROR("Invalid CommandBufferStage");
+
+                ILRETURN 0;
             });
 
-            const vk::Queue queue = ILAMBDA(
+            if (bucketSlot != currentBucketSlot)
             {
-                switch (bufferType)
-                {
-                case VulkanCommandBufferType_Compute:
-                {
-                    ILRETURN m_computeQueue;
-                }
-                case VulkanCommandBufferType_VideoDecode:
-                {
-                    ILRETURN m_videoDecodeQueue;
-                }
-                case VulkanCommandBufferType_Graphics:
-                {
-                    ILRETURN m_graphicsQueue;
-                }
-                default:
-                {
-                    IERROR("Invalid command buffer type");
+                IDEFER(currentBucketSlot = bucketSlot);
 
-                    break;
-                }
-                }
-
-                ILRETURN m_graphicsQueue;
-            });
-
-            const vk::Fence fence = ILAMBDA(
-            {
-                if (i == endBuffer)
+                if (currentBucketSlot != uint32_t(-1))
                 {
-#ifndef ICARIANNATIVE_ENABLE_DMA
-                    if (window->IsHeadless())
-                    {
-                        if (!m_swapchain->IsInitialized(m_imageIndex))
-                        {
-                            ILRETURN m_swapchain->GetFence(m_currentFlightFrame);
-                        }
-                    }
-                    else
-#endif  
-                    {
-                        ILRETURN m_swapchain->GetFence(m_currentFlightFrame);
-                    }
+                    commandBuckets.Push(currentBucket);
+
+                    currentBucket.Clear();
                 }
-
-                ILRETURN vk::Fence(nullptr);
-            });
-
-            vk::SubmitInfo submitInfo = vk::SubmitInfo
-            (
-                0,
-                nullptr,
-                &waitStages,
-                1,
-                &cmdBuffer,
-                1,
-                &curSemaphore
-            );
-
-            if (lastSemaphore != vk::Semaphore(nullptr))
-            {
-                submitInfo.waitSemaphoreCount = 1;
-                submitInfo.pWaitSemaphores = &lastSemaphore;
             }
 
-            VKRESERRMSG(queue.submit(1, &submitInfo, fence), "Failed to submit command");
-        }    
+            currentBucket.Push(buffer);
+        }
+
+        if (!currentBucket.Empty())
+        {
+            commandBuckets.Push(currentBucket);
+        }
+
+        const uint32_t commandBucketCount = commandBuckets.Size();
+        if (commandBucketCount > 0)
+        {
+            const uint32_t semaphoreCount = m_interSemaphore[m_currentFlightFrame].Size();
+
+            const uint32_t chainSemaphoreCount = ILAMBDA(
+            {
+                if (vulkanComputeBuffer != vk::CommandBuffer(nullptr))
+                {
+                    return 2;
+                }
+
+                return 1;
+            });
+
+            const vk::Semaphore* chainSemaphores = ILAMBDA(
+            {
+                vk::Semaphore* vals = RenderScratchAlloc::TAllocate<vk::Semaphore>(chainSemaphoreCount);
+
+                for (uint32_t i = 0; i < chainSemaphoreCount; ++i)
+                {
+                    vals[i] = m_interSemaphore[m_currentFlightFrame][semaphoreCount - (3 - i)];
+                }
+
+                ILRETURN vals;
+            });
+
+            const ThreadGuard l = ThreadGuard(m_graphicsQueueLock);
+
+            constexpr vk::PipelineStageFlags ChainFlags = vk::PipelineStageFlagBits::eAllCommands;
+
+            const vk::SubmitInfo initialSubmit = vk::SubmitInfo
+            (
+                1,
+                &lastSemaphore,
+                &ChainFlags,
+                // Huh apparently this is valid and can chain semaphores without executing a command buffer
+                0,
+                nullptr,
+                chainSemaphoreCount,
+                chainSemaphores
+            );
+
+            VKRESERRMSG(m_graphicsQueue.submit(1, &initialSubmit, nullptr), "Failed to submit initial chain");
+
+            lastSemaphore = chainSemaphores[0];
+
+            for (uint32_t i = 0; i < commandBucketCount; ++i)
+            {
+                RENDERSCRATCHFRAME;
+
+                const vk::Semaphore curSemaphore = m_interSemaphore[m_currentFlightFrame][i];
+                IDEFER(lastSemaphore = curSemaphore);
+
+                const Array<VulkanCommandBuffer, RenderScratchAlloc>& buffers = commandBuckets[i];
+                const uint32_t commandBufferCount = buffers.Size();
+
+                const vk::CommandBuffer* commandBuffers = ILAMBDA(
+                {
+                    vk::CommandBuffer* vals = RenderScratchAlloc::TAllocate<vk::CommandBuffer>(commandBufferCount);
+
+                    for (uint32_t i = 0; i < commandBufferCount; ++i)
+                    {
+                        const VulkanCommandBuffer& buffer = buffers[i];
+
+                        vals[i] = buffer.GetCommandBuffer();
+                    }
+
+                    ILRETURN vals;
+                });
+
+                constexpr vk::PipelineStageFlags GraphicsWaitFlags = vk::PipelineStageFlagBits::eAllGraphics;
+
+                const vk::SubmitInfo submitInfo = vk::SubmitInfo
+                (
+                    1,
+                    &lastSemaphore,
+                    &GraphicsWaitFlags,
+                    commandBufferCount,
+                    commandBuffers,
+                    1,
+                    &curSemaphore
+                );
+
+                VKRESERRMSG(m_graphicsQueue.submit(1, &submitInfo, nullptr), "Failed to submit graphics bucket");
+            }
+
+            const vk::Semaphore* waitSemaphores = ILAMBDA(
+            {
+                // This can probably been cleaned up it is a mess
+                vk::Semaphore* vals = RenderScratchAlloc::TAllocate<vk::Semaphore>(chainSemaphoreCount);
+
+                if (vulkanComputeBuffer != vk::CommandBuffer(nullptr))
+                {
+                    vals[1] = m_interSemaphore[m_currentFlightFrame][semaphoreCount - 1];
+                }
+
+                vals[0] = lastSemaphore;
+
+                ILRETURN vals;
+            });
+
+            // Huh did not know that submission order does matter even if it is across queues
+            // WHY!?! I thought that submission order only mattered in the same queue
+            // Well it is fixed now, guess it is another docs vs spec thing
+            // You would think I would know by now to look at the spec
+            if (vulkanComputeBuffer != vk::CommandBuffer(nullptr))
+            {
+                const vk::SubmitInfo submitInfo = vk::SubmitInfo
+                (
+                    1,
+                    &(chainSemaphores[1]),
+                    &ChainFlags,
+                    1,
+                    &vulkanComputeBuffer,
+                    1,
+                    &(waitSemaphores[1])
+                );
+
+                VKRESERRMSG(m_computeQueue.submit(1, &submitInfo, nullptr), "Failed to submit compute command");
+            }
+
+            const vk::PipelineStageFlags* waitFlags = ILAMBDA(
+            {
+                vk::PipelineStageFlags* vals = RenderScratchAlloc::TAllocate<vk::PipelineStageFlags>(chainSemaphoreCount);
+
+                for (uint32_t i = 0; i < chainSemaphoreCount; ++i)
+                {
+                    vals[i] = vk::PipelineStageFlagBits::eAllCommands;
+                }
+
+                ILRETURN vals;
+            });
+
+            const vk::Semaphore swapSemaphore = m_swapchain->GetEndSemaphore(m_currentFlightFrame);
+            const vk::Fence swapFence = m_swapchain->GetFence(m_currentFlightFrame);
+
+            const vk::SubmitInfo submitInfo = vk::SubmitInfo
+            (
+                chainSemaphoreCount,
+                waitSemaphores,
+                waitFlags,
+                0,
+                nullptr,
+                1,
+                &swapSemaphore
+            );
+
+            VKRESERRMSG(m_graphicsQueue.submit(1, &submitInfo, swapFence), "Failed to submit wait chain");
+        }
     }
 
     Profiler::StopFrame();

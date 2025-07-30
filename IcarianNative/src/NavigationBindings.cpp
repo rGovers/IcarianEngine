@@ -31,7 +31,7 @@ RUNTIME_FUNCTION(MonoArray*, Navigation, GetPath,
 NavigationBindings::NavigationBindings(Navigation* a_navigation)
 {
     m_navigation = a_navigation;
-    
+
     ENGINE_NAVIGATIONMESH_EXPORT_TABLE(RUNTIME_FUNCTION_ATTACH);
 
     BIND_FUNCTION(IcarianEngine.AI, Navigation, GetPath);
@@ -43,7 +43,7 @@ NavigationBindings::~NavigationBindings()
 
 }
 
-uint32_t NavigationBindings::CreateNavMesh(const std::filesystem::path& a_path) const
+uint32_t NavigationBindings::CreateNavMesh(const std::string_view& a_path) const
 {
     NavigationMesh* mesh = new NavigationMesh(a_path);
 

@@ -6,13 +6,16 @@
 
 #include "Rendering/Vulkan/VulkanGraphicsEngineBindings.h"
 
-#include "Core/IcarianAssert.h"
+#include <meshoptimizer.h>
+
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
+#include "Core/IcarianLambda.h"
 #include "Core/StringUtils.h"
 #include "DeletionQueue.h"
 #include "FileCache.h"
 #include "ObjectManager.h"
+#include "Rendering/RenderAssetStore.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/ShaderTable.h"
 #include "Rendering/Vulkan/VulkanDepthCubeRenderTexture.h"
@@ -21,6 +24,7 @@
 #include "Rendering/Vulkan/VulkanGraphicsParticle2D.h"
 #include "Rendering/Vulkan/VulkanLightBuffer.h"
 #include "Rendering/Vulkan/VulkanLightData.h"
+#include "Rendering/Vulkan/VulkanMesh.h"
 #include "Rendering/Vulkan/VulkanModel.h"
 #include "Rendering/Vulkan/VulkanRenderCommand.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
@@ -28,6 +32,7 @@
 #include "Rendering/Vulkan/VulkanShaderData.h"
 #include "Rendering/Vulkan/VulkanTextureSampler.h"
 #include "Rendering/Vulkan/VulkanVideoTexture.h"
+#include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
@@ -48,7 +53,6 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     F(RenderProgram, IcarianEngine.Rendering, Material, GetProgramBuffer, { return Instance->GetRenderProgram(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering, Material, SetProgramBuffer, { Instance->SetRenderProgram(a_addr, a_program); }, uint32_t a_addr, RenderProgram a_program) \
     F(void, IcarianEngine.Rendering, Material, SetTexture, { Instance->RenderProgramSetTexture(a_addr, a_shaderSlot, a_samplerAddr); }, uint32_t a_addr, uint32_t a_shaderSlot, uint32_t a_samplerAddr) \
-    F(void, IcarianEngine.Rendering, Material, SetUserUniform, { Instance->RenderProgramSetUserUBO(a_addr, a_uboSize, a_uboData); }, uint32_t a_addr, uint32_t a_uboSize, void* a_uboData) \
     \
     F(uint32_t, IcarianEngine.Rendering, Camera, GenerateBuffer, { return Instance->GenerateCameraBuffer(a_transformAddr); }, uint32_t a_transformAddr) \
     F(void, IcarianEngine.Rendering, Camera, DestroyBuffer, { Instance->DestroyCameraBuffer(a_addr); }, uint32_t a_addr) \
@@ -56,15 +60,20 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     F(void, IcarianEngine.Rendering, Camera, SetBuffer, { Instance->SetCameraBuffer(a_addr, a_buffer); }, uint32_t a_addr, CameraBuffer a_buffer) \
     F(glm::vec3, IcarianEngine.Rendering, Camera, ScreenToWorld, { return Instance->CameraScreenToWorld(a_addr, a_screenPos, a_screenSize); }, uint32_t a_addr, glm::vec3 a_screenPos, glm::vec2 a_screenSize) \
     \
-    F(uint32_t, IcarianEngine.Rendering, MeshRenderer, GenerateBuffer, { return Instance->GenerateMeshRenderBuffer(a_materialAddr, a_modelAddr, a_transformAddr); }, uint32_t a_transformAddr, uint32_t a_materialAddr, uint32_t a_modelAddr) \
-    F(void, IcarianEngine.Rendering, MeshRenderer, DestroyBuffer, { Instance->DestroyMeshRenderBuffer(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering, MeshRenderer, GenerateRenderStack, { Instance->GenerateRenderStack(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering, MeshRenderer, DestroyRenderStack, { Instance->DestroyRenderStack(a_addr); }, uint32_t a_addr) \
+    F(uint32_t, IcarianEngine.Rendering, ModelRenderer, GenerateBuffer, { return Instance->GenerateModelRenderBuffer(a_materialAddr, a_modelAddr, a_transformAddr); }, uint32_t a_transformAddr, uint32_t a_materialAddr, uint32_t a_modelAddr) \
+    F(void, IcarianEngine.Rendering, ModelRenderer, DestroyBuffer, { IPUSHDELETIONFUNC(Instance->DestroyModelRenderBuffer(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, ModelRenderer, GenerateRenderStack, { IPUSHDELETIONFUNC(Instance->GenerateModelRenderStack(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, ModelRenderer, DestroyRenderStack, { IPUSHDELETIONFUNC(Instance->DestroyModelRenderStack(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     \
-    F(uint32_t, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, GenerateBuffer, { return Instance->GenerateSkinnedMeshRenderBuffer(a_materialAddr, a_modelAddr, a_transformAddr, a_skeletonAddr); }, uint32_t a_transformAddr, uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_skeletonAddr) \
-    F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, DestroyBuffer, { Instance->DestroySkinnedMeshRenderBuffer(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, GenerateRenderStack, { Instance->GenerateSkinnedRenderStack(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, DestroyRenderStack, { Instance->DestroySkinnedRenderStack(a_addr); }, uint32_t a_addr) \
+    F(uint32_t, IcarianEngine.Rendering.Animation, SkinnedModelRenderer, GenerateBuffer, { return Instance->GenerateSkinnedModelRenderBuffer(a_materialAddr, a_modelAddr, a_transformAddr, a_skeletonAddr); }, uint32_t a_transformAddr, uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_skeletonAddr) \
+    F(void, IcarianEngine.Rendering.Animation, SkinnedModelRenderer, DestroyBuffer, { IPUSHDELETIONFUNC(Instance->DestroySkinnedModelRenderBuffer(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Animation, SkinnedModelRenderer, GenerateRenderStack, { IPUSHDELETIONFUNC(Instance->GenerateSkinnedModelRenderStack(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Animation, SkinnedModelRenderer, DestroyRenderStack, { IPUSHDELETIONFUNC(Instance->DestroySkinnedModelRenderStack(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    \
+    F(uint32_t, IcarianEngine.Rendering, MeshRenderer, GenerateBuffer, { return Instance->GenerateMeshRenderBuffer(a_materialAddr, a_meshAddr, a_transformAddr, a_indexCount); }, uint32_t a_transformAddr, uint32_t a_materialAddr, uint32_t a_meshAddr, uint32_t a_indexCount) \
+    F(void, IcarianEngine.Rendering, MeshRenderer, DestroyBuffer, { IPUSHDELETIONFUNC(Instance->DestroyMeshRenderBuffer(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, MeshRenderer, GenerateRenderStack, { IPUSHDELETIONFUNC(Instance->GenerateMeshRenderStack(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering, MeshRenderer, DestroyRenderStack, { IPUSHDELETIONFUNC(Instance->DestroyMeshRenderStack(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     \
     F(void, IcarianEngine.Rendering, Texture, DestroyTexture, { IPUSHDELETIONFUNC(Instance->DestroyTexture(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     \
@@ -99,6 +108,8 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     \
     F(uint32_t, IcarianEngine.Renddering, MultiRenderTexture, GetTextureCount, { return Instance->GetRenderTextureTextureCount(a_addr); }, uint32_t a_addr) \
     \
+    F(void, IcarianEngine.Rendering, Mesh, DestroyMesh, { IPUSHDELETIONFUNC(Instance->DestroyMesh(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    \
     F(void, IcarianEngine.Rendering, Model, DestroyModel, { IPUSHDELETIONFUNC(Instance->DestroyModel(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, ParticleSystem2D, GenerateGraphicsParticleSystem, { return Instance->GenerateGraphicsParticle2D(a_computeBuffer); }, uint32_t a_computeBuffer) \
@@ -113,8 +124,8 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, DestroyBuffer, { IPUSHDELETIONFUNC(Instance->DestroyDirectionalLightBuffer(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     F(DirectionalLightBuffer, IcarianEngine.Rendering.Lighting, DirectionalLight, GetBuffer, { return Instance->GetDirectionalLightBuffer(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, SetBuffer, { Instance->SetDirectionalLightBuffer(a_addr, a_buffer); }, uint32_t a_addr, DirectionalLightBuffer a_buffer) \
-    F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, AddShadowMap, { Instance->AddDirectionalLightShadowMap(a_addr, a_shadowMapAddr); }, uint32_t a_addr, uint32_t a_shadowMapAddr) \
-    F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, RemoveShadowMap, { Instance->RemoveDirectionalLightShadowMap(a_addr, a_shadowMapAddr); }, uint32_t a_addr, uint32_t a_shadowMapAddr) \
+    F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, AddShadowMap, { IPUSHDELETIONFUNC(Instance->AddDirectionalLightShadowMap(a_addr, a_shadowMapAddr), DeletionIndex_Render); }, uint32_t a_addr, uint32_t a_shadowMapAddr) \
+    F(void, IcarianEngine.Rendering.Lighting, DirectionalLight, RemoveShadowMap, { IPUSHDELETIONFUNC(Instance->RemoveDirectionalLightShadowMap(a_addr, a_shadowMapAddr), DeletionIndex_Render); }, uint32_t a_addr, uint32_t a_shadowMapAddr) \
     \
     F(uint32_t, IcarianEngine.Rendering.Lighting, PointLight, GenerateBuffer, { return Instance->GeneratePointLightBuffer(a_transformAddr); }, uint32_t a_transformAddr) \
     F(void, IcarianEngine.Rendering.Lighting, PointLight, DestroyBuffer, { IPUSHDELETIONFUNC(Instance->DestroyPointLightBuffer(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
@@ -170,7 +181,7 @@ RUNTIME_FUNCTION(uint32_t, ComputeShader, GenerateGraphicsFromFile,
     {
     case StringHash<uint32_t>(".fcomp"):
     {
-        FileHandle* handle = FileCache::LoadFile(p);
+        FileHandle* handle = FileCache::LoadFile(str);
         IERRCHECKRET(handle != nullptr, -1);
         IDEFER(delete handle);
 
@@ -210,6 +221,12 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
     IDEFER(mono_free(str));
 
     // Faster to do the comparison if it is a single comparison
+    // TODO: Should probably switch file IO to use actual protocol specifiers rather then a string comparison works for now but so low priority
+    // That applies to all shader types as internal:// makes more sense then [INTERNAL]
+    // I may do away with the shader table and move it to the filesystem and build a resource table for the filesystem
+    // Not a fan as shader loading is handling the protocol part of the URI/URL and not the FileCache
+    // Yes this means probably gonna be more work on the build system side to generate the table as I want to use hashes still
+    // Hash fast string compare slow when multiple need to be done back to back
     if (strncmp(str, INTERNALSHADERPATHSTR, InternalShaderStringSize) == 0)
     {
         const char* shader = GetVertexShaderString(str + InternalShaderStringSize);
@@ -229,7 +246,7 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
         {
         case StringHash<uint32_t>(".fvert"):
         {
-            FileHandle* handle = FileCache::LoadFile(p);
+            FileHandle* handle = FileCache::LoadFile(str);
             IERRCHECKRET(handle != nullptr, -1);
             IDEFER(delete handle);
 
@@ -279,7 +296,7 @@ RUNTIME_FUNCTION(uint32_t, MeshShader, GenerateFromFile,
     {
     case StringHash<uint32_t>(".fmesh"):
     {
-        FileHandle* handle = FileCache::LoadFile(p);
+        FileHandle* handle = FileCache::LoadFile(str);
         IERRCHECKRET(handle != nullptr, -1);
         IDEFER(delete handle);
 
@@ -338,7 +355,7 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
         case StringHash<uint32_t>(".fpix"):
         case StringHash<uint32_t>(".ffrag"):
         {
-            FileHandle* handle = FileCache::LoadFile(p);
+            FileHandle* handle = FileCache::LoadFile(str);
             IERRCHECKRET(handle != nullptr, -1);
             IDEFER(delete handle);
 
@@ -449,8 +466,23 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateProgram,
         memcpy(program.UBOData, a_uboData, program.UBODataSize);
     }
 
+    if (a_arrayStride > 0 && a_userArray != NULL)
+    {
+        program.UserArrayStride = a_arrayStride;
+        program.UserArrayCount = (uint32_t)mono_array_length(a_userArray);
+        const size_t size = (size_t)program.UserArrayStride * program.UserArrayCount;
+        program.UserArrayData = malloc(size);
+
+        for (uint32_t i = 0; i < program.UserArrayCount; ++i)
+        {
+            const uint8_t* data = (uint8_t*)mono_array_addr_with_size(a_userArray, program.UserArrayStride, i);
+
+            memcpy((char*)program.UserArrayData + i * program.UserArrayStride, data, program.UserArrayStride);
+        }
+    }
+
     return Instance->GenerateShaderProgram(program);
-}, uint32_t a_vertexShader, uint32_t a_pixelShader, uint16_t a_vertexStride, MonoArray* a_vertexInputAttribs, uint32_t a_cullMode, uint32_t a_primitiveMode, uint32_t a_colorBlendMode, uint32_t a_renderLayer, uint32_t a_shadowVertexShader, uint32_t a_uboSize, void* a_uboData)
+}, uint32_t a_vertexShader, uint32_t a_pixelShader, uint16_t a_vertexStride, MonoArray* a_vertexInputAttribs, uint32_t a_cullMode, uint32_t a_primitiveMode, uint32_t a_colorBlendMode, uint32_t a_renderLayer, uint32_t a_shadowVertexShader, uint32_t a_uboSize, void* a_uboData, MonoArray* a_userArray, uint32_t a_arrayStride)
 RUNTIME_FUNCTION(uint32_t, Material, GenerateMeshProgram, 
 {
     // List initialisers are being drunk so guess zero and init it is
@@ -458,12 +490,13 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateMeshProgram,
     memset(&program, 0, sizeof(RenderProgram));
     program.VertexShader = a_meshShader;
     program.PixelShader = a_pixelShader;
-    program.ShadowVertexShader = a_shadowVertexShader;
     program.VertexStride = a_vertexStride;
     program.CullingMode = (e_CullMode)a_cullMode;
     program.ColorBlendMode = (e_MaterialBlendMode)a_colorBlendMode;
     program.MaterialMode = MaterialMode_BaseMesh;
     program.RenderLayer = a_renderLayer;
+    program.ExtraShader = -1;
+    program.ShadowVertexShader = -1;
 
     if (a_uboData != NULL)
     {
@@ -473,8 +506,23 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateMeshProgram,
         memcpy(program.UBOData, a_uboData, program.UBODataSize);
     }
 
+    if (a_arrayStride > 0 && a_userArray != NULL)
+    {
+        program.UserArrayStride = a_arrayStride;
+        program.UserArrayCount = (uint32_t)mono_array_length(a_userArray);
+        const size_t size = (size_t)program.UserArrayStride * program.UserArrayCount;
+        program.UserArrayData = malloc(size);
+
+        for (uint32_t i = 0; i < program.UserArrayCount; ++i)
+        {
+            const uint8_t* data = (uint8_t*)mono_array_addr_with_size(a_userArray, program.UserArrayStride, i);
+
+            memcpy((char*)program.UserArrayData + i * program.UserArrayStride, data, program.UserArrayStride);
+        }
+    }
+
     return Instance->GenerateShaderProgram(program);
-}, uint32_t a_meshShader, uint32_t a_pixelShader, uint16_t a_vertexStride, uint32_t a_cullMode, uint32_t a_colorBlendMode, uint32_t a_renderLayer, uint32_t a_shadowVertexShader, uint32_t a_uboSize, void* a_uboData)
+}, uint32_t a_meshShader, uint32_t a_pixelShader, uint16_t a_vertexStride, uint32_t a_cullMode, uint32_t a_colorBlendMode, uint32_t a_renderLayer, uint32_t a_uboSize, void* a_uboData, MonoArray* a_userArray, uint32_t a_arrayStride)
 RUNTIME_FUNCTION(uint32_t, Material, GenerateComputeProgram, 
 {
     RenderProgram program;
@@ -492,6 +540,191 @@ RUNTIME_FUNCTION(uint32_t, Material, GenerateComputeProgram,
 
     return Instance->GenerateShaderProgram(program);
 }, uint32_t a_computeShader, uint32_t a_uboSize, void* a_uboData)
+RUNTIME_FUNCTION(void, Material, SetUserUniform,
+{
+    // Was staring at the code for too long and realised there was a memory safety issue when run async in the previous implementation
+    // No idea how it did not cause issues
+    // Should be resolved now but that is why I have a transfer function and is no longer in the big function table
+    class VulkanMaterialUserBufferTransfer : public DeletionObject
+    {
+    private:
+        void*    m_data;
+        uint32_t m_size;
+        uint32_t m_addr;
+
+    protected:
+
+    public:
+        VulkanMaterialUserBufferTransfer(uint32_t a_addr, uint32_t a_size, void* a_data)
+        {
+            m_addr = a_addr;
+            m_data = a_data;
+            m_size = a_size;
+        }
+        virtual ~VulkanMaterialUserBufferTransfer()
+        {
+            if (m_data != NULL)
+            {
+                free(m_data);
+            }
+        }
+
+        virtual void Destroy()
+        {
+            Instance->RenderProgramSetUserUBO(m_addr, m_size, m_data);
+
+            m_data = NULL;
+        }
+    };
+
+    if (a_uboSize > 0 && a_uboBuffer != NULL)
+    {
+        void* data = malloc(a_uboSize);
+
+        memcpy(data, a_uboBuffer, a_uboSize);
+
+        DeletionQueue::Push(new VulkanMaterialUserBufferTransfer(a_addr, a_uboSize, data), DeletionIndex_Render);
+
+        return;
+    }
+
+    IPUSHDELETIONFUNC(Instance->RenderProgramSetUserUBO(a_addr, a_uboSize, a_uboBuffer), DeletionIndex_Render);
+}, uint32_t a_addr, uint32_t a_uboSize, void* a_uboBuffer)
+RUNTIME_FUNCTION(void, Material, SetUserArray,
+{
+    // Not normally an issue but code would be fragile and dependant on shutdown order as there would be a period that the pointer would not have an owner
+    // Ergo we write a custom deletion object over using the macro
+    // Current implementation it does not matter and would always be freed but do not want it fragile
+    // And yes I still believe use of smart pointers are from poor architecture
+    class VulkanMaterialUserArrayTransfer : public DeletionObject
+    {
+    private:
+        void*    m_data;
+        uint32_t m_count;
+        uint32_t m_stride;
+        uint32_t m_addr;
+
+    protected:
+
+    public:
+        VulkanMaterialUserArrayTransfer(uint32_t a_addr, void* a_data, uint32_t a_count, uint32_t a_stride)
+        {
+            m_addr = a_addr;
+            m_data = a_data;
+            m_count = a_count;
+            m_stride = a_stride;
+        }
+        virtual ~VulkanMaterialUserArrayTransfer()
+        {
+            if (m_data != NULL)
+            {
+                // This should not be called but cannot ensure that in future hence this exists
+                free(m_data);
+            }
+        }
+
+        virtual void Destroy()
+        {
+            Instance->RenderProgramSetUserArray(m_addr, m_data, m_count, m_stride);
+
+            m_data = NULL;
+        }
+    };
+
+    if (a_elementStride > 0 && a_array != NULL)
+    {
+        const uint32_t count = (uint32_t)mono_array_length(a_array);
+        const size_t size = (size_t)a_elementStride * count;
+
+        void* arrayData = malloc(size);
+
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            const uint8_t* data = (uint8_t*)mono_array_addr_with_size(a_array, a_elementStride, i);
+
+            memcpy((char*)arrayData + i * a_elementStride, data, a_elementStride);
+        }
+
+        DeletionQueue::Push(new VulkanMaterialUserArrayTransfer(a_addr, arrayData, count, a_elementStride), DeletionIndex_Render);
+
+        return;
+    }
+
+    IPUSHDELETIONFUNC(Instance->RenderProgramSetUserArray(a_addr, NULL, 0, a_elementStride), DeletionIndex_Render);
+}, uint32_t a_addr, uint32_t a_elementStride, MonoArray* a_array)
+RUNTIME_FUNCTION(void, Material, SetUserArrayCallback,
+{
+    // Not normally an issue but code would be fragile and dependant on shutdown order as there would be a period that the pointer would not have an owner
+    // Ergo we write a custom deletion object over using the macro
+    // Current implementation it does not matter and would always be freed but do not want it fragile
+    // And yes I still believe use of smart pointers are from poor architecture
+    class VulkanMaterialUserArrayTransferCallback : public DeletionObject
+    {
+    private:
+        void*                     m_data;
+        uint32_t                  m_count;
+        uint32_t                  m_stride;
+        uint32_t                  m_addr;
+        uint32_t                  m_callbackAddr;
+
+    protected:
+
+    public:
+        VulkanMaterialUserArrayTransferCallback(uint32_t a_addr, void* a_data, uint32_t a_count, uint32_t a_stride, uint32_t a_callbackAddr)
+        {
+            m_addr = a_addr;
+            m_data = a_data;
+            m_count = a_count;
+            m_stride = a_stride;
+            m_callbackAddr = a_callbackAddr;
+        }
+        virtual ~VulkanMaterialUserArrayTransferCallback()
+        {
+            if (m_data != NULL)
+            {
+                // This should not be called but cannot ensure that in future hence this exists
+                free(m_data);
+            }
+        }
+
+        virtual void Destroy()
+        {
+            Instance->RenderProgramSetUserArray(m_addr, m_data, m_count, m_stride);
+
+            m_data = NULL;
+
+            RuntimeFunction* func = Instance->GetUserArrayCallback();
+
+            void* args[] =
+            {
+                &m_callbackAddr
+            };
+
+            func->Exec(args);
+        }
+    };
+
+    if (a_elementStride > 0 && a_array != NULL)
+    {
+        const uint32_t count = (uint32_t)mono_array_length(a_array);
+        const size_t size = (size_t)a_elementStride * count;
+
+        void* arrayData = malloc(size);
+
+        for (uint32_t i = 0; i < count; ++i)
+        {
+            const uint8_t* data = (uint8_t*)mono_array_addr_with_size(a_array, a_elementStride, i);
+
+            memcpy((char*)arrayData + i * a_elementStride, data, a_elementStride);
+        }
+
+        DeletionQueue::Push(new VulkanMaterialUserArrayTransferCallback(a_addr, arrayData, count, a_elementStride, a_callbackAddr), DeletionIndex_Render);
+
+        return;
+    }
+
+    DeletionQueue::Push(new VulkanMaterialUserArrayTransferCallback(a_addr, NULL, 0, a_elementStride, a_callbackAddr), DeletionIndex_Render);
+}, uint32_t a_addr, uint32_t a_elementStride, MonoArray* a_array, uint32_t a_callbackAddr)
 
 RUNTIME_FUNCTION(void, Material, DestroyProgram, 
 {
@@ -500,29 +733,35 @@ RUNTIME_FUNCTION(void, Material, DestroyProgram,
         const RenderProgram program = Instance->GetRenderProgram(a_addr);
 
         IDEFER(
-        if (program.VertexAttributes != nullptr)
         {
-            delete[] program.VertexAttributes;
-        }
+            if (program.VertexAttributes != nullptr)
+            {
+                delete[] program.VertexAttributes;
+            }
 
-        if (program.UBOData != NULL)
-        {
-            free(program.UBOData);
+            if (program.UBOData != NULL)
+            {
+                free(program.UBOData);
+            }
+
+            if (program.UserArrayData != NULL)
+            {
+                free(program.UserArrayData);
+            }
         });
 
         Instance->DestroyShaderProgram(a_addr);
     }, DeletionIndex_Render);
 }, uint32_t a_addr)
 
-// MSVC workaround
-static uint32_t M_Model_GenerateModel(MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride, float a_radius)
+RUNTIME_FUNCTION(uint32_t, Model, GenerateModel,
 {
     const uint32_t vertexCount = (uint32_t)mono_array_length(a_vertices);
     const uint32_t indexCount = (uint32_t)mono_array_length(a_indices);
 
     const uint32_t vertexSize = vertexCount * a_vertexStride;
 
-    char* vertices = new char[vertexSize];
+    uint8_t* vertices = new uint8_t[vertexSize];
     IDEFER(delete[] vertices);
     for (uint32_t i = 0; i < vertexSize; ++i)
     {
@@ -537,11 +776,155 @@ static uint32_t M_Model_GenerateModel(MonoArray* a_vertices, MonoArray* a_indice
     }
 
     return Instance->GenerateModel(vertices, vertexCount, indices, indexCount, a_vertexStride, a_radius);
-}
-RUNTIME_FUNCTION(uint32_t, Model, GenerateModel,
-{
-    return M_Model_GenerateModel(a_vertices, a_indices, a_vertexStride, a_radius);
 }, MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride, float a_radius);
+RUNTIME_FUNCTION(uint32_t, Mesh, GenerateFromModel,
+{
+    // meshopt uses unsigned int so have to verify
+    // Will be fine on 99% of platforms but can cause issues
+    // That is why this exists
+    // If this ever trips we need to port meshopt to use cstdint
+    // Luckily things have not been able to change sizes as there is now applications that rely upon int being 32 bit
+    // For now this is just code smell to do eventually and not critical
+    IVERIFY(sizeof(uint32_t) == sizeof(unsigned int));
+    IVERIFY(sizeof(uint8_t) == sizeof(unsigned char));
+
+    const uint32_t vertexCount = (uint32_t)mono_array_length(a_vertices);
+    const uint32_t indexCount = (uint32_t)mono_array_length(a_indices);
+
+    const uint32_t vertexSize = vertexCount * a_vertexStride;
+
+    uint8_t* vertices = new uint8_t[vertexSize];
+    IDEFER(delete[] vertices);
+    for (uint32_t i = 0; i < vertexSize; ++i)
+    {
+        vertices[i] = *mono_array_addr_with_size(a_vertices, 1, i);
+    }
+
+    uint32_t* indices = new uint32_t[indexCount];
+    IDEFER(delete[] indices);
+    for (uint32_t i = 0; i < indexCount; ++i)
+    {
+        indices[i] = mono_array_get(a_indices, uint32_t, i);
+    }
+
+    // I could probably make an optimize toggle
+    // May not always want to optimize
+    meshopt_optimizeVertexCache
+    (
+        indices,
+        indices,
+        indexCount,
+        vertexCount
+    );
+    // TODO: This needs to change as it is making assumptions about the Vertex layout
+    meshopt_optimizeOverdraw
+    (
+        indices,
+        indices,
+        indexCount,
+        (float*)vertices,
+        vertexCount,
+        a_vertexStride,
+        1.05f
+    );
+    const size_t newVertexCount = meshopt_optimizeVertexFetch
+    (
+        vertices,
+        indices,
+        indexCount,
+        vertices,
+        vertexCount,
+        a_vertexStride
+    );
+
+    constexpr uint32_t MeshletTriangleCount = 124;
+    constexpr uint32_t MeshletVertexCount = 64;
+
+    const size_t maxMeshletCount = meshopt_buildMeshletsBound(indexCount, MeshletVertexCount, MeshletTriangleCount);
+
+    meshopt_Meshlet* meshoptMeshlets = new meshopt_Meshlet[maxMeshletCount];
+    IDEFER(delete[] meshoptMeshlets);
+
+    uint32_t* meshletVertices = new uint32_t[maxMeshletCount * MeshletVertexCount];
+    IDEFER(delete[] meshletVertices);
+    uint8_t* meshletTriangles = new uint8_t[maxMeshletCount * MeshletTriangleCount * 3];
+    IDEFER(delete[] meshletTriangles);
+
+    const size_t meshletCount = meshopt_buildMeshlets
+    (
+        meshoptMeshlets,
+        meshletVertices,
+        meshletTriangles,
+        indices,
+        indexCount,
+        (float*)vertices,
+        newVertexCount,
+        a_vertexStride,
+        MeshletVertexCount,
+        MeshletTriangleCount,
+        0.0f
+    );
+
+    IcarianCore::ShaderMeshletBuffer* meshlets = new IcarianCore::ShaderMeshletBuffer[meshletCount];
+    IDEFER(delete[] meshlets);
+
+    uint32_t meshletVertexCount = 0;
+    uint32_t meshletTriangleCount = 0;
+    for (size_t i = 0; i < meshletCount; ++i)
+    {
+        const meshopt_Meshlet& m = meshoptMeshlets[i];
+
+        uint8_t* mTriangles = meshletTriangles + m.triangle_offset;
+        uint32_t* mVertices = meshletVertices + m.vertex_offset;
+
+        meshletVertexCount += m.vertex_count;
+        meshletTriangleCount += m.triangle_count;
+
+        meshopt_optimizeMeshlet(mVertices, mTriangles, m.triangle_count, m.vertex_count);
+
+        glm::vec3 max = glm::vec3(std::numeric_limits<float>::min());
+        glm::vec3 min = glm::vec3(std::numeric_limits<float>::max());
+
+        for (uint32_t j = 0; j < m.vertex_count; ++j)
+        {
+            const uint32_t index = (uint32_t)meshletVertices[i];
+
+            // TODO: Again code smell as we are making assumptions about the vertex layout
+            const float* vPtr = (float*)(vertices + index * a_vertexStride);
+
+            max.x = glm::max(vPtr[0], max.x);
+            max.y = glm::max(vPtr[1], max.y);
+            max.z = glm::max(vPtr[2], max.z);
+
+            min.x = glm::min(vPtr[0], min.x);
+            min.y = glm::min(vPtr[1], min.y);
+            min.z = glm::min(vPtr[2], min.z);
+        }
+
+        const glm::vec3 bounds = max - min;
+        const glm::vec3 halfBounds = bounds * 0.5f;
+
+        const glm::vec3 center = min + halfBounds;
+        const float radius = glm::length(halfBounds);
+
+        meshlets[i].Data = glm::uvec4(m.vertex_offset, m.triangle_offset, m.vertex_count, m.triangle_count);
+        meshlets[i].Bounds = glm::vec4(center, radius);
+    }
+
+    return Instance->GenerateMeshFromModel
+    (
+        vertices,
+        (uint32_t)newVertexCount,
+        a_vertexStride,
+        meshletVertices,
+        meshletVertexCount,
+        meshletTriangles,
+        meshletTriangleCount,
+        meshlets,
+        meshletCount,
+        a_radius
+    );
+}, MonoArray* a_vertices, MonoArray* a_indices, uint16_t a_vertexStride, float a_radius)
 
 RUNTIME_FUNCTION(void, RenderPipeline, SetLightSplits, 
 {
@@ -601,17 +984,25 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(VulkanGraphicsEngine*
     BIND_FUNCTION(IcarianEngine.Rendering, Material, GenerateProgram);
     BIND_FUNCTION(IcarianEngine.Rendering, Material, GenerateMeshProgram);
     BIND_FUNCTION(IcarianEngine.Rendering, Material, GenerateComputeProgram);
+    BIND_FUNCTION(IcarianEngine.Rendering, Material, SetUserUniform);
+    BIND_FUNCTION(IcarianEngine.Rendering, Material, SetUserArray);
+    BIND_FUNCTION(IcarianEngine.Rendering, Material, SetUserArrayCallback);
     BIND_FUNCTION(IcarianEngine.Rendering, Material, DestroyProgram);
+
+    BIND_FUNCTION(IcarianEngine.Rendering, Mesh, GenerateFromModel);
 
     BIND_FUNCTION(IcarianEngine.Rendering, Model, GenerateModel);
 
     BIND_FUNCTION(IcarianEngine.Rendering, RenderCommand, PushShadowSplits);
 
     BIND_FUNCTION(IcarianEngine.Rendering, RenderPipeline, SetLightSplits);
+
+    m_userArrayCallback = RuntimeManager::GetFunction("IcarianEngine.Rendering", "Material", ":DispatchUserArrayCallback(uint)");
+    IVERIFY(m_userArrayCallback != nullptr);
 }
 VulkanGraphicsEngineBindings::~VulkanGraphicsEngineBindings()
 {
-
+    delete m_userArrayCallback;
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateFComputeShaderAddr(const std::string_view& a_str) const
@@ -751,7 +1142,7 @@ void VulkanGraphicsEngineBindings::RenderProgramSetTexture(uint32_t a_addr, uint
     VulkanShaderData* data = (VulkanShaderData*)program.Data;
     data->SetTexture(a_shaderSlot, a_samplerAddr);
 }
-void VulkanGraphicsEngineBindings::RenderProgramSetUserUBO(uint32_t a_addr, uint32_t a_uboSize, const void* a_uboData) const
+void VulkanGraphicsEngineBindings::RenderProgramSetUserUBO(uint32_t a_addr, uint32_t a_uboSize, void* a_uboData) const
 {
     IVERIFY(m_graphicsEngine->m_shaderPrograms.Exists(a_addr));
 
@@ -761,24 +1152,29 @@ void VulkanGraphicsEngineBindings::RenderProgramSetUserUBO(uint32_t a_addr, uint
 
     if (program.UBOData != NULL)
     {
-        IVERIFY(program.UBODataSize == a_uboSize);
-        memcpy(program.UBOData, a_uboData, a_uboSize);
-
-        return;
+        free(program.UBOData);
     }
 
     program.UBODataSize = a_uboSize;
+    program.UBOData = a_uboData;
+}
+void VulkanGraphicsEngineBindings::RenderProgramSetUserArray(uint32_t a_addr, void* a_data, uint32_t a_count, uint32_t a_stride) const
+{
+    IVERIFY(m_graphicsEngine->m_shaderPrograms.Exists(a_addr));
 
-    if (a_uboData != NULL && a_uboSize > 0)
-    {
-        program.UBOData = malloc((size_t)a_uboSize);
+    TLockArray<RenderProgram> a = m_graphicsEngine->m_shaderPrograms.ToLockArray();
 
-        memcpy(program.UBOData, a_uboData, (size_t)a_uboSize);
-    }
-    else
+    RenderProgram& program = a[a_addr];
+
+    IVERIFY(a_stride == program.UserArrayStride);
+
+    if (program.UserArrayData != NULL)
     {
-        program.UBOData = NULL;
+        free(program.UserArrayData);
     }
+
+    program.UserArrayCount = a_count;
+    program.UserArrayData = a_data;
 }
 RenderProgram VulkanGraphicsEngineBindings::GetRenderProgram(uint32_t a_addr) const
 {
@@ -886,50 +1282,111 @@ void VulkanGraphicsEngineBindings::DestroyModel(uint32_t a_addr) const
     m_graphicsEngine->DestroyModel(a_addr);    
 }
 
-uint32_t VulkanGraphicsEngineBindings::GenerateMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr) const
+uint32_t VulkanGraphicsEngineBindings::GenerateMeshFromModel
+(
+    const void* a_vertices,
+    uint32_t a_vertexCount,
+    uint16_t a_vertexStride,
+    const uint32_t* a_meshletVertices,
+    uint32_t a_meshletVertexCount,
+    const uint8_t* a_meshletTriangles,
+    uint32_t a_meshletTriangleCount,
+    const IcarianCore::ShaderMeshletBuffer* a_meshlets,
+    uint32_t a_meshletCount,
+    float a_radius
+) const
 {
-    const MeshRenderBuffer buffer = MeshRenderBuffer(a_materialAddr, a_modelAddr, a_transformAddr);
+    IVERIFY(a_vertices != nullptr);
+    IVERIFY(a_vertexCount > 0);
+    IVERIFY(a_vertexStride > 0);
+    IVERIFY(a_meshletVertices != nullptr);
+    IVERIFY(a_meshletVertexCount > 0);
+    IVERIFY(a_meshletTriangles != nullptr);
+    IVERIFY(a_meshletTriangleCount > 0);
+    IVERIFY(a_meshlets != nullptr);
+    IVERIFY(a_meshletCount > 0);
+
+    VulkanRenderEngineBackend* engine = m_graphicsEngine->m_vulkanEngine;
+
+    BlockAllocator* allocator = engine->GetBlockAllocator();
+
+    VulkanMesh* mesh = allocator->Create<VulkanMesh>
+    (
+        engine,
+        a_vertices,
+        a_vertexCount,
+        a_vertexStride,
+        a_meshletVertices,
+        a_meshletVertexCount,
+        a_meshletTriangles,
+        a_meshletTriangleCount,
+        a_meshlets,
+        a_meshletCount,
+        a_radius
+    );
+
+    return m_graphicsEngine->m_meshes.PushVal(mesh);
+}
+void VulkanGraphicsEngineBindings::DestroyMesh(uint32_t a_addr) const
+{
+    IVERIFY(m_graphicsEngine->m_meshes.Exists(a_addr));
+
+    BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
+
+    VulkanMesh* mesh = m_graphicsEngine->m_meshes[a_addr];
+    IDEFER(allocator->Destroy(mesh));
+
+    m_graphicsEngine->m_meshes.Erase(a_addr);
+}
+
+uint32_t VulkanGraphicsEngineBindings::GenerateModelRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr) const
+{
+    IVERIFY(m_graphicsEngine->m_shaderPrograms.Exists(a_materialAddr));
+
+    const ModelRenderBuffer buffer = 
+    {
+        .MaterialAddr = a_materialAddr,
+        .ModelAddr = a_modelAddr,
+        .TransformAddr = a_transformAddr
+    };
 
     return m_graphicsEngine->m_renderBuffers.PushVal(buffer);
 }
-void VulkanGraphicsEngineBindings::DestroyMeshRenderBuffer(uint32_t a_addr) const
+void VulkanGraphicsEngineBindings::DestroyModelRenderBuffer(uint32_t a_addr) const
 {
     IVERIFY(m_graphicsEngine->m_renderBuffers.Exists(a_addr));
 
     m_graphicsEngine->m_renderBuffers.Erase(a_addr);
 }
-void VulkanGraphicsEngineBindings::GenerateRenderStack(uint32_t a_meshAddr) const
+void VulkanGraphicsEngineBindings::GenerateModelRenderStack(uint32_t a_modelAddr) const
 {
-    IVERIFY(m_graphicsEngine->m_renderBuffers.Exists(a_meshAddr));
+    IVERIFY(m_graphicsEngine->m_renderBuffers.Exists(a_modelAddr));
 
     BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
 
-    TLockArray<MeshRenderBuffer> aBuffer = m_graphicsEngine->m_renderBuffers.ToLockArray();
-    const MeshRenderBuffer& buffer = aBuffer[a_meshAddr];
+    const ModelRenderBuffer buffer = m_graphicsEngine->m_renderBuffers[a_modelAddr];
 
     {
         TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
-
-        const uint32_t size = a.Size();
-        for (uint32_t i = 0; i < size; ++i)
+        for (MaterialRenderStack* stack : a)
         {
-            if (a[i]->Add(buffer))
+            if (stack->Add(buffer))
             {
                 return;
             }
         }
     }
     
-    TRACE("Allocating RenderStack");
-    m_graphicsEngine->m_renderStacks.Push(allocator->Create<MaterialRenderStack>(buffer));
+    TRACE("Allocating Model RenderStack");
+    m_graphicsEngine->m_renderStacks.Push(allocator->Create<MaterialRenderStack>(allocator, buffer));
 }
-void VulkanGraphicsEngineBindings::DestroyRenderStack(uint32_t a_meshAddr) const
+void VulkanGraphicsEngineBindings::DestroyModelRenderStack(uint32_t a_modelAddr) const
 {
-    IVERIFY(m_graphicsEngine->m_renderBuffers.Exists(a_meshAddr));
+    IVERIFY(m_graphicsEngine->m_renderBuffers.Exists(a_modelAddr));
 
     BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
 
-    const MeshRenderBuffer buffer = m_graphicsEngine->m_renderBuffers[a_meshAddr];
+    const ModelRenderBuffer buffer = m_graphicsEngine->m_renderBuffers[a_modelAddr];
 
     TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
 
@@ -944,7 +1401,7 @@ void VulkanGraphicsEngineBindings::DestroyRenderStack(uint32_t a_meshAddr) const
             {
                 IDEFER(allocator->Destroy(stack));
 
-                TRACE("Destroying RenderStack");
+                TRACE("Destroying Model RenderStack");
                 m_graphicsEngine->m_renderStacks.UErase(i);
             }
 
@@ -953,37 +1410,39 @@ void VulkanGraphicsEngineBindings::DestroyRenderStack(uint32_t a_meshAddr) const
     }
 }
 
-uint32_t VulkanGraphicsEngineBindings::GenerateSkinnedMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr, uint32_t a_skeletonAddr) const
+uint32_t VulkanGraphicsEngineBindings::GenerateSkinnedModelRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr, uint32_t a_skeletonAddr) const
 {   
-    TRACE("Creating Skinned Render Buffer");
-    const SkinnedMeshRenderBuffer buffer = SkinnedMeshRenderBuffer(a_skeletonAddr, a_materialAddr, a_modelAddr, a_transformAddr);
+    IVERIFY(m_graphicsEngine->m_shaderPrograms.Exists(a_materialAddr));
+
+    const SkinnedModelRenderBuffer buffer = 
+    {
+        .SkeletonAddr = a_skeletonAddr,
+        .MaterialAddr = a_materialAddr,
+        .ModelAddr = a_modelAddr,
+        .TransformAddr = a_transformAddr,
+    };
 
     return m_graphicsEngine->m_skinnedRenderBuffers.PushVal(buffer);
 }
-void VulkanGraphicsEngineBindings::DestroySkinnedMeshRenderBuffer(uint32_t a_addr) const
+void VulkanGraphicsEngineBindings::DestroySkinnedModelRenderBuffer(uint32_t a_addr) const
 {
-    TRACE("Destroying Skinned Render Buffer");
     IVERIFY(m_graphicsEngine->m_skinnedRenderBuffers.Exists(a_addr));
 
     m_graphicsEngine->m_skinnedRenderBuffers.Erase(a_addr);
 }
-void VulkanGraphicsEngineBindings::GenerateSkinnedRenderStack(uint32_t a_addr) const
+void VulkanGraphicsEngineBindings::GenerateSkinnedModelRenderStack(uint32_t a_addr) const
 {
     IVERIFY(m_graphicsEngine->m_skinnedRenderBuffers.Exists(a_addr));
 
     BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
 
-    TRACE("Pushing Skinned RenderStack");
-    const SkinnedMeshRenderBuffer& buffer = m_graphicsEngine->m_skinnedRenderBuffers[a_addr];
+    const SkinnedModelRenderBuffer buffer = m_graphicsEngine->m_skinnedRenderBuffers[a_addr];
 
     {
         TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
-
-        const uint32_t size = a.Size();
-
-        for (uint32_t i = 0; i < size; ++i)
+        for (MaterialRenderStack* stack : a)
         {
-            if (a[i]->Add(buffer))
+            if (stack->Add(buffer))
             {
                 return;
             }
@@ -991,16 +1450,86 @@ void VulkanGraphicsEngineBindings::GenerateSkinnedRenderStack(uint32_t a_addr) c
     }
 
     TRACE("Allocating Skinned RenderStack");
-    m_graphicsEngine->m_renderStacks.Push(allocator->Create<MaterialRenderStack>(buffer));
+    m_graphicsEngine->m_renderStacks.Push(allocator->Create<MaterialRenderStack>(allocator, buffer));
 }
-void VulkanGraphicsEngineBindings::DestroySkinnedRenderStack(uint32_t a_addr) const
+void VulkanGraphicsEngineBindings::DestroySkinnedModelRenderStack(uint32_t a_addr) const
 {
     TRACE("Removing Skinned RenderStack");
     IVERIFY(m_graphicsEngine->m_skinnedRenderBuffers.Exists(a_addr));
 
     BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
 
-    const SkinnedMeshRenderBuffer buffer = m_graphicsEngine->m_skinnedRenderBuffers[a_addr];
+    const SkinnedModelRenderBuffer buffer = m_graphicsEngine->m_skinnedRenderBuffers[a_addr];
+    TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
+
+    const uint32_t size = a.Size();
+    for (uint32_t i = 0; i < size; ++i)
+    {
+        if (a[i]->Remove(buffer))
+        {
+            if (a[i]->Empty())
+            {
+                MaterialRenderStack* stack = a[i];
+                IDEFER(allocator->Destroy(stack));
+
+                TRACE("Destroying Skinned RenderStack");
+                m_graphicsEngine->m_renderStacks.UErase(i);
+            }
+
+            return;
+        }
+    }
+}
+
+uint32_t VulkanGraphicsEngineBindings::GenerateMeshRenderBuffer(uint32_t a_materialAddr, uint32_t a_meshAddr, uint32_t a_transformAddr, uint32_t a_indexCount) const
+{
+    IVERIFY(m_graphicsEngine->m_shaderPrograms.Exists(a_materialAddr));
+
+    const MeshRenderBuffer buffer =
+    {
+        .MaterialAddr = a_materialAddr,
+        .MeshAddr = a_meshAddr,
+        .TransformAddr = a_transformAddr,
+        .IndexCount = a_indexCount,
+    };
+
+    return m_graphicsEngine->m_meshRenderBuffers.PushVal(buffer);
+}
+void VulkanGraphicsEngineBindings::DestroyMeshRenderBuffer(uint32_t a_addr) const
+{
+    IVERIFY(m_graphicsEngine->m_meshRenderBuffers.Exists(a_addr));
+
+    m_graphicsEngine->m_meshRenderBuffers.Erase(a_addr);
+}
+void VulkanGraphicsEngineBindings::GenerateMeshRenderStack(uint32_t a_addr) const
+{
+    IVERIFY(m_graphicsEngine->m_meshRenderBuffers.Exists(a_addr));
+
+    BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
+
+    const MeshRenderBuffer buffer = m_graphicsEngine->m_meshRenderBuffers[a_addr];
+
+    {
+        TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
+        for (MaterialRenderStack* stack : a)
+        {
+            if (stack->Add(buffer))
+            {
+                return;
+            }
+        }
+    }
+
+    TRACE("Allocating Mesh RenderStack");
+    m_graphicsEngine->m_renderStacks.Push(allocator->Create<MaterialRenderStack>(allocator, buffer));
+}
+void VulkanGraphicsEngineBindings::DestroyMeshRenderStack(uint32_t a_addr) const
+{
+    IVERIFY(m_graphicsEngine->m_meshRenderBuffers.Exists(a_addr));
+
+    BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
+
+    const MeshRenderBuffer buffer = m_graphicsEngine->m_meshRenderBuffers[a_addr];
     TLockArray<MaterialRenderStack*> a = m_graphicsEngine->m_renderStacks.ToLockArray();
 
     const uint32_t size = a.Size();
@@ -1032,7 +1561,6 @@ uint32_t VulkanGraphicsEngineBindings::GenerateGraphicsParticle2D(uint32_t a_com
 }
 void VulkanGraphicsEngineBindings::DestroyGraphicsParticle2D(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_graphicsEngine->m_particleEmitters.Size());
     IVERIFY(m_graphicsEngine->m_particleEmitters.Exists(a_addr));
 
     BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
@@ -1057,7 +1585,6 @@ uint32_t VulkanGraphicsEngineBindings::GenerateVideoTexture(uint32_t a_videoAddr
 }
 void VulkanGraphicsEngineBindings::DestroyVideoTexture(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_graphicsEngine->m_videoTextures.Size());
     IVERIFY(m_graphicsEngine->m_videoTextures.Exists(a_addr));
 
     BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
@@ -1297,18 +1824,22 @@ uint32_t VulkanGraphicsEngineBindings::GenerateDirectionalLightBuffer(uint32_t a
 
     BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
 
-    DirectionalLightBuffer buffer = 
+    const DirectionalLightBuffer buffer = 
     {
         .TransformAddr = a_transformAddr,
         .RenderLayer = 0b1,
         .Color = glm::vec4(1.0f),
         .Intensity = 1.0f,
+        .Data = ILAMBDA(
+        {
+            VulkanLightBuffer* val = allocator->TAllocate<VulkanLightBuffer>();
+
+            val->LightRenderTextureCount = 0;
+            val->LightRenderTextures = nullptr;
+
+            ILRETURN val;
+        })
     };
-    
-    VulkanLightBuffer* lightBuffer = allocator->TAllocate<VulkanLightBuffer>();
-    lightBuffer->LightRenderTextureCount = 0;
-    lightBuffer->LightRenderTextures = nullptr;
-    buffer.Data = lightBuffer;
 
     return m_graphicsEngine->m_directionalLights.PushVal(buffer);
 }
@@ -1334,7 +1865,17 @@ void VulkanGraphicsEngineBindings::DestroyDirectionalLightBuffer(uint32_t a_addr
     BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
 
     VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
-    IDEFER(allocator->Free(lightBuffer));
+
+    IDEFER(
+    {
+        uint32_t* textures = lightBuffer->LightRenderTextures;
+        if (textures != nullptr)
+        {
+            allocator->Free(textures);
+        }
+
+        allocator->Free(lightBuffer);
+    });
 
     m_graphicsEngine->m_directionalLights.Erase(a_addr);
 }
@@ -1391,22 +1932,26 @@ void VulkanGraphicsEngineBindings::RemoveDirectionalLightShadowMap(uint32_t a_ad
 uint32_t VulkanGraphicsEngineBindings::GeneratePointLightBuffer(uint32_t a_transformAddr) const
 {
     IVERIFY(a_transformAddr != uint32_t(-1));
-    
-    PointLightBuffer buffer = 
+
+    BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
+
+    const PointLightBuffer buffer =
     {
         .TransformAddr = a_transformAddr,
         .RenderLayer = 0b1,
         .Color = glm::vec4(1.0f),
         .Intensity = 1.0f,
-        .Radius = 1.0f
+        .Radius = 1.0f,
+        .Data = ILAMBDA(
+        {
+            VulkanLightBuffer* data = allocator->TAllocate<VulkanLightBuffer>();
+
+            data->LightRenderTextureCount = 0;
+            data->LightRenderTextures = nullptr;
+
+            ILRETURN data;
+        })
     };
-
-    BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
-
-    VulkanLightBuffer* lightBuffer = allocator->TAllocate<VulkanLightBuffer>();
-    lightBuffer->LightRenderTextureCount = 0;
-    lightBuffer->LightRenderTextures = nullptr;
-    buffer.Data = lightBuffer;
 
     return m_graphicsEngine->m_pointLights.PushVal(buffer);
 }
@@ -1432,7 +1977,15 @@ void VulkanGraphicsEngineBindings::DestroyPointLightBuffer(uint32_t a_addr) cons
     BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
 
     VulkanLightBuffer* data = (VulkanLightBuffer*)buffer.Data;
-    IDEFER(allocator->Free(data));
+    IDEFER(
+    {
+        if (data->LightRenderTextures != nullptr)
+        {
+            allocator->Free(data->LightRenderTextures);
+        }
+
+        allocator->Free(data);
+    });
 
     m_graphicsEngine->m_pointLights.Erase(a_addr);
 }
@@ -1449,31 +2002,37 @@ void VulkanGraphicsEngineBindings::SetPointLightShadowMap(uint32_t a_addr, uint3
 
     VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
 
-    uint32_t* oldRenderTexture = lightBuffer->LightRenderTextures;
-    if (oldRenderTexture != nullptr)
-    {
-        allocator->Free(oldRenderTexture);
-    }
-
-    lightBuffer->LightRenderTextures = nullptr;
-    lightBuffer->LightRenderTextureCount = 0;
+    uint32_t* renderTextures = lightBuffer->LightRenderTextures;
 
     if (a_shadowMapAddr != uint32_t(-1))
     {
         IVERIFY(m_graphicsEngine->m_depthCubeRenderTextures.Exists(a_shadowMapAddr));
 
-        lightBuffer->LightRenderTextures = allocator->TAllocate<uint32_t>();
+        if (renderTextures == nullptr)
+        {
+            renderTextures = allocator->TAllocate<uint32_t>(1);
+        }
 
-        lightBuffer->LightRenderTextures[0] = a_shadowMapAddr;
+        renderTextures[0] = a_shadowMapAddr;
 
+        lightBuffer->LightRenderTextures = renderTextures;
         lightBuffer->LightRenderTextureCount = 1;
+    }
+    else if (renderTextures != nullptr)
+    {
+        lightBuffer->LightRenderTextures = nullptr;
+        lightBuffer->LightRenderTextureCount = 0;
+
+        allocator->Free(renderTextures);
     }
 }
 uint32_t VulkanGraphicsEngineBindings::GetPointLightShadowMap(uint32_t a_addr) const
 {
     IVERIFY(m_graphicsEngine->m_pointLights.Exists(a_addr));
 
-    const PointLightBuffer& buffer = m_graphicsEngine->m_pointLights[a_addr];
+    const TReadLockArray<PointLightBuffer> a = m_graphicsEngine->m_pointLights.ToReadLockArray();
+
+    const PointLightBuffer& buffer = a[a_addr];
     IVERIFY(buffer.Data != nullptr);
 
     const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
@@ -1491,20 +2050,24 @@ uint32_t VulkanGraphicsEngineBindings::GenerateSpotLightBuffer(uint32_t a_transf
     
     BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
 
-    SpotLightBuffer buffer =
+    const SpotLightBuffer buffer =
     {
         .TransformAddr = a_transformAddr,
         .RenderLayer = 0b1,
         .Color = glm::vec4(1.0f),
         .Intensity = 1.0f,
         .CutoffAngle = glm::vec2(1.0f, 1.5f),
-        .Radius = 1.0f
+        .Radius = 1.0f,
+        .Data = ILAMBDA(
+        {
+            VulkanLightBuffer* data = allocator->TAllocate<VulkanLightBuffer>();
+
+            data->LightRenderTextureCount = 0;
+            data->LightRenderTextures = nullptr;
+
+            ILRETURN data;
+        })
     };
-    
-    VulkanLightBuffer* lightBuffer = allocator->TAllocate<VulkanLightBuffer>();
-    lightBuffer->LightRenderTextureCount = 0;
-    lightBuffer->LightRenderTextures = nullptr;
-    buffer.Data = lightBuffer;
 
     return m_graphicsEngine->m_spotLights.PushVal(buffer);
 }
@@ -1549,9 +2112,6 @@ void VulkanGraphicsEngineBindings::SetSpotLightShadowMap(uint32_t a_addr, uint32
 
     uint32_t* renderTextures = lightBuffer->LightRenderTextures;
 
-    lightBuffer->LightRenderTextures = nullptr;
-    lightBuffer->LightRenderTextureCount = 0;
-
     if (a_shadowMapAddr != uint32_t(-1))
     {
         IVERIFY(m_graphicsEngine->m_depthRenderTextures.Exists(a_shadowMapAddr));
@@ -1568,6 +2128,9 @@ void VulkanGraphicsEngineBindings::SetSpotLightShadowMap(uint32_t a_addr, uint32
     }
     else if (renderTextures != nullptr)
     {
+        lightBuffer->LightRenderTextures = nullptr;
+        lightBuffer->LightRenderTextureCount = 0;
+
         allocator->Free(renderTextures);
     }
 }
@@ -1575,7 +2138,9 @@ uint32_t VulkanGraphicsEngineBindings::GetSpotLightShadowMap(uint32_t a_addr) co
 {
     IVERIFY(m_graphicsEngine->m_spotLights.Exists(a_addr));
 
-    const SpotLightBuffer& buffer = m_graphicsEngine->m_spotLights[a_addr];
+    const TReadLockArray<SpotLightBuffer> a = m_graphicsEngine->m_spotLights.ToReadLockArray();
+
+    const SpotLightBuffer& buffer = a[a_addr];
     IVERIFY(buffer.Data != nullptr);
 
     const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;

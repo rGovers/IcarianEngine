@@ -84,22 +84,22 @@ public:
         return (char*)a_ptr + alignOffset;
     }
 
-    virtual void* Allocate(uint64_t a_size, uint32_t a_alignment) = 0;
+    [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment) = 0;
     virtual void Free(void* a_ptr) { }
 
     template<typename T>
-    T* TAllocate()
+    [[nodiscard]] T* TAllocate()
     {
         return (T*)Allocate(sizeof(T), alignof(T));
     }
     template<typename T>
-    T* TAllocate(uint64_t a_count)
+    [[nodiscard]]  T* TAllocate(uint64_t a_count)
     {
         return (T*)Allocate(sizeof(T) * a_count, alignof(T));
     }
 
     template<typename T, typename ... Args>
-    T* Create(Args&&... a_args)
+    [[nodiscard]] T* Create(Args&&... a_args)
     {
         // I forget that this syntax exists every time to do an in place constructor on an existing memory address
         return new (Allocate(sizeof(T), alignof(T))) T(std::forward<Args>(a_args)...);

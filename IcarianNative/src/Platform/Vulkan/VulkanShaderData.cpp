@@ -6,6 +6,7 @@
 
 #include "Rendering/Vulkan/VulkanShaderData.h"
 
+#include "Core/IcarianLambda.h"
 #include "Core/ShaderBuffers.h"
 #include "DataTypes/Allocator.h"
 #include "Rendering/UI/UIElement.h"
@@ -17,6 +18,7 @@
 #include "Rendering/Vulkan/VulkanDepthCubeRenderTexture.h"
 #include "Rendering/Vulkan/VulkanDepthRenderTexture.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
+#include "Rendering/Vulkan/VulkanMesh.h"
 #include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
@@ -40,7 +42,14 @@ private:
 protected:
 
 public:
-    VulkanShaderDataDeletionObject(VulkanRenderEngineBackend* a_engine, const Array<VulkanPushDescriptor, RenderBlockAlloc>& a_pushDescriptors, const Array<VulkanPushDescriptor, RenderBlockAlloc>& a_shadowPushDescriptors, vk::PipelineLayout a_layout, vk::PipelineLayout a_shadowLayout)
+    VulkanShaderDataDeletionObject
+    (
+        VulkanRenderEngineBackend* a_engine,
+        const Array<VulkanPushDescriptor, RenderBlockAlloc>& a_pushDescriptors,
+        const Array<VulkanPushDescriptor, RenderBlockAlloc>& a_shadowPushDescriptors,
+        vk::PipelineLayout a_layout,
+        vk::PipelineLayout a_shadowLayout
+    )
     {
         m_engine = a_engine;
 
@@ -92,11 +101,11 @@ constexpr static vk::PipelineBindPoint GetBindPoint(e_MaterialMode a_materialMod
     }
     default:
     {
-        IERROR("Invalid MaterialMode Bind Point");
-
         break;
     }
     }
+
+    IERROR("Invalid MaterialMode Bind Point");
 
     return vk::PipelineBindPoint::eGraphics;
 }
@@ -151,35 +160,21 @@ constexpr static uint32_t GetBufferSize(e_ShaderBufferType a_type)
 
     return 0;
 }
-constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_bufferType, e_MaterialMode a_materialMode)
+constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_bufferType)
 {
     switch (a_bufferType)
     {
     case ShaderBufferType_BufferTexture:
+    {
+        return vk::DescriptorType::eStorageImage;
+    }
     case ShaderBufferType_Texture:
     case ShaderBufferType_PushTexture:
     case ShaderBufferType_ShadowTexture2D:
     case ShaderBufferType_ShadowTextureCube:
     case ShaderBufferType_AShadowTexture2D:
     {
-        switch (a_materialMode) 
-        {
-        case MaterialMode_BaseMesh:
-        case MaterialMode_BaseVertex:
-        {
-            return vk::DescriptorType::eCombinedImageSampler;
-        }
-        case MaterialMode_Compute:
-        {
-            return vk::DescriptorType::eStorageImage;
-        }
-        default:
-        {
-            break;
-        }
-        }
-
-        break;
+        return vk::DescriptorType::eCombinedImageSampler;
     }
     case ShaderBufferType_SSParticleBuffer:
     case ShaderBufferType_SSBoneBuffer:
@@ -189,6 +184,11 @@ constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_buffe
     case ShaderBufferType_SSPointLightBuffer:
     case ShaderBufferType_SSSpotLightBuffer:
     case ShaderBufferType_SSShadowLightBuffer:
+    case ShaderBufferType_UserArray:
+    case ShaderBufferType_MeshVertex:
+    case ShaderBufferType_MeshletVertices:
+    case ShaderBufferType_MeshletTriangles:
+    case ShaderBufferType_Meshlet:
     {
         return vk::DescriptorType::eStorageBuffer;
     }
@@ -209,7 +209,7 @@ struct Input
     vk::DescriptorSetLayoutBinding Binding;
 };
 
-static void GetLayoutInfo(e_MaterialMode a_materialMode, const Array<VulkanShaderInput, RenderScratchAlloc>& a_inputs, Array<vk::PushConstantRange, RenderScratchAlloc>* a_pushConstants, Array<Input, RenderScratchAlloc>* a_pushBindings)
+static void GetLayoutInfo(const Array<VulkanShaderInput, RenderScratchAlloc>& a_inputs, Array<vk::PushConstantRange, RenderScratchAlloc>* a_pushConstants, Array<Input, RenderScratchAlloc>* a_pushBindings)
 {
     const uint32_t inputCount = a_inputs.Size();
 
@@ -256,9 +256,14 @@ static void GetLayoutInfo(e_MaterialMode a_materialMode, const Array<VulkanShade
         case ShaderBufferType_SSPointLightBuffer:
         case ShaderBufferType_SSSpotLightBuffer:
         case ShaderBufferType_SSShadowLightBuffer:
+        case ShaderBufferType_UserArray:
         case ShaderBufferType_UserUBO:
+        case ShaderBufferType_MeshVertex:
+        case ShaderBufferType_MeshletVertices:
+        case ShaderBufferType_MeshletTriangles:
+        case ShaderBufferType_Meshlet:
         {
-            const vk::DescriptorType type = GetDescriptorType(input.BufferType, a_materialMode);
+            const vk::DescriptorType type = GetDescriptorType(input.BufferType);
 
             const vk::DescriptorSetLayoutBinding binding = vk::DescriptorSetLayoutBinding
             (
@@ -280,7 +285,7 @@ static void GetLayoutInfo(e_MaterialMode a_materialMode, const Array<VulkanShade
         }
         case ShaderBufferType_AShadowTexture2D:
         {
-            const vk::DescriptorType type = GetDescriptorType(input.BufferType, a_materialMode);
+            const vk::DescriptorType type = GetDescriptorType(input.BufferType);
 
             const vk::DescriptorSetLayoutBinding binding = vk::DescriptorSetLayoutBinding
             (
@@ -373,7 +378,13 @@ static vk::DescriptorImageInfo GetDescriptorImageInfo(const TextureSamplerBuffer
     return imageInfo;
 }
 
-static void GeneratePushBindings(const Array<Input, RenderScratchAlloc>& a_bindings, const Array<VulkanShaderInput, RenderScratchAlloc>& a_inputs, const vk::Device a_device, Array<vk::DescriptorSetLayout, RenderScratchAlloc>* a_layouts, Array<VulkanPushDescriptor, RenderBlockAlloc>* a_pushDescriptors)
+static void GeneratePushBindings
+(
+    const Array<Input, RenderScratchAlloc>& a_bindings,
+    const Array<VulkanShaderInput, RenderScratchAlloc>& a_inputs,
+    const vk::Device a_device, Array<vk::DescriptorSetLayout, RenderScratchAlloc>* a_layouts,
+    Array<VulkanPushDescriptor, RenderBlockAlloc>* a_pushDescriptors
+)
 {
     for (const Input& i : a_bindings)
     {
@@ -442,6 +453,7 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
     m_shadowLayout = nullptr;
 
     m_userUniformBuffer = nullptr;
+    m_userArray = nullptr;
 
     m_shadowSlotInputCount = 0;
     m_shadowSlotInputs = nullptr;
@@ -489,6 +501,18 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
     {
         IVERIFY(a_program.VertexShader != uint32_t(-1));
 
+        const bool isMeshEnabled = m_engine->IsMeshEnabled();
+
+        const vk::ShaderStageFlagBits meshShaderStage = ILAMBDA
+        (
+            if (isMeshEnabled)
+            {
+                ILRETURN vk::ShaderStageFlagBits::eMeshEXT;
+            }
+
+            ILRETURN vk::ShaderStageFlagBits::eCompute;
+        );
+
         const VulkanMeshShader* meshShader = m_gEngine->GetMeshShader(a_program.VertexShader);
         IVERIFY(meshShader != nullptr); 
 
@@ -497,19 +521,31 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
         {
             const ShaderBufferInput input = meshShader->GetShaderInput(i);
 
-            PushVulkanShaderBufferInput(&vulkanInputs, input, vk::ShaderStageFlagBits::eMeshEXT);
+            PushVulkanShaderBufferInput(&vulkanInputs, input, meshShaderStage);
         }
 
         if (a_program.ExtraShader != uint32_t(-1))
         {
+            // TODO: Fix this not being able to differentiate between mesh and task could cause issues
+            const vk::ShaderStageFlagBits taskShaderStage = ILAMBDA(
+            {
+                if (isMeshEnabled)
+                {
+                    ILRETURN vk::ShaderStageFlagBits::eTaskEXT;
+                }
+
+                ILRETURN vk::ShaderStageFlagBits::eCompute;
+            });
+
             const VulkanTaskShader* taskShader = m_gEngine->GetTaskShader(a_program.ExtraShader);
             IVERIFY(taskShader != nullptr); 
+
             const uint32_t inputCount = taskShader->GetShaderInputCount();
             for (uint32_t i = 0; i < inputCount; ++i)
             {
                 const ShaderBufferInput input = taskShader->GetShaderInput(i);
 
-                PushVulkanShaderBufferInput(&vulkanInputs, input, vk::ShaderStageFlagBits::eTaskEXT);
+                PushVulkanShaderBufferInput(&vulkanInputs, input, taskShaderStage);
             }
         }
 
@@ -564,7 +600,7 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
 
     Array<vk::PushConstantRange, RenderScratchAlloc> pushConstants;
     Array<Input, RenderScratchAlloc> pushBindings;
-    GetLayoutInfo(m_materialMode, vulkanInputs, &pushConstants, &pushBindings);
+    GetLayoutInfo(vulkanInputs, &pushConstants, &pushBindings);
 
     Array<vk::DescriptorSetLayout, RenderScratchAlloc> layouts;
     GeneratePushBindings(pushBindings, vulkanInputs, device, &layouts, &m_pushDescriptors);
@@ -602,7 +638,7 @@ VulkanShaderData::VulkanShaderData(VulkanRenderEngineBackend* a_engine, VulkanGr
 
         Array<vk::PushConstantRange, RenderScratchAlloc> shadowPushConstants;
         Array<Input, RenderScratchAlloc> shadowPushBindings;
-        GetLayoutInfo(m_materialMode, vulkanInputs, &shadowPushConstants, &shadowPushBindings);
+        GetLayoutInfo(vulkanInputs, &shadowPushConstants, &shadowPushBindings);
 
         Array<vk::DescriptorSetLayout, RenderScratchAlloc> shadowLayouts;
         GeneratePushBindings(shadowPushBindings, vulkanInputs, device, &shadowLayouts, &m_shadowPushDescriptors);
@@ -635,6 +671,11 @@ VulkanShaderData::~VulkanShaderData()
     if (m_userUniformBuffer != nullptr)
     {
         m_allocator->Destroy(m_userUniformBuffer);
+    }
+
+    if (m_userArray != nullptr)
+    {
+        m_allocator->Destroy(m_userArray);
     }
 
     m_allocator->Free(m_slotInputs);
@@ -815,7 +856,7 @@ void VulkanShaderData::PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint
             (
                 a_buffer->GetBuffer(a_index), 
                 0, 
-                VK_WHOLE_SIZE
+                vk::WholeSize
             );
 
             const vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet
@@ -842,9 +883,11 @@ void VulkanShaderData::PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint
 }
 void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, const VulkanShaderStorageObject* a_object, uint32_t a_index) const
 {
-    return PushShaderStorageObject(a_commandBuffer, a_slot, a_object->GetBuffer(), a_index);   
+    const vk::Buffer buffer = a_object->GetBuffer();
+
+    return PushShaderStorageObject(a_commandBuffer, a_slot, buffer, 0, a_index);
 }
-void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, vk::Buffer a_object, uint32_t a_index) const
+void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint32_t a_slot, vk::Buffer a_object, vk::DeviceSize a_offset, uint32_t a_index) const
 {
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -859,8 +902,8 @@ void VulkanShaderData::PushShaderStorageObject(vk::CommandBuffer a_commandBuffer
             const vk::DescriptorBufferInfo bufferInfo = vk::DescriptorBufferInfo
             (
                 a_object,
-                0,
-                VK_WHOLE_SIZE
+                a_offset,
+                vk::WholeSize
             );
 
             const vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet
@@ -940,7 +983,7 @@ void VulkanShaderData::PushShadowUniformBuffer(vk::CommandBuffer a_commandBuffer
             (
                 a_buffer->GetBuffer(a_index),
                 0,
-                VK_WHOLE_SIZE
+                vk::WholeSize
             );
 
             const vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet
@@ -975,13 +1018,13 @@ void VulkanShaderData::PushShadowShaderStorageObject(vk::CommandBuffer a_command
         {
             VulkanPushPool* pool = m_engine->GetPushPool();
 
-            vk::DescriptorSet descriptorSet = pool->AllocateDescriptor(a_index, vk::DescriptorType::eStorageBuffer, &d.DescriptorLayout);
+            const vk::DescriptorSet descriptorSet = pool->AllocateDescriptor(a_index, vk::DescriptorType::eStorageBuffer, &d.DescriptorLayout);
 
             const vk::DescriptorBufferInfo bufferInfo = vk::DescriptorBufferInfo
             (
                 a_object->GetBuffer(),
                 0,
-                VK_WHOLE_SIZE
+                vk::WholeSize
             );
 
             const vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet
@@ -1005,6 +1048,58 @@ void VulkanShaderData::PushShadowShaderStorageObject(vk::CommandBuffer a_command
     }
 
     IERROR("PushShadowShaderStorageObject binding not found");
+}
+
+void VulkanShaderData::PushMeshBuffers(vk::CommandBuffer a_commandBuffer, const VulkanMesh* a_mesh, uint32_t a_index) const
+{
+    for (uint32_t i = 0; i < m_slotInputCount; ++i)
+    {
+        const VulkanShaderInput& input = m_slotInputs[i];
+
+        switch (input.BufferType)
+        {
+        case ShaderBufferType_MeshVertex:
+        {
+            const vk::Buffer buffer = a_mesh->GetBuffer();
+            const vk::DeviceSize offset = a_mesh->GetVertexOffset();
+
+            PushShaderStorageObject(a_commandBuffer, input.Slot, buffer, offset, a_index);
+
+            break;
+        }
+        case ShaderBufferType_MeshletVertices:
+        {
+            const vk::Buffer buffer = a_mesh->GetBuffer();
+            const vk::DeviceSize offset = a_mesh->GetMeshletVertexOffset();
+
+            PushShaderStorageObject(a_commandBuffer, input.Slot, buffer, offset, a_index);
+
+            break;
+        }
+        case ShaderBufferType_MeshletTriangles:
+        {
+            const vk::Buffer buffer = a_mesh->GetBuffer();
+            const vk::DeviceSize offset = a_mesh->GetMeshletTriangleOffset();
+
+            PushShaderStorageObject(a_commandBuffer, input.Slot, buffer, offset, a_index);
+
+            break;
+        }
+        case ShaderBufferType_Meshlet:
+        {
+            const vk::Buffer buffer = a_mesh->GetBuffer();
+            const vk::DeviceSize offset = a_mesh->GetMeshletOffset();
+
+            PushShaderStorageObject(a_commandBuffer, input.Slot, buffer, offset, a_index);
+
+            break;
+        }
+        default:
+        {
+            break;
+        }
+        }
+    }
 }
 
 void VulkanShaderData::UpdateTransformBuffer(vk::CommandBuffer a_commandBuffer, const glm::mat4& a_transform) const
@@ -1103,22 +1198,63 @@ void VulkanShaderData::Update(uint32_t a_index, const RenderProgram& a_program)
     {
         m_userUniformBuffer->SetData(a_index, a_program.UBOData);
     }
+
+    if (m_userArray != nullptr)
+    {
+        m_allocator->Destroy(m_userArray);
+
+        m_userArray = nullptr;
+    }
+
+    if (a_program.UserArrayData != NULL && a_program.UserArrayStride > 0)
+    {
+        const uint32_t size = a_program.UserArrayCount * a_program.UserArrayStride;
+
+        m_userArray = m_allocator->Create<VulkanShaderStorageObject>(m_engine, size, a_program.UserArrayCount, a_program.UserArrayData);
+    }
 }
 
 void VulkanShaderData::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
 {
-    if (m_userUniformBuffer != nullptr)
-    {
-        for (uint32_t i = 0; i < m_slotInputCount; ++i)
-        {
-            const VulkanShaderInput& input = m_slotInputs[i];
+    IVERIFY(m_materialMode != MaterialMode_Compute);
 
-            if (input.BufferType != ShaderBufferType_UserUBO)
+    if (m_materialMode == MaterialMode_BaseMesh)
+    {
+        const bool isMeshEnabled = m_engine->IsMeshEnabled();
+        if (!isMeshEnabled)
+        {
+            IERROR("Binding Mesh Shader in emulated mode");
+        }
+    }
+
+    for (uint32_t i = 0; i < m_slotInputCount; ++i)
+    {
+        const VulkanShaderInput& input = m_slotInputs[i];
+
+        switch (input.BufferType) 
+        {
+        case ShaderBufferType_UserUBO:
+        {
+            if (m_userUniformBuffer != nullptr)
             {
-                continue;
+                PushUniformBuffer(a_commandBuffer, input.Slot, m_userUniformBuffer, a_index);
+            }
+            
+            break;
+        }
+        case ShaderBufferType_UserArray:
+        {
+            if (m_userArray != nullptr)
+            {
+                PushShaderStorageObject(a_commandBuffer, input.Slot, m_userArray, a_index);
             }
 
-            PushUniformBuffer(a_commandBuffer, input.Slot, m_userUniformBuffer, a_index);
+            break;
+        }
+        default:
+        {
+            break;
+        }
         }
     }
 
@@ -1129,40 +1265,127 @@ void VulkanShaderData::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer)
         PushTexture(a_commandBuffer, b.Slot, sampler, a_index);
     }
 }
-void VulkanShaderData::BindShadow(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
+void VulkanShaderData::BindEmulatedMesh(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
 {
-    if (m_userUniformBuffer != nullptr)
-    {
-        for (uint32_t i = 0; i < m_shadowSlotInputCount; ++i)
-        {
-            const VulkanShaderInput& input = m_shadowSlotInputs[i];
+    IVERIFY(m_materialMode == MaterialMode_BaseMesh);
+    IVERIFY(!m_engine->IsMeshEnabled());
 
-            if (input.BufferType != ShaderBufferType_UserUBO)
+    for (uint32_t i = 0; i <m_slotInputCount; ++i)
+    {
+        const VulkanShaderInput& input = m_slotInputs[i];
+
+        if (!(input.StageFlags & vk::ShaderStageFlagBits::eCompute))
+        {
+            continue;
+        }
+
+        switch (input.BufferType)
+        {
+        case ShaderBufferType_UserUBO:
+        {
+            if (m_userUniformBuffer != nullptr)
             {
-                continue;
+                PushUniformBuffer(a_commandBuffer, input.Slot, m_userUniformBuffer, a_index);
             }
 
-            PushUniformBuffer(a_commandBuffer, input.Slot, m_userUniformBuffer, a_index);
+            break;
+        }
+        case ShaderBufferType_UserArray:
+        {
+            if (m_userArray != nullptr)
+            {
+                PushShaderStorageObject(a_commandBuffer, input.Slot, m_userArray, a_index);
+            }
+
+            break;
+        }
+        default:
+        {
+            break;
+        }
+        }
+    }
+}
+void VulkanShaderData::BindShadow(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
+{
+    IVERIFY(m_materialMode != MaterialMode_Compute);
+
+    if (m_materialMode == MaterialMode_BaseMesh)
+    {
+        const bool isMeshEnabled = m_engine->IsMeshEnabled();
+        if (!isMeshEnabled)
+        {
+            IERROR("Binding Mesh Shader in emulated mode");
+        }
+    }
+
+    for (uint32_t i = 0; i < m_slotInputCount; ++i)
+    {
+        const VulkanShaderInput& input = m_slotInputs[i];
+
+        switch (input.BufferType) 
+        {
+        case ShaderBufferType_UserUBO:
+        {
+            if (m_userUniformBuffer != nullptr)
+            {
+                PushUniformBuffer(a_commandBuffer, input.Slot, m_userUniformBuffer, a_index);
+            }
+            
+            break;
+        }
+        case ShaderBufferType_UserArray:
+        {
+            if (m_userArray != nullptr)
+            {
+                PushShaderStorageObject(a_commandBuffer, input.Slot, m_userArray, a_index);
+            }
+
+            break;
+        }
+        default:
+        {
+            break;
+        }
         }
     }
 }
 void VulkanShaderData::BindCompute(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
 {
-    if (m_userUniformBuffer != nullptr)
-    {
-        for (uint32_t i = 0; i < m_slotInputCount; ++i)
-        {
-            const VulkanShaderInput& input = m_slotInputs[i];
+    IVERIFY(m_materialMode == MaterialMode_Compute);
 
-            if (input.BufferType != ShaderBufferType_UserUBO)
+    for (uint32_t i = 0; i < m_slotInputCount; ++i)
+    {
+        const VulkanShaderInput& input = m_slotInputs[i];
+
+        switch (input.BufferType) 
+        {
+        case ShaderBufferType_UserUBO:
+        {
+            if (m_userUniformBuffer != nullptr)
             {
-                continue;
+                PushUniformBuffer(a_commandBuffer, input.Slot, m_userUniformBuffer, a_index);
+            }
+            
+            break;
+        }
+        case ShaderBufferType_UserArray:
+        {
+            if (m_userArray != nullptr)
+            {
+                PushShaderStorageObject(a_commandBuffer, input.Slot, m_userArray, a_index);
             }
 
-            PushUniformBuffer(a_commandBuffer, input.Slot, m_userUniformBuffer, a_index);
+            break;
+        }
+        default:
+        {
+            break;
+        }
         }
     }
 
+    // TODO: Handle texture transitions for non frame buffer textures
     for (const VulkanTextureBinding& b : m_textures)
     {
         const TextureSamplerBuffer sampler = m_gEngine->GetTextureSampler(b.SamplerAddr);

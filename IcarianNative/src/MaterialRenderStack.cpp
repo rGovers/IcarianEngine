@@ -5,49 +5,103 @@
 #include "Rendering/MaterialRenderStack.h"
 
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianLambda.h"
+#include "DataTypes/Allocator.h"
 #include "IcarianError.h"
-#include "Rendering/MeshRenderBuffer.h"
-#include "Rendering/SkinnedMeshRenderBuffer.h"
+#include "Rendering/RenderBuffers.h"
 
-MaterialRenderStack::MaterialRenderStack(const MeshRenderBuffer& a_renderBuffer)
+MaterialRenderStack::MaterialRenderStack(Allocator* a_allocator, const ModelRenderBuffer& a_renderBuffer)
 {
+    m_allocator = a_allocator;
+
     m_materialAddr = a_renderBuffer.MaterialAddr;
 
-    ModelBuffer buffer;
-    buffer.ModelAddr = a_renderBuffer.ModelAddr;
-    buffer.TransformAddr = new uint32_t[1];
-    buffer.TransformAddr[0] = a_renderBuffer.TransformAddr;
-    buffer.TransformCount = 1;
+    const ModelBuffer buffer =
+    {
+        .ModelAddr = a_renderBuffer.ModelAddr,
+        .TransformCount = 1,
+        .TransformAddr = ILAMBDA(
+        {
+            uint32_t* vals = m_allocator->TAllocate<uint32_t>(1);
+            
+            vals[0] = a_renderBuffer.TransformAddr;
+            
+            ILRETURN vals;
+        }),
+    };
 
     m_modelBufferCount = 1;
-    m_modelBuffers = new ModelBuffer[1];
+    m_modelBuffers = m_allocator->TAllocate<ModelBuffer>(1);
     m_modelBuffers[0] = buffer;
 
-    m_skinnedModelBufferCount = 0;
-    m_skinnedModelBuffers = nullptr;
-
     m_size = 1;
+
+    m_renderStackMode = RenderStackMode_Model;
 }
-MaterialRenderStack::MaterialRenderStack(const SkinnedMeshRenderBuffer& a_renderBuffer)
+MaterialRenderStack::MaterialRenderStack(Allocator* a_allocator, const SkinnedModelRenderBuffer& a_renderBuffer)
 {
+    m_allocator = a_allocator;
+
     m_materialAddr = a_renderBuffer.MaterialAddr;
 
-    SkinnedModelBuffer buffer;
-    buffer.ModelAddr = a_renderBuffer.ModelAddr;
-    buffer.TransformAddr = new uint32_t[1];
-    buffer.TransformAddr[0] = a_renderBuffer.TransformAddr;
-    buffer.SkeletonAddr = new uint32_t[1];
-    buffer.SkeletonAddr[0] = a_renderBuffer.SkeletonAddr;
-    buffer.ObjectCount = 1;
+    const ModelBuffer buffer =
+    {
+        .ModelAddr = a_renderBuffer.ModelAddr,
+        .TransformCount = 1,
+        .TransformAddr = ILAMBDA(
+        {
+            uint32_t* vals = m_allocator->TAllocate<uint32_t>(1);
 
-    m_skinnedModelBufferCount = 1;
-    m_skinnedModelBuffers = new SkinnedModelBuffer[1];
-    m_skinnedModelBuffers[0] = buffer;
+            vals[0] = a_renderBuffer.TransformAddr;
 
-    m_modelBufferCount = 0;
-    m_modelBuffers = nullptr;
+            ILRETURN vals;
+        }),
+        .SkeletonAddr = ILAMBDA(
+        {
+            uint32_t* vals = m_allocator->TAllocate<uint32_t>(1);
+
+            vals[0] = a_renderBuffer.SkeletonAddr;
+
+            ILRETURN vals;
+        })
+    };
+
+    m_modelBufferCount = 1;
+    m_modelBuffers = m_allocator->TAllocate<ModelBuffer>(1);
+    m_modelBuffers[0] = buffer;
 
     m_size = 1;
+
+    m_renderStackMode = RenderStackMode_Skinned;
+}
+MaterialRenderStack::MaterialRenderStack(Allocator* a_allocator, const MeshRenderBuffer& a_renderBuffer)
+{
+    m_allocator = a_allocator;
+
+    m_materialAddr = a_renderBuffer.MaterialAddr;
+
+    const ModelBuffer buffer =
+    {
+        .IndexCount = a_renderBuffer.IndexCount,
+        .ModelAddr = a_renderBuffer.MeshAddr,
+        .TransformCount = 1,
+        .TransformAddr = ILAMBDA(
+        {
+            uint32_t* vals = m_allocator->TAllocate<uint32_t>(1);
+
+            vals[0] = a_renderBuffer.TransformAddr;
+
+            ILRETURN vals;
+        })
+    };
+
+    m_modelBufferCount = 1;
+    m_modelBuffers = m_allocator->TAllocate<ModelBuffer>(1);
+    m_modelBuffers[0] = buffer;
+
+    m_size = 1;
+
+    m_renderStackMode = RenderStackMode_Mesh;
 }
 MaterialRenderStack::~MaterialRenderStack()
 {
@@ -55,26 +109,11 @@ MaterialRenderStack::~MaterialRenderStack()
     {
         if (m_modelBuffers[i].TransformAddr != nullptr)
 		{
-			delete[] m_modelBuffers[i].TransformAddr;
+			m_allocator->Free(m_modelBuffers[i].TransformAddr);
 		}
     }
 
-    delete[] m_modelBuffers;
-
-    for (uint32_t i = 0; i < m_skinnedModelBufferCount; ++i)
-    {
-        if (m_skinnedModelBuffers[i].TransformAddr != nullptr)
-        {
-            delete[] m_skinnedModelBuffers[i].TransformAddr;
-        }
-        
-        if (m_skinnedModelBuffers[i].SkeletonAddr != nullptr)
-        {
-            delete[] m_skinnedModelBuffers[i].SkeletonAddr;
-        }
-    }
-
-    delete[] m_skinnedModelBuffers;
+    m_allocator->Free(m_modelBuffers);
 }
 
 void MaterialRenderStack::InsertTransform(uint32_t a_addr, uint32_t a_transformAddr)
@@ -92,9 +131,9 @@ void MaterialRenderStack::InsertTransform(uint32_t a_addr, uint32_t a_transformA
 		}
 	}
 
-    const uint32_t* oldTransformAddr = buffer.TransformAddr;
-    IDEFER(delete[] oldTransformAddr);
-    buffer.TransformAddr = new uint32_t[transformCount + 1];
+    uint32_t* oldTransformAddr = buffer.TransformAddr;
+    IDEFER(m_allocator->Free(oldTransformAddr));
+    buffer.TransformAddr = m_allocator->TAllocate<uint32_t>(transformCount + 1);
 
     for (uint32_t i = 0; i < transformCount; ++i)
     {
@@ -106,7 +145,7 @@ void MaterialRenderStack::InsertTransform(uint32_t a_addr, uint32_t a_transformA
 }
 void MaterialRenderStack::RemoveModelBuffer(uint32_t a_addr)
 {
-    delete[] m_modelBuffers[a_addr].TransformAddr;
+    m_allocator->Destroy(m_modelBuffers[a_addr].TransformAddr);
 
     --m_modelBufferCount;
 
@@ -116,8 +155,13 @@ void MaterialRenderStack::RemoveModelBuffer(uint32_t a_addr)
     }
 }
 
-bool MaterialRenderStack::Add(const MeshRenderBuffer& a_renderBuffer)
+bool MaterialRenderStack::Add(const ModelRenderBuffer& a_renderBuffer)
 {
+    if (m_renderStackMode != RenderStackMode_Model)
+    {
+        return false;
+    }
+
     if (m_materialAddr != a_renderBuffer.MaterialAddr)
     {
         return false;
@@ -135,66 +179,80 @@ bool MaterialRenderStack::Add(const MeshRenderBuffer& a_renderBuffer)
         }
     }
 
-    ModelBuffer buffer;
-    buffer.ModelAddr = a_renderBuffer.ModelAddr;
-    buffer.TransformAddr = new uint32_t[1];
-    buffer.TransformAddr[0] = a_renderBuffer.TransformAddr;
-    buffer.TransformCount = 1;
+    const ModelBuffer buffer =
+    {
+        .ModelAddr = a_renderBuffer.ModelAddr,
+        .TransformCount = 1,
+        .TransformAddr = ILAMBDA(
+        {
+            uint32_t* vals = m_allocator->TAllocate<uint32_t>(1);
 
-    const ModelBuffer* oldModelBuffers = m_modelBuffers;
-    IDEFER(delete[] oldModelBuffers);
+            vals[0] = a_renderBuffer.TransformAddr;
 
-    const uint32_t bufferCount = m_modelBufferCount++;
-    m_modelBuffers = new ModelBuffer[m_modelBufferCount];
-    for (uint32_t i = 0; i < bufferCount; ++i)
+            ILRETURN vals;
+        })
+    };
+
+    ModelBuffer* oldModelBuffers = m_modelBuffers;
+    IDEFER(m_allocator->Destroy(oldModelBuffers));
+
+    m_modelBuffers = m_allocator->TAllocate<ModelBuffer>(m_modelBufferCount + 1);
+    for (uint32_t i = 0; i < m_modelBufferCount; ++i)
     {
         m_modelBuffers[i] = oldModelBuffers[i];
     }
-    m_modelBuffers[bufferCount] = buffer;
+    m_modelBuffers[m_modelBufferCount++] = buffer;
 
     return true;
 }
-bool MaterialRenderStack::Remove(const MeshRenderBuffer& a_renderBuffer)
+bool MaterialRenderStack::Remove(const ModelRenderBuffer& a_renderBuffer)
 {
-    if (m_materialAddr != a_renderBuffer.MaterialAddr || m_modelBufferCount == 0)
+    if (m_renderStackMode != RenderStackMode_Model)
+    {
+        return false;
+    }
+
+    if (m_materialAddr != a_renderBuffer.MaterialAddr)
     {
         return false;
     }
 
     for (uint32_t i = 0; i < m_modelBufferCount; ++i)
     {
-        if (m_modelBuffers[i].ModelAddr == a_renderBuffer.ModelAddr)
+        ModelBuffer& buffer = m_modelBuffers[i];
+
+        if (buffer.ModelAddr != a_renderBuffer.ModelAddr)
         {
-            const uint32_t transformCount = m_modelBuffers[i].TransformCount;
-            for (uint32_t j = 0; j < transformCount; ++j)
+            continue;
+        }
+
+        const uint32_t transformCount = buffer.TransformCount;
+        for (uint32_t j = 0; j < transformCount; ++j)
+        {
+            if (buffer.TransformAddr[j] == a_renderBuffer.TransformAddr)
             {
-                if (m_modelBuffers[i].TransformAddr[j] == a_renderBuffer.TransformAddr)
+                buffer.TransformAddr[j] = -1;
+
+                if (--m_size == 0)
                 {
-                    m_modelBuffers[i].TransformAddr[j] = -1;
+                    return true;
+                }
 
-                    m_size--;
-
-                    if (m_size == 0)
+                for (uint32_t k = 0; k < transformCount; ++k)
+                {
+                    if (m_modelBuffers[i].TransformAddr[k] != uint32_t(-1))
                     {
                         return true;
                     }
-
-                    for (uint32_t k = 0; k < transformCount; ++k)
-                    {
-                        if (m_modelBuffers[i].TransformAddr[k] != uint32_t(-1))
-                        {
-                            return true;
-                        }
-                    }
-
-                    RemoveModelBuffer(i);
-
-                    return true;
                 }
-            }
 
-            return false;
+                RemoveModelBuffer(i);
+
+                return true;
+            }
         }
+
+        return false;
     }
 
     return false;
@@ -202,9 +260,9 @@ bool MaterialRenderStack::Remove(const MeshRenderBuffer& a_renderBuffer)
 
 void MaterialRenderStack::InsertSkinned(uint32_t a_addr, uint32_t a_transformAddr, uint32_t a_skeletonAddr)
 {
-    SkinnedModelBuffer& buffer = m_skinnedModelBuffers[a_addr];
+    ModelBuffer& buffer = m_modelBuffers[a_addr];
 
-    const uint32_t objectCount = buffer.ObjectCount;
+    const uint32_t objectCount = buffer.TransformCount;
 
     for (uint32_t i = 0; i < objectCount; ++i)
     {
@@ -219,13 +277,13 @@ void MaterialRenderStack::InsertSkinned(uint32_t a_addr, uint32_t a_transformAdd
         }
     }
 
-    const uint32_t* oldTransformAddr = buffer.TransformAddr;
-    IDEFER(delete[] oldTransformAddr);
-    const uint32_t* oldSkeletonAddr = buffer.SkeletonAddr;
-    IDEFER(delete[] oldSkeletonAddr);
+    uint32_t* oldTransformAddr = buffer.TransformAddr;
+    IDEFER(m_allocator->Free(oldTransformAddr));
+    uint32_t* oldSkeletonAddr = buffer.SkeletonAddr;
+    IDEFER(m_allocator->Free(oldSkeletonAddr));
 
-    buffer.TransformAddr = new uint32_t[objectCount + 1];
-    buffer.SkeletonAddr = new uint32_t[objectCount + 1];
+    buffer.TransformAddr = m_allocator->TAllocate<uint32_t>(objectCount + 1);
+    buffer.SkeletonAddr = m_allocator->TAllocate<uint32_t>(objectCount + 1);
 
     for (uint32_t i = 0; i < objectCount; ++i)
     {
@@ -235,21 +293,24 @@ void MaterialRenderStack::InsertSkinned(uint32_t a_addr, uint32_t a_transformAdd
 
     buffer.TransformAddr[objectCount] = a_transformAddr;
     buffer.SkeletonAddr[objectCount] = a_skeletonAddr;
-    buffer.ObjectCount++;
+    ++buffer.TransformCount;
 }
 
-bool MaterialRenderStack::Add(const SkinnedMeshRenderBuffer& a_renderBuffer)
+bool MaterialRenderStack::Add(const SkinnedModelRenderBuffer& a_renderBuffer)
 {
+    if (m_renderStackMode != RenderStackMode_Skinned)
+    {
+        return false;
+    }
+
     if (m_materialAddr != a_renderBuffer.MaterialAddr)
     {
         return false;
     }
 
-    m_size++;
-
-    for (uint32_t i = 0; i < m_skinnedModelBufferCount; ++i)
+    for (uint32_t i = 0; i < m_modelBufferCount; ++i)
     {
-        if (m_skinnedModelBuffers[i].ModelAddr == a_renderBuffer.ModelAddr)
+        if (m_modelBuffers[i].ModelAddr == a_renderBuffer.ModelAddr)
         {
             InsertSkinned(i, a_renderBuffer.TransformAddr, a_renderBuffer.SkeletonAddr);
 
@@ -257,54 +318,205 @@ bool MaterialRenderStack::Add(const SkinnedMeshRenderBuffer& a_renderBuffer)
         }
     }
 
-    SkinnedModelBuffer buffer;
-    buffer.ModelAddr = a_renderBuffer.ModelAddr;
-    buffer.TransformAddr = new uint32_t[1];
-    buffer.TransformAddr[0] = a_renderBuffer.TransformAddr;
-    buffer.SkeletonAddr = new uint32_t[1];
-    buffer.SkeletonAddr[0] = a_renderBuffer.SkeletonAddr;
-    buffer.ObjectCount = 1;
-
-    const SkinnedModelBuffer* oldSkinnedModelBuffers = m_skinnedModelBuffers;
-    IDEFER(delete[] oldSkinnedModelBuffers);
-
-    const uint32_t bufferCount = m_skinnedModelBufferCount++;
-    m_skinnedModelBuffers = new SkinnedModelBuffer[m_skinnedModelBufferCount];
-    for (uint32_t i = 0; i < bufferCount; ++i)
+    const ModelBuffer buffer = 
     {
-        m_skinnedModelBuffers[i] = oldSkinnedModelBuffers[i];
+        .ModelAddr = a_renderBuffer.ModelAddr,
+        .TransformCount = 1,
+        .TransformAddr = ILAMBDA(
+        {
+            uint32_t* vals = m_allocator->TAllocate<uint32_t>(1);
+
+            vals[0] = a_renderBuffer.TransformAddr;
+
+            ILRETURN vals;
+        }),
+        .SkeletonAddr = ILAMBDA(
+        {
+            uint32_t* vals = m_allocator->TAllocate<uint32_t>(1);
+
+            vals[0] = a_renderBuffer.TransformAddr;
+
+            ILRETURN vals;
+        })
+    };
+
+    ModelBuffer* oldModelBuffers = m_modelBuffers;
+    IDEFER(m_allocator->Free(oldModelBuffers));
+
+    m_modelBuffers = m_allocator->TAllocate<ModelBuffer>(m_modelBufferCount + 1);
+    for (uint32_t i = 0; i < m_modelBufferCount; ++i)
+    {
+        m_modelBuffers[i] = oldModelBuffers[i];
     }
-    m_skinnedModelBuffers[bufferCount] = buffer;
+    m_modelBuffers[m_modelBufferCount++] = buffer;
 
     return true;
 }
-bool MaterialRenderStack::Remove(const SkinnedMeshRenderBuffer& a_renderBuffer)
+bool MaterialRenderStack::Remove(const SkinnedModelRenderBuffer& a_renderBuffer)
 {
-    if (m_materialAddr != a_renderBuffer.MaterialAddr || m_skinnedModelBufferCount == 0)
+    if (m_renderStackMode != RenderStackMode_Skinned)
     {
         return false;
     }
 
-    for (uint32_t i = 0; i < m_skinnedModelBufferCount; ++i)
+    if (m_materialAddr != a_renderBuffer.MaterialAddr)
     {
-        if (m_skinnedModelBuffers[i].ModelAddr == a_renderBuffer.ModelAddr)
+        return false;
+    }
+
+    for (uint32_t i = 0; i < m_modelBufferCount; ++i)
+    {
+        ModelBuffer& buffer = m_modelBuffers[i];
+
+        if (buffer.ModelAddr != a_renderBuffer.ModelAddr)
         {
-            const uint32_t objectCount = m_skinnedModelBuffers[i].ObjectCount;
-            for (uint32_t j = 0; j < objectCount; ++j)
+            continue;
+        }
+
+        const uint32_t objectCount = buffer.TransformCount;
+
+        for (uint32_t j = 0; j < objectCount; ++j)
+        {
+            if (buffer.TransformAddr[j] == a_renderBuffer.TransformAddr)
             {
-                if (m_skinnedModelBuffers[i].TransformAddr[j] == a_renderBuffer.TransformAddr)
+                buffer.SkeletonAddr[j] = -1;
+                buffer.TransformAddr[j] = -1;
+
+                if (--m_size == 0)
                 {
-                    m_skinnedModelBuffers[i].SkeletonAddr[j] = -1;
-                    m_skinnedModelBuffers[i].TransformAddr[j] = -1;
-
-                    m_size--;
-
                     return true;
                 }
-            }
 
-            return false;
+                for (uint32_t k = 0; k < objectCount; ++k)
+                {
+                    if (m_modelBuffers[i].TransformAddr[k] != uint32_t(-1))
+                    {
+                        return true;
+                    }
+                }
+
+                RemoveModelBuffer(i);
+
+                return true;
+            }
         }
+
+        return false;
+    }
+
+    return false;
+}
+
+bool MaterialRenderStack::Add(const MeshRenderBuffer& a_renderBuffer)
+{
+    if (m_renderStackMode != RenderStackMode_Mesh)
+    {
+        return false;
+    }
+
+    if (m_materialAddr != a_renderBuffer.MaterialAddr)
+    {
+        return false;
+    }
+
+    for (uint32_t i = 0; i < m_modelBufferCount; ++i)
+    {
+        if (m_modelBuffers[i].ModelAddr != a_renderBuffer.MeshAddr)
+        {
+            continue;
+        }
+
+        if (m_modelBuffers[i].IndexCount != a_renderBuffer.IndexCount)
+        {
+            continue;
+        }
+
+        InsertTransform(i, a_renderBuffer.TransformAddr);
+
+        return true;
+    }
+
+    const ModelBuffer buffer = 
+    {
+        .IndexCount = a_renderBuffer.IndexCount,
+        .ModelAddr = a_renderBuffer.MeshAddr,
+        .TransformCount = 1,
+        .TransformAddr = ILAMBDA(
+        {
+            uint32_t* vals = m_allocator->TAllocate<uint32_t>(1);
+
+            vals[0] = a_renderBuffer.TransformAddr;
+
+            ILRETURN vals;
+        }),
+    };
+
+    ModelBuffer* oldModelBuffers = m_modelBuffers;
+    IDEFER(m_allocator->Free(oldModelBuffers));
+
+    m_modelBuffers = m_allocator->TAllocate<ModelBuffer>(m_modelBufferCount + 1);
+    for (uint32_t i = 0; i < m_modelBufferCount; ++i)
+    {
+        m_modelBuffers[i] = oldModelBuffers[i];
+    }
+    m_modelBuffers[m_modelBufferCount++] = buffer;
+
+    return true;
+}
+bool MaterialRenderStack::Remove(const MeshRenderBuffer& a_renderBuffer)
+{
+    if (m_renderStackMode != RenderStackMode_Mesh)
+    {
+        return false;
+    }
+
+    if (m_materialAddr != a_renderBuffer.MaterialAddr)
+    {
+        return false;
+    }
+
+    for (uint32_t i = 0; i < m_modelBufferCount; ++i)
+    {
+        ModelBuffer& buffer = m_modelBuffers[i];
+
+        if (buffer.ModelAddr != a_renderBuffer.MeshAddr)
+        {
+            continue;
+        }
+
+        if (buffer.IndexCount != a_renderBuffer.IndexCount)
+        {
+            continue;
+        }
+
+        const uint32_t objectCount = buffer.TransformCount;
+
+        for (uint32_t j = 0; j < objectCount; ++j)
+        {
+            if (buffer.TransformAddr[j] == a_renderBuffer.TransformAddr)
+            {
+                buffer.TransformAddr[j] = -1;
+
+                if (--m_size == 0)
+                {
+                    return true;
+                }
+
+                for (uint32_t k = 0; k < objectCount; ++k)
+                {
+                    if (m_modelBuffers[i].TransformAddr[k] != uint32_t(-1))
+                    {
+                        return true;
+                    }
+                }
+
+                RemoveModelBuffer(i);
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     return false;

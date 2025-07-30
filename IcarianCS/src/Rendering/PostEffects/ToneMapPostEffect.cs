@@ -71,8 +71,8 @@ namespace IcarianEngine.Rendering.PostEffects
         {
             m_data = new Vector4(1.5f, 1.2f, 0.0f, 0.0f);
 
-            m_quadVertex = VertexShader.LoadVertexShader("[INTERNAL]Quad");
-            m_toneMapPixel = PixelShader.LoadPixelShader("[INTERNAL]PostToneMap");
+            m_quadVertex = VertexShader.LoadVertexShader("internal://Quad");
+            m_toneMapPixel = PixelShader.LoadPixelShader("internal://PostToneMap");
 
             MaterialBuilder material = new MaterialBuilder()
             {
@@ -151,7 +151,7 @@ namespace IcarianEngine.Rendering.PostEffects
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

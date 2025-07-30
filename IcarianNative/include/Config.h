@@ -17,11 +17,15 @@ private:
     static constexpr uint32_t RemoteBit = 1;
     static constexpr uint32_t DisableWaylandBit = 2;
     static constexpr uint32_t UnlockUPSBit = 3;
+    static constexpr uint32_t UnlockFPSBit = 4;
+    static constexpr uint32_t ForceMeshBit = 5;
 
     static constexpr char DefaultAppName[] = "IcarianEngine";
 
     double            m_fixedTimeStep = 1.0 / 50.0;
     uint32_t          m_fileCacheSize = 256;
+
+    uint32_t          m_pipefileID = uint32_t(-1);
 
     std::string       m_appName = std::string(DefaultAppName);
     
@@ -53,6 +57,29 @@ public:
     inline void SetUPSUnlocked(bool a_value)
     {
         ITOGGLEBIT(a_value, m_flags, UnlockUPSBit);
+    }
+
+    inline bool IsFPSUnlocked() const
+    {
+        return IISBITSET(m_flags, UnlockFPSBit);
+    }
+    inline void SetFPSUnlocked(bool a_value)
+    {
+        ITOGGLEBIT(a_value, m_flags, UnlockFPSBit);
+    }
+
+    inline uint32_t GetPipefileID() const
+    {
+        return m_pipefileID;
+    }
+    inline void SetPipefileID(uint32_t a_id)
+    {
+        m_pipefileID = a_id;
+    }
+
+    inline bool ForceMesh() const
+    {
+        return IISBITSET(m_flags, ForceMeshBit);
     }
 
     // Mostly exists because some tools still do not have the best Wayland support

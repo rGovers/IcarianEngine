@@ -337,7 +337,29 @@ void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) c
     {
     case VulkanPipelineType_Graphics:
     {
-        data->Bind(a_index, a_commandBuffer);
+        switch (program.MaterialMode)
+        {
+        case MaterialMode_BaseVertex:
+        {
+            data->Bind(a_index, a_commandBuffer);
+
+            break;
+        }
+        case MaterialMode_BaseMesh:
+        {
+            IVERIFY(m_engine->IsMeshEnabled());
+
+            data->Bind(a_index, a_commandBuffer);
+
+            break;
+        }
+        default:
+        {
+            IERROR("Using bind MaterialMode");
+
+            break;
+        }
+        }
 
         break;
     }

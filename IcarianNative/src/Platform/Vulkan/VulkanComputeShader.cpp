@@ -45,8 +45,8 @@ void VulkanComputeShader::CreateFromFShader(VulkanComputeShader* a_out, const Vu
 
     std::string error;
     std::vector<ShaderBufferInput> inputs;
-    IcarianCore::ShaderWorkgroups workgroups;
-    const std::string str = IcarianCore::GLSLFromFlareShader(a_builder.String, IcarianCore::ShaderPlatform_VulkanCompute, a_builder.Imports, &inputs, &error, &workgroups);
+    IcarianCore::ShaderOutput output;
+    const std::string str = IcarianCore::GLSLFromFlareShader(a_builder.String, IcarianCore::ShaderPlatform_VulkanCompute, a_builder.Imports, &inputs, &error, &output);
     if (str.empty())
     {
         IERROR("Flare Compute shader error: " + error);
@@ -56,9 +56,9 @@ void VulkanComputeShader::CreateFromFShader(VulkanComputeShader* a_out, const Vu
     {
         .Engine = a_builder.Engine,
         .String = str,
-        .WorkgroupX = workgroups.GroupX,
-        .WorkgroupY = workgroups.GroupY,
-        .WorkgroupZ = workgroups.GroupZ,
+        .WorkgroupX = output.Workgroups.GroupX,
+        .WorkgroupY = output.Workgroups.GroupY,
+        .WorkgroupZ = output.Workgroups.GroupZ,
         .Inputs = inputs.data(),
         .InputCount = (uint32_t)inputs.size(),
         .EntryPoint = a_builder.EntryPoint,

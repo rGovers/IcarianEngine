@@ -416,6 +416,7 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
 
     const bool headless = a_window->IsHeadless() || ForceHeadless;
 
+#ifdef ICARIANNATIVE_ENABLE_DMA
 #ifdef WIN32
     // constexpr vk::ExportSemaphoreCreateInfo SemaphoreExportInfo = vk::ExportSemaphoreCreateInfo
     // (
@@ -426,6 +427,7 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
     (
         vk::ExternalSemaphoreHandleTypeFlagBits::eOpaqueFd
     );
+#endif
 #endif
 
     vk::SemaphoreCreateInfo semaphoreInfo;
@@ -782,11 +784,12 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaph
 
     {
         PROFILESTACK("Fence");
-        
+
         const vk::Result result = device.waitForFences(1, &fence, vk::True, 10000);
         if (result != vk::Result::eSuccess)
         {
             VKRESWARNMSG(result, "Could not wait for fence");
+            // IERROR("Could not wait for fence");
 
             return false;
         }

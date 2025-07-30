@@ -59,15 +59,20 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
     IOP_ENUM_VALUE(ShaderBufferType, ShadowTexture2D) = 13, 
     IOP_ENUM_VALUE(ShaderBufferType, ShadowTextureCube) = 14,
     IOP_ENUM_VALUE(ShaderBufferType, UserUBO) = 15,
-    IOP_ENUM_VALUE(ShaderBufferType, SSModelBuffer) = 16,
-    IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 17,
-    IOP_ENUM_VALUE(ShaderBufferType, SSDirectionalLightBuffer) = 18,
-    IOP_ENUM_VALUE(ShaderBufferType, SSPointLightBuffer) = 19,
-    IOP_ENUM_VALUE(ShaderBufferType, SSSpotLightBuffer) = 20,
-    IOP_ENUM_VALUE(ShaderBufferType, SSAmbientLightBuffer) = 21,
-    IOP_ENUM_VALUE(ShaderBufferType, SSShadowLightBuffer) = 22,
-    IOP_ENUM_VALUE(ShaderBufferType, SSParticleBuffer) = 23,
-    IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 24
+    IOP_ENUM_VALUE(ShaderBufferType, UserArray) = 16,
+    IOP_ENUM_VALUE(ShaderBufferType, SSModelBuffer) = 17,
+    IOP_ENUM_VALUE(ShaderBufferType, SSBoneBuffer) = 18,
+    IOP_ENUM_VALUE(ShaderBufferType, SSDirectionalLightBuffer) = 19,
+    IOP_ENUM_VALUE(ShaderBufferType, SSPointLightBuffer) = 20,
+    IOP_ENUM_VALUE(ShaderBufferType, SSSpotLightBuffer) = 21,
+    IOP_ENUM_VALUE(ShaderBufferType, SSAmbientLightBuffer) = 22,
+    IOP_ENUM_VALUE(ShaderBufferType, SSShadowLightBuffer) = 23,
+    IOP_ENUM_VALUE(ShaderBufferType, SSParticleBuffer) = 24,
+    IOP_ENUM_VALUE(ShaderBufferType, AShadowTexture2D) = 25,
+    IOP_ENUM_VALUE(ShaderBufferType, MeshVertex) = 26,
+    IOP_ENUM_VALUE(ShaderBufferType, MeshletVertices) = 27,
+    IOP_ENUM_VALUE(ShaderBufferType, MeshletTriangles) = 28,
+    IOP_ENUM_VALUE(ShaderBufferType, Meshlet) = 29,
 };
 
 /// <summary>
@@ -114,6 +119,7 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
     // May have to start storing stuff out of band if I need to make this any larger
     IOP_POINTER(VertexInputAttribute*) VertexAttributes;
     IOP_POINTER(void*) UBOData;
+    IOP_POINTER(void*) UserArrayData;
     IOP_POINTER(void*) Data;
     IOP_CSPUBLIC IOP_UINT32 VertexShader;
     IOP_CSPUBLIC IOP_UINT32 PixelShader;
@@ -121,6 +127,8 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
     IOP_CSPUBLIC IOP_UINT32 ShadowVertexShader;
     IOP_CSPUBLIC IOP_UINT32 RenderLayer;
     IOP_UINT32 UBODataSize;
+    IOP_UINT32 UserArrayStride;
+    IOP_UINT32 UserArrayCount;
     IOP_UINT16 VertexInputCount;
     IOP_CSPUBLIC IOP_UINT16 VertexStride;
     IOP_CSPUBLIC IOP_ENUM_NAME(MaterialBlendMode) ColorBlendMode;

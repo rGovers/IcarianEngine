@@ -7,6 +7,10 @@ using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#ifdef ENABLE_STACKTRACE
+using System.Diagnostics;
+#endif
+
 #include "EngineTextureSamplerInteropStructures.h"
 
 namespace IcarianEngine.Rendering
@@ -28,7 +32,11 @@ namespace IcarianEngine.Rendering
 
         static ConcurrentDictionary<uint, TextureSampler> s_samplerLookup = new ConcurrentDictionary<uint, TextureSampler>();
 
-        uint m_bufferAddr = uint.MaxValue;
+        uint       m_bufferAddr = uint.MaxValue;
+
+#ifdef ENABLE_STACKTRACE
+        StackTrace m_stackTrace;
+#endif
 
         /// <summary>
         /// Returns true if the sampler has been disposed
@@ -65,6 +73,10 @@ namespace IcarianEngine.Rendering
             m_bufferAddr = a_bufferAddr;
 
             s_samplerLookup.TryAdd(a_bufferAddr, this);
+
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
 
         /// <summary>
@@ -175,11 +187,10 @@ namespace IcarianEngine.Rendering
 
             GC.SuppressFinalize(this);
         }
-
         /// <summary>
-        /// Called when the sampler is disposed
+        /// Called when the TextureSampler is Disposed/Finalized
         /// </summary>
-        /// <param name="a_disposing">True if the sampler is being disposed</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)
@@ -192,17 +203,20 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.IcarianWarning("TextureSampler Failed to Dispose");
+                    Logger.IcarianError("TextureSampler not Disposed");
+
+#ifdef ENABLE_STACKTRACE
+                    CallStack.PrintStackTrace(m_stackTrace);
+#endif  
                 }
 
                 m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple TextureSampler Dispose");
+                Logger.IcarianWarning("TextureSampler already Disposed");
             }
         }
-
         ~TextureSampler()
         {
             Dispose(false);
@@ -212,7 +226,7 @@ namespace IcarianEngine.Rendering
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

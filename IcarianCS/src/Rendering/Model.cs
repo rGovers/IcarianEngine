@@ -7,6 +7,10 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
+#ifdef ENABLE_STACKTRACE
+using System.Diagnostics;
+#endif
+
 #include "EngineModelInteropStructures.h"
 
 namespace IcarianEngine.Rendering
@@ -25,7 +29,11 @@ namespace IcarianEngine.Rendering
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyModel(uint a_addr);
 
-        uint m_bufferAddr = uint.MaxValue;
+        uint       m_bufferAddr = uint.MaxValue;
+
+#ifdef ENABLE_STACKTRACE
+        StackTrace m_stackTrace;
+#endif
 
         /// <summary>
         /// Whether the model has been disposed
@@ -49,6 +57,10 @@ namespace IcarianEngine.Rendering
         internal Model(uint a_addr)
         {
             m_bufferAddr = a_addr;
+
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
 
         /// <summary>
@@ -61,6 +73,28 @@ namespace IcarianEngine.Rendering
         /// <returns>The model. Null on failure.</returns>
         public static Model CreateModel<T>(T[] a_vertices, uint[] a_indices, float a_radius) where T : struct 
         {
+            if (a_vertices == null)
+            {
+                Logger.IcarianError("Creating Model with null vertices");
+
+                return null;
+            }
+
+            if (a_indices == null)
+            {
+                Logger.IcarianError("Creating Model with null indices");
+
+                return null;
+            }
+
+            ushort vertexSize = (ushort)Marshal.SizeOf<T>();
+            if (vertexSize <= 0)
+            {
+                Logger.IcarianError("Creating Model with size 0 vertex");
+
+                return null;
+            }
+
             uint addr = GenerateModel(a_vertices, a_indices, (ushort)Marshal.SizeOf<T>(), a_radius);
             if (addr != uint.MaxValue)
             {
@@ -76,7 +110,7 @@ namespace IcarianEngine.Rendering
         /// Loads Model data from a file
         /// </summary>
         /// <param name="a_path">The path to the Model</param>
-        /// <param name="a_modelIndex">The <odel index to load in the file</param>
+        /// <param name="a_modelIndex">The Model index to load in the file</param>
         /// <param name="a_vertices">The <see cref="IcarianEngine.Rendering.Vertex" /> data of the loaded Model</param>
         /// <param name="a_indices">The index data of the loaded Model</param>
         /// <returns>If the data loaded successfully</returns>
@@ -169,9 +203,9 @@ namespace IcarianEngine.Rendering
         }
 
         /// <summary>
-        /// Called when the Model is being Disposed
+        /// Called when the Model is being Disposed/Finalized
         /// </summary>
-        /// <param name="a_disposing">Whether the Model is being Disposed</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_bufferAddr != uint.MaxValue)
@@ -182,14 +216,18 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.IcarianWarning("Model Failed to Dispose");
+                    Logger.IcarianError("Model not Disposed");
+
+#ifdef ENABLE_STACKTRACE
+                    CallStack.PrintStackTrace(m_stackTrace);
+#endif  
                 }
 
                 m_bufferAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple Model Dispose");
+                Logger.IcarianWarning("Model already Disposed");
             }
         }
 

@@ -159,7 +159,7 @@ std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_v
     constexpr TBuiltInResource Resource = spirv_create_resources();
     if (!shader.parse(&Resource, 100, true, Messages))
     {
-		IERROR(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(a_str));
+		IERROR("Parsing Failed: " + std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(a_str));
 
 		return std::vector<uint32_t>();
     }
@@ -169,7 +169,7 @@ std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_v
 
     if (!program.link(Messages))
     {
-		IERROR(std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(a_str));
+		IERROR("Linking Failed: " + std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(a_str));
 
 		return std::vector<uint32_t>();
     }
@@ -196,7 +196,7 @@ std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_v
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

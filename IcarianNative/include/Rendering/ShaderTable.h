@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <string_view>
 
-#define INTERNALSHADERPATHSTR "[INTERNAL]"
+#define INTERNALSHADERPATHSTR "internal://"
 constexpr uint32_t InternalShaderStringSize = sizeof(INTERNALSHADERPATHSTR) - 1;
 
 const char* GetVertexShaderString(const std::string_view& a_str);
@@ -15,7 +15,7 @@ const char* GetPixelShaderString(const std::string_view& a_str);
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

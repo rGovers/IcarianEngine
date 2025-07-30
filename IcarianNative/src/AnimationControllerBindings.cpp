@@ -7,9 +7,9 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "Core/StringUtils.h"
+#include "DeletionQueue.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "Rendering/AnimationController.h"
@@ -23,15 +23,21 @@ static AnimationControllerBindings* Instance = nullptr;
 
 #define ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(F) \
     F(uint32_t, IcarianEngine.Rendering.Animation, Animator, GenerateBuffer, { return Instance->GenerateAnimatorBuffer(); }) \
-    F(void, IcarianEngine.Rendering.Animation, Animator, DestroyBuffer, { Instance->DestroyAnimatorBuffer(a_addr); }, uint32_t a_addr) \
     F(uint32_t, IcarianEngine.Rendering.Animation, Animator, GetUpdateMode, { return (uint32_t)Instance->GetAnimatorUpdateMode(a_addr); }, uint32_t a_addr) \
     F(void, IcarianEngine.Rendering.Animation, Animator, SetUpdateMode, { Instance->SetAnimatorUpdateMode(a_addr, (e_AnimationUpdateMode)a_updateMode); }, uint32_t a_addr, uint32_t a_updateMode) \
     \
     F(uint32_t, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, CreateSkeletonBuffer, { return Instance->CreateSkeletonBuffer(); }) \
-    F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, DestroySkeletonBuffer, { Instance->DestroySkeletonBuffer(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, ClearSkeletonBuffer, { Instance->ClearSkeletonBuffer(a_addr); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, DestroySkeletonBuffer, { IPUSHDELETIONFUNC(Instance->DestroySkeletonBuffer(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
+    F(void, IcarianEngine.Rendering.Animation, SkinnedMeshRenderer, ClearSkeletonBuffer, { IPUSHDELETIONFUNC(Instance->ClearSkeletonBuffer(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
 
 ANIMATIONCONTROLLER_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
+
+RUNTIME_FUNCTION(void, Animator, DestroyBuffer,
+{
+    Instance->SetAnimatorUpdateMode(a_addr, AnimationUpdateMode_None);
+
+    IDUALDELETIONFUNC(Instance->DestroyAnimatorBuffer(a_addr));
+}, uint32_t a_addr)
 
 RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
 {
@@ -52,7 +58,7 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
     case StringHash<uint32_t>(".glb"):
     case StringHash<uint32_t>(".gltf"):
     {
-        FileHandle* handle = FileCache::LoadFile(path);
+        FileHandle* handle = FileCache::LoadFile(str);
         IVERIFY(handle != nullptr);
         IDEFER(delete handle);
 
@@ -156,7 +162,7 @@ RUNTIME_FUNCTION(MonoArray*, AnimationClip, LoadExternalAnimationData,
     case StringHash<uint32_t>(".glb"):
     case StringHash<uint32_t>(".gltf"):
     {
-        FileHandle* handle = FileCache::LoadFile(path);
+        FileHandle* handle = FileCache::LoadFile(str);
         IVERIFY(handle != nullptr);
         IDEFER(delete handle);
 
@@ -296,6 +302,8 @@ AnimationControllerBindings::AnimationControllerBindings(AnimationController* a_
     Instance = this;
 
     m_controller = a_controller;
+
+    BIND_FUNCTION(IcarianEngine.Rendering.Animation, Animator, DestroyBuffer);
 
     BIND_FUNCTION(IcarianEngine.Rendering.Animation, Skeleton, LoadBoneData);
 

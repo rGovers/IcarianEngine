@@ -50,6 +50,13 @@ Config::Config(const std::string_view& a_path)
 
                 break;
             }
+            case StringHash("ForceMesh"):
+            {
+                const bool value = element->BoolText();
+                ITOGGLEBIT(value, m_flags, ForceMeshBit);
+
+                break;
+            }
             case StringHash("FileCacheSize"):
             {
                 m_fileCacheSize = (uint32_t)element->IntText();

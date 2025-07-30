@@ -8,10 +8,11 @@ using IcarianEngine.Rendering;
 using IcarianEngine.Rendering.Animation;
 using IcarianEngine.Rendering.Shaders;
 using IcarianEngine.Rendering.UI;
+using System.Threading;
+
 #ifdef ENABLE_EXPERIMENTAL
 using IcarianEngine.Rendering.Video;
 #endif
-using System.Threading;
 
 namespace IcarianEngine
 {
@@ -166,6 +167,48 @@ namespace IcarianEngine
         public object LoadValue(string a_input)
         {
             return ComputeShader.LoadComputeShader(a_input, ComputeMode.Graphics);
+        }
+    }
+    class MeshShaderContainer : IAssetContainer
+    {
+        public LoadStatus Status
+        {
+            get;
+            set;
+        }
+        public EventWaitHandle WaitHandle
+        {
+            get;
+            set;
+        }
+        public MeshShader Shader
+        {
+            get;
+            set;
+        }
+
+        public object Value
+        {
+            get
+            {
+                return Shader;
+            }
+            set
+            {
+                Shader = value as MeshShader;
+            }
+        }
+
+        public MeshShaderContainer()
+        {
+            Status = LoadStatus.Unloaded;
+            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            Shader = null;
+        }
+
+        public object LoadValue(string a_input)
+        {
+            return MeshShader.LoadMeshShader(a_input);
         }
     }
     class VertexShaderContainer : IAssetContainer
@@ -331,6 +374,48 @@ namespace IcarianEngine
             Status = LoadStatus.Unloaded;
             WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
             Model = null;
+        }
+
+        public object LoadValue(string a_input)
+        {
+            return null;
+        }
+    }
+    class MeshContainer : IAssetContainer
+    {
+        public LoadStatus Status
+        {
+            get;
+            set;
+        }
+        public EventWaitHandle WaitHandle
+        {
+            get;
+            set;
+        }
+        public Mesh Mesh
+        {
+            get;
+            set;
+        }
+
+        public object Value
+        {
+            get
+            {
+                return Mesh;
+            }
+            set
+            {
+                Mesh = value as Mesh;
+            }
+        }
+
+        public MeshContainer()
+        {
+            Status = LoadStatus.Unloaded;
+            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
+            Mesh = null;
         }
 
         public object LoadValue(string a_input)
@@ -600,7 +685,7 @@ namespace IcarianEngine
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

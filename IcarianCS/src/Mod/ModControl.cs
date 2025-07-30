@@ -110,12 +110,12 @@ namespace IcarianEngine.Mod
                 CoreAssembly = IcarianAssembly.LoadIcarianAssembly(corePath);       
             }
 
-            LoadMods(curDir);
-
             if (CoreAssembly == null)
             {
                 Logger.IcarianError("Failed to load core assembly");
             }
+
+            LoadMods(curDir);
 
             string coreDefPath = Path.Combine(corePath, "Defs");
             if (Directory.Exists(coreDefPath))
@@ -402,8 +402,25 @@ namespace IcarianEngine.Mod
                 return null;
             }
 
-            if (File.Exists(a_path))
-            {   
+#ifdef ENABLE_PIPEFILE
+            if (!Application.IsEditor)
+            {
+                // If we have a pipe we are most likely in the editor so editor assets should probably take priority
+                if (!a_path.StartsWith("pipe://"))
+                {
+                    string pipePath = "pipe://" + a_path;
+
+                    if (FileCache.FileExists(pipePath))
+                    {
+                        return pipePath;
+                    }
+                }
+            }
+#endif
+
+            // If this passes it is most likely a full filepath so no need to scan
+            if (FileCache.FileExists(a_path))
+            {
                 return a_path;
             }
 
@@ -423,7 +440,7 @@ namespace IcarianEngine.Mod
             }
 
             return null;
-        } 
+        }
 
         /// <summary>
         /// Gets the path of a mod asset

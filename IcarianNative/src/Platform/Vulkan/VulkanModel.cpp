@@ -42,6 +42,18 @@ public:
     }
 };
 
+template<typename T>
+constexpr static T Align(T a_offset)
+{
+    unsigned int alignOffset = a_offset % 16;
+    if (alignOffset != 0)
+    {
+        alignOffset = 16 - alignOffset;
+    }
+
+    return a_offset + alignOffset;
+}
+
 VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexCount, const void* a_vertices, uint16_t a_vertexSize, uint32_t a_indexCount, const uint32_t* a_indices, float a_radius)
 {
     TRACE("Creating Vulkan Model");
@@ -55,7 +67,13 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     const uint32_t vbSize = a_vertexCount * a_vertexSize;
     const uint32_t ibSize = a_indexCount * sizeof(uint32_t);
 
-    m_offset = vbSize;
+    m_offset = Align(vbSize);
+
+    const vk::DeviceSize end = (vk::DeviceSize)m_offset + ibSize;
+    const vk::DeviceSize bufferSize = Align(end);
+
+    const unsigned int vDiff = (unsigned int)(m_offset - vbSize);
+    const unsigned int iDiff = (unsigned int)(bufferSize - end);
 
     TLockObj<vk::CommandBuffer, SpinLock>* cmdBuffer = m_engine->BeginSingleCommand();
     IDEFER(m_engine->EndSingleCommand(cmdBuffer));
@@ -66,7 +84,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     const VkBufferCreateInfo createInfo = 
     {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = (VkDeviceSize)vbSize + ibSize,
+        .size = bufferSize,
         .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
@@ -91,20 +109,26 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     const bool cpuCanWrite = (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) != 0;
     if (cpuCanWrite)
     {
-        IDEFER(vmaFlushAllocation(allocator, m_allocation, 0, (VkDeviceSize)vbSize));
+        // Whoops passed the wrong size dont know how that did not break things
+        // I need to use vk::WholeSize more to stop that kind of thing
+        IDEFER(vmaFlushAllocation(allocator, m_allocation, 0, VK_WHOLE_SIZE));
 
-        memcpy(bufferInfo.pMappedData, a_vertices, (size_t)vbSize);
-        memcpy((uint8_t*)bufferInfo.pMappedData + m_offset, a_indices, (size_t)ibSize);
+        // Urgh realized that despite it not being an issue on hardware I have been targeting looking at the spec I do need to align the data
+        // To get around that while still honouring the sequential write writing 0 padding to the buffer
+        memcpy(bufferInfo.pMappedData, a_vertices, vbSize);
+        memset((uint8_t*)bufferInfo.pMappedData + vbSize, 0, vDiff);
+        memcpy((uint8_t*)bufferInfo.pMappedData + m_offset, a_indices, ibSize);
+        memset((uint8_t*)bufferInfo.pMappedData + end, 0, iDiff);
 
         const vk::BufferMemoryBarrier barrier = vk::BufferMemoryBarrier
         (
             vk::AccessFlagBits::eHostWrite,
             vk::AccessFlagBits::eVertexAttributeRead | vk::AccessFlagBits::eIndexRead,
-            VK_QUEUE_FAMILY_IGNORED,
-            VK_QUEUE_FAMILY_IGNORED,
+            vk::QueueFamilyIgnored,
+            vk::QueueFamilyIgnored,
             m_buffer,
             0,
-            VK_WHOLE_SIZE
+            vk::WholeSize
         );
 
         cmd.pipelineBarrier(vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eVertexInput, { }, 0, nullptr, 1, &barrier, 0, nullptr);
@@ -115,7 +139,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     const VkBufferCreateInfo sCreateInfo = 
     { 
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = (VkDeviceSize)vbSize,
+        .size = bufferSize,
         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
@@ -131,16 +155,18 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     VmaAllocationInfo stagingInfo;
     VKRESERRMSG(vmaCreateBuffer(allocator, &sCreateInfo, &sAllocInfo, &stagingBuffer, &stagingAlloc, &stagingInfo), "Failed to create model staging buffer");
     IDEFER(m_engine->PushDeletionObject<VulkanModelBufferDeletionObject>(m_engine, stagingBuffer, stagingAlloc));
-    IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAlloc, 0, (VkDeviceSize)vbSize)));
+    IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAlloc, 0, VK_WHOLE_SIZE)));
 
 #ifdef DEBUG
     vmaSetAllocationName(allocator, stagingAlloc, "Staging Model Buffer");
 #endif
 
     memcpy(stagingInfo.pMappedData, a_vertices, vbSize);
+    memset((uint8_t*)stagingInfo.pMappedData + vbSize, 0, vDiff);
     memcpy((uint8_t*)stagingInfo.pMappedData + m_offset, a_indices, ibSize);
+    memset((uint8_t*)stagingInfo.pMappedData + end, 0, iDiff);
 
-    const vk::BufferCopy copy = vk::BufferCopy(0, 0, (vk::DeviceSize)vbSize + ibSize);
+    const vk::BufferCopy copy = vk::BufferCopy(0, 0, bufferSize);
     cmd.copyBuffer(stagingBuffer, m_buffer, 1, &copy);
 }   
 VulkanModel::~VulkanModel()
@@ -151,7 +177,7 @@ VulkanModel::~VulkanModel()
 
 void VulkanModel::Bind(const vk::CommandBuffer& a_cmdBuffer) const
 {
-    constexpr vk::DeviceSize Offsets[] = { 0 };
+    const vk::DeviceSize Offsets[] = { 0 };
 
     a_cmdBuffer.bindVertexBuffers(0, 1, &m_buffer, Offsets);
     a_cmdBuffer.bindIndexBuffer(m_buffer, m_offset, vk::IndexType::eUint32);

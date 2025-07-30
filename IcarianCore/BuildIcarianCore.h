@@ -68,9 +68,38 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
         "./src/SocketPipe.cpp"
     );
 
+    CUBE_CProject_AppendRebuildSources(&project,
+        "./include/Core/Bitfield.h",
+        "./include/Core/CommunicationPipe.h",
+        "./include/Core/CRC.h",
+        "./include/Core/DMASwapBuffer.h",
+        "./include/Core/Endian.h",
+        "./include/Core/FlareShader.h",
+        "./include/Core/IcarianAssert.h",
+        "./include/Core/IcarianDefer.h",
+        "./include/Core/IcarianError.h",
+        "./include/Core/IcarianLambda.h",
+        "./include/Core/IcarianPragma.h",
+        "./include/Core/InputBindings.h",
+        "./include/Core/IPCPipe.h",
+        "./include/Core/MonoNativeImpl.h",
+        "./include/Core/Pipefile.h",
+        "./include/Core/PipeMessage.h",
+        "./include/Core/ShaderBuffers.h",
+        "./include/Core/SharedMemoryBuffer.h",
+        "./include/Core/SocketPipe.h",
+        "./include/Core/StringUtils.h",
+        "./include/Core/WindowsHeaders.h"
+    );
+
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
     CUBE_CProject_AppendCFlag(&project, "-Wall");
-    CUBE_CProject_AppendCFlag(&project, "-Werror");
+    if (a_targetPlatform == TargetPlatform_Linux)
+    {
+        // Should probably only have 1 as a source of truth
+        // Can still spit out warning but on other compilers but GCC will be the one trusted when they contradict
+        CUBE_CProject_AppendCFlag(&project, "-Werror");
+    }
 
     switch (a_targetPlatform)
     {

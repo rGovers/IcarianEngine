@@ -274,16 +274,16 @@ std::string VulkanParticleShaderGenerator::GenerateMeshShader(const ComputeParti
     "taskPayloadSharedEXT TaskPayload taskIn; \n"
     
     "void main() \n"
-    "{ \n";
-    code += "   uint index = taskIn.TaskID * " + std::to_string(WorkgroupSize) + " + gl_GlobalInvocationID.x; \n";
+    "{ \n"
+    "   uint index = taskIn.TaskID * " + std::to_string(WorkgroupSize) + " + gl_GlobalInvocationID.x; \n";
 
     if (a_parameters.MaxParticles % WorkgroupSize != 0)
     {
-        code += "   if (index >= " + std::to_string(a_parameters.MaxParticles) + ") \n";
-        code += "   { \n"
+        code += "   if (index >= " + std::to_string(a_parameters.MaxParticles) + ") \n"
+        "   { \n"
         "       SetMeshOutputsEXT(0, 0); \n"
         "       return; \n"
-        "} \n";
+        "   } \n";
     }
 
     switch (a_parameters.DisplayMode)

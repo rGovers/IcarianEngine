@@ -84,7 +84,7 @@ static CBBOOL WriteIcarianCSImportsToHeader(const char* a_workingPath)
     return ret;
 }
 
-static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableExperiments)
+static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableStackTrace, CBBOOL a_enableExperiments, CBBOOL a_enablePipefile)
 {
     CUBE_CSProject project = { 0 };
 
@@ -100,13 +100,26 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         CUBE_CSProject_AppendDefine(&project, "ENABLE_EXPERIMENTAL");
     }
 
+    if (a_enableStackTrace)
+    {
+        CUBE_CSProject_AppendDefine(&project, "ENABLE_STACKTRACE");
+    }
+
+    if (a_enablePipefile)
+    {
+        CUBE_CSProject_AppendDefine(&project, "ENABLE_PIPEFILE");
+    }
+
     CUBE_CSProject_AppendSources(&project, 
         "./src/Application.cs",
         "./src/AssetLibrary.cs",
         "./src/AssetLibrary.Containers.cs",
+        "./src/AssetLibrary.Loaders.cs",
+        "./src/CallStack.cs",
         "./src/Component.cs",
         "./src/EditorAngleAttribute.cs",
         "./src/EditorBitfieldAttribute.cs",
+        "./src/EditorFieldConditionalAttribute.cs",
         "./src/EditorPathStringAttribute.cs",
         "./src/EditorRangeAttribute.cs",
         "./src/EditorTooltipAttribute.cs",
@@ -156,8 +169,9 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Definitions/GameObjectDef.cs",
         "./src/Definitions/LightDef.cs",
         "./src/Definitions/MaterialDef.cs",
-        "./src/Definitions/MeshCollisionShapeDef.cs",
         "./src/Definitions/MeshRendererDef.cs",
+        "./src/Definitions/ModelCollisionShapeDef.cs",
+        "./src/Definitions/ModelRendererDef.cs",
         "./src/Definitions/NavigationMeshDef.cs",
         "./src/Definitions/ParticleSystem2DDef.cs",
         "./src/Definitions/ParticleSystemDef.cs",
@@ -168,7 +182,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Definitions/ShadowLightDef.cs",
         "./src/Definitions/SkeletonAnimatorDef.cs",
         "./src/Definitions/SkeletonClipAnimationControllerDef.cs",
-        "./src/Definitions/SkinnedMeshRendererDef.cs",
+        "./src/Definitions/SkinnedModelRendererDef.cs",
         "./src/Definitions/SphereCollisionShapeDef.cs",
         "./src/Definitions/SpotLightDef.cs",
         "./src/Definitions/TextRendererDef.cs",
@@ -205,7 +219,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Physics/Shapes/CapsuleCollisionShape.cs",
         "./src/Physics/Shapes/CollisionShape.cs",
         "./src/Physics/Shapes/CylinderCollisionShape.cs",
-        "./src/Physics/Shapes/MeshCollisionShape.cs",
+        "./src/Physics/Shapes/ModelCollisionShape.cs",
         "./src/Physics/Shapes/SphereCollisionShape.cs",
 
         "./src/Rendering/Camera.cs",
@@ -215,8 +229,10 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Rendering/Font.cs",
         "./src/Rendering/IRenderTexture.cs",
         "./src/Rendering/Material.cs",
+        "./src/Rendering/Mesh.cs",
         "./src/Rendering/MeshRenderer.cs",
         "./src/Rendering/Model.cs",
+        "./src/Rendering/ModelRenderer.cs",
         "./src/Rendering/MultiRenderTexture.cs",
         "./src/Rendering/ParticleSystem.cs",
         "./src/Rendering/ParticleSystem2D.cs",
@@ -237,7 +253,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableEx
         "./src/Rendering/Animation/Skeleton.cs",
         "./src/Rendering/Animation/SkeletonAnimator.cs",
         "./src/Rendering/Animation/SkeletonClipAnimationController.cs",
-        "./src/Rendering/Animation/SkinnedMeshRenderer.cs",
+        "./src/Rendering/Animation/SkinnedModelRenderer.cs",
 
         "./src/Rendering/Lighting/AmbientLight.cs",
         "./src/Rendering/Lighting/DirectionalLight.cs",

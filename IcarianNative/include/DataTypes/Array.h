@@ -63,17 +63,19 @@ public:
     template<typename OAlloc>
     Array(const Array<T, OAlloc>& a_other)
     {
-        m_size = a_other.m_size;
-        m_capacity = a_other.m_size;
+        m_size = a_other.Size();
+        m_capacity = m_size;
         if (m_capacity < 1)
         {
             m_capacity = 1;
         }
 
+        const T* data = a_other.Data();
+
         m_data = (T*)Alloc::Allocate(m_capacity * sizeof(T), alignof(T));
         for (uint32_t i = 0; i < m_size; ++i)
         {
-            m_data[i] = a_other.m_data[i];
+            m_data[i] = data[i];
         }
     }
     Array(const T* a_data, uint32_t a_size)

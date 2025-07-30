@@ -5,6 +5,10 @@
 using System;
 using System.Runtime.CompilerServices;
 
+#ifdef ENABLE_STACKTRACE
+using System.Diagnostics;
+#endif
+
 namespace IcarianEngine.Rendering.Shaders
 {
     public class VertexShader : IDestroy
@@ -22,7 +26,11 @@ namespace IcarianEngine.Rendering.Shaders
         [MethodImpl(MethodImplOptions.InternalCall)]
         public extern static void AddImport(string a_key, string a_value);
 
-        uint m_internalAddr = uint.MaxValue;
+        uint       m_internalAddr = uint.MaxValue;
+
+#ifdef ENABLE_STACKTRACE
+        StackTrace m_stackTrace;
+#endif
 
         /// <summary>
         /// Whether the VertexShader has been Disposed/Finalised
@@ -46,6 +54,10 @@ namespace IcarianEngine.Rendering.Shaders
         VertexShader(uint a_addr)
         {   
             m_internalAddr = a_addr;
+
+#ifdef ENABLE_STACKTRACE
+            m_stackTrace = new StackTrace(true);
+#endif
         }
 
         /// <summary>
@@ -83,7 +95,7 @@ namespace IcarianEngine.Rendering.Shaders
         /// <summary>
         /// Called when the VertexShader is being Disposed/Finalised
         /// </summary>
-        /// <param name="a_disposing">Whether it is being called from Dispose</param>
+        /// <param name="a_disposing">Determines if it was called from Dispose</param>
         protected virtual void Dispose(bool a_disposing)
         {
             if(m_internalAddr != uint.MaxValue)
@@ -94,14 +106,18 @@ namespace IcarianEngine.Rendering.Shaders
                 }
                 else
                 {
-                    Logger.IcarianWarning("VertexShader Failed to Dispose");
+                    Logger.IcarianWarning("VertexShader not Disposed");
+
+#ifdef ENABLE_STACKTRACE
+                    CallStack.PrintStackTrace(m_stackTrace);
+#endif         
                 }
 
                 m_internalAddr = uint.MaxValue;
             }
             else
             {
-                Logger.IcarianError("Multiple VertexShader Dispose");
+                Logger.IcarianError("VertexShader already Disposed");
             }
         }
         ~VertexShader()
@@ -113,7 +129,7 @@ namespace IcarianEngine.Rendering.Shaders
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
