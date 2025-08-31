@@ -43,66 +43,54 @@ namespace IcarianCore
 #endif
     }
 
-    IPCPipe* IPCPipe::Accept() const
+    IPCPipe* IPCPipe::Accept(float a_timeoutSec) const
     {
+        IERRBLOCK;
+
 #ifdef WIN32
+        const time_t timeoutSec = (time_t)a_timeoutSec;
+        const suseconds_t timeoutMicrosec = (suseconds_t)((a_timeoutSec - timeoutSec) * 1000000.0);
+
         struct timeval timeout;
-        timeout.tv_sec = 5;
-        timeout.tv_usec = 0;
+        timeout.tv_sec = timeoutSec;
+        timeout.tv_usec = timeoutMicrosec;
 
         fd_set fdSet;
         FD_ZERO(&fdSet);
         FD_SET(m_pipeSock, &fdSet);
-        if (select(m_pipeSock + 1, &fdSet, NULL, NULL, &timeout) == SOCKET_ERROR)
-        {
-            perror("select");
 
-            return nullptr;
-        }
-
-        if (!FD_ISSET(m_pipeSock, &fdSet))
-        {
-            return nullptr;
-        }
+        IERRCHECKRET(select(m_pipeSock + 1, &fdSet, NULL, NULL, &timeout) != SOCKET_ERROR, nullptr);
+        IERRCHECKRET(FD_ISSET(m_pipeSock, &fdSet), nullptr);
 
         const SOCKET pipeSock = accept(m_pipeSock, NULL, NULL);
-        if (pipeSock == INVALID_SOCKET)
-        {
-            perror("accept");
-
-            return nullptr;
-        }
+        IERRCHECKRET(pipeSock != INVALID_SOCKET, nullptr);
+        IERRDEFER(closesocket(pipeSock));
 
         IPCPipe* pipe = new IPCPipe();
         pipe->m_pipeSock = pipeSock;
+
+        return pipe;
 #else
         struct pollfd pollFd;
         pollFd.fd = m_pipeSock;
         pollFd.events = POLLIN;
 
-        if (poll(&pollFd, 1, 5000) <= 0)
-        {
-            return nullptr;
-        }
+        const int timeout = (int)(a_timeoutSec * 1000);
 
-        if (!(pollFd.revents & POLLIN))
-        {
-            return nullptr;
-        }
+        IERRCHECKRET(poll(&pollFd, 1, timeout) >= 0, nullptr);
+        IERRCHECKRET(pollFd.revents & POLLIN, nullptr);
 
         const int pipeSock = accept(m_pipeSock, NULL, NULL);
-        if (pipeSock < 0)
-        {
-            perror("accept");
-
-            return nullptr;
-        }
+        IERRCHECKRET(pipeSock >= 0, nullptr);
+        IERRDEFER(close(pipeSock));
 
         IPCPipe* pipe = new IPCPipe();
         pipe->m_pipeSock = pipeSock;
-#endif
 
         return pipe;
+#endif
+
+        return nullptr;
     }
 
     IPCPipe* IPCPipe::Connect(const std::string_view& a_pipeName)

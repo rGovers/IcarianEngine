@@ -114,6 +114,9 @@ Application::Application(Config* a_config)
 
     AssertCallbackFunc = (AssertCallback)AppAssertCallback;
 
+    DeletionQueue::Init();
+    RuntimeManager::Init();
+
     if (a_config->IsHeadless())
     {
         m_appWindow = new HeadlessAppWindow(this, a_config);
@@ -122,18 +125,15 @@ Application::Application(Config* a_config)
     {
         m_appWindow = new GLFWAppWindow(this, a_config);
     }
-    
-    DeletionQueue::Init();
-    RuntimeManager::Init();
 
     const uint32_t cacheSize = a_config->GetFileCacheSize();
     const uint32_t pipefileID = a_config->GetPipefileID();
     FileCache::Init(cacheSize, pipefileID);
-        
+
     Logger::Init();
 
     ThreadPool::Init();
-    
+
     Random::Init();
     Profiler::Init();
 

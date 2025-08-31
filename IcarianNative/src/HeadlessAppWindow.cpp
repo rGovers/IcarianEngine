@@ -22,11 +22,16 @@
 #include "Profiler.h"
 #include "Rendering/LibRenderDoc.h"
 #include "Rendering/UI/UIControl.h"
+#include "Runtime/RuntimeFunction.h"
+#include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
 [[maybe_unused]] static std::string GetAddr(const std::string_view& a_addr)
 {
-    return (std::filesystem::temp_directory_path() / a_addr).string();
+    const std::filesystem::path tmpPath = std::filesystem::temp_directory_path();
+    const std::filesystem::path addrPath = tmpPath / a_addr;
+
+    return addrPath.generic_string();
 }
 
 void HeadlessAppWindow::MessageCallback(const std::string_view& a_message, e_LoggerMessageType a_type)
@@ -87,7 +92,7 @@ void HeadlessAppWindow::ProfilerCallback(const Profiler::PData& a_profilerData)
 
 HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : AppWindow(a_app)
 {
-    TRACE("Creating headless window");
+    TRACE("Creating Headless Window");
 
     m_pipe = nullptr;
     m_flags = 0;
@@ -104,7 +109,7 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
     m_delta = 0.0;
     m_time = 0.0;
 
-    TRACE("Initialising IPC");
+    TRACE("Initializing IPC");
 
     if (a_config->IsRemote())
     {
@@ -119,14 +124,29 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
 #ifdef WIN32
         m_pipe = IcarianCore::SocketPipe::Create(9001);
 #else
-        const std::string addrStr = GetAddr(PipeName);
+        const uint32_t ipcPipeID = a_config->GetIPCID();
+        if (ipcPipeID == uint32_t(-1))
+        {
+            IERROR("Invalid IPC pipe ID");
+        }
+
+        const std::string addrStr = GetAddr(PipeName + std::to_string(ipcPipeID));
 
         m_pipe = IcarianCore::IPCPipe::Connect(addrStr);
 #endif
     }
-    
-    IVERIFY(m_pipe != nullptr);
-    IVERIFY(m_pipe->IsAlive());
+
+    if (m_pipe == nullptr || !m_pipe->IsAlive())
+    {
+        IERROR("Failed to initialize IPC pipe");
+    }
+
+    TRACE("Initializing Runtime IPC");
+
+    // This has code smell I may want to look into this more
+    // Need to think of how to do this better
+    m_runtimeMessageReceive = RuntimeManager::GetFunction("IcarianEngine", "PipeMessage", ":ReceiveMessage(string,byte[])");
+    IVERIFY(m_runtimeMessageReceive != nullptr);
 
     m_width = 1280;
     m_height = 720;
@@ -136,7 +156,7 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
 
     m_prevTime = std::chrono::high_resolution_clock::now();
 
-    TRACE("Headless Window Initialised");
+    TRACE("Headless Window Initialized");
 }
 HeadlessAppWindow::~HeadlessAppWindow()
 {
@@ -159,6 +179,8 @@ HeadlessAppWindow::~HeadlessAppWindow()
         m_frameData = nullptr;
     }
 #endif
+
+    delete m_runtimeMessageReceive;
 
     delete Logger::CallbackFunc;
     Logger::CallbackFunc = nullptr;
@@ -354,6 +376,42 @@ bool HeadlessAppWindow::PollMessage()
 
             break;
         }
+        case IcarianCore::PipeMessageType_RuntimeMessage:
+        {
+            const char* str = (char*)msg.Data;
+            const char* strEnd = str;
+            while (*strEnd != 0)
+            {
+                ++strEnd;
+            }
+            ++strEnd;
+
+            IVERIFY(strEnd - str < msg.Length);
+
+            const uintptr_t len = msg.Length - (strEnd - str);
+            const uint8_t* data = (uint8_t*)strEnd;
+
+            MonoDomain* domain = RuntimeManager::GetDomain();
+            MonoClass* byteClass = mono_get_byte_class();
+            MonoArray* runtimeDataArr = mono_array_new(domain, byteClass, len);
+
+            for (uintptr_t i = 0; i < len; ++i)
+            {
+                mono_array_set(runtimeDataArr, mono_byte, i, data[i]);
+            }
+
+            MonoString* runtimeStr = mono_string_new(domain, str);
+
+            void* args[] =
+            {
+                runtimeStr,
+                runtimeDataArr
+            };
+
+            m_runtimeMessageReceive->Exec(args);
+
+            break;
+        }
         case IcarianCore::PipeMessageType_Null:
         {
             IWARN("Null Message");
@@ -448,7 +506,7 @@ void HeadlessAppWindow::Update()
 
     {
         PROFILESTACK("Messages");
-        
+
         PushMessageQueue();
     }
 }

@@ -2,48 +2,45 @@
 // 
 // License at end of file.
 
-#pragma once
+using System.Collections.Concurrent;
 
-#ifdef WIN32
-#include "Core/WindowsHeaders.h"
-#endif
-
-#include "Core/CommunicationPipe.h"
-#include "Core/PipeMessage.h"
-
-#include <queue>
-#include <string_view>
-
-namespace IcarianCore
-{   
-    class IPCPipe : public CommunicationPipe
+namespace IcarianEngine
+{
+    public static class PipeMessage
     {
-    private:
-#ifdef WIN32
-        SOCKET m_pipeSock;
-#else
-        int    m_pipeSock;
-#endif
+        public delegate void MessageCallback(string a_type, byte[] a_data);
 
-        bool   m_closed;
+        static ConcurrentDictionary<string, MessageCallback> s_callbacks;
 
-        IPCPipe();
+        static void Init()
+        {
+            s_callbacks = new ConcurrentDictionary<string, MessageCallback>();
+        }
 
-    protected:
+        static void ReceiveMessage(string a_type, byte[] a_data)
+        {
+            MessageCallback callback;
+            if (!s_callbacks.TryGetValue(a_type, out callback))
+            {
+                return;
+            }
 
-    public:
-        virtual ~IPCPipe();
+            if (callback != null)
+            {
+                callback(a_type, a_data);
+            }
+        }
+        public static bool AddCallback(string a_type, MessageCallback a_callback)
+        {
+            MessageCallback callback;
+            if (s_callbacks.TryGetValue(a_type, out callback))
+            {
+                return s_callbacks.TryUpdate(a_type, a_callback, callback);
+            }
 
-        IPCPipe* Accept(float a_timeoutSec) const;
-
-        static IPCPipe* Connect(const std::string_view& a_pipeName);
-        static IPCPipe* Create(const std::string_view& a_pipeName);
-
-        virtual bool IsAlive() const;
-
-        virtual bool Send(const PipeMessage& a_msg);
-        virtual bool Receive(std::queue<PipeMessage>* a_messages);
-    };
+            return s_callbacks.TryAdd(a_type, a_callback);
+        }
+    }
 }
 
 // MIT License

@@ -132,6 +132,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableSt
         "./src/JobScheduler.cs",
         "./src/Logger.cs",
         "./src/NativeLock.cs",
+        "./src/PipeMessage.cs",
         "./src/PrimitiveGenerator.cs",
         "./src/Profiler.cs",
         "./src/Program.cs",

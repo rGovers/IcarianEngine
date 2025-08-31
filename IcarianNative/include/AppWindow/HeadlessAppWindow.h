@@ -20,6 +20,7 @@
 
 class Config;
 class RingAllocator;
+class RuntimeFunction;
 
 class HeadlessAppWindow : public AppWindow
 {
@@ -41,7 +42,7 @@ private:
         ProfileTFrame Frames[FrameMax];
     };
 
-    static constexpr char PipeName[] = "IcarianEngine-IPC";
+    static constexpr char PipeName[] = "IcarianEditor-IPC";
     static constexpr uint32_t CloseBit = 0;
     static constexpr uint32_t RemoteBit = 1;
 
@@ -49,9 +50,11 @@ private:
 
     TArray<IcarianCore::PipeMessage>               m_queuedMessages;
 
+    RuntimeFunction*                               m_runtimeMessageReceive;
+
 #ifndef ICARIANNATIVE_ENABLE_DMA
     std::mutex                                     m_fLock;
-    volatile bool                                  m_unlockWindow;    
+    volatile bool                                  m_unlockWindow;
     uint64_t                                       m_windowFrame;
     uint64_t                                       m_gpuFrame;
     char*                                          m_frameData;

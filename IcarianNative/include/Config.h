@@ -26,9 +26,10 @@ private:
     uint32_t          m_fileCacheSize = 256;
 
     uint32_t          m_pipefileID = uint32_t(-1);
+    uint32_t          m_ipcId = uint32_t(-1);
 
     std::string       m_appName = std::string(DefaultAppName);
-    
+
     uint16_t          m_remotePort = 9001;
     e_RenderingEngine m_renderingEngine = RenderingEngine_Vulkan;
 
@@ -75,6 +76,15 @@ public:
     inline void SetPipefileID(uint32_t a_id)
     {
         m_pipefileID = a_id;
+    }
+
+    inline uint32_t GetIPCID() const
+    {
+        return m_ipcId;
+    }
+    inline void SetIPCID(uint32_t a_value)
+    {
+        m_ipcId = a_value;
     }
 
     inline bool ForceMesh() const
