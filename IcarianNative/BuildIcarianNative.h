@@ -157,7 +157,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "../EngineInterop",
 
         "../IcarianCore/include",
-        
+
         "../deps/assimp/include",
         "../deps/gen/assimp",
         "../deps/glfw/include",
@@ -242,7 +242,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "./src/VideoClip.cpp",
         "./src/VideoManager.cpp",
         "./src/VideoManagerBindings.cpp",
-        
+
         "./src/WAVAudioClip.cpp"
     );
 
@@ -268,6 +268,58 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "../IcarianCore/include/Core/SocketPipe.h",
         "../IcarianCore/include/Core/StringUtils.h",
         "../IcarianCore/include/Core/WindowsHeaders.h",
+
+        "../EngineInterop/EngineAmbientLightInteropStructures.h",
+        "../EngineInterop/EngineAnimationClipInteropStructures.h",
+        "../EngineInterop/EngineApplicationInteropStructures.h",
+        "../EngineInterop/EngineAudioClipInterop.h",
+        "../EngineInterop/EngineAudioListenerInterop.h",
+        "../EngineInterop/EngineAudioMixerInterop.h",
+        "../EngineInterop/EngineAudioSourceInterop.h",
+        "../EngineInterop/EngineAudioSourceInteropStructures.h",
+        "../EngineInterop/EngineBoxCollisionShapeInterop.h",
+        "../EngineInterop/EngineCanvasInterop.h",
+        "../EngineInterop/EngineCanvasInteropStructures.h",
+        "../EngineInterop/EngineCapsuleCollisionShapeInterop.h",
+        "../EngineInterop/EngineCharacterControllerInterop.h",
+        "../EngineInterop/EngineCollisionShapeInterop.h",
+        "../EngineInterop/EngineCylinderCollisionShapeInterop.h",
+        "../EngineInterop/EngineDirectionalLightInteropStructures.h",
+        "../EngineInterop/EngineFontInterop.h",
+        "../EngineInterop/EngineIcarianAssemblyInterop.h",
+        "../EngineInterop/EngineImageUIElementInterop.h",
+        "../EngineInterop/EngineInputInterop.h",
+        "../EngineInterop/EngineInputInteropStructures.h",
+        "../EngineInterop/EngineLightInteropStructures.h",
+        "../EngineInterop/EngineMaterialInteropStructures.h",
+        "../EngineInterop/EngineModelCollisionShapeInterop.h",
+        "../EngineInterop/EngineNavigationMeshInterop.h",
+        "../EngineInterop/EngineNetworkClientInterop.h",
+        "../EngineInterop/EngineNetworkInteropStructures.h",
+        "../EngineInterop/EngineNetworkServerInterop.h",
+        "../EngineInterop/EngineParticleSystemInteropStructures.h",
+        "../EngineInterop/EnginePhysicsBodyInterop.h",
+        "../EngineInterop/EnginePhysicsBodyInteropStructures.h",
+        "../EngineInterop/EnginePhysicsInterop.h",
+        "../EngineInterop/EnginePhysicsInteropStructures.h",
+        "../EngineInterop/EnginePointLightInteropStructures.h",
+        "../EngineInterop/EngineRenderCommandInteropStructures.h",
+        "../EngineInterop/EngineRigidBodyInterop.h",
+        "../EngineInterop/EngineRigidBodyInteropStructures.h",
+        "../EngineInterop/EngineSkeletonInteropStructures.h",
+        "../EngineInterop/EngineSphereCollisionShapeInterop.h",
+        "../EngineInterop/EngineSpotLightInteropStructures.h",
+        "../EngineInterop/EngineTextUIElementInterop.h",
+        "../EngineInterop/EngineTextureSamplerInteropStructures.h",
+        "../EngineInterop/EngineTimeInterop.h",
+        "../EngineInterop/EngineTransformInterop.h",
+        "../EngineInterop/EngineTransformInteropStructures.h",
+        "../EngineInterop/EngineTriggerBodyInterop.h",
+        "../EngineInterop/EngineUIElementInterop.h",
+        "../EngineInterop/EngineUIElementInteropStuctures.h",
+        "../EngineInterop/EngineVideoClipInterop.h",
+        "../EngineInterop/InteropBinding.h",
+        "../EngineInterop/InteropTypes.h",
 
         "./include/AI/Navigation.h",
         "./include/AI/NavigationBindings.h",
@@ -301,7 +353,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
 
         "./include/FileHandles/CacheFileHandle.h",
         "./include/FileHandles/FileHandle.h",
-        "./include/FileHandles/PipeFileHandle",
+        "./include/FileHandles/PipeFileHandle.h",
         "./include/FileHandles/ReadFileHandle.h",
 
         "./include/Networking/NetworkClient.h",
@@ -401,7 +453,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     {
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_GRAPHICS_RENDERDOC");
     }
-    
+
     CUBE_CProject_AppendSource(&project, "./src/Library/LibRenderDoc.cpp");
 
     // Keeping it on for now just breaking it out in preperation for platform configuration
@@ -555,7 +607,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         CUBE_CProject_AppendCFlag(&project, "-mavx");
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
-        
+
         CUBE_CProject_AppendCFlag(&project, "-flto=auto");
         CUBE_CProject_AppendCFlag(&project, "-fwhole-program");
 

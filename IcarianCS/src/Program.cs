@@ -18,7 +18,7 @@ namespace IcarianEngine
         static void Init(string[] a_args)
         {
             Logger.IcarianMessage("Started");
-            
+
             ThreadPool.Init();
             JobScheduler.Init();
 
@@ -31,6 +31,8 @@ namespace IcarianEngine
                     Application.WorkingDirectory = arg.Substring(WorkingDirArg.Length + 1);
                 }
             }
+
+            PipeMessage.Init();
 
             ShaderImports.Init();
             Material.InternalInit();
@@ -64,18 +66,18 @@ namespace IcarianEngine
         {
             ModControl.Close();
 
+            GameObject.DestroyObjects();
+
             DefLibrary.Clear();
             AssetLibrary.ClearAssets();
-
-            GameObject.DestroyObjects();
 
             Material.InternalDestroy();
             RenderPipeline.Destroy();
 
-            Logger.IcarianMessage("Shutdown");
-
             ThreadPool.Destroy();
             JobScheduler.Destroy();
+
+            Logger.IcarianMessage("Shutdown");
         }
 
         static void Update(double a_delta, double a_time)
@@ -118,16 +120,16 @@ namespace IcarianEngine
         // It is weird that using the .NET compiler on Windows causes issues not gonna question it but
         static void Main(string[] a_args)
         {
-            
+
         }
     }
-    
+
     /// @endcond
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

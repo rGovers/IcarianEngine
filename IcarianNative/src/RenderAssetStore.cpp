@@ -50,6 +50,42 @@ void RenderAssetStore::Update()
     }
 
     {
+        const Array<bool> state = m_meshes.ToStateArray();
+        TLockArray<RenderAsset> a = m_meshes.ToLockArray();
+        const uint32_t size = state.Size();
+
+        for (uint32_t i = 0; i < size; ++i)
+        {
+            if (!state[i])
+            {
+                continue;
+            }
+
+            RenderAsset& asset = a[i];
+            if (asset.InternalAddress == uint32_t(-1))
+            {
+                continue;
+            }
+
+            if (IISBITSET(asset.Flags, RenderAsset::MarkBit))
+            {
+                asset.DeReq = 0;
+                ICLEARBIT(asset.Flags, RenderAsset::MarkBit);
+            }
+            else
+            {
+                ++asset.DeReq;
+            }
+
+            if (asset.DeReq > RenderAssetStore::DeReqCount)
+            {
+                m_renderEngine->DestroyMesh(asset.InternalAddress);
+                asset.InternalAddress = -1;
+            }
+        }
+    }
+
+    {
         const Array<bool> state = m_models.ToStateArray();
         TLockArray<RenderAsset> a = m_models.ToLockArray();
         const uint32_t size = state.Size();
@@ -84,7 +120,7 @@ void RenderAssetStore::Update()
             }
         }
     }
-    
+
     {
         const Array<bool> state = m_textures.ToStateArray();
         TLockArray<RenderAsset> a = m_textures.ToLockArray();
@@ -123,7 +159,30 @@ void RenderAssetStore::Update()
 }
 void RenderAssetStore::Flush()
 {
-    {   
+    {
+        const Array<bool> state = m_meshes.ToStateArray();
+        TLockArray<RenderAsset> a = m_meshes.ToLockArray();
+        const uint32_t size = state.Size();
+
+        for (uint32_t i = 0; i < size; ++i)
+        {
+            if (!state[i])
+            {
+                continue;
+            }
+
+            RenderAsset& asset = a[i];
+            if (asset.InternalAddress == uint32_t(-1))
+            {
+                continue;
+            }
+
+            m_renderEngine->DestroyMesh(asset.InternalAddress);
+            asset.InternalAddress = -1;
+        }
+    }
+
+    {
         const Array<bool> state = m_models.ToStateArray();
         TLockArray<RenderAsset> a = m_models.ToLockArray();
         const uint32_t size = state.Size();
@@ -145,7 +204,7 @@ void RenderAssetStore::Flush()
             asset.InternalAddress = -1;
         }
     }
-    
+
     {
         const Array<bool> state = m_textures.ToStateArray();
         TLockArray<RenderAsset> a = m_textures.ToLockArray();
@@ -170,7 +229,7 @@ void RenderAssetStore::Flush()
     }
 }
 
-static void LoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_rSqr)
+static void AILoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_rSqr)
 {
     const uint32_t startIndex = a_vertices->Size();
 
@@ -298,13 +357,13 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
         {
             IERRCHECKRET(a_data < scene->mNumMeshes, false);
 
-            LoadMesh(scene->mMeshes[a_data], a_vertices, a_indices, &radSqr);
+            AILoadMesh(scene->mMeshes[a_data], a_vertices, a_indices, &radSqr);
         }
         else
         {
             for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
             {
-                LoadMesh(scene->mMeshes[i], a_vertices, a_indices, &radSqr);
+                AILoadMesh(scene->mMeshes[i], a_vertices, a_indices, &radSqr);
             }
         }
 
@@ -355,6 +414,160 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
     }
 
     return false;
+}
+
+uint32_t RenderAssetStore::LoadMeshData(const std::string_view& a_path, uint8_t a_index)
+{
+    IERRBLOCK;
+
+    Array<Vertex> vertices;
+    Array<uint32_t> indices;
+    float radius;
+    IERRCHECKRET(LoadModelData(a_path, a_index, &vertices, &indices, &radius), -1);
+
+    IERRCHECKRET(radius > 0, -1);
+
+    const uint32_t vertexCount = vertices.Size();
+    IERRCHECKRET(vertexCount > 0, -1);
+
+    const uint32_t indexCount = indices.Size();
+    IERRCHECKRET(indexCount > 0, -1);
+
+    constexpr uint32_t MeshletTriangleCount = 124;
+    constexpr uint32_t MeshletVertexCount = 64;
+
+    const size_t maxMeshletCount = meshopt_buildMeshletsBound(indexCount, MeshletVertexCount, MeshletTriangleCount);
+    IERRCHECKRET(maxMeshletCount > 0, -1);
+
+    meshopt_Meshlet* meshoptMeshlets = new meshopt_Meshlet[maxMeshletCount];
+    IDEFER(delete[] meshoptMeshlets);
+
+    uint32_t* meshletVertices = new uint32_t[maxMeshletCount * MeshletVertexCount];
+    IDEFER(delete[] meshletVertices);
+    uint8_t* meshletTriangles = new uint8_t[maxMeshletCount * MeshletTriangleCount * 3];
+    IDEFER(delete[] meshletTriangles);
+
+    const size_t meshletCount = meshopt_buildMeshlets
+    (
+        meshoptMeshlets,
+        meshletVertices,
+        meshletTriangles,
+        indices.Data(),
+        indexCount,
+        (float*)vertices.Data(),
+        vertexCount,
+        sizeof(Vertex),
+        MeshletVertexCount,
+        MeshletTriangleCount,
+        0.0f
+    );
+
+    IcarianCore::ShaderMeshletBuffer* meshlets = new IcarianCore::ShaderMeshletBuffer[meshletCount];
+    IDEFER(delete[] meshlets);
+
+    uint32_t meshletVertexCount = 0;
+    uint32_t meshletTriangleCount = 0;
+    for (size_t i = 0; i < meshletCount; ++i)
+    {
+        const meshopt_Meshlet& m = meshoptMeshlets[i];
+
+        uint8_t* mTriangles = meshletTriangles + m.triangle_offset;
+        uint32_t* mVertices = meshletVertices + m.vertex_offset;
+
+        meshletVertexCount += m.vertex_count;
+        meshletTriangleCount += m.triangle_count;
+
+        meshopt_optimizeMeshlet(mVertices, mTriangles, m.triangle_count, m.vertex_count);
+
+        glm::vec3 max = glm::vec3(std::numeric_limits<float>::min());
+        glm::vec3 min = glm::vec3(std::numeric_limits<float>::max());
+
+        for (uint32_t j = 0; j < m.vertex_count; ++j)
+        {
+            const uint32_t index = (uint32_t)meshletVertices[i];
+
+            const float* vPtr = (float*)(vertices.Data() + index);
+
+            max.x = glm::max(vPtr[0], max.x);
+            max.y = glm::max(vPtr[1], max.y);
+            max.z = glm::max(vPtr[2], max.z);
+
+            min.x = glm::min(vPtr[0], min.x);
+            min.y = glm::min(vPtr[1], min.y);
+            min.z = glm::min(vPtr[2], min.z);
+        }
+
+        const glm::vec3 bounds = max - min;
+        const glm::vec3 halfBounds = bounds * 0.5f;
+
+        const glm::vec3 center = min + halfBounds;
+        const float radius = glm::length(halfBounds);
+
+        meshlets[i].Data = glm::uvec4(m.vertex_offset, m.triangle_offset, m.vertex_count, m.triangle_count);
+        meshlets[i].Bounds = glm::vec4(center, radius);
+    }
+
+    return m_renderEngine->GenerateMesh
+    (
+        vertices.Data(),
+        vertexCount,
+        sizeof(Vertex),
+        meshletVertices,
+        meshletVertexCount,
+        meshletTriangles,
+        meshletTriangleCount,
+        meshlets,
+        meshletCount,
+        radius
+    );
+}
+uint32_t RenderAssetStore::LoadMesh(const std::string_view& a_path, uint8_t a_index)
+{
+    const uint32_t addr = LoadMeshData(a_path, a_index);
+    if (addr == uint32_t(-1))
+    {
+        return -1;
+    }
+
+    const RenderAsset asset =
+    {
+        .Path = std::string(a_path),
+        .InternalAddress = addr,
+        // .InternalAddress = uint32_t(-1),
+        .Data = a_index,
+    };
+
+    return m_meshes.PushVal(asset);
+}
+void RenderAssetStore::DestroyMesh(uint32_t a_addr)
+{
+    IVERIFY(m_meshes.Exists(a_addr));
+
+    const RenderAsset asset = m_meshes[a_addr];
+    IDEFER(
+    if (asset.InternalAddress != uint32_t(-1))
+    {
+        m_renderEngine->DestroyMesh(asset.InternalAddress);
+    });
+
+    m_meshes.Erase(a_addr);
+}
+uint32_t RenderAssetStore::GetMesh(uint32_t a_addr)
+{
+    IVERIFY(m_meshes.Exists(a_addr));
+
+    TLockArray<RenderAsset> a = m_meshes.ToLockArray();
+
+    RenderAsset& asset = a[a_addr];
+    if (asset.InternalAddress == uint32_t(-1))
+    {
+        asset.InternalAddress = LoadMeshData(asset.Path, asset.Data);
+    }
+
+    asset.DeReq = 0;
+    ISETBIT(asset.Flags, RenderAsset::MarkBit);
+
+    return asset.InternalAddress;
 }
 
 uint32_t RenderAssetStore::LoadModel(const std::string_view& a_path, uint8_t a_index)
@@ -558,7 +771,7 @@ void RenderAssetStore::DestroyModel(uint32_t a_addr)
     {
         m_renderEngine->DestroyModel(asset.InternalAddress);
     });
-    
+
     m_models.Erase(a_addr);
 }
 
@@ -586,12 +799,12 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
             {
                 return -1;
             }
-        
+
             if (vertices.Empty() || indices.Empty() || radius <= 0)
             {
                 return -1;
             }
-            
+
             asset.InternalAddress = m_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), VertexStride, indices.Data(), indices.Size(), radius);
         }
     }

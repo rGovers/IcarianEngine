@@ -165,7 +165,17 @@ private:
     vk::CommandBuffer StartCommandBuffer(uint32_t a_bufferIndex, uint32_t a_index) const;
 
     void Draw(bool a_forward, const CameraBuffer& a_camBuffer, const Frustum& a_frustum, VulkanRenderCommand* a_renderCommand, uint32_t a_frameIndex);
-    void DrawShadow(const glm::mat4& a_lvp, float a_split, const glm::vec2& a_bias, uint32_t a_renderLayer, uint32_t a_renderTexture, bool a_cube, vk::CommandBuffer a_commandBuffer, uint32_t a_index);
+    void DrawShadow
+    (
+        const glm::mat4& a_lvp,
+        float a_split,
+        const glm::vec2& a_bias,
+        uint32_t a_renderLayer,
+        uint32_t a_renderTexture,
+        bool a_cube,
+        vk::CommandBuffer a_commandBuffer,
+        uint32_t a_index
+    );
 
     VulkanCommandBuffer DirectionalShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
     VulkanCommandBuffer PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex);
@@ -237,12 +247,45 @@ public:
         return m_timeUniform;
     }
 
-    [[nodiscard]] uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius);
+    [[nodiscard]] uint32_t GenerateMesh
+    (
+        const void* a_vertices,
+        uint32_t a_vertexCount,
+        uint16_t a_vertexStride,
+        const uint32_t* a_meshletVertices,
+        uint32_t a_meshletVertexCount,
+        const uint8_t* a_meshletTriangles,
+        uint32_t a_meshletTriangleCount,
+        const IcarianCore::ShaderMeshletBuffer* a_meshlets,
+        uint32_t a_meshletCount,
+        float a_radius
+    );
+    void DestroyMesh(uint32_t a_addr);
+    VulkanMesh* GetMesh(uint32_t a_addr);
+
+    [[nodiscard]] uint32_t GenerateModel
+    (
+        const void* a_vertices,
+        uint32_t a_vertexCount,
+        uint16_t a_vertexStride,
+        const uint32_t* a_indices,
+        uint32_t a_indexCount,
+        float a_radius
+    );
     void DestroyModel(uint32_t a_addr);
     VulkanModel* GetModel(uint32_t a_addr);
 
     [[nodiscard]] uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);
-    [[nodiscard]] uint32_t GenerateMipMappedTexture(uint32_t a_width, uint32_t a_height, uint32_t a_levels, const uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize);
+    [[nodiscard]] uint32_t GenerateMipMappedTexture
+    (
+        uint32_t a_width, 
+        uint32_t a_height,
+        uint32_t a_levels,
+        const uint64_t* a_offsets,
+        e_TextureFormat a_format,
+        const void* a_data,
+        uint64_t a_dataSize
+    );
     void DestroyTexture(uint32_t a_addr);
     VulkanTexture* GetTexture(uint32_t a_addr);
 
@@ -258,7 +301,14 @@ public:
     PointLightBuffer GetPointLight(uint32_t a_addr);
     SpotLightBuffer GetSpotLight(uint32_t a_addr);
 
-    [[nodiscard]] uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
+    [[nodiscard]] uint32_t GenerateTextureSampler
+    (
+        uint32_t a_textureAddr,
+        e_TextureMode a_textureMode,
+        e_TextureFilter a_filterMode,
+        e_TextureAddress a_addressMode,
+        uint32_t a_slot = 0
+    );
     void DestroyTextureSampler(uint32_t a_addr);
     TextureSamplerBuffer GetTextureSampler(uint32_t a_addr);
 };

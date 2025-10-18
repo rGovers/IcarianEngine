@@ -61,6 +61,8 @@ static void ChangeConfig(const char* a_arg, Config* a_config)
     constexpr uint32_t PipefileStrLen = sizeof(PipefileStr) - 1;
     constexpr char IPCIDStr[] = "--ipc-id";
     constexpr uint32_t IPCIDStrLen = sizeof(IPCIDStr) - 1;
+    constexpr char ThreadCountStr[] = "--threads";
+    const uint32_t ThreadCountStrLen = sizeof(ThreadCountStr) - 1;
 
     switch (StringHash(a_arg))
     {
@@ -162,6 +164,28 @@ static void ChangeConfig(const char* a_arg, Config* a_config)
             }
 
             a_config->SetIPCID((uint32_t)val);
+        }
+        else if (strncmp(a_arg, ThreadCountStr, ThreadCountStrLen) == 0)
+        {
+            const char* slider = a_arg;
+            while (*slider != '=' && *slider != 0)
+            {
+                ++slider;
+            }
+
+            if (*slider == 0)
+            {
+                return;
+            }
+            ++slider;
+
+            const unsigned long long val = std::stoll(slider);
+            if (val > std::numeric_limits<uint32_t>::max())
+            {
+                IERROR("Invalid thread count");
+            }
+
+            a_config->SetThreadCount((uint32_t)val);
         }
 
         break;

@@ -306,6 +306,53 @@ namespace IcarianEngine
             }, a_priority);
         }
 
+        /// <summary>
+        /// Loads a <see cref="IcarianEngine.Rendering.Mesh" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" />
+        /// </summary>
+        /// Lifetime managed by AssetLibrary
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Mesh" /></param>
+        /// <returns>The <see cref="IcarianEngine.Rendering.Mesh" /> if it was loaded successfully, null otherwise</returns>
+        /// @see IcarianEngine.Rendering.Mesh.LoadMesh
+        public static Mesh LoadMesh(string a_path)
+        {
+            return LoadData<Mesh, MeshContainer>(a_path, s_meshes);
+        }
+        /// <summary>
+        /// Loads a <see cref="IcarianEngine.Rendering.Mesh" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> asynchornously
+        /// </summary>
+        /// <param name="a_path">The path to the <see cref="IcarianEngine.Rendering.Mesh" /></param>
+        /// <param name="a_callback">The callback to call when the <see cref="IcarianEngine.Rendering.Mesh" /> is loaded</param>
+        /// <param name="a_priority">The priority of the job</param>
+        /// @see IcarianEngine.Rendering.Mesh.LoadMesh
+        public static void LoadMeshAsync(string a_path, LoadMeshCallback a_callback, JobPriority a_priority = JobPriority.Medium)
+        {
+            if (string.IsNullOrWhiteSpace(a_path))
+            {
+                Logger.IcarianWarning("Null Mesh path");
+
+                if (a_callback != null)
+                {
+                    a_callback(null, LoadStatus.Failed);
+                }
+
+                return;
+            }
+
+            s_meshes.TryAdd(a_path, new MeshContainer());
+
+            ThreadPool.PushJob(() =>
+            {
+                LoadStatus status;
+
+                Mesh mesh = LoadInternalData<Mesh, MeshContainer>(a_path, s_meshes, out status);
+
+                if (a_callback != null)
+                {
+                    a_callback(mesh, status);
+                }
+            }, a_priority);
+        }
+
         internal static Model LoadModelInternal(string a_path, byte a_index, out LoadStatus a_status)
         {
             a_status = LoadStatus.Failed;
@@ -382,7 +429,7 @@ namespace IcarianEngine
                 case LoadStatus.Unloaded:
                 {
                     c.WaitHandle.WaitOne();
-                    
+
                     break;
                 }
                 case LoadStatus.Failed:
@@ -523,7 +570,7 @@ namespace IcarianEngine
                 case LoadStatus.Unloaded:
                 {
                     c.WaitHandle.WaitOne();
-                    
+
                     break;
                 }
                 case LoadStatus.Failed:

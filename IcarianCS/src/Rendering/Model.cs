@@ -36,7 +36,7 @@ namespace IcarianEngine.Rendering
 #endif
 
         /// <summary>
-        /// Whether the model has been disposed
+        /// Whether the Model has been Disposed/Finalized
         /// </summary>
         public bool IsDisposed
         {
@@ -141,9 +141,9 @@ namespace IcarianEngine.Rendering
         /// Loads a Model from a file
         /// </summary>
         /// <param name="a_path">The path to the Model</param>
-        /// <param name="a_modelIndex">The <odel index to load in the file</param>
+        /// <param name="a_modelIndex">The Model index to load in the file. byte.MaxValue to load all</param>
         /// <returns>The Model. Null on failure.</returns>
-        /// Uses Type <see cref="Icarianengine.Rendering.Vertex" /> for the model.
+        /// Uses Type <see cref="Icarianengine.Rendering.Vertex" /> for the Model.
         /// Supported formats: 
         ///     .obj,
         ///     .fbx,
@@ -216,7 +216,7 @@ namespace IcarianEngine.Rendering
                 }
                 else
                 {
-                    Logger.IcarianError("Model not Disposed");
+                    Logger.IcarianError("Model was not Disposed");
 
 #ifdef ENABLE_STACKTRACE
                     CallStack.PrintStackTrace(m_stackTrace);

@@ -59,7 +59,7 @@ RUNTIME_FUNCTION(MonoArray*, Application, GetMonitors,
     {
         delete[] appMonitors;
     });
-    
+
     if (monitorCount > 0 && appMonitors != NULL)
     {
         MonoDomain* domain = RuntimeManager::GetDomain();
@@ -80,7 +80,7 @@ RUNTIME_FUNCTION(MonoArray*, Application, GetMonitors,
 
             mono_array_set(arr, Monitor, i, monitor);
         }
-    }   
+    }
 
     return arr;
 })
@@ -132,7 +132,7 @@ Application::Application(Config* a_config)
 
     Logger::Init();
 
-    ThreadPool::Init();
+    ThreadPool::Init(a_config);
 
     Random::Init();
     Profiler::Init();
@@ -263,7 +263,7 @@ void Application::Run(int32_t a_argc, char* a_argv[])
 
             {
                 PROFILESTACK("Audio");
-                
+
                 m_audioEngine->Update();
             }
 
@@ -271,7 +271,7 @@ void Application::Run(int32_t a_argc, char* a_argv[])
 
             {
                 PROFILESTACK("Physics");
-                
+
                 m_physicsEngine->Update(delta, m_timeScale);
             }
 

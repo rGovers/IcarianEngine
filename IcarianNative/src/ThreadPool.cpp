@@ -6,7 +6,9 @@
 
 #include <glm/glm.hpp>
 
+#include "Config.h"
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianLambda.h"
 #include "IcarianError.h"
 #include "Logger.h"
 #include "Runtime/RuntimeManager.h"
@@ -72,7 +74,7 @@ ThreadPool::~ThreadPool()
         m_jobQueue.pop();
 
         delete job;
-    }   
+    }
 
     delete m_runtimeDispatch;
 
@@ -118,18 +120,30 @@ void ThreadPool::Stop()
     }
 }
 
-void ThreadPool::Init()
+void ThreadPool::Init(const Config* a_config)
 {
     if (Instance == nullptr)
     {
-        TRACE("Starting thread pool");
-
-        // Should give me a lot of threads without overallocating unless the system is really bad (<= 4 threads) and/or Mono says fuck you JIT/GC time
-        Instance = new ThreadPool(glm::max((uint32_t)std::thread::hardware_concurrency() / 2, 2U));
-        // Instance = new ThreadPool(2);
-        Instance->Start();
-
         THREADPOOL_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
+
+        TRACE("Starting thread pool");
+        const uint32_t threadCount = ILAMBDA(
+        {
+            uint32_t val = a_config->GetThreadCount();
+            if (val == uint32_t(-1))
+            {
+                // Should give me a lot of threads without overallocating unless the system is really bad (<= 4 threads) and/or Mono says fuck you JIT/GC time
+                val = (uint32_t)std::thread::hardware_concurrency() / 2;
+            }
+
+            // Clamp the value so we have atleast 1 high priority 1 low priority thread
+            val = glm::max(val, 2U);
+
+            ILRETURN val;
+        });
+
+        Instance = new ThreadPool(threadCount);
+        Instance->Start();
     }
 }
 void ThreadPool::Destroy()
@@ -219,7 +233,7 @@ void ThreadPool::PushJob(ThreadJob* a_job)
 
         Instance->m_jobQueue.push(a_job);
     }
-    
+
     Instance->m_jobAvailable.notify_one();
 }
 
@@ -267,7 +281,7 @@ void ThreadPool::Run(uint32_t a_thread, e_JobPriority a_priority)
             {
                 job = nullptr;
 
-                noif = true;                
+                noif = true;
 
                 continue;
             }
@@ -296,7 +310,7 @@ void ThreadPool::Dispath(uint32_t a_objectAddr)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

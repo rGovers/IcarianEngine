@@ -24,7 +24,7 @@ namespace IcarianEngine.Rendering
         bool     m_visible = true;
 
         uint     m_bufferAddr = uint.MaxValue;
-        uint     m_indexCount = 0;
+        uint     m_indexCount = uint.MaxValue;
 
         Mesh     m_mesh = null;
 
@@ -169,20 +169,32 @@ namespace IcarianEngine.Rendering
                 m_bufferAddr = uint.MaxValue;
             }
 
-            if (m_material != null && m_indexCount > 0)
+            if (m_material == null)
             {
-                uint meshAddr = uint.MaxValue;
-                if (m_mesh != null)
-                {
-                    meshAddr = m_mesh.InternalAddr;
-                }
+                return;
+            }
 
-                m_bufferAddr = GenerateBuffer(Transform.InternalAddr, m_material.InternalAddr, meshAddr, m_indexCount);
+            if (m_mesh == null && m_indexCount == uint.MaxValue)
+            {
+                return;
+            }
 
-                if (m_visible)
-                {
-                    GenerateRenderStack(m_bufferAddr);
-                }
+            if (m_indexCount <= 0)
+            {
+                return;
+            }
+
+            uint meshAddr = uint.MaxValue;
+            if (m_mesh != null)
+            {
+                meshAddr = m_mesh.InternalAddr;
+            }
+
+            m_bufferAddr = GenerateBuffer(Transform.InternalAddr, m_material.InternalAddr, meshAddr, m_indexCount);
+
+            if (m_visible)
+            {
+                GenerateRenderStack(m_bufferAddr);
             }
         }
 
@@ -255,7 +267,7 @@ namespace IcarianEngine.Rendering
         {
             Dispose(false);
         }
-    }   
+    }
 }
 
 // MIT License

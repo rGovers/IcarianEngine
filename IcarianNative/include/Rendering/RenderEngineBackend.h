@@ -6,6 +6,7 @@
 
 #include <cstdint>
 
+#include "Core/ShaderBuffers.h"
 #include "Rendering/TextureData.h"
 #include "Rendering/RenderDeviceInfo.h"
 
@@ -18,7 +19,7 @@ class RenderEngineBackend
 {
 private:
     RenderEngine* m_renderEngine;
-    
+
 protected:
 
 public:
@@ -47,6 +48,21 @@ public:
         return -1;
     }
 
+    virtual uint32_t GenerateMesh
+    (
+        const void* a_vertices,
+        uint32_t a_vertexCount,
+        uint16_t a_vertexStride,
+        const uint32_t* a_meshletVertices,
+        uint32_t a_meshletVertexCount,
+        const uint8_t* a_meshletTriangles,
+        uint32_t a_meshletTriangleCount,
+        const IcarianCore::ShaderMeshletBuffer* a_meshlets,
+        uint32_t a_meshletCount,
+        float a_radius
+    ) = 0;
+    virtual void DestroyMesh(uint32_t a_addr) = 0;
+
     virtual uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius) = 0;
     virtual void DestroyModel(uint32_t a_addr) = 0;
 
@@ -62,7 +78,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

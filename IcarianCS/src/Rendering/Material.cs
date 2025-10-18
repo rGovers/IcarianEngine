@@ -64,17 +64,31 @@ namespace IcarianEngine.Rendering
         /// Optional. Must use Shadow Vertex Shader if base Shader is a Vertex Shader.
         public VertexShader ShadowVertexShader;
         /// <summary>
-        /// The object used to for user UBO variables.
+        /// The object used for user UBO variables.
         /// </summary>
-        /// Required if the user adds UserUBO to ShaderInputs. Must be a struct.
+        /// Required if the user adds UserUBO to ShaderInputs. 
+        /// Must be a struct. 
+        /// Mutually exclusive with UBOData
         public object UBOBuffer;
+        ///<summary>
+        /// The data used for user UBO variables
+        /// </summary>
+        /// Required if the user adds UserUBO to ShaderInputs. 
+        /// Mutually exclusive with UBOObject.
+        public byte[] UBOData; 
         /// <summary>
-        /// The array user for the user array variables
+        /// The Array for the user array variables
         /// </summary>
         /// Required if the user adds UserArray to ShaderInputs
         public Array UserArray;
+        /// <summary>
+        /// The Array data for the user array variables
+        /// </summary>
+        /// Required if the user adds UserArray to ShaderInputs
+        /// Mutually exclusive with UserArray
+        public byte[] UserArrayData;
     };
-    
+
     public class Material : IDestroy
     {
         public delegate void UserArrayCallback();
@@ -133,7 +147,7 @@ namespace IcarianEngine.Rendering
         uint        m_bufferAddr = uint.MaxValue;
         Type        m_uboType = null;
         Type        m_uArrayType = null;
-        
+
         MaterialDef m_def = null;
 
 #ifdef ENABLE_STACKTRACE
@@ -178,7 +192,7 @@ namespace IcarianEngine.Rendering
                 SetProgramBuffer(m_bufferAddr, val);
             }
         }
-        
+
         /// <summary>
         /// Gets the <see cref="IcarianEngine.Rendering.MaterialMode" /> of the Material
         /// </summary>
@@ -245,7 +259,7 @@ namespace IcarianEngine.Rendering
 
                 return;
             }
-            
+
             // Trust the GC bout as far as I can throw it
             uint uboSize = (uint)Marshal.SizeOf(a_data);
             IntPtr uboBuffer = Marshal.AllocHGlobal((int)uboSize);
@@ -448,6 +462,20 @@ IOP_CSMACRO(pragma warning restore CS0162)
                 return null;
             }
 
+            if (a_builder.UBOBuffer != null && a_builder.UBOData != null)
+            {
+                Logger.IcarianError("Material both UBOBuffer and UBOData");
+
+                return null;
+            }
+
+            if (a_builder.UserArray != null && a_builder.UserArrayData != null)
+            {
+                Logger.IcarianError("Material both UserArray and UserArrayData");
+
+                return null;
+            }
+
             uint shadowVertexShader = uint.MaxValue;
             if (a_builder.ShadowVertexShader != null)
             {
@@ -462,14 +490,27 @@ IOP_CSMACRO(pragma warning restore CS0162)
                 uboBuffer = Marshal.AllocHGlobal((int)uboSize);
                 Marshal.StructureToPtr(a_builder.UBOBuffer, uboBuffer, false);
             }
+            else if (a_builder.UBOData != null)
+            {
+                uboSize = (uint)a_builder.UBOData.Length;
+                uboBuffer = Marshal.AllocHGlobal((int)uboSize);
+                Marshal.Copy(a_builder.UBOData, 0, uboBuffer, (int)uboSize);
+            }
 
             Type elementType = null;
             uint arrayStride = 0;
+            Array userArrayData = null;
             if (a_builder.UserArray != null)
             {
                 Type type = a_builder.UserArray.GetType();
                 elementType = type.GetElementType();
                 arrayStride = (uint)Marshal.SizeOf(elementType);
+                userArrayData = a_builder.UserArray;
+            }
+            else if (a_builder.UserArrayData != null)
+            {
+                arrayStride = 1;
+                userArrayData = a_builder.UserArrayData;
             }
 
             uint bufferAddr = uint.MaxValue;
@@ -477,18 +518,18 @@ IOP_CSMACRO(pragma warning restore CS0162)
             {
                 bufferAddr = GenerateProgram
                 (
-                    a_builder.VertexShader.InternalAddr, 
-                    a_builder.PixelShader.InternalAddr, 
-                    a_builder.VertexStride, 
-                    a_builder.Attributes, 
-                    (uint)a_builder.CullingMode, 
-                    (uint)a_builder.PrimitiveMode, 
-                    (uint)a_builder.ColorBlendMode, 
+                    a_builder.VertexShader.InternalAddr,
+                    a_builder.PixelShader.InternalAddr,
+                    a_builder.VertexStride,
+                    a_builder.Attributes,
+                    (uint)a_builder.CullingMode,
+                    (uint)a_builder.PrimitiveMode,
+                    (uint)a_builder.ColorBlendMode,
                     a_builder.RenderLayer,
-                    shadowVertexShader, 
+                    shadowVertexShader,
                     uboSize,
                     uboBuffer,
-                    a_builder.UserArray,
+                    userArrayData,
                     arrayStride
                 );
             }
@@ -504,7 +545,7 @@ IOP_CSMACRO(pragma warning restore CS0162)
                     a_builder.RenderLayer,
                     uboSize,
                     uboBuffer,
-                    a_builder.UserArray,
+                    userArrayData,
                     arrayStride
                 );
             }
@@ -737,7 +778,7 @@ IOP_CSMACRO(pragma warning restore CS0162)
                     mat.SetTexture(texInput.Slot, sampler);
                 }
             }
-            
+
             return mat; 
         }
 
@@ -769,7 +810,7 @@ IOP_CSMACRO(pragma warning restore CS0162)
 
 #ifdef ENABLE_STACKTRACE
                     CallStack.PrintStackTrace(m_stackTrace);
-#endif  
+#endif
                 }
 
                 m_bufferAddr = uint.MaxValue;
@@ -789,7 +830,7 @@ IOP_CSMACRO(pragma warning restore CS0162)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -76,7 +76,7 @@ public:
     TArray(const T* a_start, const T* a_end)
     {
         const ThreadGuard g = ThreadGuard(m_lock);
-        
+
         const uint32_t aSize = a_end - a_start;
 
         m_size = aSize / sizeof(T);
@@ -234,7 +234,7 @@ public:
     void UPushVals(const T& a_data, uint32_t a_count)
     {
         const uint32_t newSize = m_size + a_count;
-        m_data = (T*)realloc(m_data, newSize);
+        m_data = (T*)realloc(m_data, newSize * sizeof(T));
         memset((void*)(m_data + m_size), 0, a_count * sizeof(T));
 
         m_size += a_count;
@@ -243,7 +243,7 @@ public:
     T Pop()
     {
         const ThreadGuard g = ThreadGuard(m_lock);
-        
+
         T dat = m_data[--m_size];
 
         if constexpr (!std::is_trivially_destructible<T>())

@@ -12,7 +12,7 @@ namespace IcarianEngine
 
         static ConcurrentDictionary<string, MessageCallback> s_callbacks;
 
-        static void Init()
+        internal static void Init()
         {
             s_callbacks = new ConcurrentDictionary<string, MessageCallback>();
         }

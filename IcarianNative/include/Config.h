@@ -28,6 +28,8 @@ private:
     uint32_t          m_pipefileID = uint32_t(-1);
     uint32_t          m_ipcId = uint32_t(-1);
 
+    uint32_t          m_threadCount = uint32_t(-1);
+
     std::string       m_appName = std::string(DefaultAppName);
 
     uint16_t          m_remotePort = 9001;
@@ -49,6 +51,15 @@ public:
     inline uint32_t GetFileCacheSize() const
     {
         return m_fileCacheSize;
+    }
+
+    inline uint32_t GetThreadCount() const
+    {
+        return m_threadCount;
+    }
+    inline void SetThreadCount(uint32_t a_value)
+    {
+        m_threadCount = a_value;
     }
 
     inline bool IsUPSUnlocked() const

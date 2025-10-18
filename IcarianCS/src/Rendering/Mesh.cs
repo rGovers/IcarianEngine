@@ -15,6 +15,8 @@ namespace IcarianEngine.Rendering
     public class Mesh : IDestroy
     {
         [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static uint GenerateFromFile(string a_path, uint a_modelIndex);
+        [MethodImpl(MethodImplOptions.InternalCall)]
         extern static uint GenerateFromModel(Array a_vertices, uint[] a_indices, ushort a_vertexSize, float a_radius);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DestroyMesh(uint a_addr);
@@ -25,6 +27,9 @@ namespace IcarianEngine.Rendering
         StackTrace m_stackTrace;
 #endif
 
+        /// <summary>
+        /// Whether or not the Mesh was Disposed/Finalized
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -50,6 +55,41 @@ namespace IcarianEngine.Rendering
 #endif
         }
 
+        /// <summary>
+        /// Loads a Mesh from a file
+        /// </summary>
+        /// <param name="a_path">The path the to Mesh</param>
+        /// <param name="a_modelIndex">The Model index to load in the file. byte.MaxValue to load all</param>
+        /// <returns>The Mesh. Null on failure</returns>
+        /// Uses Type <see cref="IcarianEngine.Rendering.Vertex" /> for the Mesh.
+        /// Supported formats:
+        ///     .obj,
+        ///     .fbx,
+        ///     .dae,
+        ///     .gltf,
+        ///     .glb
+        /// @see IcarianEngine.AssetLibrary.LoadMesh
+        /// @see IcarianEngine.Rendering::Vertex
+        public static Mesh LoadMesh(string a_path, byte a_modelIndex = byte.MaxValue)
+        {
+            uint addr = GenerateFromFile(a_path, (uint)a_modelIndex);
+            if (addr != uint.MaxValue)
+            {
+                return new Mesh(addr);
+            }
+
+            Logger.IcarianError($"Mesh failed to load: {a_path}");
+
+            return null;
+        }
+
+        /// <summary>
+        /// Creates a Mesh from Model data
+        /// </summary>
+        /// <param name="a_vertices">The vertices to use to generate the Mesh</param>
+        /// <param name="a_indices">The indices to use to generate the Mesh</param>
+        /// <param name="a_radius">The size of the Mesh to use for culling</param>
+        /// <returns>The Mesh. Null on failure</returns>
         public static Mesh FromModel<T>(T[] a_vertices, uint[] a_indices, float a_radius) where T : struct
         {
             uint addr = GenerateFromModel(a_vertices, a_indices, (ushort)Marshal.SizeOf<T>(), a_radius);

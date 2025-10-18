@@ -10,6 +10,7 @@
 #include "DataTypes/TArray.h"
 #include "ThreadJob.h"
 
+class Config;
 class RuntimeFunction;
 
 class ThreadPool
@@ -30,7 +31,7 @@ private:
     std::mutex                                                      m_lock;
     std::condition_variable                                         m_jobAvailable;
 
-    TArray<SharedSpinLock*>                                         m_runtimeLocks;                                
+    TArray<SharedSpinLock*>                                         m_runtimeLocks;
 
     std::priority_queue<ThreadJob*, std::vector<ThreadJob*>, JLess> m_jobQueue;
 
@@ -50,7 +51,7 @@ protected:
 public:
     ~ThreadPool();
 
-    static void Init();
+    static void Init(const Config* a_config);
     static void Stop();
     static void Destroy();
 

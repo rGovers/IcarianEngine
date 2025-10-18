@@ -2,7 +2,6 @@
 //
 // License at end of file.
 
-#include "IcarianError.h"
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
@@ -14,6 +13,7 @@
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
 #include "Core/ShaderBuffers.h"
+#include "IcarianError.h"
 #include "Logger.h"
 #include "ObjectManager.h"
 #include "Profiler.h"
@@ -1308,17 +1308,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
 
                 const ModelBuffer& modelBuffer = modelBuffers[i];
 
-                const VulkanMesh* mesh = ILAMBDA(
-                {
-                    if (modelBuffer.ModelAddr != uint32_t(-1))
-                    {
-                        IVERIFY(m_meshes.Exists(modelBuffer.ModelAddr));
-
-                        ILRETURN m_meshes[modelBuffer.ModelAddr];
-                    }
-
-                    ILRETURN (VulkanMesh*)nullptr;
-                });
+                const VulkanMesh* mesh = GetMesh(modelBuffer.ModelAddr);
 
                 const uint32_t indexCount = ILAMBDA(
                 {
@@ -3763,7 +3753,108 @@ CameraBuffer VulkanGraphicsEngine::GetCameraBuffer(uint32_t a_addr)
     return m_cameraBuffers[a_addr];
 }
 
-uint32_t VulkanGraphicsEngine::GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius)
+uint32_t VulkanGraphicsEngine::GenerateMesh
+(
+    const void* a_vertices,
+    uint32_t a_vertexCount,
+    uint16_t a_vertexStride,
+    const uint32_t* a_meshletVertices,
+    uint32_t a_meshletVertexCount,
+    const uint8_t* a_meshletTriangles,
+    uint32_t a_meshletTriangleCount,
+    const IcarianCore::ShaderMeshletBuffer* a_meshlets,
+    uint32_t a_meshletCount,
+    float a_radius
+)
+{
+    IVERIFY(a_vertices != nullptr);
+    IVERIFY(a_vertexCount > 0);
+    IVERIFY(a_vertexStride > 0);
+    IVERIFY(a_meshletVertices != nullptr);
+    IVERIFY(a_meshletVertexCount > 0);
+    IVERIFY(a_meshletTriangles != nullptr);
+    IVERIFY(a_meshletTriangleCount > 0);
+    IVERIFY(a_meshlets != nullptr);
+    IVERIFY(a_meshletCount > 0);
+
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
+    VulkanMesh* mesh = allocator->Create<VulkanMesh>
+    (
+        m_vulkanEngine,
+        a_vertices,
+        a_vertexCount,
+        a_vertexStride,
+        a_meshletVertices,
+        a_meshletVertexCount,
+        a_meshletTriangles,
+        a_meshletTriangleCount,
+        a_meshlets,
+        a_meshletCount,
+        a_radius
+    );
+
+    return m_meshes.PushVal(mesh);
+}
+void VulkanGraphicsEngine::DestroyMesh(uint32_t a_addr)
+{
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+
+    if (ISRENDERASSETSTOREADDR(a_addr))
+    {
+        const uint32_t addr = FROMRENDERSTOREADDR(a_addr);
+
+        const RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
+        RenderAssetStore* store = renderEngine->GetRenderAssetStore();
+
+        store->DestroyMesh(addr);
+    }
+    else
+    {
+        IVERIFY(m_meshes.Exists(a_addr));
+
+        VulkanMesh* mesh = m_meshes[a_addr];
+        IDEFER(allocator->Destroy(mesh));
+
+        m_meshes.Erase(a_addr);
+    }
+}
+VulkanMesh* VulkanGraphicsEngine::GetMesh(uint32_t a_addr)
+{
+    if (a_addr == uint32_t(-1))
+    {
+        return nullptr;
+    }
+
+    const uint32_t addr = ILAMBDA(
+    {
+        if (ISRENDERASSETSTOREADDR(a_addr))
+        {
+            const uint32_t storeAddr = FROMRENDERSTOREADDR(a_addr);
+
+            const RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
+            RenderAssetStore* store = renderEngine->GetRenderAssetStore();
+
+            ILRETURN store->GetMesh(storeAddr);
+        }
+
+        ILRETURN a_addr;
+    });
+
+    IVERIFY(m_meshes.Exists(addr));
+
+    return m_meshes[addr];
+}
+
+uint32_t VulkanGraphicsEngine::GenerateModel
+(
+    const void* a_vertices,
+    uint32_t a_vertexCount,
+    uint16_t a_vertexStride,
+    const uint32_t* a_indices,
+    uint32_t a_indexCount,
+    float a_radius
+)
 {
     IVERIFY(a_vertices != nullptr);
     IVERIFY(a_vertexCount > 0);

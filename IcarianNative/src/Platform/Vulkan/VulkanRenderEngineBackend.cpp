@@ -461,7 +461,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     m_deletionAllocator = m_blockAllocator->Create<BlockAllocator>(2 << 10);
 
     LibRenderDoc::Init();
-    
+
     m_vulkanLib = m_blockAllocator->Create<LibVulkan>();
 
     RENDERSCRATCHFRAME;
@@ -768,19 +768,19 @@ NextExtension:;
         meshShaderFeature.multiviewMeshShader = vk::False;
         meshShaderFeature.primitiveFragmentShadingRateMeshShader = vk::False;
         meshShaderFeature.meshShaderQueries = vk::False;
-    
+
         *nextChain = &meshShaderFeature;
         nextChain = &meshShaderFeature.pNext;
     }
 
     vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo
     (
-        { }, 
-        queueCreateInfos.Size(), 
-        queueCreateInfos.Data(), 
-        0, 
-        nullptr, 
-        extensions.Size(), 
+        { },
+        queueCreateInfos.Size(),
+        queueCreateInfos.Data(),
+        0,
+        nullptr,
+        extensions.Size(),
         extensions.Data(),
         nullptr,
         &deviceFeatures2
@@ -834,12 +834,12 @@ NextExtension:;
     }
 
     TRACE("Got Vulkan Queues");
-    
+
     const vk::CommandPoolCreateInfo poolInfo = vk::CommandPoolCreateInfo
     (
         vk::CommandPoolCreateFlagBits::eTransient,
         m_graphicsQueueIndex
-    );  
+    );
 
     for (unsigned int i = 0; i < CommandIndex_Last; ++i)
     {
@@ -929,7 +929,7 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
 
     TRACE("Destroying Vulkan Allocator");
     vmaDestroyAllocator(m_allocator);
-    
+
     vk::SurfaceKHR surface = window->GetSurface(m_instance);
     if (surface != vk::SurfaceKHR(nullptr))
     {
@@ -1009,19 +1009,17 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
             return;
         }
     }
-    
+
     Profiler::StartFrame("Render Update");
 
     m_pushPool->Reset(m_currentFrame);
-
-    ;
 
     // TODO: Down the line setup the compute and graphics engine to return VulkanCommandBuffers
     const VulkanCommandBuffer computeCommandBuffer = m_computeEngine->Update(a_delta, a_time, m_currentFrame);
     const vk::CommandBuffer vulkanComputeBuffer = computeCommandBuffer.GetCommandBuffer();
 
     const Array<VulkanCommandBuffer> commandBuffers = m_graphicsEngine->Update(a_delta, a_time, m_currentFrame);
-    
+
     Profiler::StartFrame("Render Setup");
 
     // TODO: This can probably be updated to account for buckets over command buffers
@@ -1536,6 +1534,39 @@ uint64_t VulkanRenderEngineBackend::GetTotalDeviceMemory() const
     }
 
     return used;
+}
+
+uint32_t VulkanRenderEngineBackend::GenerateMesh
+(
+    const void* a_vertices,
+    uint32_t a_vertexCount,
+    uint16_t a_vertexStride,
+    const uint32_t* a_meshletVertices,
+    uint32_t a_meshletVertexCount,
+    const uint8_t* a_meshletTriangles,
+    uint32_t a_meshletTriangleCount,
+    const IcarianCore::ShaderMeshletBuffer* a_meshlets,
+    uint32_t a_meshletCount,
+    float a_radius
+)
+{
+    return m_graphicsEngine->GenerateMesh
+    (
+        a_vertices,
+        a_vertexCount,
+        a_vertexStride,
+        a_meshletVertices,
+        a_meshletVertexCount,
+        a_meshletTriangles,
+        a_meshletTriangleCount,
+        a_meshlets,
+        a_meshletCount,
+        a_radius
+    );
+}
+void VulkanRenderEngineBackend::DestroyMesh(uint32_t a_addr)
+{
+    m_graphicsEngine->DestroyMesh(a_addr);
 }
 
 uint32_t VulkanRenderEngineBackend::GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius)

@@ -147,6 +147,7 @@ NULLGRAPHICS_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 NullRenderEngineBackend::NullRenderEngineBackend(RenderEngine* a_engine) : RenderEngineBackend(a_engine)
 {
     m_materialAddr = 0;
+    m_meshAddr = 0;
     m_modelAddr = 0;
     m_textureAddr = 0;
     m_textureSamplerAddr = 0;
@@ -161,7 +162,36 @@ NullRenderEngineBackend::~NullRenderEngineBackend()
 
 }
 
-uint32_t NullRenderEngineBackend::GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius)
+uint32_t NullRenderEngineBackend::GenerateMesh
+(
+    const void* a_vertices,
+    uint32_t a_vertexCount,
+    uint16_t a_vertexStride,
+    const uint32_t* a_meshletVertices,
+    uint32_t a_meshletVertexCount,
+    const uint8_t* a_meshletTriangles,
+    uint32_t a_meshletTriangleCount,
+    const IcarianCore::ShaderMeshletBuffer* a_meshlets,
+    uint32_t a_meshletCount,
+    float a_radius
+)
+{
+    return m_meshAddr++;
+}
+void NullRenderEngineBackend::DestroyMesh(uint32_t a_addr)
+{
+
+}
+
+uint32_t NullRenderEngineBackend::GenerateModel
+(
+    const void* a_vertices,
+    uint32_t a_vertexCount,
+    uint16_t a_vertexStride,
+    const uint32_t* a_indices,
+    uint32_t a_indexCount,
+    float a_radius
+)
 {
     return m_modelAddr++;
 }
@@ -174,7 +204,16 @@ uint32_t NullRenderEngineBackend::GenerateTexture(uint32_t a_width, uint32_t a_h
 {
     return m_textureAddr++;
 }
-uint32_t NullRenderEngineBackend::GenerateTextureMipMapped(uint32_t a_width, uint32_t a_height, uint32_t a_levels, uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize)
+uint32_t NullRenderEngineBackend::GenerateTextureMipMapped
+(
+    uint32_t a_width,
+    uint32_t a_height,
+    uint32_t a_levels,
+    uint64_t* a_offsets,
+    e_TextureFormat a_format,
+    const void* a_data,
+    uint64_t a_dataSize
+)
 {
     return m_textureAddr++;
 }
@@ -183,7 +222,14 @@ void NullRenderEngineBackend::DestroyTexture(uint32_t a_texture)
 
 }
 
-uint32_t NullRenderEngineBackend::GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot)
+uint32_t NullRenderEngineBackend::GenerateTextureSampler
+(
+    uint32_t a_textureAddr,
+    e_TextureMode a_textureMode,
+    e_TextureFilter a_filterMode,
+    e_TextureAddress a_addressMode,
+    uint32_t a_slot
+)
 {
     return m_textureSamplerAddr++;
 }

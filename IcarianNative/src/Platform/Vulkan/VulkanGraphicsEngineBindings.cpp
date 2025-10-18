@@ -189,7 +189,7 @@ RUNTIME_FUNCTION(uint32_t, ComputeShader, GenerateGraphicsFromFile,
 
         char* str = RenderScratchAlloc::TAllocate<char>(size);
         IERRCHECKRET(handle->Read(str, size) == size, -1);
-        
+
         return Instance->GenerateFComputeShaderAddr(std::string_view(str, size));
     }
     default:
@@ -421,7 +421,7 @@ RUNTIME_FUNCTION(MonoArray*, DirectionalLight, GetShadowMaps,
     const DirectionalLightBuffer buffer = Instance->GetDirectionalLightBuffer(a_addr);
 
     const VulkanLightBuffer* lightBuffer = (VulkanLightBuffer*)buffer.Data;
-    
+
     MonoArray* arr = mono_array_new(mono_domain_get(), mono_get_uint32_class(), lightBuffer->LightRenderTextureCount);
 
     for (uint32_t i = 0; i < lightBuffer->LightRenderTextureCount; ++i)
@@ -1279,7 +1279,7 @@ uint32_t VulkanGraphicsEngineBindings::GenerateModel(const void* a_vertices, uin
 }
 void VulkanGraphicsEngineBindings::DestroyModel(uint32_t a_addr) const
 {
-    m_graphicsEngine->DestroyModel(a_addr);    
+    m_graphicsEngine->DestroyModel(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateMeshFromModel
@@ -1296,23 +1296,8 @@ uint32_t VulkanGraphicsEngineBindings::GenerateMeshFromModel
     float a_radius
 ) const
 {
-    IVERIFY(a_vertices != nullptr);
-    IVERIFY(a_vertexCount > 0);
-    IVERIFY(a_vertexStride > 0);
-    IVERIFY(a_meshletVertices != nullptr);
-    IVERIFY(a_meshletVertexCount > 0);
-    IVERIFY(a_meshletTriangles != nullptr);
-    IVERIFY(a_meshletTriangleCount > 0);
-    IVERIFY(a_meshlets != nullptr);
-    IVERIFY(a_meshletCount > 0);
-
-    VulkanRenderEngineBackend* engine = m_graphicsEngine->m_vulkanEngine;
-
-    BlockAllocator* allocator = engine->GetBlockAllocator();
-
-    VulkanMesh* mesh = allocator->Create<VulkanMesh>
+    return m_graphicsEngine->GenerateMesh
     (
-        engine,
         a_vertices,
         a_vertexCount,
         a_vertexStride,
@@ -1324,19 +1309,10 @@ uint32_t VulkanGraphicsEngineBindings::GenerateMeshFromModel
         a_meshletCount,
         a_radius
     );
-
-    return m_graphicsEngine->m_meshes.PushVal(mesh);
 }
 void VulkanGraphicsEngineBindings::DestroyMesh(uint32_t a_addr) const
 {
-    IVERIFY(m_graphicsEngine->m_meshes.Exists(a_addr));
-
-    BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
-
-    VulkanMesh* mesh = m_graphicsEngine->m_meshes[a_addr];
-    IDEFER(allocator->Destroy(mesh));
-
-    m_graphicsEngine->m_meshes.Erase(a_addr);
+    m_graphicsEngine->DestroyMesh(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateModelRenderBuffer(uint32_t a_materialAddr, uint32_t a_modelAddr, uint32_t a_transformAddr) const
@@ -1542,7 +1518,7 @@ void VulkanGraphicsEngineBindings::DestroyMeshRenderStack(uint32_t a_addr) const
                 MaterialRenderStack* stack = a[i];
                 IDEFER(allocator->Destroy(stack));
 
-                TRACE("Destroying Skinned RenderStack");
+                TRACE("Destroying Mesh RenderStack");
                 m_graphicsEngine->m_renderStacks.UErase(i);
             }
 

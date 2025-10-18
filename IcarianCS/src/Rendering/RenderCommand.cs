@@ -29,6 +29,8 @@ namespace IcarianEngine.Rendering
         extern static void MTRTBlit(uint a_srcAddr, uint a_index, uint a_dstAddr);
         [MethodImpl(MethodImplOptions.InternalCall)]
         extern static void DrawModel(Matrix4 a_transform, uint a_modelAddr);
+        [MethodImpl(MethodImplOptions.InternalCall)]
+        extern static void DrawMesh(Matrix4 a_transform, uint a_meshAddr, uint a_indexCount);
 
         /// <summary>
         /// Sets a <see cref="IcarianEngine.Rendering.ShaderBufferType.SSShadowLightBuffer" /> for the current render state
@@ -37,7 +39,7 @@ namespace IcarianEngine.Rendering
         /// <param name="a_splits">The <see cref="IcarianEngine.Rendering.LightShadowSplit" />(s) to bind to the slot</param>
         [MethodImpl(MethodImplOptions.InternalCall)]
         public extern static void PushShadowSplits(uint a_slot, LightShadowSplit[] a_splits);
-        
+
         /// <summary>
         /// Adds a marker region for use by graphics debuggers if enabled in build settings
         /// </summary>
@@ -173,7 +175,7 @@ namespace IcarianEngine.Rendering
         {
             BindRenderTexture(RenderTextureCmd.GetTextureAddr(a_renderTexture), (uint)a_bindMode);
         }
-        
+
         /// <summary>
         /// Copies the contents of a <see cref="IcarianEngine.Rendering.IRenderTexture" /> to another <see cref="IcarianEngine.Rendering.IRenderTexture" />
         /// </summary>
@@ -181,6 +183,20 @@ namespace IcarianEngine.Rendering
         /// <param name="a_dstTexture">The <see cref="IcarianEngine.Rendering.IRenderTexture" /> to use as the destination. Null writes to the swapchain</param>
         public static void Blit(IRenderTexture a_srcTexture, IRenderTexture a_dstTexture)
         {
+            if (a_srcTexture == null)
+            {
+                Logger.Warning("Blit swapchain as source");
+
+                return;
+            }
+
+            if (a_srcTexture == a_dstTexture)
+            {
+                Logger.Warning("Blit bliting to self");
+
+                return;
+            }
+
             RTRTBlit(RenderTextureCmd.GetTextureAddr(a_srcTexture), RenderTextureCmd.GetTextureAddr(a_dstTexture));
         }
         /// <summary>
@@ -191,32 +207,64 @@ namespace IcarianEngine.Rendering
         /// <param name="a_dstTexture">The <see cref="IcarianEngine.Rendering.IRenderTexture" /> to use as the destination. Null writes to the swapchain</param>
         public static void Blit(MultiRenderTexture a_srcTexture, uint a_index, IRenderTexture a_dstTexture)
         {
+            if (a_srcTexture == null)
+            {
+                Logger.Warning("Blit swapchain as source");
+
+                return;
+            }
+
+            if (a_srcTexture == a_dstTexture)
+            {
+                Logger.Warning("Blit to self");
+
+                return;
+            }
+
             MTRTBlit(a_srcTexture.BufferAddr, a_index, RenderTextureCmd.GetTextureAddr(a_dstTexture));
         }
 
         /// <summary>
         /// Draws a Model
         /// </summary>
-        /// <param name="a_transform">The transformation matrix to use for the model</param>
-        /// <param name="a_model">The model to render</param>
-        /// Renders a model with the currently bound <see cref="IcarianEngine.Rendering.Material" /> to the currently bound <see cref="IcarianEngine.Rendering.IRenderTexture" />
+        /// <param name="a_transform">The transformation matrix to use for the <see cref="IcarianEngine.Rendering.Model" /></param>
+        /// <param name="a_model">The <see cref="IcarianEngine.Rendering.Model" /> to render</param>
+        /// Renders a <see cref="IcarianEngine.Rendering.Model" /> with the currently bound <see cref="IcarianEngine.Rendering.Material" /> to the currently bound <see cref="IcarianEngine.Rendering.IRenderTexture" />
         public static void DrawModel(Matrix4 a_transform, Model a_model)
         {
             if (a_model == null)
             {
-                Logger.IcarianWarning("DrawModel null model");
+                Logger.IcarianWarning("DrawModel null Model");
 
                 return;
             }
 
             DrawModel(a_transform, a_model.InternalAddr);
         }
+        /// <summary>
+        /// Draws a Mesh
+        /// </summary>
+        /// <param name="a_transform">The transformation matrix to use for the <see cref="IcarianEngine.Rendering.Mesh" /></param>
+        /// <param name="a_mesh">The <see cref="IcarianEngine.Rendering.Mesh" /> to render. Use null if procedural</param>
+        /// <param name="a_indexCount">The index count to draw when drawing the <see cref="IcarianEngine.Rendering.Mesh" /> use uint.MaxValue to use the <see cref="IcarianEngine.Rendering.Mesh" /> meshlet count</param>
+        /// Renders a <see cref="IcarianEngine.Rendering.Mesh" /> with the currently bound <see cref="IcarianEngine.Rendering.Material" /> to the currently bound <see cref="IcarianEngine.Rendering.IRenderTexture" />
+        public static void DrawMesh(Matrix4 a_transform, Mesh a_mesh, uint a_indexCount)
+        {
+            if (a_mesh != null)
+            {
+                DrawMesh(a_transform, a_mesh.InternalAddr, a_indexCount);
+            }
+            else
+            {
+                DrawMesh(a_transform, uint.MaxValue, a_indexCount);
+            }
+        }
     }
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -47,9 +47,12 @@ private:
     RenderEngine*             m_renderEngine;
     RenderAssetStoreBindings* m_bindings;
 
+    TNCArray<RenderAsset>     m_meshes;
     TNCArray<RenderAsset>     m_models;
     TNCArray<RenderAsset>     m_textures;
     TNCArray<Font*>           m_fonts;
+
+    uint32_t LoadMeshData(const std::string_view& a_path, uint8_t a_index);
 
 protected:
 
@@ -64,6 +67,10 @@ public:
     {
         return m_fonts[a_addr];
     }
+
+    uint32_t LoadMesh(const std::string_view& a_path, uint8_t a_index);
+    void DestroyMesh(uint32_t a_addr);
+    uint32_t GetMesh(uint32_t a_addr);
 
     bool LoadModelData(const std::string_view& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius);
     uint32_t LoadModel(const std::string_view& a_path, uint8_t a_index);

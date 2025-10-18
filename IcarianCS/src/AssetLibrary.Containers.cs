@@ -38,7 +38,7 @@ namespace IcarianEngine
 
         object LoadValue(string a_input);
     }
-    
+
     class AudioClipContainer : IAssetContainer
     {
         public LoadStatus Status
@@ -420,7 +420,7 @@ namespace IcarianEngine
 
         public object LoadValue(string a_input)
         {
-            return null;
+            return Mesh.LoadMesh(a_input);
         }
     }
 

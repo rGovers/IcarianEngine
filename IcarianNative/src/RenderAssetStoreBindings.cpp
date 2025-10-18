@@ -17,6 +17,8 @@
 static RenderAssetStoreBindings* Instance = nullptr;
 
 #define RENDERASSETSTORE_BINDING_FUNCTION_TABLE(F) \
+    F(uint32_t, IcarianEngine.Rendering, Mesh, GenerateFromFile, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return TORENDERSTOREADDR(Instance->GenerateMesh(str, a_index)); }, MonoString* a_path, uint32_t a_index) \
+    \
     F(uint32_t, IcarianEngine.Rendering, Model, GenerateFromFile, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return TORENDERSTOREADDR(Instance->GenerateModel(str, a_index)); }, MonoString* a_path, uint32_t a_index) \
     F(uint32_t, IcarianEngine.Rendering, Model, GenerateSkinnedFromFile, { char* str = mono_string_to_utf8(a_path); IDEFER(mono_free(str)); return TORENDERSTOREADDR(Instance->GenerateSkinnedModel(str, a_index)); }, MonoString* a_path, uint32_t a_index) \
     \
@@ -30,24 +32,27 @@ RUNTIME_FUNCTION(ModelDataStructure, Model, GetModelData,
 {
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
-    
+
     ModelDataStructure s = { 0 };
 
     Array<Vertex> vertices;
     Array<uint32_t> indices;
     if (Instance->LoadModelData(str, a_index, &vertices, &indices))
     {
+        MonoDomain* domain = mono_domain_get();
+
+        MonoClass* uint32Class = mono_get_uint32_class();
         MonoClass* vertexClass = RuntimeManager::GetClass("IcarianEngine.Rendering", "Vertex");
 
         const uint32_t vertexCount = vertices.Size();
-        s.Vertices = mono_array_new(mono_domain_get(), vertexClass, (uintptr_t)vertexCount);
+        s.Vertices = mono_array_new(domain, vertexClass, (uintptr_t)vertexCount);
         for (uint32_t i = 0; i < vertexCount; ++i)
         {
             mono_array_set(s.Vertices, Vertex, i, vertices[i]);
         }
 
         const uint32_t indexCount = indices.Size();
-        s.Indices = mono_array_new(mono_domain_get(), mono_get_uint32_class(), (uintptr_t)indexCount);
+        s.Indices = mono_array_new(domain, uint32Class, (uintptr_t)indexCount);
         for (uint32_t i = 0; i < indexCount; ++i)
         {
             mono_array_set(s.Indices, uint32_t, i, indices[i]);
@@ -101,7 +106,7 @@ uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, cons
     Array<uint32_t> indices;
     float radius;
     font->StringToModel(a_str, a_fontSize, a_scale, a_depth, &vertices, &indices, &radius);
-    
+
     if (radius > 0 && !vertices.Empty() && !indices.Empty())
     {
         return m_store->m_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), sizeof(Vertex), indices.Data(), indices.Size(), radius);
@@ -117,9 +122,14 @@ bool RenderAssetStoreBindings::LoadModelData(const std::string_view& a_path, uin
     return m_store->LoadModelData(a_path, (uint8_t)a_index, a_vertices, a_indices, &rad);
 }
 
+uint32_t RenderAssetStoreBindings::GenerateMesh(const std::string_view& a_path, uint32_t a_index) const
+{
+    return m_store->LoadMesh(a_path, (uint8_t)a_index);
+}
+
 uint32_t RenderAssetStoreBindings::GenerateModel(const std::string_view& a_path, uint32_t a_index) const
 {
-    return m_store->LoadModel(a_path, a_index);
+    return m_store->LoadModel(a_path, (uint8_t)a_index);
 }
 uint32_t RenderAssetStoreBindings::GenerateSkinnedModel(const std::string_view& a_path, uint32_t a_index) const
 {

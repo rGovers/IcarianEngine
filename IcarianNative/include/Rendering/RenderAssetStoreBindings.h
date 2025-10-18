@@ -29,6 +29,8 @@ public:
 
     uint32_t GenerateModelFromString(uint32_t a_addr, const std::u32string_view& a_str, float a_fontSize, float a_scale, float a_depth) const;
 
+    uint32_t GenerateMesh(const std::string_view& a_path, uint32_t a_index) const;
+
     bool LoadModelData(const std::string_view& a_path, uint32_t a_index, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices) const;
     uint32_t GenerateModel(const std::string_view& a_path, uint32_t a_index) const;
     uint32_t GenerateSkinnedModel(const std::string_view& a_path, uint32_t a_index) const;

@@ -6,8 +6,7 @@
 
 #include <thread>
 
-#include "EngineTextureSamplerInteropStructures.h"
-
+#include "Core/ShaderBuffers.h"
 #include "Rendering/RenderDeviceInfo.h"
 #include "Rendering/TextureData.h"
 
@@ -25,6 +24,8 @@ class RenderAssetStore;
 class RenderEngineBackend;
 class RuntimeFunction;
 class RuntimeManager;
+
+#include "EngineTextureSamplerInteropStructures.h"
 
 class RenderEngine
 {
@@ -57,6 +58,7 @@ private:
 
     void Update(double a_delta, double a_time);
     void Run();
+
 protected:
 
 public:
@@ -81,14 +83,53 @@ public:
     uint64_t GetUsedDeviceMemory() const;
     uint64_t GetTotalDeviceMemory() const;
 
-    uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius) const;
+    [[nodiscard]] uint32_t GenerateMesh
+    (
+        const void* a_vertices,
+        uint32_t a_vertexCount,
+        uint16_t a_vertexStride,
+        const uint32_t* a_meshletVertices,
+        uint32_t a_meshletVertexCount,
+        const uint8_t* a_meshletTriangles,
+        uint32_t a_meshletTriangleCount,
+        const IcarianCore::ShaderMeshletBuffer* a_meshlets,
+        uint32_t a_meshletCount,
+        float a_radius
+    );
+    void DestroyMesh(uint32_t a_addr) const;
+
+    [[nodiscard]] uint32_t GenerateModel
+    (
+        const void* a_vertices,
+        uint32_t a_vertexCount,
+        uint16_t a_vertexStride,
+        const uint32_t* a_indices,
+        uint32_t a_indexCount,
+        float a_radius
+    ) const;
     void DestroyModel(uint32_t a_addr) const;
 
-    uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data) const;
-    uint32_t GenerateTextureMipMapped(uint32_t a_width, uint32_t a_height, uint32_t a_levels, uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize) const;
+    [[nodiscard]] uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data) const;
+    [[nodiscard]] uint32_t GenerateTextureMipMapped
+    (
+        uint32_t a_width,
+        uint32_t a_height,
+        uint32_t a_levels,
+        uint64_t* a_offsets,
+        e_TextureFormat a_format,
+        const void* a_data,
+        uint64_t a_dataSize
+    ) const;
     void DestroyTexture(uint32_t a_addr) const;
 
-    uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0) const;
+    [[nodiscard]] uint32_t GenerateTextureSampler
+    (
+        uint32_t a_textureAddr,
+        e_TextureMode a_textureMode,
+        e_TextureFilter a_filterMode,
+        e_TextureAddress a_addressMode,
+        uint32_t a_slot = 0
+    ) const;
     void DestroyTextureSampler(uint32_t a_addr) const;
 
     Font* GetFont(uint32_t a_addr) const;

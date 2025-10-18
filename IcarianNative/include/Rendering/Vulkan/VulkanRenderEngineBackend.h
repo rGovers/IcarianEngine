@@ -272,6 +272,21 @@ public:
     virtual uint64_t GetUsedDeviceMemory() const;
     virtual uint64_t GetTotalDeviceMemory() const;
 
+    virtual uint32_t GenerateMesh
+    (
+        const void* a_vertices,
+        uint32_t a_vertexCount,
+        uint16_t a_vertexStride,
+        const uint32_t* a_meshletVertices,
+        uint32_t a_meshletVertexCount,
+        const uint8_t* a_meshletTriangles,
+        uint32_t a_meshletTriangleCount,
+        const IcarianCore::ShaderMeshletBuffer* a_meshlets,
+        uint32_t a_meshletCount,
+        float a_radius
+    );
+    virtual void DestroyMesh(uint32_t a_addr);
+
     virtual uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius);
     virtual void DestroyModel(uint32_t a_addr);
 

@@ -33,7 +33,8 @@ RenderEngine::RenderEngine(AppWindow* a_window, Config* a_config)
 
     spirv_init();
 
-    switch (m_config->GetRenderingEngine())
+    const e_RenderingEngine backendEngine = m_config->GetRenderingEngine();
+    switch (backendEngine)
     {
     case RenderingEngine_Null:
     {
@@ -126,7 +127,7 @@ void RenderEngine::Run()
     {
         Profiler::Start("Render Thread");
         IDEFER(Profiler::Stop());
-        
+
         {
             PROFILESTACK("Update");
             const float timeScale = app->GetTimeScale();
@@ -223,7 +224,7 @@ void RenderEngine::Run()
 
             {
                 PROFILESTACK("Animators");
-                
+
                 AnimationController::UpdateAnimators(AnimationUpdateMode_FrameUpdate, (float)scaledDelta);
             }
 
@@ -235,7 +236,7 @@ void RenderEngine::Run()
                     &delta,
                     &timePassed
                 };
-                
+
                 m_frameUpdateFunction->Exec(args);
             }
 
@@ -246,9 +247,9 @@ void RenderEngine::Run()
 
                 DeletionQueue::Flush(DeletionIndex_Render);
             }
-        }   
+        }
     }
-    
+
     m_join = true;
     TRACE("Render Thread joining");
 }
@@ -271,7 +272,48 @@ uint64_t RenderEngine::GetTotalDeviceMemory() const
     return m_backend->GetTotalDeviceMemory();
 }
 
-uint32_t RenderEngine::GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius) const
+uint32_t RenderEngine::GenerateMesh
+(
+    const void* a_vertices,
+    uint32_t a_vertexCount,
+    uint16_t a_vertexStride,
+    const uint32_t* a_meshletVertices,
+    uint32_t a_meshletVertexCount,
+    const uint8_t* a_meshletTriangles,
+    uint32_t a_meshletTriangleCount,
+    const IcarianCore::ShaderMeshletBuffer* a_meshlets,
+    uint32_t a_meshletCount,
+    float a_radius
+)
+{
+    return m_backend->GenerateMesh
+    (
+        a_vertices,
+        a_vertexCount,
+        a_vertexStride,
+        a_meshletVertices,
+        a_meshletVertexCount,
+        a_meshletTriangles,
+        a_meshletTriangleCount,
+        a_meshlets,
+        a_meshletCount,
+        a_radius
+    );
+}
+void RenderEngine::DestroyMesh(uint32_t a_addr) const
+{
+    m_backend->DestroyMesh(a_addr);
+}
+
+uint32_t RenderEngine::GenerateModel
+(
+    const void* a_vertices,
+    uint32_t a_vertexCount,
+    uint16_t a_vertexStride,
+    const uint32_t* a_indices,
+    uint32_t a_indexCount,
+    float a_radius
+) const
 {
     return m_backend->GenerateModel(a_vertices, a_vertexCount, a_vertexStride, a_indices, a_indexCount, a_radius);
 }
@@ -284,7 +326,16 @@ uint32_t RenderEngine::GenerateTexture(uint32_t a_width, uint32_t a_height, e_Te
 {
     return m_backend->GenerateTexture(a_width, a_height, a_format, a_data);
 }
-uint32_t RenderEngine::GenerateTextureMipMapped(uint32_t a_width, uint32_t a_height, uint32_t a_levels, uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize) const
+uint32_t RenderEngine::GenerateTextureMipMapped
+(
+    uint32_t a_width,
+    uint32_t a_height,
+    uint32_t a_levels,
+    uint64_t* a_offsets,
+    e_TextureFormat a_format,
+    const void* a_data,
+    uint64_t a_dataSize
+) const
 {
     return m_backend->GenerateTextureMipMapped(a_width, a_height, a_levels, a_offsets, a_format, a_data, a_dataSize);
 }
@@ -293,7 +344,14 @@ void RenderEngine::DestroyTexture(uint32_t a_addr) const
     m_backend->DestroyTexture(a_addr);
 }
 
-uint32_t RenderEngine::GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot) const
+uint32_t RenderEngine::GenerateTextureSampler
+(
+    uint32_t a_textureAddr,
+    e_TextureMode a_textureMode,
+    e_TextureFilter a_filterMode,
+    e_TextureAddress a_addressMode,
+    uint32_t a_slot
+) const
 {
     return m_backend->GenerateTextureSampler(a_textureAddr, a_textureMode, a_filterMode, a_addressMode, a_slot);
 }

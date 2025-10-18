@@ -14,6 +14,7 @@
 #include "Config.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
+#include "Core/IcarianLambda.h"
 #include "Core/IPCPipe.h"
 #include "Core/SocketPipe.h"
 #include "DataTypes/RingAllocator.h"
@@ -24,6 +25,7 @@
 #include "Rendering/UI/UIControl.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
+#include "ThreadPool.h"
 #include "Trace.h"
 
 [[maybe_unused]] static std::string GetAddr(const std::string_view& a_addr)
@@ -250,6 +252,76 @@ void HeadlessAppWindow::SetCursorState(e_CursorState a_state)
     m_queuedMessages.Push(msg);
 }
 
+class RuntimeMessageThreadJob : public ThreadJob
+{
+private:
+    std::string      m_string;
+    uint8_t*         m_data;
+    uintptr_t        m_length;
+
+    RuntimeFunction* m_function;
+
+protected:
+
+public:
+    RuntimeMessageThreadJob(RuntimeFunction* a_function, const std::string_view& a_str, const uint8_t* a_data, uintptr_t a_length) : ThreadJob(JobPriority_EngineHigh)
+    {
+        m_function = a_function;
+
+        m_string = std::string(a_str);
+
+        m_length = a_length;
+        m_data = nullptr;
+        if (m_length > 0)
+        {
+            m_data = new uint8_t[m_length];
+
+            memcpy(m_data, a_data, m_length);
+        }
+    }
+    virtual ~RuntimeMessageThreadJob()
+    {
+        if (m_data != nullptr)
+        {
+            delete[] m_data;
+            m_data = nullptr;
+        }
+    }
+
+    virtual void Execute()
+    {
+        MonoDomain* domain = RuntimeManager::GetDomain();
+
+        MonoArray* runtimeData = ILAMBDA(
+        {
+            if (m_length <= 0)
+            {
+                ILRETURN (MonoArray*)NULL;
+            }
+
+            MonoClass* byteClass = mono_get_byte_class();
+            MonoArray* val = mono_array_new(domain, byteClass, m_length);
+
+            for (uintptr_t i = 0; i < m_length; ++i)
+            {
+                mono_array_set(val, mono_byte, i, m_data[i]);
+            }
+
+            ILRETURN val;
+        });
+
+        MonoString* runtimeStr = mono_string_new(domain, m_string.c_str());
+
+        void* args[] =
+        {
+            runtimeStr,
+            runtimeData
+        };
+
+        m_function->Exec(args);
+    }
+};
+
 bool HeadlessAppWindow::PollMessage()
 {
     std::queue<IcarianCore::PipeMessage> messages;
@@ -386,29 +458,12 @@ bool HeadlessAppWindow::PollMessage()
             }
             ++strEnd;
 
-            IVERIFY(strEnd - str < msg.Length);
+            IVERIFY(strEnd - str <= msg.Length);
 
             const uintptr_t len = msg.Length - (strEnd - str);
             const uint8_t* data = (uint8_t*)strEnd;
 
-            MonoDomain* domain = RuntimeManager::GetDomain();
-            MonoClass* byteClass = mono_get_byte_class();
-            MonoArray* runtimeDataArr = mono_array_new(domain, byteClass, len);
-
-            for (uintptr_t i = 0; i < len; ++i)
-            {
-                mono_array_set(runtimeDataArr, mono_byte, i, data[i]);
-            }
-
-            MonoString* runtimeStr = mono_string_new(domain, str);
-
-            void* args[] =
-            {
-                runtimeStr,
-                runtimeDataArr
-            };
-
-            m_runtimeMessageReceive->Exec(args);
+            ThreadPool::PushJob(new RuntimeMessageThreadJob(m_runtimeMessageReceive, str, data, len));
 
             break;
         }
@@ -425,7 +480,7 @@ bool HeadlessAppWindow::PollMessage()
             break;
         }
         }
-    }    
+    }
 
     return true;
 }
@@ -449,7 +504,7 @@ void HeadlessAppWindow::Update()
         {
             time = std::chrono::high_resolution_clock::now();
             m_delta = std::chrono::duration<double>(time - m_prevTime).count();
-            
+
             if (m_delta >= 0.001f)
             {
                 break;

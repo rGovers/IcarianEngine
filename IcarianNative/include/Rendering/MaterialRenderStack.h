@@ -31,19 +31,24 @@ enum e_RenderStackMode
 class MaterialRenderStack
 {
 private:
+    // Do not want to have over size allocation support in our allocator so if the stacks get too large just slice it into multiple
+    // Not the biggest deal as even if we add over size support for the allocator GPU memory blocks are only so big
+    static constexpr uint32_t MaxTransformStackSize = 512;
+    static constexpr uint32_t MaxRenderStackSize = 64;
+
     Allocator*          m_allocator;
 
     ModelBuffer*        m_modelBuffers;
-    
+
     uint32_t            m_materialAddr;
-    
+
     uint32_t            m_size;
     uint32_t            m_modelBufferCount;
-    
+
     e_RenderStackMode   m_renderStackMode;
 
-    void InsertTransform(uint32_t a_addr, uint32_t a_transformAddr);
-    void InsertSkinned(uint32_t a_addr, uint32_t a_transformAddr, uint32_t a_skeletonAddr);
+    [[nodiscard("Discarding valid state")]] bool InsertTransform(uint32_t a_addr, uint32_t a_transformAddr);
+    [[nodiscard("Discarding valid state")]] bool InsertSkinned(uint32_t a_addr, uint32_t a_transformAddr, uint32_t a_skeletonAddr);
 
     void RemoveModelBuffer(uint32_t a_addr);
 
@@ -79,14 +84,14 @@ public:
         return m_modelBufferCount;
     }
 
-    bool Add(const ModelRenderBuffer& a_renderBuffer);
-    bool Remove(const ModelRenderBuffer& a_renderBuffer);
+    [[nodiscard("Discarding valid insertion state")]] bool Add(const ModelRenderBuffer& a_renderBuffer);
+    [[nodiscard("Discarding valid insertion state")]] bool Remove(const ModelRenderBuffer& a_renderBuffer);
 
-    bool Add(const SkinnedModelRenderBuffer& a_renderBuffer);
-    bool Remove(const SkinnedModelRenderBuffer& a_renderBuffer);
+    [[nodiscard("Discarding valid insertion state")]] bool Add(const SkinnedModelRenderBuffer& a_renderBuffer);
+    [[nodiscard("Discarding valid insertion state")]] bool Remove(const SkinnedModelRenderBuffer& a_renderBuffer);
 
-    bool Add(const MeshRenderBuffer& a_renderBuffer);
-    bool Remove(const MeshRenderBuffer& a_renderBuffer);
+    [[nodiscard("Discarding valid insertion state")]] bool Add(const MeshRenderBuffer& a_renderBuffer);
+    [[nodiscard("Discarding valid insertion state")]] bool Remove(const MeshRenderBuffer& a_renderBuffer);
 };
 
 // MIT License

@@ -31,30 +31,30 @@ namespace IcarianEngine
     public static partial class AssetLibrary
     {
         static ConcurrentDictionary<string, AudioClipContainer>             s_audioClips;
-#ifdef ENABLE_EXPERIMENTAL      
+#ifdef ENABLE_EXPERIMENTAL
         static ConcurrentDictionary<string, VideoClipContainer>             s_videoClips;
- #endif     
+ #endif
 
         static ConcurrentDictionary<string, MaterialContainer>              s_materials;
         static ConcurrentDictionary<string, GraphicsComputeShaderContainer> s_graphicsComputeShaders;
         static ConcurrentDictionary<string, MeshShaderContainer>            s_meshShaders;
         static ConcurrentDictionary<string, VertexShaderContainer>          s_vertexShaders;
         static ConcurrentDictionary<string, PixelShaderContainer>           s_pixelShaders;
-   
+
         static ConcurrentDictionary<string, TextureContainer>               s_textures;
         static ConcurrentDictionary<string, TextureSamplerContainer>        s_textureSamplers;
-   
+
         static ConcurrentDictionary<string, ModelContainer>                 s_models;
         static ConcurrentDictionary<string, ModelContainer>                 s_skinnedModels;
 
         static ConcurrentDictionary<string, MeshContainer>                  s_meshes;
-  
+
         static ConcurrentDictionary<string, AnimationClipContainer>         s_animationClips;
- 
+
         static ConcurrentDictionary<string, SkeletonContainer>              s_skeletons;
-   
+
         static ConcurrentDictionary<string, FontContainer>                  s_fonts;
-  
+
         static ConcurrentDictionary<string, CollisionShapeContainer>        s_collisionShapes;
 
         /// <summary>
@@ -81,6 +81,10 @@ namespace IcarianEngine
         /// Delegate for loading a <see cref="IcarianEngine.Rendering.Font" /> async
         /// </summary>
         public delegate void LoadFontCallback(Font a_font, LoadStatus a_status);
+        /// <summary>
+        /// Delegate for loading a <see cref="IcarianEngine.Rendering.Mesh" /> async
+        /// </summary>
+        public delegate void LoadMeshCallback(Mesh a_model, LoadStatus a_status);
         /// <summary>
         /// Delegate for loading a <see cref="IcarianEngine.Rendering.Model" /> async
         /// </summary>
