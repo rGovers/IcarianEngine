@@ -5,28 +5,26 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
-#include <string_view>
 
-#include "Core/LoggerHeader.h"
-
-class Logger
+namespace IcarianCore 
 {
-public:
-    typedef std::function<void(const std::string_view&, IcarianCore::e_LoggerMessageType, uint32_t, const char* const*)> Callback;
-private:
+    enum e_LoggerMessageType : uint32_t
+    {
+        LoggerMessageType_Message,
+        LoggerMessageType_Warning,
+        LoggerMessageType_Error
+    };
 
-protected:
-
-public:
-    static Callback* CallbackFunc;
-
-    static void Message(const std::string_view& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
-    static void Warning(const std::string_view& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
-    static void Error(const std::string_view& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
-
-    static void Init();
-};
+    struct LoggerHeader
+    {
+        uint32_t Version;
+        e_LoggerMessageType Type;
+        uint32_t MessageOffset;
+        uint32_t MessageSize;
+        uint32_t StackTraceOffset;
+        uint32_t StackTraceSize;
+    };
+}
 
 // MIT License
 // 

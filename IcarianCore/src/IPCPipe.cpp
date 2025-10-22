@@ -48,8 +48,8 @@ namespace IcarianCore
         IERRBLOCK;
 
 #ifdef WIN32
-        const time_t timeoutSec = (time_t)a_timeoutSec;
-        const suseconds_t timeoutMicrosec = (suseconds_t)((a_timeoutSec - timeoutSec) * 1000000.0);
+        const long timeoutSec = (long)a_timeoutSec;
+        const long timeoutMicrosec = (long)((a_timeoutSec - timeoutSec) * 1000000.0);
 
         struct timeval timeout;
         timeout.tv_sec = timeoutSec;
@@ -84,6 +84,12 @@ namespace IcarianCore
         IERRCHECKRET(pipeSock >= 0, nullptr);
         IERRDEFER(close(pipeSock));
 
+        // This is not standard across UNIX/POSIX platforms so either need to set the socket option or use a send flag based on defines
+#ifdef SO_NOSIGPIPE
+        int setSigpipe = 1;
+        setsockopt(pipeSock, SOL_SOCKET, SO_NOSIGPIPE, &setSigpipe, sizeof(setSigpipe));
+#endif
+
         IPCPipe* pipe = new IPCPipe();
         pipe->m_pipeSock = pipeSock;
 
@@ -111,6 +117,11 @@ namespace IcarianCore
         }
 #else
         const int clientSock = socket(AF_UNIX, SOCK_STREAM, 0);
+
+#ifdef SO_NOSIGPIPE
+        int setSigpipe = 1;
+        setsockopt(clientSock, SOL_SOCKET, SO_NOSIGPIPE, &setSigpipe, sizeof(setSigpipe));
+#endif
 
         struct sockaddr_un serverAddr;
         memset(&serverAddr, 0, sizeof(serverAddr));
@@ -236,35 +247,31 @@ namespace IcarianCore
 
     bool IPCPipe::Send(const PipeMessage& a_msg)
     {
+        IERRBLOCK;
+
 #ifdef WIN32
         const int bytesSent = send(m_pipeSock, (const char*)&a_msg, PipeMessage::Size, 0);
-        if (bytesSent < 0)
-        {
-            perror("send");
+        IERRCHECKRET(bytesSent >= 0, false);
 
-            return false;
-        }
-        
         if (a_msg.Data != nullptr)
         {
             const int bytesSent = send(m_pipeSock, a_msg.Data, a_msg.Length, 0);
-            if (bytesSent < 0)
-            {
-                perror("send");
-
-                return false;
-            }
+            IERRCHECKRET(bytesSent >= 0, false);
         }
 #else
+
+#ifdef MSG_NOSIGNAL
+        constexpr int SendFlags = MSG_NOSIGNAL;
+#else
+        constexpr int SendFlags = 0;
+#endif
+
         // Theoretically could become an issue cause we are not checking is the whole message was sent
         // has not been an issue when running for long periods of time so ignoring as not running stuff that needs 100% uptime and lazy
-        const int bytesSent = write(m_pipeSock, &a_msg, PipeMessage::Size);
-        if (bytesSent < 0)
-        {
-            perror("write");
+        const int bytesSent = send(m_pipeSock, &a_msg, PipeMessage::Size, SendFlags);
+        IERRCHECKRET(bytesSent >= 0, false);
 
-            return false;
-        }
+        IERRCHECKRET(bytesSent == PipeMessage::Size, false);
 
         if (a_msg.Data != nullptr)
         {
@@ -274,13 +281,8 @@ namespace IcarianCore
             {
                 // Seems to get cutoff occasionally when sending large messages so we need to loop
                 // seems to have fixed the occasional malformed message
-                const int bytes = write(m_pipeSock, a_msg.Data + bytesSent, a_msg.Length - bytesSent);
-                if (bytes < 0)
-                {
-                    perror("write");
-
-                    return false;
-                }
+                const int bytes = send(m_pipeSock, a_msg.Data + bytesSent, a_msg.Length - bytesSent, SendFlags);
+                IERRCHECKRET(bytes >= 0, false);
 
                 bytesSent += (uint32_t)bytes;
             }
@@ -308,12 +310,7 @@ namespace IcarianCore
                 PipeMessage msg;
 
                 const int bytesReceived = recv(m_pipeSock, (char*)&msg, PipeMessage::Size, 0);
-                if (bytesReceived < 0)
-                {
-                    perror("recv");
-
-                    ITRIGGERERRRET(false);
-                }
+                IERRCHECKRET(bytesReceived >= 0, false);
 
                 IERRCHECKRET(msg.Type < PipeMessageType_End, false);
                 IERRCHECKRET(bytesReceived == PipeMessage::Size, false);
@@ -324,12 +321,7 @@ namespace IcarianCore
                     IERRDEFER(delete[] msg.Data);
 
                     const int bytesReceived = recv(m_pipeSock, msg.Data, msg.Length, 0);
-                    if (bytesReceived < 0)
-                    {
-                        perror("recv");
-
-                        ITRIGGERERRRET(false);
-                    }
+                    IERRCHECKRET(bytesReceived >= 0, false);
                 }
 
                 a_messages->push(msg);
@@ -341,6 +333,12 @@ namespace IcarianCore
             .fd = m_pipeSock,
             .events = POLLIN
         };
+
+#ifdef MSG_NOSIGNAL
+        constexpr int ReceiveFlags = MSG_NOSIGNAL;
+#else
+        constexpr int ReceiveFlags = 0;
+#endif
 
         while (poll(&pollFd, 1, 1) > 0)
         {
@@ -359,7 +357,7 @@ namespace IcarianCore
                 {
                     PipeMessage msg;
 
-                    const int bytesReceived = read(m_pipeSock, &msg, PipeMessage::Size);
+                    const int bytesReceived = recv(m_pipeSock, &msg, PipeMessage::Size, ReceiveFlags);
                     if (bytesReceived <= 0)
                     {
                         break;
@@ -376,11 +374,8 @@ namespace IcarianCore
                         uint32_t bytesReceived = 0;
                         while (bytesReceived < msg.Length)
                         {
-                            const int bytes = read(m_pipeSock, msg.Data + bytesReceived, msg.Length - bytesReceived);
-                            if (bytes <= 0)
-                            {
-                                ITRIGGERERRRET(false);
-                            }
+                            const int bytes = recv(m_pipeSock, msg.Data + bytesReceived, msg.Length - bytesReceived, ReceiveFlags);
+                            IERRCHECKRET(bytes >= 0, false);
 
                             bytesReceived += (uint32_t)bytes;
                         }
@@ -396,13 +391,8 @@ namespace IcarianCore
             {
                 PipeMessage msg;
 
-                const int bytesReceived = read(m_pipeSock, &msg, PipeMessage::Size);
-                if (bytesReceived < 0)
-                {
-                    perror("read");
-
-                    ITRIGGERERRRET(false);
-                }
+                const int bytesReceived = recv(m_pipeSock, &msg, PipeMessage::Size, ReceiveFlags);
+                IERRCHECKRET(bytesReceived >= 0, false);
 
                 IERRCHECKRET(msg.Type < PipeMessageType_End, false);
                 IERRCHECKRET(bytesReceived == PipeMessage::Size, false);
@@ -415,13 +405,8 @@ namespace IcarianCore
                     uint32_t bytesReceived = 0;
                     while (bytesReceived < msg.Length)
                     {
-                        const int bytes = read(m_pipeSock, msg.Data + bytesReceived, msg.Length - bytesReceived);
-                        if (bytes < 0)
-                        {
-                            perror("read");
-
-                            ITRIGGERERRRET(false);
-                        }
+                        const int bytes = recv(m_pipeSock, msg.Data + bytesReceived, msg.Length - bytesReceived, ReceiveFlags);
+                        IERRCHECKRET(bytes >= 0, false);
 
                         bytesReceived += (uint32_t)bytes;
                     }

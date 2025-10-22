@@ -82,6 +82,7 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
         "./include/Core/IcarianPragma.h",
         "./include/Core/InputBindings.h",
         "./include/Core/IPCPipe.h",
+        "./include/Core/LoggerHeader.h",
         "./include/Core/MonoNativeImpl.h",
         "./include/Core/Pipefile.h",
         "./include/Core/PipeMessage.h",

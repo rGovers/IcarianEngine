@@ -260,6 +260,7 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         "../IcarianCore/include/Core/IcarianPragma.h",
         "../IcarianCore/include/Core/InputBindings.h",
         "../IcarianCore/include/Core/IPCPipe.h",
+        "../IcarianCore/include/Core/LoggerHeader.h",
         "../IcarianCore/include/Core/MonoNativeImpl.h",
         "../IcarianCore/include/Core/Pipefile.h",
         "../IcarianCore/include/Core/PipeMessage.h",

@@ -117,7 +117,20 @@ namespace IcarianEngine.Rendering
         /// <param name="a_height">The new height of the Depth Render Texture</param>
         public void Resize(uint a_width, uint a_height)
         {
-            Resize(m_bufferAddr, a_width, a_height);      
+            if (a_width <= 0)
+            {
+                Logger.IcarianError($"DepthRenderTexture resize invalid width: {a_width}");
+
+                return;
+            }
+            if (a_height <= 0)
+            {
+                Logger.IcarianError($"DepthRenderTexture resize invalid height: {a_height}");
+
+                return;
+            }
+
+            Resize(m_bufferAddr, a_width, a_height);
         }
 
         /// <summary>
@@ -126,7 +139,7 @@ namespace IcarianEngine.Rendering
         public void Dispose()
         {
             Dispose(true);
-            
+
             GC.SuppressFinalize(this);
         }
         /// <summary>
@@ -141,7 +154,7 @@ namespace IcarianEngine.Rendering
                 {
                     s_bufferLookup.TryRemove(m_bufferAddr, out DepthRenderTexture _);
 
-                    DestroyRenderTexture(m_bufferAddr);   
+                    DestroyRenderTexture(m_bufferAddr);
                 }
                 else
                 {
@@ -149,7 +162,7 @@ namespace IcarianEngine.Rendering
 
 #ifdef ENABLE_STACKTRACE
                     CallStack.PrintStackTrace(m_stackTrace);
-#endif  
+#endif
                 }
 
                 m_bufferAddr = uint.MaxValue;
@@ -168,7 +181,7 @@ namespace IcarianEngine.Rendering
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

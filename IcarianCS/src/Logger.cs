@@ -21,11 +21,11 @@ namespace IcarianEngine
         public static MessageStream ErrorCallback = null;
 
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        extern static void PushMessage(string a_message);
+        extern static void PushMessage(string a_message, string[] a_stackTrace);
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        extern static void PushWarning(string a_message);
+        extern static void PushWarning(string a_message, string[] a_stackTrace);
         [MethodImplAttribute(MethodImplOptions.InternalCall)]
-        extern static void PushError(string a_message);
+        extern static void PushError(string a_message, string[] a_stackTrace);
 
         internal static void IcarianMessage(string a_message)
         {
@@ -61,15 +61,81 @@ namespace IcarianEngine
             }
         }
 
-        static string DisplayMessage(string a_msg)
+        static string[] GetStackTrace()
         {
 #ifdef ENABLE_STACKTRACE
             StackTrace stackTrace = new StackTrace(true);
 
-            // for (int i = stackTrace.FrameCount - 1; i >=0; --i)
-            for (int i = 0; i < stackTrace.FrameCount; ++i)
+            uint frameCount = (uint)stackTrace.FrameCount;
+
+            uint startFrame = 0;
+            while (true)
             {
-                StackFrame sf = stackTrace.GetFrame(i);
+                if (startFrame >= frameCount)
+                {
+                    return null;
+                }
+
+                StackFrame sf = stackTrace.GetFrame((int)startFrame);
+
+                MethodBase method = sf.GetMethod();
+                Type decType = method.DeclaringType;
+                if (decType != typeof(Logger))
+                {
+                    break;
+                }
+
+                ++startFrame;
+            }
+
+            uint stackSize = frameCount - startFrame;
+            string[] stack = new string[stackSize];
+
+            for (uint i = 0; i < stackSize; ++i)
+            {
+                string stackStr = string.Empty;
+
+                StackFrame sf = stackTrace.GetFrame((int)(i + startFrame));
+
+                MethodBase method = sf.GetMethod();
+                Type decType = method.DeclaringType;
+
+                stackStr += $"{decType}:{method.Name}";
+
+                string filename = sf.GetFileName();
+                if (!string.IsNullOrWhiteSpace(filename))
+                {
+                    int lineNum = sf.GetFileLineNumber();
+                    int columnNum = sf.GetFileColumnNumber();
+
+                    if (lineNum != 0 && columnNum != 0)
+                    {
+                        stackStr += $" [{filename}:{lineNum},{columnNum}]";
+                    }
+                    else
+                    {
+                        stackStr += $" [{filename}]";
+                    }
+                }
+
+                stack[i] = stackStr;
+            }
+
+            return stack;
+#endif
+
+            return null;
+        }
+
+        static string FormatMessage(string a_msg)
+        {
+#ifdef ENABLE_STACKTRACE
+            StackTrace stackTrace = new StackTrace(true);
+
+            uint frameCount = (uint)stackTrace.FrameCount;
+            for (uint i = 0; i < frameCount; ++i)
+            {
+                StackFrame sf = stackTrace.GetFrame((int)i);
 
                 MethodBase method = sf.GetMethod();
                 Type decType = method.DeclaringType;
@@ -81,7 +147,7 @@ namespace IcarianEngine
                 Assembly asm = decType.Assembly;
                 AssemblyName name = asm.GetName();
 
-                return $"[{name.Name}] {a_msg}: {decType}:{method.Name}";
+                return $"[{name.Name}] {a_msg}";
             }
 #endif
 
@@ -90,9 +156,10 @@ namespace IcarianEngine
 
         public static void Message(string a_message)
         {
-            string pMsg = DisplayMessage(a_message);
+            string pMsg = FormatMessage(a_message);
+            string[] stackTrace = GetStackTrace();
 
-            PushMessage(pMsg);
+            PushMessage(pMsg, stackTrace);
             if (MessageCallback != null)
             {
                 MessageCallback(a_message);
@@ -100,9 +167,10 @@ namespace IcarianEngine
         }
         public static void Warning(string a_message)
         {
-            string pMsg = DisplayMessage(a_message);
+            string pMsg = FormatMessage(a_message);
+            string[] stackTrace = GetStackTrace();
 
-            PushWarning(pMsg);
+            PushWarning(pMsg, stackTrace);
             if (WarningCallback != null)
             {
                 WarningCallback(a_message);
@@ -110,9 +178,10 @@ namespace IcarianEngine
         }
         public static void Error(string a_message)
         {
-            string pMsg = DisplayMessage(a_message);
+            string pMsg = FormatMessage(a_message);
+            string[] stackTrace = GetStackTrace();
 
-            PushError(pMsg);
+            PushError(pMsg, stackTrace);
             if (ErrorCallback != null)
             {
                 ErrorCallback(a_message);

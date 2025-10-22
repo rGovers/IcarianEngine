@@ -10,6 +10,9 @@ namespace IcarianEngine.Rendering.PostEffects
     public class EmissionPostEffect : PostEffect, IDestroy
     {
         const uint RenderTextureCount = 4;
+        const uint MinSize = (RenderTextureCount + 1) * (RenderTextureCount + 1);
+
+        bool             m_active;
 
         VertexShader     m_quadVertex;
         PixelShader      m_emissionPixel;
@@ -32,8 +35,21 @@ namespace IcarianEngine.Rendering.PostEffects
             }
         }
 
+        /// <summary>
+        /// Should run the PostEffect
+        /// </summary>
+        public override bool ShouldRun
+        {
+            get
+            {
+                return m_active;
+            }
+        }
+
         public EmissionPostEffect()
         {
+            m_active = true;
+
             m_quadVertex = VertexShader.LoadVertexShader("internal://Quad");
             m_emissionPixel = PixelShader.LoadPixelShader("internal://PostEmission");
             m_blurPixel = PixelShader.LoadPixelShader("internal://PostEmissionBlur");
@@ -74,6 +90,16 @@ namespace IcarianEngine.Rendering.PostEffects
         /// </summary>
         public override void Resize(uint a_width, uint a_height)
         {
+            if (a_width <= MinSize || a_width <= MinSize)
+            {
+                // Just disable it if the screen gets too small
+                m_active = false;
+
+                return;
+            }
+
+            m_active = true;
+
             for (uint i = 0; i < RenderTextureCount; ++i)
             {
                 uint next = i + 1;
@@ -118,7 +144,7 @@ namespace IcarianEngine.Rendering.PostEffects
             RenderCommand.DrawMaterial();
 
             RenderCommand.MarkerEnd();
-        }   
+        }
 
         /// <summary>
         /// Disposes of the EmissionPostEffect

@@ -36,21 +36,62 @@
     return addrPath.generic_string();
 }
 
-void HeadlessAppWindow::MessageCallback(const std::string_view& a_message, e_LoggerMessageType a_type)
+void HeadlessAppWindow::MessageCallback(const std::string_view& a_message, IcarianCore::e_LoggerMessageType a_type, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
-    const uint32_t strSize = (uint32_t)a_message.size();
-    constexpr uint32_t TypeSize = sizeof(e_LoggerMessageType);
-    const uint32_t size = strSize + TypeSize;
-
     const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
 
-    IcarianCore::PipeMessage msg;
-    msg.Type = IcarianCore::PipeMessageType_Message;
-    msg.Length = size;
-    msg.Data = (char*)m_msgAllocator->Allocate(size, 16);
-    memcpy(msg.Data, &a_type, TypeSize);
-    memcpy(msg.Data + TypeSize, a_message.data(), strSize);
+    uint32_t stackTraceSize = 0;
+    uint32_t* sizes = m_msgAllocator->TAllocate<uint32_t>(a_stackTraceCount); 
+    for (uint32_t i = 0; i < a_stackTraceCount; ++i)
+    {
+        const char* slider = a_stackTrace[i];
+        while (*slider != 0)
+        {
+            ++slider;
+        }
 
+        const uint32_t size = (uint32_t)(slider - a_stackTrace[i]);
+        sizes[i] = size;
+        stackTraceSize += size;
+    }
+
+    // Adding in space for null terminators
+    // We use null terminators as seperators
+    stackTraceSize += a_stackTraceCount;
+
+    constexpr uint32_t HeaderSize = sizeof(IcarianCore::LoggerHeader);
+    const uint32_t strSize = (uint32_t)a_message.size();
+
+    const uint32_t stackTraceOffset = HeaderSize + strSize;
+    const uint32_t size = stackTraceOffset + stackTraceSize + 1;
+
+    char* data = (char*)m_msgAllocator->Allocate(size, 16);
+    memset(data, 0, size);
+
+    const IcarianCore::LoggerHeader header = 
+    {
+        .Version = 0,
+        .Type = a_type,
+        .MessageOffset = HeaderSize,
+        .MessageSize = strSize,
+        .StackTraceOffset = stackTraceOffset,
+        .StackTraceSize = stackTraceSize,
+    };
+
+    memcpy(data, &header, sizeof(header));
+    memcpy(data + header.MessageOffset, a_message.data(), strSize);
+
+    uint32_t offset = 0;
+    for (uint32_t i = 0; i < a_stackTraceCount; ++i)
+    {
+        const uint32_t size = sizes[i];
+
+        memcpy(data + header.StackTraceOffset + offset, a_stackTrace[i], size);
+
+        offset += size + 1;
+    }
+
+    const IcarianCore::PipeMessage msg = IcarianCore::PipeMessage(IcarianCore::PipeMessageType_Message, size, data);
     m_queuedMessages.Push(msg);
 }
 void HeadlessAppWindow::ProfilerCallback(const Profiler::PData& a_profilerData)
@@ -65,7 +106,7 @@ void HeadlessAppWindow::ProfilerCallback(const Profiler::PData& a_profilerData)
     msg.Data = (char*)m_msgAllocator->Allocate(ScopeSize, 16);
 
     ProfileScope* scope = (ProfileScope*)msg.Data;
-    
+
     const int nameSize = glm::min((int)a_profilerData.Name.size(), NameMax - 1);
     for (int i = 0; i < nameSize; ++i)
     {
@@ -153,7 +194,15 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
     m_width = 1280;
     m_height = 720;
 
-    Logger::CallbackFunc = new Logger::Callback(std::bind(&HeadlessAppWindow::MessageCallback, this, std::placeholders::_1, std::placeholders::_2));
+    Logger::CallbackFunc = new Logger::Callback(std::bind
+    (
+        &HeadlessAppWindow::MessageCallback,
+        this,
+        std::placeholders::_1,
+        std::placeholders::_2,
+        std::placeholders::_3,
+        std::placeholders::_4
+    ));
     Profiler::CallbackFunc = new Profiler::Callback(std::bind(&HeadlessAppWindow::ProfilerCallback, this, std::placeholders::_1));
 
     m_prevTime = std::chrono::high_resolution_clock::now();

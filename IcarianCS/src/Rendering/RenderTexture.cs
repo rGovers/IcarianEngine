@@ -75,7 +75,7 @@ namespace IcarianEngine.Rendering
             {
                 depthVal = 1;
             }
-            
+
             uint hdrVal = 0;
             if (a_hdr)
             {
@@ -115,6 +115,19 @@ namespace IcarianEngine.Rendering
         /// <param name="a_height">The new height of the RenderTexture</param>
         public void Resize(uint a_width, uint a_height)
         {
+            if (a_width <= 0)
+            {
+                Logger.IcarianError($"RenderTexture resize invalid width: {a_width}");
+
+                return;
+            }
+            if (a_height <= 0)
+            {
+                Logger.IcarianError($"RenderTexture resize invalid height: {a_height}");
+
+                return;
+            }
+
             RenderTextureCmd.Resize(m_bufferAddr, a_width, a_height);
         }
 
@@ -147,7 +160,7 @@ namespace IcarianEngine.Rendering
 
 #ifdef ENABLE_STACKTRACE
                     CallStack.PrintStackTrace(m_stackTrace);
-#endif  
+#endif
                 }
 
                 m_bufferAddr = uint.MaxValue;

@@ -75,7 +75,7 @@ private:
 
     void PushMessageQueue();
 
-    void MessageCallback(const std::string_view& a_message, e_LoggerMessageType a_type);
+    void MessageCallback(const std::string_view& a_message, IcarianCore::e_LoggerMessageType a_type, uint32_t a_stackTraceCount, const char* const* a_stackTrace);
     void ProfilerCallback(const Profiler::PData& a_profilerData);
 
     bool PollMessage();

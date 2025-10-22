@@ -7,59 +7,183 @@
 #include <iostream>
 
 #include "Core/IcarianDefer.h"
+#include "Core/IcarianLambda.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
 Logger::Callback* Logger::CallbackFunc = nullptr;
 
-RUNTIME_FUNCTION(void, Logger, PushMessage, 
+RUNTIME_FUNCTION(void, Logger, PushMessage,
 {
     char* str = mono_string_to_utf8(a_string);
     IDEFER(mono_free(str));
 
-    Logger::Message(str);
-}, MonoString* a_string)
-RUNTIME_FUNCTION(void, Logger, PushWarning, 
+    const uint32_t stackTraceCount = ILAMBDA(
+    {
+        if (a_stackTrace != NULL)
+        {
+            ILRETURN (uint32_t)mono_array_length(a_stackTrace);
+        }
+
+        ILRETURN uint32_t(0);
+    });
+
+    char* const* stackTrace = ILAMBDA(
+    {
+        if (stackTraceCount <= 0)
+        {
+            ILRETURN (char**)nullptr;
+        }
+
+        char** vals = new char*[stackTraceCount];
+
+        for (uint32_t i = 0; i < stackTraceCount; ++i)
+        {
+            MonoString* string = mono_array_get(a_stackTrace, MonoString*, i);
+
+            vals[i] = mono_string_to_utf8(string);
+        }
+
+        ILRETURN vals;
+    });
+    IDEFER(
+    {
+        if (stackTrace != nullptr)
+        {
+            for (uint32_t i = 0; i < stackTraceCount; ++i)
+            {
+                mono_free(stackTrace[i]);
+            }
+
+            delete[] stackTrace;
+        }
+    });
+
+    Logger::Message(str, stackTraceCount, stackTrace);
+}, MonoString* a_string, MonoArray* a_stackTrace)
+RUNTIME_FUNCTION(void, Logger, PushWarning,
 {
     char* str = mono_string_to_utf8(a_string);
     IDEFER(mono_free(str));
 
-    Logger::Warning(str);
-}, MonoString* a_string)
-RUNTIME_FUNCTION(void, Logger, PushError, 
+    const uint32_t stackTraceCount = ILAMBDA(
+    {
+        if (a_stackTrace != NULL)
+        {
+            ILRETURN (uint32_t)mono_array_length(a_stackTrace);
+        }
+
+        ILRETURN uint32_t(0);
+    });
+
+    char* const* stackTrace = ILAMBDA(
+    {
+        if (stackTraceCount <= 0)
+        {
+            ILRETURN (char**)nullptr;
+        }
+
+        char** vals = new char*[stackTraceCount];
+
+        for (uint32_t i = 0; i < stackTraceCount; ++i)
+        {
+            MonoString* string = mono_array_get(a_stackTrace, MonoString*, i);
+
+            vals[i] = mono_string_to_utf8(string);
+        }
+
+        ILRETURN vals;
+    });
+    IDEFER(
+    {
+        if (stackTrace != nullptr)
+        {
+            for (uint32_t i = 0; i < stackTraceCount; ++i)
+            {
+                mono_free(stackTrace[i]);
+            }
+
+            delete[] stackTrace;
+        }
+    });
+
+    Logger::Warning(str, stackTraceCount, stackTrace);
+}, MonoString* a_string, MonoArray* a_stackTrace)
+RUNTIME_FUNCTION(void, Logger, PushError,
 {
     char* str = mono_string_to_utf8(a_string);
     IDEFER(mono_free(str));
 
-    Logger::Error(str);
-}, MonoString* a_string)
+    const uint32_t stackTraceCount = ILAMBDA(
+    {
+        if (a_stackTrace != NULL)
+        {
+            ILRETURN (uint32_t)mono_array_length(a_stackTrace);
+        }
 
-void Logger::Message(const std::string_view& a_msg)
+        ILRETURN uint32_t(0);
+    });
+
+    char* const* stackTrace = ILAMBDA(
+    {
+        if (stackTraceCount <= 0)
+        {
+            ILRETURN (char**)nullptr;
+        }
+
+        char** vals = new char*[stackTraceCount];
+
+        for (uint32_t i = 0; i < stackTraceCount; ++i)
+        {
+            MonoString* string = mono_array_get(a_stackTrace, MonoString*, i);
+
+            vals[i] = mono_string_to_utf8(string);
+        }
+
+        ILRETURN vals;
+    });
+    IDEFER(
+    {
+        if (stackTrace != nullptr)
+        {
+            for (uint32_t i = 0; i < stackTraceCount; ++i)
+            {
+                mono_free(stackTrace[i]);
+            }
+
+            delete[] stackTrace;
+        }
+    });
+
+    Logger::Error(str, stackTraceCount, stackTrace);
+}, MonoString* a_string, MonoArray* a_stackTrace)
+
+void Logger::Message(const std::string_view& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
     if (CallbackFunc != nullptr)
     {
-        (*CallbackFunc)(a_msg, LoggerMessageType_Message);
+        (*CallbackFunc)(a_msg, IcarianCore::LoggerMessageType_Message, a_stackTraceCount, a_stackTrace);
     }
-    
-    std::cout<< "FEL: " << a_msg << "\n";
+
+    std::cout << "IEM: " << a_msg << "\n";
 }
-void Logger::Warning(const std::string_view& a_msg)
+void Logger::Warning(const std::string_view& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
     if (CallbackFunc != nullptr)
     {
-        (*CallbackFunc)(a_msg, LoggerMessageType_Warning);
+        (*CallbackFunc)(a_msg, IcarianCore::LoggerMessageType_Warning, a_stackTraceCount, a_stackTrace);
     }
-    
-    std::cout << "FEL: " << a_msg << "\n";
+
+    std::cout << "IEW: " << a_msg << "\n";
 }
-void Logger::Error(const std::string_view& a_msg)
+void Logger::Error(const std::string_view& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
     if (CallbackFunc != nullptr)
     {
-        (*CallbackFunc)(a_msg, LoggerMessageType_Error);
+        (*CallbackFunc)(a_msg, IcarianCore::LoggerMessageType_Error, a_stackTraceCount, a_stackTrace);
     }
-    
-    std::cout << "FEL: " << a_msg << "\n";
+
+    std::cout << "IEE: " << a_msg << "\n";
 }
 void Logger::Init()
 {
@@ -72,7 +196,7 @@ void Logger::Init()
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2025 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

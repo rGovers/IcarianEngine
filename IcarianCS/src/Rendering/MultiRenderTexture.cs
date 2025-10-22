@@ -91,7 +91,7 @@ namespace IcarianEngine.Rendering
             {
                 hdrVal = 1;
             }
-            
+
             uint depthVal = 0;
             if (a_depth)
             {
@@ -131,6 +131,19 @@ namespace IcarianEngine.Rendering
         /// <param name="a_height">The new height of the RenderTexture</param>
         public void Resize(uint a_width, uint a_height)
         {
+            if (a_width <= 0)
+            {
+                Logger.IcarianError($"MultiRenderTexture resize invalid width: {a_width}");
+
+                return;
+            }
+            if (a_height <= 0)
+            {
+                Logger.IcarianError($"MultiRenderTexture resize invalid height: {a_height}");
+
+                return;
+            }
+
             RenderTextureCmd.Resize(m_bufferAddr, a_width, a_height);
         }
 
@@ -160,10 +173,10 @@ namespace IcarianEngine.Rendering
                 else
                 {
                     Logger.IcarianWarning("MultiRenderTexture not Disposed");
-                    
+
 #ifdef ENABLE_STACKTRACE
                     CallStack.PrintStackTrace(m_stackTrace);
-#endif  
+#endif
                 }
 
                 m_bufferAddr = uint.MaxValue;
