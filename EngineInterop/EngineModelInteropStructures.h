@@ -47,17 +47,6 @@ IOP_PACKED IOP_CSPUBLIC struct VertexInputAttribute
     /// The offset of the attribute in the vertex
     /// </summary>
     IOP_CSPUBLIC IOP_UINT16 Offset;
-
-#ifdef CUBE_LANGUAGE_CPP
-    inline bool operator ==(const VertexInputAttribute& a_other) const
-    {
-        return Location == a_other.Location && Type == a_other.Type && Count == a_other.Count && Offset == a_other.Offset;
-    }
-    inline bool operator !=(const VertexInputAttribute& a_other) const
-    {
-        return !(*this == a_other);
-    }
-#endif
 };
 
 IOP_PACKED IOP_CSPUBLIC struct Vertex
@@ -101,16 +90,6 @@ IOP_PACKED IOP_CSPUBLIC struct Vertex
             new VertexInputAttribute() { Location = 4, Type = VertexType.Float, Count = 2, Offset = (ushort)Marshal.OffsetOf<Vertex>("TexCoordsB") }
         };
     }
-#else
-    constexpr Vertex(const glm::vec4& a_pos = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), const glm::vec3& a_normal = glm::vec3(0.0f), const glm::vec4& a_color = glm::vec4(1.0f), const glm::vec2& a_texCoordsA = glm::vec2(0.0f), const glm::vec2& a_texCoordsB = glm::vec2(0.0f)) :
-            Position(a_pos),
-            Normal(a_normal, 0.0f),
-            Color(a_color),
-            TexCoordsA(a_texCoordsA),
-            TexCoordsB(a_texCoordsB)
-        {   
-
-        }
 #endif
 };
 
@@ -123,7 +102,7 @@ IOP_PACKED IOP_CSPUBLIC struct SkinnedVertex
     /// <summary>
     /// The normal of the vertex
     /// </summary>
-    IOP_CSPUBLIC IOP_VEC3 Normal;
+    IOP_CSPUBLIC IOP_VEC4 Normal;
     /// <summary>
     /// The color of the vertex
     /// </summary>
@@ -151,24 +130,13 @@ IOP_PACKED IOP_CSPUBLIC struct SkinnedVertex
         return new VertexInputAttribute[]
         {
             new VertexInputAttribute() { Location = 0, Type = VertexType.Float, Count = 4, Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("Position") },
-            new VertexInputAttribute() { Location = 1, Type = VertexType.Float, Count = 3, Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("Normal") },
+            new VertexInputAttribute() { Location = 1, Type = VertexType.Float, Count = 4, Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("Normal") },
             new VertexInputAttribute() { Location = 2, Type = VertexType.Float, Count = 4, Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("Color") },
             new VertexInputAttribute() { Location = 3, Type = VertexType.Float, Count = 2, Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("TexCoords") },
             new VertexInputAttribute() { Location = 4, Type = VertexType.Float, Count = 4, Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("BoneWeights") },
             new VertexInputAttribute() { Location = 5, Type = VertexType.Int, Count = 4, Offset = (ushort)Marshal.OffsetOf<SkinnedVertex>("BoneIndices") }
         };
     }
-#else 
-    constexpr SkinnedVertex(const glm::vec4& a_pos = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f), const glm::vec3& a_normal = glm::vec3(0.0f), const glm::vec4& a_color = glm::vec4(1.0f), const glm::vec2& a_texCoords = glm::vec2(0.0f), const glm::vec4& a_boneWeights = glm::vec4(0.0f), const glm::ivec4& a_boneIndices = glm::ivec4(0)) :
-            Position(a_pos),
-            Normal(a_normal),
-            Color(a_color),
-            TexCoords(a_texCoords),
-            BoneWeights(a_boneWeights),
-            BoneIndices(a_boneIndices)
-        {   
-
-        }
 #endif
 };
 
@@ -178,7 +146,7 @@ IOP_PACKED IOP_CSPUBLIC struct SkinnedVertex
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

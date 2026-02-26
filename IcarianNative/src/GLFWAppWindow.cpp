@@ -15,6 +15,7 @@
 
 #include "Application.h"
 #include "Config.h"
+#include "DataTypes/MallocAllocator.h"
 #include "InputManager.h"
 #include "Rendering/UI/UIControl.h"
 #include "Profiler.h"
@@ -274,7 +275,7 @@ void GLFWAppWindow::Update()
     m_shouldClose = glfwWindowShouldClose(m_window);
 
     const Application* app = GetApplication();
-    
+
     {
         PROFILESTACK("Input");
         InputManager* inputManager = app->GetInputManager();
@@ -299,7 +300,7 @@ void GLFWAppWindow::Update()
         m_lastCursorPos = cPos;
 
         UIControl::UpdateCursor((glm::vec2)cPos, (glm::vec2)winSize);
-        
+
         bool leftDown = glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
         if (leftDown)
         {
@@ -384,7 +385,7 @@ AppMonitor* GLFWAppWindow::GetMonitors(int* a_count) const
             monitors[i].Width = 0;
             monitors[i].Height = 0;
             monitors[i].Handle = mon;
-            
+
             int vidModeCount;
             const GLFWvidmode* vidModes = glfwGetVideoModes(mon, &vidModeCount);
             for (int j = 0; j < vidModeCount; ++j)
@@ -408,7 +409,7 @@ vk::SurfaceKHR GLFWAppWindow::GetSurface(const vk::Instance& a_instance)
         glfwCreateWindowSurface(a_instance, m_window, nullptr, &tempSurf);
         m_surface = tempSurf;
     }
-    
+
     return m_surface;
 }
 Array<const char*> GLFWAppWindow::GetRequiredVulkanExtenions() const
@@ -416,14 +417,14 @@ Array<const char*> GLFWAppWindow::GetRequiredVulkanExtenions() const
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-    return Array<const char*>(glfwExtensions, glfwExtensionCount);
+    return Array<const char*>(glfwExtensions, glfwExtensionCount, MallocAllocator::Instance);
 }
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

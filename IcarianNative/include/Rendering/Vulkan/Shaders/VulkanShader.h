@@ -13,33 +13,45 @@ class VulkanRenderEngineBackend;
 
 #include "EngineMaterialInteropStructures.h"
 
+enum e_VulkanShaderType
+{
+    VulkanShaderType_Null,
+    VulkanShaderType_Vertex,
+    VulkanShaderType_Task,
+    VulkanShaderType_Mesh,
+    VulkanShaderType_Pixel,
+    VulkanShaderType_Compute
+};
+
 class VulkanShader
 {
 private:
 
 protected:
-    VulkanRenderEngineBackend*  m_engine;
     Allocator*                  m_allocator;
+    VulkanRenderEngineBackend*  m_engine;
 
     vk::ShaderModule            m_module;
-    
+
     ShaderBufferInput*          m_inputs;
     uint32_t                    m_inputCount;
 
     VulkanShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, Allocator* a_allocator);
-    
+
 public:
     VulkanShader() = delete;
     virtual ~VulkanShader();
+
+    virtual e_VulkanShaderType GetShaderType() const
+    {
+        return VulkanShaderType_Null;
+    }
 
     inline uint32_t GetShaderInputCount() const
     {
         return m_inputCount;
     }
-    inline ShaderBufferInput GetShaderInput(uint32_t a_index) const
-    {
-        return m_inputs[a_index];
-    }
+    ShaderBufferInput GetShaderInput(uint32_t a_index) const;
 
     inline vk::ShaderModule GetShaderModule() const
     {
@@ -51,7 +63,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

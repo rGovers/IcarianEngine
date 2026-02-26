@@ -8,7 +8,10 @@
 #include <string>
 #include <string_view>
 
+#include "DataTypes/BlockAllocator.h"
+#include "DataTypes/StackAllocator.h"
 #include "DataTypes/TNCArray.h"
+#include "DataTypes/TStatic.h"
 
 class Font;
 class RenderEngine;
@@ -28,6 +31,12 @@ struct RenderAsset
     uint8_t Flags;
 };
 
+struct RenderAssetScratchAllocator
+{
+    volatile uint32_t Count;
+    StackAllocator* Allocator;
+};
+
 #define ISRENDERASSETSTOREADDR(assetAddr) ((assetAddr) & 0b1 << RenderAssetStore::RenderAssetStoreBit)
 #define FROMRENDERSTOREADDR(assetAddr) ((assetAddr) & ~(0b1 << RenderAssetStore::RenderAssetStoreBit))
 #define TORENDERSTOREADDR(assetAddr) ((assetAddr) | 0b1 << RenderAssetStore::RenderAssetStoreBit)
@@ -40,18 +49,30 @@ public:
     static constexpr uint32_t RenderAssetStoreBit = 30;
 
 private:
+    constexpr static uint64_t BlockAllocatorSize = 32 << 20;
+    constexpr static uint64_t ScratchAllocatorSize = 64 << 20;
+
     friend class RenderAssetStoreBindings;
 
     static constexpr uint16_t DeReqCount = 20;
 
-    RenderEngine*             m_renderEngine;
-    RenderAssetStoreBindings* m_bindings;
+    BlockAllocator*                    m_blockAllocator;
+    Array<RenderAssetScratchAllocator> m_stackAllocators;
+    TStatic<uint32_t>                  m_scratchAllocator;
 
-    TNCArray<RenderAsset>     m_meshes;
-    TNCArray<RenderAsset>     m_models;
-    TNCArray<RenderAsset>     m_textures;
-    TNCArray<Font*>           m_fonts;
+    RenderEngine*                      m_renderEngine;
+    RenderAssetStoreBindings*          m_bindings;
 
+    TNCArray<RenderAsset>              m_meshes;
+    TNCArray<RenderAsset>              m_models;
+    TNCArray<RenderAsset>              m_textures;
+    TNCArray<Font*>                    m_fonts;
+
+    SpinLock                           m_scratchLock;
+
+    uint32_t                           m_scratchIndex;
+
+    uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::string_view& a_path);
     uint32_t LoadMeshData(const std::string_view& a_path, uint8_t a_index);
 
 protected:
@@ -68,24 +89,26 @@ public:
         return m_fonts[a_addr];
     }
 
-    uint32_t LoadMesh(const std::string_view& a_path, uint8_t a_index);
+    [[nodiscard]] uint32_t LoadMesh(const std::string_view& a_path, uint8_t a_index);
     void DestroyMesh(uint32_t a_addr);
     uint32_t GetMesh(uint32_t a_addr);
 
     bool LoadModelData(const std::string_view& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius);
-    uint32_t LoadModel(const std::string_view& a_path, uint8_t a_index);
-    uint32_t LoadSkinnedModel(const std::string_view& a_path, uint8_t a_index);
+    [[nodiscard]] uint32_t LoadModel(const std::string_view& a_path, uint8_t a_index);
+    [[nodiscard]] uint32_t LoadSkinnedModel(const std::string_view& a_path, uint8_t a_index);
     void DestroyModel(uint32_t a_addr);
     uint32_t GetModel(uint32_t a_addr);
 
-    uint32_t LoadTexture(const std::string_view& a_path);
+    [[nodiscard]] uint32_t LoadTexture(const std::string_view& a_path);
     void DestroyTexture(uint32_t a_addr);
     uint32_t GetTexture(uint32_t a_addr);
+
+    uint32_t GetScratchAllocatorIndex();
 };
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

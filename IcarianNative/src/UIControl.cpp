@@ -5,6 +5,7 @@
 #include "Rendering/UI/UIControl.h"
 
 #include "Core/Bitfield.h"
+#include "DataTypes/MallocAllocator.h"
 #include "IcarianError.h"
 #include "Logger.h"
 #include "Rendering/UI/UIControlBindings.h"
@@ -309,13 +310,16 @@ void UIControl::UpdateCursor(const glm::vec2& a_pos, const glm::vec2& a_size)
 {
     // Not modifying the canvas directly but do not want it to be modified while
     // we are doing this
+    const uint32_t size = Instance->m_canvas.Size();
     const TReadLockArray<CanvasBuffer> a = Instance->m_canvas.ToReadLockArray();
-    const Array<bool> state = Instance->m_canvas.ToStateArray();
+    const Array<uint8_t> state = Instance->m_canvas.ToPackedStateArray(MallocAllocator::Instance);
 
-    const uint32_t size = a.Size();
     for (uint32_t i = 0; i < size; ++i) 
     {
-        if (!state[i])
+        const uint32_t index = i / 8;
+        const uint32_t offset = i % 8;
+
+        if (!IISBITSET(state[index], offset))
         {
             continue;
         }
@@ -344,13 +348,16 @@ bool UIControl::SubmitClick(const glm::vec2& a_pos, const glm::vec2& a_size)
 {
     // Not modifying the canvas directly but do not want it to be modified while
     // we are doing this
+    const uint32_t size = Instance->m_canvas.Size();
     const TReadLockArray<CanvasBuffer> a = Instance->m_canvas.ToReadLockArray();
-    const Array<bool> state = Instance->m_canvas.ToStateArray();
+    const Array<uint8_t> state = Instance->m_canvas.ToPackedStateArray(MallocAllocator::Instance);
 
-    const uint32_t size = a.Size();
     for (uint32_t i = 0; i < size; ++i)
     {
-        if (!state[i])
+        const uint32_t index = i / 8;
+        const uint32_t offset = i % 8;
+
+        if (!IISBITSET(state[index], offset))
         {
             continue;
         }
@@ -384,13 +391,16 @@ void UIControl::SubmitRelease(const glm::vec2& a_pos, const glm::vec2& a_size)
 {
     // Not modifying the canvas directly but do not want it to be modified while
     // we doing this
+    const uint32_t size = Instance->m_canvas.Size();
     const TReadLockArray<CanvasBuffer> a = Instance->m_canvas.ToReadLockArray();
-    const Array<bool> state = Instance->m_canvas.ToStateArray();
+    const Array<uint8_t> state = Instance->m_canvas.ToPackedStateArray(MallocAllocator::Instance);
 
-    const uint32_t size = a.Size();
     for (uint32_t i = 0; i < size; ++i)
     {
-        if (!state[i])
+        const uint32_t index = i / 8;
+        const uint32_t offset = i % 8;
+
+        if (!IISBITSET(state[index], offset))
         {
             continue;
         }
@@ -417,7 +427,7 @@ void UIControl::SubmitRelease(const glm::vec2& a_pos, const glm::vec2& a_size)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

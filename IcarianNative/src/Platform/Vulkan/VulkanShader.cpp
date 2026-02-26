@@ -36,11 +36,18 @@ VulkanShader::~VulkanShader()
     }
 }
 
+ShaderBufferInput VulkanShader::GetShaderInput(uint32_t a_index) const
+{
+    IVERIFY(a_index < m_inputCount);
+
+    return m_inputs[a_index];
+}
+
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

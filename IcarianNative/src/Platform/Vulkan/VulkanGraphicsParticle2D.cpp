@@ -16,21 +16,41 @@
 #include "Rendering/Vulkan/VulkanShaderData.h"
 #include "Shaders.h"
 
-void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer)
+void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer, Allocator* a_tempAllocator)
 {
     m_inputs.Clear();
 
     uint16_t slot = 0;
 
-    const uint32_t taskShader = m_gEngine->GenerateFTaskShader(ParticleTaskShader);
+    const uint32_t taskShader = m_gEngine->GenerateFTaskShader
+    (
+        COWU8String
+        (
+            ParticleTaskShader,
+            sizeof(ParticleTaskShader) / sizeof(*ParticleTaskShader),
+            a_tempAllocator
+        )
+    );
 
-    const std::string mShaderStr = VulkanParticleShaderGenerator::GenerateMeshShader(a_buffer, &slot, &m_inputs);
+    const COWU8String mShaderStr = VulkanParticleShaderGenerator::GenerateMeshShader
+    (
+        a_buffer,
+        &slot,
+        &m_inputs,
+        m_allocator
+    );
     const uint32_t meshShader = m_gEngine->GenerateFMeshShader(mShaderStr);
 
-    const std::string pShaderStr = VulkanParticleShaderGenerator::GeneratePixelShader(a_buffer, &slot, &m_inputs);
+    const COWU8String pShaderStr = VulkanParticleShaderGenerator::GeneratePixelShader
+    (
+        a_buffer,
+        &slot,
+        &m_inputs,
+        m_allocator
+    );
     const uint32_t pixelShader = m_gEngine->GenerateFPixelShader(pShaderStr);
 
-    const RenderProgram program = 
+    const RenderProgram program =
     {
         .VertexShader = meshShader,
         .PixelShader = pixelShader,
@@ -41,7 +61,7 @@ void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer)
         .Flags = 0b1 << RenderProgram::DestroyFlag
     };
 
-    m_renderProgramAddr = m_gEngine->GenerateRenderProgram(program);
+    m_renderProgramAddr = m_gEngine->GenerateRenderProgram(program, a_tempAllocator);
 }
 void VulkanGraphicsParticle2D::Destroy()
 {
@@ -53,8 +73,18 @@ void VulkanGraphicsParticle2D::Destroy()
     }
 }
 
-VulkanGraphicsParticle2D::VulkanGraphicsParticle2D(VulkanRenderEngineBackend* a_backend, VulkanComputeEngine* a_cEngine, VulkanGraphicsEngine* a_gEngine, uint32_t a_computeBufferAddr)
+VulkanGraphicsParticle2D::VulkanGraphicsParticle2D
+(
+    VulkanRenderEngineBackend* a_backend, 
+    VulkanComputeEngine* a_cEngine, 
+    VulkanGraphicsEngine* a_gEngine, 
+    uint32_t a_computeBufferAddr,
+    Allocator* a_allocator
+) :
+    m_inputs(a_allocator)
 {
+    m_allocator = a_allocator;
+
     m_backend = a_backend;
     m_cEngine = a_cEngine;
     m_gEngine = a_gEngine;
@@ -69,7 +99,15 @@ VulkanGraphicsParticle2D::~VulkanGraphicsParticle2D()
     Destroy();
 }
 
-void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, uint32_t a_renderLayer, vk::CommandBuffer a_commandBuffer, uint32_t a_renderTextureAddr)
+void VulkanGraphicsParticle2D::Update
+(
+    uint32_t a_index,
+    uint32_t a_bufferIndex,
+    uint32_t a_renderLayer,
+    vk::CommandBuffer a_commandBuffer,
+    uint32_t a_renderTextureAddr,
+    Allocator* a_tempAllocator
+)
 {
     ComputeParticleBuffer buffer = m_cEngine->GetParticleBuffer(m_computeBufferAddr);
     IVERIFY(buffer.DisplayMode == ParticleDisplayMode_Quad);
@@ -78,7 +116,7 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
     {
         return;
     }
-    
+
     if (!IISBITSET(buffer.Flags, ComputeParticleBuffer::PlayingBit))
     {
         return;
@@ -98,12 +136,12 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
     const bool valid = m_renderProgramAddr != uint32_t(-1);
     if (!valid)
     {
-        Build(buffer);
+        Build(buffer, a_tempAllocator);
     }
 
-    vk::Buffer computeParticleBuffer = m_cEngine->GetParticleBufferData(m_computeBufferAddr);
+    const vk::Buffer computeParticleBuffer = m_cEngine->GetParticleBufferData(m_computeBufferAddr);
 
-    VulkanPipeline* pipeline = m_gEngine->GetPipeline(a_renderTextureAddr, m_renderProgramAddr);
+    const VulkanPipeline* pipeline = m_gEngine->GetPipeline(a_renderTextureAddr, m_renderProgramAddr);
     const VulkanShaderData* data = pipeline->GetShaderData();
 
     for (const ShaderBufferInput& input : m_inputs)
@@ -122,7 +160,7 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
         {
             const VulkanUniformBuffer* camBuffer = m_gEngine->GetCameraUniformBuffer(a_bufferIndex);
 
-            data->PushUniformBuffer(a_commandBuffer, input.Slot, camBuffer, a_index);
+            data->PushUniformBuffer(a_commandBuffer, input.RealSlot, camBuffer, a_index);
 
             break;
         }
@@ -130,13 +168,13 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
         {
             const VulkanUniformBuffer* timeBuffer = m_gEngine->GetTimeUniformBuffer();
 
-            data->PushUniformBuffer(a_commandBuffer, input.Slot, timeBuffer, a_index);
+            data->PushUniformBuffer(a_commandBuffer, input.RealSlot, timeBuffer, a_index);
 
             break;
         }
         case ShaderBufferType_SSParticleBuffer:
         {
-            data->PushShaderStorageObject(a_commandBuffer, input.Slot, computeParticleBuffer, 0, a_index);
+            data->PushShaderStorageObject(a_commandBuffer, input.RealSlot, computeParticleBuffer, 0, a_index);
 
             break;
         }
@@ -161,7 +199,7 @@ void VulkanGraphicsParticle2D::Update(uint32_t a_index, uint32_t a_bufferIndex, 
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

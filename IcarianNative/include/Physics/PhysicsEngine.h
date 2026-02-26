@@ -32,6 +32,7 @@
 #include "Physics/IcObjectLayerPairFilter.h"
 #include "Physics/IcPhysicsJobSystem.h"
 
+class BlockAllocator;
 class Config;
 class PhysicsEngineBindings;
 class RuntimeFunction;
@@ -61,6 +62,8 @@ private:
 
     PhysicsEngineBindings*                    m_runtimeBindings;
 
+    JPH::TempAllocatorImpl*                   m_tempAllocator;
+
     // Apparently Intel decided no fun allowed so array instead of uint64_t
     uint8_t                                   m_objectLayerCollisions[8];
 
@@ -70,17 +73,15 @@ private:
 
     RuntimeFunction*                          m_fixedUpdateFunction;
 
-    // FFS got foot gunned by RAII. Raw pointers it is then.
+    // FFS got foot gunned by RAII. Raw pointers it is then
     IcPhysicsJobSystem*                       m_jobSystem;
     IcBroadPhaseLayerInterface*               m_broadPhase;
     IcObjectVsBroadPhaseLayerFilter*          m_objectBroad;
     IcObjectLayerPairFilter*                  m_pairFilter;
-    
+
     IcBodyActivationListener*                 m_activationListener;
     IcContactListener*                        m_contactListener;
     IcCharacterListener*                      m_characterListener;
-
-    JPH::TempAllocatorImpl*                   m_allocator;
 
     JPH::PhysicsSystem*                       m_physicsSystem;
 
@@ -106,7 +107,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

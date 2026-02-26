@@ -35,6 +35,7 @@
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
 #include "Core/StringUtils.h"
+#include "DataTypes/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "ObjectManager.h"
@@ -782,6 +783,12 @@ RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, cons
     public:
         Array<JPH::RayCastResult> Results;
 
+        RayCollector(Allocator* a_allocator) :
+            Results(a_allocator)
+        {
+
+        }
+
         virtual void AddHit(const JPH::RayCastResult& a_result)
         {
             // Had a air jump bug so all trust in Jolt is gone
@@ -792,7 +799,7 @@ RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, cons
 
             Results.Push(a_result);
         }
-    } collector{ };
+    } collector(MallocAllocator::Instance);
 
     narrow.CastRay(ray, Settings, collector);
 
@@ -910,7 +917,7 @@ uint32_t* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm
     {
         *a_resultCount = (uint32_t)collector.mHits.size();
 
-        const JPH::BodyID* ids = collector.mHits.data();    
+        const JPH::BodyID* ids = collector.mHits.data();
         uint32_t* results = new uint32_t[*a_resultCount];
 
         for (uint32_t i = 0; i < *a_resultCount; ++i)
@@ -926,7 +933,7 @@ uint32_t* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

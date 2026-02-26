@@ -49,7 +49,7 @@ public:
     void PushStackPointer()
     {
         [[maybe_unused]] const uintptr_t oldStackSlider = (uintptr_t)m_stackSlider;
-        
+
         uintptr_t* oldPtr = TAllocate<uintptr_t>();
         *oldPtr = (uintptr_t)m_stackPointer;
 
@@ -76,7 +76,7 @@ public:
 
     virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
     {
-        void* ptr = Align(m_stackSlider, a_alignment);
+        void* ptr = AlignTo((uint8_t*)m_stackSlider, a_alignment);
         void* next = (char*)ptr + a_size;
         if (next > m_end)
         {
@@ -99,7 +99,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

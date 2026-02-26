@@ -10,6 +10,7 @@
 #include <Jolt/Physics/Body/BodyID.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 
+#include "DataTypes/Allocator.h"
 #include "DataTypes/TArray.h"
 
 class IcBodyActivationListener : public JPH::BodyActivationListener
@@ -23,7 +24,7 @@ public:
     IcBodyActivationListener();
     virtual ~IcBodyActivationListener();
 
-    Array<JPH::BodyID> ToBodies();
+    Array<JPH::BodyID> ToBodies(Allocator* a_allocator);
 
     virtual void OnBodyActivated(const JPH::BodyID& a_bodyID, JPH::uint64 a_userData);
     virtual void OnBodyDeactivated(const JPH::BodyID& a_bodyID, JPH::uint64 a_userData);
@@ -31,7 +32,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -6,86 +6,57 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include <cstdint>
-#include <string>
-#include <unordered_map>
+#include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
-#include "Rendering/Vulkan/IcarianVulkanHeader.h"
-
-class Allocator;
-class VulkanComputeShader;
-class VulkanGraphicsEngine;
-class VulkanRenderEngineBackend;
-class VulkanVertexShader;
+#include "DataTypes/Array.h"
+#include "DataTypes/COWString.h"
 
 #include "EngineMaterialInteropStructures.h"
 
 struct VulkanMeshFShaderBuilder
 {
     VulkanRenderEngineBackend* Engine;
-    VulkanGraphicsEngine* GraphicsEngine;
-    std::string String;
+    COWU8String String;
     std::unordered_map<std::string, std::string> Imports;
-    std::string EntryPoint;
+    COWU8String EntryPoint;
+    Array<ShaderBufferInput> OtherInputs;
 };
 
-class VulkanMeshShader
+class VulkanMeshShader : public VulkanShader
 {
 private:
-    // Removed GLSL generation and no longer inherits from Shader as it can be multiple shaders if emulating
-    VulkanRenderEngineBackend*  m_engine;
-    VulkanGraphicsEngine*       m_gEngine;
-    Allocator*                  m_allocator;
-
-    // Yes code smell but will not use both at once
-    // Memory safety people are probably screaming murder
-    union MeshUnion
-    {
-        struct
-        {
-            vk::ShaderModule Module;
-
-            ShaderBufferInput* Inputs;
-            uint32_t InputCount;
-        } Native;
-        struct
-        {
-            VulkanVertexShader* VertexShader;
-            VulkanComputeShader* ComputeShader;
-        } Emulated;
-
-        MeshUnion()
-        {
-            Emulated.VertexShader = nullptr;
-            Emulated.ComputeShader = nullptr;
-        }
-    } m_data;
-
-    VulkanMeshShader(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, VulkanVertexShader* a_vertexShader, VulkanComputeShader* a_computeShader, Allocator* a_allocator);
-    VulkanMeshShader(VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, vk::ShaderModule a_module, Allocator* a_allocator);
 
 protected:
 
 public:
     VulkanMeshShader() = delete;
+    VulkanMeshShader
+    (
+        VulkanRenderEngineBackend* a_engine,
+        const ShaderBufferInput* a_inputs,
+        uint32_t a_inputCount,
+        const uint32_t* a_data,
+        uint32_t a_dataCount,
+        Allocator* a_allocator
+    );
     virtual ~VulkanMeshShader();
 
-    uint32_t GetShaderInputCount() const;
-    ShaderBufferInput GetShaderInput(uint32_t a_index) const;
+    virtual e_VulkanShaderType GetShaderType() const
+    {
+        return VulkanShaderType_Mesh;
+    }
 
-    vk::ShaderModule GetShaderModule() const;
+    uint32_t GetVertexInputAttributeCount() const;
+    VertexInputAttribute GetVertexInputAttribute(uint32_t a_index) const;
 
-    VulkanVertexShader* GetVertexShader() const;
-    VulkanComputeShader* GetComputeShader() const;
-
-    static void CreateFromFShader(VulkanMeshShader* a_out, const VulkanMeshFShaderBuilder& a_builder, Allocator* a_allocator);
+    static void CreateFromFShader(VulkanMeshShader* a_out, const VulkanMeshFShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
 };
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

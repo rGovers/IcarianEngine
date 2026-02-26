@@ -9,6 +9,7 @@
 
 #include <cstdint>
 
+class Allocator;
 class VulkanComputeEngine;
 
 #include "EngineParticleSystemInteropStructures.h"
@@ -20,7 +21,7 @@ public:
 
 private:
     VulkanComputeEngine* m_engine;
-        
+
     uint32_t             m_computeShader;
     uint32_t             m_computeLayout;
     uint32_t             m_computePipeline;
@@ -31,7 +32,7 @@ private:
     vk::Buffer           m_particleBuffers[MaxParticleBuffers];
 
     void Clear();
-    void Rebuild(ComputeParticleBuffer* a_buffer);
+    void Rebuild(ComputeParticleBuffer* a_buffer, Allocator* a_tempAllocator);
 
 protected:
 
@@ -39,7 +40,7 @@ public:
     VulkanComputeParticle(VulkanComputeEngine* a_engine, uint32_t a_particleBufferAddr);
     ~VulkanComputeParticle();
 
-    void Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_index);
+    void Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_index, Allocator* a_tempAllocator);
 
     inline vk::Buffer GetComputeBuffer() const
     {
@@ -51,7 +52,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

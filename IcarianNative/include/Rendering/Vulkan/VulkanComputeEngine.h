@@ -7,6 +7,7 @@
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
+#include "DataTypes/COWString.h"
 #include "DataTypes/TNCArray.h"
 #include "Rendering/Vulkan/VulkanCommandBuffer.h"
 
@@ -37,7 +38,7 @@ private:
     TNCArray<VulkanComputeShader*>     m_shaders;
     TNCArray<VulkanComputePipeline*>   m_pipelines;
     TNCArray<VulkanComputeLayout*>     m_layouts;
-    
+
     TNCArray<ComputeParticleBuffer>    m_particleBuffers;
 
 protected:
@@ -63,15 +64,15 @@ public:
 
     vk::Buffer GetParticleBufferData(uint32_t a_addr);
 
-    uint32_t GenerateComputeFShader(const std::string_view& a_str);
+    [[nodiscard]]uint32_t GenerateComputeFShader(const COWU8String& a_str, Allocator* a_tempAllocator);
     void DestroyComputeShader(uint32_t a_addr);
     VulkanComputeShader* GetComputeShader(uint32_t a_addr);
 
-    uint32_t GenerateComputePipelineLayout(const ShaderBufferInput* a_inputs, uint32_t a_count);
+    [[nodiscard]] uint32_t GenerateComputePipelineLayout(const ShaderBufferInput* a_inputs, uint32_t a_count);
     void DestroyComputePipelineLayout(uint32_t a_addr);
     VulkanComputeLayout* GetComputePipelineLayout(uint32_t a_addr);
 
-    uint32_t GenerateComputePipeline(uint32_t a_shaderAddr, uint32_t a_layoutAddr);
+    [[nodiscard]] uint32_t GenerateComputePipeline(uint32_t a_shaderAddr, uint32_t a_layoutAddr);
     void DestroyComputePipeline(uint32_t a_addr);
     VulkanComputePipeline* GetComputePipeline(uint32_t a_addr);
 };
@@ -80,7 +81,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -4,14 +4,13 @@
 
 #pragma once
 
-#include "DataTypes/TLockArray.h"
-
 #include <cstdlib>
 #include <cstring>
 #include <vector>
 
 #include "DataTypes/Array.h"
 #include "DataTypes/ThreadGuard.h"
+#include "DataTypes/TLockArray.h"
 
 // Something bout this class causes debuggers to freak out and break on phantom bits of code and language servers to show errors when it works fine?
 // Hopefully it is just a bug in the tools or my particular configuration and not the code
@@ -44,9 +43,9 @@ private:
                     (&(m_data[i]))->~T();
                 }
             }
-
-            memset((void*)m_data, 0, sizeof(T) * m_size);
         }
+
+        memset((void*)m_data, 0, sizeof(T) * m_size);
     }
 
 protected:
@@ -89,7 +88,7 @@ public:
     {
         const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
         const ThreadGuard g = ThreadGuard(m_lock);
-        
+
         m_size = a_other.m_size;
         m_state = a_other.m_state;
         m_data = a_other.m_data;
@@ -184,7 +183,7 @@ public:
 
         m_size = a_other.m_size;
         const uint32_t stateSize = m_size / StateValBitSize + 1;
-        
+
         m_data = (T*)calloc(m_size, sizeof(T));
         m_state = (StateVal*)calloc(stateSize, sizeof(StateVal));
 
@@ -207,19 +206,17 @@ public:
         return *this;
     }
 
-    template<typename Alloc = MallocAllocator>
-    Array<T, Alloc> ToArray()
+    Array<T> ToArray(Allocator* a_allocator)
     {
         const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
-        return Array<T, Alloc>(m_data, m_size);
+        return Array<T>(m_data, m_size, a_allocator);
     }
-    template<typename Alloc = MallocAllocator>
-    Array<bool, Alloc> ToStateArray()
+    Array<bool> ToStateArray(Allocator* a_allocator)
     {
         const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
-        Array<bool, Alloc> a;
+        Array<bool> a = Array<bool>(a_allocator);
         a.Reserve(m_size);
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -231,12 +228,35 @@ public:
 
         return a;
     }
-    template<typename Alloc = MallocAllocator>
-    Array<T, Alloc> ToActiveArray()
+    Array<uint8_t> ToPackedStateArray(Allocator* a_allocator)
     {
         const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
-        Array<T, Alloc> a;
+        const uint32_t packedSize = (m_size / 8) + 1;
+
+        Array<uint8_t> a = Array<uint8_t>(a_allocator);
+        a.Resize(packedSize);
+        for (uint32_t i = 0; i < m_size; ++i)
+        {
+            const uint32_t stateIndex = i / StateValBitSize;
+            const uint32_t stateOffset = i % StateValBitSize;
+
+            if (m_state[stateIndex] & 0b1 << stateOffset)
+            {
+                const uint32_t aStateIndex = i / 8;
+                const uint32_t aStateOffset = i % 8;
+
+                a[aStateIndex] |= 0b1 << aStateOffset;
+            }
+        }
+
+        return a;
+    }
+    Array<T> ToActiveArray(Allocator* a_allocator)
+    {
+        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+
+        Array<T> a = Array<T>(a_allocator);
         a.Reserve(m_size);
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -297,7 +317,7 @@ public:
     TLockArray<T> ToLockArray() 
     {
         TLockArray<T> a = TLockArray<T>(m_lock);
-        
+
         a.SetData(m_data, m_size);
 
         return a;
@@ -477,9 +497,9 @@ public:
             {
                 (&(m_data[a_index]))->~T();
             }
-            
+
             memset((void*)&(m_data[a_index]), 0, sizeof(T));
-        }        
+        }
     }
     void Erase(uint32_t a_start, uint32_t a_end)
     {
@@ -520,7 +540,7 @@ using TNCArray = TNCArrayBase<T, uint8_t>;
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

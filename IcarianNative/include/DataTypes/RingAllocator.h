@@ -7,6 +7,7 @@
 #include "DataTypes/Allocator.h"
 
 #include "Core/IcarianDefer.h"
+#include "IcarianMemory.h"
 
 // A no deallocation allocator
 // Loops back to the start when it runs out of memory
@@ -41,14 +42,14 @@ public:
 
     virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
     {
-        void* next = Align((char*)m_slider + a_size, a_alignment);
+        void* next = AlignTo((uint8_t*)m_slider + a_size, (uintptr_t)a_alignment);
 
-        if (next > (char*)m_end)
+        if (next >= (uint8_t*)m_end)
         {
             m_slider = m_memory;
         }
 
-        IDEFER(m_slider = (char*)m_slider + a_size);
+        IDEFER(m_slider = (uint8_t*)m_slider + a_size);
 
         return m_slider;
     }
@@ -56,7 +57,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

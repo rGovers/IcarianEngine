@@ -49,6 +49,8 @@ class VulkanSwapchain
 private:
     constexpr static bool ForceHeadless = false;
 
+    Allocator*                  m_allocator;
+
     AppWindow*                  m_window;
     VulkanRenderEngineBackend*  m_engine;
 
@@ -82,7 +84,7 @@ private:
     vk::SwapchainKHR            m_swapchain;
     vk::RenderPass              m_renderPass;
     vk::RenderPass              m_renderPassNoClear;
-      
+
     vk::SurfaceFormatKHR        m_surfaceFormat;
 
     uint32_t                    m_width;
@@ -90,17 +92,17 @@ private:
 
     bool                        m_vSync;
 
-    void Init(uint32_t a_width, uint32_t a_height);
+    void Init(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator);
     void InitHeadless(uint32_t a_width, uint32_t a_height);
     void Destroy();
-    
+
 protected:
 
 public:
-    VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow* a_window);
+    VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow* a_window, Allocator* a_allocator, Allocator* a_tempAllocator);
     ~VulkanSwapchain();
 
-    static SwapChainSupportInfo QuerySwapChainSupport(const vk::PhysicalDevice& a_device, const vk::SurfaceKHR& a_surface);
+    static SwapChainSupportInfo QuerySwapChainSupport(const vk::PhysicalDevice& a_device, const vk::SurfaceKHR& a_surface, Allocator* a_allocator, Allocator* a_tempAllocator);
 
     inline vk::SurfaceFormatKHR GetSurfaceFormat() const
     {
@@ -155,7 +157,7 @@ public:
 #endif
     }
 
-    bool StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaphore, double a_delta, double a_time);
+    bool StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaphore, double a_delta, double a_time, Allocator* a_tempAllocator);
     void EndFrame(uint32_t a_imageIndex);
 };
 
@@ -163,7 +165,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

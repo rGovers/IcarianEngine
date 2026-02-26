@@ -14,13 +14,15 @@
 
 // This only exists because they STL only dictates the interface and not how it is implemented
 // This should be more predictable then the std::vector on different platforms
-template<typename T, typename Alloc = MallocAllocator>
+template<typename T>
 class Array
 {
 private:
-    T*       m_data;
-    uint32_t m_size;
-    uint32_t m_capacity;
+    Allocator* m_allocator;
+
+    T*         m_data;
+    uint32_t   m_size;
+    uint32_t   m_capacity;
 
     inline void DestroyData()
     {
@@ -28,9 +30,15 @@ private:
         {
             for (uint32_t i = 0; i < m_size; ++i)
             {
-                (&(m_data[i]))->~T();
+                T* dat = &(m_data[i]);
+
+                [[maybe_unused]] int brk = 3;
+
+                dat->~T();
             }
         }
+
+        memset((void*)m_data, 0, m_capacity * sizeof(T));
     }
 
 protected:
@@ -39,47 +47,20 @@ public:
     typedef T* iterator;
     typedef const T* const_iterator;
 
-    Array()
+    Array(Allocator* a_allocator)
     {
+        m_allocator = a_allocator;
+
         m_size = 0;
         m_capacity = 1;
-        m_data = (T*)Alloc::Allocate(1 * sizeof(T), alignof(T));
+        m_data = m_allocator->ZTAllocate<T>(m_capacity);
     }
-    Array(const Array& a_other)
+    Array(const Array& a_other) : Array(a_other.m_data, a_other.m_size, a_other.m_allocator) { }
+    Array(const Array& a_other, Allocator* a_allocator) : Array(a_other.m_data, a_other.m_size, a_allocator) { }
+    Array(const T* a_data, uint32_t a_size, Allocator* a_allocator)
     {
-        m_size = a_other.m_size;
-        m_capacity = a_other.m_size;
-        if (m_capacity < 1)
-        {
-            m_capacity = 1;
-        }
+        m_allocator = a_allocator;
 
-        m_data = (T*)Alloc::Allocate(m_capacity * sizeof(T), alignof(T));
-        for (uint32_t i = 0; i < m_size; ++i)
-        {
-            m_data[i] = a_other.m_data[i];
-        }
-    }
-    template<typename OAlloc>
-    Array(const Array<T, OAlloc>& a_other)
-    {
-        m_size = a_other.Size();
-        m_capacity = m_size;
-        if (m_capacity < 1)
-        {
-            m_capacity = 1;
-        }
-
-        const T* data = a_other.Data();
-
-        m_data = (T*)Alloc::Allocate(m_capacity * sizeof(T), alignof(T));
-        for (uint32_t i = 0; i < m_size; ++i)
-        {
-            m_data[i] = data[i];
-        }
-    }
-    Array(const T* a_data, uint32_t a_size)
-    {
         m_size = a_size;
         m_capacity = a_size;
         if (m_capacity < 1)
@@ -87,7 +68,7 @@ public:
             m_capacity = 1;
         }
 
-        m_data = (T*)Alloc::Allocate(m_capacity * sizeof(T), alignof(T));
+        m_data = m_allocator->ZTAllocate<T>(m_capacity);
         for (uint32_t i = 0; i < m_size; ++i)
         {
             m_data[i] = a_data[i];
@@ -99,22 +80,31 @@ public:
         {
             DestroyData();
 
-            Alloc::Free(m_data);
+            m_allocator->Free(m_data);
         }
     }
 
     inline Array& operator =(const Array& a_other)
     {
-        if (m_data != NULL)
+        if (m_data != NULL && m_allocator != NULL)
         {
             DestroyData();
 
-            Alloc::Free(m_data);
+            m_allocator->Free(m_data);
         }
 
+        // This makes me uncomfortable but RAII is a bitch
+        // The fun stuff you have to do when you use 1 memory pattern but dependencies use another
+        m_allocator = a_other.m_allocator;
         m_size = a_other.m_size;
-        m_capacity = a_other.m_capacity;
-        m_data = (T*)Alloc::Allocate(m_capacity * sizeof(T), alignof(T));
+        m_capacity = a_other.m_size;
+
+        if (m_capacity < 1)
+        {
+            m_capacity = 1;
+        }
+
+        m_data = m_allocator->ZTAllocate<T>(m_capacity);
         for (uint32_t i = 0; i < m_size; ++i)
         {
             m_data[i] = a_other.m_data[i];
@@ -123,7 +113,7 @@ public:
         return *this;
     }
 
-    inline iterator begin() 
+    inline iterator begin()
     {
         return m_data;
     }
@@ -132,13 +122,18 @@ public:
         return m_data;
     }
 
-    inline iterator end() 
+    inline iterator end()
     {
         return m_data + m_size;
     }
     inline const_iterator end() const
     {
         return m_data + m_size;
+    }
+
+    inline Allocator* GetAllocator() const
+    {
+        return m_allocator;
     }
 
     inline uint32_t Size() const
@@ -168,8 +163,6 @@ public:
         if (m_data != NULL)
         {
             DestroyData();
-
-            memset((void*)m_data, 0, m_capacity * sizeof(T));
         }
 
         m_size = 0;
@@ -220,7 +213,7 @@ public:
         }
 
         memmove(m_data + a_index, m_data + a_index + 1, (aSize - a_index) * sizeof(T));
-        memset(m_data + aSize, 0, sizeof(T));
+        memset((void*)(m_data + aSize), 0, sizeof(T));
     }
 
     void Resize(uint32_t a_size)
@@ -243,14 +236,10 @@ public:
         {
             IDEFER(m_capacity = a_size);
 
-            const uint32_t diff = a_size - m_capacity;
-
-            T* newData = (T*)Alloc::Allocate(sizeof(T) * a_size, alignof(T));
+            T* newData = m_allocator->ZTAllocate<T>(a_size);
             memcpy((void*)newData, m_data, m_capacity * sizeof(T));
-            Alloc::Free(m_data);
+            m_allocator->Free(m_data);
             m_data = newData;
-
-            memset((void*)(m_data + m_capacity), 0, diff * sizeof(T));
         }
     }
 
@@ -263,7 +252,7 @@ public:
         return m_data[a_index];
     }
 
-    inline T& Ref(uint32_t a_index) 
+    inline T& Ref(uint32_t a_index)
     {
         return m_data[a_index];
     }
@@ -279,7 +268,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

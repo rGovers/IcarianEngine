@@ -9,8 +9,10 @@
 extern "C" {
 #endif
 
-CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
+CUBE_CProject BuildIcarianCoreProject(const char* a_path, CBBOOL a_enableAssert, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration)
 {
+    CUBE_Path path = CUBE_Path_CreateC(a_path);
+
     CUBE_CProject project = { 0 };
 
     project.Name = CUBE_StackString_CreateC("IcarianCore");
@@ -59,39 +61,24 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
     );
 
     CUBE_CProject_AppendSources(&project,
-        "../deps/flare-tinyxml2/tinyxml2.cpp",
-
-        "./src/FlareShader.cpp",
-        "./src/InputBindings.cpp",
-        "./src/IPCPipe.cpp",
-        "./src/MonoNativeImpl.cpp",
-        "./src/SocketPipe.cpp"
+        "../deps/flare-tinyxml2/tinyxml2.cpp"
     );
 
-    CUBE_CProject_AppendRebuildSources(&project,
-        "./include/Core/Bitfield.h",
-        "./include/Core/CommunicationPipe.h",
-        "./include/Core/CRC.h",
-        "./include/Core/DMASwapBuffer.h",
-        "./include/Core/Endian.h",
-        "./include/Core/FlareShader.h",
-        "./include/Core/IcarianAssert.h",
-        "./include/Core/IcarianDefer.h",
-        "./include/Core/IcarianError.h",
-        "./include/Core/IcarianLambda.h",
-        "./include/Core/IcarianPragma.h",
-        "./include/Core/InputBindings.h",
-        "./include/Core/IPCPipe.h",
-        "./include/Core/LoggerHeader.h",
-        "./include/Core/MonoNativeImpl.h",
-        "./include/Core/Pipefile.h",
-        "./include/Core/PipeMessage.h",
-        "./include/Core/ShaderBuffers.h",
-        "./include/Core/SharedMemoryBuffer.h",
-        "./include/Core/SocketPipe.h",
-        "./include/Core/StringUtils.h",
-        "./include/Core/WindowsHeaders.h"
-    );
+    CUBE_Path srcPrefix = CUBE_Path_CreateC("src");
+    CUBE_Path srcPath = CUBE_Path_CombineP(&path, &srcPrefix);
+
+    CUBE_CProject_AppendSourceDirectoryP(&project, &srcPath, &srcPrefix, CBFALSE);
+
+    CUBE_Path_Destroy(&srcPrefix);
+    CUBE_Path_Destroy(&srcPath);
+
+    CUBE_Path includePrefix = CUBE_Path_CreateC("include/Core");
+    CUBE_Path includePath = CUBE_Path_CombineP(&path, &includePrefix);
+
+    CUBE_CProject_AppendRebuildSourceDirectoryP(&project, &includePath, &includePrefix, CBFALSE);
+
+    CUBE_Path_Destroy(&includePrefix);
+    CUBE_Path_Destroy(&includePath);
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
     CUBE_CProject_AppendCFlag(&project, "-Wall");
@@ -165,6 +152,8 @@ CUBE_CProject BuildIcarianCoreProject(CBBOOL a_enableAssert, e_TargetPlatform a_
         break;
     }
     }
+
+    CUBE_Path_Destroy(&path);
 
     return project;
 }

@@ -12,6 +12,7 @@
 
 #include "Core/IcarianDefer.h"
 #include "Core/StringUtils.h"
+#include "DataTypes/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "Trace.h"
@@ -67,7 +68,7 @@ NavigationMesh::NavigationMesh(const std::string_view& a_path)
         };
 
         std::unordered_map<uint64_t, EdgeTable> edgeMap;
-        
+
         const aiMesh* mesh = scene->mMeshes[0];
 
         const uint32_t vertexCount = (uint32_t)mesh->mNumVertices;
@@ -89,7 +90,7 @@ NavigationMesh::NavigationMesh(const std::string_view& a_path)
         for (uint32_t i = 0; i < faceCount; ++i)
         {
             const aiFace& face = mesh->mFaces[i];
-            
+
             glm::vec3 positions[3];
             for (uint32_t j = 0; j < 3; ++j)
             {
@@ -124,10 +125,10 @@ NavigationMesh::NavigationMesh(const std::string_view& a_path)
                 if (vMapIndex != uint32_t(-1))
                 {
                     navFace.Indicies[j] = vMapIndex;
-                    
+
                     continue;
                 }
-                
+
                 navFace.Indicies[j] = m_vertexCount;
                 vertexMap[index] = m_vertexCount;
                 vertices[m_vertexCount++] = positions[j];
@@ -242,7 +243,7 @@ uint32_t NavigationMesh::GetIndex(const glm::vec3& a_point) const
         if (glm::abs((a1 + a2 + a3) - orig) < 0.001f)
         {
             const float mag = a_point.y - face.Center.y;
-            
+
             if (mag < dist)
             {
                 triangle = i;
@@ -305,8 +306,8 @@ static void PushPathValue(uint32_t a_index, const NavigationFace* a_faces, const
         a_queue->Push(value);
 
 NextIter:;
-    }    
-}   
+    }
+}
 
 static float TriToAreaSqr(const glm::vec3& a_vertA, const glm::vec3& a_vertB, const glm::vec3& a_vertC)
 {
@@ -323,12 +324,13 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
     const uint32_t indexA = GetIndex(a_startPoint);
     if (indexA == uint32_t(-1))
     {
-        return Array<glm::vec3>();
+        return Array<glm::vec3>(MallocAllocator::Instance);
     }
+
     const uint32_t indexB = GetIndex(a_endPoint);
     if (indexB == uint32_t(-1))
     {
-        return Array<glm::vec3>();
+        return Array<glm::vec3>(MallocAllocator::Instance);
     }
 
     return GeneratePath(a_startPoint, a_endPoint, indexA, indexB, a_agentRadius);
@@ -338,12 +340,12 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
 {
     if (a_startIndex == uint32_t(-1) || a_endIndex == uint32_t(-1))
     {
-        return Array<glm::vec3>();
+        return Array<glm::vec3>(MallocAllocator::Instance);
     }
 
     if (a_startIndex == a_endIndex)
     {
-        Array<glm::vec3> path;
+        Array<glm::vec3> path = Array<glm::vec3>(MallocAllocator::Instance);
 
         path.Push(a_startPoint);
         path.Push(a_endPoint);
@@ -352,7 +354,7 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
     }
 
     // Find path
-    Array<PathNode> queue;
+    Array<PathNode> queue = Array<PathNode>(MallocAllocator::Instance);
     std::unordered_map<uint32_t, uint32_t> stepMap;
     PushPathValue(a_startIndex, m_faces, a_endPoint, &queue, &stepMap);
     while (!queue.Empty())
@@ -368,7 +370,7 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
     }
 
     // Backtrace path
-    Array<uint32_t> pathIndices;
+    Array<uint32_t> pathIndices = Array<uint32_t>(MallocAllocator::Instance);
 
     uint32_t node = a_endIndex;
     pathIndices.Push(node);
@@ -392,8 +394,8 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
     // NOTE: While should build meshes based off the agent gets messy when dealing with agent of varying size as can have several meshes and alot of "wasted" memory
     // In reality building the mesh based off the biggest agent and adjusting portals should be fine outside of extreme size differences
     const uint32_t pathIndexCount = pathIndices.Size();
-    
-    Array<Portal> portals;
+
+    Array<Portal> portals = Array<Portal>(MallocAllocator::Instance);
     portals.Reserve(pathIndexCount);
 
     for (uint32_t i = 1; i < pathIndexCount; ++i)
@@ -454,7 +456,7 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
     // Pull path tight
     const uint32_t portalCount = portals.Size();
 
-    Array<glm::vec3> path;
+    Array<glm::vec3> path = Array<glm::vec3>(MallocAllocator::Instance);
     path.Reserve(portalCount + 1);
     path.Push(a_startPoint);
 
@@ -539,7 +541,7 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

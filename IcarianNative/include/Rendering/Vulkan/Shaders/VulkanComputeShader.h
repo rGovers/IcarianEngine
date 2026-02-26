@@ -8,24 +8,26 @@
 
 #include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
+#include "DataTypes/COWString.h"
+
 struct VulkanComputeFShaderBuilder
 {
     VulkanRenderEngineBackend* Engine;
-    std::string String;
+    COWU8String String;
     std::unordered_map<std::string, std::string> Imports;
-    std::string EntryPoint;
+    COWU8String EntryPoint;
 };
 
 struct VulkanComputeGLSLShaderBuilder
 {
     VulkanRenderEngineBackend* Engine;
-    std::string String;
+    COWU8String String;
     uint32_t WorkgroupX;
     uint32_t WorkgroupY;
     uint32_t WorkgroupZ;
     ShaderBufferInput* Inputs;
     uint32_t InputCount;
-    std::string EntryPoint;
+    COWU8String EntryPoint;
 };
 
 class VulkanComputeShader : public VulkanShader
@@ -39,8 +41,24 @@ protected:
 
 public:
     VulkanComputeShader() = delete;
-    VulkanComputeShader(VulkanRenderEngineBackend* a_engine, uint32_t a_workgroupX, uint32_t a_workgroupY, uint32_t a_workgroupZ, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator);
+    VulkanComputeShader
+    (
+        VulkanRenderEngineBackend* a_engine,
+        uint32_t a_workgroupX,
+        uint32_t a_workgroupY,
+        uint32_t a_workgroupZ,
+        const ShaderBufferInput* a_inputs,
+        uint32_t a_inputCount,
+        const uint32_t* a_data,
+        uint32_t a_dataCount,
+        Allocator* a_allocator
+    );
     ~VulkanComputeShader();
+
+    virtual e_VulkanShaderType GetShaderType() const
+    {
+        return VulkanShaderType_Compute;
+    }
 
     inline uint32_t GetWorkgroupX() const
     {
@@ -55,15 +73,15 @@ public:
         return m_workgroupZ;
     }
 
-    static void CreateFromFShader(VulkanComputeShader* a_out, const VulkanComputeFShaderBuilder& a_builder, Allocator* a_allocator);
-    static void CreateFromGLSL(VulkanComputeShader* a_out, const VulkanComputeGLSLShaderBuilder& a_builder, Allocator* a_allocator);
+    static void CreateFromFShader(VulkanComputeShader* a_out, const VulkanComputeFShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
+    static void CreateFromGLSL(VulkanComputeShader* a_out, const VulkanComputeGLSLShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
 };
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

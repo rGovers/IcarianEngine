@@ -6,25 +6,27 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include <string_view>
+#include "DataTypes/Array.h"
+#include "DataTypes/COWString.h"
 
 #include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
 struct VulkanTaskFShaderBuilder
 {
     VulkanRenderEngineBackend* Engine;
-    std::string String;
+    COWU8String String;
     std::unordered_map<std::string, std::string> Imports;
-    std::string EntryPoint;
+    COWU8String EntryPoint;
+    Array<ShaderBufferInput> OtherInputs;
 };
 
 struct VulkanTaskGLSLShaderBuilder
 {
     VulkanRenderEngineBackend* Engine;
-    std::string String;
+    COWU8String String;
     ShaderBufferInput* Inputs;
     uint32_t InputCount;
-    std::string EntryPoint;
+    COWU8String EntryPoint;
 };
 
 class VulkanTaskShader : public VulkanShader
@@ -35,18 +37,31 @@ protected:
 
 public:
     VulkanTaskShader() = delete;
-    VulkanTaskShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator);
+    VulkanTaskShader
+    (
+        VulkanRenderEngineBackend* a_engine,
+        const ShaderBufferInput* a_inputs,
+        uint32_t a_inputCount,
+        const uint32_t* a_data,
+        uint32_t a_dataCount,
+        Allocator* a_allocator
+    );
     virtual ~VulkanTaskShader();
 
-    static void CreateFromFShader(VulkanTaskShader* a_out, const VulkanTaskFShaderBuilder& a_builder, Allocator* a_allocator);
-    static void CreateFromGLSL(VulkanTaskShader* a_out, const VulkanTaskGLSLShaderBuilder& a_builder, Allocator* a_allocator);
+        virtual e_VulkanShaderType GetShaderType() const
+    {
+        return VulkanShaderType_Task;
+    }
+
+    static void CreateFromFShader(VulkanTaskShader* a_out, const VulkanTaskFShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
+    static void CreateFromGLSL(VulkanTaskShader* a_out, const VulkanTaskGLSLShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
 };
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

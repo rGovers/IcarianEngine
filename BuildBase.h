@@ -58,7 +58,7 @@ CBBOOL TemplatesToHeader(const CUBE_Path* a_templatePath, CBUINT32 a_templateCou
         CUBE_String templateName = CUBE_Path_Filename(&templatePath);
 
         fprintf(outputFile, "constexpr static char %sTemplate[] =\n", templateName.Data);
-        
+
         CUBE_String filePathStr = CUBE_Path_ToString(&templatePath);
 
         FILE* templateFile = fopen(filePathStr.Data, "r");
@@ -163,7 +163,7 @@ CBBOOL ShadersToHeader(const CUBE_Path* a_shaderPaths, CBUINT32 a_shaderCount, c
         {
             fprintf(outputFile, "Import");
         }
-        
+
         fprintf(outputFile, "Shader[] =\n");
 
         CUBE_String filePathStr = CUBE_Path_ToString(&shaderPath);
@@ -376,7 +376,7 @@ CBBOOL ShadersToCSHeader(const CUBE_Path* a_shaderPaths, CBUINT32 a_shaderCount,
 
     fclose(outputFile);
 
-    return CBTRUE;       
+    return CBTRUE;
 }
 
 void PrintHeader(const char* a_str)
@@ -385,7 +385,7 @@ void PrintHeader(const char* a_str)
     printf("----------------------------------------\n");
     printf("----------------------------------------\n");
     printf("\n");
-    printf("   %s\n", a_str);
+    printf("   " BUILD_CONSOLECOLOUR_CYAN "%s" BUILD_CONSOLECOLOUR_RESET "\n", a_str);
     printf("\n");
     printf("----------------------------------------\n");
     printf("----------------------------------------\n");

@@ -14,6 +14,7 @@ class VulkanPixelShader;
 class VulkanVertexShader;
 
 #include "Core/ShaderBuffers.h"
+#include "DataTypes/COWString.h"
 #include "Rendering/CameraBuffer.h"
 
 #include "EngineAmbientLightInteropStructures.h"
@@ -46,19 +47,19 @@ public:
         return m_userArrayCallback;
     }
 
-    uint32_t GenerateFComputeShaderAddr(const std::string_view& a_str) const;
+    uint32_t GenerateFComputeShaderAddr(const COWU8String& a_str) const;
     void AddComputeShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
     void DestroyComputeshader(uint32_t a_addr) const;
 
-    uint32_t GenerateFVertexShaderAddr(const std::string_view& a_str) const;
+    uint32_t GenerateFVertexShaderAddr(const COWU8String& a_str) const;
     void AddVertexShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
     void DestroyVertexShader(uint32_t a_addr) const;
 
-    uint32_t GenerateFMeshShaderAddr(const std::string_view& a_str) const;
+    uint32_t GenerateFMeshShaderAddr(const COWU8String& a_str) const;
     void AddMeshShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
     void DestroyMeshShader(uint32_t a_addr) const;
 
-    uint32_t GenerateFPixelShaderAddr(const std::string_view& a_str) const;
+    uint32_t GenerateFPixelShaderAddr(const COWU8String& a_str) const;
     void AddPixelShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
     void DestroyPixelShader(uint32_t a_addr) const;
 
@@ -78,7 +79,15 @@ public:
     glm::mat4 GetCameraProjectionMatrix(uint32_t a_addr, uint32_t a_width, uint32_t a_height) const;
     glm::mat4 GetCameraProjectionMatrix(uint32_t a_addr, uint32_t a_width, uint32_t a_height, float a_near, float a_far) const;
 
-    uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, const uint32_t* a_indices, uint32_t a_indexCount, uint16_t a_vertexStride, float a_radius) const;
+    uint32_t GenerateModel
+    (
+        const void* a_vertices,
+        uint32_t a_vertexCount,
+        const uint32_t* a_indices,
+        uint32_t a_indexCount,
+        uint16_t a_vertexStride,
+        float a_radius
+    ) const;
     void DestroyModel(uint32_t a_addr) const;
 
     uint32_t GenerateMeshFromModel
@@ -202,7 +211,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

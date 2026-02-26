@@ -4,18 +4,18 @@
 
 #pragma once
 
-#include <SPIRV/GlslangToSpv.h>
-#include <glslang/Include/ResourceLimits.h>
-#include <glslang/Public/ShaderLang.h>
+#include <string>
 
-#include "DataTypes/Allocator.h"
-#include "DataTypes/Array.h"
-#include "DataTypes/COWString.h"
+enum e_MessageDialogType
+{
+    MessageDialogType_Message,
+    MessageDialogType_Warning,
+    MessageDialogType_Error,
 
-void spirv_init();
-void spirv_destroy();
+    MessageDialogType_End,
+};
 
-Array<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const COWU8String& a_str, bool a_optimize, const COWU8String& a_entryPoint, Allocator* a_allocator);
+void MessageDialog(e_MessageDialogType a_type, const std::string& a_str);
 
 // MIT License
 // 

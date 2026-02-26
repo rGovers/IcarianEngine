@@ -4,18 +4,22 @@
 
 #pragma once
 
-#include <SPIRV/GlslangToSpv.h>
-#include <glslang/Include/ResourceLimits.h>
-#include <glslang/Public/ShaderLang.h>
+#include "DataTypes/COWBasicString.h"
 
-#include "DataTypes/Allocator.h"
-#include "DataTypes/Array.h"
-#include "DataTypes/COWString.h"
+using COWU8String = COWBasicString<CharU8>;
+using COWU16String = COWBasicString<CharU16>;
+using COWU32String = COWBasicString<CharU32>;
 
-void spirv_init();
-void spirv_destroy();
+// TODO: Will need multiple version of this function as the extended ASCII range is a mess
+// Probably want to use the actual names when we do implement the other versions
+COWU8String COWU8FromASCII(const char* a_str, Allocator* a_allocator);
 
-Array<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const COWU8String& a_str, bool a_optimize, const COWU8String& a_entryPoint, Allocator* a_allocator);
+COWU8String COWU8FromUnicode(const CharU16* a_str, Allocator* a_allocator);
+COWU8String COWU8FromUnicode(const CharU16* a_str, uint32_t a_length, Allocator* a_allocator);
+COWU8String COWU8FromUnicode(const COWU16String& a_str, Allocator* a_allocator);
+COWU8String COWU8FromUnicode(const CharU32* a_str, Allocator* a_allocator);
+COWU8String COWU8FromUnicode(const CharU32* a_str, uint32_t a_length, Allocator* a_allocator);
+COWU8String COWU8FromUnicode(const COWU32String& a_str, Allocator* a_allocator);
 
 // MIT License
 // 

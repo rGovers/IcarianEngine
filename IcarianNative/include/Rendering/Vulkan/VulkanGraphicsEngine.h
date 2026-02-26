@@ -11,6 +11,7 @@
 #include <unordered_map>
 
 #include "DataTypes/Array.h"
+#include "DataTypes/COWString.h"
 #include "DataTypes/TArray.h"
 #include "DataTypes/TNCArray.h"
 #include "DataTypes/TStatic.h"
@@ -53,14 +54,42 @@ class VulkanUniformBuffer;
 class VulkanVertexShader;
 class VulkanVideoTexture;
 
+typedef std::unordered_map
+<
+    uint64_t, VulkanPipeline*,
+    std::hash<uint64_t>,
+    std::equal_to<uint64_t>,
+    STLRenderBlockAlloc<std::pair<const uint64_t, VulkanPipeline*>>
+> PipelineMap;
+
 struct VulkanMeshEmulationData
 {
+    vk::Buffer DrawBuffer;
     vk::Buffer VertexBuffer;
     vk::Buffer IndexBuffer;
     // vk::Buffer TaskBuffer;
+
+    VmaAllocation DrawAlloction;
     VmaAllocation VertexAllocation;
     VmaAllocation IndexAllocation;
     // VmaAllocation TaskAllocation;
+
+    PipelineMap MeshPipelines;
+
+    SharedSpinLock MeshPipelineLock;
+};
+
+enum e_VulkanShaderInfoType
+{
+    VulkanShaderInfoType_Null = 0,
+    VulkanShaderInfoType_Flare,
+    VulkanShaderInfoType_GLSL
+};
+
+struct VulkanShaderInfo
+{
+    COWU8String Data;
+    e_VulkanShaderInfoType Type;
 };
 
 class VulkanGraphicsEngine
@@ -69,14 +98,6 @@ private:
     friend class VulkanGraphicsEngineBindings;
 
     static constexpr uint32_t DrawingPassCount = 7;
-
-    typedef std::unordered_map
-    <
-        uint64_t, VulkanPipeline*,
-        std::hash<uint64_t>,
-        std::equal_to<uint64_t>,
-        STLRenderBlockAlloc<std::pair<const uint64_t, VulkanPipeline*>>
-    > PipelineMap;
 
     VulkanGraphicsEngineBindings*                 m_runtimeBindings;
     VulkanSwapchain*                              m_swapchain;
@@ -117,11 +138,17 @@ private:
 
     TNCArray<RenderProgram>                       m_shaderPrograms;
 
-    TNCArray<VulkanVertexShader*>                 m_vertexShaders;
-    TNCArray<VulkanTaskShader*>                   m_taskShaders;
-    TNCArray<VulkanMeshShader*>                   m_meshShaders;
-    TNCArray<VulkanPixelShader*>                  m_pixelShaders;
-    TNCArray<VulkanComputeShader*>                m_computeShaders;
+    // TNCArray<VulkanVertexShader*>                 m_vertexShaders;
+    // TNCArray<VulkanTaskShader*>                   m_taskShaders;
+    // TNCArray<VulkanMeshShader*>                   m_meshShaders;
+    // TNCArray<VulkanPixelShader*>                  m_pixelShaders;
+    // TNCArray<VulkanComputeShader*>                m_computeShaders;
+
+    TNCArray<VulkanShaderInfo>                    m_vertexShaders;
+    TNCArray<VulkanShaderInfo>                    m_taskShaders;
+    TNCArray<VulkanShaderInfo>                    m_meshShaders;
+    TNCArray<VulkanShaderInfo>                    m_pixelShaders;
+    TNCArray<VulkanShaderInfo>                    m_computeShaders;
 
     TNCArray<TextureSamplerBuffer>                m_textureSampler;
 
@@ -147,15 +174,15 @@ private:
     TNCArray<SpotLightBuffer>                     m_spotLights;
 
     TArray<CameraBuffer>                          m_cameraBuffers;
-    Array<VulkanUniformBuffer*, RenderBlockAlloc> m_cameraUniforms;
+    Array<VulkanUniformBuffer*>                   m_cameraUniforms;
 
     VulkanUniformBuffer*                          m_timeUniform;
 
     vk::CommandPool                               m_decodePool[VulkanFlightPoolSize];
     vk::CommandBuffer                             m_decodeBuffer[VulkanFlightPoolSize];
 
-    Array<vk::CommandPool, RenderBlockAlloc>      m_commandPool[VulkanFlightPoolSize];
-    Array<vk::CommandBuffer, RenderBlockAlloc>    m_commandBuffers[VulkanFlightPoolSize];
+    Array<vk::CommandPool>*                       m_commandPool[VulkanFlightPoolSize];
+    Array<vk::CommandBuffer>*                     m_commandBuffers[VulkanFlightPoolSize];
 
     TNCArray<CanvasRendererBuffer>                m_canvasRenderers;
 
@@ -209,32 +236,37 @@ public:
 
     Array<VulkanCommandBuffer> Update(double a_delta, double a_time, uint32_t a_index);
 
-    [[nodiscard]] uint32_t GenerateFVertexShader(const std::string_view& a_source);
+    [[nodiscard]] uint32_t GenerateFVertexShader(const COWU8String& a_source);
     void DestroyVertexShader(uint32_t a_addr);
-    VulkanVertexShader* GetVertexShader(uint32_t a_addr);
+    VulkanShaderInfo GetVertexShaderInfo(uint32_t a_addr);
+    std::unordered_map<std::string, std::string> GetVertexShaderImports();
 
-    [[nodiscard]] uint32_t GenerateFTaskShader(const std::string_view& a_source);
+    [[nodiscard]] uint32_t GenerateFTaskShader(const COWU8String& a_source);
     void DestroyTaskShader(uint32_t a_addr);
-    VulkanTaskShader* GetTaskShader(uint32_t a_addr);
-    [[nodiscard]] uint32_t GenerateFMeshShader(const std::string_view& a_source);
+    VulkanShaderInfo GetTaskShaderInfo(uint32_t a_addr);
+    [[nodiscard]] uint32_t GenerateFMeshShader(const COWU8String& a_source);
     void DestroyMeshShader(uint32_t a_addr);
-    VulkanMeshShader* GetMeshShader(uint32_t a_addr);
+    VulkanShaderInfo GetMeshShaderInfo(uint32_t a_addr);
+    std::unordered_map<std::string, std::string> GetMeshShaderImports();
 
-    [[nodiscard]] uint32_t GenerateFPixelShader(const std::string_view& a_source);
+    [[nodiscard]] uint32_t GenerateFPixelShader(const COWU8String& a_source);
     void DestroyPixelShader(uint32_t a_addr);
-    VulkanPixelShader* GetPixelShader(uint32_t a_addr);
+    VulkanShaderInfo GetPixelShaderInfo(uint32_t a_addr);
+    std::unordered_map<std::string, std::string> GetPixelShaderImports();
 
-    [[nodiscard]] uint32_t GenerateFComputeShader(const std::string_view& a_source);
+    [[nodiscard]] uint32_t GenerateFComputeShader(const COWU8String& a_source);
     void DestroyComputeShader(uint32_t a_addr);
-    VulkanComputeShader* GetComputeShader(uint32_t a_addr);
+    VulkanShaderInfo GetComputeShaderInfo(uint32_t a_addr);
+    std::unordered_map<std::string, std::string> GetComputeShaderImports();
 
-   [[nodiscard]]  uint32_t GenerateRenderProgram(const RenderProgram& a_program);
+   [[nodiscard]]  uint32_t GenerateRenderProgram(const RenderProgram& a_program, Allocator* a_tempAllocator);
     void DestroyRenderProgram(uint32_t a_addr);
     RenderProgram GetRenderProgram(uint32_t a_addr);
 
     VulkanPipeline* GetShadowPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
     VulkanPipeline* GetCubeShadowPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
     VulkanPipeline* GetPipeline(uint32_t a_renderTexture, uint32_t a_pipeline);
+    VulkanPipeline* GetComputeMeshPipeline(uint32_t a_pipeline);
 
     CameraBuffer GetCameraBuffer(uint32_t a_addr);
     inline VulkanUniformBuffer* GetCameraUniformBuffer(uint32_t a_addr) const
@@ -317,7 +349,7 @@ public:
 
 // MIT License
 //
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

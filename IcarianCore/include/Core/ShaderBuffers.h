@@ -28,14 +28,6 @@
 #define F_UVEC4(name) alignas(16) glm::uvec4 name
 #define F_MAT4(name) alignas(16) glm::mat4 name
 
-#define GLSL_VULKAN_UNIFORM_STRING(slot, name, structure, structureName) std::string(SHADER_UNIFORM_STR(structure)) + "; layout(std140,binding=" + (slot) + ",set=" + (slot) + ") uniform " + (structureName) + "{ " + (structureName) + "Data " + (name) + "; };" 
-#define GLSL_VULKAN_SSBO_STRING(slot, name, structure, structureName) std::string(SHADER_UNIFORM_STR(structure)) + "; layout(std140,binding=" + (slot) + ",set=" + (slot) + ") readonly buffer " + (structureName) + " { int Count; " + (structureName) + "Data objects[]; } " + (name) + ";" 
-#define GLSL_VULKAN_PUSHBUFFER_STRING(name, structure) std::string("layout(push_constant) " SHADER_UNIFORM_STR(structure) " ") + (name) + ";"
-
-#define GLSL_OPENGL_UNIFORM_STRING(slot, name, structure, structureName) std::string(SHADER_UNIFORM_STR(structure)) + "; layout(std140,binding=" + (slot) + ") uniform " + (structureName) + " { " + (structureName) + "Data " + (name) + "; };"
-#define GLSL_OPENGL_SSBO_STRING(slot, name, structure, structureName) std::string(SHADER_UNIFORM_STR(structure)) + "; layout(std140,binding=" + (slot) + ") readonly buffer " + (structureName) + " { int Count; " + (structureName) + "Data objects[]; } " + (name) + ";" 
-#define GLSL_OPENGL_PUSHBUFFER_STRING(name, structure) std::string("layout(binding=64,std140) " SHADER_UNIFORM_STR(structure) " ") + (name) + ";"
-
 #define MESHLET_SHADER_STRUCTURE(D, UV4, VEC4) \
 D(MeshletBuffer) \
 { \
@@ -161,7 +153,7 @@ namespace IcarianCore
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

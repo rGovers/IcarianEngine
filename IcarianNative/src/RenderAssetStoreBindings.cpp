@@ -5,6 +5,7 @@
 #include "Rendering/RenderAssetStoreBindings.h"
 
 #include "Core/IcarianDefer.h"
+#include "DataTypes/MallocAllocator.h"
 #include "DeletionQueue.h"
 #include "IcarianError.h"
 #include "Rendering/RenderAssetStore.h"
@@ -35,8 +36,8 @@ RUNTIME_FUNCTION(ModelDataStructure, Model, GetModelData,
 
     ModelDataStructure s = { 0 };
 
-    Array<Vertex> vertices;
-    Array<uint32_t> indices;
+    Array<Vertex> vertices = Array<Vertex>(MallocAllocator::Instance);
+    Array<uint32_t> indices = Array<uint32_t>(MallocAllocator::Instance);
     if (Instance->LoadModelData(str, a_index, &vertices, &indices))
     {
         MonoDomain* domain = mono_domain_get();
@@ -88,7 +89,6 @@ uint32_t RenderAssetStoreBindings::GenerateFont(const std::string_view& a_path) 
 }
 void RenderAssetStoreBindings::DestroyFont(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_store->m_fonts.Size());
     IVERIFY(m_store->m_fonts.Exists(a_addr));
 
     const Font* font = m_store->m_fonts[a_addr];
@@ -97,13 +97,12 @@ void RenderAssetStoreBindings::DestroyFont(uint32_t a_addr) const
 }
 uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, const std::u32string_view& a_str, float a_fontSize, float a_scale, float a_depth) const
 {
-    IVERIFY(a_addr < m_store->m_fonts.Size());
     IVERIFY(m_store->m_fonts.Exists(a_addr));
 
     const Font* font = m_store->m_fonts[a_addr];
 
-    Array<Vertex> vertices;
-    Array<uint32_t> indices;
+    Array<Vertex> vertices = Array<Vertex>(m_store->m_blockAllocator);
+    Array<uint32_t> indices = Array<uint32_t>(m_store->m_blockAllocator);
     float radius;
     font->StringToModel(a_str, a_fontSize, a_scale, a_depth, &vertices, &indices, &radius);
 
@@ -143,7 +142,7 @@ uint32_t RenderAssetStoreBindings::GenerateTexture(const std::string_view& a_pat
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

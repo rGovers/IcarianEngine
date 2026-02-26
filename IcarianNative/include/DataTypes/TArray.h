@@ -133,14 +133,13 @@ public:
         return *this;
     }
 
-    template<typename Alloc = MallocAllocator>
-    Array<T, Alloc> ToArray()
+    Array<T> ToArray(Allocator* a_allocator)
     {
         const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
-        return Array<T, Alloc>(m_data, m_size);
+        return Array<T>(m_data, m_size, a_allocator);
     }
-    std::vector<T> ToVector() 
+    std::vector<T> ToVector()
     {
         const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
@@ -326,7 +325,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

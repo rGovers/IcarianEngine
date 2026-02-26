@@ -33,6 +33,8 @@ struct VulkanVideoDecodeCapabilities
 // Wrapper to use scratch allocator with engine types
 struct RenderScratchAlloc
 {
+    static StackAllocator* GetAllocator();
+
     static void* Allocate(uint64_t a_value, uint64_t a_alignment);
     static void Free(void* a_ptr);
 
@@ -190,6 +192,8 @@ enum e_CommandIndex
 class VulkanRenderEngineBackend : public RenderEngineBackend
 {
 private:
+    constexpr static uint32_t BlockAllocatorSize = 64 << 10;
+    constexpr static uint32_t DeletionAllocatorSize = 2 << 10;
     // Doing 1MB need to investigate later
     constexpr static uint64_t ScratchAllocatorSize = 1 << 20;
 
@@ -199,55 +203,55 @@ private:
         vk::VideoDecodeH264PictureLayoutFlagBitsKHR::eInterlacedInterleavedLines
     );
 
-    LibVulkan*                    m_vulkanLib;
+    LibVulkan*                     m_vulkanLib;
 
-    BlockAllocator*               m_blockAllocator;
-    BlockAllocator*               m_deletionAllocator;
+    BlockAllocator*                m_blockAllocator;
+    BlockAllocator*                m_deletionAllocator;
 
-    VulkanComputeEngine*          m_computeEngine;
-    VulkanGraphicsEngine*         m_graphicsEngine;
-    VulkanSwapchain*              m_swapchain = nullptr;
-    VulkanPushPool*               m_pushPool;
+    VulkanComputeEngine*           m_computeEngine;
+    VulkanGraphicsEngine*          m_graphicsEngine;
+    VulkanSwapchain*               m_swapchain = nullptr;
+    VulkanPushPool*                m_pushPool;
 
-    uint32_t                      m_scratchIndex;
-    Array<RenderScratchAllocator> m_scratchAllocators;
+    uint32_t                       m_scratchIndex;
+    Array<RenderScratchAllocator>* m_scratchAllocators;
 
     // Was bugging me taking up 8x the memory needed so.... uint8_t bitmask it is
-    Array<uint8_t>                m_optionalExtensionMask;
+    uint8_t*                       m_optionalExtensionMask;
 
-    VmaAllocator                  m_allocator;
+    VmaAllocator                   m_allocator;
 
-    vk::Instance                  m_instance;
-    vk::DebugUtilsMessengerEXT    m_messenger;
+    vk::Instance                   m_instance;
+    vk::DebugUtilsMessengerEXT     m_messenger;
 
-    vk::PhysicalDevice            m_pDevice;
-    vk::Device                    m_lDevice;
+    vk::PhysicalDevice             m_pDevice;
+    vk::Device                     m_lDevice;
 
-    vk::Queue                     m_computeQueue = nullptr;
-    vk::Queue                     m_videoDecodeQueue = nullptr;
-    vk::Queue                     m_graphicsQueue = nullptr;
-    vk::Queue                     m_presentQueue = nullptr;
+    vk::Queue                      m_computeQueue = nullptr;
+    vk::Queue                      m_videoDecodeQueue = nullptr;
+    vk::Queue                      m_graphicsQueue = nullptr;
+    vk::Queue                      m_presentQueue = nullptr;
 
-    TArray<VulkanDeletionObject*> m_deletionObjects[VulkanDeletionQueueSize];
+    TArray<VulkanDeletionObject*>  m_deletionObjects[VulkanDeletionQueueSize];
 
-    Array<vk::Semaphore>          m_interSemaphore[VulkanMaxFlightFrames];
+    Array<vk::Semaphore>*          m_interSemaphore;
 
-    vk::CommandPool               m_commandPools[CommandIndex_Last];
+    vk::CommandPool                m_commandPools[CommandIndex_Last];
 
-    uint32_t                      m_imageIndex = -1;
-    uint32_t                      m_currentFrame = 0;
-    uint32_t                      m_currentFlightFrame = 0;
-    uint32_t                      m_dQueueIndex = 0;
+    uint32_t                       m_imageIndex = -1;
+    uint32_t                       m_currentFrame = 0;
+    uint32_t                       m_currentFlightFrame = 0;
+    uint32_t                       m_dQueueIndex = 0;
 
-    uint32_t                      m_computeQueueIndex = -1;
-    uint32_t                      m_videoDecodeQueueIndex = -1;
-    uint32_t                      m_graphicsQueueIndex = -1;
-    uint32_t                      m_presentQueueIndex = -1;
+    uint32_t                       m_computeQueueIndex = -1;
+    uint32_t                       m_videoDecodeQueueIndex = -1;
+    uint32_t                       m_graphicsQueueIndex = -1;
+    uint32_t                       m_presentQueueIndex = -1;
 
-    VulkanVideoDecodeCapabilities m_videoDecodeCapabilities;
+    VulkanVideoDecodeCapabilities  m_videoDecodeCapabilities;
 
-    SharedSpinLock                m_scratchLock;
-    SpinLock                      m_graphicsQueueLock;
+    SharedSpinLock                 m_scratchLock;
+    SpinLock                       m_graphicsQueueLock;
 
     void InternalPushDeletionObject(VulkanDeletionObject* a_object);
 
@@ -325,23 +329,8 @@ public:
         return &m_videoDecodeCapabilities;
     }
 
-    inline void IncrementScratchFrame(uint32_t a_index)
-    {
-        if (m_scratchAllocators[a_index].Count == 0)
-        {
-            const SharedThreadGuard g = SharedThreadGuard(m_scratchLock);
-
-            ++m_scratchAllocators[a_index].Count;
-
-            return;
-        }
-
-        ++m_scratchAllocators[a_index].Count;
-    }
-    inline void DecrementScratchFrame(uint32_t a_index)
-    {
-        --m_scratchAllocators[a_index].Count;
-    }
+    void IncrementScratchFrame(uint32_t a_index);
+    void DecrementScratchFrame(uint32_t a_index);
 
     StackAllocator* GetStackAllocator(uint32_t* a_index = nullptr);
 
@@ -434,7 +423,7 @@ public:
 
 // MIT License
 //
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

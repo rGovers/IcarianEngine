@@ -39,10 +39,8 @@ static constexpr vk::Extent2D GetSwapExtent(const vk::SurfaceCapabilitiesKHR& a_
     return vk::Extent2D(glm::clamp(a_width, minExtent.width, maxExtent.width), glm::clamp(a_height, minExtent.height, maxExtent.height));
 }
 
-void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height)
+void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator)
 {
-    RENDERSCRATCHFRAME;
-
     const vk::Instance instance = m_engine->GetInstance();
     const vk::PhysicalDevice pDevice = m_engine->GetPhysicalDevice();
     const vk::SurfaceKHR surface = m_window->GetSurface(instance);
@@ -50,7 +48,7 @@ void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height)
 
     device.waitIdle();
 
-    const SwapChainSupportInfo info = QuerySwapChainSupport(pDevice, surface);
+    const SwapChainSupportInfo info = QuerySwapChainSupport(pDevice, surface, m_allocator, a_tempAllocator);
 
     const vk::PresentModeKHR presentMode = ILAMBDA(
     {
@@ -94,15 +92,15 @@ void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height)
     TRACE("Creating Vulkan Swapchain");
     vk::SwapchainCreateInfoKHR createInfo = vk::SwapchainCreateInfoKHR
     (
-        { }, 
-        surface, 
-        imageCount, 
-        m_surfaceFormat.format, 
-        m_surfaceFormat.colorSpace, 
-        extents, 
-        1, 
-        vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst, 
-        vk::SharingMode::eExclusive, 
+        { },
+        surface,
+        imageCount,
+        m_surfaceFormat.format,
+        m_surfaceFormat.colorSpace,
+        extents,
+        1,
+        vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst,
+        vk::SharingMode::eExclusive,
         nullptr,
         info.Capabilites.currentTransform,
         vk::CompositeAlphaFlagBitsKHR::eOpaque,
@@ -132,17 +130,17 @@ void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height)
     TRACE("Creating swapchain framebuffers");
     for (uint32_t i = 0; i < imageCount; ++i)
     {
-        VulkanSwapchainImage swapImage = 
-        { 
-            .Image = images[i]
+        VulkanSwapchainImage swapImage =
+        {
+            .Image = images[i],
         };
 
         const vk::ImageViewCreateInfo createInfo = vk::ImageViewCreateInfo
         (
-            { }, 
-            swapImage.Image, 
-            vk::ImageViewType::e2D, 
-            m_surfaceFormat.format, 
+            { },
+            swapImage.Image,
+            vk::ImageViewType::e2D,
+            m_surfaceFormat.format,
             { vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity },
             vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1)
         );
@@ -290,7 +288,7 @@ void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height)
             .StartSemaphore = m_startSemaphoreFD[i],
             .EndSemaphore = m_endSemaphoreFD[i],
         };
-    
+
         window->PushSwapBufferFD(swapBuffer);
 #endif
 #endif
@@ -366,7 +364,7 @@ void VulkanSwapchain::Destroy()
         {
             vmaDestroyImage(allocator, image.Image, image.Allocation);
         }
-        
+
 #ifdef ICARIANNATIVE_ENABLE_DMA
         HeadlessAppWindow* window = (HeadlessAppWindow*)m_window;
 
@@ -395,19 +393,22 @@ void VulkanSwapchain::Destroy()
     m_images.Clear();
 }
 
-VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow* a_window)
+VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow* a_window, Allocator* a_allocator, Allocator* a_tempAllocator) :
+    m_images(a_allocator)
 {
+    m_allocator = a_allocator;
+
     m_window = a_window;
     m_engine = a_engine;
 
     m_swapchain = nullptr;
     m_renderPass = nullptr;
     m_renderPassNoClear = nullptr;
-    
+
     m_resizeFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":ResizeS(uint,uint)");
 
     const vk::Instance instance = m_engine->GetInstance();
-    const vk::Device device = m_engine->GetLogicalDevice();
+    const vk::Device device = m_engine->GetLogicalDevice(); 
     const vk::PhysicalDevice pDevice = m_engine->GetPhysicalDevice();
     const vk::SurfaceKHR surface = m_window->GetSurface(instance);
 
@@ -466,8 +467,8 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
             .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
         };
 
-        const VmaAllocationCreateInfo allocInfo = 
-        { 
+        const VmaAllocationCreateInfo allocInfo =
+        {
             .usage = VMA_MEMORY_USAGE_AUTO,
             .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         };
@@ -505,8 +506,8 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
     }
     else
     {
-        const SwapChainSupportInfo info = QuerySwapChainSupport(pDevice, surface);
-        
+        const SwapChainSupportInfo info = QuerySwapChainSupport(pDevice, surface, a_allocator, a_tempAllocator);
+
         m_surfaceFormat = GetSurfaceFormatFromFormats(info.Formats);
     }
 
@@ -608,42 +609,48 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
         &ColorAttachmentRef
     );
 
-    Array<vk::SubpassDependency> dependencies;
-    if (headless)
+    const Array<vk::SubpassDependency> dependencies = ILAMBDA(
     {
-        dependencies.Push(vk::SubpassDependency
+        Array<vk::SubpassDependency> vals = Array<vk::SubpassDependency>(a_tempAllocator);
+
+        if (headless)
+        {
+            vals.Push(vk::SubpassDependency
+            (
+                vk::SubpassExternal,
+                0,
+                vk::PipelineStageFlagBits::eBottomOfPipe,
+                vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                vk::AccessFlagBits::eMemoryRead,
+                vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite,
+                vk::DependencyFlagBits::eByRegion
+            ));
+            vals.Push(vk::SubpassDependency
+            (
+                0,
+                vk::SubpassExternal,
+                vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                vk::PipelineStageFlagBits::eBottomOfPipe,
+                vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite,
+                vk::AccessFlagBits::eMemoryRead,
+                vk::DependencyFlagBits::eByRegion
+            ));
+
+            ILRETURN vals;
+        }
+
+        vals.Push(vk::SubpassDependency
         (
-            VK_SUBPASS_EXTERNAL,
-            0,
-            vk::PipelineStageFlagBits::eBottomOfPipe,
-            vk::PipelineStageFlagBits::eColorAttachmentOutput,
-            vk::AccessFlagBits::eMemoryRead,
-            vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite,
-            vk::DependencyFlagBits::eByRegion
-        ));
-        dependencies.Push(vk::SubpassDependency
-        (
-            0,
-            VK_SUBPASS_EXTERNAL,
-            vk::PipelineStageFlagBits::eColorAttachmentOutput,
-            vk::PipelineStageFlagBits::eBottomOfPipe,
-            vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite,
-            vk::AccessFlagBits::eMemoryRead,
-            vk::DependencyFlagBits::eByRegion
-        ));
-    }
-    else
-    {
-        dependencies.Push(vk::SubpassDependency
-        (
-            VK_SUBPASS_EXTERNAL,
+            vk::SubpassExternal,
             0,
             vk::PipelineStageFlagBits::eColorAttachmentOutput,
             vk::PipelineStageFlagBits::eColorAttachmentOutput,
             vk::AccessFlags(),
             vk::AccessFlagBits::eColorAttachmentWrite
         ));
-    }
+
+        ILRETURN vals;
+    });
 
     const vk::RenderPassCreateInfo renderPassInfo = vk::RenderPassCreateInfo
     (
@@ -677,7 +684,7 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
     }
     else
     {
-        Init(winWidth, winHeight);
+        Init(winWidth, winHeight, a_tempAllocator);
     }
 
     void* args[] =
@@ -719,33 +726,47 @@ VulkanSwapchain::~VulkanSwapchain()
 #endif
 }
 
-SwapChainSupportInfo VulkanSwapchain::QuerySwapChainSupport(const vk::PhysicalDevice& a_device, const vk::SurfaceKHR& a_surface)
+SwapChainSupportInfo VulkanSwapchain::QuerySwapChainSupport(const vk::PhysicalDevice& a_device, const vk::SurfaceKHR& a_surface, Allocator* a_allocator, Allocator* a_tempAllocator)
 {
-    SwapChainSupportInfo info = { };
+    vk::SurfaceCapabilitiesKHR capabilites;
+    VKRESERR(a_device.getSurfaceCapabilitiesKHR(a_surface, &capabilites));
 
-    VKRESERR(a_device.getSurfaceCapabilitiesKHR(a_surface, &info.Capabilites));
-
-    uint32_t formatCount;
-    VKRESERR(a_device.getSurfaceFormatsKHR(a_surface, &formatCount, nullptr));
-    if (formatCount > 0)
+    const SwapChainSupportInfo info = 
     {
-        vk::SurfaceFormatKHR* formats = RenderScratchAlloc::TAllocate<vk::SurfaceFormatKHR>(formatCount);
+        .Capabilites = capabilites,
+        .Formats = ILAMBDA(
+        {
+            uint32_t formatCount;
+            VKRESERR(a_device.getSurfaceFormatsKHR(a_surface, &formatCount, nullptr));
+            if (formatCount > 0)
+            {
+                vk::SurfaceFormatKHR* formats = a_tempAllocator->TAllocate<vk::SurfaceFormatKHR>(formatCount);
+                IDEFER(a_tempAllocator->Free(formats));
 
-        VKRESERR(a_device.getSurfaceFormatsKHR(a_surface, &formatCount, formats));
+                VKRESERR(a_device.getSurfaceFormatsKHR(a_surface, &formatCount, formats));
 
-        info.Formats = Array<vk::SurfaceFormatKHR>(formats, formatCount);
-    }
+                ILRETURN Array<vk::SurfaceFormatKHR>(formats, formatCount, a_allocator);
+            }
 
-    uint32_t presentModeCount;
-    VKRESERR(a_device.getSurfacePresentModesKHR(a_surface, &presentModeCount, nullptr));
-    if (presentModeCount > 0)
-    {
-        vk::PresentModeKHR* modes = RenderScratchAlloc::TAllocate<vk::PresentModeKHR>();
+            ILRETURN Array<vk::SurfaceFormatKHR>(a_allocator);
+        }),
+        .PresentModes = ILAMBDA(
+        {
+            uint32_t presentModeCount;
+            VKRESERR(a_device.getSurfacePresentModesKHR(a_surface, &presentModeCount, nullptr));
+            if (presentModeCount > 0)
+            {
+                vk::PresentModeKHR* modes = a_tempAllocator->TAllocate<vk::PresentModeKHR>();
+                IDEFER(a_tempAllocator->Free(modes));
 
-        VKRESERR(a_device.getSurfacePresentModesKHR(a_surface, &presentModeCount, modes));
+                VKRESERR(a_device.getSurfacePresentModesKHR(a_surface, &presentModeCount, modes));
 
-        info.PresentModes = Array<vk::PresentModeKHR>(modes, presentModeCount);
-    }
+                ILRETURN Array<vk::PresentModeKHR>(modes, presentModeCount, a_allocator);
+            }
+
+            ILRETURN Array<vk::PresentModeKHR>(a_allocator);
+        })
+    };
 
     return info;
 }
@@ -767,7 +788,7 @@ vk::ImageLayout VulkanSwapchain::GetImageLayout() const
     return vk::ImageLayout::ePresentSrcKHR;
 }
 
-bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaphore, double a_delta, double a_time)
+bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaphore, double a_delta, double a_time, Allocator* a_tempAllocator)
 {
     *a_semaphore = nullptr;
 
@@ -788,13 +809,13 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaph
         const vk::Result result = device.waitForFences(1, &fence, vk::True, 10000);
         if (result != vk::Result::eSuccess)
         {
-            VKRESWARNMSG(result, "Could not wait for fence");
+            // VKRESWARNMSG(result, "Could not wait for fence");
             // IERROR("Could not wait for fence");
 
             return false;
         }
     }
-    
+
     const bool headless = m_window->IsHeadless() || ForceHeadless;
     if (headless)
     {
@@ -850,7 +871,7 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaph
             const uint32_t newHeight = glm::max(2U, winHeight);
 
             Destroy();
-            Init(newWidth, newHeight);
+            Init(newWidth, newHeight, a_tempAllocator);
 
             void* args[] = 
             {
@@ -871,7 +892,7 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaph
             if (!sizeEqual && sizeValid)
             {
                 Destroy();
-                Init(winWidth, winHeight);
+                Init(winWidth, winHeight, a_tempAllocator);
 
                 void* args[] =
                 {
@@ -895,7 +916,7 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaph
 
     {
         PROFILESTACK("Reset Fence");
-        
+
         VKRESERR(device.resetFences(1, &fence));
     }
 
@@ -907,7 +928,7 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
 
     const bool headless = m_window->IsHeadless() || ForceHeadless;
     if (headless)
-    {        
+    {
 #ifdef ICARIANNATIVE_ENABLE_DMA
         HeadlessAppWindow* window = (HeadlessAppWindow*)m_window;
 
@@ -925,7 +946,7 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
         TLockObj<vk::CommandBuffer, SpinLock>* buffer = m_engine->CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
         IDEFER(m_engine->DestroyCommandBuffer(buffer));
         const vk::CommandBuffer cmdBuffer = buffer->Get();
-        
+
         constexpr vk::CommandBufferBeginInfo BufferBeginInfo = vk::CommandBufferBeginInfo
         (
             vk::CommandBufferUsageFlagBits::eOneTimeSubmit
@@ -993,7 +1014,7 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

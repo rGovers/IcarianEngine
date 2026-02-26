@@ -6,9 +6,10 @@
 
 #include "Core/IcarianError.h"
 #include "DataTypes/Array.h"
+#include "DataTypes/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
-#include "Memory.h"
+#include "IcarianMemory.h"
 
 H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_trackInfo, uint32_t a_trackIndex, FileHandle* a_handle)
 {
@@ -20,7 +21,7 @@ H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_
     int index = 0;
 
     {
-        Array<H264::SPS> spsArr;
+        Array<H264::SPS> spsArr = Array<H264::SPS>(MallocAllocator::Instance);
 
         while (1) 
         {
@@ -72,7 +73,7 @@ H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_
     }
 
     {
-        Array<H264::PPS> ppsArr;
+        Array<H264::PPS> ppsArr = Array<H264::PPS>(MallocAllocator::Instance);
 
         index = 0;
         while (1) 
@@ -110,7 +111,7 @@ H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_
         }
     }
 
-    Array<H264VideoFrameInfo> frames;
+    Array<H264VideoFrameInfo> frames = Array<H264VideoFrameInfo>(MallocAllocator::Instance);
 
     uint32_t pocCycle = 0;
     uint32_t prevPICOrderCNTLSB = 0;
@@ -120,7 +121,7 @@ H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_
 
     const double invTimescale = 1.0 / a_trackInfo.timescale;
 
-    Array<H264::SliceHeader> sliceHeaders;
+    Array<H264::SliceHeader> sliceHeaders = Array<H264::SliceHeader>(MallocAllocator::Instance);
     for (uint32_t i = 0; i < a_trackInfo.sample_count; ++i) 
     {
         unsigned int frameBytes;
@@ -243,7 +244,7 @@ H264VideoInfo::H264VideoInfo(const MP4D_demux_t& a_demux, const MP4D_track_t& a_
     // if it has not then forward iteration is faster in theory ahhh...... File
     // spec does not guarantee order and requireds a specific order Running with
     // this as test files are presorted so cannot validate
-    for (uint32_t i = 0; i < m_frameCount; ++i) 
+    for (uint32_t i = 0; i < m_frameCount; ++i)
     {
         const H264VideoFrameInfo& frameA = frames[i];
 
@@ -338,7 +339,7 @@ bool H264VideoInfo::GetVideoClipData(FileHandle* a_handle, uint32_t a_startIndex
         const uint8_t* offBuf = readBuff + 4;
 
         H264::BitStream bitStream = H264::BitStream(offBuf, frame.Size);
-                    
+
         const H264::NALHeader nal = H264::ReadNALHeader(&bitStream);
         IERRCHECKRET(nal.Type == H264::NALUnitType_CodedSliceIDR || nal.Type == H264::NALUnitType_CodedSliceNonIDR, false);
 
@@ -346,7 +347,7 @@ bool H264VideoInfo::GetVideoClipData(FileHandle* a_handle, uint32_t a_startIndex
         memcpy(p + H264::NALStartCodeSize, offBuf, frame.Size - 4);
 
         const uint32_t alignedSize = AlignTo(frame.Size, a_alignment);
-        
+
         p += alignedSize;
     }
 
@@ -355,7 +356,7 @@ bool H264VideoInfo::GetVideoClipData(FileHandle* a_handle, uint32_t a_startIndex
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

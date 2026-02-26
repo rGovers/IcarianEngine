@@ -6,6 +6,8 @@
 
 #include "AI/Navigation.h"
 #include "AI/NavigationMesh.h"
+#include "Core/Bitfield.h"
+#include "DataTypes/MallocAllocator.h"
 #include "IcarianError.h"
 #include "Runtime/RuntimeManager.h"
 
@@ -72,14 +74,16 @@ Array<glm::vec3> NavigationBindings::GetNavMeshPath(uint32_t a_addr, const glm::
 
 Array<glm::vec3> NavigationBindings::GetNavigationPath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const
 {
+    const uint32_t size = m_navigation->m_meshes.Size();
+    const Array<uint8_t> state = m_navigation->m_meshes.ToPackedStateArray(MallocAllocator::Instance);
     const TReadLockArray<NavigationMesh*> a = m_navigation->m_meshes.ToReadLockArray();
-    const Array<bool> state = m_navigation->m_meshes.ToStateArray();
-
-    const uint32_t size = a.Size();
 
     for (uint32_t i = 0; i < size; ++i)
     {
-        if (!state[i])
+        const uint32_t index = i / 8;
+        const uint32_t offset = i % 8;
+
+        if (!IISBITSET(state[index], offset))
         {
             continue;
         }
@@ -94,13 +98,13 @@ Array<glm::vec3> NavigationBindings::GetNavigationPath(const glm::vec3& a_startP
             return mesh->GeneratePath(a_startPoint, a_endPoint, startIndex, endIndex, a_agentRadius);
         }
     }
-    
-    return Array<glm::vec3>();
+
+    return Array<glm::vec3>(MallocAllocator::Instance);
 }
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

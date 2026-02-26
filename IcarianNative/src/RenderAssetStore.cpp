@@ -21,15 +21,19 @@
 #include "Rendering/RenderEngine.h"
 #include "Runtime/RuntimeManager.h"
 
-RenderAssetStore::RenderAssetStore(RenderEngine* a_renderEngine)
+RenderAssetStore::RenderAssetStore(RenderEngine* a_renderEngine) :
+    m_blockAllocator(new BlockAllocator(BlockAllocatorSize)),
+    m_stackAllocators(m_blockAllocator)
 {
     m_renderEngine = a_renderEngine;
 
-    m_bindings = new RenderAssetStoreBindings(this);
+    m_scratchIndex = 0;
+
+    m_bindings = m_blockAllocator->Create<RenderAssetStoreBindings>(this);
 }
 RenderAssetStore::~RenderAssetStore()
 {
-    delete m_bindings;
+    m_blockAllocator->Destroy(m_bindings);
 }
 
 void RenderAssetStore::Update()
@@ -49,14 +53,43 @@ void RenderAssetStore::Update()
         }
     }
 
+    // Need to get the index of the scratch allocator for this thread
+    const uint32_t scratchIndex = GetScratchAllocatorIndex();
+
+    StackAllocator* scratchAllocator = ILAMBDA(
     {
-        const Array<bool> state = m_meshes.ToStateArray();
+        const ThreadGuard g = ThreadGuard(m_scratchLock);
+
+        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+
+        ++alloc.Count;
+
+        ILRETURN alloc.Allocator;
+    });
+    IDEFER(
+    {
+        const ThreadGuard g = ThreadGuard(m_scratchLock);
+
+        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+
+        --alloc.Count;
+    });
+
+    {
+        scratchAllocator->PushStackPointer();
+        IDEFER(scratchAllocator->PopStackPointer());
+
+        // No need to waste memory just use a packed state
+        const uint32_t size = m_meshes.Size();
+        const Array<uint8_t> state = m_meshes.ToPackedStateArray(scratchAllocator);
         TLockArray<RenderAsset> a = m_meshes.ToLockArray();
-        const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (!state[i])
+            const uint32_t index = i / 8;
+            const uint32_t offset = i % 8;
+
+            if (!IISBITSET(state[index], offset))
             {
                 continue;
             }
@@ -86,13 +119,19 @@ void RenderAssetStore::Update()
     }
 
     {
-        const Array<bool> state = m_models.ToStateArray();
+        scratchAllocator->PushStackPointer();
+        IDEFER(scratchAllocator->PopStackPointer());
+
+        const uint32_t size = m_models.Size();
+        const Array<uint8_t> state = m_models.ToPackedStateArray(scratchAllocator);
         TLockArray<RenderAsset> a = m_models.ToLockArray();
-        const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (!state[i])
+            const uint32_t index = i / 8;
+            const uint32_t offset = i % 8;
+
+            if (!IISBITSET(state[index], offset))
             {
                 continue;
             }
@@ -122,13 +161,19 @@ void RenderAssetStore::Update()
     }
 
     {
-        const Array<bool> state = m_textures.ToStateArray();
+        scratchAllocator->PushStackPointer();
+        IDEFER(scratchAllocator->PopStackPointer());
+
+        const uint32_t size = m_textures.Size();
+        const Array<uint8_t> state = m_textures.ToPackedStateArray(scratchAllocator);
         TLockArray<RenderAsset> a = m_textures.ToLockArray();
-        const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (!state[i])
+            const uint32_t index = i / 8;
+            const uint32_t offset = i % 8;
+
+            if (!IISBITSET(state[index], offset))
             {
                 continue;
             }
@@ -159,14 +204,41 @@ void RenderAssetStore::Update()
 }
 void RenderAssetStore::Flush()
 {
+    const uint32_t scratchIndex = GetScratchAllocatorIndex();
+
+    StackAllocator* scratchAllocator = ILAMBDA(
     {
-        const Array<bool> state = m_meshes.ToStateArray();
+        const ThreadGuard g = ThreadGuard(m_scratchLock);
+
+        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+
+        ++alloc.Count;
+
+        ILRETURN alloc.Allocator;
+    });
+    IDEFER(
+    {
+        const ThreadGuard g = ThreadGuard(m_scratchLock);
+
+        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+
+        --alloc.Count;
+    });
+
+    {
+        scratchAllocator->PushStackPointer();
+        IDEFER(scratchAllocator->PopStackPointer());
+
+        const uint32_t size = m_meshes.Size();
+        const Array<uint8_t> state = m_meshes.ToPackedStateArray(scratchAllocator);
         TLockArray<RenderAsset> a = m_meshes.ToLockArray();
-        const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (!state[i])
+            const uint32_t index = i / 8;
+            const uint32_t offset = i % 8;
+
+            if (!IISBITSET(state[index], offset))
             {
                 continue;
             }
@@ -183,13 +255,19 @@ void RenderAssetStore::Flush()
     }
 
     {
-        const Array<bool> state = m_models.ToStateArray();
+        scratchAllocator->PushStackPointer();
+        IDEFER(scratchAllocator->PopStackPointer());
+
+        const uint32_t size = m_models.Size();
+        const Array<uint8_t> state = m_models.ToPackedStateArray(scratchAllocator);
         TLockArray<RenderAsset> a = m_models.ToLockArray();
-        const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (!state[i])
+            const uint32_t index = i / 8;
+            const uint32_t offset = i % 8;
+
+            if (!IISBITSET(state[index], offset))
             {
                 continue;
             }
@@ -206,13 +284,19 @@ void RenderAssetStore::Flush()
     }
 
     {
-        const Array<bool> state = m_textures.ToStateArray();
+        scratchAllocator->PushStackPointer();
+        IDEFER(scratchAllocator->PopStackPointer());
+
+        const Array<bool> state = m_textures.ToStateArray(scratchAllocator);
         TLockArray<RenderAsset> a = m_textures.ToLockArray();
         const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (!state[i])
+            const uint32_t index = i / 8;
+            const uint32_t offset = i % 8;
+
+            if (!IISBITSET(state[index], offset))
             {
                 continue;
             }
@@ -240,36 +324,61 @@ static void AILoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<ui
 
     for (uint32_t i = 0; i < a_mesh->mNumVertices; ++i) 
     {
-        Vertex v;
-
-        const aiVector3D& pos = a_mesh->mVertices[i];
-        v.Position = glm::vec4(pos.x, -pos.y, pos.z, 1.0f);
-
-        *a_rSqr = glm::max(pos.SquareLength(), *a_rSqr);
-
-        if (hasNormals) 
+        const Vertex v = 
         {
-            const aiVector3D& norm = a_mesh->mNormals[i];
-            v.Normal = glm::vec4(norm.x, -norm.y, norm.z, 0.0f);
-        }
+            .Position = ILAMBDA(
+            {
+                const aiVector3D& p = a_mesh->mVertices[i];
 
-        if (hasTexCoordA) 
-        {
-            const aiVector3D& uv = a_mesh->mTextureCoords[0][i];
-            v.TexCoordsA = glm::vec2(uv.x, uv.y);
-        }
+                ILRETURN glm::vec4(p.x, -p.y, p.z, 1.0f);
+            }),
+            .Normal = ILAMBDA(
+            {
+                if (hasNormals)
+                {
+                    const aiVector3D& n = a_mesh->mNormals[i];
 
-        if (hasTexCoordB)
-        {
-            const aiVector3D& uv = a_mesh->mTextureCoords[1][i];
-            v.TexCoordsB = glm::vec2(uv.x, uv.y);
-        }
+                    ILRETURN glm::vec4(n.x, -n.y, n.z, 0.0f);
+                }
 
-        if (hasColour) 
-        {
-            const aiColor4D& colour = a_mesh->mColors[0][i];
-            v.Color = glm::vec4(colour.r, colour.g, colour.b, colour.a);
-        }
+                ILRETURN glm::vec4(0.0f);
+            }),
+            .Color = ILAMBDA(
+            {
+                if (hasColour)
+                {
+                    const aiColor4D& colour = a_mesh->mColors[0][i];
+
+                    ILRETURN glm::vec4(colour.r, colour.g, colour.b, colour.a);
+                }
+
+                ILRETURN glm::vec4(1.0f);
+            }),
+            .TexCoordsA = ILAMBDA(
+            {
+                if (hasTexCoordA)
+                {
+                    const aiVector3D& u = a_mesh->mTextureCoords[0][i];
+
+                    ILRETURN glm::vec2(u.x, u.y);
+                }
+
+                ILRETURN glm::vec2(0.0f);
+            }),
+            .TexCoordsB = ILAMBDA(
+            {
+                if (hasTexCoordB)
+                {
+                    const aiVector3D& u = a_mesh->mTextureCoords[1][i];
+
+                    ILRETURN glm::vec2(u.x, u.y);
+                }
+
+                ILRETURN glm::vec2(0.0f);
+            })
+        };
+
+        *a_rSqr = glm::max(glm::dot(v.Position.xyz(), v.Position.xyz()), *a_rSqr);
 
         a_vertices->Push(v);
     }
@@ -284,22 +393,22 @@ static void AILoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<ui
 
         if (!hasNormals)
         {
-            const aiVector3D& posA = a_mesh->mVertices[indexA];
-            const aiVector3D& posB = a_mesh->mVertices[indexB];
-            const aiVector3D& posC = a_mesh->mVertices[indexC];
+            Vertex& vA = (*a_vertices)[startIndex + indexA];
+            Vertex& vB = (*a_vertices)[startIndex + indexB];
+            Vertex& vC = (*a_vertices)[startIndex + indexC];
 
-            const glm::vec3 pA = glm::vec3(posA.x, -posA.y, posA.z);
-            const glm::vec3 pB = glm::vec3(posB.x, -posB.y, posB.z);
-            const glm::vec3 pC = glm::vec3(posC.x, -posC.y, posC.z);
+            const glm::vec3 pA = vA.Position.xyz();
+            const glm::vec3 pB = vB.Position.xyz();
+            const glm::vec3 pC = vC.Position.xyz();
 
             const glm::vec3 diffA = pB - pA;
             const glm::vec3 diffB = pC - pA;
 
             const glm::vec3 norm = glm::cross(diffA, diffB);
 
-            (*a_vertices)[startIndex + indexA].Normal += glm::vec4(norm, 0.0f);
-            (*a_vertices)[startIndex + indexB].Normal += glm::vec4(norm, 0.0f);
-            (*a_vertices)[startIndex + indexC].Normal += glm::vec4(norm, 0.0f);
+            vA.Normal += glm::vec4(norm, 0.0f);
+            vB.Normal += glm::vec4(norm, 0.0f);
+            vC.Normal += glm::vec4(norm, 0.0f);
         }
 
         a_indices->Push(indexA);
@@ -323,6 +432,27 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
 {
     IERRBLOCK;
 
+    const uint32_t scratchIndex = GetScratchAllocatorIndex();
+
+    StackAllocator* scratchAllocator = ILAMBDA(
+    {
+        const ThreadGuard g = ThreadGuard(m_scratchLock);
+
+        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+
+        ++alloc.Count;
+
+        ILRETURN alloc.Allocator;
+    });
+    IDEFER(
+    {
+        const ThreadGuard g = ThreadGuard(m_scratchLock);
+
+        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+
+        --alloc.Count;
+    });
+
     const std::filesystem::path p = std::filesystem::path(a_path);
 
     const std::filesystem::path ext = p.extension();
@@ -337,13 +467,15 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
     case StringHash<uint32_t>(".glb"):
     case StringHash<uint32_t>(".gltf"):
     {
+        scratchAllocator->PushStackPointer();
+        IDEFER(scratchAllocator->PopStackPointer());
+
         FileHandle* handle = FileCache::LoadFile(a_path);
         IERRCHECKRET(handle != nullptr, false);
         IDEFER(delete handle);
 
         const uint64_t size = handle->GetSize();
-        uint8_t* dat = new uint8_t[size];
-        IDEFER(delete[] dat);
+        uint8_t* dat = scratchAllocator->TAllocate<uint8_t>(size);
         IERRCHECKRET(handle->Read(dat, size) == size, false);
 
         Assimp::Importer importer;
@@ -374,28 +506,28 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
 
         meshopt_optimizeVertexCache
         (
-            a_indices->Data(), 
-            a_indices->Data(), 
-            indexCount, 
+            a_indices->Data(),
+            a_indices->Data(),
+            indexCount,
             vertexCount
         );
         meshopt_optimizeOverdraw
         (
-            a_indices->Data(), 
-            a_indices->Data(), 
-            indexCount, 
-            &((*a_vertices)[0].Position.x), 
-            vertexCount, 
-            VertexSize, 
+            a_indices->Data(),
+            a_indices->Data(),
+            indexCount,
+            &((*a_vertices)[0].Position.x),
+            vertexCount,
+            VertexSize,
             1.05f
         );
         const size_t newVertexCount = meshopt_optimizeVertexFetch
         (
             a_vertices->Data(),
-            a_indices->Data(), 
-            indexCount, 
-            a_vertices->Data(), 
-            vertexCount, 
+            a_indices->Data(),
+            indexCount,
+            a_vertices->Data(),
+            vertexCount,
             VertexSize
         );
 
@@ -420,8 +552,32 @@ uint32_t RenderAssetStore::LoadMeshData(const std::string_view& a_path, uint8_t 
 {
     IERRBLOCK;
 
-    Array<Vertex> vertices;
-    Array<uint32_t> indices;
+    const uint32_t scratchIndex = GetScratchAllocatorIndex();
+
+    StackAllocator* scratchAllocator = ILAMBDA(
+    {
+        const ThreadGuard g = ThreadGuard(m_scratchLock);
+
+        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+
+        ++alloc.Count;
+
+        ILRETURN alloc.Allocator;
+    });
+    IDEFER(
+    {
+        const ThreadGuard g = ThreadGuard(m_scratchLock);
+
+        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+
+        --alloc.Count;
+    });
+
+    scratchAllocator->PushStackPointer();
+    IDEFER(scratchAllocator->PopStackPointer());
+
+    Array<Vertex> vertices = Array<Vertex>(m_blockAllocator);
+    Array<uint32_t> indices = Array<uint32_t>(m_blockAllocator);
     float radius;
     IERRCHECKRET(LoadModelData(a_path, a_index, &vertices, &indices, &radius), -1);
 
@@ -439,12 +595,10 @@ uint32_t RenderAssetStore::LoadMeshData(const std::string_view& a_path, uint8_t 
     const size_t maxMeshletCount = meshopt_buildMeshletsBound(indexCount, MeshletVertexCount, MeshletTriangleCount);
     IERRCHECKRET(maxMeshletCount > 0, -1);
 
-    meshopt_Meshlet* meshoptMeshlets = new meshopt_Meshlet[maxMeshletCount];
-    IDEFER(delete[] meshoptMeshlets);
+    meshopt_Meshlet* meshoptMeshlets = scratchAllocator->TAllocate<meshopt_Meshlet>(maxMeshletCount);
 
-    uint32_t* meshletVertices = new uint32_t[maxMeshletCount * MeshletVertexCount];
-    IDEFER(delete[] meshletVertices);
-    uint8_t* meshletTriangles = new uint8_t[maxMeshletCount * MeshletTriangleCount * 3];
+    uint32_t* meshletVertices = scratchAllocator->TAllocate<uint32_t>(maxMeshletCount * MeshletVertexCount);
+    uint8_t* meshletTriangles = scratchAllocator->TAllocate<uint8_t>(maxMeshletCount * MeshletTriangleCount * 3);
     IDEFER(delete[] meshletTriangles);
 
     const size_t meshletCount = meshopt_buildMeshlets
@@ -462,8 +616,7 @@ uint32_t RenderAssetStore::LoadMeshData(const std::string_view& a_path, uint8_t 
         0.0f
     );
 
-    IcarianCore::ShaderMeshletBuffer* meshlets = new IcarianCore::ShaderMeshletBuffer[meshletCount];
-    IDEFER(delete[] meshlets);
+    IcarianCore::ShaderMeshletBuffer* meshlets = scratchAllocator->TAllocate<IcarianCore::ShaderMeshletBuffer>(meshletCount);
 
     uint32_t meshletVertexCount = 0;
     uint32_t meshletTriangleCount = 0;
@@ -574,8 +727,8 @@ uint32_t RenderAssetStore::LoadModel(const std::string_view& a_path, uint8_t a_i
 {
     constexpr uint16_t VertexStride = sizeof(Vertex);
 
-    Array<Vertex> vertices;
-    Array<uint32_t> indices;
+    Array<Vertex> vertices = Array<Vertex>(m_blockAllocator);
+    Array<uint32_t> indices = Array<uint32_t>(m_blockAllocator);
     float radius;
     if (!LoadModelData(a_path, a_index, &vertices, &indices, &radius))
     {
@@ -587,7 +740,15 @@ uint32_t RenderAssetStore::LoadModel(const std::string_view& a_path, uint8_t a_i
         return -1;
     }
 
-    const uint32_t modelAddr = m_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), VertexStride, indices.Data(), indices.Size(), radius);
+    const uint32_t modelAddr = m_renderEngine->GenerateModel
+    (
+        vertices.Data(),
+        vertices.Size(),
+        VertexStride,
+        indices.Data(),
+        indices.Size(),
+        radius
+    );
     if (modelAddr == uint32_t(-1))
     {
         return -1;
@@ -605,50 +766,101 @@ uint32_t RenderAssetStore::LoadModel(const std::string_view& a_path, uint8_t a_i
 
 static void LoadSkinnedMesh(const aiMesh* a_mesh, Array<SkinnedVertex>* a_vertices, Array<uint32_t>* a_indices, const std::unordered_map<std::string, int>& a_boneMap, float* a_rSqr)
 {
+    const bool hasNormal = a_mesh->HasNormals();
+    const bool hasUV = a_mesh->HasTextureCoords(0);
+    const bool hasVertexColour = a_mesh->HasVertexColors(0);
+    const bool hasBones = a_mesh->HasBones();
+
     for (uint32_t i = 0; i < a_mesh->mNumVertices; ++i) 
     {
-        SkinnedVertex v;
-
-        const aiVector3D& pos = a_mesh->mVertices[i];
-        v.Position = glm::vec4(pos.x, -pos.y, pos.z, 1.0f);
-
-        *a_rSqr = glm::max(pos.SquareLength(), *a_rSqr);
-
-        if (a_mesh->HasNormals()) 
+        const SkinnedVertex v =
         {
-            const aiVector3D& norm = a_mesh->mNormals[i];
-            v.Normal = glm::vec3(norm.x, -norm.y, norm.z);
-        }
-
-        if (a_mesh->HasTextureCoords(0)) 
-        {
-            const aiVector3D& uv = a_mesh->mTextureCoords[0][i];
-            v.TexCoords = glm::vec2(uv.x, uv.y);
-        }
-
-        if (a_mesh->HasVertexColors(0)) 
-        {
-            const aiColor4D& colour = a_mesh->mColors[0][i];
-            v.Color = glm::vec4(colour.r, colour.g, colour.b, colour.a);
-        }
-
-        if (a_mesh->HasBones())
-        {
-            const aiBone* bone = a_mesh->mBones[i];
-
-            const uint32_t weights = glm::min(uint32_t(4), (uint32_t)bone->mNumWeights);
-            for (uint32_t j = 0; j < weights; ++j)
+            .Position = ILAMBDA(
             {
-                const auto iter = a_boneMap.find(bone->mName.C_Str());
-                if (iter == a_boneMap.end())
+                const aiVector3D& p = a_mesh->mVertices[i];
+
+                ILRETURN glm::vec4(p.x, -p.y, p.z, 1.0f);
+            }),
+            .Normal = ILAMBDA(
+            {
+                if (hasNormal)
                 {
-                    continue;
+                    const aiVector3D& n = a_mesh->mNormals[i];
+
+                    ILRETURN glm::vec4(n.x, -n.y, n.z, 0.0f);
                 }
 
-                v.BoneIndices[j] = iter->second;
-                v.BoneWeights[j] = bone->mWeights[j].mWeight;
-            }
-        }
+                ILRETURN glm::vec4(0.0f);
+            }),
+            .Color = ILAMBDA(
+            {
+                if (hasVertexColour)
+                {
+                    const aiColor4D& colour = a_mesh->mColors[0][i];
+
+                    ILRETURN glm::vec4(colour.r, colour.g, colour.b, colour.a);
+                }
+
+                ILRETURN glm::vec4(1.0f);
+            }),
+            .TexCoords = ILAMBDA(
+            {
+                if (hasUV)
+                {
+                    const aiVector3D& u = a_mesh->mTextureCoords[0][i];
+
+                    ILRETURN glm::vec2(u.x, u.y);
+                }
+
+                ILRETURN glm::vec2(0.0f);
+            }),
+            .BoneWeights = ILAMBDA(
+            {
+                if (hasBones)
+                {
+                    const aiBone* bone = a_mesh->mBones[i];
+
+                    glm::vec4 w = glm::vec4(0.0f);
+
+                    const uint32_t weights = glm::min(uint32_t(4), (uint32_t)bone->mNumWeights);
+                    for (uint32_t j = 0; j < weights; ++j)
+                    {
+                        w[j] = bone->mWeights[j].mWeight;
+                    }
+
+                    ILRETURN w;
+                }
+
+                ILRETURN glm::vec4(0.0f);
+            }),
+            .BoneIndices = ILAMBDA(
+            {
+                if (hasBones)
+                {
+                    const aiBone* bone = a_mesh->mBones[i];
+
+                    glm::ivec4 b = glm::ivec4(0);
+
+                    const uint32_t weights = glm::min(uint32_t(4), (uint32_t)bone->mNumWeights);
+                    for (uint32_t j = 0; j < weights; ++j)
+                    {
+                        const auto iter = a_boneMap.find(bone->mName.C_Str());
+                        if (iter == a_boneMap.end())
+                        {
+                            continue;
+                        }
+
+                        b[j] = iter->second;
+                    }
+
+                    ILRETURN b;
+                }
+
+                ILRETURN glm::ivec4(0);
+            })
+        };
+
+        *a_rSqr = glm::max(glm::dot(v.Position.xyz(), v.Position.xyz()), *a_rSqr);
 
         a_vertices->Push(v);
     }
@@ -663,11 +875,33 @@ static void LoadSkinnedMesh(const aiMesh* a_mesh, Array<SkinnedVertex>* a_vertic
     }
 }
 
-static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::string_view& a_path)
+uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::string_view& a_path)
 {
     IERRBLOCK;
 
-    const std::filesystem::path ext = std::filesystem::path(a_path);
+    const uint32_t scratchIndex = GetScratchAllocatorIndex();
+
+    StackAllocator* scratchAllocator = ILAMBDA(
+    {
+        const ThreadGuard g = ThreadGuard(m_scratchLock);
+
+        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+
+        ++alloc.Count;
+
+        ILRETURN alloc.Allocator;
+    });
+    IDEFER(
+    {
+        const ThreadGuard g = ThreadGuard(m_scratchLock);
+
+        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+
+        --alloc.Count;
+    });
+
+    const std::filesystem::path path = std::filesystem::path(a_path);
+    const std::filesystem::path ext = path.extension();
     const std::string extStr = ext.string();
 
     constexpr uint16_t VertexStride = sizeof(SkinnedVertex);
@@ -679,13 +913,15 @@ static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_dat
     case StringHash<uint32_t>(".glb"):
     case StringHash<uint32_t>(".gltf"):
     {
+        scratchAllocator->PushStackPointer();
+        IDEFER(scratchAllocator->PopStackPointer());
+
         FileHandle* handle = FileCache::LoadFile(a_path);
         IERRCHECKRET(handle != nullptr, -1);
         IDEFER(delete handle);
 
         const uint64_t size = handle->GetSize();
-        uint8_t* dat = new uint8_t[size];
-        IDEFER(delete[] dat);
+        uint8_t* dat = scratchAllocator->TAllocate<uint8_t>(size);
 
         IERRCHECKRET(handle->Read(dat, size) != size, -1);
 
@@ -706,8 +942,8 @@ static uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_dat
             boneMap.emplace(name, i);
         }
 
-        Array<SkinnedVertex> vertices;
-        Array<uint32_t> indices;
+        Array<SkinnedVertex> vertices = Array<SkinnedVertex>(m_blockAllocator);
+        Array<uint32_t> indices = Array<uint32_t>(m_blockAllocator);
         float radSqr = 0.0f;
         if (a_data != std::numeric_limits<uint8_t>::max())
         {
@@ -792,8 +1028,8 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
         {
             constexpr uint16_t VertexStride = sizeof(Vertex);
 
-            Array<Vertex> vertices;
-            Array<uint32_t> indices;
+            Array<Vertex> vertices = Array<Vertex>(m_blockAllocator);
+            Array<uint32_t> indices = Array<uint32_t>(m_blockAllocator);
             float radius;
             if (!LoadModelData(asset.Path, asset.Data, &vertices, &indices, &radius))
             {
@@ -916,8 +1152,28 @@ static void KTX_FileHandle_Destruct(ktxStream* a_stream)
 
 uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_textures.Size());
     IVERIFY(m_textures.Exists(a_addr));
+
+    const uint32_t scratchIndex = GetScratchAllocatorIndex();
+
+    StackAllocator* scratchAllocator = ILAMBDA(
+    {
+        const ThreadGuard g = ThreadGuard(m_scratchLock);
+
+        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+
+        ++alloc.Count;
+
+        ILRETURN alloc.Allocator;
+    });
+    IDEFER(
+    {
+        const ThreadGuard g = ThreadGuard(m_scratchLock);
+
+        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+
+        --alloc.Count;
+    });
 
     TLockArray<RenderAsset> a = m_textures.ToLockArray();
 
@@ -968,6 +1224,9 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
         }
         case StringHash<uint32_t>(".ktx2"):
         {
+            scratchAllocator->PushStackPointer();
+            IDEFER(scratchAllocator->PopStackPointer());
+
             FileHandle* handle = FileCache::LoadFile(asset.Path);
             if (handle == nullptr)
             {
@@ -975,7 +1234,6 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
                 break;
             }
-
             IDEFER(delete handle);
 
             ktxStream stream = 
@@ -988,7 +1246,7 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
                 .getsize = &KTX_FileHandle_GetSize,
                 .destruct = &KTX_FileHandle_Destruct,
                 .type = eStreamTypeCustom,
-                .data = 
+                .data =
                 {
                     .custom_ptr = 
                     {
@@ -1012,8 +1270,7 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
                 }
 
                 const uint32_t levels = (uint32_t)texture->numLevels;
-                uint64_t* offsets = new uint64_t[levels];
-                IDEFER(delete[] offsets);
+                uint64_t* offsets = scratchAllocator->TAllocate<uint64_t>(levels);
 
                 for (uint32_t i = 0; i < levels; ++i)
                 {
@@ -1050,9 +1307,31 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
     return asset.InternalAddress;
 }
 
+uint32_t RenderAssetStore::GetScratchAllocatorIndex()
+{
+    if (!m_scratchAllocator.Exists())
+    {
+        if (m_scratchIndex >= m_stackAllocators.Size())
+        {
+            StackAllocator* allocator = m_blockAllocator->Create<StackAllocator>(ScratchAllocatorSize);
+
+            const RenderAssetScratchAllocator data =
+            {
+                .Allocator = allocator
+            };
+
+            m_stackAllocators.Push(data);
+        }
+
+        m_scratchAllocator.Push(m_scratchIndex++);
+    }
+
+    return *m_scratchAllocator;
+}
+
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

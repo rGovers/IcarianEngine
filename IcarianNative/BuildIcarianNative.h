@@ -73,8 +73,10 @@ typedef struct
     CBBOOL EnablePipeFile;
 } IcarianNativeProjectFlags;
 
-static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, IcarianNativeProjectFlags a_flags)
+static CUBE_CProject BuildIcarianNativeProject(const char* a_path, e_TargetPlatform a_targetPlatform, e_BuildConfiguration a_configuration, IcarianNativeProjectFlags a_flags)
 {
+    CUBE_Path path = CUBE_Path_CreateC(a_path);
+
     CUBE_CProject project = { 0 };
 
     project.Name = CUBE_StackString_CreateC("IcarianNative");
@@ -180,274 +182,49 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     );
 
     CUBE_CProject_AppendSources(&project, 
-        "../deps/flare-tinyxml2/tinyxml2.cpp",
-
-        "./src/main.cpp",
-
-        "./src/AnimationController.cpp",
-        "./src/AnimationControllerBindings.cpp",
-        "./src/Application.cpp",
-        "./src/AudioEngine.cpp",
-        "./src/AudioEngineBindings.cpp",
-        "./src/CacheFileHandle.cpp",
-        "./src/Config.cpp",
-        "./src/DeletionQueue.cpp",
-        "./src/FileCache.cpp",
-        "./src/Font.cpp",
-        "./src/GamePad.cpp",
-        "./src/GLFWAppWindow.cpp",
-        "./src/H264.cpp",
-        "./src/H264VideoInfo.cpp",
-        "./src/HeadlessAppWindow.cpp",
-        "./src/IcarianError.cpp",
-        "./src/IcBodyActivationListener.cpp",
-        "./src/IcBroadPhaseLayerInterface.cpp",
-        "./src/IcCharacterListener.cpp",
-        "./src/IcContactListener.cpp",
-        "./src/IcObjectLayerPairFilter.cpp",
-        "./src/IcObjectVsBroadPhaseLayerFilter.cpp",
-        "./src/IcPhysicsJobSystem.cpp",
-        "./src/ImageUIElement.cpp",
-        "./src/InputManager.cpp",
-        "./src/Logger.cpp",
-        "./src/MaterialRenderStack.cpp",
-        "./src/Navigation.cpp",
-        "./src/NavigationBindings.cpp",
-        "./src/NavigationMesh.cpp",
-        "./src/NetworkClient.cpp",
-        "./src/NetworkManager.cpp",
-        "./src/NetworkServer.cpp",
-        "./src/NullRenderEngineBackend.cpp",
-        "./src/ObjectManager.cpp",
-        "./src/OGGAudioClip.cpp",
-        "./src/PhysicsEngine.cpp",
-        "./src/PhysicsEngineBindings.cpp",
-        "./src/PipeFileHandle.cpp",
-        "./src/Profiler.cpp",
-        "./src/Random.cpp",
-        "./src/ReadFileHandle.cpp",
-        "./src/RenderAssetStore.cpp",
-        "./src/RenderAssetStoreBindings.cpp",
-        "./src/RenderEngine.cpp",
-        "./src/RuntimeFunction.cpp",
-        "./src/RuntimeManager.cpp",
-        "./src/RuntimeThreadJob.cpp",
-        "./src/ShaderTable.cpp",
-        "./src/SPIRVTools.cpp",
-        "./src/TextUIElement.cpp",
-        "./src/ThreadPool.cpp",
-        "./src/UIControl.cpp",
-        "./src/UIControlBindings.cpp",
-        "./src/UIElement.cpp",
-        "./src/VideoClip.cpp",
-        "./src/VideoManager.cpp",
-        "./src/VideoManagerBindings.cpp",
-
-        "./src/WAVAudioClip.cpp"
+        "../deps/flare-tinyxml2/tinyxml2.cpp"
     );
 
-    CUBE_CProject_AppendRebuildSources(&project,
-        "../IcarianCore/include/Core/Bitfield.h",
-        "../IcarianCore/include/Core/CommunicationPipe.h",
-        "../IcarianCore/include/Core/CRC.h",
-        "../IcarianCore/include/Core/DMASwapBuffer.h",
-        "../IcarianCore/include/Core/Endian.h",
-        "../IcarianCore/include/Core/FlareShader.h",
-        "../IcarianCore/include/Core/IcarianAssert.h",
-        "../IcarianCore/include/Core/IcarianDefer.h",
-        "../IcarianCore/include/Core/IcarianError.h",
-        "../IcarianCore/include/Core/IcarianLambda.h",
-        "../IcarianCore/include/Core/IcarianPragma.h",
-        "../IcarianCore/include/Core/InputBindings.h",
-        "../IcarianCore/include/Core/IPCPipe.h",
-        "../IcarianCore/include/Core/LoggerHeader.h",
-        "../IcarianCore/include/Core/MonoNativeImpl.h",
-        "../IcarianCore/include/Core/Pipefile.h",
-        "../IcarianCore/include/Core/PipeMessage.h",
-        "../IcarianCore/include/Core/ShaderBuffers.h",
-        "../IcarianCore/include/Core/SharedMemoryBuffer.h",
-        "../IcarianCore/include/Core/SocketPipe.h",
-        "../IcarianCore/include/Core/StringUtils.h",
-        "../IcarianCore/include/Core/WindowsHeaders.h",
+    CUBE_Path srcPrefix = CUBE_Path_CreateC("src");
+    CUBE_Path srcPath = CUBE_Path_CombineP(&path, &srcPrefix);
 
-        "../EngineInterop/EngineAmbientLightInteropStructures.h",
-        "../EngineInterop/EngineAnimationClipInteropStructures.h",
-        "../EngineInterop/EngineApplicationInteropStructures.h",
-        "../EngineInterop/EngineAudioClipInterop.h",
-        "../EngineInterop/EngineAudioListenerInterop.h",
-        "../EngineInterop/EngineAudioMixerInterop.h",
-        "../EngineInterop/EngineAudioSourceInterop.h",
-        "../EngineInterop/EngineAudioSourceInteropStructures.h",
-        "../EngineInterop/EngineBoxCollisionShapeInterop.h",
-        "../EngineInterop/EngineCanvasInterop.h",
-        "../EngineInterop/EngineCanvasInteropStructures.h",
-        "../EngineInterop/EngineCapsuleCollisionShapeInterop.h",
-        "../EngineInterop/EngineCharacterControllerInterop.h",
-        "../EngineInterop/EngineCollisionShapeInterop.h",
-        "../EngineInterop/EngineCylinderCollisionShapeInterop.h",
-        "../EngineInterop/EngineDirectionalLightInteropStructures.h",
-        "../EngineInterop/EngineFontInterop.h",
-        "../EngineInterop/EngineIcarianAssemblyInterop.h",
-        "../EngineInterop/EngineImageUIElementInterop.h",
-        "../EngineInterop/EngineInputInterop.h",
-        "../EngineInterop/EngineInputInteropStructures.h",
-        "../EngineInterop/EngineLightInteropStructures.h",
-        "../EngineInterop/EngineMaterialInteropStructures.h",
-        "../EngineInterop/EngineModelCollisionShapeInterop.h",
-        "../EngineInterop/EngineNavigationMeshInterop.h",
-        "../EngineInterop/EngineNetworkClientInterop.h",
-        "../EngineInterop/EngineNetworkInteropStructures.h",
-        "../EngineInterop/EngineNetworkServerInterop.h",
-        "../EngineInterop/EngineParticleSystemInteropStructures.h",
-        "../EngineInterop/EnginePhysicsBodyInterop.h",
-        "../EngineInterop/EnginePhysicsBodyInteropStructures.h",
-        "../EngineInterop/EnginePhysicsInterop.h",
-        "../EngineInterop/EnginePhysicsInteropStructures.h",
-        "../EngineInterop/EnginePointLightInteropStructures.h",
-        "../EngineInterop/EngineRenderCommandInteropStructures.h",
-        "../EngineInterop/EngineRigidBodyInterop.h",
-        "../EngineInterop/EngineRigidBodyInteropStructures.h",
-        "../EngineInterop/EngineSkeletonInteropStructures.h",
-        "../EngineInterop/EngineSphereCollisionShapeInterop.h",
-        "../EngineInterop/EngineSpotLightInteropStructures.h",
-        "../EngineInterop/EngineTextUIElementInterop.h",
-        "../EngineInterop/EngineTextureSamplerInteropStructures.h",
-        "../EngineInterop/EngineTimeInterop.h",
-        "../EngineInterop/EngineTransformInterop.h",
-        "../EngineInterop/EngineTransformInteropStructures.h",
-        "../EngineInterop/EngineTriggerBodyInterop.h",
-        "../EngineInterop/EngineUIElementInterop.h",
-        "../EngineInterop/EngineUIElementInteropStuctures.h",
-        "../EngineInterop/EngineVideoClipInterop.h",
-        "../EngineInterop/InteropBinding.h",
-        "../EngineInterop/InteropTypes.h",
+    CUBE_CProject_AppendSourceDirectoryP(&project, &srcPath, &srcPrefix, CBFALSE);
 
-        "./include/AI/Navigation.h",
-        "./include/AI/NavigationBindings.h",
-        "./include/AI/NavigationMesh.h",
+    CUBE_Path_Destroy(&srcPath);
+    CUBE_Path_Destroy(&srcPrefix);
 
-        "./include/AppWindow/AppWindow.h",
-        "./include/AppWindow/GLFWAppWindow.h",
-        "./include/AppWindow/HeadlessAppWindow.h",
+    CUBE_Path coreIncludePrefix = CUBE_Path_CreateC("../IcarianCore/include/Core");
+    CUBE_Path coreIncludePath = CUBE_Path_CombineP(&path, &coreIncludePrefix);
 
-        "./include/Audio/AudioClips/AudioClip.h",
-        "./include/Audio/AudioClips/OGGAudioClip.h",
-        "./include/Audio/AudioClips/WAVAudioClip.h",
+    CUBE_CProject_AppendRebuildSourceDirectoryP(&project, &coreIncludePath, &coreIncludePrefix, CBFALSE);
 
-        "./include/Audio/AudioEngine.h",
-        "./include/Audio/AudioEngineBindings.h",
-        "./include/Audio/AudioListenerBuffer.h",
-        "./include/Audio/IcarianMiniaudio.h",
+    CUBE_Path_Destroy(&coreIncludePath);
+    CUBE_Path_Destroy(&coreIncludePrefix);
 
-        "./include/DataTypes/Allocator.h",
-        "./include/DataTypes/Array.h",
-        "./include/DataTypes/BlockAllocator.h",
-        "./include/DataTypes/RingAllocator.h",
-        "./include/DataTypes/SpinLock.h",
-        "./include/DataTypes/StackAllocator.h",
-        "./include/DataTypes/TArray.h",
-        "./include/DataTypes/ThreadGuard.h",
-        "./include/DataTypes/TLockArray.h",
-        "./include/DataTypes/TLockObj.h",
-        "./include/DataTypes/TNCArray.h",
-        "./include/DataTypes/TStatic.h",
+    CUBE_Path interopIncludePrefix = CUBE_Path_CreateC("../EngineInterop");
+    CUBE_Path interopIncludePath = CUBE_Path_CombineP(&path, &interopIncludePrefix);
 
-        "./include/FileHandles/CacheFileHandle.h",
-        "./include/FileHandles/FileHandle.h",
-        "./include/FileHandles/PipeFileHandle.h",
-        "./include/FileHandles/ReadFileHandle.h",
+    CUBE_CProject_AppendRebuildSourceDirectoryP(&project, &interopIncludePath, &interopIncludePrefix, CBFALSE);
 
-        "./include/Networking/NetworkClient.h",
-        "./include/Networking/NetworkManager.h",
-        "./include/Networking/NetworkServer.h",
+    CUBE_Path_Destroy(&interopIncludePath);
+    CUBE_Path_Destroy(&interopIncludePrefix);
 
-        "./include/Physics/IcBodyActivationListener.h",
-        "./include/Physics/IcBroadPhaseLayerInterface.h",
-        "./include/Physics/IcCharacterListener.h",
-        "./include/Physics/IcContactListener.h",
-        "./include/Physics/IcObjectLayerPairFilter.h",
-        "./include/Physics/IcObjectVsBroadPhaseLayerFilter.h",
-        "./include/Physics/IcPhysicsJobSystem.h",
-        "./include/Physics/InterfaceLock.h",
-        "./include/Physics/PhysicsEngine.h",
-        "./include/Physics/PhysicsEngineBindings.h",
+    CUBE_Path includePrefix = CUBE_Path_CreateC("include");
+    CUBE_Path includePath = CUBE_Path_CombineP(&path, &includePrefix);
 
-        "./include/Rendering/Null/NullRenderEngineBackend.h",
+    // Will catch some files not always in the build but doing recursive because lazy and not the end of the world if it triggers a rebuild when modified
+    CUBE_CProject_AppendRebuildSourceDirectoryP(&project, &includePath, &includePrefix, CBTRUE);
 
-        "./include/Rendering/UI/CanvasRendererBuffer.h",
-        "./include/Rendering/UI/Font.h",
-        "./include/Rendering/UI/ImageUIElement.h",
-        "./include/Rendering/UI/TextUIElement.h",
-        "./include/Rendering/UI/UIControl.h",
-        "./include/Rendering/UI/UIControlBindings.h",
-        "./include/Rendering/UI/UIElement.h",
+    CUBE_Path_Destroy(&includePath);
+    CUBE_Path_Destroy(&includePrefix);
 
-        "./include/Rendering/Video/VideoInfo/H264VideoInfo.h",
-        "./include/Rendering/Video/VideoInfo/VideoInfo.h",
+    CUBE_Path shaderPrefix = CUBE_Path_CreateC("shaders");
+    CUBE_Path shaderPath = CUBE_Path_CombineP(&path, &shaderPrefix);
 
-        "./include/Rendering/Video/H264.h",
-        "./include/Rendering/Video/VideoClip.h",
-        "./include/Rendering/Video/VideoManager.h",
-        "./include/Rendering/Video/VideoManagerBindings.h",
+    CUBE_CProject_AppendRebuildSourceDirectoryP(&project, &shaderPath, &shaderPrefix, CBFALSE);
 
-        "./include/Rendering/AnimationController.h",
-        "./include/Rendering/AnimationControllerBindings.h",
-        "./include/Rendering/CameraBuffer.h",
-        "./include/Rendering/LibRenderDoc.h",
-        "./include/Rendering/MaterialRenderStack.h",
-        "./include/Rendering/RenderAssetStore.h",
-        "./include/Rendering/RenderAssetStoreBindings.h",
-        "./include/Rendering/RenderBuffers.h",
-        "./include/Rendering/RenderDeviceInfo.h",
-        "./include/Rendering/RenderEngine.h",
-        "./include/Rendering/RenderEngineBackend.h",
-        "./include/Rendering/ShaderTable.h",
-        "./include/Rendering/SPIRVTools.h",
-        "./include/Rendering/TextureData.h",
-        "./include/Rendering/Viewport.h",
-
-        "./include/Runtime/RuntimeFunction.h",
-        "./include/Runtime/RuntimeManager.h",
-
-        "./include/Application.h",
-        "./include/Config.h",
-        "./include/DeletionQueue.h",
-        "./include/FileCache.h",
-        "./include/Frustum.h",
-        "./include/GamePad.h",
-        "./include/IcarianError.h",
-        "./include/InputManager.h",
-        "./include/LibXInput.h",
-        "./include/Logger.h",
-        "./include/Memory.h",
-        "./include/ObjectManager.h",
-        "./include/Profiler.h",
-        "./include/Random.h",
-        "./include/RuntimeThreadJob.h",
-        "./include/ThreadJob.h",
-        "./include/ThreadPool.h",
-        "./include/Trace.h",
-
-        "./shaders/AmbientLight.fpix",
-        "./shaders/AmbientOcclusion.fpix",
-        "./shaders/AmbientOcclusionFilter.fpix",
-        "./shaders/Blend.fpix",
-        "./shaders/DirectionalLight.fpix",
-        "./shaders/Particle.ftask",
-        "./shaders/PointLight.fpix",
-        "./shaders/PostAtmosphere.fpix",
-        "./shaders/PostEmission.fpix",
-        "./shaders/PostEmissionBlur.fpix",
-        "./shaders/PostToneMap.fpix",
-        "./shaders/Quad.vert",
-        "./shaders/ShadowDirectionalLight.fpix",
-        "./shaders/ShadowPointLight.fpix",
-        "./shaders/ShadowSpotLight.fpix",
-        "./shaders/SpotLight.fpix",
-        "./shaders/UI.fvert",
-        "./shaders/UIImage.fpix",
-        "./shaders/UIText.fpix"
-    );
+    CUBE_Path_Destroy(&shaderPath);
+    CUBE_Path_Destroy(&shaderPrefix);
 
     // Should probably make this separate but works for now
     if (!a_flags.RemoteMode)
@@ -462,82 +239,15 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
     {
         CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN");
 
-        CUBE_CProject_AppendSources(&project,
-            "./src/Platform/Vulkan/VulkanComputeEngine.cpp",
-            "./src/Platform/Vulkan/VulkanComputeEngineBindings.cpp",
-            "./src/Platform/Vulkan/VulkanComputeLayout.cpp",
-            "./src/Platform/Vulkan/VulkanComputeParticle.cpp",
-            "./src/Platform/Vulkan/VulkanComputePipeline.cpp",
-            "./src/Platform/Vulkan/VulkanComputeShader.cpp",
-            "./src/Platform/Vulkan/VulkanDepthCubeRenderTexture.cpp",
-            "./src/Platform/Vulkan/VulkanDepthRenderTexture.cpp",
-            "./src/Platform/Vulkan/VulkanGraphicsEngine.cpp",
-            "./src/Platform/Vulkan/VulkanGraphicsEngineBindings.cpp",
-            "./src/Platform/Vulkan/VulkanGraphicsParticle2D.cpp",
-            "./src/Platform/Vulkan/VulkanLightData.cpp",
-            "./src/Platform/Vulkan/VulkanMesh.cpp",
-            "./src/Platform/Vulkan/VulkanMeshShader.cpp",
-            "./src/Platform/Vulkan/VulkanModel.cpp",
-            "./src/Platform/Vulkan/VulkanParticleShaderGenerator.cpp",
-            "./src/Platform/Vulkan/VulkanPipeline.cpp",
-            "./src/Platform/Vulkan/VulkanPixelShader.cpp",
-            "./src/Platform/Vulkan/VulkanPushPool.cpp",
-            "./src/Platform/Vulkan/VulkanRenderCommand.cpp",
-            "./src/Platform/Vulkan/VulkanRenderEngineBackend.cpp",
-            "./src/Platform/Vulkan/VulkanRenderTexture.cpp",
-            "./src/Platform/Vulkan/VulkanShader.cpp",
-            "./src/Platform/Vulkan/VulkanShaderData.cpp",
-            "./src/Platform/Vulkan/VulkanShaderStorageObject.cpp",
-            "./src/Platform/Vulkan/VulkanSwapchain.cpp",
-            "./src/Platform/Vulkan/VulkanTaskShader.cpp",
-            "./src/Platform/Vulkan/VulkanTexture.cpp",
-            "./src/Platform/Vulkan/VulkanTextureSampler.cpp",
-            "./src/Platform/Vulkan/VulkanUniformBuffer.cpp",
-            "./src/Platform/Vulkan/VulkanVertexShader.cpp",
-            "./src/Platform/Vulkan/VulkanVideoTexture.cpp",
+        CUBE_CProject_AppendSource(&project, "./src/Library/LibVulkan.cpp");
 
-            "./src/Library/LibVulkan.cpp"
-        );
+        CUBE_Path vulkanSrcPrefix = CUBE_Path_CreateC("src/Platform/Vulkan");
+        CUBE_Path vulkanSrcPath = CUBE_Path_CombineP(&path, &vulkanSrcPrefix);
 
-        CUBE_CProject_AppendRebuildSources(&project,
-            "./include/Rendering/Vulkan/Shaders/VulkanComputeShader.h",
-            "./include/Rendering/Vulkan/Shaders/VulkanMeshShader.h",
-            "./include/Rendering/Vulkan/Shaders/VulkanPixelShader.h",
-            "./include/Rendering/Vulkan/Shaders/VulkanShader.h",
-            "./include/Rendering/Vulkan/Shaders/VulkanTaskShader.h",
-            "./include/Rendering/Vulkan/Shaders/VulkanVertexShader.h",
+        CUBE_CProject_AppendSourceDirectoryP(&project, &vulkanSrcPath, &vulkanSrcPrefix, CBFALSE);
 
-            "./include/Rendering/Vulkan/IcarianVulkanHeader.h",
-            "./include/Rendering/Vulkan/LibVulkan.h",
-            "./include/Rendering/Vulkan/VulkanCommandBuffer.h",
-            "./include/Rendering/Vulkan/VulkanComputeEngine.h",
-            "./include/Rendering/Vulkan/VulkanComputeEngineBindings.h",
-            "./include/Rendering/Vulkan/VulkanComputeLayout.h",
-            "./include/Rendering/Vulkan/VulkanComputeParticle.h",
-            "./include/Rendering/Vulkan/VulkanComputePipeline.h",
-            "./include/Rendering/Vulkan/VulkanDepthCubeRenderTexture.h",
-            "./include/Rendering/Vulkan/VulkanDepthRenderTexture.h",
-            "./include/Rendering/Vulkan/VulkanGraphicsEngine.h",
-            "./include/Rendering/Vulkan/VulkanGraphicsEngineBindings.h",
-            "./include/Rendering/Vulkan/VulkanGraphicsParticle2D.h",
-            "./include/Rendering/Vulkan/VulkanLightBuffer.h",
-            "./include/Rendering/Vulkan/VulkanLightData.h",
-            "./include/Rendering/Vulkan/VulkanMesh.h",
-            "./include/Rendering/Vulkan/VulkanModel.h",
-            "./include/Rendering/Vulkan/VulkanParticleShaderGenerator.h",
-            "./include/Rendering/Vulkan/VulkanPipeline.h",
-            "./include/Rendering/Vulkan/VulkanPushPool.h",
-            "./include/Rendering/Vulkan/VulkanRenderCommand.h",
-            "./include/Rendering/Vulkan/VulkanRenderEngineBackend.h",
-            "./include/Rendering/Vulkan/VulkanRenderTexture.h",
-            "./include/Rendering/Vulkan/VulkanShaderData.h",
-            "./include/Rendering/Vulkan/VulkanShaderStorageObject.h",
-            "./include/Rendering/Vulkan/VulkanSwapchain.h",
-            "./include/Rendering/Vulkan/VulkanTexture.h",
-            "./include/Rendering/Vulkan/VulkanTextureSampler.h",
-            "./include/Rendering/Vulkan/VulkanUniformBuffer.h",
-            "./include/Rendering/Vulkan/VulkanVideoTexture.h"
-        );
+        CUBE_Path_Destroy(&vulkanSrcPrefix);
+        CUBE_Path_Destroy(&vulkanSrcPath);
     }
 
     CUBE_CProject_AppendCFlag(&project, "-std=c++17");
@@ -751,6 +461,8 @@ static CUBE_CProject BuildIcarianNativeProject(e_TargetPlatform a_targetPlatform
         break;
     }
     }
+
+    CUBE_Path_Destroy(&path);
 
     return project;
 }

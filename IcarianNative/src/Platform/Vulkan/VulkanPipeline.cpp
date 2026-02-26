@@ -14,6 +14,7 @@
 #include "Rendering/Vulkan/Shaders/VulkanTaskShader.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
+#include "Rendering/Vulkan/VulkanRenderProgramBlob.h"
 #include "Rendering/Vulkan/VulkanShaderData.h"
 #include "Trace.h"
 
@@ -75,9 +76,17 @@ public:
     }
 };
 
-static Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> GetStageInfo(const RenderProgram& a_program, VulkanGraphicsEngine* a_gEngine)
+static Array<vk::PipelineShaderStageCreateInfo> GetStageInfo(const RenderProgram& a_program, bool a_meshEnabled, Allocator* a_allocator)
 {
-    Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> stages;
+    Array<vk::PipelineShaderStageCreateInfo> stages = Array<vk::PipelineShaderStageCreateInfo>(a_allocator);
+
+    IVERIFY(a_program.Data != nullptr);
+    const VulkanRenderProgramBlob* blob = (VulkanRenderProgramBlob*)a_program.Data;
+
+    IVERIFY(blob->Base != nullptr);
+    const VulkanShaderData* data = blob->Base;
+
+    const uint32_t shaderCount = data->GetShaderCount();
 
     if (a_program.VertexShader != uint32_t(-1))
     {
@@ -85,14 +94,31 @@ static Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> GetStageInfo
         {
         case MaterialMode_BaseVertex:
         {
-            const VulkanVertexShader* vertexShader = a_gEngine->GetVertexShader(a_program.VertexShader);
+            const VulkanVertexShader* vertexShader = ILAMBDA(
+            {
+                for (uint32_t i = 0; i < shaderCount; ++i)
+                {
+                    const VulkanShader* shader = data->GetShader(i);
+                    IVERIFY(shader != nullptr);
+
+                    const e_VulkanShaderType type = shader->GetShaderType();
+                    if (type == VulkanShaderType_Vertex)
+                    {
+                        ILRETURN (VulkanVertexShader*)shader;
+                    }
+                }
+
+                ILRETURN (VulkanVertexShader*)nullptr;
+            });
             IVERIFY(vertexShader != nullptr);
+
+            const vk::ShaderModule module = vertexShader->GetShaderModule();
 
             stages.Push(vk::PipelineShaderStageCreateInfo
             (
                 { },
                 vk::ShaderStageFlagBits::eVertex,
-                vertexShader->GetShaderModule(),
+                module,
                 "main"
             ));
 
@@ -100,27 +126,96 @@ static Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> GetStageInfo
         }
         case MaterialMode_BaseMesh:
         {
-            const VulkanMeshShader* meshShader = a_gEngine->GetMeshShader(a_program.VertexShader);
-            IVERIFY(meshShader != nullptr);
-
-            stages.Push(vk::PipelineShaderStageCreateInfo
-            (
-                { },
-                vk::ShaderStageFlagBits::eMeshEXT,
-                meshShader->GetShaderModule(),
-                "main"
-            ));
-
-            if (a_program.ExtraShader != uint32_t(-1))
+            if (a_meshEnabled)
             {
-                const VulkanTaskShader* taskShader = a_gEngine->GetTaskShader(a_program.ExtraShader);
-                IVERIFY(taskShader != nullptr);
+                const VulkanMeshShader* meshShader = ILAMBDA(
+                {
+                    for (uint32_t i = 0; i < shaderCount; ++i)
+                    {
+                        const VulkanShader* shader = data->GetShader(i);
+                        IVERIFY(shader != nullptr);
+
+                        const e_VulkanShaderType type = shader->GetShaderType();
+                        if (type == VulkanShaderType_Mesh)
+                        {
+                            ILRETURN (VulkanMeshShader*)shader;
+                        }
+                    }
+
+                    ILRETURN (VulkanMeshShader*)nullptr;
+                });
+                IVERIFY(meshShader != nullptr);
+
+                const vk::ShaderModule module = meshShader->GetShaderModule();
 
                 stages.Push(vk::PipelineShaderStageCreateInfo
                 (
                     { },
-                    vk::ShaderStageFlagBits::eTaskEXT,
-                    taskShader->GetShaderModule(),
+                    vk::ShaderStageFlagBits::eMeshEXT,
+                    module,
+                    "main"
+                ));
+
+                if (a_program.ExtraShader != uint32_t(-1))
+                {
+                    const VulkanTaskShader* taskShader = ILAMBDA(
+                    {
+                        for (uint32_t i = 0; i < shaderCount; ++i)
+                        {
+                            const VulkanShader* shader = data->GetShader(i);
+                            IVERIFY(shader != nullptr);
+
+                            const e_VulkanShaderType type = shader->GetShaderType();
+                            if (type == VulkanShaderType_Task)
+                            {
+                                ILRETURN (VulkanTaskShader*)shader;
+                            }
+                        }
+
+                        ILRETURN (VulkanTaskShader*)nullptr;
+                    });
+                    IVERIFY(taskShader != nullptr);
+
+                    const vk::ShaderModule module = taskShader->GetShaderModule();
+
+                    stages.Push(vk::PipelineShaderStageCreateInfo
+                    (
+                        { },
+                        vk::ShaderStageFlagBits::eTaskEXT,
+                        module,
+                        "main"
+                    ));
+                }
+            }
+            else
+            {
+                // GPU does not support Mesh shaders or in emulation mode so need to use stub Vertex mode and generate a secondary and tertiary pipeline on Compute
+                // const VulkanVertexShader* vertexShader = meshShader->GetVertexShader();
+                const VulkanVertexShader* vertexShader = ILAMBDA(
+                {
+                    for (uint32_t i = 0; i < shaderCount; ++i)
+                    {
+                        const VulkanShader* shader = data->GetShader(i);
+                        IVERIFY(shader != nullptr);
+
+                        const e_VulkanShaderType type = shader->GetShaderType();
+                        if (type == VulkanShaderType_Vertex)
+                        {
+                            ILRETURN (VulkanVertexShader*)shader;
+                        }
+                    }
+
+                    ILRETURN (VulkanVertexShader*)nullptr;
+                });
+                IVERIFY(vertexShader != nullptr);
+
+                const vk::ShaderModule module = vertexShader->GetShaderModule();
+
+                stages.Push(vk::PipelineShaderStageCreateInfo
+                (
+                    { },
+                    vk::ShaderStageFlagBits::eVertex,
+                    module,
                     "main"
                 ));
             }
@@ -129,14 +224,19 @@ static Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> GetStageInfo
         }
         case MaterialMode_Compute:
         {
-            const VulkanComputeShader* computeShader = a_gEngine->GetComputeShader(a_program.ExtraShader);
-            IVERIFY(computeShader != nullptr);
+            IVERIFY(shaderCount == 1);
+
+            const VulkanShader* shader = data->GetShader(0);
+            IVERIFY(shader != nullptr);
+            IVERIFY(shader->GetShaderType() == VulkanShaderType_Compute);
+
+            const vk::ShaderModule module = shader->GetShaderModule();
 
             stages.Push(vk::PipelineShaderStageCreateInfo
             (
                 { },
                 vk::ShaderStageFlagBits::eCompute,
-                computeShader->GetShaderModule(),
+                module,
                 "main"
             ));
 
@@ -153,14 +253,34 @@ static Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> GetStageInfo
 
     if (a_program.PixelShader != uint32_t(-1))
     {
-        const VulkanPixelShader* pixelShader = a_gEngine->GetPixelShader(a_program.PixelShader);
+        IVERIFY(a_program.MaterialMode != MaterialMode_Compute);
+
+        // const VulkanPixelShader* pixelShader = a_gEngine->GetPixelShader(a_program.PixelShader);
+        const VulkanPixelShader* pixelShader = ILAMBDA(
+        {
+            for (uint32_t i = 0; i < shaderCount; ++i)
+            {
+                const VulkanShader* shader = data->GetShader(i);
+                IVERIFY(shader != nullptr);
+
+                const e_VulkanShaderType type = shader->GetShaderType();
+                if (type == VulkanShaderType_Pixel)
+                {
+                    ILRETURN (VulkanPixelShader*)shader;
+                }
+            }
+
+            ILRETURN (VulkanPixelShader*)nullptr;
+        });
         IVERIFY(pixelShader != nullptr);
+
+        const vk::ShaderModule module = pixelShader->GetShaderModule();
 
         stages.Push(vk::PipelineShaderStageCreateInfo
         (
             { },
             vk::ShaderStageFlagBits::eFragment,
-            pixelShader->GetShaderModule(),
+            module,
             "main"
         ));
     }
@@ -261,7 +381,7 @@ constexpr static vk::Format GetFormat(const VertexInputAttribute& a_attrib)
         case 4:
         {
             return vk::Format::eR32G32B32A32Sint;
-        }        
+        }
         }
 
         break;
@@ -322,65 +442,47 @@ VulkanShaderData* VulkanPipeline::GetShaderData() const
 {
     const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
     IVERIFY(program.Data != nullptr);
-    
-    return (VulkanShaderData*)program.Data;
-}
 
-void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
-{
-    const RenderProgram program = m_gEngine->GetRenderProgram(m_programAddr);
-    IVERIFY(program.Data != nullptr);
-
-    const VulkanShaderData* data = (VulkanShaderData*)program.Data;
+    const VulkanRenderProgramBlob* blob = (VulkanRenderProgramBlob*)program.Data;
 
     switch (m_type)
     {
     case VulkanPipelineType_Graphics:
+    case VulkanPipelineType_Compute:
     {
-        switch (program.MaterialMode)
-        {
-        case MaterialMode_BaseVertex:
-        {
-            data->Bind(a_index, a_commandBuffer);
-
-            break;
-        }
-        case MaterialMode_BaseMesh:
-        {
-            IVERIFY(m_engine->IsMeshEnabled());
-
-            data->Bind(a_index, a_commandBuffer);
-
-            break;
-        }
-        default:
-        {
-            IERROR("Using bind MaterialMode");
-
-            break;
-        }
-        }
-
-        break;
+        return blob->Base;
     }
     case VulkanPipelineType_Shadow:
     {
-        data->BindShadow(a_index, a_commandBuffer);
-
-        break;
+        return blob->Shadow;
     }
-    case VulkanPipelineType_Compute:
+    case VulkanPipelineType_EmulatedMesh:
     {
-        data->BindCompute(a_index, a_commandBuffer);
-
-        break;
+        return blob->Secondary;
+    }
+    case VulkanPipelineType_EmulatedTask:
+    {
+        return blob->Tertiary;
     }
     default:
     {
-        IERROR("Invalid bind type");
-
         break;
     }
+    }
+
+    IERROR("Invalid Vulkan Pipeline type");
+
+    ILRETURN (VulkanShaderData*)nullptr;
+}
+
+bool VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
+{
+    const VulkanShaderData* data = GetShaderData();
+    IVERIFY(data != nullptr);
+
+    if (!data->Bind(a_index, a_commandBuffer))
+    {
+        return false;
     }
 
     const vk::PipelineBindPoint bindPoint = ILAMBDA(
@@ -393,6 +495,8 @@ void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) c
             ILRETURN vk::PipelineBindPoint::eGraphics;
         }
         case VulkanPipelineType_Compute:
+        case VulkanPipelineType_EmulatedMesh:
+        case VulkanPipelineType_EmulatedTask:
         {
             ILRETURN vk::PipelineBindPoint::eCompute;
         }
@@ -408,6 +512,15 @@ void VulkanPipeline::Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) c
     });
 
     a_commandBuffer.bindPipeline(bindPoint, m_pipeline);
+
+    return true;
+}
+void VulkanPipeline::Unbind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const
+{
+    const VulkanShaderData* data = GetShaderData();
+    IVERIFY(data != nullptr);
+
+    data->Unbind(a_index, a_commandBuffer);
 }
 
 void VulkanPipeline::CreateComputePipeline(VulkanPipeline* a_out, const VulkanGraphicsComputePipelineBuilder& a_builder)
@@ -417,12 +530,18 @@ void VulkanPipeline::CreateComputePipeline(VulkanPipeline* a_out, const VulkanGr
     IVERIFY(program.Data != nullptr);
     IVERIFY(program.ExtraShader != uint32_t(-1));
 
-    const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
+    const VulkanRenderProgramBlob* blob = (VulkanRenderProgramBlob*)program.Data;
+    IVERIFY(blob->Base != nullptr);
 
-    const VulkanComputeShader* computeShader = a_builder.GraphicsEngine->GetComputeShader(program.ExtraShader);
-    IVERIFY(computeShader != nullptr);
+    const VulkanShaderData* shaderData = blob->Base;
 
-    const vk::ShaderModule module = computeShader->GetShaderModule();
+    IVERIFY(shaderData->GetShaderCount() == 1);
+
+    const VulkanShader* shader = shaderData->GetShader(0);
+    IVERIFY(shader != nullptr);
+    IVERIFY(shader->GetShaderType() == VulkanShaderType_Compute);
+
+    const vk::ShaderModule module = shader->GetShaderModule();
     const vk::PipelineShaderStageCreateInfo computeStage = vk::PipelineShaderStageCreateInfo
     (
         { },
@@ -445,17 +564,18 @@ void VulkanPipeline::CreateComputePipeline(VulkanPipeline* a_out, const VulkanGr
     new (a_out) VulkanPipeline(pipeline, a_builder.Engine, a_builder.GraphicsEngine, a_builder.ProgramAddr, VulkanPipelineType_Compute);
 }
 
-void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder)
+void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder, Allocator* a_tempAllocator)
 {
     TRACE("Creating Vulkan Pipeline");
-    RENDERSCRATCHFRAME;
-
     const vk::Device device = a_builder.Engine->GetLogicalDevice();
 
     const RenderProgram program = a_builder.GraphicsEngine->GetRenderProgram(a_builder.ProgramAddr);
     IVERIFY(program.Data != nullptr);
-    
-    const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
+
+    const VulkanRenderProgramBlob* blob = (VulkanRenderProgramBlob*)program.Data;
+    IVERIFY(blob->Base != nullptr);
+
+    const VulkanShaderData* shaderData = blob->Base;
 
     const vk::PipelineDynamicStateCreateInfo dynamicState = vk::PipelineDynamicStateCreateInfo
     (
@@ -464,39 +584,118 @@ void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsP
         DynamicStates
     );
 
+    const bool meshEnabled = a_builder.Engine->IsMeshEnabled();
+    const uint32_t vertexStride = ILAMBDA(
+    {
+        if (!meshEnabled && program.MaterialMode == MaterialMode_BaseMesh)
+        {
+            // Forced to use std140 so just the number of elements x 16 byte stride between elements regardless of the size of said elements
+            ILRETURN shaderData->GetAttributeCount() * 16;
+        }
+
+        ILRETURN (uint32_t)program.VertexStride;
+    });
+
     const vk::VertexInputBindingDescription bindingDescription = vk::VertexInputBindingDescription
     (
         0,
-        program.VertexStride,
+        vertexStride,
         vk::VertexInputRate::eVertex
     );
 
-    vk::VertexInputAttributeDescription* attributeDescription = (vk::VertexInputAttributeDescription*)RenderScratchAlloc::Allocate(program.VertexInputCount * sizeof(vk::VertexInputAttributeDescription), alignof(vk::VertexInputAttributeDescription));
-
-    vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
-
-    if (program.VertexInputCount > 0)
+    const uint32_t vertexInputCount = ILAMBDA(
     {
-        for (uint16_t i = 0; i < program.VertexInputCount; ++i)
+        if (!meshEnabled && program.MaterialMode == MaterialMode_BaseMesh)
         {
-            const VertexInputAttribute& attrib = program.VertexAttributes[i];
-
-            attributeDescription[i].binding = 0;
-            attributeDescription[i].location = attrib.Location;
-            attributeDescription[i].offset = attrib.Offset;
-            attributeDescription[i].format = GetFormat(attrib);
+            ILRETURN shaderData->GetAttributeCount();
         }
 
-        vertexInputInfo.vertexAttributeDescriptionCount = (uint32_t)program.VertexInputCount;
-        vertexInputInfo.pVertexAttributeDescriptions = attributeDescription;
-        vertexInputInfo.vertexBindingDescriptionCount = 1;
-        vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    }
+        ILRETURN (uint32_t)program.VertexInputCount;
+    });
+
+    vk::VertexInputAttributeDescription* attributeDescription = ILAMBDA(
+    {
+        if (!meshEnabled && program.MaterialMode == MaterialMode_BaseMesh)
+        {
+            vk::VertexInputAttributeDescription* vals = a_tempAllocator->TAllocate<vk::VertexInputAttributeDescription>(vertexInputCount);
+
+            for (uint32_t i = 0; i < vertexInputCount; ++i)
+            {
+                const VertexInputAttribute attrib = shaderData->GetAttribute(i);
+
+                const vk::Format format = GetFormat(attrib);
+
+                const vk::VertexInputAttributeDescription desc = vk::VertexInputAttributeDescription
+                (
+                    (uint32_t)attrib.Location,
+                    0,
+                    format,
+                    (uint32_t)attrib.Offset
+                );
+
+                vals[i] = desc;
+            }
+
+            ILRETURN vals;
+        }
+
+        if (vertexInputCount > 0)
+        {
+            vk::VertexInputAttributeDescription* vals = a_tempAllocator->TAllocate<vk::VertexInputAttributeDescription>(vertexInputCount);
+
+            for (uint32_t i = 0; i < vertexInputCount; ++i)
+            {
+                const VertexInputAttribute& attrib = program.VertexAttributes[i];
+
+                const vk::Format format = GetFormat(attrib);
+
+                const vk::VertexInputAttributeDescription desc = vk::VertexInputAttributeDescription
+                (
+                    (uint32_t)attrib.Location,
+                    0,
+                    format,
+                    (uint32_t)attrib.Offset
+                );
+
+                vals[i] = desc;
+            }
+
+            ILRETURN vals;
+        }
+
+        ILRETURN (vk::VertexInputAttributeDescription*)nullptr;
+    });
+    IDEFER(
+    {
+        if (attributeDescription != nullptr)
+        {
+            a_tempAllocator->Free(attributeDescription);
+        }
+    });
+
+    const vk::PipelineVertexInputStateCreateInfo vertexInputInfo = ILAMBDA(
+    {
+        if (vertexInputCount > 0)
+        {
+            ILRETURN vk::PipelineVertexInputStateCreateInfo
+            (
+                { },
+                1,
+                &bindingDescription,
+                vertexInputCount,
+                attributeDescription
+            );
+        }
+
+        ILRETURN vk::PipelineVertexInputStateCreateInfo();
+    });
+
+    const vk::PrimitiveTopology primitiveMode = GetPrimitiveMode(program.PrimitiveMode);
 
     const vk::PipelineInputAssemblyStateCreateInfo inputAssembly = vk::PipelineInputAssemblyStateCreateInfo
     (
         { },
-        GetPrimitiveMode(program.PrimitiveMode),
+        primitiveMode,
         vk::False
     );
 
@@ -509,13 +708,15 @@ void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsP
         &Scissor
     );
 
+    const vk::CullModeFlags cullFlags = GetCullingMode(program.CullingMode);
+
     const vk::PipelineRasterizationStateCreateInfo rasterizer = vk::PipelineRasterizationStateCreateInfo
     (
         { },
         vk::False,
         vk::False,
         vk::PolygonMode::eFill,
-        GetCullingMode(program.CullingMode),
+        cullFlags,
         vk::FrontFace::eClockwise,
         vk::False,
         0.0f,
@@ -524,89 +725,130 @@ void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsP
         1.0f
     );
 
-    vk::PipelineDepthStencilStateCreateInfo depthStencil = vk::PipelineDepthStencilStateCreateInfo
+    const vk::Bool32 depthEnable = ILAMBDA(
+    {
+        switch (program.ColorBlendMode)
+        {
+        case MaterialBlendMode_One:
+        case MaterialBlendMode_Alpha:
+        case MaterialBlendMode_AlphaBlend:
+        {
+            ILRETURN vk::False;
+        }
+        default:
+        {
+            break;
+        }
+        }
+
+        ILRETURN vk::True;
+    });
+
+    const vk::PipelineDepthStencilStateCreateInfo depthStencil = vk::PipelineDepthStencilStateCreateInfo
     (
         { },
         vk::True,
-        vk::True,
+        depthEnable,
         vk::CompareOp::eLess,
         vk::False,
         vk::False
     );
 
-    vk::PipelineColorBlendAttachmentState colorBlendAttachment;
-    // Even if we are not blending we need a write mask
-    colorBlendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
-    switch (program.ColorBlendMode)
+    constexpr vk::ColorComponentFlags WriteMask =
+        vk::ColorComponentFlagBits::eR |
+        vk::ColorComponentFlagBits::eG |
+        vk::ColorComponentFlagBits::eB |
+        vk::ColorComponentFlagBits::eA;
+
+    const vk::PipelineColorBlendAttachmentState colorBlendAttachment = ILAMBDA(
     {
-    case MaterialBlendMode_None:
+        switch (program.ColorBlendMode) 
+        {
+        case MaterialBlendMode_None:
+        {
+            ILRETURN vk::PipelineColorBlendAttachmentState
+            (
+                vk::False,
+                vk::BlendFactor::eZero,
+                vk::BlendFactor::eZero,
+                vk::BlendOp::eAdd,
+                vk::BlendFactor::eZero,
+                vk::BlendFactor::eZero,
+                vk::BlendOp::eAdd,
+                WriteMask
+            );
+        }
+        case MaterialBlendMode_One:
+        {
+            ILRETURN vk::PipelineColorBlendAttachmentState
+            (
+                vk::True,
+                vk::BlendFactor::eOne,
+                vk::BlendFactor::eOne,
+                vk::BlendOp::eAdd,
+                vk::BlendFactor::eOne,
+                vk::BlendFactor::eOne,
+                vk::BlendOp::eAdd,
+                WriteMask
+            );
+        }
+        case MaterialBlendMode_Alpha:
+        {
+            ILRETURN vk::PipelineColorBlendAttachmentState
+            (
+                vk::True,
+                vk::BlendFactor::eSrcAlpha,
+                vk::BlendFactor::eOneMinusSrcAlpha,
+                vk::BlendOp::eAdd,
+                vk::BlendFactor::eOne,
+                vk::BlendFactor::eOne,
+                vk::BlendOp::eAdd,
+                WriteMask
+            );
+        }
+        case MaterialBlendMode_AlphaBlend:
+        {
+            ILRETURN vk::PipelineColorBlendAttachmentState
+            (
+                vk::True,
+                vk::BlendFactor::eSrcAlpha,
+                vk::BlendFactor::eDstAlpha,
+                vk::BlendOp::eAdd,
+                vk::BlendFactor::eSrcAlpha,
+                vk::BlendFactor::eDstAlpha,
+                vk::BlendOp::eAdd,
+                WriteMask
+            );
+        }
+        default:
+        {
+            IERROR("Invalid MaterialBlendMode");
+
+            break;
+        }
+        }
+
+        ILRETURN vk::PipelineColorBlendAttachmentState();
+    });
+
+    vk::PipelineColorBlendAttachmentState* colorBlendAttachments = ILAMBDA(
     {
-        colorBlendAttachment.blendEnable = vk::False;
+        vk::PipelineColorBlendAttachmentState* vals = a_tempAllocator->TAllocate<vk::PipelineColorBlendAttachmentState>(a_builder.TextureCount);
 
-        break;
-    }
-    case MaterialBlendMode_One:
+        for (uint32_t i = 0; i < a_builder.TextureCount; ++i)
+        {
+            vals[i] = colorBlendAttachment;
+        }
+
+        ILRETURN vals;
+    });
+    IDEFER(
     {
-        depthStencil.depthWriteEnable = vk::False;
-
-        colorBlendAttachment.blendEnable = vk::True;
-
-        colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eOne;
-        colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOne;
-        colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-
-        colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
-        colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eOne;
-        colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
-
-        break;
-    }
-    case MaterialBlendMode_Alpha:
-    {
-        depthStencil.depthWriteEnable = vk::False;
-
-        colorBlendAttachment.blendEnable = vk::True;
-
-        colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-        colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
-        colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-
-        colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
-        colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eOne;
-        colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
-
-        break;
-    }
-    case MaterialBlendMode_AlphaBlend:
-    {
-        depthStencil.depthWriteEnable = vk::False;
-
-        colorBlendAttachment.blendEnable = vk::True;
-
-        colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-        colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eDstAlpha;
-        colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-
-        colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eSrcAlpha;
-        colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eDstAlpha;
-        colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
-
-        break;
-    }
-    default:
-    {
-        IERROR("Invalid MaterialBlendMode");
-
-        break;
-    }
-    }
-
-    vk::PipelineColorBlendAttachmentState* colorBlendAttachments = (vk::PipelineColorBlendAttachmentState*)RenderScratchAlloc::Allocate(a_builder.TextureCount * sizeof(vk::PipelineColorBlendAttachmentState), alignof(vk::PipelineColorBlendAttachmentState));
-
-    for (uint32_t i = 0; i < a_builder.TextureCount; ++i)
-    {
-        colorBlendAttachments[i] = colorBlendAttachment;
-    }
+        if (colorBlendAttachments != nullptr)
+        {
+            a_tempAllocator->Free(colorBlendAttachments);
+        }
+    });
 
     const vk::PipelineColorBlendStateCreateInfo colorBlending = vk::PipelineColorBlendStateCreateInfo
     (
@@ -616,12 +858,27 @@ void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsP
         a_builder.TextureCount,
         colorBlendAttachments
     );
-    
-    const Array<vk::PipelineShaderStageCreateInfo, RenderScratchAlloc> shaderStages = GetStageInfo(program, a_builder.GraphicsEngine);
+
+    const Array<vk::PipelineShaderStageCreateInfo> shaderStages = GetStageInfo
+    (
+        program,
+        meshEnabled,
+        a_tempAllocator
+    );
 
     const vk::PipelineLayout layout = shaderData->GetLayout();
 
-    vk::GraphicsPipelineCreateInfo pipelineInfo = vk::GraphicsPipelineCreateInfo
+    const vk::PipelineDepthStencilStateCreateInfo* depthInfo = ILAMBDA(
+    {
+        if (a_builder.Depth)
+        {
+            ILRETURN &depthStencil;
+        }
+
+        ILRETURN (const vk::PipelineDepthStencilStateCreateInfo*)nullptr;
+    });
+
+    const vk::GraphicsPipelineCreateInfo pipelineInfo = vk::GraphicsPipelineCreateInfo
     (
         { },
         shaderStages.Size(),
@@ -632,35 +889,103 @@ void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsP
         &viewportState,
         &rasterizer,
         &Multisampling,
-        nullptr,
+        depthInfo,
         &colorBlending,
         &dynamicState,
         layout,
         a_builder.RenderPass
     );
 
-    if (a_builder.Depth)
-    {   
-        pipelineInfo.pDepthStencilState = &depthStencil;
-    }
-
     vk::Pipeline pipeline;
-    VKRESERRMSG(device.createGraphicsPipelines(nullptr, 1, &pipelineInfo, nullptr, &pipeline), "Failed to create Vulkan Pipeline");
+    VKRESERRMSG(device.createGraphicsPipelines
+    (
+        nullptr,
+        1,
+        &pipelineInfo,
+        nullptr,
+        &pipeline
+    ), "Failed to create Vulkan Pipeline");
 
-    new (a_out) VulkanPipeline(pipeline, a_builder.Engine, a_builder.GraphicsEngine, a_builder.ProgramAddr, VulkanPipelineType_Graphics);
+    new (a_out) VulkanPipeline
+    (
+        pipeline,
+        a_builder.Engine,
+        a_builder.GraphicsEngine,
+        a_builder.ProgramAddr,
+        VulkanPipelineType_Graphics
+    );
 }
 
-void VulkanPipeline::CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder)
+void VulkanPipeline::CreateMeshComputePipeline(VulkanPipeline* a_out, const VulkanGraphicsComputePipelineBuilder& a_builder)
 {
-    TRACE("Creating Vulkan Shadow Pipeline");
-    RENDERSCRATCHFRAME;
+    IVERIFY(!a_builder.Engine->IsMeshEnabled());
 
+    const vk::Device device = a_builder.Engine->GetLogicalDevice();
+    const RenderProgram program = a_builder.GraphicsEngine->GetRenderProgram(a_builder.ProgramAddr);
+    IVERIFY(program.Data != nullptr);
+    IVERIFY(program.VertexShader != uint32_t(-1));
+
+    const VulkanRenderProgramBlob* blob = (VulkanRenderProgramBlob*)program.Data;
+    IVERIFY(blob->Secondary != nullptr);
+
+    const VulkanShaderData* shaderData = blob->Secondary;
+
+    IVERIFY(shaderData->GetShaderCount() == 1);
+
+    const VulkanShader* shader = shaderData->GetShader(0);
+    IVERIFY(shader != nullptr);
+
+    const vk::ShaderModule module = shader->GetShaderModule();
+
+    const vk::PipelineShaderStageCreateInfo computeStage = vk::PipelineShaderStageCreateInfo
+    (
+        { },
+        vk::ShaderStageFlagBits::eCompute,
+        module,
+        "main"
+    );
+
+    const vk::PipelineLayout layout = shaderData->GetLayout();
+    const vk::ComputePipelineCreateInfo createInfo = vk::ComputePipelineCreateInfo
+    (
+        { },
+        computeStage,
+        layout
+    );
+
+    vk::Pipeline pipeline;
+    VKRESERRMSG(device.createComputePipelines
+    (
+        nullptr,
+        1,
+        &createInfo,
+        nullptr,
+        &pipeline
+    ), "Failed to create Vulkan Graphics Compute Pipeline");
+
+    new (a_out) VulkanPipeline
+    (
+        pipeline,
+        a_builder.Engine,
+        a_builder.GraphicsEngine,
+        a_builder.ProgramAddr,
+        VulkanPipelineType_EmulatedMesh
+    );
+}
+
+void VulkanPipeline::CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder, Allocator* a_tempAllocator)
+{
+    // TODO: Support using mesh shaders
+    TRACE("Creating Vulkan Shadow Pipeline");
     const vk::Device device = a_builder.Engine->GetLogicalDevice();
     const RenderProgram program = a_builder.GraphicsEngine->GetRenderProgram(a_builder.ProgramAddr);
     IVERIFY(program.Data != nullptr);
     IVERIFY(program.ShadowVertexShader != uint32_t(-1));
 
-    const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
+    const VulkanRenderProgramBlob* blob = (VulkanRenderProgramBlob*)program.Data;
+    IVERIFY(blob->Shadow != nullptr);
+
+    const VulkanShaderData* shaderData = blob->Shadow;
 
     const vk::PipelineDynamicStateCreateInfo dynamicState = vk::PipelineDynamicStateCreateInfo
     (
@@ -676,31 +1001,53 @@ void VulkanPipeline::CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGra
         vk::VertexInputRate::eVertex
     );
 
-    vk::VertexInputAttributeDescription* attributeDescription = (vk::VertexInputAttributeDescription*)RenderScratchAlloc::Allocate(program.VertexInputCount * sizeof(vk::VertexInputAttributeDescription), alignof(vk::VertexInputAttributeDescription));
-
-    for (uint16_t i = 0; i < program.VertexInputCount; ++i)
+    vk::VertexInputAttributeDescription* attributeDescription = ILAMBDA(
     {
-        const VertexInputAttribute& attrib = program.VertexAttributes[i];
+        vk::VertexInputAttributeDescription* vals = a_tempAllocator->TAllocate<vk::VertexInputAttributeDescription>(program.VertexInputCount);
 
-        attributeDescription[i].binding = 0;
-        attributeDescription[i].location = attrib.Location;
-        attributeDescription[i].offset = attrib.Offset;
-        attributeDescription[i].format = GetFormat(attrib);
-    }
+        for (uint32_t i = 0; i < program.VertexInputCount; ++i)
+        {
+            const VertexInputAttribute& attrib = program.VertexAttributes[i];
 
-    vk::PipelineVertexInputStateCreateInfo vertexInputInfo = vk::PipelineVertexInputStateCreateInfo
-    (
-        { },
-        0,
-        nullptr,
-        (uint32_t)program.VertexInputCount,
-        attributeDescription
-    );
-    if (program.VertexInputCount > 0)
+            const vk::Format format = GetFormat(attrib);
+
+            const vk::VertexInputAttributeDescription desc = vk::VertexInputAttributeDescription
+            (
+                attrib.Location,
+                0,
+                format,
+                attrib.Offset
+            );
+
+            vals[i] = desc;
+        }
+
+        ILRETURN vals;
+    });
+    IDEFER(
     {
-        vertexInputInfo.vertexBindingDescriptionCount = 1;
-        vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
-    }
+        if (attributeDescription != nullptr)
+        {
+            a_tempAllocator->Free(attributeDescription);
+        }
+    });
+
+    const vk::PipelineVertexInputStateCreateInfo vertexInputInfo = ILAMBDA(
+    {
+        if (program.VertexInputCount > 0)
+        {
+            vk::PipelineVertexInputStateCreateInfo
+            (
+                { },
+                1,
+                &bindingDescription,
+                program.VertexInputCount,
+                attributeDescription
+            );
+        }
+
+        ILRETURN vk::PipelineVertexInputStateCreateInfo();
+    });
 
     const vk::PrimitiveTopology primitiveMode = GetPrimitiveMode(program.PrimitiveMode);
     const vk::PipelineInputAssemblyStateCreateInfo inputAssembly = vk::PipelineInputAssemblyStateCreateInfo
@@ -756,18 +1103,32 @@ void VulkanPipeline::CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGra
         &ColorBlendAttachment
     );
 
-    const VulkanShader* vertexShader = a_builder.GraphicsEngine->GetVertexShader(program.ShadowVertexShader);
-    IVERIFY(vertexShader != nullptr);
+    const uint32_t shaderCount = shaderData->GetShaderCount();
+    const VulkanVertexShader* vertexShader = ILAMBDA(
+    {
+        for (uint32_t i = 0; i < shaderCount; ++i)
+        {
+            const VulkanShader* shader = shaderData->GetShader(i);
+            IVERIFY(shader != nullptr);
 
+            const e_VulkanShaderType type = shader->GetShaderType();
+            if (type == VulkanShaderType_Vertex)
+            {
+                ILRETURN (VulkanVertexShader*)shader;
+            }
+        }
+
+        ILRETURN (VulkanVertexShader*)nullptr;
+    });
+
+    const vk::ShaderModule module = vertexShader->GetShaderModule();
     const vk::PipelineShaderStageCreateInfo vertexStage = vk::PipelineShaderStageCreateInfo
     (
         { },
         vk::ShaderStageFlagBits::eVertex,
-        vertexShader->GetShaderModule(),
+        module,
         "main"
     );
-
-    const vk::PipelineLayout layout = shaderData->GetShadowLayout();
 
     constexpr vk::PipelineDepthStencilStateCreateInfo DepthStencil = vk::PipelineDepthStencilStateCreateInfo
     (
@@ -778,6 +1139,8 @@ void VulkanPipeline::CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGra
         vk::False,
         vk::False
     );
+
+    const vk::PipelineLayout layout = shaderData->GetLayout();
 
     const vk::GraphicsPipelineCreateInfo pipelineInfo = vk::GraphicsPipelineCreateInfo
     (
@@ -798,16 +1161,30 @@ void VulkanPipeline::CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGra
     );
 
     vk::Pipeline pipeline;
-    VKRESERRMSG(device.createGraphicsPipelines(nullptr, 1, &pipelineInfo, nullptr, &pipeline), "Failed to create Vulkan Shadow Pipeline");
+    VKRESERRMSG(device.createGraphicsPipelines
+    (
+        nullptr,
+        1,
+        &pipelineInfo,
+        nullptr,
+        &pipeline
+    ), "Failed to create Vulkan Shadow Pipeline");
 
-    new (a_out) VulkanPipeline(pipeline, a_builder.Engine, a_builder.GraphicsEngine, a_builder.ProgramAddr, VulkanPipelineType_Shadow);
+    new (a_out) VulkanPipeline
+    (
+        pipeline,
+        a_builder.Engine,
+        a_builder.GraphicsEngine,
+        a_builder.ProgramAddr,
+        VulkanPipelineType_Shadow
+    );
 }
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

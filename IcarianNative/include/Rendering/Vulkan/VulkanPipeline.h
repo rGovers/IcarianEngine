@@ -19,6 +19,8 @@ enum e_VulkanPipelineType
     VulkanPipelineType_Compute,
     VulkanPipelineType_Graphics,
     VulkanPipelineType_Shadow,
+    VulkanPipelineType_EmulatedMesh,
+    VulkanPipelineType_EmulatedTask
 };
 
 struct VulkanGraphicsPipelineBuilder
@@ -45,14 +47,14 @@ class VulkanPipeline
 private:
     VulkanRenderEngineBackend* m_engine;
     VulkanGraphicsEngine*      m_gEngine;
-    
+
     vk::Pipeline               m_pipeline;
 
     uint32_t                   m_programAddr;
     e_VulkanPipelineType       m_type;
-    
+
     VulkanPipeline(vk::Pipeline a_pipeline, VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_programAddr, e_VulkanPipelineType a_type);
-    
+
 protected:
 
 public:
@@ -70,18 +72,20 @@ public:
 
     VulkanShaderData* GetShaderData() const;
 
-    void Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
+    bool Bind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
+    void Unbind(uint32_t a_index, vk::CommandBuffer a_commandBuffer) const;
 
     static void CreateComputePipeline(VulkanPipeline* a_out, const VulkanGraphicsComputePipelineBuilder& a_builder);
-    static void CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder);
-    static void CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder);
+    static void CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder, Allocator* a_tempAllocator);
+    static void CreateMeshComputePipeline(VulkanPipeline* a_out, const VulkanGraphicsComputePipelineBuilder& a_builder);
+    static void CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder, Allocator* a_tempAllocator);
 };
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

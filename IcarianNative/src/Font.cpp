@@ -15,6 +15,7 @@
 #include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
+#include "DataTypes/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "Trace.h"
@@ -397,9 +398,12 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
             const CodePointTexture& tex = iter.second;
             IDEFER(delete[] tex.Data);
 
-            CodepointModel model;
-            model.Advance = tex.Advance;
-            model.yOffset = tex.yOffset;
+            CodepointModel model =
+            {
+                .yOffset = (float)tex.yOffset,
+                .Advance = (float)tex.Advance,
+                .Vertices = Array<glm::vec2>(MallocAllocator::Instance)
+            };
 
             switch (iter.first)
             {
@@ -510,8 +514,8 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
     int ascent;
     stbtt_GetFontVMetrics(&m_fontInfo, &ascent, NULL, NULL);
 
-    Array<glm::vec2> stringVertices;
-    Array<uint32_t> stringIndices;
+    Array<glm::vec2> stringVertices = Array<glm::vec2>(MallocAllocator::Instance);
+    Array<uint32_t> stringIndices = Array<uint32_t>(MallocAllocator::Instance);
     std::unordered_map<uint64_t, bool> uniqueEdge;
 
     stringIndices.Reserve(1024);
@@ -583,16 +587,16 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
     {
         const glm::vec2& p = stringVertices[i];
 
-        const Vertex v = Vertex
-        (
-            glm::vec4(p.x, p.y, halfDepth, 1.0f),
-            glm::vec3(0.0f, 0.0f, 1.0f)
-        );
-        const Vertex invV = Vertex
-        (
-            glm::vec4(p.x, p.y, -halfDepth, 1.0f),
-            glm::vec3(0.0f, 0.0f, -1.0f)
-        );
+        const Vertex v =
+        {
+            .Position = glm::vec4(p.x, p.y, halfDepth, 1.0f),
+            .Normal = glm::vec4(0.0f, 0.0f, 1.0f, 0.0f)
+        };
+        const Vertex invV =
+        {
+            .Position = glm::vec4(p.x, p.y, -halfDepth, 1.0f),
+            .Normal = glm::vec4(0.0f, 0.0f, -1.0f,0.0f)
+        };
 
         a_vertices->Set(i, v);
         a_vertices->Set(stringVertCount + i, invV);
@@ -600,7 +604,7 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
 
     const uint32_t indexCount = stringIndices.Size();
     const uint32_t sideIndexCount = indexCount * 2;
-    
+
     uint32_t* indexMap = new uint32_t[indexCount];
     IDEFER(delete[] indexMap);
     memset(indexMap, -1, indexCount * sizeof(uint32_t));
@@ -656,7 +660,7 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -7,15 +7,17 @@
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
-#include <vector>
-
 class VulkanRenderEngineBackend;
+
+#include "DataTypes/Allocator.h"
 
 #include "EngineMaterialInteropStructures.h"
 
 class VulkanComputeLayout
 {
 private:
+    Allocator*                 m_allocator;
+
     VulkanRenderEngineBackend* m_engine;
 
     vk::PipelineLayout         m_layout;
@@ -27,7 +29,7 @@ private:
 protected:
 
 public:
-    VulkanComputeLayout(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount);
+    VulkanComputeLayout(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, Allocator* a_allocator);
     ~VulkanComputeLayout();
 
     inline uint32_t GetInputCount() const
@@ -38,7 +40,7 @@ public:
     inline const vk::DescriptorSetLayout* GetDescriptorLayouts() const
     {
         return m_descLayouts;
-    }   
+    }
     inline const ShaderBufferInput* GetShaderInputs() const
     {
         return m_slotInputs;
@@ -54,7 +56,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

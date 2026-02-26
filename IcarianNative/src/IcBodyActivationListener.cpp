@@ -18,9 +18,9 @@ IcBodyActivationListener::~IcBodyActivationListener()
 
 }
 
-Array<JPH::BodyID> IcBodyActivationListener::ToBodies()
+Array<JPH::BodyID> IcBodyActivationListener::ToBodies(Allocator* a_allocator)
 {
-    return m_bodies.ToArray();
+    return m_bodies.ToArray(a_allocator);
 }
 
 void IcBodyActivationListener::OnBodyActivated(const JPH::BodyID& a_bodyID, JPH::uint64 a_userData)
@@ -56,7 +56,7 @@ void IcBodyActivationListener::OnBodyDeactivated(const JPH::BodyID& a_bodyID, JP
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

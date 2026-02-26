@@ -2,20 +2,25 @@
 // 
 // License at end of file.
 
-#pragma once
+#include "DataTypes/MallocAllocator.h"
 
-#include <SPIRV/GlslangToSpv.h>
-#include <glslang/Include/ResourceLimits.h>
-#include <glslang/Public/ShaderLang.h>
+MallocAllocator* MallocAllocator::Instance = nullptr;
 
-#include "DataTypes/Allocator.h"
-#include "DataTypes/Array.h"
-#include "DataTypes/COWString.h"
-
-void spirv_init();
-void spirv_destroy();
-
-Array<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const COWU8String& a_str, bool a_optimize, const COWU8String& a_entryPoint, Allocator* a_allocator);
+void MallocAllocator::Init()
+{
+    if (MallocAllocator::Instance == nullptr)
+    {
+        MallocAllocator::Instance = new MallocAllocator();
+    }
+}
+void MallocAllocator::Destroy()
+{
+    if (MallocAllocator::Instance != nullptr)
+    {
+        delete MallocAllocator::Instance;
+        MallocAllocator::Instance = nullptr;
+    }
+}
 
 // MIT License
 // 

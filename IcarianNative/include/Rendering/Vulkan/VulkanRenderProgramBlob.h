@@ -4,21 +4,19 @@
 
 #pragma once
 
-template<typename T>
-constexpr T AlignTo(T a_offset, T a_alignment)
-{
-    return ((a_offset + a_alignment - T(1)) / a_alignment) * a_alignment;  
-};
+class VulkanShaderData;
 
-template<typename T>
-constexpr bool IsAligned(T a_offset, T a_alignment)
+struct VulkanRenderProgramBlob
 {
-    return a_offset == AlignTo(a_offset, a_alignment);
-}
+    VulkanShaderData* Shadow;
+    VulkanShaderData* Base;
+    VulkanShaderData* Secondary;
+    VulkanShaderData* Tertiary;
+};
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

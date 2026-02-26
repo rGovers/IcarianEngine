@@ -18,6 +18,7 @@
 
 #include "Config.h"
 #include "Core/Bitfield.h"
+#include "DataTypes/BlockAllocator.h"
 #include "IcarianError.h"
 #include "ObjectManager.h"
 #include "Physics/InterfaceLock.h"
@@ -55,8 +56,31 @@ static void TraceImpl(const char* inFMT, ...)
     return true;
 }
 
+static BlockAllocator* Allocator = nullptr;
+
+static void* IcAlloc(size_t a_inSize)
+{
+	return Allocator->Allocate((uint64_t)a_inSize, 16);
+}
+static void IcFree(void* a_inBlock)
+{
+	Allocator->Free(a_inBlock);
+}
+
+static void* IcAlignedAllocate(size_t a_inSize, size_t a_inAlignment)
+{
+    return Allocator->Allocate((uint64_t)a_inSize, (uint32_t)a_inAlignment);
+}
+static void IcAlignedFree(void* a_inBlock)
+{
+    Allocator->Free(a_inBlock); 
+}
+
 PhysicsEngine::PhysicsEngine(Config* a_config) 
 {
+    IVERIFY(Allocator == nullptr);
+    Allocator = new BlockAllocator(64 << 10, true);
+
     memset(m_objectLayerCollisions, 0, sizeof(m_objectLayerCollisions));
     for (uint32_t i = 0; i < 6; ++i)
     {
@@ -79,16 +103,22 @@ PhysicsEngine::PhysicsEngine(Config* a_config)
     m_fixedTimeTimer = 0.0;
     m_fixedTimePassed = 0.0;
 
-    JPH::RegisterDefaultAllocator();
+    JPH::Allocate = IcAlloc;
+	JPH::Free = IcFree;
+	JPH::AlignedAllocate = IcAlignedAllocate;
+	JPH::AlignedFree = IcAlignedFree;
 
     JPH::Trace = TraceImpl;
     JPH_IF_ENABLE_ASSERTS(JPH::AssertFailed = AssertImpl;)
 
+    // Jolt is annoying as they override new and delete rather then leave it and use an allocator object
+    // Because they override the new and delete we have to create them with new and delete as they no longer have the inplace new and delete
+    // This is bad code smell to me as it can create side effects messing with the default allocation methods
     JPH::Factory::sInstance = new JPH::Factory();
 
     JPH::RegisterTypes();
 
-    m_allocator = new JPH::TempAllocatorImpl(AllocatorSize);
+    m_tempAllocator = new JPH::TempAllocatorImpl(AllocatorSize);
 
     m_jobSystem = new IcPhysicsJobSystem(JPH::cMaxPhysicsBarriers);
 
@@ -97,7 +127,16 @@ PhysicsEngine::PhysicsEngine(Config* a_config)
     m_pairFilter = new IcObjectLayerPairFilter(this);
 
     m_physicsSystem = new JPH::PhysicsSystem();
-    m_physicsSystem->Init((JPH::uint)MaxBodies, 0, (JPH::uint)MaxBodies, (JPH::uint)MaxContactConstraints, *m_broadPhase, *m_objectBroad, *m_pairFilter);
+    m_physicsSystem->Init
+    (
+        (JPH::uint)MaxBodies,
+        0,
+        (JPH::uint)MaxBodies,
+        (JPH::uint)MaxContactConstraints,
+        *m_broadPhase,
+        *m_objectBroad,
+        *m_pairFilter
+    );
 
     m_contactListener = new IcContactListener(this);
     m_activationListener = new IcBodyActivationListener();
@@ -106,7 +145,7 @@ PhysicsEngine::PhysicsEngine(Config* a_config)
     m_physicsSystem->SetContactListener(m_contactListener);
     m_physicsSystem->SetGravity(JPH::Vec3(0.0f, 9.807f, 0.0f));
 
-    m_runtimeBindings = new PhysicsEngineBindings(this);
+    m_runtimeBindings = Allocator->Create<PhysicsEngineBindings>(this);
 }
 PhysicsEngine::~PhysicsEngine()
 {
@@ -124,14 +163,17 @@ PhysicsEngine::~PhysicsEngine()
 
     delete m_jobSystem;
 
-    delete m_allocator;
+    delete m_tempAllocator;
 
-    delete m_runtimeBindings;
+    Allocator->Destroy(m_runtimeBindings);
 
     JPH::UnregisterTypes();
 
     delete JPH::Factory::sInstance;
     JPH::Factory::sInstance = nullptr;
+
+    IVERIFY(Allocator != nullptr);
+    delete Allocator;
 }
 
 bool PhysicsEngine::CanObjectLayersCollide(uint32_t a_lhs, uint32_t a_rhs) const
@@ -205,9 +247,9 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
             m_fixedTimeTimer -= m_fixedTimeStep;
             m_fixedTimePassed += m_fixedTimeStep;
 
-            void* args[] = 
-            { 
-                &m_fixedTimeStep, 
+            void* args[] =
+            {
+                &m_fixedTimeStep,
                 &m_fixedTimePassed
             };
 
@@ -218,7 +260,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
             const JPH::DefaultBroadPhaseLayerFilter broadFilter = m_physicsSystem->GetDefaultBroadPhaseLayerFilter(0);
             const JPH::DefaultObjectLayerFilter objectFilter = m_physicsSystem->GetDefaultLayerFilter(0);
 
-            const Array<JPH::CharacterVirtual*> characters = m_characters.ToActiveArray();
+            const Array<JPH::CharacterVirtual*> characters = m_characters.ToActiveArray(Allocator);
             for (JPH::CharacterVirtual* c : characters)
             {
                 const JPH::Vec3 up = c->GetUp();
@@ -229,10 +271,20 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
                     .mWalkStairsStepUp = up * 0.2f
                 };
 
-                c->ExtendedUpdate(timeStep, gravity, updateSettings, broadFilter, objectFilter, { }, { }, *m_allocator);
+                c->ExtendedUpdate
+                (
+                    timeStep,
+                    gravity,
+                    updateSettings,
+                    broadFilter,
+                    objectFilter,
+                    { },
+                    { },
+                    *m_tempAllocator
+                );
             }
 
-            m_physicsSystem->Update(timeStep, steps, m_allocator, m_jobSystem);
+            m_physicsSystem->Update(timeStep, steps, m_tempAllocator, m_jobSystem);
         }
     }
 
@@ -242,7 +294,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
         {
             PROFILESTACK("Physics Bodies");
 
-            const Array<JPH::BodyID> bodies = m_activationListener->ToBodies();
+            const Array<JPH::BodyID> bodies = m_activationListener->ToBodies(Allocator);
             const SharedThreadGuard g = SharedThreadGuard(m_bodyMapLock);
 
             // Should not need but doing just incase for good practice as it multithreaded app
@@ -284,6 +336,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
                     continue;
                 }
 
+                // TODO: Should probably account for acceleration and apply the same to rotations
                 const JPH::RVec3 jTranslation = jPos + body->GetLinearVelocity() * m_fixedTimeTimer;
                 const JPH::Quat jRotation = body->GetRotation();
 
@@ -293,11 +346,11 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
                 TransformObject(binding.TransformAddr, translation, rotation);
             }
         }
-        
+
         {
             PROFILESTACK("Characters");
 
-            const Array<JPH::CharacterVirtual*> characters = m_characters.ToActiveArray();
+            const Array<JPH::CharacterVirtual*> characters = m_characters.ToActiveArray(Allocator);
             for (const JPH::CharacterVirtual* c : characters)
             {
                 const uint32_t transformAddr = (uint32_t)(c->GetUserData() & 0xFFFFFFFF);
@@ -316,7 +369,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

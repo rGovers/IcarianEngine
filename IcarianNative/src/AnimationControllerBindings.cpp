@@ -9,6 +9,7 @@
 
 #include "Core/IcarianDefer.h"
 #include "Core/StringUtils.h"
+#include "DataTypes/MallocAllocator.h"
 #include "DeletionQueue.h"
 #include "FileCache.h"
 #include "IcarianError.h"
@@ -189,7 +190,7 @@ RUNTIME_FUNCTION(MonoArray*, AnimationClip, LoadExternalAnimationData,
 
         const aiAnimation* animation = scene->mAnimations[0];
 
-        Array<AnimationDataExternal> dataArray;
+        Array<AnimationDataExternal> dataArray = Array<AnimationDataExternal>(MallocAllocator::Instance);
 
         MonoDomain* domain = RuntimeManager::GetDomain();
         MonoClass* frameClass = RuntimeManager::GetClass("IcarianEngine.Rendering.Animation", "AnimaionFrameExternal");
@@ -374,7 +375,7 @@ void AnimationControllerBindings::PushSkeletonBoneData(uint32_t a_addr, uint32_t
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -30,7 +30,7 @@ VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
     (
         vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
         m_engine->GetComputeQueueIndex()
-    );  
+    );
 
     for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
     {
@@ -88,7 +88,7 @@ VulkanComputeEngine::~VulkanComputeEngine()
         {
             Logger::Warning("Compute Shader was not destroyed");
 
-            delete m_shaders[i];
+            allocator->Destroy(m_shaders[i]);
         }
     }
 
@@ -110,14 +110,16 @@ VulkanComputeEngine::~VulkanComputeEngine()
         {
             Logger::Warning("Compute Layout was not destroyed");
 
-            delete m_layouts[i];
+            allocator->Destroy(m_layouts[i]);
         }
-    }    
+    }
 }
 
 VulkanCommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, uint32_t a_index)
 {
     RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -127,7 +129,7 @@ VulkanCommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, u
     {
         .Time = glm::vec2((float)a_delta, (float)a_time)
     };
-    
+
     m_timeUniform->SetData(a_index, &timeBuffer);
 
     const vk::CommandBuffer cmdBuffer = m_buffers[a_index];
@@ -138,14 +140,18 @@ VulkanCommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, u
 
     VULKAN_MARKER_COL(m_engine, cmdBuffer, "Compute Pass", 128, 128, 128);
 
-    const Array<ComputeParticleBuffer, RenderScratchAlloc> particleBuffers = m_particleBuffers.ToActiveArray<RenderScratchAlloc>();
+    const Array<ComputeParticleBuffer> particleBuffers = m_particleBuffers.ToActiveArray(scratchAllocator);
     for (const ComputeParticleBuffer& buffer : particleBuffers)
     {
         VulkanComputeParticle* pSys = (VulkanComputeParticle*)buffer.Data;
-        if (pSys != nullptr)
+        if (pSys == nullptr)
         {
-            pSys->Update(cmdBuffer, a_index);
+            continue;
         }
+
+        RENDERSCRATCHFRAME;
+
+        pSys->Update(cmdBuffer, a_index, scratchAllocator);
     }
 
     return VulkanCommandBuffer(cmdBuffer, VulkanCommandBufferType_Compute, VulkanCommandBufferStage_ComputePass);
@@ -153,14 +159,12 @@ VulkanCommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, u
 
 ComputeParticleBuffer VulkanComputeEngine::GetParticleBuffer(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_particleBuffers.Size());
     IVERIFY(m_particleBuffers.Exists(a_addr));
 
     return m_particleBuffers[a_addr];
 }
 void VulkanComputeEngine::SetParticleBuffer(uint32_t a_addr, const ComputeParticleBuffer& a_buffer)
 {
-    IVERIFY(a_addr < m_particleBuffers.Size());
     IVERIFY(m_particleBuffers.Exists(a_addr));
 
     m_particleBuffers.LockSet(a_addr, a_buffer);
@@ -168,7 +172,6 @@ void VulkanComputeEngine::SetParticleBuffer(uint32_t a_addr, const ComputePartic
 
 vk::Buffer VulkanComputeEngine::GetParticleBufferData(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_particleBuffers.Size());
     IVERIFY(m_particleBuffers.Exists(a_addr));
 
     const ComputeParticleBuffer buffer = m_particleBuffers[a_addr];
@@ -177,20 +180,20 @@ vk::Buffer VulkanComputeEngine::GetParticleBufferData(uint32_t a_addr)
     return data->GetComputeBuffer();
 }
 
-uint32_t VulkanComputeEngine::GenerateComputeFShader(const std::string_view& a_str)
+uint32_t VulkanComputeEngine::GenerateComputeFShader(const COWU8String& a_str, Allocator* a_tempAllocator)
 {
     BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
 
     const VulkanComputeFShaderBuilder builder =
     {
         .Engine = m_engine,
-        .String = std::string(a_str),
-        .EntryPoint = "main"
+        .String = a_str,
+        .EntryPoint = COWU8String("main", a_tempAllocator)
     };
 
     // TODO: Imports for compute shaders
     VulkanComputeShader* shader = blockAllocator->TAllocate<VulkanComputeShader>();
-    VulkanComputeShader::CreateFromFShader(shader, builder, blockAllocator);
+    VulkanComputeShader::CreateFromFShader(shader, builder, blockAllocator, a_tempAllocator);
 
     return m_shaders.PushVal(shader);
 }
@@ -214,7 +217,9 @@ VulkanComputeShader* VulkanComputeEngine::GetComputeShader(uint32_t a_addr)
 
 uint32_t VulkanComputeEngine::GenerateComputePipelineLayout(const ShaderBufferInput* a_inputs, uint32_t a_count)
 {
-    VulkanComputeLayout* layout = new VulkanComputeLayout(m_engine, a_inputs, a_count);
+    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+
+    VulkanComputeLayout* layout = blockAllocator->Create<VulkanComputeLayout>(m_engine, a_inputs, a_count, blockAllocator);
 
     return m_layouts.PushVal(layout);
 }
@@ -222,8 +227,10 @@ void VulkanComputeEngine::DestroyComputePipelineLayout(uint32_t a_addr)
 {
     IVERIFY(m_layouts.Exists(a_addr));
 
-    const VulkanComputeLayout* layout = m_layouts[a_addr];
-    IDEFER(delete layout);
+    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+
+    VulkanComputeLayout* layout = m_layouts[a_addr];
+    IDEFER(blockAllocator->Destroy(layout));
 
     m_layouts.Erase(a_addr);
 }
@@ -261,7 +268,7 @@ VulkanComputePipeline* VulkanComputeEngine::GetComputePipeline(uint32_t a_addr)
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

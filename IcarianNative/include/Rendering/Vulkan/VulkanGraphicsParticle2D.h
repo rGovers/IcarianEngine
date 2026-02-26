@@ -23,6 +23,8 @@ class VulkanRenderEngineBackend;
 class VulkanGraphicsParticle2D
 {
 private:
+    Allocator*                 m_allocator;
+
     VulkanRenderEngineBackend* m_backend;
     VulkanComputeEngine*       m_cEngine;
     VulkanGraphicsEngine*      m_gEngine;
@@ -34,23 +36,38 @@ private:
 
     SpinLock                   m_lock;
 
-    void Build(const ComputeParticleBuffer& a_buffer);
+    void Build(const ComputeParticleBuffer& a_buffer, Allocator* a_tempAllocator);
     void Destroy();
 
 protected:
 
 public:
-    VulkanGraphicsParticle2D(VulkanRenderEngineBackend* a_backend, VulkanComputeEngine* a_cEngine, VulkanGraphicsEngine* a_gEngine, uint32_t a_computeBufferAddr);
+    VulkanGraphicsParticle2D
+    (
+        VulkanRenderEngineBackend* a_backend,
+        VulkanComputeEngine* a_cEngine,
+        VulkanGraphicsEngine* a_gEngine,
+        uint32_t a_computeBufferAddr,
+        Allocator* a_allocator
+    );
     ~VulkanGraphicsParticle2D();
 
-    void Update(uint32_t a_index, uint32_t a_bufferIndex, uint32_t a_renderLayer, vk::CommandBuffer a_commandBuffer, uint32_t a_renderTextureAddr);
+    void Update
+    (
+        uint32_t a_index,
+        uint32_t a_bufferIndex,
+        uint32_t a_renderLayer,
+        vk::CommandBuffer a_commandBuffer,
+        uint32_t a_renderTextureAddr,
+        Allocator* a_tempAllocator
+    );
 };
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

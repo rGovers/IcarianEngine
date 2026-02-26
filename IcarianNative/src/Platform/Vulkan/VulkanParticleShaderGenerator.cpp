@@ -17,27 +17,32 @@
 
 static constexpr uint32_t WorkgroupSize = 256;
 
-static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_parameters, Array<ShaderBufferInput>* a_inputs)
+static COWU8String GenerateComputeVariables(const ComputeParticleBuffer& a_parameters, Array<ShaderBufferInput>* a_inputs, Allocator* a_allocator)
 {
+    // TOOD: Consider implementing a string builder
+    // There seems to be a lot of reallocating string when when can just build a list and the build the entire string at once
     a_inputs->Clear();
 
-    ShaderBufferInput input;
-    input.Count = 1;
-
-    std::string code;
+    COWU8String code = COWU8String(a_allocator);
 
     uint16_t slot = 0;
 
-    code += "const vec3 gravity = vec3(" + std::to_string(a_parameters.Gravity.x) + ", " + std::to_string(a_parameters.Gravity.y) + ", " + std::to_string(a_parameters.Gravity.z) + "); \n";
+    code += "const vec3 gravity = vec3(" +
+        COWU8String::FromValue(a_parameters.Gravity.x, a_allocator) + ", " +
+        COWU8String::FromValue(a_parameters.Gravity.y, a_allocator) + ", " +
+        COWU8String::FromValue(a_parameters.Gravity.z, a_allocator) + "); \n";
 
     const bool isBurst = IISBITSET(a_parameters.Flags, ComputeParticleBuffer::BurstBit);
     if (!isBurst)
     {
-        code += "const float emitterRatio = " + std::to_string(a_parameters.EmitterRatio) + "; \n";
+        code += "const float emitterRatio = " + COWU8String::FromValue(a_parameters.EmitterRatio, a_allocator) + "; \n";
 
-        code += "const vec3 initialVelocity = vec3(" + std::to_string(a_parameters.InitialVelocity.x) + ", " + std::to_string(a_parameters.InitialVelocity.y) + ", " + std::to_string(a_parameters.InitialVelocity.z) + "); \n";
-        code += "const float lifetime = " + std::to_string(a_parameters.Lifetime) + "; \n";
-        code += "const float emitterVelocityScale = " + std::to_string(a_parameters.EmitterVelocityScale) + "; \n";
+        code += "const vec3 initialVelocity = vec3(" +
+            COWU8String::FromValue(a_parameters.InitialVelocity.x, a_allocator) + ", " +
+            COWU8String::FromValue(a_parameters.InitialVelocity.y, a_allocator) + ", " +
+            COWU8String::FromValue(a_parameters.InitialVelocity.z, a_allocator) + "); \n";
+        code += "const float lifetime = " + COWU8String::FromValue(a_parameters.Lifetime, a_allocator) + "; \n";
+        code += "const float emitterVelocityScale = " + COWU8String::FromValue(a_parameters.EmitterVelocityScale, a_allocator) + "; \n";
 
         switch (a_parameters.EmitterType)
         {
@@ -54,32 +59,47 @@ static std::string GenerateComputeVariables(const ComputeParticleBuffer& a_param
         }
     }
 
-    input.Slot = slot;
-    input.BufferType = ShaderBufferType_TimeBuffer;
-    a_inputs->Push(input);
-    code += "#!structure(TimeBuffer," + std::to_string(slot++) + ",timeBuffer) \n";
+    const ShaderBufferInput timeInput = 
+    {
+        .UserSlot = slot,
+        .RealSlot = slot,
+        .BufferType = ShaderBufferType_TimeBuffer,
+        .Count = 1,
+    };
+    a_inputs->Push(timeInput);
+    code += "#!structure(TimeBuffer," + COWU8String::FromValue(slot++, 10, a_allocator) + ",timeBuffer) \n";
 
-    input.Slot = slot;
-    input.BufferType = ShaderBufferType_SSParticleBuffer;
-    a_inputs->Push(input);
-    code += "#!structure(SSParticleBuffer," + std::to_string(slot++) + ",inParticleBuffer) \n";
+    const ShaderBufferInput particleAInput = 
+    {
+        .UserSlot = slot,
+        .RealSlot = slot,
+        .BufferType = ShaderBufferType_SSParticleBuffer,
+        .Count = 1,
+    };
+    a_inputs->Push(particleAInput);
+    code += "#!structure(SSParticleBuffer," + COWU8String::FromValue(slot++, 10, a_allocator) + ",inParticleBuffer) \n";
 
-    input.Slot = slot;
-    input.BufferType = ShaderBufferType_SSParticleBuffer;
-    a_inputs->Push(input);
-    code += "layout(std140,binding=" + std::to_string(slot) + ",set=" + std::to_string(slot) + ") buffer ParticleShaderBufferOut \n"
+    const ShaderBufferInput particleBInput =
+    {
+        .UserSlot = slot,
+        .RealSlot = slot,
+        .BufferType = ShaderBufferType_SSParticleBuffer,
+        .Count = 1,
+    };
+    const COWU8String partSlotStr = COWU8String::FromValue(slot++, 10, a_allocator);
+    a_inputs->Push(particleBInput);
+    code += "layout(std140,binding=" + partSlotStr + ",set=" + partSlotStr + ") buffer ParticleShaderBufferOut \n"
     "{ \n"
     "   int Count; \n"
     "   ParticleBufferData objects[]; \n"
     "} outParticleBuffer; \n";
-    ++slot;
 
     return code;
 }
 
-static std::string GenerateComputeBasicFunctions()
+static COWU8String GenerateComputeBasicFunctions(Allocator* a_allocator)
 {
-    return "float rand(inout uint a_seed) \n"
+    return COWU8String("float rand(inout uint a_seed) \n"
     "{ \n"
     "   int s = int(a_seed); \n"
     "   if (s == 0) \n"
@@ -94,20 +114,25 @@ static std::string GenerateComputeBasicFunctions()
     "   } \n"
     "   a_seed = uint(s); \n"
     "   return float(a_seed % 65536) / 65535.0; \n"
-    "} \n";
+    "} \n", a_allocator);
 }
 
-std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputeParticleBuffer& a_parameters, Array<ShaderBufferInput>* a_inputs)
+COWU8String VulkanParticleShaderGenerator::GenerateComputeShader
+(
+    const ComputeParticleBuffer& a_parameters,
+    Array<ShaderBufferInput>* a_inputs,
+    Allocator* a_allocator
+)
 {
-    std::string code;
+    COWU8String code = COWU8String(a_allocator);
 
     code += "#version 450 \n";
 
-    code += "layout(local_size_x=" + std::to_string(WorkgroupSize) +", local_size_y=1, local_size_z=1) in; \n";
+    code += "layout(local_size_x=" + COWU8String::FromValue(WorkgroupSize, 10, a_allocator) + ", local_size_y=1, local_size_z=1) in; \n";
 
-    code += GenerateComputeVariables(a_parameters, a_inputs);
+    code += GenerateComputeVariables(a_parameters, a_inputs, a_allocator);
 
-    code += GenerateComputeBasicFunctions();
+    code += GenerateComputeBasicFunctions(a_allocator);
 
     code += "void main() \n";
     code += "{ \n";
@@ -119,13 +144,13 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
         "       return; \n"
         "   } \n";
     }
-    
+
     code += "   float delta = timeBuffer.Time.x; \n"
     "   float timePassed = timeBuffer.Time.y; \n"
     // Using a prime for a better seed
     "   uint seedDelta = uint(timePassed * 5003); \n"
     "   uint seed = index * seedDelta + seedDelta; \n"
-    
+
     "   ParticleBufferData particle = inParticleBuffer.objects[index]; \n"
     "   if (particle.Position.w <= 0.0) \n"
     "   { \n"
@@ -197,42 +222,61 @@ std::string VulkanParticleShaderGenerator::GenerateComputeShader(const ComputePa
     return code;
 }
 
-static std::string GenerateMeshVariables(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs)
+static COWU8String GenerateMeshVariables(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs, Allocator* a_allocator)
 {
     a_inputs->Clear();
 
-    ShaderBufferInput input;
-    input.Count = 1;
+    COWU8String code = COWU8String(a_allocator);
 
-    std::string code;
+    code += "const float startSize = " + COWU8String::FromValue(a_parameters.StartSize, a_allocator) + "; \n";
+    code += "const float endSize = " + COWU8String::FromValue(a_parameters.EndSize, a_allocator) + "; \n";
 
-    code += "const float startSize = " + std::to_string(a_parameters.StartSize) + "; \n";
-    code += "const float endSize = " + std::to_string(a_parameters.EndSize) + "; \n";
+    code += "const vec4 startColour = vec4(" +
+        COWU8String::FromValue(a_parameters.StartColour.x, a_allocator) + ", " +
+        COWU8String::FromValue(a_parameters.StartColour.y, a_allocator) + ", " +
+        COWU8String::FromValue(a_parameters.StartColour.z, a_allocator) + ", " +
+        COWU8String::FromValue(a_parameters.StartColour.w, a_allocator) + "); \n";
+    code += "const vec4 endColour = vec4(" +
+        COWU8String::FromValue(a_parameters.EndColour.x, a_allocator) + ", " +
+        COWU8String::FromValue(a_parameters.EndColour.y, a_allocator) + ", " +
+        COWU8String::FromValue(a_parameters.EndColour.z, a_allocator) + ", " +
+        COWU8String::FromValue(a_parameters.EndColour.w, a_allocator) + "); \n";
 
-    code += "const vec4 startColour = vec4(" + std::to_string(a_parameters.StartColour.x) + ", " + std::to_string(a_parameters.StartColour.y) + ", " + std::to_string(a_parameters.StartColour.z) + ", "  + std::to_string(a_parameters.StartColour.w) + "); \n";
-    code += "const vec4 endColour = vec4(" + std::to_string(a_parameters.EndColour.x) + ", " + std::to_string(a_parameters.EndColour.y) + ", " + std::to_string(a_parameters.EndColour.z) + ", "  + std::to_string(a_parameters.EndColour.w) + "); \n";
+    code += "const float lifetime = " + COWU8String::FromValue(a_parameters.Lifetime, a_allocator) + "; \n";
+    code += "const float invLifetime = " + COWU8String::FromValue(1.0f / a_parameters.Lifetime, a_allocator) + "; \n";
 
-    code += "const float lifetime = " + std::to_string(a_parameters.Lifetime) + "; \n";
-    code += "const float invLifetime = " + std::to_string(1.0f / a_parameters.Lifetime) + "; \n";
+    const ShaderBufferInput cameraInput =
+    {
+        .UserSlot = *a_slot,
+        .RealSlot = *a_slot,
+        .BufferType = ShaderBufferType_CameraBuffer,
+        .Count = 1,
+    };
+    a_inputs->Push(cameraInput);
+    code += "#!structure(CameraBuffer, " + COWU8String::FromValue((*a_slot)++, 10, a_allocator) + ", camBuffer) \n";
 
-    input.Slot = *a_slot;
-    input.BufferType = ShaderBufferType_CameraBuffer;
-    a_inputs->Push(input);
-    code += "#!structure(CameraBuffer, " + std::to_string((*a_slot)++) + ", camBuffer) \n";
-
-    input.BufferType = ShaderBufferType_PModelBuffer;
-    a_inputs->Push(input);
+    const ShaderBufferInput modelInput =
+    {
+        .BufferType = ShaderBufferType_PModelBuffer,
+        .Count = 1,
+    };
+    a_inputs->Push(modelInput);
     code += "#!pushbuffer(PModelBuffer, modelBuffer)";
+
+    const ShaderBufferInput particleBuffer = 
+    {
+        .UserSlot = *a_slot,
+        .RealSlot = *a_slot,
+        .BufferType = ShaderBufferType_SSParticleBuffer,
+        .Count = 1,
+    };
+    a_inputs->Push(particleBuffer);
+    code += "#!structure(SSParticleBuffer, " + COWU8String::FromValue((*a_slot)++, 10, a_allocator) + ", particleBuffer) \n";
 
     switch (a_parameters.DisplayMode)
     {
     case ParticleDisplayMode_Quad:
     {
-        input.Slot = *a_slot;
-        input.BufferType = ShaderBufferType_SSParticleBuffer;
-        a_inputs->Push(input);
-        code += "#!structure(SSParticleBuffer, " + std::to_string((*a_slot)++) + ", particleBuffer) \n";
-
         break;
     }
     default:
@@ -246,18 +290,24 @@ static std::string GenerateMeshVariables(const ComputeParticleBuffer& a_paramete
     return code;
 }
 
-std::string VulkanParticleShaderGenerator::GenerateMeshShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs)
+COWU8String VulkanParticleShaderGenerator::GenerateMeshShader
+(
+    const ComputeParticleBuffer& a_parameters,
+    uint16_t* a_slot,
+    Array<ShaderBufferInput>* a_inputs,
+    Allocator* a_allocator
+)
 {
-    std::string code;
+    COWU8String code = COWU8String(a_allocator);
 
     code += "#version 450 \n"
-    
+
     "#extension GL_EXT_mesh_shader : require\n"
 
     "layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in; \n"
     "layout(triangles, max_vertices = 4, max_primitives = 2) out; \n";
 
-    code += GenerateMeshVariables(a_parameters, a_slot, a_inputs);
+    code += GenerateMeshVariables(a_parameters, a_slot, a_inputs, a_allocator);
 
     code += "layout(location=0) out PerVertexData \n"
     "{ \n"
@@ -272,14 +322,14 @@ std::string VulkanParticleShaderGenerator::GenerateMeshShader(const ComputeParti
     "}; \n"
 
     "taskPayloadSharedEXT TaskPayload taskIn; \n"
-    
+
     "void main() \n"
     "{ \n"
-    "   uint index = taskIn.TaskID * " + std::to_string(WorkgroupSize) + " + gl_GlobalInvocationID.x; \n";
+    "   uint index = taskIn.TaskID * " + COWU8String::FromValue(WorkgroupSize, 10, a_allocator) + " + gl_GlobalInvocationID.x; \n";
 
     if (a_parameters.MaxParticles % WorkgroupSize != 0)
     {
-        code += "   if (index >= " + std::to_string(a_parameters.MaxParticles) + ") \n"
+        code += "   if (index >= " + COWU8String::FromValue(a_parameters.MaxParticles, 10, a_allocator) + ") \n"
         "   { \n"
         "       SetMeshOutputsEXT(0, 0); \n"
         "       return; \n"
@@ -316,23 +366,30 @@ std::string VulkanParticleShaderGenerator::GenerateMeshShader(const ComputeParti
             code += "       vec4 colour = startColour; \n";
         }
 
-        code += "       mat3 camBill = mat3(camBuffer.InvView); \n"
-        "       #!preloop(iter, 0, 4, \n"
-        "       { \n"
-        "           vec2 uv = vec2(iter & 1, iter >> 1); \n"
-        // Sigh....
-        // Compiler is not optimizing this away and I cannot be fucked
-        // It is constant how...
-        // fma it is then
-        "           vec2 pos = fma(uv, vec2(2), vec2(-1)); \n"
-        "           vec3 billPos = camBill * vec3(pos, 0.0); \n"
-        "           gl_MeshVerticesEXT[iter].gl_Position = camBuffer.ViewProj * modelBuffer.Model * vec4(particle.Position.xyz + billPos * size, 1.0); \n"
-        "           vertOut[iter].UV = uv; \n"
-        "           vertOut[iter].Color = colour; \n"
-        "           vertOut[iter].Index = index; \n"
-        "       }) \n"
+        code += "       mat3 camBill = mat3(camBuffer.InvView); \n";
 
-        "       gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex + 0] =  uvec3(0, 1, 2); \n"
+        for (uint32_t i = 0; i < 4; ++i)
+        {
+            // Sigh... If the GLSL compiler is shit just use C++ and "handwrite" the unrolled loop
+            // This is a dumb performance gain but GLSL compiler apparently still needs work with const folding
+            // Yes I should just manually hand unroll the loop but I am lazy so I eat the performance hit of string operations on the C++ side
+            // Yes it would be a big optimization to manually unroll it however doing a lot of string ops so a couple extra from value is the least of our concern
+            const COWU8String indexStr = COWU8String::FromValue(i, a_allocator);
+
+            const glm::vec2 uv = glm::vec2(i & 1, i >> 1);
+            const glm::vec2 pos = uv * 2.0f + glm::vec2(-1.0f);
+
+            code += "       vec3 billPos = camBill * vec3(" +
+                COWU8String::FromValue(pos.x, a_allocator) + ", " +
+                COWU8String::FromValue(pos.y, a_allocator) + ", "
+                "0.0); \n"
+                "       gl_MeshVerticesEXT[" + indexStr + "].gl_Position = camBuffer.ViewProj * modelBuffer.Model * vec4(particle.Position.xyz + billPos * size, 1.0); \n"
+                "       vertOut[" + indexStr + "].UV = uv; \n"
+                "       vertOut[" + indexStr + "].Color = colour; \n"
+                "       vertOut[" + indexStr + "].Index = index; \n";
+        }
+
+        code += "       gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex + 0] =  uvec3(0, 1, 2); \n"
         "       gl_PrimitiveTriangleIndicesEXT[gl_LocalInvocationIndex + 1] =  uvec3(1, 3, 2); \n"
         "   } \n"
         "   else \n"
@@ -351,12 +408,18 @@ std::string VulkanParticleShaderGenerator::GenerateMeshShader(const ComputeParti
     }
 
     code += "} \n";
- 
+
     return code;
 }
-std::string VulkanParticleShaderGenerator::GeneratePixelShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs)
+COWU8String VulkanParticleShaderGenerator::GeneratePixelShader
+(
+    const ComputeParticleBuffer& a_parameters,
+    uint16_t* a_slot,
+    Array<ShaderBufferInput>* a_inputs,
+    Allocator* a_allocator
+)
 {
-    return "#version 450 \n"
+    return COWU8String("#version 450 \n"
 
     "layout(location = 0) in PerVertexData \n"
     "{ \n"
@@ -370,14 +433,14 @@ std::string VulkanParticleShaderGenerator::GeneratePixelShader(const ComputePart
     "void main() \n"
     "{ \n"
     "   outColor = fragIn.Color; \n"
-    "} \n";
+    "} \n", a_allocator);
 }
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

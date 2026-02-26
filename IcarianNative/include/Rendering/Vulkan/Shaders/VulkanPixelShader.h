@@ -6,45 +6,63 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
+#include "DataTypes/Array.h"
+#include "DataTypes/COWString.h"
+
 #include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
 struct VulkanPixelFShaderBuilder
 {
     VulkanRenderEngineBackend* Engine;
-    std::string String;
+    COWU8String String;
     std::unordered_map<std::string, std::string> Imports;
-    std::string EntryPoint;
+    COWU8String EntryPoint;
+    Array<ShaderBufferInput> OtherInputs;
+    // uint16_t StartSlot;
 };
 
 struct VulkanPixelGLSLShaderBuilder
 {
     VulkanRenderEngineBackend* Engine;
-    std::string String;
+    COWU8String String;
     ShaderBufferInput* Inputs;
     uint32_t InputCount;
-    std::string EntryPoint;
+    COWU8String EntryPoint;
 };
 
 class VulkanPixelShader : public VulkanShader
 {
 private:
-    
+
 protected:
 
 public:
     VulkanPixelShader() = delete;
-    VulkanPixelShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, const std::vector<uint32_t>& a_data, Allocator* a_allocator);
+    VulkanPixelShader
+    (
+        VulkanRenderEngineBackend* a_engine,
+        const ShaderBufferInput* a_inputs,
+        uint32_t a_inputCount,
+        const uint32_t* a_data,
+        uint32_t a_dataCount,
+        Allocator* a_allocator
+    );
     virtual ~VulkanPixelShader();
 
-    static void CreateFromFShader(VulkanPixelShader* a_out, const VulkanPixelFShaderBuilder& a_builder, Allocator* a_allocator);
-    static void CreateFromGLSL(VulkanPixelShader* a_out, const VulkanPixelGLSLShaderBuilder& a_builder, Allocator* a_allocator);
+    virtual e_VulkanShaderType GetShaderType() const
+    {
+        return VulkanShaderType_Pixel;
+    }
+
+    static void CreateFromFShader(VulkanPixelShader* a_out, const VulkanPixelFShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
+    static void CreateFromGLSL(VulkanPixelShader* a_out, const VulkanPixelGLSLShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
 };
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

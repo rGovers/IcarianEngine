@@ -15,20 +15,11 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <type_traits>
 #include <utility>
 
-struct MallocAllocator
-{
-    static void* Allocate(uint64_t a_value, uint32_t a_alignment)
-    {
-        return malloc(a_value);
-    }
-    static void Free(void* a_ptr)
-    {
-        free(a_ptr);
-    }
-};
+#include "Core/IcarianLambda.h"
 
 class Allocator
 {
@@ -36,7 +27,7 @@ private:
     constexpr static uint64_t UnixPageSize = 4 << 10;
 
 protected:
-    static void* MapMemory(uint64_t a_size)
+    [[nodiscard]] static void* MapMemory(uint64_t a_size)
     {
 #ifdef WIN32
         return VirtualAlloc(NULL, a_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
@@ -70,22 +61,38 @@ protected:
 public:
     virtual ~Allocator() { }
 
-    constexpr static uint32_t BaseAlignment = sizeof(void*);
+    constexpr static uintptr_t BaseAlignment = 16;
 
-    // C++ spec has this as undefined behaviour to my knowledge so alignment is necessary
-    static void* Align(const void* a_ptr, uint32_t a_alignment)
-    {
-        uint32_t alignOffset = (uintptr_t)a_ptr % a_alignment;
-        if (alignOffset != 0)
-        {
-            alignOffset = a_alignment - alignOffset;
-        }
+    // // C++ spec has this as undefined behaviour to my knowledge so alignment is necessary
+    // constexpr static void* Align(const void* a_ptr, uint32_t a_alignment)
+    // {
+    //     const uint32_t align = ILAMBDA(
+    //     {
+    //         const uint32_t offset = (uint32_t)((uintptr_t)a_ptr % a_alignment);
+    //         if (offset != 0)
+    //         {
+    //             ILRETURN a_alignment - offset;
+    //         }
 
-        return (char*)a_ptr + alignOffset;
-    }
+    //         ILRETURN uint32_t(0);
+    //     });
+
+    //     return (uint8_t*)a_ptr + align;
+    // }
 
     [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment) = 0;
     virtual void Free(void* a_ptr) { }
+
+    [[nodiscard]] virtual void* ZAllocate(uint64_t a_size, uint32_t a_alignment)
+    {
+        void* ptr = Allocate(a_size, a_alignment);
+        if (ptr != NULL)
+        {
+            memset(ptr, 0, (size_t)a_size);
+        }
+
+        return ptr;
+    }
 
     template<typename T>
     [[nodiscard]] T* TAllocate()
@@ -93,16 +100,41 @@ public:
         return (T*)Allocate(sizeof(T), alignof(T));
     }
     template<typename T>
-    [[nodiscard]]  T* TAllocate(uint64_t a_count)
+    [[nodiscard]] T* TAllocate(uint64_t a_count)
     {
         return (T*)Allocate(sizeof(T) * a_count, alignof(T));
+    }
+
+    template<typename T>
+    [[nodiscard]] T* ZTAllocate()
+    {
+        T* ptr = (T*)Allocate(sizeof(T), alignof(T));
+        if (ptr != NULL)
+        {
+            memset((void*)ptr, 0, sizeof(T));
+        }
+
+        return ptr;
+    }
+    template<typename T>
+    [[nodiscard]] T* ZTAllocate(uint64_t a_count)
+    {
+        const uint64_t size = sizeof(T) * a_count;
+
+        T* ptr = (T*)Allocate(size, alignof(T));
+        if (ptr != NULL)
+        {
+            memset((void*)ptr, 0, (size_t)size);
+        }
+
+        return ptr;
     }
 
     template<typename T, typename ... Args>
     [[nodiscard]] T* Create(Args&&... a_args)
     {
         // I forget that this syntax exists every time to do an in place constructor on an existing memory address
-        return new (Allocate(sizeof(T), alignof(T))) T(std::forward<Args>(a_args)...);
+        return new (ZAllocate(sizeof(T), alignof(T))) T(std::forward<Args>(a_args)...);
     }
 
     template<typename T>
@@ -110,7 +142,7 @@ public:
     {
         if constexpr (!std::is_trivially_destructible<T>())
         {
-            a_ptr->~T();   
+            a_ptr->~T();
         }
 
         Free(a_ptr);
@@ -119,7 +151,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

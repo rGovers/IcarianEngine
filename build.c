@@ -23,6 +23,7 @@ void PrintEngineHelp()
 
     printf("  --enable-trace - Enables debug logging for the engine \n");
     printf("  --enable-profiler - Enables the internal profiler for the engine \n");
+    printf("  --noprint - Disables extra print information during build \n");
 }
 
 static const char EnableTraceString[] = "--enable-trace";
@@ -33,6 +34,8 @@ static const char RemoteString[] = "--remote";
 static const CBUINT32 RemoteStringLen = sizeof(RemoteString) - 1;
 static const char ModString[] = "--disable-mod";
 static const CBUINT32 ModStringLen = sizeof(ModString) - 1;
+static const char NoPrintString[] = "--noprint";
+static const CBUINT32 NoPrintStringLen = sizeof(NoPrintString) - 1;
 
 int main(int a_argc, char** a_argv)
 {
@@ -61,6 +64,7 @@ int main(int a_argc, char** a_argv)
     CBBOOL enableProfiler;
     CBBOOL enableMod;
     CBBOOL remoteMode;
+    CBBOOL noPrint;
 
 #ifdef _WIN32
     targetPlatform = TargetPlatform_Windows;
@@ -80,9 +84,7 @@ int main(int a_argc, char** a_argv)
     enableMod = CBTRUE;
     remoteMode = CBFALSE;
     rebuild = CBFALSE;
-
-    printf("IcarianEngine Build\n");
-    printf("\n");
+    noPrint = CBFALSE;
 
     // Dont need the first arg
     for (int i = 1; i < a_argc; ++i)
@@ -206,6 +208,10 @@ int main(int a_argc, char** a_argv)
 
             jobThreads = (CBUINT32)atoi(jobCountStr);
         }
+        else if (strncmp(a_argv[i], NoPrintString, NoPrintStringLen) == 0)
+        {
+            noPrint = CBTRUE;
+        }
         else if (strncmp(a_argv[i], HelpString, HelpStringLen) == 0)
         {
             PrintEngineHelp();
@@ -229,6 +235,12 @@ int main(int a_argc, char** a_argv)
 
             return 1;
         }
+    }
+
+    if (!noPrint)
+    {
+        printf("IcarianEngine Build\n");
+        printf("\n");
     }
 
     switch (targetPlatform)
@@ -308,9 +320,9 @@ int main(int a_argc, char** a_argv)
 
     free(dependencyProjects);
 
-    icarianCoreProject = BuildIcarianCoreProject(CBTRUE, targetPlatform, buildConfiguration);
+    icarianCoreProject = BuildIcarianCoreProject("./IcarianCore", CBTRUE, targetPlatform, buildConfiguration);
 
-    ret = CUBE_CProject_MultiCompile(&icarianCoreProject, compiler, "IcarianCore", CBNULL, jobThreads, &lines, &lineCount, rebuild);
+    ret = CUBE_CProject_MultiCompile(&icarianCoreProject, compiler, "./IcarianCore", CBNULL, jobThreads, &lines, &lineCount, rebuild);
 
     FlushLines(&lines, &lineCount);
 
@@ -395,9 +407,9 @@ int main(int a_argc, char** a_argv)
         .EnableProfiler = enableProfiler,
         .RemoteMode = remoteMode,
     };
-    icarianNativeProject = BuildIcarianNativeProject(targetPlatform, buildConfiguration, nativeFlags);
+    icarianNativeProject = BuildIcarianNativeProject("./IcarianNative/", targetPlatform, buildConfiguration, nativeFlags);
 
-    ret = CUBE_CProject_MultiCompile(&icarianNativeProject, compiler, "IcarianNative", CBNULL, jobThreads, &lines, &lineCount, rebuild);
+    ret = CUBE_CProject_MultiCompile(&icarianNativeProject, compiler, "./IcarianNative", CBNULL, jobThreads, &lines, &lineCount, rebuild);
 
     FlushLines(&lines, &lineCount);
 
@@ -413,22 +425,25 @@ int main(int a_argc, char** a_argv)
     if (enableMod)
     {
         icarianModManagerProject = BuildIcarianModManagerProject(targetPlatform, buildConfiguration);
-    
+
         ret = CUBE_CProject_MultiCompile(&icarianModManagerProject, compiler, "IcarianModManager", CBNULL, jobThreads, &lines, &lineCount, rebuild);
-    
+
         FlushLines(&lines, &lineCount);
-    
+
         if (!ret)
         {
             printf("Failed to compile IcarianModManager\n");
-    
+
             return 1;
         }
-    
+
         CUBE_CProject_Destroy(&icarianModManagerProject);
     }
 
-    PrintHeader("Copying Files");
+    if (!noPrint)
+    {
+        PrintHeader("Copying Files");
+    }
 
     CUBE_IO_CreateDirectoryC("build");
 
@@ -487,7 +502,10 @@ int main(int a_argc, char** a_argv)
     }
     }
 
-    printf("\nDone!\n");
+    if (!noPrint)
+    {
+        printf("\nDone!\n");
+    }
 
     return 0;
 }

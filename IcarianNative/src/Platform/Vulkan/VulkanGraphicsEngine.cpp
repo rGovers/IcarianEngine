@@ -24,11 +24,6 @@
 #include "Rendering/UI/TextUIElement.h"
 #include "Rendering/UI/UIControl.h"
 #include "Rendering/UI/UIElement.h"
-#include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
-#include "Rendering/Vulkan/Shaders/VulkanMeshShader.h"
-#include "Rendering/Vulkan/Shaders/VulkanPixelShader.h"
-#include "Rendering/Vulkan/Shaders/VulkanTaskShader.h"
-#include "Rendering/Vulkan/Shaders/VulkanVertexShader.h"
 #include "Rendering/Vulkan/VulkanDepthCubeRenderTexture.h"
 #include "Rendering/Vulkan/VulkanDepthRenderTexture.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngineBindings.h"
@@ -41,6 +36,7 @@
 #include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanRenderCommand.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
+#include "Rendering/Vulkan/VulkanRenderProgramBlob.h"
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
 #include "Rendering/Vulkan/VulkanShaderData.h"
 #include "Rendering/Vulkan/VulkanShaderStorageObject.h"
@@ -57,13 +53,19 @@
 
 #include "EngineLightInteropStructures.h"
 
-VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEngine)
+VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEngine) :
+    m_cameraUniforms(a_vulkanEngine->GetBlockAllocator())
 {
     m_vulkanEngine = a_vulkanEngine;
 
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
-    m_runtimeBindings = allocator->Create<VulkanGraphicsEngineBindings>(this);
+    for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
+    {
+        m_commandPool[i] = blockAllocator->Create<Array<vk::CommandPool>>(blockAllocator);
+        m_commandBuffers[i] = blockAllocator->Create<Array<vk::CommandBuffer>>(blockAllocator);
+    }
 
     TRACE("Getting RenderPipeline Functions");
     m_shadowSetupFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":ShadowSetupS(uint,uint)");
@@ -80,29 +82,87 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     m_postForwardFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostForwardS(uint)");
     m_postProcessFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":PostProcessS(uint)");
 
-    const RenderProgram textProgram =
     {
-        .VertexShader = GenerateFVertexShader(UIVertexShader),
-        .PixelShader = GenerateFPixelShader(UITextPixelShader),
-        .ShadowVertexShader = uint32_t(-1),
-        .ColorBlendMode = MaterialBlendMode_Alpha,
-        .CullingMode = CullMode_None,
-        .PrimitiveMode = PrimitiveMode_TriangleStrip,
-        .Flags = 0b1 << RenderProgram::DestroyFlag
-    };
+        RENDERSCRATCHFRAME;
 
-    m_textUIPipelineAddr = GenerateRenderProgram(textProgram);
+        const RenderProgram textProgram =
+        {
+            .VertexShader = ILAMBDA(
+            {
+                RENDERSCRATCHFRAME;
 
-    const RenderProgram imageProgram =
+                const COWU8String str = COWU8String
+                (
+                    UIVertexShader,
+                    sizeof(UIVertexShader) / sizeof(*UIVertexShader),
+                    scratchAllocator
+                );
+
+                ILRETURN GenerateFVertexShader(str);
+            }),
+            .PixelShader = ILAMBDA(
+            {
+                RENDERSCRATCHFRAME;
+
+                const COWU8String str = COWU8String
+                (
+                    UITextPixelShader,
+                    sizeof(UITextPixelShader) / sizeof(*UITextPixelShader),
+                    scratchAllocator
+                );
+
+                ILRETURN GenerateFPixelShader(str);
+            }),
+            .ShadowVertexShader = uint32_t(-1),
+            .ColorBlendMode = MaterialBlendMode_Alpha,
+            .CullingMode = CullMode_None,
+            .PrimitiveMode = PrimitiveMode_TriangleStrip,
+            .Flags = 0b1 << RenderProgram::DestroyFlag
+        };
+
+        m_textUIPipelineAddr = GenerateRenderProgram(textProgram, scratchAllocator);
+    }
+
     {
-        .VertexShader = GenerateFVertexShader(UIVertexShader),
-        .PixelShader = GenerateFPixelShader(UIImagePixelShader),
-        .ShadowVertexShader = uint32_t(-1),
-        .ColorBlendMode = MaterialBlendMode_Alpha,
-        .CullingMode = CullMode_None,
-        .PrimitiveMode = PrimitiveMode_TriangleStrip,
-        .Flags = 0b1 << RenderProgram::DestroyFlag
-    };
+        RENDERSCRATCHFRAME;
+
+        const RenderProgram imageProgram =
+        {
+            .VertexShader = ILAMBDA(
+            {
+                RENDERSCRATCHFRAME;
+
+                const COWU8String str = COWU8String
+                (
+                    UIVertexShader,
+                    sizeof(UIVertexShader) / sizeof(*UIVertexShader),
+                    scratchAllocator
+                );
+
+                ILRETURN GenerateFVertexShader(str);
+            }),
+            .PixelShader = ILAMBDA(
+            {
+                RENDERSCRATCHFRAME;
+
+                const COWU8String str = COWU8String
+                (
+                    UIImagePixelShader,
+                    sizeof(UIImagePixelShader) / sizeof(*UIImagePixelShader),
+                    scratchAllocator
+                );
+
+                ILRETURN GenerateFPixelShader(str);
+            }),
+            .ShadowVertexShader = uint32_t(-1),
+            .ColorBlendMode = MaterialBlendMode_Alpha,
+            .CullingMode = CullMode_None,
+            .PrimitiveMode = PrimitiveMode_TriangleStrip,
+            .Flags = 0b1 << RenderProgram::DestroyFlag
+        };
+
+        m_imageUIPipelineAddr = GenerateRenderProgram(imageProgram, scratchAllocator);
+    }
 
     const uint32_t decodeIndex = m_vulkanEngine->GetVideoDecodeIndex();
     if (decodeIndex != uint32_t(-1))
@@ -131,24 +191,46 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
         }
     }
 
-    m_imageUIPipelineAddr = GenerateRenderProgram(imageProgram);
-
-    m_timeUniform = allocator->Create<VulkanUniformBuffer>(m_vulkanEngine, sizeof(IcarianCore::ShaderTimeBuffer));
+    m_timeUniform = blockAllocator->Create<VulkanUniformBuffer>(m_vulkanEngine, sizeof(IcarianCore::ShaderTimeBuffer));
 
     m_meshEmulationData = nullptr;
 
     const bool isMeshEnabled = m_vulkanEngine->IsMeshEnabled();
     if (!isMeshEnabled)
     {
+        TRACE("Creating Mesh emulation data");
+
         const VmaAllocator vmaAllocator = m_vulkanEngine->GetAllocator();
 
-        m_meshEmulationData = allocator->TAllocate<VulkanMeshEmulationData>();
+        m_meshEmulationData = blockAllocator->Create<VulkanMeshEmulationData>();
 
         VkBuffer buffer;
         const VmaAllocationCreateInfo allocInfo =
         {
-            .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
+            .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
         };
+
+        const VkBufferCreateInfo drawBufferInfo =
+        {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .size = (VkDeviceSize)(64UL << 20),
+            .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+        };
+
+        VKRESERRMSG(vmaCreateBuffer
+        (
+            vmaAllocator,
+            &drawBufferInfo,
+            &allocInfo,
+            &buffer,
+            &m_meshEmulationData->DrawAlloction,
+            NULL
+        ), "Failed to create Mesh Emulation Draw Buffer");
+#ifdef DEBUG
+        vmaSetAllocationName(vmaAllocator, m_meshEmulationData->DrawAlloction, "Mesh Emulation Draw Buffer");
+#endif
+        m_meshEmulationData->DrawBuffer = buffer;
 
         // If mesh shaders are not supported by the GPU we need to run it on the compute pipeline
         // In order to do that will need some intermediary buffers
@@ -160,24 +242,48 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
         {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .size = (VkDeviceSize)(128UL << 20),
-            .usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE
         };
 
-        VKRESERRMSG(vmaCreateBuffer(vmaAllocator, &vertexBufferInfo, &allocInfo, &buffer, &m_meshEmulationData->VertexAllocation, NULL), "Failed to create Mesh Emulation Vertex Buffer");
+        VKRESERRMSG(vmaCreateBuffer
+        (
+            vmaAllocator,
+            &vertexBufferInfo,
+            &allocInfo,
+            &buffer,
+            &m_meshEmulationData->VertexAllocation,
+            NULL
+        ), "Failed to create Mesh Emulation Vertex Buffer");
+#ifdef DEBUG
+        vmaSetAllocationName(vmaAllocator, m_meshEmulationData->VertexAllocation, "Mesh Emulation Vertex Buffer");
+#endif
         m_meshEmulationData->VertexBuffer = buffer;
 
         const VkBufferCreateInfo indexBufferInfo =
         {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
             .size = (VkDeviceSize)(64UL << 20),
-            .usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+            .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             .sharingMode = VK_SHARING_MODE_EXCLUSIVE
         };
 
-        VKRESERRMSG(vmaCreateBuffer(vmaAllocator, &indexBufferInfo, &allocInfo, &buffer, &m_meshEmulationData->IndexAllocation, NULL), "Failed to create Mesh Emulation Index Buffer");
+        VKRESERRMSG(vmaCreateBuffer
+        (
+            vmaAllocator,
+            &indexBufferInfo,
+            &allocInfo,
+            &buffer,
+            &m_meshEmulationData->IndexAllocation,
+            NULL
+        ), "Failed to create Mesh Emulation Index Buffer");
+#ifdef DEBUG
+        vmaSetAllocationName(vmaAllocator, m_meshEmulationData->IndexAllocation, "Mesh Emulation Index Buffer");
+#endif
         m_meshEmulationData->IndexBuffer = buffer;
     }
+
+    m_runtimeBindings = blockAllocator->Create<VulkanGraphicsEngineBindings>(this);
 }
 VulkanGraphicsEngine::~VulkanGraphicsEngine()
 {
@@ -190,7 +296,8 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         {
             Logger::Warning("Vertex Shader was not destroyed");
 
-            blockAllocator->Destroy(m_vertexShaders[i]);
+            // blockAllocator->Destroy(m_vertexShaders[i]);
+            m_vertexShaders.Erase(i);
         }
     }
 
@@ -200,7 +307,8 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         {
             Logger::Warning("Pixel Shader was not destroyed");
 
-            blockAllocator->Destroy(m_pixelShaders[i]);
+            // blockAllocator->Destroy(m_pixelShaders[i]);
+            m_pixelShaders.Erase(i);
         }
     }
 
@@ -210,7 +318,8 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         {
             Logger::Warning("Mesh Shader was not destroyed");
 
-            blockAllocator->Destroy(m_meshShaders[i]);
+            // blockAllocator->Destroy(m_meshShaders[i]);
+            m_meshShaders.Erase(i);
         }
     }
 
@@ -220,7 +329,18 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         {
             Logger::Warning("Task Shader was not destroyed");
 
-            blockAllocator->Destroy(m_taskShaders[i]);
+            // blockAllocator->Destroy(m_taskShaders[i]);
+            m_taskShaders.Erase(i);
+        }
+    }
+
+    for (uint32_t i = 0; i < m_computeShaders.Size(); ++i)
+    {
+        if (m_computeShaders.Exists(i))
+        {
+            Logger::Warning("Compute Shader was not destroyed");
+
+            m_computeShaders.Erase(i);
         }
     }
 
@@ -240,6 +360,22 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         blockAllocator->Destroy(iter.second);
     }
 
+    if (m_meshEmulationData != nullptr)
+    {
+        const VmaAllocator allocator = m_vulkanEngine->GetAllocator();
+
+        for (const auto& iter : m_meshEmulationData->MeshPipelines)
+        {
+            blockAllocator->Destroy(iter.second);
+        }
+
+        vmaDestroyBuffer(allocator, m_meshEmulationData->DrawBuffer, m_meshEmulationData->DrawAlloction);
+        vmaDestroyBuffer(allocator, m_meshEmulationData->VertexBuffer, m_meshEmulationData->VertexAllocation);
+        vmaDestroyBuffer(allocator, m_meshEmulationData->IndexBuffer, m_meshEmulationData->IndexAllocation);
+
+        blockAllocator->Destroy(m_meshEmulationData);
+    }
+
     TRACE("Checking shader program buffer health");
     for (uint32_t i = 0; i < m_shaderPrograms.Size(); ++i)
     {
@@ -252,20 +388,34 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         {
             Logger::Warning("Shader data was not destroyed");
 
-            blockAllocator->Destroy((VulkanShaderData*)m_shaderPrograms[i].Data);
+            VulkanRenderProgramBlob* blob = (VulkanRenderProgramBlob*)m_shaderPrograms[i].Data;
+            IDEFER(blockAllocator->Free(blob));
+
+            if (blob->Shadow != nullptr)
+            {
+                blockAllocator->Destroy(blob->Shadow);
+            }
+            if (blob->Base != nullptr)
+            {
+                blockAllocator->Destroy(blob->Base);
+            }
+            if (blob->Secondary != nullptr)
+            {
+                blockAllocator->Destroy(blob->Secondary);
+            }
+            if (blob->Tertiary != nullptr)
+            {
+                blockAllocator->Destroy(blob->Tertiary);
+            }
         }
     }
 
     blockAllocator->Destroy(m_runtimeBindings);
 
-    if (m_meshEmulationData != nullptr)
+    for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
     {
-        const VmaAllocator allocator = m_vulkanEngine->GetAllocator();
-
-        vmaDestroyBuffer(allocator, m_meshEmulationData->VertexBuffer, m_meshEmulationData->VertexAllocation);
-        vmaDestroyBuffer(allocator, m_meshEmulationData->IndexBuffer, m_meshEmulationData->IndexAllocation);
-
-        blockAllocator->Free(m_meshEmulationData);
+        blockAllocator->Destroy(m_commandBuffers[i]);
+        blockAllocator->Destroy(m_commandPool[i]);
     }
 
     delete m_shadowSetupFunc;
@@ -281,6 +431,9 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
     delete m_preForwardFunc;
     delete m_postForwardFunc;
     delete m_postProcessFunc;
+
+    // blockAllocator->Free(m_decodePool);
+    // blockAllocator->Free(m_decodeBuffer);
 }
 
 void VulkanGraphicsEngine::Cleanup()
@@ -311,10 +464,13 @@ void VulkanGraphicsEngine::Cleanup()
     TRACE("Deleting command pool");
     for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
     {
-        for (const vk::CommandPool& pool : m_commandPool[i])
+        for (const vk::CommandPool& pool : *m_commandPool[i])
         {
             device.destroyCommandPool(pool);
         }
+
+        m_commandPool[i]->Clear();
+        m_commandBuffers[i]->Clear();
     }
 
     const uint32_t decodeIndex = m_vulkanEngine->GetVideoDecodeIndex();
@@ -452,223 +608,262 @@ void VulkanGraphicsEngine::Cleanup()
     }
 }
 
-uint32_t VulkanGraphicsEngine::GenerateFVertexShader(const std::string_view& a_source)
+uint32_t VulkanGraphicsEngine::GenerateFVertexShader(const COWU8String& a_source)
 {
-    IVERIFY(!a_source.empty());
+    IVERIFY(!a_source.Empty());
 
     BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
 
-    VulkanVertexShader* shader = blockAllocator->TAllocate<VulkanVertexShader>();
-
-    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
-
-    const VulkanVertexFShaderBuilder builder =
+    const VulkanShaderInfo info =
     {
-        .Engine = m_vulkanEngine,
-        .String = std::string(a_source),
-        .Imports = m_pixelImports,
-        .EntryPoint = "main"
+        // Copying as this could be allocated on a temp allocator
+        .Data = COWU8String(a_source, blockAllocator),
+        .Type = VulkanShaderInfoType_Flare,
     };
 
-    VulkanVertexShader::CreateFromFShader(shader, builder, blockAllocator);
-
-    return m_vertexShaders.PushVal(shader);
+    return m_vertexShaders.PushVal(info);
 }
 void VulkanGraphicsEngine::DestroyVertexShader(uint32_t a_addr)
 {
     IVERIFY(m_vertexShaders.Exists(a_addr));
 
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
-
-    VulkanVertexShader* shader = m_vertexShaders[a_addr];
-    IDEFER(blockAllocator->Destroy(shader));
-
     m_vertexShaders.Erase(a_addr);
 }
-
-uint32_t VulkanGraphicsEngine::GenerateFTaskShader(const std::string_view& a_source)
+VulkanShaderInfo VulkanGraphicsEngine::GetVertexShaderInfo(uint32_t a_addr)
 {
-    IVERIFY(!a_source.empty());
+    IVERIFY(m_vertexShaders.Exists(a_addr));
+
+    return m_vertexShaders[a_addr];
+}
+std::unordered_map<std::string, std::string> VulkanGraphicsEngine::GetVertexShaderImports()
+{
+    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
+
+    return m_vertexImports;
+}
+
+uint32_t VulkanGraphicsEngine::GenerateFTaskShader(const COWU8String& a_source)
+{
+    IVERIFY(!a_source.Empty());
 
     BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
 
-    VulkanTaskShader* shader = blockAllocator->TAllocate<VulkanTaskShader>();
-
-    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
-
-    const VulkanTaskFShaderBuilder builder =
+    const VulkanShaderInfo info =
     {
-        .Engine = m_vulkanEngine,
-        .String = std::string(a_source),
-        .Imports = m_meshImports,
-        .EntryPoint = "main"
+        .Data = COWU8String(a_source, blockAllocator),
+        .Type = VulkanShaderInfoType_Flare,
     };
 
-    VulkanTaskShader::CreateFromFShader(shader, builder, blockAllocator);
-
-    return m_taskShaders.PushVal(shader);
+    return m_taskShaders.PushVal(info);
 }
 void VulkanGraphicsEngine::DestroyTaskShader(uint32_t a_addr)
 {
     IVERIFY(m_taskShaders.Exists(a_addr));
 
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
-
-    VulkanTaskShader* shader = m_taskShaders[a_addr];
-    IDEFER(blockAllocator->Destroy(shader));
-
     m_taskShaders.Erase(a_addr);
 }
-uint32_t VulkanGraphicsEngine::GenerateFMeshShader(const std::string_view& a_source)
+VulkanShaderInfo VulkanGraphicsEngine::GetTaskShaderInfo(uint32_t a_addr)
 {
-    IVERIFY(!a_source.empty());
+    IVERIFY(m_taskShaders.Exists(a_addr));
+
+    return m_taskShaders[a_addr];
+}
+uint32_t VulkanGraphicsEngine::GenerateFMeshShader(const COWU8String& a_source)
+{
+    IVERIFY(!a_source.Empty());
 
     BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
 
-    VulkanMeshShader* shader = blockAllocator->TAllocate<VulkanMeshShader>();
-
-    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
-
-    const VulkanMeshFShaderBuilder builder =
+    const VulkanShaderInfo info =
     {
-        .Engine = m_vulkanEngine,
-        .String = std::string(a_source),
-        .Imports = m_meshImports,
-        .EntryPoint = "main"
+        .Data = COWU8String(a_source, blockAllocator),
+        .Type = VulkanShaderInfoType_Flare
     };
 
-    VulkanMeshShader::CreateFromFShader(shader, builder, blockAllocator);
-
-    return m_meshShaders.PushVal(shader);
+    return m_meshShaders.PushVal(info);
 }
 void VulkanGraphicsEngine::DestroyMeshShader(uint32_t a_addr)
 {
     IVERIFY(m_meshShaders.Exists(a_addr));
 
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
-
-    VulkanMeshShader* shader = m_meshShaders[a_addr];
-    IDEFER(blockAllocator->Destroy(shader));
-
     m_meshShaders.Erase(a_addr);
 }
-
-uint32_t VulkanGraphicsEngine::GenerateFPixelShader(const std::string_view& a_source)
+VulkanShaderInfo VulkanGraphicsEngine::GetMeshShaderInfo(uint32_t a_addr)
 {
-    IVERIFY(!a_source.empty());
+    IVERIFY(m_meshShaders.Exists(a_addr));
+
+    return m_meshShaders[a_addr];
+}
+std::unordered_map<std::string, std::string> VulkanGraphicsEngine::GetMeshShaderImports()
+{
+    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
+
+    return m_meshImports;
+}
+
+uint32_t VulkanGraphicsEngine::GenerateFPixelShader(const COWU8String& a_source)
+{
+    IVERIFY(!a_source.Empty());
 
     BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
 
-    VulkanPixelShader* shader = blockAllocator->TAllocate<VulkanPixelShader>();
-
-    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
-
-    const VulkanPixelFShaderBuilder builder =
+    const VulkanShaderInfo info =
     {
-        .Engine = m_vulkanEngine,
-        .String = std::string(a_source),
-        .Imports = m_pixelImports,
-        .EntryPoint = "main"
+        .Data = COWU8String(a_source, blockAllocator),
+        .Type = VulkanShaderInfoType_Flare
     };
 
-    VulkanPixelShader::CreateFromFShader(shader, builder, blockAllocator);
-
-    return m_pixelShaders.PushVal(shader);
+    return m_pixelShaders.PushVal(info);
 }
 void VulkanGraphicsEngine::DestroyPixelShader(uint32_t a_addr)
 {
     IVERIFY(m_pixelShaders.Exists(a_addr));
 
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
-
-    VulkanPixelShader* shader = m_pixelShaders[a_addr];
-    IDEFER(blockAllocator->Destroy(shader));
-
     m_pixelShaders.Erase(a_addr);
 }
-
-uint32_t VulkanGraphicsEngine::GenerateFComputeShader(const std::string_view& a_source)
+VulkanShaderInfo VulkanGraphicsEngine::GetPixelShaderInfo(uint32_t a_addr)
 {
-    IVERIFY(!a_source.empty());
+    IVERIFY(m_pixelShaders.Exists(a_addr));
+
+    return m_pixelShaders[a_addr];
+}
+std::unordered_map<std::string, std::string> VulkanGraphicsEngine::GetPixelShaderImports()
+{
+    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
+
+    return m_pixelImports;
+}
+
+uint32_t VulkanGraphicsEngine::GenerateFComputeShader(const COWU8String& a_source)
+{
+    IVERIFY(!a_source.Empty());
 
     BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
 
-    VulkanComputeShader* shader = blockAllocator->TAllocate<VulkanComputeShader>();
-
-    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
-
-    const VulkanComputeFShaderBuilder builder =
+    const VulkanShaderInfo info =
     {
-        .Engine = m_vulkanEngine,
-        .String = std::string(a_source),
-        .Imports = m_computeImports,
-        .EntryPoint = "main",
+        .Data = COWU8String(a_source, blockAllocator),
+        .Type = VulkanShaderInfoType_Flare,
     };
 
-    VulkanComputeShader::CreateFromFShader(shader, builder, blockAllocator);
-
-    return m_computeShaders.PushVal(shader);
+    return m_computeShaders.PushVal(info);
 }
 void VulkanGraphicsEngine::DestroyComputeShader(uint32_t a_addr)
 {
     IVERIFY(m_computeShaders.Exists(a_addr));
 
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
-
-    VulkanComputeShader* shader = m_computeShaders[a_addr];
-    IDEFER(blockAllocator->Destroy(shader));
-
     m_computeShaders.Erase(a_addr);
 }
-
-uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_program)
+VulkanShaderInfo VulkanGraphicsEngine::GetComputeShaderInfo(uint32_t a_addr)
 {
-    switch (a_program.MaterialMode)
-    {
-    case MaterialMode_BaseVertex:
-    {
-        IVERIFY(m_vertexShaders.Exists(a_program.VertexShader));
-        IVERIFY(m_pixelShaders.Exists(a_program.PixelShader));
+    IVERIFY(m_computeShaders.Exists(a_addr));
 
-        if (a_program.ShadowVertexShader != uint32_t(-1))
-        {
-            IVERIFY(m_vertexShaders.Exists(a_program.ShadowVertexShader));
-        }
+    return m_computeShaders[a_addr];
+}
+std::unordered_map<std::string, std::string> VulkanGraphicsEngine::GetComputeShaderImports()
+{
+    const SharedThreadGuard g = SharedThreadGuard(m_importLock);
 
-        break;
-    }
-    case MaterialMode_BaseMesh:
-    {
-        IVERIFY(m_meshShaders.Exists(a_program.VertexShader));
+    return m_computeImports;
+}
 
-        if (a_program.ExtraShader != uint32_t(-1))
-        {
-            IVERIFY(m_taskShaders.Exists(a_program.ExtraShader));
-        }
-
-        IVERIFY(m_pixelShaders.Exists(a_program.PixelShader));
-
-        break;
-    }
-    case MaterialMode_Compute:
-    {
-        IVERIFY(m_computeShaders.Exists(a_program.ExtraShader));
-
-        break;
-    }
-    default:
-    {
-        IERROR("Invalid material mode");
-
-        break;
-    }
-    }
-
+uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_program, Allocator* a_tempAllocator)
+{
     BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
 
     TRACE("Creating Shader Program");
+    // Create a VulkanRenderProgram from a generic RenderProgram
     RenderProgram p = a_program;
-    p.Data = allocator->Create<VulkanShaderData>(m_vulkanEngine, this, a_program, allocator);
+    p.Data = ILAMBDA(
+    {
+        VulkanRenderProgramBlob* val = allocator->ZTAllocate<VulkanRenderProgramBlob>();
+
+        switch (a_program.MaterialMode)
+        {
+        case MaterialMode_BaseVertex:
+        {
+            IVERIFY(m_vertexShaders.Exists(a_program.VertexShader));
+            IVERIFY(m_pixelShaders.Exists(a_program.PixelShader));
+
+            VulkanBaseShaderDataBuilder baseBuilder;
+            baseBuilder.Engine = m_vulkanEngine;
+            baseBuilder.GraphicsEngine = this;
+            baseBuilder.Program = a_program;
+
+            val->Base = allocator->TAllocate<VulkanShaderData>();
+            VulkanShaderData::CreateBaseShaderData(val->Base, baseBuilder, allocator, a_tempAllocator);
+
+            if (a_program.ShadowVertexShader != uint32_t(-1))
+            {
+                IVERIFY(m_vertexShaders.Exists(a_program.ShadowVertexShader));
+
+                VulkanShadowShaderDataBuilder shadowBuilder;
+                shadowBuilder.Engine = m_vulkanEngine;
+                shadowBuilder.GraphicsEngine = this;
+                shadowBuilder.Program = a_program;
+
+                val->Shadow = allocator->TAllocate<VulkanShaderData>();
+                VulkanShaderData::CreateShadowShaderData(val->Shadow, shadowBuilder, allocator, a_tempAllocator);
+            }
+
+            break;
+        }
+        case MaterialMode_BaseMesh:
+        {
+            const bool isMeshEnabled = m_vulkanEngine->IsMeshEnabled();
+
+            IVERIFY(m_meshShaders.Exists(a_program.VertexShader));
+            if (!isMeshEnabled)
+            {
+                VulkanComputeMeshShaderDataBuilder meshBuilder;
+                meshBuilder.Engine = m_vulkanEngine;
+                meshBuilder.GraphicsEngine = this;
+                meshBuilder.Program = a_program;
+
+                val->Secondary = allocator->TAllocate<VulkanShaderData>();
+                VulkanShaderData::CreateComputeMeshShaderData(val->Secondary, meshBuilder, allocator, a_tempAllocator);
+            }
+
+            if (a_program.ExtraShader != uint32_t(-1))
+            {
+                IVERIFY(m_taskShaders.Exists(a_program.ExtraShader));
+            }
+
+            if (a_program.ShadowVertexShader != uint32_t(-1))
+            {
+                IVERIFY(m_meshShaders.Exists(a_program.ShadowVertexShader));
+            }
+
+            IVERIFY(m_pixelShaders.Exists(a_program.PixelShader));
+
+            VulkanBaseShaderDataBuilder baseBuilder;
+            baseBuilder.Engine = m_vulkanEngine;
+            baseBuilder.GraphicsEngine = this;
+            baseBuilder.Program = a_program;
+
+            val->Base = allocator->TAllocate<VulkanShaderData>();
+            VulkanShaderData::CreateBaseShaderData(val->Base, baseBuilder, allocator, a_tempAllocator);
+
+            break;
+        }
+        case MaterialMode_Compute:
+        {
+            IVERIFY(m_computeShaders.Exists(a_program.ExtraShader));
+
+            VulkanBaseShaderDataBuilder baseBuilder;
+            baseBuilder.Engine = m_vulkanEngine;
+            baseBuilder.GraphicsEngine = this;
+            baseBuilder.Program = a_program;
+
+            val->Base = allocator->TAllocate<VulkanShaderData>();
+            VulkanShaderData::CreateBaseShaderData(val->Base, baseBuilder, allocator, a_tempAllocator);
+
+            break;
+        }
+        }
+
+        ILRETURN val;
+    });
 
     return m_shaderPrograms.PushVal(p);
 }
@@ -678,14 +873,35 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
     TRACE("Destroying Shader Program");
 
+    RENDERSCRATCHFRAME;
+
     BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     const RenderProgram program = m_shaderPrograms[a_addr];
     IDEFER(
     {
         if (program.Data != nullptr)
         {
-            allocator->Destroy((VulkanShaderData*)program.Data);
+            VulkanRenderProgramBlob* blob = (VulkanRenderProgramBlob*)program.Data;
+            IDEFER(allocator->Free(blob));
+
+            if (blob->Base != nullptr)
+            {
+                allocator->Destroy(blob->Base);
+            }
+            if (blob->Shadow != nullptr)
+            {
+                allocator->Destroy(blob->Shadow);
+            }
+            if (blob->Secondary != nullptr)
+            {
+                allocator->Destroy(blob->Secondary);
+            }
+            if (blob->Tertiary != nullptr)
+            {
+                allocator->Destroy(blob->Tertiary);
+            }
         }
 
         if (IISBITSET(program.Flags, RenderProgram::DestroyFlag))
@@ -719,6 +935,7 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
             DestroyPixelShader(program.PixelShader);
 
+            // TODO: Need to change this down the line to support mesh shaders
             if (program.ShadowVertexShader != uint32_t(-1))
             {
                 DestroyVertexShader(program.ShadowVertexShader);
@@ -754,13 +971,13 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
         const ThreadGuard g = ThreadGuard(m_pipeLock);
 
-        typedef Array<uint64_t, RenderScratchAlloc> KeyArray;
+        typedef Array<uint64_t> KeyArray;
 
         const KeyArray keys = ILAMBDA(
         {
             // Templates being fun again so have to use a typedef otherwise we get a compiler error
             // Templates are not a straight forward thing and macros cause all sorts of things to go haywire in C++ so eh what can you do
-            KeyArray vals;
+            KeyArray vals = KeyArray(scratchAllocator);
 
             for (auto iter = m_pipelines.begin(); iter != m_pipelines.end(); ++iter)
             {
@@ -790,11 +1007,11 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
             const ThreadGuard g = ThreadGuard(m_shadowPipeLock);
 
-            typedef Array<uint64_t, RenderScratchAlloc> KeyArray;
+            typedef Array<uint64_t> KeyArray;
 
             const KeyArray keys = ILAMBDA(
             {
-                KeyArray vals;
+                KeyArray vals = KeyArray(scratchAllocator);
 
                 for (auto iter = m_shadowPipelines.begin(); iter != m_shadowPipelines.end(); ++iter)
                 {
@@ -822,11 +1039,11 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
             const ThreadGuard g = ThreadGuard(m_cubeShadowPipeLock);
 
-            typedef Array<uint64_t, RenderScratchAlloc> KeyArray;
+            typedef Array<uint64_t> KeyArray;
 
             const KeyArray keys = ILAMBDA(
             {
-                KeyArray vals;
+                KeyArray vals = KeyArray(scratchAllocator);
                 for (auto iter = m_cubeShadowPipelines.begin(); iter != m_cubeShadowPipelines.end(); ++iter)
                 {
                     const uint32_t val = (uint32_t)(iter->first >> 32);
@@ -861,6 +1078,9 @@ VulkanPipeline* VulkanGraphicsEngine::GetShadowPipeline(uint32_t a_renderTexture
 {
     IVERIFY(m_shaderPrograms.Exists(a_pipeline));
 
+    RENDERSCRATCHFRAME;
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
     const uint64_t addr = (uint64_t)a_renderTexture | (uint64_t)a_pipeline << 32;
 
     const ThreadGuard g = ThreadGuard(m_shadowPipeLock);
@@ -887,7 +1107,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetShadowPipeline(uint32_t a_renderTexture
     };
 
     VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
-    VulkanPipeline::CreateShadowPipeline(pipeline, builder);
+    VulkanPipeline::CreateShadowPipeline(pipeline, builder, scratchAllocator);
 
     m_shadowPipelines.emplace(addr, pipeline);
 
@@ -896,6 +1116,9 @@ VulkanPipeline* VulkanGraphicsEngine::GetShadowPipeline(uint32_t a_renderTexture
 VulkanPipeline* VulkanGraphicsEngine::GetCubeShadowPipeline(uint32_t a_renderTexture, uint32_t a_pipeline)
 {
     IVERIFY(m_shaderPrograms.Exists(a_pipeline));
+
+    RENDERSCRATCHFRAME;
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     const uint64_t addr = (uint64_t)a_renderTexture | (uint64_t)a_pipeline << 32;
 
@@ -923,7 +1146,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetCubeShadowPipeline(uint32_t a_renderTex
     };
 
     VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
-    VulkanPipeline::CreateShadowPipeline(pipeline, builder);
+    VulkanPipeline::CreateShadowPipeline(pipeline, builder, scratchAllocator);
 
     m_cubeShadowPipelines.emplace(addr, pipeline);
 
@@ -941,6 +1164,10 @@ VulkanPipeline* VulkanGraphicsEngine::GetPipeline(uint32_t a_renderTexture, uint
     {
         return iter->second;
     }
+
+    RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     const VulkanRenderTexture* tex = GetRenderTexture(a_renderTexture);
     const RenderProgram program = m_shaderPrograms[a_pipeline];
@@ -994,8 +1221,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetPipeline(uint32_t a_renderTexture, uint
             .Depth = hasDepth,
         };
 
-
-        VulkanPipeline::CreatePipeline(pipeline, builder);
+        VulkanPipeline::CreatePipeline(pipeline, builder, scratchAllocator);
 
         break;
     }
@@ -1024,10 +1250,39 @@ VulkanPipeline* VulkanGraphicsEngine::GetPipeline(uint32_t a_renderTexture, uint
 
     return pipeline;
 }
+VulkanPipeline* VulkanGraphicsEngine::GetComputeMeshPipeline(uint32_t a_pipeline)
+{
+    IVERIFY(m_meshEmulationData != nullptr);
+
+    const uint64_t addr = (uint64_t)a_pipeline;
+
+    const ThreadGuard g = ThreadGuard(m_meshEmulationData->MeshPipelineLock);
+    const auto iter = m_meshEmulationData->MeshPipelines.find(addr);
+    if (iter != m_meshEmulationData->MeshPipelines.end())
+    {
+        return iter->second;
+    }
+
+    TRACE("Allocating Mesh Emulation Vulkan Mesh Pipeline");
+    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
+
+    const VulkanGraphicsComputePipelineBuilder builder = 
+    {
+        .Engine = m_vulkanEngine,
+        .GraphicsEngine = this,
+        .ProgramAddr = a_pipeline,
+    };
+    VulkanPipeline::CreateMeshComputePipeline(pipeline, builder);
+
+    m_meshEmulationData->MeshPipelines.emplace(addr, pipeline);
+
+    return pipeline;
+}
 
 vk::CommandBuffer VulkanGraphicsEngine::StartCommandBuffer(uint32_t a_bufferIndex, uint32_t a_index) const
 {
-    const vk::CommandBuffer commandBuffer = m_commandBuffers[a_index][a_bufferIndex];
+    const vk::CommandBuffer commandBuffer = (*m_commandBuffers[a_index])[a_bufferIndex];
 
     constexpr vk::CommandBufferBeginInfo BeginInfo;
     commandBuffer.begin(BeginInfo);
@@ -1039,12 +1294,14 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
 {
     RENDERSCRATCHFRAME;
 
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
     const vk::CommandBuffer commandBuffer = a_renderCommand->GetCommandBuffer();
 
-    const bool meshEnabled = m_vulkanEngine->IsExtensionEnabled(VK_EXT_MESH_SHADER_EXTENSION_NAME);
+    const bool meshEnabled = m_vulkanEngine->IsMeshEnabled();
 
-    const Array<MaterialRenderStack*, RenderScratchAlloc> stacks = m_renderStacks.ToArray<RenderScratchAlloc>();
-    const Array<RenderProgram, RenderScratchAlloc> shaderPrograms = m_shaderPrograms.ToArray<RenderScratchAlloc>();
+    const Array<MaterialRenderStack*> stacks = m_renderStacks.ToArray(scratchAllocator);
+    const Array<RenderProgram> shaderPrograms = m_shaderPrograms.ToArray(scratchAllocator);
 
     for (const MaterialRenderStack* renderStack : stacks)
     {
@@ -1068,12 +1325,6 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
             continue;
         }
 
-        if (a_renderCommand->BindMaterial(matAddr, true) == nullptr)
-        {
-            IERROR("Failed to bind material");
-        }
-        const VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
-
         const uint32_t modelCount = renderStack->GetModelBufferCount();
         const ModelBuffer* modelBuffers = renderStack->GetModelBuffers();
 
@@ -1083,6 +1334,16 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
         case RenderStackMode_Model:
         {
             PROFILESTACK("Models");
+
+            RENDERSCRATCHFRAME;
+
+            const VulkanPipeline* pipeline = a_renderCommand->BindMaterial(matAddr, true, scratchAllocator);
+            if (pipeline == nullptr)
+            {
+                IERROR("Failed to bind material");
+            }
+
+            const VulkanShaderData* shaderData = pipeline->GetShaderData();
 
             for (uint32_t i = 0; i < modelCount; ++i)
             {
@@ -1101,7 +1362,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                 const float radius = model->GetRadius();
                 const uint32_t indexCount = model->GetIndexCount();
 
-                glm::mat4* transforms = RenderScratchAlloc::TAllocate<glm::mat4>(modelBuffer.TransformCount);
+                glm::mat4* transforms = scratchAllocator->TAllocate<glm::mat4>(modelBuffer.TransformCount);
                 uint32_t transformCount = 0;
 
                 {
@@ -1143,7 +1404,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                 ShaderBufferInput modelSlot;
                 if (shaderData->GetShaderBufferInput(ShaderBufferType_SSModelBuffer, &modelSlot))
                 {
-                    IcarianCore::ShaderModelBuffer* modelBuffer = RenderScratchAlloc::TAllocate<IcarianCore::ShaderModelBuffer>(transformCount);
+                    IcarianCore::ShaderModelBuffer* modelBuffer = scratchAllocator->TAllocate<IcarianCore::ShaderModelBuffer>(transformCount);
 
                     for (uint32_t j = 0; j < transformCount; ++j)
                     {
@@ -1152,17 +1413,15 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                         modelBuffer[j].InvModel = glm::inverse(mat);
                     }
 
-                    void* storagePtr = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
-                    const VulkanShaderStorageObject* storage = new (storagePtr) VulkanShaderStorageObject
+                    const VulkanShaderStorageObject storage = VulkanShaderStorageObject
                     (
                         m_vulkanEngine,
                         sizeof(IcarianCore::ShaderModelBuffer) * transformCount,
                         transformCount,
                         modelBuffer
                     );
-                    IDEFER(storage->~VulkanShaderStorageObject());
 
-                    shaderData->PushShaderStorageObject(commandBuffer, modelSlot.Slot, storage, a_frameIndex);
+                    shaderData->PushShaderStorageObject(commandBuffer, modelSlot.RealSlot, &storage, a_frameIndex);
 
                     commandBuffer.drawIndexed(indexCount, transformCount, 0, 0, 0);
                 }
@@ -1182,6 +1441,16 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
         case RenderStackMode_Skinned:
         {
             PROFILESTACK("Skinned");
+
+            RENDERSCRATCHFRAME;
+
+            const VulkanPipeline* pipeline = a_renderCommand->BindMaterial(matAddr, true, scratchAllocator);
+            if (pipeline == nullptr)
+            {
+                IERROR("Failed to bind material");
+            }
+
+            const VulkanShaderData* shaderData = pipeline->GetShaderData();
 
             for (uint32_t i = 0; i < modelCount; ++i)
             {
@@ -1250,11 +1519,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                             boneMap.emplace(skeleton.BoneData[i].TransformIndex, i);
                         }
 
-                        IcarianCore::ShaderBoneBuffer* boneBuffer = (IcarianCore::ShaderBoneBuffer*)RenderScratchAlloc::Allocate
-                        (
-                            boneCount * sizeof(IcarianCore::ShaderBoneBuffer),
-                            alignof(IcarianCore::ShaderBoneBuffer)
-                        );
+                        IcarianCore::ShaderBoneBuffer* boneBuffer = scratchAllocator->TAllocate<IcarianCore::ShaderBoneBuffer>(boneCount);
 
                         for (uint32_t k = 0; k < boneCount; ++k)
                         {
@@ -1277,17 +1542,15 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                             boneBuffer[k].BoneMatrix = transform * bone.InverseBindPose;
                         }
 
-                        void* storagePtr = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
-                        const VulkanShaderStorageObject* storage = new (storagePtr) VulkanShaderStorageObject
+                        const VulkanShaderStorageObject storage = VulkanShaderStorageObject
                         (
                             m_vulkanEngine,
                             sizeof(IcarianCore::ShaderBoneBuffer) * boneCount,
                             boneCount,
                             boneBuffer
                         );
-                        IDEFER(storage->~VulkanShaderStorageObject());
 
-                        shaderData->PushShaderStorageObject(commandBuffer, boneSlot.Slot, storage, a_frameIndex);
+                        shaderData->PushShaderStorageObject(commandBuffer, boneSlot.RealSlot, &storage, a_frameIndex);
                     }
 
                     shaderData->UpdateTransformBuffer(commandBuffer, transform);
@@ -1301,6 +1564,13 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
         case RenderStackMode_Mesh:
         {
             PROFILESTACK("Mesh");
+
+            RENDERSCRATCHFRAME;
+
+            if (a_renderCommand->BindMaterial(matAddr, meshEnabled, scratchAllocator) == nullptr)
+            {
+                IERROR("Failed to bind material");
+            }
 
             for (uint32_t i = 0; i < modelCount; ++i)
             {
@@ -1345,7 +1615,7 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                     ILRETURN std::numeric_limits<float>::infinity();
                 });
 
-                glm::mat4* transforms = RenderScratchAlloc::TAllocate<glm::mat4>(modelBuffer.TransformCount);
+                glm::mat4* transforms = scratchAllocator->TAllocate<glm::mat4>(modelBuffer.TransformCount);
                 uint32_t transformCount = 0;
 
                 {
@@ -1380,10 +1650,12 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                     continue;
                 }
 
-                if (mesh != nullptr)
-                {
-                    shaderData->PushMeshBuffers(commandBuffer, mesh, a_frameIndex);
-                }
+                const VulkanRenderProgramBlob* blob = (VulkanRenderProgramBlob*)program.Data;
+                IVERIFY(blob->Base != nullptr);
+
+                const VulkanShaderData* shaderData = blob->Base;
+
+                shaderData->PushMeshBuffers(commandBuffer, mesh, a_frameIndex);
 
                 VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Mesh");
 
@@ -1392,9 +1664,11 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                     ShaderBufferInput modelSlot;
                     if (shaderData->GetShaderBufferInput(ShaderBufferType_SSModelBuffer, &modelSlot))
                     {
+                        RENDERSCRATCHFRAME;
+
                         const IcarianCore::ShaderModelBuffer* modelBuffer = ILAMBDA(
                         {
-                            IcarianCore::ShaderModelBuffer* vals = RenderScratchAlloc::TAllocate<IcarianCore::ShaderModelBuffer>(transformCount);
+                            IcarianCore::ShaderModelBuffer* vals = scratchAllocator->TAllocate<IcarianCore::ShaderModelBuffer>(transformCount);
 
                             for (uint32_t i = 0; i < transformCount; ++i)
                             {
@@ -1407,17 +1681,15 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
                             ILRETURN vals;
                         });
 
-                        void* storagePtr = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
-                        const VulkanShaderStorageObject* storage = new (storagePtr) VulkanShaderStorageObject
+                        const VulkanShaderStorageObject storage = VulkanShaderStorageObject
                         (
                             m_vulkanEngine,
                             sizeof(IcarianCore::ShaderModelBuffer) * transformCount,
                             transformCount,
                             modelBuffer
                         );
-                        IDEFER(storage->~VulkanShaderStorageObject());
 
-                        shaderData->PushShaderStorageObject(commandBuffer, modelSlot.Slot, storage, a_frameIndex);
+                        shaderData->PushShaderStorageObject(commandBuffer, modelSlot.RealSlot, &storage, a_frameIndex);
 
                         // Does not support instancing does Y make sense for instance data?
                         commandBuffer.drawMeshTasksEXT(indexCount, transformCount, 1);
@@ -1438,7 +1710,9 @@ void VulkanGraphicsEngine::Draw(bool a_forward, const CameraBuffer& a_camBuffer,
 
                     for (uint32_t j = 0; j < transformCount; ++j)
                     {
-                        a_renderCommand->DrawMesh(transforms[i], uint32_t(-1), uint32_t(-1));
+                        RENDERSCRATCHFRAME;
+
+                        a_renderCommand->DrawMesh(transforms[i], modelBuffer.ModelAddr, indexCount, scratchAllocator);
                     }
                 }
             }
@@ -1469,14 +1743,17 @@ void VulkanGraphicsEngine::DrawShadow
     PROFILESTACK("Rendering");
 
     RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
     VulkanUniformBuffer* shadowLightBuffer = nullptr;
 
     VulkanPushPool* pushPool = m_vulkanEngine->GetPushPool();
 
     const Frustum frustum = Frustum::FromMat4(a_lvp);
 
-    const Array<MaterialRenderStack*, RenderScratchAlloc> stacks = m_renderStacks.ToArray<RenderScratchAlloc>();
-    const Array<RenderProgram, RenderScratchAlloc> shaderPrograms = m_shaderPrograms.ToArray<RenderScratchAlloc>();
+    const Array<MaterialRenderStack*> stacks = m_renderStacks.ToArray(scratchAllocator);
+    const Array<RenderProgram> shaderPrograms = m_shaderPrograms.ToArray(scratchAllocator);
 
     for (const MaterialRenderStack* renderStack : stacks)
     {
@@ -1495,11 +1772,14 @@ void VulkanGraphicsEngine::DrawShadow
             continue;
         }
 
-        VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
+        const VulkanRenderProgramBlob* blob = (VulkanRenderProgramBlob*)program.Data;
+        IVERIFY(blob->Shadow != nullptr);
+
+        VulkanShaderData* shaderData = blob->Shadow;
         bool pipelineBound = false;
 
         ShaderBufferInput shadowLightInput;
-        if (shaderData->GetShadowShaderBufferInput(ShaderBufferType_ShadowLightBuffer, &shadowLightInput))
+        if (shaderData->GetShaderBufferInput(ShaderBufferType_ShadowLightBuffer, &shadowLightInput))
         {
             if (shadowLightBuffer == nullptr)
             {
@@ -1514,7 +1794,7 @@ void VulkanGraphicsEngine::DrawShadow
                 shadowLightBuffer->SetData(a_frameIndex, &buffer);
             }
 
-            shaderData->PushShadowUniformBuffer(a_commandBuffer, shadowLightInput.Slot, shadowLightBuffer, a_frameIndex);
+            shaderData->PushUniformBuffer(a_commandBuffer, shadowLightInput.RealSlot, shadowLightBuffer, a_frameIndex);
         }
         else
         {
@@ -1547,7 +1827,7 @@ void VulkanGraphicsEngine::DrawShadow
 
                     const uint32_t transformCount = modelBuffer.TransformCount;
 
-                    glm::mat4* transforms = RenderScratchAlloc::TAllocate<glm::mat4>(transformCount);
+                    glm::mat4* transforms = scratchAllocator->TAllocate<glm::mat4>(transformCount);
 
                     uint32_t finalTransformCount = 0;
 
@@ -1610,9 +1890,9 @@ void VulkanGraphicsEngine::DrawShadow
                     model->Bind(a_commandBuffer);
 
                     ShaderBufferInput modelSlot;
-                    if (shaderData->GetShadowShaderBufferInput(ShaderBufferType_SSModelBuffer, &modelSlot))
+                    if (shaderData->GetShaderBufferInput(ShaderBufferType_SSModelBuffer, &modelSlot))
                     {
-                        IcarianCore::ShaderModelBuffer* modelBuffer = RenderScratchAlloc::TAllocate<IcarianCore::ShaderModelBuffer>(finalTransformCount);
+                        IcarianCore::ShaderModelBuffer* modelBuffer = scratchAllocator->TAllocate<IcarianCore::ShaderModelBuffer>(finalTransformCount);
                         for (uint32_t j = 0; j < finalTransformCount; ++j)
                         {
                             const glm::mat4& mat = transforms[j];
@@ -1621,11 +1901,15 @@ void VulkanGraphicsEngine::DrawShadow
                             modelBuffer[j].InvModel = glm::inverse(mat);
                         }
 
-                        VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
-                        new (storage) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderModelBuffer) * finalTransformCount, finalTransformCount, modelBuffer);
-                        IDEFER(storage->~VulkanShaderStorageObject());
+                        const VulkanShaderStorageObject storage = VulkanShaderStorageObject
+                        (
+                            m_vulkanEngine,
+                            sizeof(IcarianCore::ShaderModelBuffer) * finalTransformCount,
+                            finalTransformCount,
+                            modelBuffer
+                        );
 
-                        shaderData->PushShadowShaderStorageObject(a_commandBuffer, modelSlot.Slot, storage, a_frameIndex);
+                        shaderData->PushShaderStorageObject(a_commandBuffer, modelSlot.RealSlot, &storage, a_frameIndex);
 
                         a_commandBuffer.drawIndexed(indexCount, finalTransformCount, 0, 0, 0);
                     }
@@ -1633,7 +1917,7 @@ void VulkanGraphicsEngine::DrawShadow
                     {
                         for (uint32_t i = 0; i < finalTransformCount; ++i)
                         {
-                            shaderData->UpdateShadowTransformBuffer(a_commandBuffer, transforms[i]);
+                            shaderData->UpdateTransformBuffer(a_commandBuffer, transforms[i]);
 
                             a_commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
                         }
@@ -1728,7 +2012,7 @@ void VulkanGraphicsEngine::DrawShadow
                             boneMap.emplace(skeleton.BoneData[i].TransformIndex, i);
                         }
 
-                        IcarianCore::ShaderBoneBuffer* boneBuffer = RenderScratchAlloc::TAllocate<IcarianCore::ShaderBoneBuffer>(boneCount);
+                        IcarianCore::ShaderBoneBuffer* boneBuffer = scratchAllocator->TAllocate<IcarianCore::ShaderBoneBuffer>(boneCount);
                         for (uint32_t k = 0; k < boneCount; ++k)
                         {
                             const BoneTransformData& bone = skeleton.BoneData[k];
@@ -1752,11 +2036,15 @@ void VulkanGraphicsEngine::DrawShadow
                             boneBuffer[k].BoneMatrix = transform * bone.InverseBindPose;
                         }
 
-                        VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
-                        new (storage) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderBoneBuffer) * boneCount, boneCount, boneBuffer);
-                        IDEFER(storage->~VulkanShaderStorageObject());
+                        const VulkanShaderStorageObject storage = VulkanShaderStorageObject
+                        (
+                            m_vulkanEngine,
+                            sizeof(IcarianCore::ShaderBoneBuffer) * boneCount,
+                            boneCount,
+                            boneBuffer
+                        );
 
-                        shaderData->PushShaderStorageObject(a_commandBuffer, boneSlot.Slot, storage, a_frameIndex);
+                        shaderData->PushShaderStorageObject(a_commandBuffer, boneSlot.RealSlot, &storage, a_frameIndex);
                     }
 
                     shaderData->UpdateTransformBuffer(a_commandBuffer, transform);
@@ -1781,6 +2069,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
 {
     RENDERSCRATCHFRAME;
 
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
     VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(nullptr, VulkanCommandBufferType_Graphics, VulkanCommandBufferStage_ShadowPass);
 
     // Could possibly reverse the pass order and do culling on the previous pass to speed this up
@@ -1804,7 +2094,15 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
 
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Directional Shadow Pass", 255, 0, 0);
 
-    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
+    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand
+    (
+        m_vulkanEngine,
+        this,
+        m_swapchain,
+        commandBuffer,
+        -1,
+        a_bufferIndex
+    ));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
 
     e_LightType lightType = LightType_Directional;
@@ -1821,13 +2119,16 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
         m_shadowSetupFunc->Exec(shadowSetupArgs);
     }
 
-    const Array<DirectionalLightBuffer, RenderScratchAlloc> lights = m_directionalLights.ToArray<RenderScratchAlloc>();
-    const Array<bool, RenderScratchAlloc> state = m_directionalLights.ToStateArray<RenderScratchAlloc>();
-    const uint32_t size = lights.Size();
+    const uint32_t size = m_directionalLights.Size();
+    const Array<uint8_t> state = m_directionalLights.ToPackedStateArray(scratchAllocator);
+    const Array<DirectionalLightBuffer> lights = m_directionalLights.ToArray(scratchAllocator);
 
     for (uint32_t i = 0; i < size; ++i)
     {
-        if (!state[i])
+        const uint32_t index = i / 8;
+        const uint32_t offset = i % 8;
+
+        if (!IISBITSET(state[index], offset))
         {
             continue;
         }
@@ -1890,7 +2191,17 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
             commandBuffer.setScissor(0, 1, &scissor);
             commandBuffer.setViewport(0, 1, &viewport);
 
-            DrawShadow(splits[0].LVP, splits[0].Split, buffer.ShadowBias, buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_frameIndex);
+            DrawShadow
+            (
+                splits[0].LVP,
+                splits[0].Split,
+                buffer.ShadowBias,
+                buffer.RenderLayer,
+                lightRenderTexture,
+                false,
+                commandBuffer,
+                a_frameIndex
+            );
 
             {
                 PROFILESTACK("Post Shadow");
@@ -1909,6 +2220,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
 VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
     RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(nullptr, VulkanCommandBufferType_Graphics, VulkanCommandBufferStage_ShadowPass);
 
@@ -1939,7 +2252,15 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
 
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Point Shadow Pass", 255, 0, 0);
 
-    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, -1, a_bufferIndex));
+    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand
+    (
+        m_vulkanEngine,
+        this,
+        m_swapchain,
+        commandBuffer,
+        -1,
+        a_bufferIndex
+    ));
     m_lightData.Push(VulkanLightData());
 
     e_LightType lightType = LightType_Point;
@@ -1961,7 +2282,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
 
     const Frustum cameraFrustum = camBuffer.ToFrustum(glm::vec2(swapWidth, swapHeight));
 
-    const Array<PointLightBuffer, RenderScratchAlloc> lights = m_pointLights.ToActiveArray<RenderScratchAlloc>();
+    const Array<PointLightBuffer> lights = m_pointLights.ToActiveArray(scratchAllocator);
 
     for (const PointLightBuffer& buffer : lights)
     {
@@ -2043,7 +2364,17 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
             commandBuffer.setScissor(0, 1, &scissor);
             commandBuffer.setViewport(0, 1, &viewport);
 
-            DrawShadow(lvp, buffer.Radius, buffer.ShadowBias, buffer.RenderLayer, renderTextureIndex, true, commandBuffer, a_frameIndex);
+            DrawShadow
+            (
+                lvp,
+                buffer.Radius,
+                buffer.ShadowBias,
+                buffer.RenderLayer,
+                renderTextureIndex,
+                true,
+                commandBuffer,
+                a_frameIndex
+            );
         }
     }
 
@@ -2056,6 +2387,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
 VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, uint32_t a_bufferIndex, uint32_t a_frameIndex)
 {
     RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(nullptr, VulkanCommandBufferType_Graphics, VulkanCommandBufferStage_ShadowPass);
 
@@ -2100,13 +2433,16 @@ VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, ui
     const uint32_t swapHeight = m_swapchain->GetHeight();
     const Frustum cameraFrustum = camBuffer.ToFrustum(glm::vec2(swapWidth, swapHeight));
 
-    const Array<SpotLightBuffer, RenderScratchAlloc> lights = m_spotLights.ToArray<RenderScratchAlloc>();
-    const Array<bool, RenderScratchAlloc> state = m_spotLights.ToStateArray<RenderScratchAlloc>();
-    const uint32_t size = lights.Size();
+    const uint32_t size = m_spotLights.Size();
+    const Array<SpotLightBuffer> lights = m_spotLights.ToArray(scratchAllocator);
+    const Array<uint8_t> state = m_spotLights.ToPackedStateArray(scratchAllocator);
 
     for (uint32_t i = 0; i < size; ++i)
     {
-        if (!state[i])
+        const uint32_t index = i / 8;
+        const uint32_t offset = i % 8;
+
+        if (!IISBITSET(state[index], offset))
         {
             continue;
         }
@@ -2114,7 +2450,9 @@ VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, ui
         const SpotLightBuffer& buffer = lights[i];
         IVERIFY(buffer.Data != nullptr);
 
-        if (buffer.TransformAddr == uint32_t(-1) || (buffer.RenderLayer & camBuffer.RenderLayer) == 0 || buffer.Intensity <= 0.0f || buffer.Radius <= 0.0f)
+        const bool isValid = buffer.TransformAddr != uint32_t(-1) && buffer.Intensity > 0.0f && buffer.Radius > 0.0f;
+        const bool sharesLayer = (buffer.RenderLayer & camBuffer.RenderLayer) != 0;
+        if (!isValid || !sharesLayer)
         {
             continue;
         }
@@ -2270,6 +2608,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
     RENDERSCRATCHFRAME;
 
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
     VulkanPushPool* pushPool = m_vulkanEngine->GetPushPool();
 
     const CameraBuffer& camBuffer = m_cameraBuffers[a_camIndex];
@@ -2280,7 +2620,15 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Light Pass", 0, 0, 255);
 
-    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
+    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand
+    (
+        m_vulkanEngine,
+        this,
+        m_swapchain,
+        commandBuffer,
+        a_camIndex,
+        a_bufferIndex
+    ));
     VulkanLightData& lightData = m_lightData.Push(VulkanLightData());
 
     void* lightSetupArgs[] =
@@ -2328,13 +2676,16 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Shadow Directional Light");
 
-            const Array<DirectionalLightBuffer, RenderScratchAlloc> lights = m_directionalLights.ToArray<RenderScratchAlloc>();
-            const Array<bool, RenderScratchAlloc> state = m_directionalLights.ToStateArray<RenderScratchAlloc>();
-            const uint32_t size = lights.Size();
+            const uint32_t size = m_directionalLights.Size();
+            const Array<DirectionalLightBuffer> lights = m_directionalLights.ToArray(scratchAllocator);
+            const Array<uint8_t> state = m_directionalLights.ToPackedStateArray(scratchAllocator);
 
             for (uint32_t j = 0; j < size; ++j)
             {
-                if (!state[j])
+                const uint32_t index = i / 8;
+                const uint32_t offset = i % 8;
+
+                if (!IISBITSET(state[index], offset))
                 {
                     continue;
                 }
@@ -2386,19 +2737,25 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                 ShaderBufferInput dirLightInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_DirectionalLightBuffer, &dirLightInput))
                 {
-                    renderCommand.PushLight(dirLightInput.Slot, LightType_Directional, j);
+                    RENDERSCRATCHFRAME;
+
+                    renderCommand.PushLight(dirLightInput.RealSlot, LightType_Directional, j, scratchAllocator);
                 }
 
                 ShaderBufferInput shadowLightInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_SSShadowLightBuffer, &shadowLightInput))
                 {
-                    renderCommand.PushLightSplits(shadowLightInput.Slot, splits, splitCount);
+                    RENDERSCRATCHFRAME;
+
+                    renderCommand.PushLightSplits(shadowLightInput.RealSlot, splits, splitCount, scratchAllocator);
                 }
 
                 ShaderBufferInput shadowTextureInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_AShadowTexture2D, &shadowTextureInput))
                 {
-                    renderCommand.PushShadowTextureArray(shadowTextureInput.Slot, j);
+                    RENDERSCRATCHFRAME;
+
+                    renderCommand.PushShadowTextureArray(shadowTextureInput.RealSlot, j, scratchAllocator);
                 }
 
                 commandBuffer.draw(4, 1, 0, 0);
@@ -2414,13 +2771,16 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Shadow Point Light");
 
-            const Array<PointLightBuffer, RenderScratchAlloc> lights = m_pointLights.ToArray<RenderScratchAlloc>();
-            const Array<bool, RenderScratchAlloc> state = m_pointLights.ToStateArray<RenderScratchAlloc>();
-            const uint32_t size = lights.Size();
+            const uint32_t size = m_pointLights.Size();
+            const Array<PointLightBuffer> lights = m_pointLights.ToArray(scratchAllocator);
+            const Array<uint8_t> state = m_pointLights.ToPackedStateArray(scratchAllocator);
 
             for (uint32_t j = 0; j < size; ++j)
             {
-                if (!state[j])
+                const uint32_t index = i / 8;
+                const uint32_t offset = i % 8;
+
+                if (!IISBITSET(state[index], offset))
                 {
                     continue;
                 }
@@ -2488,13 +2848,13 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     uniformBuffer->SetData(a_frameIndex, &shaderBuffer);
 
-                    data->PushUniformBuffer(commandBuffer, pointLightInput.Slot, uniformBuffer, a_frameIndex);
+                    data->PushUniformBuffer(commandBuffer, pointLightInput.RealSlot, uniformBuffer, a_frameIndex);
                 }
 
                 ShaderBufferInput shadowTextureInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_ShadowTextureCube, &shadowTextureInput))
                 {
-                    VulkanTextureSampler* sampler = RenderScratchAlloc::TAllocate<VulkanTextureSampler>();
+                    VulkanTextureSampler* sampler = scratchAllocator->TAllocate<VulkanTextureSampler>();
 
                     const TextureSamplerBuffer buffer =
                     {
@@ -2515,7 +2875,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     IDEFER(sampler->~VulkanTextureSampler());
 
-                    data->PushTexture(commandBuffer, shadowTextureInput.Slot, buffer, a_frameIndex);
+                    data->PushTexture(commandBuffer, shadowTextureInput.RealSlot, buffer, a_frameIndex);
                 }
 
                 commandBuffer.draw(4, 1, 0, 0);
@@ -2531,13 +2891,16 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Shadow Spot Light");
 
-            const Array<SpotLightBuffer, RenderScratchAlloc> lights = m_spotLights.ToArray<RenderScratchAlloc>();
-            const Array<bool, RenderScratchAlloc> state = m_spotLights.ToStateArray<RenderScratchAlloc>();
-            const uint32_t size = lights.Size();
+            const uint32_t size = m_spotLights.Size();
+            const Array<SpotLightBuffer> lights = m_spotLights.ToArray(scratchAllocator);
+            const Array<uint8_t> state = m_spotLights.ToPackedStateArray(scratchAllocator);
 
             for (uint32_t j = 0; j < size; ++j)
             {
-                if (!state[j])
+                const uint32_t index = i / 8;
+                const uint32_t offset = i % 8;
+
+                if (!IISBITSET(state[index], offset))
                 {
                     continue;
                 }
@@ -2611,13 +2974,13 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     uniformBuffer->SetData(a_frameIndex, &shaderBuffer);
 
-                    data->PushUniformBuffer(commandBuffer, spotLightInput.Slot, uniformBuffer, a_frameIndex);
+                    data->PushUniformBuffer(commandBuffer, spotLightInput.RealSlot, uniformBuffer, a_frameIndex);
                 }
 
                 ShaderBufferInput shadowTextureInput;
                 if (data->GetShaderBufferInput(ShaderBufferType_ShadowTexture2D, &shadowTextureInput))
                 {
-                    VulkanTextureSampler* sampler = RenderScratchAlloc::TAllocate<VulkanTextureSampler>();
+                    VulkanTextureSampler* sampler = scratchAllocator->TAllocate<VulkanTextureSampler>();
 
                     const TextureSamplerBuffer buffer =
                     {
@@ -2638,7 +3001,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                     VulkanTextureSampler::GenerateFromBuffer(sampler, builder);
                     IDEFER(sampler->~VulkanTextureSampler());
 
-                    data->PushTexture(commandBuffer, shadowTextureInput.Slot, buffer, a_frameIndex);
+                    data->PushTexture(commandBuffer, shadowTextureInput.RealSlot, buffer, a_frameIndex);
                 }
 
                 ShaderBufferInput shadowBufferInput;
@@ -2654,7 +3017,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     uniformBuffer->SetData(a_frameIndex, &shaderBuffer);
 
-                    data->PushUniformBuffer(commandBuffer, shadowBufferInput.Slot, uniformBuffer, a_frameIndex);
+                    data->PushUniformBuffer(commandBuffer, shadowBufferInput.RealSlot, uniformBuffer, a_frameIndex);
                 }
 
                 commandBuffer.draw(4, 1, 0, 0);
@@ -2700,7 +3063,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Ambient Light");
 
-            const Array<AmbientLightBuffer, RenderScratchAlloc> lights = m_ambientLights.ToActiveArray<RenderScratchAlloc>();
+            const Array<AmbientLightBuffer> lights = m_ambientLights.ToActiveArray(scratchAllocator);
             const uint32_t size = lights.Size();
 
             ShaderBufferInput ambientLightInput;
@@ -2729,14 +3092,18 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     uniformBuffer->SetData(a_frameIndex, &buffer);
 
-                    data->PushUniformBuffer(commandBuffer, ambientLightInput.Slot, uniformBuffer, a_frameIndex);
+                    data->PushUniformBuffer(commandBuffer, ambientLightInput.RealSlot, uniformBuffer, a_frameIndex);
 
-                    renderCommand.DrawMaterial();
+                    RENDERSCRATCHFRAME;
+
+                    renderCommand.DrawMaterial(scratchAllocator);
                 }
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSAmbientLightBuffer, &ambientLightInput))
             {
-                IcarianCore::ShaderAmbientLightBuffer* buffers = RenderScratchAlloc::TAllocate<IcarianCore::ShaderAmbientLightBuffer>(size);
+                RENDERSCRATCHFRAME;
+
+                IcarianCore::ShaderAmbientLightBuffer* buffers = scratchAllocator->TAllocate<IcarianCore::ShaderAmbientLightBuffer>(size);
                 uint32_t count = 0;
 
                 for (const AmbientLightBuffer& ambientLight : lights)
@@ -2758,13 +3125,17 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                 if (count > 0)
                 {
-                    VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
-                    new (storage) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderAmbientLightBuffer) * count, count, buffers);
-                    IDEFER(storage->~VulkanShaderStorageObject());
+                    const VulkanShaderStorageObject storage = VulkanShaderStorageObject
+                    (
+                        m_vulkanEngine,
+                        sizeof(IcarianCore::ShaderAmbientLightBuffer) * count,
+                        count,
+                        buffers
+                    );
 
-                    data->PushShaderStorageObject(commandBuffer, ambientLightInput.Slot, storage, a_frameIndex);
+                    data->PushShaderStorageObject(commandBuffer, ambientLightInput.RealSlot, &storage, a_frameIndex);
 
-                    renderCommand.DrawMaterial();
+                    renderCommand.DrawMaterial(scratchAllocator);
                 }
             }
 
@@ -2778,7 +3149,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Directional Light");
 
-            const Array<DirectionalLightBuffer, RenderScratchAlloc> lights = m_directionalLights.ToActiveArray<RenderScratchAlloc>();
+            const Array<DirectionalLightBuffer> lights = m_directionalLights.ToActiveArray(scratchAllocator);
 
             ShaderBufferInput dirLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_DirectionalLightBuffer, &dirLightInput))
@@ -2819,16 +3190,20 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     uniformBuffer->SetData(a_frameIndex, &buffer);
 
-                    data->PushUniformBuffer(commandBuffer, dirLightInput.Slot, uniformBuffer, a_frameIndex);
+                    data->PushUniformBuffer(commandBuffer, dirLightInput.RealSlot, uniformBuffer, a_frameIndex);
 
-                    renderCommand.DrawMaterial();
+                    RENDERSCRATCHFRAME;
+
+                    renderCommand.DrawMaterial(scratchAllocator);
                 }
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSDirectionalLightBuffer, &dirLightInput))
             {
+                RENDERSCRATCHFRAME;
+
                 const uint32_t size = lights.Size();
 
-                IcarianCore::ShaderDirectionalLightBuffer* buffers = RenderScratchAlloc::TAllocate<IcarianCore::ShaderDirectionalLightBuffer>(size);
+                IcarianCore::ShaderDirectionalLightBuffer* buffers = scratchAllocator->TAllocate<IcarianCore::ShaderDirectionalLightBuffer>(size);
                 uint32_t count = 0;
 
                 for (const DirectionalLightBuffer& dirLight : lights)
@@ -2865,13 +3240,17 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                 if (count > 0)
                 {
-                    VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
-                    new (storage) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderDirectionalLightBuffer) * count, count, buffers);
-                    IDEFER(storage->~VulkanShaderStorageObject());
+                    const VulkanShaderStorageObject storage = VulkanShaderStorageObject
+                    (
+                        m_vulkanEngine,
+                        sizeof(IcarianCore::ShaderDirectionalLightBuffer) * count,
+                        count,
+                        buffers
+                    );
 
-                    data->PushShaderStorageObject(commandBuffer, dirLightInput.Slot, storage, a_frameIndex);
+                    data->PushShaderStorageObject(commandBuffer, dirLightInput.RealSlot, &storage, a_frameIndex);
 
-                    renderCommand.DrawMaterial();
+                    renderCommand.DrawMaterial(scratchAllocator);
                 }
             }
 
@@ -2885,7 +3264,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Point Light");
 
-            const Array<PointLightBuffer, RenderScratchAlloc> lights = m_pointLights.ToActiveArray<RenderScratchAlloc>();
+            const Array<PointLightBuffer> lights = m_pointLights.ToActiveArray(scratchAllocator);
 
             ShaderBufferInput pointLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_PointLightBuffer, &pointLightInput))
@@ -2931,16 +3310,20 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     uniformBuffer->SetData(a_frameIndex, &buffer);
 
-                    data->PushUniformBuffer(commandBuffer, pointLightInput.Slot, uniformBuffer, a_frameIndex);
+                    data->PushUniformBuffer(commandBuffer, pointLightInput.RealSlot, uniformBuffer, a_frameIndex);
 
-                    renderCommand.DrawMaterial();
+                    RENDERSCRATCHFRAME;
+
+                    renderCommand.DrawMaterial(scratchAllocator);
                 }
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSPointLightBuffer, &pointLightInput))
             {
+                RENDERSCRATCHFRAME;
+
                 const uint32_t size = lights.Size();
 
-                IcarianCore::ShaderPointLightBuffer* buffers = RenderScratchAlloc::TAllocate<IcarianCore::ShaderPointLightBuffer>(size);
+                IcarianCore::ShaderPointLightBuffer* buffers = scratchAllocator->TAllocate<IcarianCore::ShaderPointLightBuffer>(size);
                 uint32_t count = 0;
 
                 for (const PointLightBuffer& pointLight : lights)
@@ -2982,13 +3365,19 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                 if (count > 0)
                 {
-                    VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
-                    new (storage) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderPointLightBuffer) * count, count, buffers);
-                    IDEFER(storage->~VulkanShaderStorageObject());
+                    const VulkanShaderStorageObject storage = VulkanShaderStorageObject
+                    (
+                        m_vulkanEngine,
+                        sizeof(IcarianCore::ShaderPointLightBuffer) * count,
+                        count,
+                        buffers
+                    );
 
-                    data->PushShaderStorageObject(commandBuffer, pointLightInput.Slot, storage, a_frameIndex);
+                    data->PushShaderStorageObject(commandBuffer, pointLightInput.RealSlot, &storage, a_frameIndex);
 
-                    renderCommand.DrawMaterial();
+                    RENDERSCRATCHFRAME;
+
+                    renderCommand.DrawMaterial(scratchAllocator);
                 }
             }
 
@@ -3002,7 +3391,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
             VULKAN_MARKER(m_vulkanEngine, commandBuffer, "Spot Light");
 
-            const Array<SpotLightBuffer, RenderScratchAlloc> lights = m_spotLights.ToActiveArray<RenderScratchAlloc>();
+            const Array<SpotLightBuffer> lights = m_spotLights.ToActiveArray(scratchAllocator);
 
             ShaderBufferInput spotLightInput;
             if (data->GetShaderBufferInput(ShaderBufferType_SpotLightBuffer, &spotLightInput))
@@ -3051,16 +3440,26 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     uniformBuffer->SetData(a_frameIndex, &buffer);
 
-                    data->PushUniformBuffer(commandBuffer, spotLightInput.Slot, uniformBuffer, a_frameIndex);
+                    data->PushUniformBuffer
+                    (
+                        commandBuffer, 
+                        spotLightInput.RealSlot, 
+                        uniformBuffer, 
+                        a_frameIndex
+                    );
 
-                    renderCommand.DrawMaterial();
+                    RENDERSCRATCHFRAME;
+
+                    renderCommand.DrawMaterial(scratchAllocator);
                 }
             }
             else if (data->GetShaderBufferInput(ShaderBufferType_SSSpotLightBuffer, &spotLightInput))
             {
+                RENDERSCRATCHFRAME;
+
                 const uint32_t size = lights.Size();
 
-                IcarianCore::ShaderSpotLightBuffer* buffers = RenderScratchAlloc::TAllocate<IcarianCore::ShaderSpotLightBuffer>(size);
+                IcarianCore::ShaderSpotLightBuffer* buffers = scratchAllocator->TAllocate<IcarianCore::ShaderSpotLightBuffer>(size);
                 uint32_t count = 0;
                 for (const SpotLightBuffer& spotLight : lights)
                 {
@@ -3105,13 +3504,17 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                 if (count > 0)
                 {
-                    VulkanShaderStorageObject* storage = RenderScratchAlloc::TAllocate<VulkanShaderStorageObject>();
-                    new (storage) VulkanShaderStorageObject(m_vulkanEngine, sizeof(IcarianCore::ShaderSpotLightBuffer) * count, count, buffers);
-                    IDEFER(storage->~VulkanShaderStorageObject());
+                    const VulkanShaderStorageObject storage = VulkanShaderStorageObject
+                    (
+                        m_vulkanEngine,
+                        sizeof(IcarianCore::ShaderSpotLightBuffer) * count,
+                        count,
+                        buffers
+                    );
 
-                    data->PushShaderStorageObject(commandBuffer, spotLightInput.Slot, storage, a_frameIndex);
+                    data->PushShaderStorageObject(commandBuffer, spotLightInput.RealSlot, &storage, a_frameIndex);
 
-                    renderCommand.DrawMaterial();
+                    renderCommand.DrawMaterial(scratchAllocator);
                 }
             }
 
@@ -3143,6 +3546,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint3
 
     RENDERSCRATCHFRAME;
 
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
     const CameraBuffer camBuffer = m_cameraBuffers[a_camIndex];
 
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
@@ -3151,7 +3556,15 @@ VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint3
 
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Forward Pass", 0, 255, 255);
 
-    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
+    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand
+    (
+        m_vulkanEngine,
+        this,
+        m_swapchain,
+        commandBuffer,
+        a_camIndex,
+        a_bufferIndex
+    ));
 
     void* camArgs[] =
     {
@@ -3185,13 +3598,23 @@ VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint3
         RENDERSCRATCHFRAME;
 
         const uint32_t renderTextureAddr = renderCommand.GetRenderTexutreAddr();
-        const Array<VulkanGraphicsParticle2D*, RenderScratchAlloc> particleSystems = m_particleEmitters.ToActiveArray<RenderScratchAlloc>();
+        const Array<VulkanGraphicsParticle2D*> particleSystems = m_particleEmitters.ToActiveArray(scratchAllocator);
 
         for (VulkanGraphicsParticle2D* pSys : particleSystems)
         {
+            RENDERSCRATCHFRAME;
+
             IVERIFY(pSys != nullptr);
 
-            pSys->Update(a_frameIndex, a_bufferIndex, camBuffer.RenderLayer, commandBuffer, renderTextureAddr);
+            pSys->Update
+            (
+                a_frameIndex,
+                a_bufferIndex,
+                camBuffer.RenderLayer,
+                commandBuffer,
+                renderTextureAddr,
+                scratchAllocator
+            );
         }
     }
 
@@ -3221,7 +3644,15 @@ VulkanCommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t
 
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Post Pass", 255, 255, 0);
 
-    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
+    VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand
+    (
+        m_vulkanEngine,
+        this,
+        m_swapchain,
+        commandBuffer,
+        a_camIndex,
+        a_bufferIndex
+    ));
 
     void* camArgs[] =
     {
@@ -3377,27 +3808,49 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
     Profiler::StartFrame("Drawing Setup");
     m_renderCommands.Clear();
 
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     {
         RENDERSCRATCHFRAME;
 
-        const Array<bool, RenderScratchAlloc> state = m_shaderPrograms.ToStateArray<RenderScratchAlloc>();
+        const uint32_t size = m_shaderPrograms.Size();
+        const Array<uint8_t> state = m_shaderPrograms.ToPackedStateArray(scratchAllocator);
         TLockArray<RenderProgram> a = m_shaderPrograms.ToLockArray();
-        const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (!state[i])
+            const uint32_t index = i / 8;
+            const uint32_t offset = i % 8;
+
+            if (!IISBITSET(state[index], offset))
             {
                 continue;
             }
 
-            RenderProgram& program = a[i];
+            const RenderProgram& program = a[i];
             IVERIFY(program.Data != nullptr);
 
-            VulkanShaderData* shaderData = (VulkanShaderData*)program.Data;
-            shaderData->Update(a_index, program);
+            const VulkanRenderProgramBlob* blob = (VulkanRenderProgramBlob*)program.Data;
+            if (blob->Shadow != nullptr)
+            {
+                blob->Shadow->Update(a_index, program);
+            }
+
+            if (blob->Base != nullptr)
+            {
+                blob->Base->Update(a_index, program);
+            }
+
+            if (blob->Secondary != nullptr)
+            {
+                blob->Secondary->Update(a_index, program);
+            }
+
+            if (blob->Tertiary != nullptr)
+            {
+                blob->Tertiary->Update(a_index, program);
+            }
         }
 
         const IcarianCore::ShaderTimeBuffer timeBuffer =
@@ -3411,7 +3864,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
     const vk::Device device = m_vulkanEngine->GetLogicalDevice();
 
     const uint32_t camBufferSize = m_cameraBuffers.Size();
-    Array<uint32_t, RenderScratchAlloc> camIndices;
+    Array<uint32_t> camIndices = Array<uint32_t>(scratchAllocator);
     for (uint32_t i = 0; i < camBufferSize; ++i)
     {
         if (m_cameraBuffers[i].TransformAddr != uint32_t(-1))
@@ -3424,7 +3877,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
     const uint32_t canvasCount = canvasBuffer.Size();
     const uint32_t camIndexSize = camIndices.Size();
     const uint32_t totalPoolSize = camIndexSize * DrawingPassCount + canvasCount;
-    const uint32_t poolSize = (uint32_t)m_commandPool[a_index].Size();
+    const uint32_t poolSize = (uint32_t)m_commandPool[a_index]->Size();
 
     if (poolSize < totalPoolSize)
     {
@@ -3441,7 +3894,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
             vk::CommandPool pool;
             VKRESERRMSG(device.createCommandPool(&poolInfo, nullptr, &pool), "Failed to create graphics command pool");
 
-            m_commandPool[a_index].Push(pool);
+            m_commandPool[a_index]->Push(pool);
 
             const vk::CommandBufferAllocateInfo commandBufferInfo = vk::CommandBufferAllocateInfo
             (
@@ -3453,7 +3906,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
             vk::CommandBuffer buffer;
             VKRESERRMSG(device.allocateCommandBuffers(&commandBufferInfo, &buffer), "Failed to allocate graphics command buffer");
 
-            m_commandBuffers[a_index].Push(buffer);
+            m_commandBuffers[a_index]->Push(buffer);
         }
     }
 
@@ -3465,7 +3918,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
         const uint32_t diff = totalPoolSize - camUniformSize;
         for (uint32_t i = 0; i < diff; ++i)
         {
-            VulkanUniformBuffer* buffer = allocator->Create<VulkanUniformBuffer>(m_vulkanEngine, sizeof(IcarianCore::ShaderCameraBuffer));
+            VulkanUniformBuffer* buffer = blockAllocator->Create<VulkanUniformBuffer>(m_vulkanEngine, sizeof(IcarianCore::ShaderCameraBuffer));
 
             m_cameraUniforms.Push(buffer);
         }
@@ -3473,7 +3926,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
 
     for (uint32_t i = 0; i < poolSize; ++i)
     {
-        device.resetCommandPool(m_commandPool[a_index][i]);
+        device.resetCommandPool((*m_commandPool[a_index])[i]);
     }
 
     Profiler::StopFrame();
@@ -3546,7 +3999,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
         ThreadPool::PushJob(postJob);
     }
 
-    Array<VulkanCommandBuffer> cmdBuffers;
+    Array<VulkanCommandBuffer> cmdBuffers = Array<VulkanCommandBuffer>(blockAllocator);
     // TODO: Disabling this for now as it is a mess
     // {
     //     PROFILESTACK("Video Decode");
@@ -3581,13 +4034,13 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
     //     }
     // }
 
-    Array<vk::CommandBuffer> uiBuffers;
+    Array<vk::CommandBuffer> uiBuffers = Array<vk::CommandBuffer>(blockAllocator);
     {
         PROFILESTACK("UI Draw");
 
         RENDERSCRATCHFRAME;
 
-        const Array<CanvasRendererBuffer, RenderScratchAlloc> a = m_canvasRenderers.ToActiveArray<RenderScratchAlloc>();
+        const Array<CanvasRendererBuffer> a = m_canvasRenderers.ToActiveArray(scratchAllocator);
 
         const uint32_t canvasArrSize = a.Size();
         for (uint32_t i = 0; i < canvasArrSize; ++i)
@@ -3715,36 +4168,36 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
     return cmdBuffers;
 }
 
-VulkanVertexShader* VulkanGraphicsEngine::GetVertexShader(uint32_t a_addr)
-{
-    IVERIFY(m_vertexShaders.Exists(a_addr));
+// VulkanVertexShader* VulkanGraphicsEngine::GetVertexShader(uint32_t a_addr)
+// {
+//     IVERIFY(m_vertexShaders.Exists(a_addr));
 
-    return m_vertexShaders[a_addr];
-}
-VulkanTaskShader* VulkanGraphicsEngine::GetTaskShader(uint32_t a_addr)
-{
-    IVERIFY(m_taskShaders.Exists(a_addr));
+//     return m_vertexShaders[a_addr];
+// }
+// VulkanTaskShader* VulkanGraphicsEngine::GetTaskShader(uint32_t a_addr)
+// {
+//     IVERIFY(m_taskShaders.Exists(a_addr));
 
-    return m_taskShaders[a_addr];
-}
-VulkanMeshShader* VulkanGraphicsEngine::GetMeshShader(uint32_t a_addr)
-{
-    IVERIFY(m_meshShaders.Exists(a_addr));
+//     return m_taskShaders[a_addr];
+// }
+// VulkanMeshShader* VulkanGraphicsEngine::GetMeshShader(uint32_t a_addr)
+// {
+//     IVERIFY(m_meshShaders.Exists(a_addr));
 
-    return m_meshShaders[a_addr];
-}
-VulkanPixelShader* VulkanGraphicsEngine::GetPixelShader(uint32_t a_addr)
-{
-    IVERIFY(m_pixelShaders.Exists(a_addr));
+//     return m_meshShaders[a_addr];
+// }
+// VulkanPixelShader* VulkanGraphicsEngine::GetPixelShader(uint32_t a_addr)
+// {
+//     IVERIFY(m_pixelShaders.Exists(a_addr));
 
-    return m_pixelShaders[a_addr];
-}
-VulkanComputeShader* VulkanGraphicsEngine::GetComputeShader(uint32_t a_addr)
-{
-    IVERIFY(m_computeShaders.Exists(a_addr));
+//     return m_pixelShaders[a_addr];
+// }
+// VulkanComputeShader* VulkanGraphicsEngine::GetComputeShader(uint32_t a_addr)
+// {
+//     IVERIFY(m_computeShaders.Exists(a_addr));
 
-    return m_computeShaders[a_addr];
-}
+//     return m_computeShaders[a_addr];
+// }
 
 CameraBuffer VulkanGraphicsEngine::GetCameraBuffer(uint32_t a_addr)
 {
@@ -4143,7 +4596,7 @@ TextureSamplerBuffer VulkanGraphicsEngine::GetTextureSampler(uint32_t a_addr)
 
 // MIT License
 //
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

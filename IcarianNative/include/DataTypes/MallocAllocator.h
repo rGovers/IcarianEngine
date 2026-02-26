@@ -4,18 +4,32 @@
 
 #pragma once
 
-#include <SPIRV/GlslangToSpv.h>
-#include <glslang/Include/ResourceLimits.h>
-#include <glslang/Public/ShaderLang.h>
-
 #include "DataTypes/Allocator.h"
-#include "DataTypes/Array.h"
-#include "DataTypes/COWString.h"
 
-void spirv_init();
-void spirv_destroy();
+#include <cstdlib>
 
-Array<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const COWU8String& a_str, bool a_optimize, const COWU8String& a_entryPoint, Allocator* a_allocator);
+class MallocAllocator : public Allocator
+{
+private:
+
+protected:
+
+public:
+    [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
+    {
+        return aligned_alloc((size_t)a_size, (size_t)a_size);
+    }
+
+    virtual void Free(void* a_ptr)
+    {
+        free(a_ptr);
+    }
+
+    static MallocAllocator* Instance;
+
+    static void Init();
+    static void Destroy();
+};
 
 // MIT License
 // 

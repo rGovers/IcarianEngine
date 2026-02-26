@@ -12,6 +12,7 @@
 #include "Core/IcarianError.h"
 #include "Core/IcarianLambda.h"
 #include "Core/StringUtils.h"
+#include "DataTypes/MallocAllocator.h"
 #include "DeletionQueue.h"
 #include "FileCache.h"
 #include "ObjectManager.h"
@@ -28,6 +29,7 @@
 #include "Rendering/Vulkan/VulkanModel.h"
 #include "Rendering/Vulkan/VulkanRenderCommand.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
+#include "Rendering/Vulkan/VulkanRenderProgramBlob.h"
 #include "Rendering/Vulkan/VulkanRenderTexture.h"
 #include "Rendering/Vulkan/VulkanShaderData.h"
 #include "Rendering/Vulkan/VulkanTextureSampler.h"
@@ -170,15 +172,18 @@ RUNTIME_FUNCTION(uint32_t, ComputeShader, GenerateGraphicsFromFile,
     IERRBLOCK;
     RENDERSCRATCHFRAME;
 
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
-    const std::filesystem::path p = std::filesystem::path(str);
-    const std::filesystem::path ext = p.extension();
+    // Will break on Windows if we are over the stack size as Windows is terrible with large paths so "safe" to use the scratch allocator
+    const COWU8String pathStr = COWU8String(str, scratchAllocator);
+    const uint32_t index = pathStr.FindLastCharacter('.');
+    IERRCHECKRET(index != uint32_t(-1), -1);
+    const COWU8String extStr = pathStr.Substring(index, pathStr.Length(), scratchAllocator);
 
-    const std::string extStr = ext.string();
-
-    switch (StringHash<uint32_t>(extStr.c_str())) 
+    switch (StringHash<uint32_t>(extStr.CStr())) 
     {
     case StringHash<uint32_t>(".fcomp"):
     {
@@ -188,14 +193,17 @@ RUNTIME_FUNCTION(uint32_t, ComputeShader, GenerateGraphicsFromFile,
 
         const uint64_t size = handle->GetSize();
 
-        char* str = RenderScratchAlloc::TAllocate<char>(size);
+        // Coming from file so could be a very large allocation
+        // Want to use malloc rather then scratch memory to prevent breakage if over the stack size
+        // Would normally use the block allocator but we are in glue code
+        CharU8* str = scratchAllocator->TAllocate<CharU8>(size);
         IERRCHECKRET(handle->Read(str, size) == size, -1);
 
-        return Instance->GenerateFComputeShaderAddr(std::string_view(str, size));
+        return Instance->GenerateFComputeShaderAddr(COWU8String(str, size, scratchAllocator));
     }
     default:
     {
-        IWARN(std::string("ComputeShader invalid file format: ") + str);
+        IWARN(std::string("Compute Shader invalid file format: ") + str);
 
         break;
     }
@@ -203,7 +211,7 @@ RUNTIME_FUNCTION(uint32_t, ComputeShader, GenerateGraphicsFromFile,
 
     return -1;
 }, MonoString* a_path)
-RUNTIME_FUNCTION(void, ComputeShader, AddImport, 
+RUNTIME_FUNCTION(void, ComputeShader, AddImport,
 {
     char* key = mono_string_to_utf8(a_key);
     IDEFER(mono_free(key));
@@ -217,6 +225,8 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
 {
     IERRBLOCK;
     RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
@@ -233,17 +243,17 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
         const char* shader = GetVertexShaderString(str + InternalShaderStringSize);
         IERRCHECKRET(shader != nullptr, -1);
 
-        return Instance->GenerateFVertexShaderAddr(shader);
+        return Instance->GenerateFVertexShaderAddr(COWU8String(shader, scratchAllocator));
     }
     else
     {
-        const std::filesystem::path p = std::filesystem::path(str);
-        const std::filesystem::path ext = p.extension();
-
-        const std::string extStr = ext.string();
+        const COWU8String pathStr = COWU8String(str, scratchAllocator);
+        const uint32_t index = pathStr.FindLastCharacter('.');
+        IERRCHECKRET(index != uint32_t(-1), -1);
+        const COWU8String extStr = pathStr.Substring(index, pathStr.Length(), scratchAllocator);
 
         // Slower as just one comparison but can be expanded and consistant with pixel shader
-        switch (StringHash<uint32_t>(extStr.c_str())) 
+        switch (StringHash<uint32_t>(extStr.CStr())) 
         {
         case StringHash<uint32_t>(".fvert"):
         {
@@ -253,14 +263,14 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
 
             const uint64_t size = handle->GetSize();
 
-            char* str = RenderScratchAlloc::TAllocate<char>(size);
+            CharU8* str = scratchAllocator->TAllocate<CharU8>(size);
             IERRCHECKRET(handle->Read(str, size) == size, -1);
 
-            return Instance->GenerateFVertexShaderAddr(std::string_view(str, size));
+            return Instance->GenerateFVertexShaderAddr(COWU8String(str, size, scratchAllocator));
         }
         default:
         {
-            IWARN(std::string("VertexShader invalid file format: ") + str);
+            IWARN(std::string("Vertex Shader invalid file format: ") + str);
 
             break;
         }
@@ -284,16 +294,18 @@ RUNTIME_FUNCTION(uint32_t, MeshShader, GenerateFromFile,
     IERRBLOCK;
     RENDERSCRATCHFRAME;
 
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
-    const std::filesystem::path p = std::filesystem::path(str);
-    const std::filesystem::path ext = p.extension();
-
-    const std::string extStr = ext.string();
+    const COWU8String pathStr = COWU8String(str, scratchAllocator);
+    const uint32_t index = pathStr.FindLastCharacter('.');
+    IERRCHECKRET(index != uint32_t(-1), -1);
+    const COWU8String extStr = pathStr.Substring(index, pathStr.Length(), scratchAllocator);
 
     // Slower as just one comparison but can be expanded and consistant with pixel shader
-    switch (StringHash<uint32_t>(extStr.c_str())) 
+    switch (StringHash<uint32_t>(extStr.CStr())) 
     {
     case StringHash<uint32_t>(".fmesh"):
     {
@@ -303,14 +315,14 @@ RUNTIME_FUNCTION(uint32_t, MeshShader, GenerateFromFile,
 
         const uint64_t size = handle->GetSize();
 
-        char* str = RenderScratchAlloc::TAllocate<char>(size);
+        CharU8* str = scratchAllocator->TAllocate<CharU8>(size);
         IERRCHECKRET(handle->Read(str, size) == size, -1);
 
-        return Instance->GenerateFMeshShaderAddr(std::string_view(str, size));
+        return Instance->GenerateFMeshShaderAddr(COWU8String(str, size, scratchAllocator));
     }
     default:
     {
-        IWARN(std::string("MeshShader invalid file format: ") + str);
+        IWARN(std::string("Mesh Shader invalid file format: ") + str);
 
         break;
     }
@@ -333,6 +345,8 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
     IERRBLOCK;
     RENDERSCRATCHFRAME;
 
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
@@ -342,16 +356,16 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
         const char* shader = GetPixelShaderString(str + InternalShaderStringSize);
         IERRCHECKRET(shader != nullptr, -1);
 
-        return Instance->GenerateFPixelShaderAddr(shader);
+        return Instance->GenerateFPixelShaderAddr(COWU8String(shader, scratchAllocator));
     }
     else
     {
-        const std::filesystem::path p = std::filesystem::path(str);
-        const std::filesystem::path ext = p.extension();
+        const COWU8String pathStr = COWU8String(str, scratchAllocator);
+        const uint32_t index = pathStr.FindLastCharacter('.');
+        IERRCHECKRET(index != uint32_t(-1), -1);
+        const COWU8String extStr = pathStr.Substring(index, pathStr.Length(), scratchAllocator);
 
-        const std::string extStr = ext.string();
-
-        switch (StringHash<uint32_t>(extStr.c_str())) 
+        switch (StringHash<uint32_t>(extStr.CStr())) 
         {
         case StringHash<uint32_t>(".fpix"):
         case StringHash<uint32_t>(".ffrag"):
@@ -362,10 +376,10 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
 
             const uint64_t size = handle->GetSize();
 
-            char* str = RenderScratchAlloc::TAllocate<char>(size);
+            CharU8* str = scratchAllocator->TAllocate<CharU8>(size);
             IERRCHECKRET(handle->Read(str, size) == size, -1);
 
-            return Instance->GenerateFPixelShaderAddr(std::string_view(str, size));
+            return Instance->GenerateFPixelShaderAddr(COWU8String(str, size, scratchAllocator));
         }
         default:
         {
@@ -589,7 +603,7 @@ RUNTIME_FUNCTION(void, Material, SetUserUniform,
         return;
     }
 
-    IPUSHDELETIONFUNC(Instance->RenderProgramSetUserUBO(a_addr, a_uboSize, a_uboBuffer), DeletionIndex_Render);
+    IPUSHDELETIONFUNC(Instance->RenderProgramSetUserUBO(a_addr, 0, NULL), DeletionIndex_Render);
 }, uint32_t a_addr, uint32_t a_uboSize, void* a_uboBuffer)
 RUNTIME_FUNCTION(void, Material, SetUserArray,
 {
@@ -1006,7 +1020,7 @@ VulkanGraphicsEngineBindings::~VulkanGraphicsEngineBindings()
     delete m_userArrayCallback;
 }
 
-uint32_t VulkanGraphicsEngineBindings::GenerateFComputeShaderAddr(const std::string_view& a_str) const
+uint32_t VulkanGraphicsEngineBindings::GenerateFComputeShaderAddr(const COWU8String& a_str) const
 {
     return m_graphicsEngine->GenerateFComputeShader(a_str);
 }
@@ -1035,7 +1049,7 @@ void VulkanGraphicsEngineBindings::DestroyComputeshader(uint32_t a_addr) const
     m_graphicsEngine->DestroyComputeShader(a_addr);
 }
 
-uint32_t VulkanGraphicsEngineBindings::GenerateFVertexShaderAddr(const std::string_view& a_str) const
+uint32_t VulkanGraphicsEngineBindings::GenerateFVertexShaderAddr(const COWU8String& a_str) const
 {
     return m_graphicsEngine->GenerateFVertexShader(a_str);
 }
@@ -1064,7 +1078,7 @@ void VulkanGraphicsEngineBindings::DestroyVertexShader(uint32_t a_addr) const
     m_graphicsEngine->DestroyVertexShader(a_addr);
 }
 
-uint32_t VulkanGraphicsEngineBindings::GenerateFMeshShaderAddr(const std::string_view& a_str) const
+uint32_t VulkanGraphicsEngineBindings::GenerateFMeshShaderAddr(const COWU8String& a_str) const
 {
     return m_graphicsEngine->GenerateFMeshShader(a_str);
 }
@@ -1093,7 +1107,7 @@ void VulkanGraphicsEngineBindings::DestroyMeshShader(uint32_t a_addr) const
     m_graphicsEngine->DestroyMeshShader(a_addr);
 }
 
-uint32_t VulkanGraphicsEngineBindings::GenerateFPixelShaderAddr(const std::string_view& a_str) const
+uint32_t VulkanGraphicsEngineBindings::GenerateFPixelShaderAddr(const COWU8String& a_str) const
 {
     return m_graphicsEngine->GenerateFPixelShader(a_str);
 }
@@ -1124,7 +1138,11 @@ void VulkanGraphicsEngineBindings::DestroyPixelShader(uint32_t a_addr) const
 
 uint32_t VulkanGraphicsEngineBindings::GenerateShaderProgram(const RenderProgram& a_program) const
 {
-    return m_graphicsEngine->GenerateRenderProgram(a_program);
+    RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
+    return m_graphicsEngine->GenerateRenderProgram(a_program, scratchAllocator);
 }
 void VulkanGraphicsEngineBindings::DestroyShaderProgram(uint32_t a_addr) const
 {
@@ -1140,15 +1158,34 @@ void VulkanGraphicsEngineBindings::RenderProgramSetTexture(uint32_t a_addr, uint
     const RenderProgram& program = a[a_addr];
     IVERIFY(program.Data != nullptr);
 
-    VulkanShaderData* data = (VulkanShaderData*)program.Data;
-    data->SetTexture(a_shaderSlot, a_samplerAddr);
+    const VulkanRenderProgramBlob* data = (VulkanRenderProgramBlob*)program.Data;
+    if (data->Base != nullptr)
+    {
+        const uint16_t realSlot = data->Base->UserSlotToReal(a_shaderSlot);
+
+        data->Base->SetTexture(realSlot, a_samplerAddr);
+    }
+
+    if (data->Secondary != nullptr)
+    {
+        const uint16_t realSlot = data->Secondary->UserSlotToReal(a_shaderSlot);
+
+        data->Secondary->SetTexture(realSlot, a_samplerAddr);
+    }
+
+    if (data->Tertiary != nullptr)
+    {
+        const uint16_t realSlot = data->Tertiary->UserSlotToReal(a_shaderSlot);
+
+        data->Tertiary->SetTexture(realSlot, a_samplerAddr);
+    }
 }
 void VulkanGraphicsEngineBindings::RenderProgramSetUserUBO(uint32_t a_addr, uint32_t a_uboSize, void* a_uboData) const
 {
     IVERIFY(m_graphicsEngine->m_shaderPrograms.Exists(a_addr));
 
     TLockArray<RenderProgram> a = m_graphicsEngine->m_shaderPrograms.ToLockArray();
-    
+
     RenderProgram& program = a[a_addr];
 
     if (program.UBOData != NULL)
@@ -1194,27 +1231,26 @@ uint32_t VulkanGraphicsEngineBindings::GenerateCameraBuffer(uint32_t a_transform
 
     const CameraBuffer buff = CameraBuffer(a_transformAddr);
 
-    uint32_t size = 0;
     {
         TRACE("Getting Camera Buffer");
         TLockArray<CameraBuffer> a = m_graphicsEngine->m_cameraBuffers.ToLockArray();
 
-        size = a.Size();
+        const uint32_t size = a.Size();
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (a[i].TransformAddr == uint32_t(-1))
+            if (a[i].TransformAddr != uint32_t(-1))
             {
-                a[i] = buff;
-
-                return i;
+                continue;
             }
+
+            a[i] = buff;
+
+            return i;
         }
     }
 
     TRACE("Allocating Camera Buffer");
-    m_graphicsEngine->m_cameraBuffers.Push(buff);
-
-    return size;
+    return m_graphicsEngine->m_cameraBuffers.PushVal(buff);
 }
 void VulkanGraphicsEngineBindings::DestroyCameraBuffer(uint32_t a_addr) const
 {
@@ -1532,9 +1568,18 @@ uint32_t VulkanGraphicsEngineBindings::GenerateGraphicsParticle2D(uint32_t a_com
 {
     BlockAllocator* allocator = m_graphicsEngine->m_vulkanEngine->GetBlockAllocator();
 
-    VulkanGraphicsParticle2D* particleSystem = allocator->Create<VulkanGraphicsParticle2D>(m_graphicsEngine->m_vulkanEngine, m_graphicsEngine->m_vulkanEngine->GetComputeEngine(), m_graphicsEngine, a_computeBufferAddr);
+    VulkanComputeEngine* computeEngine = m_graphicsEngine->m_vulkanEngine->GetComputeEngine();
 
-    return m_graphicsEngine->m_particleEmitters.PushVal(particleSystem);   
+    VulkanGraphicsParticle2D* particleSystem = allocator->Create<VulkanGraphicsParticle2D>
+    (
+        m_graphicsEngine->m_vulkanEngine,
+        computeEngine,
+        m_graphicsEngine,
+        a_computeBufferAddr,
+        allocator
+    );
+
+    return m_graphicsEngine->m_particleEmitters.PushVal(particleSystem);
 }
 void VulkanGraphicsEngineBindings::DestroyGraphicsParticle2D(uint32_t a_addr) const
 {
@@ -2148,7 +2193,7 @@ void VulkanGraphicsEngineBindings::DestroyCanvasRenderer(uint32_t a_addr) const
 void VulkanGraphicsEngineBindings::SetCanvasRendererCanvas(uint32_t a_addr, uint32_t a_canvasAddr) const
 {
     IVERIFY(m_graphicsEngine->m_canvasRenderers.Exists(a_addr));
-    
+
     TLockArray<CanvasRendererBuffer> a = m_graphicsEngine->m_canvasRenderers.ToLockArray();
     a[a_addr].CanvasAddr = a_canvasAddr;
 }
@@ -2184,33 +2229,53 @@ void VulkanGraphicsEngineBindings::BindMaterial(uint32_t a_addr) const
         IVERIFY(m_graphicsEngine->m_shaderPrograms.Exists(a_addr));
     }
 
-    m_graphicsEngine->m_renderCommands->BindMaterial(a_addr);
+    RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
+    m_graphicsEngine->m_renderCommands->BindMaterial(a_addr, false, scratchAllocator);
 }
 void VulkanGraphicsEngineBindings::PushTexture(uint32_t a_slot, uint32_t a_samplerAddr) const
 {
     IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
     IVERIFY(m_graphicsEngine->m_textureSampler.Exists(a_samplerAddr));
 
+    RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
     const TReadLockArray<TextureSamplerBuffer> a = m_graphicsEngine->m_textureSampler.ToReadLockArray();
-    m_graphicsEngine->m_renderCommands->PushTexture(a_slot, a[a_samplerAddr]);
+    m_graphicsEngine->m_renderCommands->PushUserTexture(a_slot, a[a_samplerAddr], scratchAllocator);
 }
 void VulkanGraphicsEngineBindings::PushLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr) const
 {
     IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
 
-    m_graphicsEngine->m_renderCommands->PushLight(a_slot, a_lightType, a_lightAddr);
+    RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
+    m_graphicsEngine->m_renderCommands->PushUserLight(a_slot, a_lightType, a_lightAddr, scratchAllocator);
 }
 void VulkanGraphicsEngineBindings::PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount) const
 {
     IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
 
-    m_graphicsEngine->m_renderCommands->PushLightSplits(a_slot, a_splits, a_splitCount);
+    RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
+    m_graphicsEngine->m_renderCommands->PushUserLightSplits(a_slot, a_splits, a_splitCount, scratchAllocator);
 }
 void VulkanGraphicsEngineBindings::PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr) const
 {
     IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
 
-    m_graphicsEngine->m_renderCommands->PushShadowTextureArray(a_slot, a_dirLightAddr);
+    RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
+    m_graphicsEngine->m_renderCommands->PushUserShadowTextureArray(a_slot, a_dirLightAddr, scratchAllocator);
 }
 void VulkanGraphicsEngineBindings::BindRenderTexture(uint32_t a_addr, e_RenderTextureBindMode a_bindMode) const
 {
@@ -2259,13 +2324,21 @@ void VulkanGraphicsEngineBindings::DrawMaterial() const
 {
     IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
 
-    m_graphicsEngine->m_renderCommands->DrawMaterial();
+    RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
+    m_graphicsEngine->m_renderCommands->DrawMaterial(scratchAllocator);
 }
 void VulkanGraphicsEngineBindings::DrawModel(const glm::mat4& a_transform, uint32_t a_addr) const
 {
     IVERIFY(m_graphicsEngine->m_renderCommands.Exists());
 
-    m_graphicsEngine->m_renderCommands->DrawModel(a_transform, a_addr);
+    RENDERSCRATCHFRAME;
+
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
+    m_graphicsEngine->m_renderCommands->DrawModel(a_transform, a_addr, scratchAllocator);
 }
 void VulkanGraphicsEngineBindings::MarkerStart(const std::string_view& a_name) const
 {
@@ -2291,7 +2364,7 @@ void VulkanGraphicsEngineBindings::SetLightSplits(const LightShadowSplit* a_spli
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

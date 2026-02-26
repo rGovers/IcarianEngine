@@ -54,7 +54,10 @@ AudioEngine::AudioEngine()
     TRACE("Creating AudioEngine...");
     Instance = this;
 
-    m_blockAllocator = new BlockAllocator(16 << 10);
+    // External library so allow standalone allocations so it can do oversize allocations
+    // I have no control over their memory so I cannot ensure that the allocations will fit
+    // Otherwise use 16KiB block sizes and fit them in those blocks
+    m_blockAllocator = new BlockAllocator(16 << 10, true);
 
     ma_engine_config config = ma_engine_config_init();
     // TODO: Multi listener
@@ -533,7 +536,7 @@ void AudioEngine::Update()
     {
         PROFILESTACK("Audio Listeners");
 
-        const Array<AudioListenerBuffer> a = m_audioListeners.ToActiveArray();
+        const Array<AudioListenerBuffer> a = m_audioListeners.ToActiveArray(m_ringAllocator);
         const uint32_t size = a.Size();
 
         for (uint32_t i = 0; i < size; ++i)
@@ -561,15 +564,18 @@ void AudioEngine::Update()
     {
         PROFILESTACK("Audio Sources");
 
-        const Array<bool> states = m_audioSources.ToStateArray();
+        const uint32_t size = m_audioSources.Size();
+        const Array<uint8_t> states = m_audioSources.ToPackedStateArray(m_ringAllocator);
         TLockArray<AudioSourceBuffer> sources = m_audioSources.ToLockArray();
-        const uint32_t size = states.Size();
 
         TLockArray<AudioClip*> clips = m_audioClips.ToLockArray();
 
         for (uint32_t i = 0; i < size; ++i)
         {
-            if (!states[i])
+            const uint32_t index = i / 8;
+            const uint32_t offset = i % 8;
+
+            if (!IISBITSET(states[index], offset))
             {
                 continue;
             }
@@ -700,7 +706,7 @@ void AudioEngine::Update()
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

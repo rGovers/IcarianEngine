@@ -153,7 +153,7 @@ VulkanMesh::VulkanMesh
             vk::WholeSize
         );
 
-        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eTopOfPipe, { }, 0, nullptr, 1, &barrier, 0, nullptr);
+        cmd.pipelineBarrier(vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eTaskShaderEXT, { }, 0, nullptr, 1, &barrier, 0, nullptr);
 
         return;
     }
@@ -205,7 +205,7 @@ VulkanMesh::~VulkanMesh()
 
 // MIT License
 //
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -6,9 +6,9 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include <string>
-
+#include "DataTypes/Allocator.h"
 #include "DataTypes/Array.h"
+#include "DataTypes/COWString.h"
 
 #include "EngineMaterialInteropStructures.h"
 #include "EngineParticleSystemInteropStructures.h"
@@ -20,17 +20,17 @@ private:
 protected:
 
 public:
-    static std::string GenerateComputeShader(const ComputeParticleBuffer& a_parameters, Array<ShaderBufferInput>* a_inputs);
+    static COWU8String GenerateComputeShader(const ComputeParticleBuffer& a_parameters, Array<ShaderBufferInput>* a_inputs, Allocator* a_allocator);
 
-    static std::string GenerateMeshShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs);
-    static std::string GeneratePixelShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs);
+    static COWU8String GenerateMeshShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs, Allocator* a_allocator);
+    static COWU8String GeneratePixelShader(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs, Allocator* a_allocator);
 };
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

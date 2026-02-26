@@ -110,26 +110,28 @@ void VulkanComputeParticle::Clear()
 
     m_bufferIndex = 0;
 }
-void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
-{   
+void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* a_tempAllocator)
+{
     Clear();
+
+    VulkanRenderEngineBackend* backend = m_engine->GetRenderEngineBackend();
+    BlockAllocator* blockAllocator = backend->GetBlockAllocator();
 
     IDEFER(ICLEARBIT(a_buffer->Flags, ComputeParticleBuffer::RefreshBit));
 
-    Array<ShaderBufferInput> inputs;
-    const std::string shaderStr = VulkanParticleShaderGenerator::GenerateComputeShader(*a_buffer, &inputs);
+    Array<ShaderBufferInput> inputs = Array<ShaderBufferInput>(a_tempAllocator);
+    const COWU8String shaderStr = VulkanParticleShaderGenerator::GenerateComputeShader(*a_buffer, &inputs, blockAllocator);
 
-    m_computeShader = m_engine->GenerateComputeFShader(shaderStr);
+    m_computeShader = m_engine->GenerateComputeFShader(shaderStr, a_tempAllocator);
     m_computeLayout = m_engine->GenerateComputePipelineLayout(inputs.Data(), inputs.Size());
     m_computePipeline = m_engine->GenerateComputePipeline(m_computeShader, m_computeLayout);
 
-    VulkanRenderEngineBackend* backend = m_engine->GetRenderEngineBackend();
     const VmaAllocator allocator = backend->GetAllocator();
 
     const uint64_t particleBufferSize = sizeof(IcarianCore::ShaderParticleBuffer) * a_buffer->MaxParticles + 16;
 
-    const VkBufferCreateInfo createInfo = 
-    { 
+    const VkBufferCreateInfo createInfo =
+    {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = particleBufferSize,
         .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
@@ -138,7 +140,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
 
     TLockObj<vk::CommandBuffer, SpinLock>* buffer = backend->BeginSingleCommand(CommandIndex_Compute);
     IDEFER(backend->EndSingleCommand(buffer, CommandIndex_Compute));
-    
+
     const vk::CommandBuffer cmdBuffer = buffer->Get();
 
     const int32_t value = (int32_t)a_buffer->MaxParticles;
@@ -147,12 +149,13 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
 
     uint32_t startIndex = 0;
 
+    // TODO: Can probably move this to the GPU
     if (IISBITSET(a_buffer->Flags, ComputeParticleBuffer::BurstBit))
     {
         IDEFER(++startIndex);
 
-        IcarianCore::ShaderParticleBuffer* particles = new IcarianCore::ShaderParticleBuffer[a_buffer->MaxParticles];
-        IDEFER(delete[] particles);
+        IcarianCore::ShaderParticleBuffer* particles = a_tempAllocator->TAllocate<IcarianCore::ShaderParticleBuffer>(a_buffer->MaxParticles);
+        IDEFER(a_tempAllocator->Free(particles));
 
         const float velScale = a_buffer->EmitterVelocityScale;
         const glm::vec3 initVel = a_buffer->InitialVelocity;
@@ -189,7 +192,9 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
 
         const VmaAllocationCreateInfo allocCreateInfo = 
         { 
-            .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+            .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
+                VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
+                VMA_ALLOCATION_CREATE_MAPPED_BIT,
             .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
         };
 
@@ -217,14 +222,25 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
             (
                 vk::AccessFlagBits::eHostWrite,
                 vk::AccessFlagBits::eShaderRead,
-                VK_QUEUE_FAMILY_IGNORED,
-                VK_QUEUE_FAMILY_IGNORED,
+                vk::QueueFamilyIgnored,
+                vk::QueueFamilyIgnored,
                 m_particleBuffers[0],
                 0,
-                VK_WHOLE_SIZE
+                vk::WholeSize
             );
 
-            cmdBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eComputeShader, { }, 0, nullptr, 1, &barrier, 0, nullptr);
+            cmdBuffer.pipelineBarrier
+            (
+                vk::PipelineStageFlagBits::eHost,
+                vk::PipelineStageFlagBits::eComputeShader,
+                { },
+                0,
+                nullptr,
+                1,
+                &barrier,
+                0,
+                nullptr
+            );
         }
         else
         {
@@ -247,7 +263,15 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
             VkBuffer stagingBuffer;
             VmaAllocation stagingAlloc;
             VmaAllocationInfo stagingInfo;
-            VKRESERRMSG(vmaCreateBuffer(allocator, &sCreateInfo, &sAllocInfo, &stagingBuffer, &stagingAlloc, &stagingInfo), "Failed to create particle staging buffer");
+            VKRESERRMSG(vmaCreateBuffer
+            (
+                allocator, 
+                &sCreateInfo, 
+                &sAllocInfo, 
+                &stagingBuffer, 
+                &stagingAlloc, 
+                &stagingInfo
+            ), "Failed to create particle staging buffer");
             IDEFER(backend->PushDeletionObject<VulkanParticleBufferDeletionObject>(backend, stagingBuffer, stagingAlloc));
             IDEFER(VKRESERR(vmaFlushAllocation(allocator, stagingAlloc, 0, (VkDeviceSize)particleBufferSize)));
 
@@ -265,14 +289,21 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
     }
 
     const VmaAllocationCreateInfo allocCreateInfo = 
-    { 
+    {
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
     };
 
     for (uint32_t i = startIndex; i < MaxParticleBuffers; ++i)
     {
         VkBuffer buffer;
-        VKRESERRMSG(vmaCreateBuffer(allocator, &createInfo, &allocCreateInfo, &buffer, &m_allocations[i], nullptr), "Failed to create particle buffer");
+        VKRESERRMSG(vmaCreateBuffer
+        (
+            allocator,
+            &createInfo,
+            &allocCreateInfo,
+            &buffer, &m_allocations[i],
+            nullptr
+        ), "Failed to create particle buffer");
 #ifdef DEBUG
         vmaSetAllocationName(allocator, m_allocations[i], "Particle Buffer");
 #endif
@@ -287,7 +318,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer)
     }
 }
 
-void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_index)
+void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_index, Allocator* a_tempAllocator)
 {
     ComputeParticleBuffer buffer = m_engine->GetParticleBuffer(m_particleBufferAddr);
 
@@ -301,7 +332,7 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
         const bool generate = IISBITSET(buffer.Flags, ComputeParticleBuffer::DynamicBit) || m_computeShader == uint32_t(-1);
         if (generate)
         {
-            Rebuild(&buffer);
+            Rebuild(&buffer, a_tempAllocator);
         }
 
         ICLEARBIT(buffer.Flags, ComputeParticleBuffer::PlayBit);
@@ -310,7 +341,7 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
 
     if (IISBITSET(buffer.Flags, ComputeParticleBuffer::RefreshBit))
     {
-        Rebuild(&buffer);
+        Rebuild(&buffer, a_tempAllocator);
     }
 
     if (IISBITSET(buffer.Flags, ComputeParticleBuffer::PlayingBit))
@@ -341,20 +372,20 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
             case ShaderBufferType_SSParticleBuffer:
             {
                 const uint32_t bufferIndex = (m_bufferIndex + particleBufferOffset++) % MaxParticleBuffers;
-                
+
                 vk::DescriptorSet set = pushPool->AllocateDescriptor(a_index, vk::DescriptorType::eStorageBuffer, &descLayouts[i]);
 
                 const vk::DescriptorBufferInfo bufferInfo = vk::DescriptorBufferInfo
                 (
                     m_particleBuffers[bufferIndex],
                     0,
-                    VK_WHOLE_SIZE
+                    vk::WholeSize
                 );
 
                 const vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet
                 (
                     set,
-                    inputs[i].Slot,
+                    (uint32_t)inputs[i].RealSlot,
                     0,
                     1,
                     vk::DescriptorType::eStorageBuffer,
@@ -364,7 +395,16 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
 
                 device.updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
 
-                a_cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeLayout, inputs[i].Slot, 1, &set, 0, nullptr);
+                a_cmdBuffer.bindDescriptorSets
+                (
+                    vk::PipelineBindPoint::eCompute,
+                    pipeLayout,
+                    (uint32_t)inputs[i].RealSlot,
+                    1,
+                    &set,
+                    0,
+                    nullptr
+                );
 
                 break;
             }
@@ -380,13 +420,13 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
                 (
                     buffer,
                     0,
-                    VK_WHOLE_SIZE
+                    vk::WholeSize
                 );
 
                 const vk::WriteDescriptorSet descriptorWrite = vk::WriteDescriptorSet
                 (
                     set,
-                    inputs[i].Slot,
+                    (uint32_t)inputs[i].RealSlot,
                     0,
                     1,
                     vk::DescriptorType::eUniformBuffer,
@@ -396,7 +436,16 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
 
                 device.updateDescriptorSets(1, &descriptorWrite, 0, nullptr);
 
-                a_cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipeLayout, inputs[i].Slot, 1, &set, 0, nullptr);
+                a_cmdBuffer.bindDescriptorSets
+                (
+                    vk::PipelineBindPoint::eCompute,
+                    pipeLayout,
+                    (uint32_t)inputs[i].RealSlot,
+                    1,
+                    &set,
+                    0,
+                    nullptr
+                );
 
                 break;
             }
@@ -407,7 +456,7 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
                 break;
             }
             }
-        }        
+        }
 
         a_cmdBuffer.dispatch((uint32_t)glm::ceil(buffer.MaxParticles / 256.0f), 1, 1);
     }
@@ -421,7 +470,7 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

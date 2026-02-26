@@ -15,6 +15,7 @@
 #include "EngineRenderCommandInteropStructures.h"
 #include "EngineTextureSamplerInteropStructures.h"
 
+class Allocator;
 class VulkanGraphicsEngine;
 class VulkanPipeline;
 class VulkanRenderEngineBackend;
@@ -25,9 +26,9 @@ class VulkanRenderCommand
 {
 private:
     constexpr static uint32_t RenderTextureBoundBit = 0;
-    constexpr static uint32_t MaterialBoundBit = 1;
-    constexpr static uint32_t ComputeLayoutBit = 2;
-    constexpr static uint32_t ComputeResourceBit = 3;
+    constexpr static uint32_t RenderTextureFirstBindBit = 1;
+    constexpr static uint32_t MaterialBoundBit = 2;
+    constexpr static uint32_t ComputeLayoutBit = 3;
 
     VulkanRenderEngineBackend* m_engine;
     VulkanGraphicsEngine*      m_gEngine;
@@ -50,7 +51,7 @@ private:
 
     void BindRenderTexturePass();
 
-    void BindResources();
+    bool BindResources(Allocator* a_tempAllocator);
 
 protected:
 
@@ -84,21 +85,26 @@ public:
         return m_commandBuffer;
     }
 
-    VulkanPipeline* BindMaterial(uint32_t a_materialAddr, bool a_immediate = false);
+    VulkanPipeline* BindMaterial(uint32_t a_materialAddr, bool a_immediate, Allocator* a_tempAllocator);
 
-    void PushTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler);
-    void PushLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr);
-    void PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount);
-    void PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr);
+    void PushTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler, Allocator* a_tempAllocator);
+    void PushLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr, Allocator* a_tempAllocator);
+    void PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount, Allocator* a_tempAllocator);
+    void PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr, Allocator* a_tempAllocator);
+
+    void PushUserTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler, Allocator* a_tempAllocator);
+    void PushUserLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr, Allocator* a_tempAllocator);
+    void PushUserLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount, Allocator* a_tempAllocator);
+    void PushUserShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr, Allocator* a_tempAllocator);
 
     void BindRenderTexture(uint32_t a_renderTexAddr, e_RenderTextureBindMode a_bindMode);
-    
+
     void Blit(const VulkanRenderTexture* a_src, const VulkanRenderTexture* a_dst);
     void Blit(const VulkanRenderTexture* a_src, uint32_t a_index, const VulkanRenderTexture* a_dst);
 
-    void DrawMaterial();
-    void DrawModel(const glm::mat4& a_transform, uint32_t a_modelAddr);
-    void DrawMesh(const glm::mat4& a_transform, uint32_t a_meshAddr, uint32_t a_indexCount);
+    void DrawMaterial(Allocator* a_tempAllocator);
+    void DrawModel(const glm::mat4& a_transform, uint32_t a_modelAddr, Allocator* a_tempAllocator);
+    void DrawMesh(const glm::mat4& a_transform, uint32_t a_meshAddr, uint32_t a_indexCount, Allocator* a_tempAllocator);
 
     void MarkerStart(const std::string_view& a_name);
     void MarkerEnd();
@@ -108,7 +114,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

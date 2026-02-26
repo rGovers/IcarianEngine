@@ -73,6 +73,12 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(ShaderBufferType) : IOP_UINT16
     IOP_ENUM_VALUE(ShaderBufferType, MeshletVertices) = 27,
     IOP_ENUM_VALUE(ShaderBufferType, MeshletTriangles) = 28,
     IOP_ENUM_VALUE(ShaderBufferType, Meshlet) = 29,
+
+#ifdef CUBE_LANGUAGE_CPP
+    IOP_ENUM_VALUE(ShaderBufferType, OutMeshEmulationVertex) = 30,
+    IOP_ENUM_VALUE(ShaderBufferType, OutMeshEmulationIndex) = 31,
+    IOP_ENUM_VALUE(ShaderBufferType, OutMeshEmulationDraw) = 32,
+#endif
 };
 
 /// <summary>
@@ -98,20 +104,16 @@ IOP_CSPUBLIC enum IOP_ENUM_NAME(PrimitiveMode) : IOP_UINT8
 /// @cond INTERNAL
 IOP_PACKED IOP_CSINTERNAL struct ShaderBufferInput
 {
-    IOP_CSPUBLIC IOP_UINT16 Slot;
+    // We now disconnect the slot from the user assigned slot
+    // The user assigned slot is just for the engine to know what binding the C# side is talking about
+    // The RealSlot is what the engine uses for actual shader bindings
+    // Need both so we have a mapping between the 2
+    // We detacted them because it was causing headaches when building a shader emulation layer for unsupported shader types for older GPUs
+    // Vulkan was having a hissy fit about buffer layouts and triggering a driver segfault otherwise
+    IOP_CSPUBLIC IOP_UINT16 UserSlot;
+    IOP_CSPUBLIC IOP_UINT16 RealSlot;
     IOP_CSPUBLIC IOP_ENUM_NAME(ShaderBufferType) BufferType;
     IOP_CSPUBLIC IOP_UINT16 Count;
-
-#ifdef CUBE_LANGUAGE_CPP
-    constexpr bool operator ==(const ShaderBufferInput& a_other) const
-    {
-        return Slot == a_other.Slot && BufferType == a_other.BufferType && Count == a_other.Count;
-    }
-    constexpr bool operator !=(const ShaderBufferInput& a_other) const
-    {
-        return !(*this == a_other);
-    }
-#endif
 };
 
 IOP_PACKED IOP_CSINTERNAL struct RenderProgram
@@ -138,61 +140,8 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
     IOP_UINT8 Flags;
 
 #ifdef CUBE_LANGUAGE_CPP
-    static constexpr unsigned int DestroyFlag = 0;
-    static constexpr unsigned int FreeFlag = 7;
-
-    bool operator ==(const RenderProgram& a_other) const
-    {
-        if (VertexShader != a_other.VertexShader || PixelShader != a_other.PixelShader || ExtraShader != a_other.ExtraShader)
-        {
-            return false;
-        }
-
-        if (CullingMode != a_other.CullingMode || PrimitiveMode != a_other.PrimitiveMode || MaterialMode != a_other.MaterialMode)
-        {
-            return false;
-        }
-
-        if (ColorBlendMode != a_other.ColorBlendMode)
-        {
-            return false;
-        }
-
-        if (ShadowVertexShader != a_other.ShadowVertexShader)
-        {
-            return false;
-        }
-
-        if (RenderLayer != a_other.RenderLayer)
-        {
-            return false;
-        }
-
-        if (VertexInputCount != a_other.VertexInputCount)
-        {
-            return false;
-        }
-
-        if (UBODataSize != a_other.UBODataSize)
-        {
-            return false;
-        }
-
-        for (uint32_t i = 0; i < VertexInputCount; ++i)
-        {
-            if (VertexAttributes[i] != a_other.VertexAttributes[i])
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    bool operator !=(const RenderProgram& a_other) const
-    {
-        return !(*this == a_other);
-    }
+    static constexpr uint32_t DestroyFlag = 0;
+    static constexpr uint32_t FreeFlag = 7;
 #endif
 };
 /// @endcond
@@ -203,7 +152,7 @@ IOP_PACKED IOP_CSINTERNAL struct RenderProgram
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

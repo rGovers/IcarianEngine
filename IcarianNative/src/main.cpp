@@ -17,6 +17,7 @@
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianPragma.h"
 #include "Core/StringUtils.h"
+#include "DataTypes/MallocAllocator.h"
 
 #define STBI_ASSERT(x) ICARIAN_ASSERT_MSG(x, "STBI Assert")
 
@@ -199,6 +200,9 @@ int APIENTRY WinMain(HINSTANCE a_hInstance, HINSTANCE a_hPrevInstance, LPSTR a_l
 {
     PrintVersion();
 
+    MallocAllocator::Init();
+    IDEFER(MallocAllocator::Destroy());
+
     // Whatever enet needs we will do ourselves
     // We need a newer version and enet does not allow overriding
     WSADATA wsaData;
@@ -254,6 +258,9 @@ int main(int a_argc, char* a_argv[])
 {
     PrintVersion();
 
+    MallocAllocator::Init();
+    IDEFER(MallocAllocator::Destroy());
+
     Config* config = new Config("./config.xml");
 
     for (int i = 0; i < a_argc; ++i)
@@ -273,7 +280,7 @@ int main(int a_argc, char* a_argv[])
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

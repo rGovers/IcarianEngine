@@ -21,7 +21,13 @@ private:
 protected:
 
 public:
-    VulkanComputeLayoutDeletionObject(VulkanRenderEngineBackend* a_engine, const vk::DescriptorSetLayout* a_descLayouts, uint32_t a_layoutCount, vk::PipelineLayout a_layout)
+    VulkanComputeLayoutDeletionObject
+    (
+        VulkanRenderEngineBackend* a_engine,
+        const vk::DescriptorSetLayout* a_descLayouts,
+        uint32_t a_layoutCount, 
+        vk::PipelineLayout a_layout
+    )
     {
         m_engine = a_engine;
 
@@ -51,7 +57,7 @@ public:
         {
             device.destroyDescriptorSetLayout(m_descLayouts[i]);
         }
-        
+
         device.destroyPipelineLayout(m_layout);
     }
 };
@@ -75,25 +81,29 @@ constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_buffe
     return vk::DescriptorType::eStorageBuffer;
 }
 
-VulkanComputeLayout::VulkanComputeLayout(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount)
+VulkanComputeLayout::VulkanComputeLayout(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, Allocator* a_allocator)
 {
+    m_allocator = a_allocator;
+
     m_engine = a_engine;
 
     m_inputCount = a_inputCount;
 
     const vk::Device device = m_engine->GetLogicalDevice();
 
-    m_slotInputs = new ShaderBufferInput[m_inputCount];
-    m_descLayouts = new vk::DescriptorSetLayout[m_inputCount];
+    m_slotInputs = m_allocator->TAllocate<ShaderBufferInput>(m_inputCount);
+    m_descLayouts = m_allocator->TAllocate<vk::DescriptorSetLayout>(m_inputCount);
 
     for (uint32_t i = 0; i < m_inputCount; ++i)
     {
-        const ShaderBufferInput input = a_inputs[i];
+        const ShaderBufferInput& input = a_inputs[i];
+
+        const vk::DescriptorType type = GetDescriptorType(input.BufferType);
 
         const vk::DescriptorSetLayoutBinding bind = vk::DescriptorSetLayoutBinding
         (
-            input.Slot,
-            GetDescriptorType(input.BufferType),
+            input.RealSlot,
+            type,
             1,
             vk::ShaderStageFlagBits::eCompute
         );
@@ -125,15 +135,15 @@ VulkanComputeLayout::~VulkanComputeLayout()
     TRACE("Queueing Compute Pipeline Layout for deletion");
     m_engine->PushDeletionObject<VulkanComputeLayoutDeletionObject>(m_engine, m_descLayouts, m_inputCount, m_layout);
 
-    delete[] m_descLayouts;
-    delete[] m_slotInputs;
+    m_allocator->Destroy(m_descLayouts);
+    m_allocator->Destroy(m_slotInputs);
 }
 
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

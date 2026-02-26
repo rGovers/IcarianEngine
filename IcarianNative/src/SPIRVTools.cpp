@@ -19,7 +19,7 @@ void spirv_init()
 }
 void spirv_destroy()
 {
-    glslang::FinalizeProcess();   
+    glslang::FinalizeProcess();
 }
 constexpr TBuiltInResource spirv_create_resources()
 {
@@ -137,31 +137,33 @@ constexpr TBuiltInResource spirv_create_resources()
 
     return resource;
 }
-std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_view& a_str, bool a_optimize, const std::string_view& a_entryPoint)
+Array<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const COWU8String& a_str, bool a_optimize, const COWU8String& a_entryPoint, Allocator* a_allocator)
 {
 	constexpr EShMessages Messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
 
     TRACE("Generating SPIRV");
+	const char* cStr = a_str.CStr();
+	const char* entryCStr = a_entryPoint.CStr();
 
     glslang::TShader shader = glslang::TShader(a_lang);
 
 	// Huh guess I have to set both to keep it quiet
 	shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_2);
 	shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_5);
-	shader.setEntryPoint(a_entryPoint.data());
+	shader.setEntryPoint(entryCStr);
 
     const char* strs[] =
 	{
-		a_str.data()
+		cStr
 	};
-    shader.setStrings(strs, 1);
+    shader.setStrings(strs, sizeof(strs) / sizeof(*strs));
 
     constexpr TBuiltInResource Resource = spirv_create_resources();
     if (!shader.parse(&Resource, 100, true, Messages))
     {
-		IERROR("Parsing Failed: " + std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(a_str));
+		IERROR("Parsing Failed: " + std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(cStr));
 
-		return std::vector<uint32_t>();
+		return Array<uint32_t>(a_allocator);
     }
 
     glslang::TProgram program;
@@ -169,15 +171,16 @@ std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_v
 
     if (!program.link(Messages))
     {
-		IERROR("Linking Failed: " + std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(a_str));
+		IERROR("Linking Failed: " + std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(cStr));
 
-		return std::vector<uint32_t>();
+		return Array<uint32_t>(a_allocator);
     }
 
+	// TODO: Port so we do not need to use STL types
 	std::vector<unsigned int> spirv;
 	spirv.reserve(1024);
 
-	glslang::SpvOptions options = 
+	glslang::SpvOptions options =
 	{
 		.disableOptimizer = !a_optimize,
 		.optimizeSize = a_optimize,
@@ -188,15 +191,15 @@ std::vector<unsigned int> spirv_fromGLSL(EShLanguage a_lang, const std::string_v
 	glslang::TIntermediate* intermediate = program.getIntermediate(a_lang);
 
     glslang::GlslangToSpv(*intermediate, spirv, &options);
-	
+
     TRACE("Generated SPIRV");
 
-	return spirv;
+	return Array<uint32_t>(spirv.data(), (uint32_t)spirv.size(), a_allocator);
 }
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
