@@ -4,54 +4,32 @@
 
 #pragma once
 
-#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+#include "DataTypes/Allocators/ComplexAllocator.h"
 
-#include "Rendering/Vulkan/Shaders/VulkanShader.h"
+#include <cstdlib>
 
-#include "DataTypes/Array.h"
-#include "DataTypes/COWString.h"
-#include "DataTypes/Dictionary.h"
-
-struct VulkanMeshFShaderBuilder
-{
-    VulkanRenderEngineBackend* Engine;
-    COWU8String String;
-    Dictionary<COWU8String, COWU8String> Imports;
-    COWU8String EntryPoint;
-    Array<ShaderBufferInput> OtherInputs;
-};
-
-class VulkanMeshShader : public VulkanShader
+class MallocAllocator : public Allocator
 {
 private:
 
 protected:
 
 public:
-    VulkanMeshShader() = delete;
-    VulkanMeshShader
-    (
-        VulkanRenderEngineBackend* a_engine,
-        const ShaderBufferInput* a_inputs,
-        uint32_t a_inputCount,
-        const uint32_t* a_data,
-        uint32_t a_dataCount,
-        Allocator* a_allocator
-    );
-    virtual ~VulkanMeshShader();
-
-    virtual e_VulkanShaderType GetShaderType() const
+    [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
     {
-        return VulkanShaderType_Mesh;
+        return aligned_alloc((size_t)a_alignment, (size_t)a_size);
     }
 
-    uint32_t GetVertexInputAttributeCount() const;
-    VertexInputAttribute GetVertexInputAttribute(uint32_t a_index) const;
+    virtual void Free(void* a_ptr)
+    {
+        free(a_ptr);
+    }
 
-    static void CreateFromFShader(VulkanMeshShader* a_out, const VulkanMeshFShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
+    static Allocator* Instance;
+
+    static void Init();
+    static void Destroy();
 };
-
-#endif
 
 // MIT License
 // 

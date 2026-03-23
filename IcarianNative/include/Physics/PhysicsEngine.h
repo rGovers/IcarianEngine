@@ -59,6 +59,11 @@ private:
     static constexpr uint32_t MaxBodies = 65535;
     static constexpr uint32_t MaxContactConstraints = 1024 * 10;
     static constexpr uint32_t AllocatorSize = 1024 * 1024 * 10;
+    static constexpr uint32_t SmallAllocatorSize = 8 << 10;
+    static constexpr uint32_t LargeAllocatorSize = 8 << 20;
+
+    BlockAllocator*                           m_smallAllocator;
+    BlockAllocator*                           m_largeAllocator;
 
     PhysicsEngineBindings*                    m_runtimeBindings;
 

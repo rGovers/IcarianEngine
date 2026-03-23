@@ -9,12 +9,13 @@
 #include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
 #include "DataTypes/COWString.h"
+#include "DataTypes/Dictionary.h"
 
 struct VulkanComputeFShaderBuilder
 {
     VulkanRenderEngineBackend* Engine;
     COWU8String String;
-    std::unordered_map<std::string, std::string> Imports;
+    Dictionary<COWU8String, COWU8String> Imports;
     COWU8String EntryPoint;
 };
 

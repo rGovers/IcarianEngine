@@ -5,8 +5,8 @@
 #include "Rendering/Video/VideoInfo/H264VideoInfo.h"
 
 #include "Core/IcarianError.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "DataTypes/Array.h"
-#include "DataTypes/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "IcarianMemory.h"

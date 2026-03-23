@@ -8,7 +8,8 @@
 #include <glslang/Include/ResourceLimits.h>
 #include <glslang/Public/ShaderLang.h>
 
-#include "DataTypes/Allocator.h"
+class Allocator;
+
 #include "DataTypes/Array.h"
 #include "DataTypes/COWString.h"
 

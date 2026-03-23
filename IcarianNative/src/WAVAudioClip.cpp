@@ -7,7 +7,7 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include "DataTypes/RingAllocator.h"
+#include "DataTypes/Allocators/RingAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 
@@ -142,7 +142,7 @@ WAVAudioClip::WAVAudioClip(const std::string_view& a_path)
             {
                 handle->Ignore(chunkSize);
             }
-        }        
+        }
     }
 }
 WAVAudioClip::~WAVAudioClip()
@@ -183,7 +183,7 @@ uint8_t* WAVAudioClip::GetAudioData(RingAllocator* a_allocator, uint64_t a_sampl
         return nullptr;
     }
     IDEFER(delete handle);
-        
+
     const uint32_t formatSize = GetFormatSize(m_format);
 
     const uint64_t seekOffset = a_sampleOffset * m_channelCount * formatSize;
@@ -210,7 +210,7 @@ uint8_t* WAVAudioClip::GetAudioData(RingAllocator* a_allocator, uint64_t a_sampl
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

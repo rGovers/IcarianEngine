@@ -10,7 +10,7 @@
 #include <type_traits>
 
 #include "Core/IcarianDefer.h"
-#include "DataTypes/Allocator.h"
+#include "DataTypes/Allocators/Allocator.h"
 #include "IcarianError.h"
 
 // Grumble Grumble
@@ -836,6 +836,21 @@ FindNextStringInstance:;
     {
         TrimProceedingWhitespace();
         TrimTrailingWhitespace();
+    }
+
+    uint64_t Hash() const
+    {
+        uint64_t hash = 5381;
+
+        const CharType* slider = m_data;
+        while (*slider != 0)
+        {
+            hash = ((hash << 5) + hash) + *slider;
+
+            ++slider;
+        }
+
+        return hash;
     }
 
     // Should probably do something better so it works with all languages 

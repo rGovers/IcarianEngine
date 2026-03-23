@@ -35,7 +35,7 @@ public:
     virtual void Destroy()
     {
         TRACE("Destroying Mesh Buffer");
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         vmaDestroyBuffer(allocator, m_buffer, m_allocation);
     }
@@ -74,7 +74,7 @@ VulkanMesh::VulkanMesh
     m_meshletCount = a_meshletCount;
     m_radius = a_radius;
 
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
     const uint32_t vbSize = a_vertexCount * a_vertexSize;
     const uint32_t mvSize = a_meshVertexCount * sizeof(uint32_t);

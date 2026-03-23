@@ -15,7 +15,7 @@
 #include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
-#include "DataTypes/MallocAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "Trace.h"

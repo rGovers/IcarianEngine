@@ -46,7 +46,7 @@ public:
 
     virtual void Destroy()
     {
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         vmaDestroyBuffer(allocator, m_buffer, m_allocation);
     }
@@ -115,7 +115,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* 
     Clear();
 
     VulkanRenderEngineBackend* backend = m_engine->GetRenderEngineBackend();
-    BlockAllocator* blockAllocator = backend->GetBlockAllocator();
+    Allocator* blockAllocator = backend->GetAllocator();
 
     IDEFER(ICLEARBIT(a_buffer->Flags, ComputeParticleBuffer::RefreshBit));
 
@@ -126,7 +126,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* 
     m_computeLayout = m_engine->GenerateComputePipelineLayout(inputs.Data(), inputs.Size());
     m_computePipeline = m_engine->GenerateComputePipeline(m_computeShader, m_computeLayout);
 
-    const VmaAllocator allocator = backend->GetAllocator();
+    const VmaAllocator allocator = backend->GetVMAAllocator();
 
     const uint64_t particleBufferSize = sizeof(IcarianCore::ShaderParticleBuffer) * a_buffer->MaxParticles + 16;
 

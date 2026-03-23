@@ -8,14 +8,13 @@
 #include <string>
 #include <string_view>
 
-#include "DataTypes/BlockAllocator.h"
-#include "DataTypes/StackAllocator.h"
 #include "DataTypes/TNCArray.h"
 #include "DataTypes/TStatic.h"
 
 class Font;
 class RenderEngine;
 class RenderAssetStoreBindings;
+class StackAllocator;
 
 struct RenderAsset
 {
@@ -49,6 +48,21 @@ public:
     static constexpr uint32_t RenderAssetStoreBit = 30;
 
 private:
+    struct ClassData
+    {
+        Array<RenderAssetScratchAllocator> StackAllocators;
+
+        RenderEngine*                      Renderer;
+        RenderAssetStoreBindings*          Bindings;
+
+        TNCArray<RenderAsset>              Meshes;
+        TNCArray<RenderAsset>              Models;
+        TNCArray<RenderAsset>              Textures;
+        TNCArray<Font*>                    Fonts;
+
+        uint32_t                           ScratchIndex;
+    };
+
     constexpr static uint64_t BlockAllocatorSize = 32 << 20;
     constexpr static uint64_t ScratchAllocatorSize = 64 << 20;
 
@@ -56,21 +70,11 @@ private:
 
     static constexpr uint16_t DeReqCount = 20;
 
-    BlockAllocator*                    m_blockAllocator;
-    Array<RenderAssetScratchAllocator> m_stackAllocators;
-    TStatic<uint32_t>                  m_scratchAllocator;
+    Allocator*        m_blockAllocator;
 
-    RenderEngine*                      m_renderEngine;
-    RenderAssetStoreBindings*          m_bindings;
+    ClassData*        m_data;
 
-    TNCArray<RenderAsset>              m_meshes;
-    TNCArray<RenderAsset>              m_models;
-    TNCArray<RenderAsset>              m_textures;
-    TNCArray<Font*>                    m_fonts;
-
-    SpinLock                           m_scratchLock;
-
-    uint32_t                           m_scratchIndex;
+    SpinLock          m_scratchLock;
 
     uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::string_view& a_path);
     uint32_t LoadMeshData(const std::string_view& a_path, uint8_t a_index);
@@ -86,7 +90,7 @@ public:
 
     inline Font* GetFont(uint32_t a_addr)
     {
-        return m_fonts[a_addr];
+        return m_data->Fonts[a_addr];
     }
 
     [[nodiscard]] uint32_t LoadMesh(const std::string_view& a_path, uint8_t a_index);

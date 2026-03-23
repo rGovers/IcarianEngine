@@ -4,25 +4,30 @@
 
 #pragma once
 
-#include "DataTypes/Allocator.h"
+#include "DataTypes/Allocators/Allocator.h"
 
 #include "Core/IcarianDefer.h"
 #include "IcarianError.h"
+#include "IcarianMemory.h"
 
 class StackAllocator : public Allocator
 {
 private:
-    void* m_memory;
-    void* m_end;
-    void* m_stackPointer;
-    void* m_stackSlider;
+    Allocator* m_upstreamAllocator;
+
+    void*      m_memory;
+    void*      m_end;
+    void*      m_stackPointer;
+    void*      m_stackSlider;
 
 protected:
 
 public:
-    StackAllocator(uint64_t a_size)
+    StackAllocator(uint64_t a_size, Allocator* a_upstreamAllocator)
     {
-        m_memory = MapMemory(a_size);
+        m_upstreamAllocator = a_upstreamAllocator;
+
+        m_memory = m_upstreamAllocator->Allocate(a_size, BaseAlignment);
         m_end = (char*)m_memory + a_size;
         m_stackPointer = m_memory;
         m_stackSlider = m_memory;
@@ -30,7 +35,12 @@ public:
     }
     virtual ~StackAllocator()
     {
-        UnmapMemory(m_memory, GetSize());
+        m_upstreamAllocator->Free(m_memory);
+    }
+
+    inline Allocator* GetUpstreamAllocator() const
+    {
+        return m_upstreamAllocator;
     }
 
     inline uint64_t GetSize() const

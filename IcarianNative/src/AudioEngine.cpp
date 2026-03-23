@@ -8,8 +8,12 @@
 #include "Audio/AudioEngineBindings.h"
 #include "Core/Bitfield.h"
 #include "Core/IcarianError.h"
-#include "DataTypes/BlockAllocator.h"
-#include "DataTypes/RingAllocator.h"
+#include "DataTypes/Allocators/BlockAllocator.h"
+#include "DataTypes/Allocators/LeakAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
+#include "DataTypes/Allocators/MultiSourceAllocator.h"
+#include "DataTypes/Allocators/OSAllocator.h"
+#include "DataTypes/Allocators/RingAllocator.h"
 #include "IcarianError.h"
 #include "Logger.h"
 #include "ObjectManager.h"
@@ -20,20 +24,20 @@ static AudioEngine* Instance = nullptr;
 
 static void* MAIAlloc(size_t a_size, void* a_userData)
 {
-    BlockAllocator* allocator = (BlockAllocator*)a_userData;
+    ComplexAllocator* allocator = (ComplexAllocator*)a_userData;
 
     // Do not see anything about alignment so just going to assume 16 byte alignment
     return allocator->Allocate((uint64_t)a_size, 16);
 }
 static void* MAIRealloc(void* a_ptr, size_t a_size, void* a_userData)
 {
-    BlockAllocator* allocator = (BlockAllocator*)a_userData;
+    ComplexAllocator* allocator = (ComplexAllocator*)a_userData;
 
     return allocator->Realloc(a_ptr, (uint64_t)a_size, 16);
 }
 static void MAIFree(void* a_ptr, void* a_userData)
 {
-    BlockAllocator* allocator = (BlockAllocator*)a_userData;
+    ComplexAllocator* allocator = (ComplexAllocator*)a_userData;
 
     allocator->Free(a_ptr);
 }
@@ -41,6 +45,35 @@ static void MAIFree(void* a_ptr, void* a_userData)
 AudioEngine::AudioEngine()
 {
     IERRBLOCK;
+
+    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, OSAllocator::Instance);
+    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, OSAllocator::Instance);
+
+    const AllocationSource allocatorSources[] =
+    {
+        {
+            .Alloc = m_smallAllocator,
+            .MaxSize = SmallAllocatorSize >> 1,
+        },
+        {
+            .Alloc = m_largeAllocator,
+            .MaxSize = LargeAllocatorSize >> 1,
+        },
+        {
+            .Alloc = OSAllocator::Instance,
+            .MaxSize = uint64_t(-1),
+        },
+    };
+
+    constexpr uint32_t AllocatorCount = sizeof(allocatorSources) / sizeof(*allocatorSources);
+
+    // External library so allow standalone allocations so it can do oversize allocations
+    // I have no control over their memory so I cannot ensure that the allocations will fit
+    // Otherwise use 16KiB block sizes and fit them in those blocks
+    m_allocator = m_smallAllocator->Create<MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
+#ifdef DEBUG
+    m_allocator = m_smallAllocator->Create<LeakAllocator>(m_allocator);
+#endif
 
     m_init = true;
 
@@ -54,10 +87,7 @@ AudioEngine::AudioEngine()
     TRACE("Creating AudioEngine...");
     Instance = this;
 
-    // External library so allow standalone allocations so it can do oversize allocations
-    // I have no control over their memory so I cannot ensure that the allocations will fit
-    // Otherwise use 16KiB block sizes and fit them in those blocks
-    m_blockAllocator = new BlockAllocator(16 << 10, true);
+
 
     ma_engine_config config = ma_engine_config_init();
     // TODO: Multi listener
@@ -65,17 +95,17 @@ AudioEngine::AudioEngine()
     config.allocationCallbacks.onMalloc = MAIAlloc;
     config.allocationCallbacks.onRealloc = MAIRealloc;
     config.allocationCallbacks.onFree = MAIFree;
-    config.allocationCallbacks.pUserData = m_blockAllocator;
+    config.allocationCallbacks.pUserData = m_allocator;
 
     IERRCHECK(ma_engine_init(&config, &m_engine) == MA_SUCCESS);
     IERRDEFER(ma_engine_uninit(&m_engine));
 
-    m_ringAllocator = m_blockAllocator->Create<RingAllocator>(1 << 20);
-    m_bindings = m_blockAllocator->Create<AudioEngineBindings>(this);   
+    m_ringAllocator = m_allocator->Create<RingAllocator>(1 << 20, OSAllocator::Instance);
+    m_bindings = m_allocator->Create<AudioEngineBindings>(this);   
 }
 AudioEngine::~AudioEngine()
 {
-    m_blockAllocator->Destroy(m_bindings);
+    m_allocator->Destroy(m_bindings);
 
     TRACE("Destroying AudioEngine...");
     if (m_init)
@@ -89,7 +119,7 @@ AudioEngine::~AudioEngine()
         {
             IWARN("AudioClip was not destroyed.");
 
-            m_blockAllocator->Destroy(m_audioClips[i]);
+            m_allocator->Destroy(m_audioClips[i]);
         }
     }
 
@@ -126,7 +156,7 @@ AudioEngine::~AudioEngine()
             ma_sound_uninit(&source->MASound);
             ma_data_source_uninit(&source->MABaseSource);
 
-            m_blockAllocator->Destroy(source);
+            m_allocator->Destroy(source);
 
             IWARN("AudioStream was not destroyed");
         }
@@ -137,9 +167,18 @@ AudioEngine::~AudioEngine()
         ma_engine_uninit(&m_engine);
     }
 
-    m_blockAllocator->Destroy(m_ringAllocator);
+    m_allocator->Destroy(m_ringAllocator);
 
-    delete m_blockAllocator;
+    {
+#ifdef DEBUG
+        Allocator* upstreamAllocator = ((LeakAllocator*)m_allocator)->GetUpstreamAllocator();
+        IDEFER(m_smallAllocator->Destroy(upstreamAllocator));
+#endif
+        m_smallAllocator->Destroy(m_allocator);
+    }
+
+    MallocAllocator::Instance->Destroy(m_largeAllocator);
+    MallocAllocator::Instance->Destroy(m_smallAllocator);
 }
 
 constexpr static uint32_t GetFormatSize(e_AudioFormat a_format)
@@ -614,7 +653,7 @@ void AudioEngine::Update()
 
                 // Miniaudio will try to retrieve info while we have the lock and there is no way that I am aware of 
                 // to provide ahead of time or defer retrieval so have to pass it through kinda annoying
-                MAISource* source = m_blockAllocator->Create<MAISource>();
+                MAISource* source = m_allocator->Create<MAISource>();
                 source->SourceAddr = i,
                 source->ChannelCount = clip->GetChannelCount(),
                 source->SampleRate = clip->GetSampleRate(),

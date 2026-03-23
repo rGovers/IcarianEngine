@@ -8,7 +8,7 @@
 
 #include "Core/IcarianLambda.h"
 #include "Core/ShaderBuffers.h"
-#include "DataTypes/Allocator.h"
+#include "DataTypes/Allocators/Allocator.h"
 #include "Rendering/FlareShader.h"
 #include "Rendering/UI/UIElement.h"
 #include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
@@ -54,7 +54,7 @@ public:
 
         m_layout = a_layout;
 
-        BlockAllocator* allocator = m_engine->GetDeletionAllocator();
+        Allocator* allocator = m_engine->GetDeletionAllocator();
 
         m_pushDescriptorCount = a_pushDescriptorCount;
         m_pushDescriptors = allocator->TAllocate<VulkanPushDescriptor>(m_pushDescriptorCount);
@@ -65,7 +65,7 @@ public:
     }
     virtual ~VulkanShaderDataDeletionObject()
     {
-        BlockAllocator* allocator = m_engine->GetDeletionAllocator();
+        Allocator* allocator = m_engine->GetDeletionAllocator();
 
         allocator->Free(m_pushDescriptors);
     }
@@ -535,7 +535,7 @@ void VulkanShaderData::CreateBaseShaderData
 
         const COWU8String entryPoint = COWU8String("main", a_tempAllocator);
 
-        const std::unordered_map<std::string, std::string> imports = a_builder.GraphicsEngine->GetVertexShaderImports();
+        const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetVertexShaderImports();
 
         const VulkanVertexFShaderBuilder vertexBuilder =
         {
@@ -583,7 +583,7 @@ NextBaseVertexVertexInputFound:;
             IVERIFY(pixelInfo.Type == VulkanShaderInfoType_Flare);
             IVERIFY(!pixelInfo.Data.Empty());
 
-            const std::unordered_map<std::string, std::string> imports = a_builder.GraphicsEngine->GetPixelShaderImports();
+            const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetPixelShaderImports();
 
             const VulkanPixelFShaderBuilder pixelBuilder =
             {
@@ -643,7 +643,7 @@ NextBaseVertexPixelInputFound:;
         Array<ShaderBufferInput> otherInputs = Array<ShaderBufferInput>(a_tempAllocator);
         if (isMeshEnabled)
         {
-            const std::unordered_map<std::string, std::string> imports = a_builder.GraphicsEngine->GetMeshShaderImports();
+            const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetMeshShaderImports();
 
             if (a_builder.Program.ExtraShader != uint32_t(-1))
             {
@@ -742,6 +742,7 @@ NextBaseMeshMeshInputFound:;
             {
                 .Engine = a_builder.Engine,
                 .String = shaderStr,
+                .Imports = Dictionary<COWU8String, COWU8String>(a_tempAllocator),
                 .EntryPoint = entryPoint,
                 .OtherInputs = otherInputs,
             };
@@ -784,7 +785,7 @@ NextBaseMeshVertexInputFound:;
             IVERIFY(info.Type == VulkanShaderInfoType_Flare);
             IVERIFY(!info.Data.Empty());
 
-            const std::unordered_map<std::string, std::string> imports = a_builder.GraphicsEngine->GetPixelShaderImports();
+            const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetPixelShaderImports();
 
             const VulkanPixelFShaderBuilder builder =
             {
@@ -839,7 +840,7 @@ NextBaseMeshPixelInputFound:;
 
         const COWU8String entryPoint = COWU8String("main", a_tempAllocator);
 
-        const std::unordered_map<std::string, std::string> imports = a_builder.GraphicsEngine->GetComputeShaderImports();
+        const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetComputeShaderImports();
 
         const VulkanComputeFShaderBuilder builder =
         {
@@ -1075,7 +1076,7 @@ void VulkanShaderData::CreateComputeMeshShaderData
 
     const COWU8String entryPoint = COWU8String("main", a_tempAllocator);
 
-    const std::unordered_map<std::string, std::string> imports = a_builder.GraphicsEngine->GetMeshShaderImports();
+    const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetMeshShaderImports();
 
     const VulkanComputeFShaderBuilder builder =
     {
@@ -1208,7 +1209,7 @@ void VulkanShaderData::CreateShadowShaderData
 
     const COWU8String entry = COWU8String("main", a_tempAllocator);
 
-    const std::unordered_map<std::string, std::string> imports = a_builder.GraphicsEngine->GetVertexShaderImports();
+    const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetVertexShaderImports();
 
     const VulkanVertexFShaderBuilder builder =
     {

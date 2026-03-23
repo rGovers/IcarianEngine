@@ -16,7 +16,7 @@ private:
     VulkanRenderEngineBackend* m_engine;
 
     vk::Buffer                 m_buffer;
-    VmaAllocation              m_allocation;    
+    VmaAllocation              m_allocation;
 
 protected:
 
@@ -36,7 +36,7 @@ public:
     virtual void Destroy() 
     {
         TRACE("Destroying Model Buffer");
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         vmaDestroyBuffer(allocator, m_buffer, m_allocation);
     }
@@ -62,7 +62,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     m_indexCount = a_indexCount;
     m_radius = a_radius;
 
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
     const uint32_t vbSize = a_vertexCount * a_vertexSize;
     const uint32_t ibSize = a_indexCount * sizeof(uint32_t);
@@ -168,7 +168,7 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
 
     const vk::BufferCopy copy = vk::BufferCopy(0, 0, bufferSize);
     cmd.copyBuffer(stagingBuffer, m_buffer, 1, &copy);
-}   
+}
 VulkanModel::~VulkanModel()
 {
     TRACE("Queuing Model Deletion");
@@ -187,7 +187,7 @@ void VulkanModel::Bind(const vk::CommandBuffer& a_cmdBuffer) const
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

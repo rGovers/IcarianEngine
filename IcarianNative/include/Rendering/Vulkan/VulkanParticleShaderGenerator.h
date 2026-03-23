@@ -6,9 +6,10 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include "DataTypes/Allocator.h"
 #include "DataTypes/Array.h"
 #include "DataTypes/COWString.h"
+
+class Allocator;
 
 #include "EngineMaterialInteropStructures.h"
 #include "EngineParticleSystemInteropStructures.h"

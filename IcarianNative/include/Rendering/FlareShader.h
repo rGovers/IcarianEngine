@@ -9,6 +9,7 @@
 
 #include "DataTypes/Array.h"
 #include "DataTypes/COWString.h"
+#include "DataTypes/Dictionary.h"
 
 #include "EngineMaterialInteropStructures.h"
 
@@ -87,10 +88,8 @@ public:
     {
         COWU8String String;
         e_ShaderPlatform Platform;
-        // TODO: Replace this for custom Map/Dictionary type with COW strings
-        std::unordered_map<std::string, std::string> Imports;
+        Dictionary<COWU8String, COWU8String> Imports;
         Array<ShaderBufferInput>* Inputs;
-        // uint16_t StartSlot;
         Array<ShaderBufferInput> OtherInputs;
         ShaderOutput* Out;
     };

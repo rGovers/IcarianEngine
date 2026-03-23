@@ -4,54 +4,71 @@
 
 #pragma once
 
-#ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
+#include <cstdint>
+#include <type_traits>
 
-#include "Rendering/Vulkan/Shaders/VulkanShader.h"
-
-#include "DataTypes/Array.h"
 #include "DataTypes/COWString.h"
-#include "DataTypes/Dictionary.h"
 
-struct VulkanMeshFShaderBuilder
+template<typename T, typename = void>
+struct DefaultLesserFuntionImpl { };
+
+template<typename T>
+struct DefaultLesserFunction
 {
-    VulkanRenderEngineBackend* Engine;
-    COWU8String String;
-    Dictionary<COWU8String, COWU8String> Imports;
-    COWU8String EntryPoint;
-    Array<ShaderBufferInput> OtherInputs;
-};
-
-class VulkanMeshShader : public VulkanShader
-{
-private:
-
-protected:
-
-public:
-    VulkanMeshShader() = delete;
-    VulkanMeshShader
-    (
-        VulkanRenderEngineBackend* a_engine,
-        const ShaderBufferInput* a_inputs,
-        uint32_t a_inputCount,
-        const uint32_t* a_data,
-        uint32_t a_dataCount,
-        Allocator* a_allocator
-    );
-    virtual ~VulkanMeshShader();
-
-    virtual e_VulkanShaderType GetShaderType() const
+    static bool Less(const T& a_lhs, const T& a_rhs)
     {
-        return VulkanShaderType_Mesh;
+        return DefaultLesserFuntionImpl<std::decay_t<T>>::Less(a_lhs, a_rhs);
     }
-
-    uint32_t GetVertexInputAttributeCount() const;
-    VertexInputAttribute GetVertexInputAttribute(uint32_t a_index) const;
-
-    static void CreateFromFShader(VulkanMeshShader* a_out, const VulkanMeshFShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
 };
 
-#endif
+template<>
+struct DefaultLesserFuntionImpl<uint32_t>
+{
+    static bool Less(uint32_t a_lhs, uint32_t a_rhs)
+    {
+        return a_lhs < a_rhs;
+    }
+};
+template<>
+struct DefaultLesserFuntionImpl<COWU8String>
+{
+    static bool Less(const COWU8String& a_lhs, const COWU8String& a_rhs)
+    {
+        const char* lhs = a_lhs.CStr();
+        const char* rhs = a_rhs.CStr();
+
+        const char* lhsSlider = lhs;
+        const char* rhsSlider = rhs;
+
+        while (true)
+        {
+            if (*lhsSlider < *rhsSlider)
+            {
+                return true;
+            }
+
+            if (*lhsSlider > *rhsSlider)
+            {
+                return false;
+            }
+
+            if (*lhsSlider == 0)
+            {
+                break;
+            }
+
+            if (*rhsSlider == 0)
+            {
+                break;
+            }
+
+            ++lhsSlider;
+            ++rhsSlider;
+        }
+
+        return false;
+    }
+};
 
 // MIT License
 // 

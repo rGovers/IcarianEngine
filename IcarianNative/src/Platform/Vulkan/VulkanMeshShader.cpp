@@ -6,12 +6,13 @@
 
 #include "Rendering/Vulkan/Shaders/VulkanMeshShader.h"
 
+#include "DataTypes/Allocators/LeakAllocator.h"
+#include "DataTypes/Allocators/MultiSourceAllocator.h"
 #include "Rendering/FlareShader.h"
 #include "Rendering/SPIRVTools.h"
-#include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
-#include "Rendering/Vulkan/Shaders/VulkanVertexShader.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
+#include "Trace.h"
 
 VulkanMeshShader::VulkanMeshShader
 (
@@ -48,6 +49,43 @@ void VulkanMeshShader::CreateFromFShader(VulkanMeshShader* a_out, const VulkanMe
 
     IVERIFY(a_builder.Engine->IsMeshEnabled());
 
+    // We will be doing a bunch of string ops so do not want to use the temp allocator directly
+    // Temp allocator is not setup for alot of allocation/deallocation so wrap it in a BlockAllocator to better manage the memory
+    constexpr uint32_t BlockSize = 32 << 10;
+    BlockAllocator tempBlock = BlockAllocator(BlockSize, a_tempAllocator);
+
+    const AllocationSource allocatorSources[] =
+    {
+        {
+            .Alloc = &tempBlock,
+            .MaxSize = BlockSize >> 1,
+        },
+        {
+            // Fallback to the render system allocator if the allocation is too large
+            .Alloc = a_allocator,
+            .MaxSize = uint64_t(-1)
+        }
+    };
+    constexpr uint32_t AllocatorSourceCount = sizeof(allocatorSources) / sizeof(*allocatorSources);
+
+    Allocator* tempAllocator = a_tempAllocator->Create<MultiSourceAllocator>
+    (
+        &tempBlock,
+        allocatorSources,
+        AllocatorSourceCount
+    );
+#ifdef DEBUG
+    tempAllocator = a_tempAllocator->Create<LeakAllocator>(tempAllocator);
+    IDEFER(
+    {
+        Allocator* upstreamAllocator = ((LeakAllocator*)tempAllocator)->GetUpstreamAllocator();
+        a_tempAllocator->Destroy(tempAllocator);
+        a_tempAllocator->Destroy(upstreamAllocator);
+    });
+#else
+    IDEFER(a_tempAllocator->Destroy(tempAllocator));
+#endif
+
     Array<ShaderBufferInput> inputs = Array<ShaderBufferInput>(a_tempAllocator);
 
     const FlareShader::ShaderBuilder builder =
@@ -60,7 +98,7 @@ void VulkanMeshShader::CreateFromFShader(VulkanMeshShader* a_out, const VulkanMe
     };
 
     COWU8String shader = COWU8String(a_tempAllocator);
-    const COWU8String error = FlareShader::GLSLFromFlareShader(&shader, builder, a_allocator, a_tempAllocator);
+    const COWU8String error = FlareShader::GLSLFromFlareShader(&shader, builder, a_allocator, tempAllocator);
     if (!error.Empty())
     {
         IERROR(std::string("Flare Mesh Shader generation error: ") + error.CStr());

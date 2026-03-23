@@ -10,12 +10,13 @@
 
 #include "DataTypes/Array.h"
 #include "DataTypes/COWString.h"
+#include "DataTypes/Dictionary.h"
 
 struct VulkanVertexFShaderBuilder
 {
     VulkanRenderEngineBackend* Engine;
     COWU8String String;
-    std::unordered_map<std::string, std::string> Imports;
+    Dictionary<COWU8String, COWU8String> Imports;
     COWU8String EntryPoint;
     // uint16_t StartSlot;
     Array<ShaderBufferInput> OtherInputs;

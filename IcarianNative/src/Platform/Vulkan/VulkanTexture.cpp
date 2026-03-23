@@ -32,14 +32,14 @@ public:
     }
     virtual ~VulkanTextureDeletionObject()
     {
-        
+
     }
 
     virtual void Destroy()
     {
         TRACE("Destroying Texture");
         const vk::Device device = m_engine->GetLogicalDevice();
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         // Even if it is not in use have to delete the view first cause Vulkan
         device.destroyImageView(m_view);
@@ -66,13 +66,13 @@ public:
     }
     virtual ~VulkanTextureBufferDeletionObject()
     {
-        
+
     }
 
     virtual void Destroy()
     {
         TRACE("Destroying Texture Buffer");
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         vmaDestroyBuffer(allocator, m_buffer, m_allocation);
     }
@@ -143,7 +143,7 @@ void VulkanTexture::InitEmpty(vk::Format a_format, uint32_t a_channels)
     const vk::Extent3D extent = vk::Extent3D(m_width, m_height, 1);
 
     const vk::Device device = m_engine->GetLogicalDevice();
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
     const bool isVideoTexture = a_format == vk::Format::eG8B8R82Plane420Unorm;
 
@@ -228,7 +228,7 @@ void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a
     m_format = a_format;
 
     const vk::Device device = m_engine->GetLogicalDevice();
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
     
     const vk::Extent3D extent = vk::Extent3D(m_width, m_height, 1);
 
@@ -283,7 +283,7 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
     m_format = a_format;
 
     const vk::Device device = m_engine->GetLogicalDevice();
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
     const vk::Extent3D extent = vk::Extent3D(m_width, m_height, 1);
 
@@ -460,7 +460,7 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
 {
     IVERIFY(a_data != nullptr);
 
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
     const vk::DeviceSize imageSize = (vk::DeviceSize)m_width * m_height * m_channels;
 
@@ -555,7 +555,7 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

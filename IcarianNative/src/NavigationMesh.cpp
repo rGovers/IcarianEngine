@@ -12,7 +12,7 @@
 
 #include "Core/IcarianDefer.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/MallocAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "Trace.h"

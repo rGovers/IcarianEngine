@@ -8,11 +8,10 @@
 #include "Audio/AudioClips/WAVAudioClip.h"
 #include "Audio/AudioEngine.h"
 #include "Core/Bitfield.h"
-#include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/BlockAllocator.h"
+#include "DataTypes/Allocators/ComplexAllocator.h"
 #include "IcarianError.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
@@ -30,7 +29,7 @@ ENGINE_AUDIOMIXER_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 ENGINE_AUDIOSOURCE_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 AudioEngineBindings::AudioEngineBindings(AudioEngine* a_engine)
-{   
+{
     m_engine = a_engine;
 
     Instance = this;
@@ -42,7 +41,7 @@ AudioEngineBindings::AudioEngineBindings(AudioEngine* a_engine)
 }
 AudioEngineBindings::~AudioEngineBindings()
 {
-    
+
 }
 
 uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const std::string_view& a_path) const
@@ -54,7 +53,7 @@ uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const std::string_view& 
     const std::filesystem::path p = std::filesystem::path(a_path);
     const std::filesystem::path ext = p.extension();
 
-    BlockAllocator* allocator = m_engine->GetBlockAllocator();
+    Allocator* allocator = m_engine->GetAllocator();
     AudioClip* clip = nullptr;
     IERRDEFER(
     {
@@ -91,10 +90,10 @@ uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const std::string_view& 
 }
 void AudioEngineBindings::DestroyAudioClip(uint32_t a_addr) const
 {
-    TRACE("Destroying AudioClip");
     IVERIFY(m_engine->m_audioClips.Exists(a_addr));
 
-    BlockAllocator* allocator = m_engine->GetBlockAllocator();
+    TRACE("Destroying AudioClip");
+    Allocator* allocator = m_engine->GetAllocator();
 
     AudioClip* clip = m_engine->m_audioClips[a_addr];
     IDEFER(allocator->Destroy(clip));
@@ -141,14 +140,14 @@ uint32_t AudioEngineBindings::GenerateAudioSource(uint32_t a_transformAddr, uint
         .AudioMixerAddr = (uint32_t)-1,
         .AudioStream = (uint32_t)-1
     };
-    
+
     return m_engine->m_audioSources.PushVal(buffer);
 }
 void AudioEngineBindings::DestroyAudioSource(uint32_t a_addr) const
 {
-    TRACE("Destroying AudioSource");
     IVERIFY(m_engine->m_audioSources.Exists(a_addr));
 
+    TRACE("Destroying AudioSource");
     AudioSourceBuffer buffer = m_engine->m_audioSources[a_addr];
     IDEFER(
     {
@@ -171,7 +170,7 @@ void AudioEngineBindings::DestroyAudioSource(uint32_t a_addr) const
             m_engine->m_audioStreams.Erase(buffer.AudioStream);
         }
     });
-    
+
     m_engine->m_audioSources.Erase(a_addr);
 }
 
@@ -226,9 +225,9 @@ uint32_t AudioEngineBindings::GenerateAudioMixer() const
 }
 void AudioEngineBindings::DestroyAudioMixer(uint32_t a_addr) const
 {
-    TRACE("Destroying AudioMixer");
     IVERIFY(m_engine->m_audioMixers.Exists(a_addr));
 
+    TRACE("Destroying AudioMixer");
     m_engine->m_audioMixers.Erase(a_addr);
 }
 AudioMixerBuffer AudioEngineBindings::GetAudioMixerBuffer(uint32_t a_addr) const
@@ -256,15 +255,15 @@ uint32_t AudioEngineBindings::GenerateAudioListener(uint32_t a_transformAddr) co
 }
 void AudioEngineBindings::DestroyAudioListener(uint32_t a_addr) const
 {
-    TRACE("Destroying AudioListener");
     IVERIFY(m_engine->m_audioListeners.Exists(a_addr));
 
+    TRACE("Destroying AudioListener");
     m_engine->m_audioListeners.Erase(a_addr);
 }
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

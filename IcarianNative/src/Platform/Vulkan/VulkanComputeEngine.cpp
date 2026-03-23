@@ -8,6 +8,7 @@
 
 #include "Core/IcarianDefer.h"
 #include "Core/ShaderBuffers.h"
+#include "DataTypes/Allocators/StackAllocator.h"
 #include "Logger.h"
 #include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
 #include "Rendering/Vulkan/VulkanComputeEngineBindings.h"
@@ -22,7 +23,7 @@ VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
 {
     m_engine = a_engine;
 
-    BlockAllocator* allocator = m_engine->GetBlockAllocator();
+    Allocator* allocator = m_engine->GetAllocator();
 
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -52,7 +53,7 @@ VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
 }
 VulkanComputeEngine::~VulkanComputeEngine()
 {
-    BlockAllocator* allocator = m_engine->GetBlockAllocator();
+    Allocator* allocator = m_engine->GetAllocator();
 
     allocator->Destroy(m_bindings);
 
@@ -182,13 +183,14 @@ vk::Buffer VulkanComputeEngine::GetParticleBufferData(uint32_t a_addr)
 
 uint32_t VulkanComputeEngine::GenerateComputeFShader(const COWU8String& a_str, Allocator* a_tempAllocator)
 {
-    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+    Allocator* blockAllocator = m_engine->GetAllocator();
 
     const VulkanComputeFShaderBuilder builder =
     {
         .Engine = m_engine,
         .String = a_str,
-        .EntryPoint = COWU8String("main", a_tempAllocator)
+        .Imports = Dictionary<COWU8String, COWU8String>(a_tempAllocator),
+        .EntryPoint = COWU8String("main", a_tempAllocator),
     };
 
     // TODO: Imports for compute shaders
@@ -201,7 +203,7 @@ void VulkanComputeEngine::DestroyComputeShader(uint32_t a_addr)
 {
     IVERIFY(m_shaders.Exists(a_addr));
 
-    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+    Allocator* blockAllocator = m_engine->GetAllocator();
 
     VulkanComputeShader* shader = m_shaders[a_addr];
     IDEFER(blockAllocator->Destroy(shader));
@@ -217,7 +219,7 @@ VulkanComputeShader* VulkanComputeEngine::GetComputeShader(uint32_t a_addr)
 
 uint32_t VulkanComputeEngine::GenerateComputePipelineLayout(const ShaderBufferInput* a_inputs, uint32_t a_count)
 {
-    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+    Allocator* blockAllocator = m_engine->GetAllocator();
 
     VulkanComputeLayout* layout = blockAllocator->Create<VulkanComputeLayout>(m_engine, a_inputs, a_count, blockAllocator);
 
@@ -227,7 +229,7 @@ void VulkanComputeEngine::DestroyComputePipelineLayout(uint32_t a_addr)
 {
     IVERIFY(m_layouts.Exists(a_addr));
 
-    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+    Allocator* blockAllocator = m_engine->GetAllocator();
 
     VulkanComputeLayout* layout = m_layouts[a_addr];
     IDEFER(blockAllocator->Destroy(layout));

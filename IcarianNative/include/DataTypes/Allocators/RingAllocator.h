@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "DataTypes/Allocator.h"
+#include "DataTypes/Allocators/Allocator.h"
 
 #include "Core/IcarianDefer.h"
 #include "IcarianMemory.h"
@@ -17,22 +17,31 @@
 class RingAllocator : public Allocator
 {
 private:
-    void* m_memory;
-    void* m_slider;
-    void* m_end;
+    Allocator* m_upstreamAllocator;
+
+    void*      m_memory;
+    void*      m_slider;
+    void*      m_end;
 
 protected:
 
 public:
-    RingAllocator(uint64_t a_size)
+    RingAllocator(uint64_t a_size, Allocator* a_upstreamAllocator)
     {
-        m_memory = MapMemory(a_size);
+        m_upstreamAllocator = a_upstreamAllocator;
+
+        m_memory = m_upstreamAllocator->Allocate(a_size, BaseAlignment);
         m_slider = m_memory;
         m_end = (void*)((char*)m_memory + a_size);
     }
     virtual ~RingAllocator()
     {
-        UnmapMemory(m_memory, GetSize());
+        m_upstreamAllocator->Free(m_memory);
+    }
+
+    inline Allocator* GetUpstreamAllocator() const
+    {
+        return m_upstreamAllocator;
     }
 
     inline uint64_t GetSize() const

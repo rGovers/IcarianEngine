@@ -6,17 +6,18 @@
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
+#include "Rendering/RenderEngineBackend.h"
+
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
-#include "DataTypes/BlockAllocator.h"
+#include "DataTypes/Allocators/BlockAllocator.h"
 #include "DataTypes/SpinLock.h"
-#include "DataTypes/StackAllocator.h"
 #include "DataTypes/TArray.h"
 #include "DataTypes/TLockObj.h"
-#include "Rendering/RenderEngineBackend.h"
 
 class AppWindow;
 class LibVulkan;
+class StackAllocator;
 class VulkanComputeEngine;
 class VulkanGraphicsEngine;
 class VulkanPushPool;
@@ -192,9 +193,9 @@ enum e_CommandIndex
 class VulkanRenderEngineBackend : public RenderEngineBackend
 {
 private:
-    constexpr static uint32_t BlockAllocatorSize = 64 << 10;
+    constexpr static uint32_t SmallAllocatorSize = 8 << 10;
+    constexpr static uint32_t LargeAllocatorSize = 8 << 20;
     constexpr static uint32_t DeletionAllocatorSize = 2 << 10;
-    // Doing 1MB need to investigate later
     constexpr static uint64_t ScratchAllocatorSize = 1 << 20;
 
     constexpr static vk::VideoDecodeH264ProfileInfoKHR DecodeProfile = vk::VideoDecodeH264ProfileInfoKHR
@@ -203,55 +204,66 @@ private:
         vk::VideoDecodeH264PictureLayoutFlagBitsKHR::eInterlacedInterleavedLines
     );
 
-    LibVulkan*                     m_vulkanLib;
+    // Need to wrap the data in another struct as it depend on an allocator that we create in the constructor
+    // All this is to prevent RAII related crashes while still allowing RAII and preventing the use of pointers for manual management
+    // Just custom memory allocator things as RAII forces an initializtion order based on the members
+    struct ClassData
+    {
+        LibVulkan*                    VulkanLib;
 
-    BlockAllocator*                m_blockAllocator;
-    BlockAllocator*                m_deletionAllocator;
+        VulkanComputeEngine*          ComputeEngine;
+        VulkanGraphicsEngine*         GraphicsEngine;
+        VulkanSwapchain*              Swapchain;
+        VulkanPushPool*               PushPool;
 
-    VulkanComputeEngine*           m_computeEngine;
-    VulkanGraphicsEngine*          m_graphicsEngine;
-    VulkanSwapchain*               m_swapchain = nullptr;
-    VulkanPushPool*                m_pushPool;
+        Array<RenderScratchAllocator> ScratchAllocators;
 
-    uint32_t                       m_scratchIndex;
-    Array<RenderScratchAllocator>* m_scratchAllocators;
+        // Was bugging me taking up 8x the memory needed so.... uint8_t bitmask it is
+        uint8_t*                      OptionalExtensionMask;
 
-    // Was bugging me taking up 8x the memory needed so.... uint8_t bitmask it is
-    uint8_t*                       m_optionalExtensionMask;
+        VmaAllocator                  VMAAllocator;
 
-    VmaAllocator                   m_allocator;
+        vk::Instance                  Instance;
+        vk::DebugUtilsMessengerEXT    Messenger;
 
-    vk::Instance                   m_instance;
-    vk::DebugUtilsMessengerEXT     m_messenger;
+        vk::PhysicalDevice            PhysicalDevice;
+        vk::Device                    LogicalDevice;
 
-    vk::PhysicalDevice             m_pDevice;
-    vk::Device                     m_lDevice;
+        vk::Queue                     ComputeQueue;
+        vk::Queue                     VideoDecodeQueue;
+        vk::Queue                     GraphicsQueue;
+        vk::Queue                     PresentQueue;
 
-    vk::Queue                      m_computeQueue = nullptr;
-    vk::Queue                      m_videoDecodeQueue = nullptr;
-    vk::Queue                      m_graphicsQueue = nullptr;
-    vk::Queue                      m_presentQueue = nullptr;
+        TArray<VulkanDeletionObject*> DeletionObjects[VulkanDeletionQueueSize];
 
-    TArray<VulkanDeletionObject*>  m_deletionObjects[VulkanDeletionQueueSize];
+        Array<vk::Semaphore>          InterSemaphore[VulkanMaxFlightFrames];
 
-    Array<vk::Semaphore>*          m_interSemaphore;
+        vk::CommandPool               CommandPools[CommandIndex_Last];
 
-    vk::CommandPool                m_commandPools[CommandIndex_Last];
+        uint32_t                      ScratchIndex;
+        uint32_t                      ImageIndex;
+        uint32_t                      CurrentFrame;
+        uint32_t                      CurrentFlightFrame;
+        uint32_t                      DeletionQueueIndex;
 
-    uint32_t                       m_imageIndex = -1;
-    uint32_t                       m_currentFrame = 0;
-    uint32_t                       m_currentFlightFrame = 0;
-    uint32_t                       m_dQueueIndex = 0;
+        uint32_t                      ComputeQueueIndex;
+        uint32_t                      VideoDecodeQueueIndex;
+        uint32_t                      GraphicsQueueIndex;
+        uint32_t                      PresentQueueIndex;
 
-    uint32_t                       m_computeQueueIndex = -1;
-    uint32_t                       m_videoDecodeQueueIndex = -1;
-    uint32_t                       m_graphicsQueueIndex = -1;
-    uint32_t                       m_presentQueueIndex = -1;
+        VulkanVideoDecodeCapabilities VideoDecodeCapabilities;
+    };
 
-    VulkanVideoDecodeCapabilities  m_videoDecodeCapabilities;
+    BlockAllocator*   m_smallAllocator;
+    BlockAllocator*   m_largeAllocator;
 
-    SharedSpinLock                 m_scratchLock;
-    SpinLock                       m_graphicsQueueLock;
+    ComplexAllocator* m_allocator;
+    ComplexAllocator* m_deletionAllocator;
+
+    ClassData*        m_data;
+
+    SharedSpinLock    m_scratchLock;
+    SpinLock          m_graphicsQueueLock;
 
     void InternalPushDeletionObject(VulkanDeletionObject* a_object);
 
@@ -295,38 +307,47 @@ public:
     virtual void DestroyModel(uint32_t a_addr);
 
     virtual uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);
-    virtual uint32_t GenerateTextureMipMapped(uint32_t a_width, uint32_t a_height, uint32_t a_levels, uint64_t* a_offsets, e_TextureFormat a_format, const void* a_data, uint64_t a_dataSize);
+    virtual uint32_t GenerateTextureMipMapped
+    (
+        uint32_t a_width,
+        uint32_t a_height,
+        uint32_t a_levels,
+        uint64_t* a_offsets,
+        e_TextureFormat a_format,
+        const void* a_data,
+        uint64_t a_dataSize
+    );
     virtual void DestroyTexture(uint32_t a_addr);
 
     virtual uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     virtual void DestroyTextureSampler(uint32_t a_addr);
 
-    inline BlockAllocator* GetBlockAllocator() const
+    inline ComplexAllocator* GetAllocator() const
     {
-        return m_blockAllocator;
+        return m_allocator;
     }
-    inline BlockAllocator* GetDeletionAllocator() const
+    inline ComplexAllocator* GetDeletionAllocator() const
     {
         return m_deletionAllocator;
     }
 
     inline VulkanComputeEngine* GetComputeEngine() const
     {
-        return m_computeEngine;
+        return m_data->ComputeEngine;
     }
     inline VulkanGraphicsEngine* GetGraphicsEngine() const
     {
-        return m_graphicsEngine;
+        return m_data->GraphicsEngine;
     }
 
     inline VulkanPushPool* GetPushPool() const
     {
-        return m_pushPool;
+        return m_data->PushPool;
     }
 
     inline const VulkanVideoDecodeCapabilities* GetVideoDecodeCapabilities() const
     {
-        return &m_videoDecodeCapabilities;
+        return &m_data->VideoDecodeCapabilities;
     }
 
     void IncrementScratchFrame(uint32_t a_index);
@@ -342,70 +363,70 @@ public:
         InternalPushDeletionObject(deletionObject);
     }
 
-    inline VmaAllocator GetAllocator() const
+    inline VmaAllocator GetVMAAllocator() const
     {
-        return m_allocator;
+        return m_data->VMAAllocator;
     }
 
     inline vk::Instance GetInstance() const
     {
-        return m_instance;
+        return m_data->Instance;
     }
 
     inline vk::Device GetLogicalDevice() const
     {
-        return m_lDevice;
+        return m_data->LogicalDevice;
     }
     inline vk::PhysicalDevice GetPhysicalDevice() const
     {
-        return m_pDevice;
+        return m_data->PhysicalDevice;
     }
 
     inline uint32_t GetPresentQueueIndex() const
     {
-        return m_presentQueueIndex;
+        return m_data->PresentQueueIndex;
     }
     inline uint32_t GetComputeQueueIndex() const
     {
-        return m_computeQueueIndex;
+        return m_data->ComputeQueueIndex;
     }
     inline uint32_t GetVideoDecodeIndex() const
     {
-        return m_videoDecodeQueueIndex;
+        return m_data->VideoDecodeQueueIndex;
     }
     inline uint32_t GetGraphicsQueueIndex() const
     {
-        return m_graphicsQueueIndex;
+        return m_data->GraphicsQueueIndex;
     }
 
     inline vk::Queue GetPresentQueue() const
     {
-        return m_presentQueue;
+        return m_data->PresentQueue;
     }
     inline vk::Queue GetComputeQueue() const
     {
-        return m_computeQueue;
+        return m_data->ComputeQueue;
     }
     inline vk::Queue GetVideoDecodeQueue() const
     {
-        return m_videoDecodeQueue;
+        return m_data->VideoDecodeQueue;
     }
     inline vk::Queue GetGraphicsQueue() const
     {
-        return m_graphicsQueue;
+        return m_data->GraphicsQueue;
     }
 
     inline uint32_t GetImageIndex() const
     {
-        return m_imageIndex;
+        return m_data->ImageIndex;
     }
     inline uint32_t GetCurrentFrame() const
     {
-        return m_currentFrame;
+        return m_data->CurrentFrame;
     }
     inline uint32_t GetCurrentFlightFrame() const
     {
-        return m_currentFlightFrame;
+        return m_data->CurrentFlightFrame;
     }
 
     inline bool IsMeshEnabled() const

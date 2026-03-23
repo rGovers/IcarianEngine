@@ -48,19 +48,19 @@ public:
     }
 
     uint32_t GenerateFComputeShaderAddr(const COWU8String& a_str) const;
-    void AddComputeShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
-    void DestroyComputeshader(uint32_t a_addr) const;
+    void AddComputeShaderImport(const COWU8String& a_key, const COWU8String& a_value) const;
+    void DestroyComputeShader(uint32_t a_addr) const;
 
     uint32_t GenerateFVertexShaderAddr(const COWU8String& a_str) const;
-    void AddVertexShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
+    void AddVertexShaderImport(const COWU8String& a_key, const COWU8String& a_value) const;
     void DestroyVertexShader(uint32_t a_addr) const;
 
     uint32_t GenerateFMeshShaderAddr(const COWU8String& a_str) const;
-    void AddMeshShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
+    void AddMeshShaderImport(const COWU8String& a_key, const COWU8String& a_value) const;
     void DestroyMeshShader(uint32_t a_addr) const;
 
     uint32_t GenerateFPixelShaderAddr(const COWU8String& a_str) const;
-    void AddPixelShaderImport(const std::string_view& a_key, const std::string_view& a_value) const;
+    void AddPixelShaderImport(const COWU8String& a_key, const COWU8String& a_value) const;
     void DestroyPixelShader(uint32_t a_addr) const;
 
     uint32_t GenerateShaderProgram(const RenderProgram& a_program) const;

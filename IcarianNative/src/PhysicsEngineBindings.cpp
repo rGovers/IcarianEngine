@@ -35,7 +35,7 @@
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/MallocAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "ObjectManager.h"
@@ -155,7 +155,7 @@ glm::vec3 PhysicsEngineBindings::GetBoxShapeExtents(uint32_t a_addr) const
 
     const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
     IVERIFY(shape->GetSubType() == JPH::EShapeSubType::Box);
-    
+
     const JPH::BoxShape* bShape = (JPH::BoxShape*)shape.GetPtr();
 
     const JPH::RVec3 val = bShape->GetHalfExtent();

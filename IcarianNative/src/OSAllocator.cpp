@@ -2,33 +2,45 @@
 // 
 // License at end of file.
 
-#include "DataTypes/Allocators/MallocAllocator.h"
+#include "DataTypes/Allocators/OSAllocator.h"
 
+#include "DataTypes/Allocators/BlockAllocator.h"
 #include "DataTypes/Allocators/LeakAllocator.h"
 
-Allocator* MallocAllocator::Instance = nullptr;
+Allocator* OSAllocator::Instance = nullptr;
 
-void MallocAllocator::Init()
+void OSAllocator::Init()
 {
-    if (MallocAllocator::Instance == nullptr)
+    if (OSAllocator::Instance == nullptr)
     {
-        MallocAllocator::Instance = new MallocAllocator();
+        OSAllocator::Instance = new OSAllocator();
 
 #ifdef DEBUG
-        MallocAllocator::Instance = new LeakAllocator(MallocAllocator::Instance);
+        // Preferably do not want he LeakDetector to run on raw pages so allocate a BlockAllocator for it
+        // Still want a LeakAllocator to see if we leak memory pages we get from the OS
+        // This leak detector should never trigger but if it does it likely means there is a broken Allocator implementation in the codebase
+        BlockAllocator* blockAllocator = new BlockAllocator(8 << 10, OSAllocator::Instance);
+
+        OSAllocator::Instance = new LeakAllocator(OSAllocator::Instance, blockAllocator);
 #endif
     }
 }
-void MallocAllocator::Destroy()
+void OSAllocator::Destroy()
 {
-    if (MallocAllocator::Instance != nullptr)
+    if (OSAllocator::Instance != nullptr)
     {
 #ifdef DEBUG
-        Allocator* upstreamAllocator = ((LeakAllocator*)MallocAllocator::Instance)->GetUpstreamAllocator();
+        LeakAllocator* leakAllocator = (LeakAllocator*)OSAllocator::Instance;
+
+        Allocator* upstreamAllocator = leakAllocator->GetUpstreamAllocator();
         IDEFER(delete upstreamAllocator);
+
+        Allocator* storageAllocator = leakAllocator->GetStorageAllocator();
+        IDEFER(delete storageAllocator);
 #endif
-        delete MallocAllocator::Instance;
-        MallocAllocator::Instance = nullptr;
+
+        delete OSAllocator::Instance;
+        OSAllocator::Instance = nullptr;
     }
 }
 

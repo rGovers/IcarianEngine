@@ -15,7 +15,7 @@
 
 #include "Application.h"
 #include "Config.h"
-#include "DataTypes/MallocAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "InputManager.h"
 #include "Rendering/UI/UIControl.h"
 #include "Profiler.h"

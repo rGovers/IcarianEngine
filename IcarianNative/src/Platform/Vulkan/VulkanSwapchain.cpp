@@ -172,7 +172,7 @@ void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height)
     m_width = glm::max(2U, a_width);
     m_height = glm::max(2U, a_height);
 
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
     const vk::Device device = m_engine->GetLogicalDevice();
 
     device.waitIdle();
@@ -351,7 +351,7 @@ void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height)
 }
 void VulkanSwapchain::Destroy()
 {
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
     const vk::Device device = m_engine->GetLogicalDevice();
 
     device.waitIdle();
@@ -436,7 +436,7 @@ VulkanSwapchain::VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow*
     if (headless)
     {
 #ifdef ICARIANNATIVE_ENABLE_DMA
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         // Want to make sure it hits one of the bigger pools?
         constexpr uint32_t ExtentSize = 1 << 13;
@@ -719,7 +719,7 @@ VulkanSwapchain::~VulkanSwapchain()
     const bool headless = m_window->IsHeadless() || ForceHeadless;
     if (headless)
     {
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         vmaDestroyPool(allocator, m_pool);
     }

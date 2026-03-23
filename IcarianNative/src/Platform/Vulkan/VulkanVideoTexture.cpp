@@ -69,11 +69,11 @@ public:
     virtual void Destroy()
     {
         const vk::Device device = m_engine->GetLogicalDevice();
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         device.destroyBuffer(m_buffer);
 
-        vmaFreeMemory(allocator, m_allocation);   
+        vmaFreeMemory(allocator, m_allocation);
     }
 };
 
@@ -98,15 +98,15 @@ public:
 
     virtual void Destroy()
     {
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
-        vmaFreeMemory(allocator, m_allocation);   
+        vmaFreeMemory(allocator, m_allocation);
     }
 };
 
 constexpr StdVideoH264LevelIdc ConvertLevelIDCVulkan(uint32_t a_levelIDC)
 {
-    switch (a_levelIDC) 
+    switch (a_levelIDC)
     {
     case 0:
     {
@@ -186,11 +186,11 @@ constexpr StdVideoH264LevelIdc ConvertLevelIDCVulkan(uint32_t a_levelIDC)
     }
     default:
     {
-        IERROR("Invalid level IDC");
-
         break;
     }
     }
+
+    IERROR("Invalid level IDC");
 
     return STD_VIDEO_H264_LEVEL_IDC_INVALID;
 }
@@ -202,7 +202,7 @@ void VulkanVideoTexture::LoadHardwarePlayback(const VideoInfo* a_info)
     m_vulkanVideoData->StreamAllocation = nullptr;
     m_vulkanVideoData->StreamBuffer = nullptr;
 
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
     const vk::Device device = m_engine->GetLogicalDevice();
 
     const VulkanVideoDecodeCapabilities* videoCapabilities = m_engine->GetVideoDecodeCapabilities();
@@ -530,7 +530,7 @@ VulkanVideoTexture::~VulkanVideoTexture()
 
 void VulkanVideoTexture::UpdateVulkan(vk::CommandBuffer a_commandBuffer, double a_delta)
 {
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
     VideoClip* clip = VideoManager::GetVideoClip(m_videoAddr);
     IVERIFY(clip != nullptr);
@@ -817,7 +817,7 @@ void VulkanVideoTexture::UpdateVulkan(vk::CommandBuffer a_commandBuffer, double 
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

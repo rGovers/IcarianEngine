@@ -5,7 +5,7 @@
 #include "Rendering/RenderAssetStoreBindings.h"
 
 #include "Core/IcarianDefer.h"
-#include "DataTypes/MallocAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "DeletionQueue.h"
 #include "IcarianError.h"
 #include "Rendering/RenderAssetStore.h"
@@ -29,7 +29,7 @@ RENDERASSETSTORE_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 ENGINE_FONT_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
-RUNTIME_FUNCTION(ModelDataStructure, Model, GetModelData, 
+RUNTIME_FUNCTION(ModelDataStructure, Model, GetModelData,
 {
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
@@ -85,21 +85,21 @@ uint32_t RenderAssetStoreBindings::GenerateFont(const std::string_view& a_path) 
     Font* font = Font::LoadFont(a_path);
     IVERIFY(font != nullptr);
 
-    return m_store->m_fonts.PushVal(font);
+    return m_store->m_data->Fonts.PushVal(font);
 }
 void RenderAssetStoreBindings::DestroyFont(uint32_t a_addr) const
 {
-    IVERIFY(m_store->m_fonts.Exists(a_addr));
+    IVERIFY(m_store->m_data->Fonts.Exists(a_addr));
 
-    const Font* font = m_store->m_fonts[a_addr];
+    const Font* font = m_store->m_data->Fonts[a_addr];
     IDEFER(delete font);
-    m_store->m_fonts.Erase(a_addr);
+    m_store->m_data->Fonts.Erase(a_addr);
 }
 uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, const std::u32string_view& a_str, float a_fontSize, float a_scale, float a_depth) const
 {
-    IVERIFY(m_store->m_fonts.Exists(a_addr));
+    IVERIFY(m_store->m_data->Fonts.Exists(a_addr));
 
-    const Font* font = m_store->m_fonts[a_addr];
+    const Font* font = m_store->m_data->Fonts[a_addr];
 
     Array<Vertex> vertices = Array<Vertex>(m_store->m_blockAllocator);
     Array<uint32_t> indices = Array<uint32_t>(m_store->m_blockAllocator);
@@ -108,7 +108,15 @@ uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, cons
 
     if (radius > 0 && !vertices.Empty() && !indices.Empty())
     {
-        return m_store->m_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), sizeof(Vertex), indices.Data(), indices.Size(), radius);
+        return m_store->m_data->Renderer->GenerateModel
+        (
+            vertices.Data(),
+            vertices.Size(),
+            sizeof(Vertex),
+            indices.Data(),
+            indices.Size(),
+            radius
+        );
     }
 
     return -1;

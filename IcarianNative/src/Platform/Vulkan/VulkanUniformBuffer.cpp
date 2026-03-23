@@ -39,7 +39,7 @@ public:
     virtual void Destroy()
     {
         TRACE("Destroying UBO");
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
         {
@@ -55,7 +55,7 @@ VulkanUniformBuffer::VulkanUniformBuffer(VulkanRenderEngineBackend* a_engine, ui
 
     m_uniformSize = a_uniformSize;
 
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
     const VkBufferCreateInfo bufferInfo = 
     { 
@@ -71,7 +71,7 @@ VulkanUniformBuffer::VulkanUniformBuffer(VulkanRenderEngineBackend* a_engine, ui
         .usage = VMA_MEMORY_USAGE_AUTO,
         .requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
     };
-    
+
     for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
     {
         VkBuffer tBuffer;
@@ -90,7 +90,7 @@ VulkanUniformBuffer::~VulkanUniformBuffer()
 
 void VulkanUniformBuffer::SetData(uint32_t a_index, const void* a_data)
 {
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
     void* dat;
     vmaMapMemory(allocator, m_allocations[a_index], &dat);
@@ -104,7 +104,7 @@ void VulkanUniformBuffer::SetData(uint32_t a_index, const void* a_data)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

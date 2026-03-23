@@ -10,7 +10,8 @@
 #include <type_traits>
 
 #include "Core/IcarianDefer.h"
-#include "DataTypes/Allocator.h"
+#include "DataTypes/Allocators/Allocator.h"
+#include "IcarianError.h"
 
 // This only exists because they STL only dictates the interface and not how it is implemented
 // This should be more predictable then the std::vector on different platforms
@@ -32,8 +33,6 @@ private:
             {
                 T* dat = &(m_data[i]);
 
-                [[maybe_unused]] int brk = 3;
-
                 dat->~T();
             }
         }
@@ -49,6 +48,7 @@ public:
 
     Array(Allocator* a_allocator)
     {
+        IVERIFY(a_allocator != nullptr);
         m_allocator = a_allocator;
 
         m_size = 0;

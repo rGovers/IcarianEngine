@@ -33,7 +33,7 @@ public:
 
     virtual void Destroy()
     {
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         vmaDestroyBuffer(allocator, m_buffer, m_allocation);
     }
@@ -47,7 +47,7 @@ VulkanShaderStorageObject::VulkanShaderStorageObject(VulkanRenderEngineBackend* 
 
     const int32_t cVal = (int32_t)a_count;
 
-    const VmaAllocator allocator = a_engine->GetAllocator();
+    const VmaAllocator allocator = a_engine->GetVMAAllocator();
 
     m_engine = a_engine;
 
@@ -91,7 +91,7 @@ VulkanShaderStorageObject::~VulkanShaderStorageObject()
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

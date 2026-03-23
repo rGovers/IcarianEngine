@@ -18,7 +18,7 @@ VulkanPushPool::VulkanPushPool(VulkanRenderEngineBackend* a_engine)
 VulkanPushPool::~VulkanPushPool()
 {
     const vk::Device device = m_engine->GetLogicalDevice();
-    BlockAllocator* allocator = m_engine->GetBlockAllocator();
+    Allocator* allocator = m_engine->GetAllocator();
 
     for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
     {
@@ -57,7 +57,7 @@ VulkanPushPool::~VulkanPushPool()
             allocator->Destroy(m_spotLightBuffers[i]);
         }
     }
-    
+
     for (uint32_t i = 0; i < m_shadowBuffers.Size(); ++i)
     {
         if (m_shadowBuffers[i] != nullptr)
@@ -161,7 +161,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateAmbientLightUniformBuffer()
     if (m_ambientLightBufferIndex >= a.Size())
     {
         TRACE("Creating new ambient light uniform buffer");
-        BlockAllocator* allocator = m_engine->GetBlockAllocator();
+        Allocator* allocator = m_engine->GetAllocator();
 
         VulkanUniformBuffer* buffer = allocator->Create<VulkanUniformBuffer>(m_engine, sizeof(IcarianCore::ShaderAmbientLightBuffer));
         m_ambientLightBuffers.UPush(buffer);
@@ -179,7 +179,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateDirectionalLightUniformBuffer()
     if (m_directionalLightBufferIndex >= a.Size())
     {
         TRACE("Creating new directional light uniform buffer");
-        BlockAllocator* allocator = m_engine->GetBlockAllocator();
+        Allocator* allocator = m_engine->GetAllocator();
 
         VulkanUniformBuffer* buffer = allocator->Create<VulkanUniformBuffer>(m_engine, sizeof(IcarianCore::ShaderDirectionalLightBuffer));
         m_directionalLightBuffers.UPush(buffer);
@@ -197,7 +197,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocatePointLightUniformBuffer()
     if (m_pointLightBufferIndex >= a.Size())
     {
         TRACE("Creating new point light uniform buffer");
-        BlockAllocator* allocator = m_engine->GetBlockAllocator();
+        Allocator* allocator = m_engine->GetAllocator();
 
         VulkanUniformBuffer* buffer = allocator->Create<VulkanUniformBuffer>(m_engine, sizeof(IcarianCore::ShaderPointLightBuffer));
         m_pointLightBuffers.UPush(buffer);
@@ -215,7 +215,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateSpotLightUniformBuffer()
     if (m_spotLightBufferIndex >= a.Size())
     {
         TRACE("Creating new spot light uniform buffer");
-        BlockAllocator* allocator = m_engine->GetBlockAllocator();
+        Allocator* allocator = m_engine->GetAllocator();
 
         VulkanUniformBuffer* buffer = allocator->Create<VulkanUniformBuffer>(m_engine, sizeof(IcarianCore::ShaderSpotLightBuffer));
         m_spotLightBuffers.UPush(buffer);
@@ -234,7 +234,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateShadowUniformBuffer()
     if (m_shadowBufferIndex >= a.Size())
     {
         TRACE("Creating new shadow uniform buffer");
-        BlockAllocator* allocator = m_engine->GetBlockAllocator();
+        Allocator* allocator = m_engine->GetAllocator();
 
         VulkanUniformBuffer* buffer = allocator->Create<VulkanUniformBuffer>(m_engine, sizeof(IcarianCore::ShaderShadowLightBuffer));
         m_shadowBuffers.UPush(buffer);
@@ -251,7 +251,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateShadowUniformBuffer()
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

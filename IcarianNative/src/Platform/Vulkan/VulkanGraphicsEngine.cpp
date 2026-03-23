@@ -13,6 +13,7 @@
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
 #include "Core/ShaderBuffers.h"
+#include "DataTypes/Allocators/StackAllocator.h"
 #include "IcarianError.h"
 #include "Logger.h"
 #include "ObjectManager.h"
@@ -54,11 +55,18 @@
 #include "EngineLightInteropStructures.h"
 
 VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEngine) :
-    m_cameraUniforms(a_vulkanEngine->GetBlockAllocator())
+    m_pipelines(a_vulkanEngine->GetAllocator()),
+    m_shadowPipelines(a_vulkanEngine->GetAllocator()),
+    m_cubeShadowPipelines(a_vulkanEngine->GetAllocator()),
+    m_computeImports(a_vulkanEngine->GetAllocator()),
+    m_vertexImports(a_vulkanEngine->GetAllocator()),
+    m_meshImports(a_vulkanEngine->GetAllocator()),
+    m_pixelImports(a_vulkanEngine->GetAllocator()),
+    m_cameraUniforms(a_vulkanEngine->GetAllocator())
 {
     m_vulkanEngine = a_vulkanEngine;
 
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* blockAllocator = m_vulkanEngine->GetAllocator();
     StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
@@ -200,9 +208,11 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     {
         TRACE("Creating Mesh emulation data");
 
-        const VmaAllocator vmaAllocator = m_vulkanEngine->GetAllocator();
+        const VmaAllocator vmaAllocator = m_vulkanEngine->GetVMAAllocator();
 
-        m_meshEmulationData = blockAllocator->Create<VulkanMeshEmulationData>();
+        m_meshEmulationData = blockAllocator->ZTAllocate<VulkanMeshEmulationData>();
+
+        m_meshEmulationData->MeshPipelines = Dictionary<uint64_t, VulkanPipeline*>(blockAllocator);
 
         VkBuffer buffer;
         const VmaAllocationCreateInfo allocInfo =
@@ -287,7 +297,8 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
 }
 VulkanGraphicsEngine::~VulkanGraphicsEngine()
 {
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* blockAllocator = m_vulkanEngine->GetAllocator();
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     TRACE("Checking if shaders where deleted");
     for (uint32_t i = 0; i < m_vertexShaders.Size(); ++i)
@@ -344,29 +355,51 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         }
     }
 
-    TRACE("Deleting Pipelines");
-    for (const auto& iter : m_pipelines)
     {
-        blockAllocator->Destroy(iter.second);
+        RENDERSCRATCHFRAME;
+
+        TRACE("Deleting Pipelines");
+        const Array<VulkanPipeline*> pipeValues = m_pipelines.GetValues(scratchAllocator);
+        for (VulkanPipeline* p : pipeValues)
+        {
+            blockAllocator->Destroy(p);
+        }
     }
-    TRACE("Deleting Shadow Pipelines");
-    for (const auto& iter : m_shadowPipelines)
+
     {
-        blockAllocator->Destroy(iter.second);
+        RENDERSCRATCHFRAME;
+
+        TRACE("Deleting Shadow Pipelines");
+        const Array<VulkanPipeline*> shadowPipeValues = m_shadowPipelines.GetValues(scratchAllocator);
+        for (VulkanPipeline* p : shadowPipeValues)
+        {
+            blockAllocator->Destroy(p);
+        }
     }
-    TRACE("Deleting Cube Shadow Pipelines");
-    for (const auto& iter : m_cubeShadowPipelines)
+
     {
-        blockAllocator->Destroy(iter.second);
+        RENDERSCRATCHFRAME;
+
+        TRACE("Deleting Cube Shadow Pipelines");
+        const Array<VulkanPipeline*> cubeShadowPipeValues = m_cubeShadowPipelines.GetValues(scratchAllocator);
+        for (VulkanPipeline* p : cubeShadowPipeValues)
+        {
+            blockAllocator->Destroy(p);
+        }
     }
 
     if (m_meshEmulationData != nullptr)
     {
-        const VmaAllocator allocator = m_vulkanEngine->GetAllocator();
+        const VmaAllocator allocator = m_vulkanEngine->GetVMAAllocator();
 
-        for (const auto& iter : m_meshEmulationData->MeshPipelines)
         {
-            blockAllocator->Destroy(iter.second);
+            RENDERSCRATCHFRAME;
+
+            const Array<VulkanPipeline*> meshPipeValues = m_meshEmulationData->MeshPipelines.GetValues(scratchAllocator);
+            for (VulkanPipeline* p : meshPipeValues)
+            {
+                blockAllocator->Destroy(p);
+            }
         }
 
         vmaDestroyBuffer(allocator, m_meshEmulationData->DrawBuffer, m_meshEmulationData->DrawAlloction);
@@ -431,14 +464,11 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
     delete m_preForwardFunc;
     delete m_postForwardFunc;
     delete m_postProcessFunc;
-
-    // blockAllocator->Free(m_decodePool);
-    // blockAllocator->Free(m_decodeBuffer);
 }
 
 void VulkanGraphicsEngine::Cleanup()
 {
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
 
     allocator->Destroy(m_timeUniform);
 
@@ -612,7 +642,7 @@ uint32_t VulkanGraphicsEngine::GenerateFVertexShader(const COWU8String& a_source
 {
     IVERIFY(!a_source.Empty());
 
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* blockAllocator = m_vulkanEngine->GetAllocator();
 
     const VulkanShaderInfo info =
     {
@@ -635,7 +665,7 @@ VulkanShaderInfo VulkanGraphicsEngine::GetVertexShaderInfo(uint32_t a_addr)
 
     return m_vertexShaders[a_addr];
 }
-std::unordered_map<std::string, std::string> VulkanGraphicsEngine::GetVertexShaderImports()
+Dictionary<COWU8String, COWU8String> VulkanGraphicsEngine::GetVertexShaderImports()
 {
     const SharedThreadGuard g = SharedThreadGuard(m_importLock);
 
@@ -646,7 +676,7 @@ uint32_t VulkanGraphicsEngine::GenerateFTaskShader(const COWU8String& a_source)
 {
     IVERIFY(!a_source.Empty());
 
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* blockAllocator = m_vulkanEngine->GetAllocator();
 
     const VulkanShaderInfo info =
     {
@@ -672,7 +702,7 @@ uint32_t VulkanGraphicsEngine::GenerateFMeshShader(const COWU8String& a_source)
 {
     IVERIFY(!a_source.Empty());
 
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* blockAllocator = m_vulkanEngine->GetAllocator();
 
     const VulkanShaderInfo info =
     {
@@ -694,7 +724,7 @@ VulkanShaderInfo VulkanGraphicsEngine::GetMeshShaderInfo(uint32_t a_addr)
 
     return m_meshShaders[a_addr];
 }
-std::unordered_map<std::string, std::string> VulkanGraphicsEngine::GetMeshShaderImports()
+Dictionary<COWU8String, COWU8String> VulkanGraphicsEngine::GetMeshShaderImports()
 {
     const SharedThreadGuard g = SharedThreadGuard(m_importLock);
 
@@ -705,7 +735,7 @@ uint32_t VulkanGraphicsEngine::GenerateFPixelShader(const COWU8String& a_source)
 {
     IVERIFY(!a_source.Empty());
 
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* blockAllocator = m_vulkanEngine->GetAllocator();
 
     const VulkanShaderInfo info =
     {
@@ -727,7 +757,7 @@ VulkanShaderInfo VulkanGraphicsEngine::GetPixelShaderInfo(uint32_t a_addr)
 
     return m_pixelShaders[a_addr];
 }
-std::unordered_map<std::string, std::string> VulkanGraphicsEngine::GetPixelShaderImports()
+Dictionary<COWU8String, COWU8String> VulkanGraphicsEngine::GetPixelShaderImports()
 {
     const SharedThreadGuard g = SharedThreadGuard(m_importLock);
 
@@ -738,7 +768,7 @@ uint32_t VulkanGraphicsEngine::GenerateFComputeShader(const COWU8String& a_sourc
 {
     IVERIFY(!a_source.Empty());
 
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* blockAllocator = m_vulkanEngine->GetAllocator();
 
     const VulkanShaderInfo info =
     {
@@ -760,7 +790,7 @@ VulkanShaderInfo VulkanGraphicsEngine::GetComputeShaderInfo(uint32_t a_addr)
 
     return m_computeShaders[a_addr];
 }
-std::unordered_map<std::string, std::string> VulkanGraphicsEngine::GetComputeShaderImports()
+Dictionary<COWU8String, COWU8String> VulkanGraphicsEngine::GetComputeShaderImports()
 {
     const SharedThreadGuard g = SharedThreadGuard(m_importLock);
 
@@ -769,7 +799,7 @@ std::unordered_map<std::string, std::string> VulkanGraphicsEngine::GetComputeSha
 
 uint32_t VulkanGraphicsEngine::GenerateRenderProgram(const RenderProgram& a_program, Allocator* a_tempAllocator)
 {
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
 
     TRACE("Creating Shader Program");
     // Create a VulkanRenderProgram from a generic RenderProgram
@@ -875,7 +905,7 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
     RENDERSCRATCHFRAME;
 
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
     StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     const RenderProgram program = m_shaderPrograms[a_addr];
@@ -971,32 +1001,19 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
         const ThreadGuard g = ThreadGuard(m_pipeLock);
 
-        typedef Array<uint64_t> KeyArray;
-
-        const KeyArray keys = ILAMBDA(
+        const Array<uint64_t> keys = m_pipelines.GetKeys(scratchAllocator);
+        for (uint64_t k : keys)
         {
-            // Templates being fun again so have to use a typedef otherwise we get a compiler error
-            // Templates are not a straight forward thing and macros cause all sorts of things to go haywire in C++ so eh what can you do
-            KeyArray vals = KeyArray(scratchAllocator);
-
-            for (auto iter = m_pipelines.begin(); iter != m_pipelines.end(); ++iter)
+            const uint32_t val = (uint32_t)(k >> 32);
+            if (val != a_addr)
             {
-                const uint32_t val = (uint32_t)(iter->first >> 32);
-                if (val == a_addr)
-                {
-                    vals.Push(iter->first);
-                }
+                continue;
             }
 
-            ILRETURN vals;
-        });
-
-        for (const uint64_t key : keys)
-        {
-            VulkanPipeline* pipeline = m_pipelines[key];
+            VulkanPipeline* pipeline = m_pipelines[k];
             IDEFER(allocator->Destroy(pipeline));
 
-            m_pipelines.erase(key);
+            m_pipelines.Erase(k);
         }
     }
 
@@ -1007,30 +1024,19 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
             const ThreadGuard g = ThreadGuard(m_shadowPipeLock);
 
-            typedef Array<uint64_t> KeyArray;
-
-            const KeyArray keys = ILAMBDA(
+            const Array<uint64_t> keys = m_shadowPipelines.GetKeys(scratchAllocator);
+            for (const uint64_t k : keys)
             {
-                KeyArray vals = KeyArray(scratchAllocator);
-
-                for (auto iter = m_shadowPipelines.begin(); iter != m_shadowPipelines.end(); ++iter)
+                const uint32_t val = (uint32_t)(k >> 32);
+                if (val != a_addr)
                 {
-                    const uint32_t val = (uint32_t)(iter->first >> 32);
-                    if (val == a_addr)
-                    {
-                        vals.Push(iter->first);
-                    }
+                    continue;
                 }
 
-                ILRETURN vals;
-            });
-
-            for (const uint64_t key : keys)
-            {
-                VulkanPipeline* pipeline = m_shadowPipelines[key];
+                VulkanPipeline* pipeline = m_shadowPipelines[k];
                 IDEFER(allocator->Destroy(pipeline));
 
-                m_shadowPipelines.erase(key);
+                m_shadowPipelines.Erase(k);
             }
         }
 
@@ -1039,30 +1045,41 @@ void VulkanGraphicsEngine::DestroyRenderProgram(uint32_t a_addr)
 
             const ThreadGuard g = ThreadGuard(m_cubeShadowPipeLock);
 
-            typedef Array<uint64_t> KeyArray;
-
-            const KeyArray keys = ILAMBDA(
+            const Array<uint64_t> keys = m_cubeShadowPipelines.GetKeys(scratchAllocator);
+            for (const uint64_t k : keys)
             {
-                KeyArray vals = KeyArray(scratchAllocator);
-                for (auto iter = m_cubeShadowPipelines.begin(); iter != m_cubeShadowPipelines.end(); ++iter)
+                const uint32_t val = (uint32_t)(k >> 32);
+                if (val != a_addr)
                 {
-                    const uint32_t val = (uint32_t)(iter->first >> 32);
-                    if (val == a_addr)
-                    {
-                        vals.Push(iter->first);
-                    }
+                    continue;
                 }
 
-                ILRETURN vals;
-            });
-
-            for (const uint64_t key : keys)
-            {
-                VulkanPipeline* pipeline = m_cubeShadowPipelines[key];
+                VulkanPipeline* pipeline = m_cubeShadowPipelines[k];
                 IDEFER(allocator->Destroy(pipeline));
 
-                m_cubeShadowPipelines.erase(key);
+                m_cubeShadowPipelines.Erase(k);
             }
+        }
+    }
+
+    if (m_meshEmulationData != nullptr)
+    {
+        RENDERSCRATCHFRAME;
+
+        const ThreadGuard g = ThreadGuard(m_meshPipelineLock);
+
+        const Array<uint64_t> keys = m_meshEmulationData->MeshPipelines.GetKeys(scratchAllocator);
+        for (uint64_t k : keys)
+        {
+            if (k != a_addr)
+            {
+                continue;
+            }
+
+            VulkanPipeline* pipeline = m_meshEmulationData->MeshPipelines[k];
+            IDEFER(allocator->Destroy(pipeline));
+
+            m_meshEmulationData->MeshPipelines.Erase(k);
         }
     }
 }
@@ -1084,10 +1101,9 @@ VulkanPipeline* VulkanGraphicsEngine::GetShadowPipeline(uint32_t a_renderTexture
     const uint64_t addr = (uint64_t)a_renderTexture | (uint64_t)a_pipeline << 32;
 
     const ThreadGuard g = ThreadGuard(m_shadowPipeLock);
-    const auto iter = m_shadowPipelines.find(addr);
-    if (iter != m_shadowPipelines.end())
+    if (m_shadowPipelines.Exists(addr))
     {
-        return iter->second;
+        return m_shadowPipelines[addr];
     }
 
     TRACE("Allocating Vulkan Shadow Pipeline");
@@ -1096,7 +1112,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetShadowPipeline(uint32_t a_renderTexture
 
     const vk::RenderPass pass = tex->GetRenderPass();
 
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
 
     const VulkanGraphicsPipelineBuilder builder =
     {
@@ -1109,7 +1125,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetShadowPipeline(uint32_t a_renderTexture
     VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
     VulkanPipeline::CreateShadowPipeline(pipeline, builder, scratchAllocator);
 
-    m_shadowPipelines.emplace(addr, pipeline);
+    m_shadowPipelines.Push(addr, pipeline);
 
     return pipeline;
 }
@@ -1123,10 +1139,9 @@ VulkanPipeline* VulkanGraphicsEngine::GetCubeShadowPipeline(uint32_t a_renderTex
     const uint64_t addr = (uint64_t)a_renderTexture | (uint64_t)a_pipeline << 32;
 
     const ThreadGuard g = ThreadGuard(m_cubeShadowPipeLock);
-    const auto iter = m_cubeShadowPipelines.find(addr);
-    if (iter != m_cubeShadowPipelines.end())
+    if (m_cubeShadowPipelines.Exists(addr))
     {
-        return iter->second;
+        return m_cubeShadowPipelines[addr];
     }
 
     TRACE("Allocating Vulkan Cube Shadow Pipeline");
@@ -1135,7 +1150,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetCubeShadowPipeline(uint32_t a_renderTex
 
     const vk::RenderPass pass = tex->GetRenderPass();
 
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
 
     const VulkanGraphicsPipelineBuilder builder =
     {
@@ -1148,7 +1163,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetCubeShadowPipeline(uint32_t a_renderTex
     VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
     VulkanPipeline::CreateShadowPipeline(pipeline, builder, scratchAllocator);
 
-    m_cubeShadowPipelines.emplace(addr, pipeline);
+    m_cubeShadowPipelines.Push(addr, pipeline);
 
     return pipeline;
 }
@@ -1159,10 +1174,9 @@ VulkanPipeline* VulkanGraphicsEngine::GetPipeline(uint32_t a_renderTexture, uint
     const uint64_t addr = (uint64_t)a_renderTexture | (uint64_t)a_pipeline << 32;
 
     const ThreadGuard g = ThreadGuard(m_pipeLock);
-    const auto iter = m_pipelines.find(addr);
-    if (iter != m_pipelines.end())
+    if (m_pipelines.Exists(addr))
     {
-        return iter->second;
+        return m_pipelines[addr];
     }
 
     RENDERSCRATCHFRAME;
@@ -1173,7 +1187,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetPipeline(uint32_t a_renderTexture, uint
     const RenderProgram program = m_shaderPrograms[a_pipeline];
 
     TRACE("Allocating Vulkan Pipeline");
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
     VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
 
     switch (program.MaterialMode)
@@ -1246,7 +1260,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetPipeline(uint32_t a_renderTexture, uint
     }
     }
 
-    m_pipelines.emplace(addr, pipeline);
+    m_pipelines.Push(addr, pipeline);
 
     return pipeline;
 }
@@ -1256,15 +1270,14 @@ VulkanPipeline* VulkanGraphicsEngine::GetComputeMeshPipeline(uint32_t a_pipeline
 
     const uint64_t addr = (uint64_t)a_pipeline;
 
-    const ThreadGuard g = ThreadGuard(m_meshEmulationData->MeshPipelineLock);
-    const auto iter = m_meshEmulationData->MeshPipelines.find(addr);
-    if (iter != m_meshEmulationData->MeshPipelines.end())
+    const ThreadGuard g = ThreadGuard(m_meshPipelineLock);
+    if (m_meshEmulationData->MeshPipelines.Exists(addr))
     {
-        return iter->second;
+        return m_meshEmulationData->MeshPipelines[addr];
     }
 
     TRACE("Allocating Mesh Emulation Vulkan Mesh Pipeline");
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
     VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
 
     const VulkanGraphicsComputePipelineBuilder builder = 
@@ -1275,7 +1288,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetComputeMeshPipeline(uint32_t a_pipeline
     };
     VulkanPipeline::CreateMeshComputePipeline(pipeline, builder);
 
-    m_meshEmulationData->MeshPipelines.emplace(addr, pipeline);
+    m_meshEmulationData->MeshPipelines.Push(addr, pipeline);
 
     return pipeline;
 }
@@ -3808,7 +3821,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
     Profiler::StartFrame("Drawing Setup");
     m_renderCommands.Clear();
 
-    BlockAllocator* blockAllocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* blockAllocator = m_vulkanEngine->GetAllocator();
     StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     {
@@ -4168,37 +4181,6 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
     return cmdBuffers;
 }
 
-// VulkanVertexShader* VulkanGraphicsEngine::GetVertexShader(uint32_t a_addr)
-// {
-//     IVERIFY(m_vertexShaders.Exists(a_addr));
-
-//     return m_vertexShaders[a_addr];
-// }
-// VulkanTaskShader* VulkanGraphicsEngine::GetTaskShader(uint32_t a_addr)
-// {
-//     IVERIFY(m_taskShaders.Exists(a_addr));
-
-//     return m_taskShaders[a_addr];
-// }
-// VulkanMeshShader* VulkanGraphicsEngine::GetMeshShader(uint32_t a_addr)
-// {
-//     IVERIFY(m_meshShaders.Exists(a_addr));
-
-//     return m_meshShaders[a_addr];
-// }
-// VulkanPixelShader* VulkanGraphicsEngine::GetPixelShader(uint32_t a_addr)
-// {
-//     IVERIFY(m_pixelShaders.Exists(a_addr));
-
-//     return m_pixelShaders[a_addr];
-// }
-// VulkanComputeShader* VulkanGraphicsEngine::GetComputeShader(uint32_t a_addr)
-// {
-//     IVERIFY(m_computeShaders.Exists(a_addr));
-
-//     return m_computeShaders[a_addr];
-// }
-
 CameraBuffer VulkanGraphicsEngine::GetCameraBuffer(uint32_t a_addr)
 {
     IVERIFY(a_addr < m_cameraBuffers.Size());
@@ -4230,7 +4212,7 @@ uint32_t VulkanGraphicsEngine::GenerateMesh
     IVERIFY(a_meshlets != nullptr);
     IVERIFY(a_meshletCount > 0);
 
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
 
     VulkanMesh* mesh = allocator->Create<VulkanMesh>
     (
@@ -4251,7 +4233,7 @@ uint32_t VulkanGraphicsEngine::GenerateMesh
 }
 void VulkanGraphicsEngine::DestroyMesh(uint32_t a_addr)
 {
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
 
     if (ISRENDERASSETSTOREADDR(a_addr))
     {
@@ -4315,7 +4297,7 @@ uint32_t VulkanGraphicsEngine::GenerateModel
     IVERIFY(a_indexCount > 0);
     IVERIFY(a_vertexStride > 0);
 
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
 
     VulkanModel* model = allocator->Create<VulkanModel>(m_vulkanEngine, a_vertexCount, a_vertices, a_vertexStride, a_indexCount, a_indices, a_radius);
 
@@ -4323,7 +4305,7 @@ uint32_t VulkanGraphicsEngine::GenerateModel
 }
 void VulkanGraphicsEngine::DestroyModel(uint32_t a_addr)
 {
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
 
     if (ISRENDERASSETSTOREADDR(a_addr))
     {
@@ -4429,7 +4411,7 @@ uint32_t VulkanGraphicsEngine::GenerateDepthRenderTexture(uint32_t a_width, uint
     IVERIFY(a_width > 0);
     IVERIFY(a_height > 0);
 
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
 
     VulkanDepthRenderTexture* texture = allocator->Create<VulkanDepthRenderTexture>(m_vulkanEngine, a_width, a_height);
 
@@ -4439,7 +4421,7 @@ void VulkanGraphicsEngine::DestroyDepthRenderTexture(uint32_t a_addr)
 {
     IVERIFY(m_depthRenderTextures.Exists(a_addr));
 
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
 
     VulkanDepthRenderTexture* tex = m_depthRenderTextures[a_addr];
     IDEFER(allocator->Destroy(tex));
@@ -4546,7 +4528,7 @@ uint32_t VulkanGraphicsEngine::GenerateTextureSampler(uint32_t a_textureAddr, e_
     }
     }
 
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
 
     VulkanTextureSampler* texSampler = allocator->TAllocate<VulkanTextureSampler>();
 
@@ -4574,7 +4556,7 @@ void VulkanGraphicsEngine::DestroyTextureSampler(uint32_t a_addr)
 {
     IVERIFY(m_textureSampler.Exists(a_addr));
 
-    BlockAllocator* allocator = m_vulkanEngine->GetBlockAllocator();
+    Allocator* allocator = m_vulkanEngine->GetAllocator();
 
     const TextureSamplerBuffer sampler = m_textureSampler[a_addr];
     IDEFER(

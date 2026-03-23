@@ -6,7 +6,7 @@
 
 #include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
-#include "DataTypes/Allocator.h"
+#include "DataTypes/Allocators/Allocator.h"
 
 VulkanShader::VulkanShader(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, Allocator* a_allocator)
 {

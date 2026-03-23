@@ -13,6 +13,7 @@
 class AudioClip;
 class AudioEngineBindings;
 class BlockAllocator;
+class ComplexAllocator;
 class RingAllocator;
 
 #include "EngineAudioSourceInteropStructures.h"
@@ -34,11 +35,15 @@ private:
     friend class AudioEngineBindings;
 
     constexpr static uint32_t SampleRate = 48000;
+    constexpr static uint32_t SmallAllocatorSize = 8 << 10;
+    constexpr static uint32_t LargeAllocatorSize = 8 << 20;
 
-    BlockAllocator*               m_blockAllocator;
+    BlockAllocator*               m_smallAllocator;
+    BlockAllocator*               m_largeAllocator;
+
+    ComplexAllocator*             m_allocator;
     RingAllocator*                m_ringAllocator;
 
-    bool                          m_init;
     AudioEngineBindings*          m_bindings;
 
     ma_engine                     m_engine;
@@ -50,15 +55,17 @@ private:
 
     TNCArray<MAISource*>          m_audioStreams;
 
+    bool                          m_init;
+
 protected:
 
 public:
     AudioEngine();
     ~AudioEngine();
 
-    inline BlockAllocator* GetBlockAllocator() const
+    inline ComplexAllocator* GetAllocator() const
     {
-        return m_blockAllocator;
+        return m_allocator;
     }
 
     ma_result DataSourceRead(ma_data_source* a_dataSource, void* a_framesOut, ma_uint64 a_frameCount, ma_uint64* a_framesRead);
@@ -72,7 +79,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "DataTypes/Allocator.h"
+#include "DataTypes/Allocators/ComplexAllocator.h"
 
 #ifdef __linux__
 #if defined (__GNUC__) && !defined (__clang__)
@@ -23,67 +23,50 @@
 #include "IcarianMemory.h"
 #include "Trace.h"
 
-struct AllocationHeader;
-struct BlockHeader;
-
-struct AllocationHeader
-{
-    constexpr static uint32_t FreeFlagBit = 0;
-    constexpr static uint32_t StandaloneFlagBit = 1;
-    constexpr static uint32_t StandaloneHeaderBit = 2;
-
-#ifdef DEBUG
-    uintptr_t CanaryA;
-    char** Backtrace;
-    uint32_t BacktraceSize;
-#endif
-    uint32_t Flags;
-    // Used as size in standalone mode
-    uint32_t BlockOffset;
-    union
-    {
-        struct
-        {
-            uint32_t PrevOffset;
-            uint32_t NextOffset;
-        } Block;
-        struct
-        {
-            void* BasePointer;
-        } Standalone;
-    } Data;
-#ifdef DEBUG
-    uintptr_t CanaryB;
-#endif
-};
-
-struct BlockHeader
-{
-#ifdef DEBUG
-    uintptr_t CanaryA;
-#endif
-    BlockHeader* Next;
-    AllocationHeader* Free;
-    AllocationHeader* First;
-    SpinLock Lock;
-#ifdef DEBUG
-    uintptr_t CanaryB;
-#endif
-};
-
 // First time implementing an allocator that is not just a ring so please forgive me for the mess
 // Should probably have looked at existing allocators but fuck it we wing it in this house
-class BlockAllocator : public Allocator
+class BlockAllocator : public ComplexAllocator
 {
 private:
+    struct AllocationHeader
+    {
+        constexpr static uint32_t FreeFlagBit = 0;
+
+#ifdef DEBUG
+        uintptr_t CanaryA;
+#endif
+        uint32_t Flags;
+        uint32_t BlockOffset;
+        uint32_t PrevOffset;
+        uint32_t NextOffset;
+#ifdef DEBUG
+        uintptr_t CanaryB;
+#endif
+    };
+
+    struct BlockHeader
+    {
+#ifdef DEBUG
+        uintptr_t CanaryA;
+#endif
+        BlockHeader* Next;
+        AllocationHeader* Free;
+        AllocationHeader* First;
+        SpinLock Lock;
+#ifdef DEBUG
+        uintptr_t CanaryB;
+#endif
+    };
+
     // Annoying that I have to use a 16 byte alignment but who am I to argue with Intel and the C++ standard
     constexpr static uint32_t OverHeadSize = sizeof(BlockHeader) + sizeof(AllocationHeader) * 2 + BaseAlignment;
     constexpr static uint32_t BacktraceSize = 16;
     constexpr static uint64_t CanaryValue = 0xCCCCCCCCCCCCCCCC;
 
+    Allocator*   m_upstreamAllocator;
+
     BlockHeader* m_block;
     uint32_t     m_blockSize;
-    bool         m_allowStandalone;
 
     char** CreateBacktrace(uint32_t* a_size)
     {
@@ -118,21 +101,21 @@ private:
 
     static AllocationHeader* NextAllocation(const AllocationHeader* a_header)
     {
-        if (a_header->Data.Block.NextOffset == 0)
+        if (a_header->NextOffset == 0)
         {
             return NULL;
         }
 
-        return (AllocationHeader*)((uint8_t*)a_header + a_header->Data.Block.NextOffset);
+        return (AllocationHeader*)((uint8_t*)a_header + a_header->NextOffset);
     }
     static AllocationHeader* PrevAllocation(const AllocationHeader* a_header)
     {
-        if (a_header->Data.Block.PrevOffset == 0)
+        if (a_header->PrevOffset == 0)
         {
             return NULL;
         }
 
-        return (AllocationHeader*)((uint8_t*)a_header - a_header->Data.Block.PrevOffset);
+        return (AllocationHeader*)((uint8_t*)a_header - a_header->PrevOffset);
     }
 
     static bool VerifyAllocation(const AllocationHeader* a_header)
@@ -158,21 +141,21 @@ private:
 
         if (a_prevHeader != NULL)
         {
-            a_prevHeader->Data.Block.NextOffset = 0;
+            a_prevHeader->NextOffset = 0;
 
             if (a_nextHeader != NULL)
             {
-                a_prevHeader->Data.Block.NextOffset = offset;
+                a_prevHeader->NextOffset = offset;
             }
         }
 
         if (a_nextHeader != NULL)
         {
-            a_nextHeader->Data.Block.PrevOffset = 0;
+            a_nextHeader->PrevOffset = 0;
 
             if (a_prevHeader != NULL)
             {
-                a_nextHeader->Data.Block.PrevOffset = offset;
+                a_nextHeader->PrevOffset = offset;
             }
         }
     }
@@ -191,62 +174,6 @@ private:
 #endif
     }
 
-    static void PrintAllocationBacktrace(const AllocationHeader* a_header)
-    {
-#ifdef DEBUG
-#ifdef __linux__
-        for (uint32_t i = 0; i < a_header->BacktraceSize; ++i)
-        {
-// #if 1
-#if defined (__GNUC__) && !defined (__clang__)
-            char buffer[256];
-
-            bool write = false;
-
-            char* ptr = a_header->Backtrace[i];
-            uint32_t writeIndex = 0;
-            while (*ptr != 0)
-            {
-                const char chr = *ptr;
-
-                if (chr == ')' || chr == '+')
-                {
-                    buffer[writeIndex] = 0;
-
-                    break;
-                }
-
-                if (write)
-                {
-                    buffer[writeIndex++] = *ptr;
-                }
-
-                if (chr == '(')
-                {
-                    write = true;
-                }
-
-                ++ptr;
-            }
-
-            char* name = abi::__cxa_demangle(buffer, NULL, NULL, NULL);
-            IDEFER(free(name));
-#else
-            char* name = a_header->Backtrace[i];
-#endif
-            if (name == nullptr)
-            {
-                printf("[%d] Unknown symbol \n", i);
-
-                continue;
-            }
-
-            printf("[%d] %s \n", i, name);
-        }
-#endif
-#endif
-    }
-
     static void VerifyBlock(const BlockHeader* a_header)
     {
 #ifdef DEBUG
@@ -256,24 +183,12 @@ private:
         }
 
         const AllocationHeader* allocHeader = GetFirstAllocation(a_header);
-        const AllocationHeader* lastHeader = NULL;
 
         while (allocHeader != NULL)
         {
             IDEFER(allocHeader = NextAllocation(allocHeader));
 
-            if (!VerifyAllocation(allocHeader))
-            {
-                printf(" --------------------------------------- \n\n");
-                printf("    Previous Allocation Callstack \n\n");
-                printf(" --------------------------------------- \n");
-
-                PrintAllocationBacktrace(lastHeader);
-
-                IERROR("Corrupted allocation");
-            }
-
-            lastHeader = allocHeader;
+            IVERIFY(VerifyAllocation(allocHeader));
         }
 #endif
     }
@@ -294,31 +209,9 @@ private:
         return true;
     }
 
-    static void PrintLeaks(const BlockHeader* a_header)
-    {
-#ifdef DEBUG
-#ifdef __linux__
-        const AllocationHeader* allocHeader = GetFirstAllocation(a_header);
-        while (allocHeader != NULL) 
-        {
-            IDEFER(allocHeader = NextAllocation(allocHeader));
-
-            if (!IISBITSET(allocHeader->Flags, AllocationHeader::FreeFlagBit))
-            {
-                printf(" --------------------------------------- \n\n");
-                printf("    Block Leaked Allocation Callstack \n\n");
-                printf(" --------------------------------------- \n");
-
-                PrintAllocationBacktrace(allocHeader);
-            }
-        }
-#endif
-#endif
-    }
-
     BlockHeader* AllocateBlock()
     {
-        void* ptr = MapMemory(m_blockSize);
+        void* ptr = m_upstreamAllocator->Allocate((uint64_t)m_blockSize, BaseAlignment);
         memset(ptr, 0, (size_t)m_blockSize);
 
         BlockHeader* header = (BlockHeader*)ptr;
@@ -340,20 +233,21 @@ private:
 
     void FreeBlock(BlockHeader* a_block)
     {
-        UnmapMemory(a_block, m_blockSize);
+        m_upstreamAllocator->Free(a_block);
     }
 
 protected:
 
 public:
-    BlockAllocator(uint32_t a_blockSize, bool a_allowStandalone = false)
+    BlockAllocator(uint32_t a_blockSize, Allocator* a_upstreamAllocator)
     {
         if (a_blockSize < OverHeadSize)
         {
             IERROR("Block too small");
         }
 
-        m_allowStandalone = a_allowStandalone;
+        m_upstreamAllocator = a_upstreamAllocator;
+
         m_blockSize = a_blockSize;
         m_block = AllocateBlock();
     }
@@ -369,8 +263,6 @@ public:
 
             if (!IsBlockFree(block))
             {
-                PrintLeaks(block);
-
                 IERROR("Block allocator leaked memory");
             }
 
@@ -378,7 +270,12 @@ public:
         }
     }
 
-    virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
+    inline Allocator* GetUpstreamAllocator() const
+    {
+        return m_upstreamAllocator;
+    }
+
+    [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
     {
         if (a_size == 0)
         {
@@ -389,44 +286,6 @@ public:
         if (a_size >= std::numeric_limits<uint32_t>::max())
         {
             IERROR("Allocation too large to serve");
-        }
-
-        if (a_size >= m_blockSize - OverHeadSize)
-        {
-            if (!m_allowStandalone)
-            {
-                IERROR("Creating an allocation larger then the block size with standalone mode off");
-            }
-
-            Logger::Warning("Allocating standalone memory block for too large allocation");
-
-            // Need to allocate some extra memory so we have some wiggle room for alignment fiddling
-            // We need room for alignment fiddling as there is no alignment assurances
-            void* basePtr = MapMemory(a_size + sizeof(AllocationHeader) * 3);
-            void* alignPtr = AlignTo((uint8_t*)basePtr + sizeof(AllocationHeader), a_alignment);
-
-            AllocationHeader* baseHeader = AllocationFromPointer(alignPtr);
-
-            SetCanary(baseHeader);
-
-            // If we do larger the a 2/4 GB allocation we have bigger issues
-            baseHeader->BlockOffset = (uint32_t)a_size;
-            baseHeader->Data.Standalone.BasePointer = basePtr;
-            baseHeader->Flags = 0;
-            ISETBIT(baseHeader->Flags, AllocationHeader::StandaloneFlagBit);
-#ifdef DEBUG
-            baseHeader->Backtrace = CreateBacktrace(&baseHeader->BacktraceSize);
-
-            // Keep a header pointer so that we can reference back to it in debug for leak detection
-            AllocationHeader** headerPtr = (AllocationHeader**)Allocate(sizeof(AllocationHeader**), alignof(AllocationHeader**));
-
-            AllocationHeader* headerAllocation = AllocationFromPointer(headerPtr);
-            ISETBIT(headerAllocation->Flags, AllocationHeader::StandaloneHeaderBit);
-
-            *headerPtr = baseHeader;
-#endif
-            return alignPtr;
-
         }
 
         BlockHeader* blockHeader = m_block;
@@ -481,10 +340,6 @@ public:
                     correctedHeader->BlockOffset = (uint32_t)((uintptr_t)correctedHeader - (uintptr_t)blockHeader);
                     correctedHeader->Flags = 0;
 
-#ifdef DEBUG
-                    correctedHeader->Backtrace = CreateBacktrace(&correctedHeader->BacktraceSize);
-#endif
-
                     if (firstHeader == allocationHeader)
                     {
                         blockHeader->First = correctedHeader;
@@ -532,9 +387,6 @@ public:
                 {
                     blockHeader->First = correctedHeader;
                 }
-#ifdef DEBUG
-                correctedHeader->Backtrace = CreateBacktrace(&correctedHeader->BacktraceSize);
-#endif
 
                 const uint64_t remainingSize = size - a_size;
                 const bool roomToSlice = remainingSize > 128;
@@ -589,67 +441,9 @@ public:
         AllocationHeader* header = AllocationFromPointer(a_ptr);
         IVERIFY(VerifyAllocation(header));
 
-        if (IISBITSET(header->Flags, AllocationHeader::StandaloneFlagBit))
-        {
-            void* basePtr = header->Data.Standalone.BasePointer;
-            IDEFER(UnmapMemory(basePtr, header->BlockOffset));
-
-#ifdef DEBUG
-#ifdef __linux__
-            if (header->Backtrace != NULL)
-            {
-                free(header->Backtrace);
-                header->Backtrace = NULL;
-            }
-
-            header->BacktraceSize = 0;
-#endif
-            // If we are in debug there is an additional header we use for leak detection that we need to cleanup
-            BlockHeader* currentBlock = m_block;
-
-            while (currentBlock != NULL)
-            {
-                IDEFER(currentBlock = currentBlock->Next);
-
-                AllocationHeader* currentHeader = GetFirstAllocation(currentBlock);
-                while (currentHeader != NULL) 
-                {
-                    IDEFER(currentHeader = NextAllocation(currentHeader));
-
-                    if (!IISBITSET(currentHeader->Flags, AllocationHeader::StandaloneHeaderBit))
-                    {
-                        continue;
-                    }
-
-                    AllocationHeader** headerPtr = (AllocationHeader**)((uint8_t*)currentHeader + sizeof(AllocationHeader));
-                    if (*headerPtr == header)
-                    {
-                        Free(headerPtr);
-
-                        return;
-                    }
-                }
-            }
-
-            IERROR("Failed to find standalone allocation");
-#endif
-            return;
-        }
-
         BlockHeader* blockHeader = (BlockHeader*)((uint8_t*)header - header->BlockOffset);
         const ThreadGuard g = ThreadGuard(blockHeader->Lock);
 
-#ifdef DEBUG
-#ifdef __linux__
-        if (header->Backtrace != NULL)
-        {
-            free(header->Backtrace);
-            header->Backtrace = NULL;
-        }
-
-        header->BacktraceSize = 0;
-#endif
-#endif
         AllocationHeader* nextAllocation = NextAllocation(header);
         if (nextAllocation != NULL)
         {
@@ -679,10 +473,6 @@ public:
 
             offHead->Flags = 0;
             offHead->BlockOffset = (uint32_t)((uintptr_t)offHead - (uintptr_t)blockHeader);
-#ifdef DEBUG
-            offHead->Backtrace = NULL;
-            offHead->BacktraceSize = 0;
-#endif
         }
 
         ISETBIT(header->Flags, AllocationHeader::FreeFlagBit);
@@ -731,7 +521,7 @@ public:
 
     // Have the data to implement realloc so just do it
     // NOTE: This is not thread safe
-    void* Realloc(void* a_ptr, uint64_t a_size, uint32_t a_alignment)
+    [[nodiscard]] virtual void* Realloc(void* a_ptr, uint64_t a_size, uint32_t a_alignment)
     {
         const bool isNull = (uintptr_t)a_ptr < sizeof(AllocationHeader);
         if (isNull)
@@ -749,27 +539,11 @@ public:
         AllocationHeader* header = (AllocationHeader*)headerPtr;
         IVERIFY(VerifyAllocation(header));
 
-        // Need to different size calculation for a standalone header
-        if (IISBITSET(header->Flags, AllocationHeader::StandaloneHeaderBit))
-        {
-            if (a_size < header->BlockOffset)
-            {
-                return a_ptr;
-            }
-
-            IDEFER(Free(a_ptr));
-
-            void* nextPtr = Allocate(a_size, a_alignment);
-            memcpy(nextPtr, a_ptr, header->BlockOffset);
-
-            return nextPtr;
-        }
-
         // If the allocation is valid there should be another header after the allocation
-        IVERIFY(header->Data.Block.NextOffset >= sizeof(AllocationHeader));
+        IVERIFY(header->NextOffset >= sizeof(AllocationHeader));
         IVERIFY(!IISBITSET(header->Flags, AllocationHeader::FreeFlagBit));
 
-        const uint64_t size = (uint64_t)header->Data.Block.NextOffset - sizeof(AllocationHeader);
+        const uint64_t size = (uint64_t)header->NextOffset - sizeof(AllocationHeader);
         if (size >= a_size)
         {
             // Still have room so just return the same pointer

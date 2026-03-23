@@ -48,7 +48,7 @@ public:
     {
         TRACE("Destroying Depth Cube Texture Render Texture");
         const vk::Device device = m_engine->GetLogicalDevice();
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         for (int i = 0; i < 6; ++i)
         {
@@ -56,7 +56,7 @@ public:
             device.destroyImageView(m_imageViewFrameBuffer[i]);
         }
         device.destroyImageView(m_imageView);
-        
+
         vmaDestroyImage(allocator, m_image, m_allocation);
     }
 };
@@ -251,7 +251,7 @@ VulkanDepthCubeRenderTexture::~VulkanDepthCubeRenderTexture()
 
 void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 {
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
     const vk::Device device = m_engine->GetLogicalDevice();
     const vk::PhysicalDevice physicalDevice = m_engine->GetPhysicalDevice();
 
@@ -384,7 +384,7 @@ void VulkanDepthCubeRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

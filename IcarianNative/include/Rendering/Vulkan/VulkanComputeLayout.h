@@ -7,9 +7,8 @@
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
+class Allocator;
 class VulkanRenderEngineBackend;
-
-#include "DataTypes/Allocator.h"
 
 #include "EngineMaterialInteropStructures.h"
 

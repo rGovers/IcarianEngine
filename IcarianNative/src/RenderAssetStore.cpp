@@ -15,35 +15,62 @@
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
 #include "Core/StringUtils.h"
+#include "DataTypes/Allocators/BlockAllocator.h"
+#include "DataTypes/Allocators/LeakAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
+#include "DataTypes/Allocators/OSAllocator.h"
+#include "DataTypes/Allocators/StackAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "Rendering/RenderAssetStoreBindings.h"
 #include "Rendering/RenderEngine.h"
 #include "Runtime/RuntimeManager.h"
 
-RenderAssetStore::RenderAssetStore(RenderEngine* a_renderEngine) :
-    m_blockAllocator(new BlockAllocator(BlockAllocatorSize)),
-    m_stackAllocators(m_blockAllocator)
+static TStatic<uint32_t> ScratchAllocator = TStatic<uint32_t>();
+
+RenderAssetStore::RenderAssetStore(RenderEngine* a_renderEngine)
 {
-    m_renderEngine = a_renderEngine;
+    m_blockAllocator = MallocAllocator::Instance->Create<BlockAllocator>(BlockAllocatorSize, OSAllocator::Instance);
+#ifdef DEBUG
+    m_blockAllocator = MallocAllocator::Instance->Create<LeakAllocator>(m_blockAllocator);
+#endif
 
-    m_scratchIndex = 0;
+    m_data = m_blockAllocator->ZTAllocate<ClassData>();
+    m_data->StackAllocators = Array<RenderAssetScratchAllocator>(m_blockAllocator);
 
-    m_bindings = m_blockAllocator->Create<RenderAssetStoreBindings>(this);
+    m_data->Renderer = a_renderEngine;
+
+    m_data->Bindings = m_blockAllocator->Create<RenderAssetStoreBindings>(this);
 }
 RenderAssetStore::~RenderAssetStore()
 {
-    m_blockAllocator->Destroy(m_bindings);
+    m_blockAllocator->Destroy(m_data->Bindings);
+
+    for (const RenderAssetScratchAllocator& a : m_data->StackAllocators)
+    {
+        if (a.Allocator != nullptr)
+        {
+            m_blockAllocator->Destroy(a.Allocator);
+        }
+    }
+
+    m_blockAllocator->Destroy(m_data);
+
+#ifdef DEBUG
+    Allocator* upstreamAllocator = ((LeakAllocator*)m_blockAllocator)->GetUpstreamAllocator();
+    IDEFER(MallocAllocator::Instance->Destroy(upstreamAllocator));
+#endif
+    MallocAllocator::Instance->Destroy(m_blockAllocator);
 }
 
 void RenderAssetStore::Update()
 {
-    const e_RenderDeviceType device = m_renderEngine->GetDeviceType();
+    const e_RenderDeviceType device = m_data->Renderer->GetDeviceType();
 
     if (device == RenderDeviceType_DiscreteGPU)
     {
-        const uint64_t totalMemory = m_renderEngine->GetTotalDeviceMemory();
-        const uint64_t usedMemory = m_renderEngine->GetUsedDeviceMemory();
+        const uint64_t totalMemory = m_data->Renderer->GetTotalDeviceMemory();
+        const uint64_t usedMemory = m_data->Renderer->GetUsedDeviceMemory();
 
         // Over half of the VRAM is left so we are wasting out time
         // Better to leave it then trying to reclaim it
@@ -60,7 +87,7 @@ void RenderAssetStore::Update()
     {
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
-        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+        RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         ++alloc.Count;
 
@@ -70,7 +97,7 @@ void RenderAssetStore::Update()
     {
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
-        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+        RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         --alloc.Count;
     });
@@ -80,9 +107,9 @@ void RenderAssetStore::Update()
         IDEFER(scratchAllocator->PopStackPointer());
 
         // No need to waste memory just use a packed state
-        const uint32_t size = m_meshes.Size();
-        const Array<uint8_t> state = m_meshes.ToPackedStateArray(scratchAllocator);
-        TLockArray<RenderAsset> a = m_meshes.ToLockArray();
+        const uint32_t size = m_data->Meshes.Size();
+        const Array<uint8_t> state = m_data->Meshes.ToPackedStateArray(scratchAllocator);
+        TLockArray<RenderAsset> a = m_data->Meshes.ToLockArray();
 
         for (uint32_t i = 0; i < size; ++i)
         {
@@ -112,7 +139,7 @@ void RenderAssetStore::Update()
 
             if (asset.DeReq > RenderAssetStore::DeReqCount)
             {
-                m_renderEngine->DestroyMesh(asset.InternalAddress);
+                m_data->Renderer->DestroyMesh(asset.InternalAddress);
                 asset.InternalAddress = -1;
             }
         }
@@ -122,9 +149,9 @@ void RenderAssetStore::Update()
         scratchAllocator->PushStackPointer();
         IDEFER(scratchAllocator->PopStackPointer());
 
-        const uint32_t size = m_models.Size();
-        const Array<uint8_t> state = m_models.ToPackedStateArray(scratchAllocator);
-        TLockArray<RenderAsset> a = m_models.ToLockArray();
+        const uint32_t size = m_data->Models.Size();
+        const Array<uint8_t> state = m_data->Models.ToPackedStateArray(scratchAllocator);
+        TLockArray<RenderAsset> a = m_data->Models.ToLockArray();
 
         for (uint32_t i = 0; i < size; ++i)
         {
@@ -154,7 +181,7 @@ void RenderAssetStore::Update()
 
             if (asset.DeReq > RenderAssetStore::DeReqCount)
             {
-                m_renderEngine->DestroyModel(asset.InternalAddress);
+                m_data->Renderer->DestroyModel(asset.InternalAddress);
                 asset.InternalAddress = -1;
             }
         }
@@ -164,9 +191,9 @@ void RenderAssetStore::Update()
         scratchAllocator->PushStackPointer();
         IDEFER(scratchAllocator->PopStackPointer());
 
-        const uint32_t size = m_textures.Size();
-        const Array<uint8_t> state = m_textures.ToPackedStateArray(scratchAllocator);
-        TLockArray<RenderAsset> a = m_textures.ToLockArray();
+        const uint32_t size = m_data->Textures.Size();
+        const Array<uint8_t> state = m_data->Textures.ToPackedStateArray(scratchAllocator);
+        TLockArray<RenderAsset> a = m_data->Textures.ToLockArray();
 
         for (uint32_t i = 0; i < size; ++i)
         {
@@ -196,7 +223,7 @@ void RenderAssetStore::Update()
 
             if (asset.DeReq > RenderAssetStore::DeReqCount)
             {
-                m_renderEngine->DestroyTexture(asset.InternalAddress);
+                m_data->Renderer->DestroyTexture(asset.InternalAddress);
                 asset.InternalAddress = -1;
             }
         }
@@ -210,7 +237,7 @@ void RenderAssetStore::Flush()
     {
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
-        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+        RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         ++alloc.Count;
 
@@ -220,7 +247,7 @@ void RenderAssetStore::Flush()
     {
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
-        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+        RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         --alloc.Count;
     });
@@ -229,9 +256,9 @@ void RenderAssetStore::Flush()
         scratchAllocator->PushStackPointer();
         IDEFER(scratchAllocator->PopStackPointer());
 
-        const uint32_t size = m_meshes.Size();
-        const Array<uint8_t> state = m_meshes.ToPackedStateArray(scratchAllocator);
-        TLockArray<RenderAsset> a = m_meshes.ToLockArray();
+        const uint32_t size = m_data->Meshes.Size();
+        const Array<uint8_t> state = m_data->Meshes.ToPackedStateArray(scratchAllocator);
+        TLockArray<RenderAsset> a = m_data->Meshes.ToLockArray();
 
         for (uint32_t i = 0; i < size; ++i)
         {
@@ -249,7 +276,7 @@ void RenderAssetStore::Flush()
                 continue;
             }
 
-            m_renderEngine->DestroyMesh(asset.InternalAddress);
+            m_data->Renderer->DestroyMesh(asset.InternalAddress);
             asset.InternalAddress = -1;
         }
     }
@@ -258,9 +285,9 @@ void RenderAssetStore::Flush()
         scratchAllocator->PushStackPointer();
         IDEFER(scratchAllocator->PopStackPointer());
 
-        const uint32_t size = m_models.Size();
-        const Array<uint8_t> state = m_models.ToPackedStateArray(scratchAllocator);
-        TLockArray<RenderAsset> a = m_models.ToLockArray();
+        const uint32_t size = m_data->Models.Size();
+        const Array<uint8_t> state = m_data->Models.ToPackedStateArray(scratchAllocator);
+        TLockArray<RenderAsset> a = m_data->Models.ToLockArray();
 
         for (uint32_t i = 0; i < size; ++i)
         {
@@ -278,7 +305,7 @@ void RenderAssetStore::Flush()
                 continue;
             }
 
-            m_renderEngine->DestroyModel(asset.InternalAddress);
+            m_data->Renderer->DestroyModel(asset.InternalAddress);
             asset.InternalAddress = -1;
         }
     }
@@ -287,8 +314,8 @@ void RenderAssetStore::Flush()
         scratchAllocator->PushStackPointer();
         IDEFER(scratchAllocator->PopStackPointer());
 
-        const Array<bool> state = m_textures.ToStateArray(scratchAllocator);
-        TLockArray<RenderAsset> a = m_textures.ToLockArray();
+        const Array<bool> state = m_data->Textures.ToStateArray(scratchAllocator);
+        TLockArray<RenderAsset> a = m_data->Textures.ToLockArray();
         const uint32_t size = state.Size();
 
         for (uint32_t i = 0; i < size; ++i)
@@ -307,7 +334,7 @@ void RenderAssetStore::Flush()
                 continue;
             }
 
-            m_renderEngine->DestroyTexture(asset.InternalAddress);
+            m_data->Renderer->DestroyTexture(asset.InternalAddress);
             asset.InternalAddress = -1;
         }
     }
@@ -438,7 +465,7 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
     {
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
-        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+        RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         ++alloc.Count;
 
@@ -448,7 +475,7 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
     {
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
-        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+        RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         --alloc.Count;
     });
@@ -480,7 +507,13 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
 
         Assimp::Importer importer;
 
-        const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, aiProcess_Triangulate | aiProcess_PreTransformVertices, extStr.c_str() + 1);
+        const aiScene* scene = importer.ReadFileFromMemory
+        (
+            dat,
+            (size_t)size,
+            aiProcess_Triangulate | aiProcess_PreTransformVertices,
+            extStr.c_str() + 1
+        );
         IERRCHECKRET(scene != nullptr, false);
 
         float radSqr = 0.0f;
@@ -558,7 +591,7 @@ uint32_t RenderAssetStore::LoadMeshData(const std::string_view& a_path, uint8_t 
     {
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
-        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+        RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         ++alloc.Count;
 
@@ -568,7 +601,7 @@ uint32_t RenderAssetStore::LoadMeshData(const std::string_view& a_path, uint8_t 
     {
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
-        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+        RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         --alloc.Count;
     });
@@ -660,7 +693,7 @@ uint32_t RenderAssetStore::LoadMeshData(const std::string_view& a_path, uint8_t 
         meshlets[i].Bounds = glm::vec4(center, radius);
     }
 
-    return m_renderEngine->GenerateMesh
+    return m_data->Renderer->GenerateMesh
     (
         vertices.Data(),
         vertexCount,
@@ -690,26 +723,26 @@ uint32_t RenderAssetStore::LoadMesh(const std::string_view& a_path, uint8_t a_in
         .Data = a_index,
     };
 
-    return m_meshes.PushVal(asset);
+    return m_data->Meshes.PushVal(asset);
 }
 void RenderAssetStore::DestroyMesh(uint32_t a_addr)
 {
-    IVERIFY(m_meshes.Exists(a_addr));
+    IVERIFY(m_data->Meshes.Exists(a_addr));
 
-    const RenderAsset asset = m_meshes[a_addr];
+    const RenderAsset asset = m_data->Meshes[a_addr];
     IDEFER(
     if (asset.InternalAddress != uint32_t(-1))
     {
-        m_renderEngine->DestroyMesh(asset.InternalAddress);
+        m_data->Renderer->DestroyMesh(asset.InternalAddress);
     });
 
-    m_meshes.Erase(a_addr);
+    m_data->Meshes.Erase(a_addr);
 }
 uint32_t RenderAssetStore::GetMesh(uint32_t a_addr)
 {
-    IVERIFY(m_meshes.Exists(a_addr));
+    IVERIFY(m_data->Meshes.Exists(a_addr));
 
-    TLockArray<RenderAsset> a = m_meshes.ToLockArray();
+    TLockArray<RenderAsset> a = m_data->Meshes.ToLockArray();
 
     RenderAsset& asset = a[a_addr];
     if (asset.InternalAddress == uint32_t(-1))
@@ -740,7 +773,7 @@ uint32_t RenderAssetStore::LoadModel(const std::string_view& a_path, uint8_t a_i
         return -1;
     }
 
-    const uint32_t modelAddr = m_renderEngine->GenerateModel
+    const uint32_t modelAddr = m_data->Renderer->GenerateModel
     (
         vertices.Data(),
         vertices.Size(),
@@ -761,7 +794,7 @@ uint32_t RenderAssetStore::LoadModel(const std::string_view& a_path, uint8_t a_i
         .Data = (uint8_t)a_index,
     };
 
-    return m_models.PushVal(asset);
+    return m_data->Models.PushVal(asset);
 }
 
 static void LoadSkinnedMesh(const aiMesh* a_mesh, Array<SkinnedVertex>* a_vertices, Array<uint32_t>* a_indices, const std::unordered_map<std::string, int>& a_boneMap, float* a_rSqr)
@@ -885,7 +918,7 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
     {
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
-        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+        RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         ++alloc.Count;
 
@@ -895,7 +928,7 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
     {
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
-        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+        RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         --alloc.Count;
     });
@@ -927,7 +960,13 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
 
         Assimp::Importer importer;
 
-        const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, aiProcess_Triangulate | aiProcess_PreTransformVertices, extStr.c_str() + 1);
+        const aiScene* scene = importer.ReadFileFromMemory
+        (
+            dat,
+            (size_t)size,
+            aiProcess_Triangulate | aiProcess_PreTransformVertices,
+            extStr.c_str() + 1
+        );
         IERRCHECKRET(scene != nullptr, -1);
         IERRCHECKRET(scene->mNumSkeletons > 0, -1);
 
@@ -966,7 +1005,15 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
             break;
         }
 
-        return a_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), VertexStride, indices.Data(), indices.Size(), glm::sqrt(radSqr));
+        return a_renderEngine->GenerateModel
+        (
+            vertices.Data(),
+            vertices.Size(),
+            VertexStride,
+            indices.Data(),
+            indices.Size(),
+            glm::sqrt(radSqr)
+        );
     }
     default:
     {
@@ -978,7 +1025,7 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
 }
 uint32_t RenderAssetStore::LoadSkinnedModel(const std::string_view& a_path, uint8_t a_index)
 {
-    const uint32_t internalAddr = LoadSkinnedModelFile(m_renderEngine, (uint8_t)a_index, a_path);
+    const uint32_t internalAddr = LoadSkinnedModelFile(m_data->Renderer, (uint8_t)a_index, a_path);
 
     if (internalAddr == uint32_t(-1))
     {
@@ -993,36 +1040,35 @@ uint32_t RenderAssetStore::LoadSkinnedModel(const std::string_view& a_path, uint
         .Flags = 0b1 << RenderAsset::SkinnedBit
     };
 
-    return m_models.PushVal(asset);
+    return m_data->Models.PushVal(asset);
 }
 
 void RenderAssetStore::DestroyModel(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_models.Size());
-    IVERIFY(m_models.Exists(a_addr));
+    IVERIFY(m_data->Models.Exists(a_addr));
 
-    const RenderAsset asset = m_models[a_addr];
+    const RenderAsset asset = m_data->Models[a_addr];
     IDEFER(
     if (asset.InternalAddress != uint32_t(-1))
     {
-        m_renderEngine->DestroyModel(asset.InternalAddress);
+        m_data->Renderer->DestroyModel(asset.InternalAddress);
     });
 
-    m_models.Erase(a_addr);
+    m_data->Models.Erase(a_addr);
 }
 
 uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
 {
-    IVERIFY(m_models.Exists(a_addr));
+    IVERIFY(m_data->Models.Exists(a_addr));
 
-    TLockArray<RenderAsset> a = m_models.ToLockArray();
+    TLockArray<RenderAsset> a = m_data->Models.ToLockArray();
 
     RenderAsset& asset = a[a_addr];
     if (asset.InternalAddress == uint32_t(-1))
     {
         if (IISBITSET(asset.Flags, RenderAsset::SkinnedBit))
         {
-            asset.InternalAddress = LoadSkinnedModelFile(m_renderEngine, asset.Data, asset.Path);
+            asset.InternalAddress = LoadSkinnedModelFile(m_data->Renderer, asset.Data, asset.Path);
         }
         else
         {
@@ -1041,7 +1087,15 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
                 return -1;
             }
 
-            asset.InternalAddress = m_renderEngine->GenerateModel(vertices.Data(), vertices.Size(), VertexStride, indices.Data(), indices.Size(), radius);
+            asset.InternalAddress = m_data->Renderer->GenerateModel
+            (
+                vertices.Data(),
+                vertices.Size(),
+                VertexStride,
+                indices.Data(),
+                indices.Size(),
+                radius
+            );
         }
     }
 
@@ -1059,21 +1113,20 @@ uint32_t RenderAssetStore::LoadTexture(const std::string_view& a_path)
         .InternalAddress = uint32_t(-1),
     };
 
-    return m_textures.PushVal(asset);
+    return m_data->Textures.PushVal(asset);
 }
 void RenderAssetStore::DestroyTexture(uint32_t a_addr)
 {
-    IVERIFY(a_addr < m_textures.Size());
-    IVERIFY(m_textures.Exists(a_addr));
+    IVERIFY(m_data->Textures.Exists(a_addr));
 
-    const RenderAsset asset = m_textures[a_addr];
+    const RenderAsset asset = m_data->Textures[a_addr];
     IDEFER(
     if (asset.InternalAddress != uint32_t(-1))
     {
-        m_renderEngine->DestroyTexture(asset.InternalAddress);
+        m_data->Renderer->DestroyTexture(asset.InternalAddress);
     });
 
-    m_textures.Erase(a_addr);
+    m_data->Textures.Erase(a_addr);
 }
 
 static int STBI_FileHandle_Read(void* a_user, char* a_data, int a_size)
@@ -1152,7 +1205,7 @@ static void KTX_FileHandle_Destruct(ktxStream* a_stream)
 
 uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 {
-    IVERIFY(m_textures.Exists(a_addr));
+    IVERIFY(m_data->Textures.Exists(a_addr));
 
     const uint32_t scratchIndex = GetScratchAllocatorIndex();
 
@@ -1160,7 +1213,7 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
     {
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
-        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+        RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         ++alloc.Count;
 
@@ -1170,12 +1223,12 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
     {
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
-        RenderAssetScratchAllocator& alloc = m_stackAllocators[scratchIndex];
+        RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         --alloc.Count;
     });
 
-    TLockArray<RenderAsset> a = m_textures.ToLockArray();
+    TLockArray<RenderAsset> a = m_data->Textures.ToLockArray();
 
     RenderAsset& asset = a[a_addr];
     if (asset.InternalAddress == uint32_t(-1))
@@ -1213,7 +1266,13 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
             {
                 IDEFER(stbi_image_free(pixels));
 
-                asset.InternalAddress = m_renderEngine->GenerateTexture((uint32_t)width, (uint32_t)height, TextureFormat_RGBA, pixels);
+                asset.InternalAddress = m_data->Renderer->GenerateTexture
+                (
+                    (uint32_t)width,
+                    (uint32_t)height,
+                    TextureFormat_RGBA,
+                    pixels
+                );
             }
             else
             {
@@ -1283,7 +1342,16 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
                     offsets[i] = (uint64_t)off;
                 }
 
-                asset.InternalAddress = m_renderEngine->GenerateTextureMipMapped((uint32_t)texture->baseWidth, (uint32_t)texture->baseHeight, levels, offsets, TextureFormat_BC3, texture->pData, (uint64_t)texture->dataSize);
+                asset.InternalAddress = m_data->Renderer->GenerateTextureMipMapped
+                (
+                    (uint32_t)texture->baseWidth,
+                    (uint32_t)texture->baseHeight,
+                    levels,
+                    offsets,
+                    TextureFormat_BC3,
+                    texture->pData,
+                    (uint64_t)texture->dataSize
+                );
             }
             else
             {
@@ -1309,24 +1377,24 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
 uint32_t RenderAssetStore::GetScratchAllocatorIndex()
 {
-    if (!m_scratchAllocator.Exists())
+    if (!ScratchAllocator.Exists())
     {
-        if (m_scratchIndex >= m_stackAllocators.Size())
+        if (m_data->ScratchIndex >= m_data->StackAllocators.Size())
         {
-            StackAllocator* allocator = m_blockAllocator->Create<StackAllocator>(ScratchAllocatorSize);
+            StackAllocator* allocator = m_blockAllocator->Create<StackAllocator>(ScratchAllocatorSize, OSAllocator::Instance);
 
             const RenderAssetScratchAllocator data =
             {
                 .Allocator = allocator
             };
 
-            m_stackAllocators.Push(data);
+            m_data->StackAllocators.Push(data);
         }
 
-        m_scratchAllocator.Push(m_scratchIndex++);
+        ScratchAllocator.Push(m_data->ScratchIndex++);
     }
 
-    return *m_scratchAllocator;
+    return *ScratchAllocator;
 }
 
 // MIT License

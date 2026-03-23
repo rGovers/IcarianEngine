@@ -5,7 +5,7 @@
 #include "Rendering/UI/UIControl.h"
 
 #include "Core/Bitfield.h"
-#include "DataTypes/MallocAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "IcarianError.h"
 #include "Logger.h"
 #include "Rendering/UI/UIControlBindings.h"

@@ -4,31 +4,18 @@
 
 #pragma once
 
-#include "DataTypes/Allocator.h"
+#include "DataTypes/Allocators/Allocator.h"
 
-#include <cstdlib>
-
-class MallocAllocator : public Allocator
+class ComplexAllocator : public Allocator
 {
 private:
 
 protected:
 
 public:
-    [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
-    {
-        return aligned_alloc((size_t)a_size, (size_t)a_size);
-    }
+    virtual ~ComplexAllocator() { }
 
-    virtual void Free(void* a_ptr)
-    {
-        free(a_ptr);
-    }
-
-    static MallocAllocator* Instance;
-
-    static void Init();
-    static void Destroy();
+    [[nodiscard]] virtual void* Realloc(void* a_ptr, uint64_t a_size, uint32_t a_alignment) = 0;
 };
 
 // MIT License

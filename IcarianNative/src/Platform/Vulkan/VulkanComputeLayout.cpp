@@ -34,7 +34,7 @@ public:
         m_layoutCount = a_layoutCount;
         m_layout = a_layout;
 
-        BlockAllocator* allocator = m_engine->GetDeletionAllocator();
+        Allocator* allocator = m_engine->GetDeletionAllocator();
 
         m_descLayouts = allocator->TAllocate<vk::DescriptorSetLayout>(m_layoutCount);
         for (uint32_t i = 0; i < m_layoutCount; ++i)
@@ -44,7 +44,7 @@ public:
     }
     virtual ~VulkanComputeLayoutDeletionObject()
     {
-        BlockAllocator* allocator = m_engine->GetDeletionAllocator();
+        Allocator* allocator = m_engine->GetDeletionAllocator();
 
         allocator->Free(m_descLayouts);
     }

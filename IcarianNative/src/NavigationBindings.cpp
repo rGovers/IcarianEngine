@@ -7,7 +7,7 @@
 #include "AI/Navigation.h"
 #include "AI/NavigationMesh.h"
 #include "Core/Bitfield.h"
-#include "DataTypes/MallocAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "IcarianError.h"
 #include "Runtime/RuntimeManager.h"
 

@@ -34,7 +34,7 @@ public:
 
         m_textureCount = a_textureCount;
 
-        BlockAllocator* allocator = m_engine->GetDeletionAllocator();
+        Allocator* allocator = m_engine->GetDeletionAllocator();
 
         m_images = allocator->TAllocate<vk::Image>(m_textureCount);
         m_views = allocator->TAllocate<vk::ImageView>(m_textureCount);
@@ -51,7 +51,7 @@ public:
     }
     virtual ~VulkanRenderTextureDeletionObject()
     {
-        BlockAllocator* allocator = m_engine->GetDeletionAllocator();
+        Allocator* allocator = m_engine->GetDeletionAllocator();
 
         allocator->Free(m_images);
         allocator->Free(m_views);
@@ -62,7 +62,7 @@ public:
     {
         TRACE("Destroying Render Texture Textures");
         const vk::Device device = m_engine->GetLogicalDevice();
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         for (uint32_t i = 0; i < m_textureCount; ++i)
         {
@@ -203,7 +203,7 @@ void VulkanRenderTexture::Setup()
     const vk::Device device = m_engine->GetLogicalDevice();
     const vk::PhysicalDevice physicalDevice = m_engine->GetPhysicalDevice();
 
-    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+    Allocator* allocator = m_engine->GetAllocator();
 
     const bool hdr = IsHDR();
     const bool hasDepth = HasDepthTexture();
@@ -480,7 +480,7 @@ void VulkanRenderTexture::Setup()
         dependencies
     );
     VKRESERRMSG(device.createRenderPass(&renderPassNoClearInfo, nullptr, &m_renderPassNoClear), "Failed to create RenderTexture RenderPass");
-    
+
     const vk::RenderPassCreateInfo renderPassColorClearInfo = vk::RenderPassCreateInfo
     (
         { },
@@ -493,10 +493,10 @@ void VulkanRenderTexture::Setup()
     );
     VKRESERRMSG(device.createRenderPass(&renderPassColorClearInfo, nullptr, &m_renderPassColorClear), "Failed to create RenderTexture RenderPass");
 
-    m_textures = blockAllocator->TAllocate<vk::Image>(m_textureCount);
-    m_textureAllocations = blockAllocator->TAllocate<VmaAllocation>(m_textureCount);
-    m_textureViews = blockAllocator->TAllocate<vk::ImageView>(totalTextureCount);
-    m_clearValues = blockAllocator->TAllocate<vk::ClearValue>(totalTextureCount);
+    m_textures = allocator->TAllocate<vk::Image>(m_textureCount);
+    m_textureAllocations = allocator->TAllocate<VmaAllocation>(m_textureCount);
+    m_textureViews = allocator->TAllocate<vk::ImageView>(totalTextureCount);
+    m_clearValues = allocator->TAllocate<vk::ClearValue>(totalTextureCount);
     for (uint32_t i = 0; i < m_textureCount; ++i)
     {
         m_clearValues[i] = vk::ClearValue({ 0.0f, 0.0f, 0.0f, 0.0f });
@@ -559,7 +559,7 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, Vu
 }
 VulkanRenderTexture::~VulkanRenderTexture()
 {
-    BlockAllocator* blockAllocator = m_engine->GetBlockAllocator();
+    Allocator* allocator = m_engine->GetAllocator();
 
     TRACE("Queueing Render Texture for Deletion");
     m_engine->PushDeletionObject<VulkanRenderTextureDeletionObject>(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer);
@@ -570,10 +570,10 @@ VulkanRenderTexture::~VulkanRenderTexture()
         m_gEngine->DestroyDepthRenderTexture(m_depthHandle);
     }
 
-    blockAllocator->Free(m_textures);
-    blockAllocator->Free(m_textureViews);
-    blockAllocator->Free(m_textureAllocations);
-    blockAllocator->Free(m_clearValues);
+    allocator->Free(m_textures);
+    allocator->Free(m_textureViews);
+    allocator->Free(m_textureAllocations);
+    allocator->Free(m_clearValues);
 }
 
 vk::Image VulkanRenderTexture::GetDepthTexture() const
@@ -590,7 +590,7 @@ vk::Image VulkanRenderTexture::GetDepthTexture() const
 void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 {
     const vk::Device device = m_engine->GetLogicalDevice();
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
     const bool isHDR = IsHDR();
 
@@ -718,7 +718,7 @@ void VulkanRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

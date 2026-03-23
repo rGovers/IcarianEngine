@@ -41,7 +41,7 @@ public:
     {
         TRACE("Destroying Depth Render Texture");
         const vk::Device device = m_engine->GetLogicalDevice();
-        const VmaAllocator allocator = m_engine->GetAllocator();
+        const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
         device.destroyFramebuffer(m_frameBuffer);
         device.destroyImageView(m_imageView);
@@ -243,7 +243,7 @@ void VulkanDepthRenderTexture::Init(uint32_t a_width, uint32_t a_height)
 
     const vk::Device device = m_engine->GetLogicalDevice();
     const vk::PhysicalDevice physicalDevice = m_engine->GetPhysicalDevice();
-    const VmaAllocator allocator = m_engine->GetAllocator();
+    const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
     m_width = a_width;
     m_height = a_height;
@@ -267,7 +267,7 @@ void VulkanDepthRenderTexture::Init(uint32_t a_width, uint32_t a_height)
     };
 
     const VmaAllocationCreateInfo allocInfo = 
-    {     
+    {
         .usage = VMA_MEMORY_USAGE_AUTO,
         .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     };
@@ -340,7 +340,7 @@ void VulkanDepthRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

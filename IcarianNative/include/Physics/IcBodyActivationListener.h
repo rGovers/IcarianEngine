@@ -10,7 +10,8 @@
 #include <Jolt/Physics/Body/BodyID.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
 
-#include "DataTypes/Allocator.h"
+class Allocator;
+
 #include "DataTypes/TArray.h"
 
 class IcBodyActivationListener : public JPH::BodyActivationListener

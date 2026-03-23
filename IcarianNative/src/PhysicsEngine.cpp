@@ -18,7 +18,11 @@
 
 #include "Config.h"
 #include "Core/Bitfield.h"
-#include "DataTypes/BlockAllocator.h"
+#include "DataTypes/Allocators/BlockAllocator.h"
+#include "DataTypes/Allocators/LeakAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
+#include "DataTypes/Allocators/MultiSourceAllocator.h"
+#include "DataTypes/Allocators/OSAllocator.h"
 #include "IcarianError.h"
 #include "ObjectManager.h"
 #include "Physics/InterfaceLock.h"
@@ -56,30 +60,54 @@ static void TraceImpl(const char* inFMT, ...)
     return true;
 }
 
-static BlockAllocator* Allocator = nullptr;
+static Allocator* Alloc = nullptr;
 
 static void* IcAlloc(size_t a_inSize)
 {
-	return Allocator->Allocate((uint64_t)a_inSize, 16);
+	return Alloc->Allocate((uint64_t)a_inSize, 16);
 }
 static void IcFree(void* a_inBlock)
 {
-	Allocator->Free(a_inBlock);
+	Alloc->Free(a_inBlock);
 }
 
 static void* IcAlignedAllocate(size_t a_inSize, size_t a_inAlignment)
 {
-    return Allocator->Allocate((uint64_t)a_inSize, (uint32_t)a_inAlignment);
+    return Alloc->Allocate((uint64_t)a_inSize, (uint32_t)a_inAlignment);
 }
 static void IcAlignedFree(void* a_inBlock)
 {
-    Allocator->Free(a_inBlock); 
+    Alloc->Free(a_inBlock); 
 }
 
 PhysicsEngine::PhysicsEngine(Config* a_config) 
 {
-    IVERIFY(Allocator == nullptr);
-    Allocator = new BlockAllocator(64 << 10, true);
+    IVERIFY(Alloc == nullptr);
+    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, OSAllocator::Instance);
+    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, OSAllocator::Instance);
+
+    const AllocationSource allocatorSources[] =
+    {
+        {
+            .Alloc = m_smallAllocator,
+            .MaxSize = SmallAllocatorSize >> 1,
+        },
+        {
+            .Alloc = m_largeAllocator,
+            .MaxSize = LargeAllocatorSize >> 1,
+        },
+        {
+            .Alloc = OSAllocator::Instance,
+            .MaxSize = uint64_t(-1),
+        },
+    };
+
+    constexpr uint32_t AllocatorCount = sizeof(allocatorSources) / sizeof(*allocatorSources);
+
+    Alloc = m_smallAllocator->Create<MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
+#ifdef DEBUG
+    Alloc = m_smallAllocator->Create<LeakAllocator>(Alloc);
+#endif
 
     memset(m_objectLayerCollisions, 0, sizeof(m_objectLayerCollisions));
     for (uint32_t i = 0; i < 6; ++i)
@@ -145,7 +173,7 @@ PhysicsEngine::PhysicsEngine(Config* a_config)
     m_physicsSystem->SetContactListener(m_contactListener);
     m_physicsSystem->SetGravity(JPH::Vec3(0.0f, 9.807f, 0.0f));
 
-    m_runtimeBindings = Allocator->Create<PhysicsEngineBindings>(this);
+    m_runtimeBindings = Alloc->Create<PhysicsEngineBindings>(this);
 }
 PhysicsEngine::~PhysicsEngine()
 {
@@ -165,15 +193,26 @@ PhysicsEngine::~PhysicsEngine()
 
     delete m_tempAllocator;
 
-    Allocator->Destroy(m_runtimeBindings);
+    Alloc->Destroy(m_runtimeBindings);
 
     JPH::UnregisterTypes();
 
     delete JPH::Factory::sInstance;
     JPH::Factory::sInstance = nullptr;
 
-    IVERIFY(Allocator != nullptr);
-    delete Allocator;
+    IVERIFY(Alloc != nullptr);
+
+    {
+#ifdef DEBUG
+        Allocator* upstreamAllocator = ((LeakAllocator*)Alloc)->GetUpstreamAllocator();
+        IDEFER(m_smallAllocator->Destroy(upstreamAllocator));
+#endif
+
+        m_smallAllocator->Destroy(Alloc);
+    }
+
+    MallocAllocator::Instance->Destroy(m_largeAllocator);
+    MallocAllocator::Instance->Destroy(m_smallAllocator);
 }
 
 bool PhysicsEngine::CanObjectLayersCollide(uint32_t a_lhs, uint32_t a_rhs) const
@@ -260,7 +299,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
             const JPH::DefaultBroadPhaseLayerFilter broadFilter = m_physicsSystem->GetDefaultBroadPhaseLayerFilter(0);
             const JPH::DefaultObjectLayerFilter objectFilter = m_physicsSystem->GetDefaultLayerFilter(0);
 
-            const Array<JPH::CharacterVirtual*> characters = m_characters.ToActiveArray(Allocator);
+            const Array<JPH::CharacterVirtual*> characters = m_characters.ToActiveArray(Alloc);
             for (JPH::CharacterVirtual* c : characters)
             {
                 const JPH::Vec3 up = c->GetUp();
@@ -294,7 +333,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
         {
             PROFILESTACK("Physics Bodies");
 
-            const Array<JPH::BodyID> bodies = m_activationListener->ToBodies(Allocator);
+            const Array<JPH::BodyID> bodies = m_activationListener->ToBodies(Alloc);
             const SharedThreadGuard g = SharedThreadGuard(m_bodyMapLock);
 
             // Should not need but doing just incase for good practice as it multithreaded app
@@ -350,7 +389,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
         {
             PROFILESTACK("Characters");
 
-            const Array<JPH::CharacterVirtual*> characters = m_characters.ToActiveArray(Allocator);
+            const Array<JPH::CharacterVirtual*> characters = m_characters.ToActiveArray(Alloc);
             for (const JPH::CharacterVirtual* c : characters)
             {
                 const uint32_t transformAddr = (uint32_t)(c->GetUserData() & 0xFFFFFFFF);

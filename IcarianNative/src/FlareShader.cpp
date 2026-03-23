@@ -4,11 +4,10 @@
 
 #include "Rendering/FlareShader.h"
 
-#include <set>
-
 #include "Core/IcarianLambda.h"
 #include "Core/ShaderBuffers.h"
 #include "Core/StringUtils.h"
+#include "DataTypes/Set.h"
 
 #define GLSL_VULKAN_UNIFORM_STRING(slot, name, structure, structureName) COWU8String(SHADER_UNIFORM_STR(structure), a_tempAllocator) + "; layout(std140,binding=" + (slot) + ",set=" + (slot) + ") uniform " + (structureName) + "{ " + (structureName) + "Data " + (name) + "; };"
 #define GLSL_VULKAN_SSBO_STRING(slot, name, structure, structureName) COWU8String(SHADER_UNIFORM_STR(structure), a_tempAllocator) + "; layout(std140,binding=" + (slot) + ",set=" + (slot) + ") readonly buffer " + (structureName) + " { int Count; " + (structureName) + "Data objects[]; } " + (name) + ";"
@@ -295,7 +294,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
     COWU8String shader = COWU8String(a_builder.String, a_allocator);
 
-    std::set<std::string> imported;
+    Set<COWU8String> imported = Set<COWU8String>(a_tempAllocator);
     Array<MeshShaderOut> meshOutputs = Array<MeshShaderOut>(a_tempAllocator);
 
     if (a_builder.Out != nullptr)
@@ -1483,29 +1482,23 @@ COWU8String FlareShader::GLSLFromFlareShader
                         COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
-                // TODO: Change this when we have our own set and map type
-                const char* str = args[0].CStr();
-                const std::string val = std::string(str);
+                const COWU8String& key = args[0];
 
-                if (imported.find(val) != imported.end())
+                if (imported.Exists(key))
                 {
                     break;
                 }
 
-                const auto iter = a_builder.Imports.find(val);
-                if (iter != a_builder.Imports.end())
+                if (!a_builder.Imports.Exists(key))
                 {
-                    const char* cStr = iter->second.c_str();
-
-                    rStr = COWU8String(cStr, a_tempAllocator);
-
-                    imported.emplace(val);
-
-                    break;
+                    return "Flare Shader no import found: line " +
+                        COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
-                return "Flare Shader no import found: line " +
-                    COWU8String::FromValue(currentLine, 10, a_allocator);
+                rStr = a_builder.Imports[key];
+                imported.Push(key);
+
+                break;
             }
             }
 

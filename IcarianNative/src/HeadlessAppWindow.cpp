@@ -17,8 +17,9 @@
 #include "Core/IcarianLambda.h"
 #include "Core/IPCPipe.h"
 #include "Core/SocketPipe.h"
-#include "DataTypes/MallocAllocator.h"
-#include "DataTypes/RingAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
+#include "DataTypes/Allocators/OSAllocator.h"
+#include "DataTypes/Allocators/RingAllocator.h"
 #include "IcarianError.h"
 #include "InputManager.h"
 #include "Profiler.h"
@@ -141,7 +142,7 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
     m_pipe = nullptr;
     m_flags = 0;
 
-    m_msgAllocator = new RingAllocator(4 << 20);
+    m_msgAllocator = new RingAllocator(4 << 20, OSAllocator::Instance);
 
 #ifndef ICARIANNATIVE_ENABLE_DMA
     m_frameData = nullptr;
