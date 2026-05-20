@@ -4,15 +4,9 @@
 
 #include "Audio/AudioClips/OGGAudioClip.h"
 
-#include "DataTypes/Allocators/RingAllocator.h"
-
-OGGAudioClip::OGGAudioClip(const std::filesystem::path& a_path) : AudioClip()
+OGGAudioClip::OGGAudioClip(const COWU8String& a_path) : AudioClip()
 {
-    m_path = a_path;
-
-    const std::string str = m_path.string();
-
-    m_stream = stb_vorbis_open_filename(str.c_str(), NULL, NULL);
+    m_stream = stb_vorbis_open_filename(a_path.CStr(), NULL, NULL);
     m_info = stb_vorbis_get_info(m_stream);
 
     // I do not know how or why but get the sample size before doing anything else or else it will break
@@ -45,13 +39,19 @@ uint64_t OGGAudioClip::GetSampleSize() const
     return m_sampleSize * m_info.channels;
 }
 
-uint8_t* OGGAudioClip::GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
+uint8_t* OGGAudioClip::GetAudioData(Allocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
 {
     uint8_t* buffer = (uint8_t*)a_allocator->TAllocate<int16_t>(a_sampleSize * m_info.channels);
 
     stb_vorbis_seek(m_stream, (int)a_sampleOffset);
 
-    *a_outSampleSize = (uint32_t)stb_vorbis_get_samples_short_interleaved(m_stream, m_info.channels, (short*)buffer, a_sampleSize * m_info.channels);
+    *a_outSampleSize = (uint32_t)stb_vorbis_get_samples_short_interleaved
+    (
+        m_stream,
+        m_info.channels,
+        (short*)buffer,
+        a_sampleSize * m_info.channels
+    );
 
     return buffer;
 }

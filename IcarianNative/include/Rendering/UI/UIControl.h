@@ -31,8 +31,6 @@ private:
     TNCArray<CanvasBuffer> m_canvas;
     TNCArray<UIElement*>   m_uiElements;
 
-    UIControl();
-    
     void SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_pos, const glm::vec2& a_screenSize);
     bool SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_pos, const glm::vec2& a_screenSize);
     void SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_pos, const glm::vec2& a_screenSize);
@@ -40,6 +38,7 @@ private:
 protected:
 
 public:
+    UIControl();
     ~UIControl();
 
     static void Init();

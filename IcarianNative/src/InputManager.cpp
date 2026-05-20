@@ -4,6 +4,7 @@
 
 #include "InputManager.h"
 
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "GamePad.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
@@ -75,10 +76,10 @@ InputManager::~InputManager()
     LibXInput::Destroy();
 #endif
 
-    delete m_mousePressedFunc;
-    delete m_mouseReleasedFunc;
-    delete m_keyPressedFunc;
-    delete m_keyReleasedFunc;
+    MallocAllocator::Instance->Destroy(m_mousePressedFunc);
+    MallocAllocator::Instance->Destroy(m_mouseReleasedFunc);
+    MallocAllocator::Instance->Destroy(m_keyPressedFunc);
+    MallocAllocator::Instance->Destroy(m_keyReleasedFunc);
 }
 
 void InputManager::SetMouseButton(e_MouseButton a_button, bool a_state)

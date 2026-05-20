@@ -7,7 +7,6 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
-#include <filesystem>
 #include <glm/gtx/norm.hpp>
 
 #include "Core/IcarianDefer.h"
@@ -15,22 +14,22 @@
 #include "DataTypes/Allocators/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
+#include "IO.h"
 #include "Trace.h"
 
-NavigationMesh::NavigationMesh(const std::string_view& a_path)
+NavigationMesh::NavigationMesh(const COWU8String& a_path, Allocator* a_allocator, Allocator* a_tempAllocator)
 {
+    TRACE("Creating Nav Mesh");
+    m_allocator = a_allocator;
+
     m_vertexCount = 0;
     m_vertices = nullptr;
     m_faceCount = 0;
     m_faces = nullptr;
 
-    TRACE("Creating Nav Mesh");
-    const std::filesystem::path p = std::filesystem::path(a_path);
+    const COWU8String ext = IO::GetExtension(a_path, a_tempAllocator);
 
-    const std::filesystem::path ext = p.extension();
-    const std::string extStr = ext.string();
-
-    switch (StringHash<uint32_t>(extStr.c_str()))
+    switch (StringHash<uint32_t>(ext.CStr()))
     {
     case StringHash<uint32_t>(".obj"):
     case StringHash<uint32_t>(".dae"):
@@ -40,21 +39,27 @@ NavigationMesh::NavigationMesh(const std::string_view& a_path)
     {
         FileHandle* handle = FileCache::LoadFile(a_path);
         IVERIFY(handle != nullptr);
-        IDEFER(delete handle);
+        IDEFER(MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
-        uint8_t* dat = new uint8_t[size];
-        IDEFER(delete[] dat);
+        uint8_t* dat = a_tempAllocator->TAllocate<uint8_t>(size);
+        IDEFER(a_tempAllocator->Free(dat));
         if (handle->Read(dat, size) != size)
         {
-            IERROR("Failed reading mesh data: " + std::string(a_path));
+            IERROR("Failed reading mesh data: " + a_path);
 
             break;
         }
 
         Assimp::Importer importer;
 
-        const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, aiProcess_Triangulate | aiProcess_PreTransformVertices, extStr.c_str() + 1);
+        const aiScene* scene = importer.ReadFileFromMemory
+        (
+            dat,
+            (size_t)size,
+            aiProcess_Triangulate | aiProcess_PreTransformVertices,
+            ext.CStr() + 1
+        );
         IVERIFY(scene != nullptr);
         if (scene->mNumMeshes <= 0)
         {
@@ -64,26 +69,26 @@ NavigationMesh::NavigationMesh(const std::string_view& a_path)
         struct EdgeTable
         {
             uint32_t Index[2];
-            uint32_t Edge[2];  
+            uint32_t Edge[2];
         };
 
-        std::unordered_map<uint64_t, EdgeTable> edgeMap;
+        Dictionary<uint64_t, EdgeTable> edgeMap = Dictionary<uint64_t, EdgeTable>(a_tempAllocator);
 
         const aiMesh* mesh = scene->mMeshes[0];
 
         const uint32_t vertexCount = (uint32_t)mesh->mNumVertices;
 
-        glm::vec3* vertices = new glm::vec3[vertexCount];
-        IDEFER(delete[] vertices);
+        glm::vec3* vertices = a_tempAllocator->ZTAllocate<glm::vec3>(vertexCount);
+        IDEFER(a_tempAllocator->Free(vertices));
 
-        uint32_t* vertexMap = new uint32_t[vertexCount];
-        IDEFER(delete[] vertexMap);
+        uint32_t* vertexMap = a_tempAllocator->ZTAllocate<uint32_t>(vertexCount);
+        IDEFER(a_tempAllocator->Free(vertexMap));
         memset(vertexMap, -1, vertexCount * sizeof(uint32_t));
 
         const uint32_t faceCount = (uint32_t)mesh->mNumFaces;
 
-        NavigationFace* faces = new NavigationFace[faceCount];
-        IDEFER(delete[] faces);
+        NavigationFace* faces = a_tempAllocator->ZTAllocate<NavigationFace>(faceCount);
+        IDEFER(a_tempAllocator->Free(faces));
 
         // First pass load in the model data and cull faces pointing down as they will not be navigable so no point having them in the nav mesh
         // Cannot guarantee normals so we calculate them ourselves
@@ -139,50 +144,59 @@ NavigationMesh::NavigationMesh(const std::string_view& a_path)
                 const uint32_t index = navFace.Indicies[j];
                 const uint32_t nextIndex = navFace.Indicies[(j + 1) % 3];
 
-                uint32_t indexA;
-                uint32_t indexB;
-                if (index < nextIndex)
+                const uint32_t indexA = ILAMBDA(
                 {
-                    indexA = index;
-                    indexB = nextIndex;
-                }
-                else
+                    if (index < nextIndex)
+                    {
+                        ILRETURN index;
+                    }
+
+                    ILRETURN nextIndex;
+                });
+                const uint32_t indexB = ILAMBDA(
                 {
-                    indexA = nextIndex;
-                    indexB = index;
-                }
+                    if (index < nextIndex)
+                    {
+                        ILRETURN nextIndex;
+                    }
+
+                    ILRETURN index;
+                });
 
                 const uint64_t key = (uint64_t)indexA << 31 | (uint64_t)indexB;
-                const auto iter = edgeMap.find(key);
-                if (iter != edgeMap.end())
+                if (edgeMap.Exists(key))
                 {
-                    iter->second.Edge[1] = j;
-                    iter->second.Index[1] = m_faceCount;
+                    EdgeTable& val = edgeMap[key];
+                    val.Index[1] = m_faceCount;
+                    val.Edge[1] = j;
 
                     continue;
                 }
 
-                const EdgeTable table = 
+                const EdgeTable table =
                 {
                     .Index = { m_faceCount, uint32_t(-1) },
                     .Edge = { j, uint32_t(-1) },
                 };
 
-                edgeMap.emplace(key, table);
+                edgeMap.Push(key, table);
             }
 
             faces[m_faceCount++] = navFace;
         }
 
+        const Array<EdgeTable> edges = edgeMap.GetValues(a_tempAllocator);
         // Second pass we want to link all the face connections
-        for (const auto iter : edgeMap)
+        for (const EdgeTable& table : edges)
         {
-            const EdgeTable table = iter.second;
-
             const uint32_t indexA = table.Index[0];
-            const uint32_t indexB = table.Index[1];
+            if (indexA == uint32_t(-1))
+            {
+                continue;
+            }
 
-            if (indexA == uint32_t(-1) || indexB == uint32_t(-1))
+            const uint32_t indexB = table.Index[1];
+            if (indexB == uint32_t(-1))
             {
                 continue;
             }
@@ -191,16 +205,23 @@ NavigationMesh::NavigationMesh(const std::string_view& a_path)
             faces[indexB].Connections[table.Edge[1]] = indexA;
         }
 
-        m_vertices = new glm::vec3[m_vertexCount];
-        std::copy(vertices, vertices + m_vertexCount, m_vertices);
-        m_faces = new NavigationFace[m_faceCount];
-        std::copy(faces, faces + m_faceCount, m_faces);
+        m_vertices = m_allocator->TAllocate<glm::vec3>(m_vertexCount);
+        for (uint32_t i = 0; i < m_vertexCount; ++i)
+        {
+            m_vertices[i] = vertices[i];
+        }
+
+        m_faces = m_allocator->TAllocate<NavigationFace>(m_faceCount);
+        for (uint32_t i = 0; i < m_faceCount; ++i)
+        {
+            m_faces[i] = faces[i];
+        }
 
         break;
     }
     default:
     {
-        IERROR("Invalid model file extension: " + std::string(a_path));
+        IERROR("Invalid model file extension: " + a_path);
 
         break;
     }
@@ -210,12 +231,12 @@ NavigationMesh::~NavigationMesh()
 {
     if (m_vertices != nullptr)
     {
-        delete[] m_vertices;
+        m_allocator->Free(m_vertices);
     }
 
     if (m_faces != nullptr)
     {
-        delete[] m_faces;
+        m_allocator->Free(m_faces);
     }
 }
 
@@ -240,16 +261,19 @@ uint32_t NavigationMesh::GetIndex(const glm::vec3& a_point) const
         const float a3 = glm::abs((vertC.x - a_point.x) * (vertA.z - a_point.z) - (vertA.x - a_point.x) * (vertC.z - a_point.z));
 
         // Do not trust floating point values
-        if (glm::abs((a1 + a2 + a3) - orig) < 0.001f)
+        if (glm::abs((a1 + a2 + a3) - orig) >= 0.001f)
         {
-            const float mag = a_point.y - face.Center.y;
-
-            if (mag < dist)
-            {
-                triangle = i;
-                dist = mag;
-            }
+            continue;
         }
+
+        const float mag = a_point.y - face.Center.y;
+        if (mag >= dist)
+        {
+            continue;
+        }
+
+        triangle = i;
+        dist = mag;
     }
 
     return triangle;
@@ -261,7 +285,14 @@ struct PathNode
     uint32_t Index;
 };
 
-static void PushPathValue(uint32_t a_index, const NavigationFace* a_faces, const glm::vec3& a_end, Array<PathNode>* a_queue, std::unordered_map<uint32_t, uint32_t>* a_stepMap)
+static void PushPathValue
+(
+    uint32_t a_index,
+    const NavigationFace* a_faces,
+    const glm::vec3& a_end,
+    Array<PathNode>* a_queue,
+    Dictionary<uint32_t, uint32_t>* a_stepMap
+)
 {
     const NavigationFace& face = a_faces[a_index];
 
@@ -273,13 +304,12 @@ static void PushPathValue(uint32_t a_index, const NavigationFace* a_faces, const
             continue;
         }
 
-        const auto iter = a_stepMap->find(con);
-        if (iter != a_stepMap->end())
+        if (a_stepMap->Exists(con))
         {
             continue;
         }
 
-        a_stepMap->emplace(con, a_index);
+        a_stepMap->Push(con, a_index);
 
         const NavigationFace& conFace = a_faces[con];
 
@@ -295,12 +325,15 @@ static void PushPathValue(uint32_t a_index, const NavigationFace* a_faces, const
         const uint32_t queueSize = a_queue->Size();
         for (int32_t j = queueSize - 1; j >= 0; --j)
         {
-            if (d < a_queue->Get(j).Weight)
+            const PathNode& node = (*a_queue)[j];
+            if (d >= node.Weight)
             {
-                a_queue->Insert(j, value);
-
-                goto NextIter;
+                continue;
             }
+
+            a_queue->Insert(j, value);
+
+            goto NextIter;
         }
 
         a_queue->Push(value);
@@ -319,33 +352,49 @@ static float TriToAreaSqr(const glm::vec3& a_vertA, const glm::vec3& a_vertB, co
     return b.x * a.y - a.x * b.y;
 }
 
-Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const
+Array<glm::vec3> NavigationMesh::GeneratePath
+(
+    const glm::vec3& a_startPoint,
+    const glm::vec3& a_endPoint,
+    float a_agentRadius,
+    Allocator* a_allocator,
+    Allocator* a_tempAllocator
+) const
 {
     const uint32_t indexA = GetIndex(a_startPoint);
     if (indexA == uint32_t(-1))
     {
-        return Array<glm::vec3>(MallocAllocator::Instance);
+        return Array<glm::vec3>(a_allocator);
     }
 
     const uint32_t indexB = GetIndex(a_endPoint);
     if (indexB == uint32_t(-1))
     {
-        return Array<glm::vec3>(MallocAllocator::Instance);
+        return Array<glm::vec3>(a_allocator);
     }
 
-    return GeneratePath(a_startPoint, a_endPoint, indexA, indexB, a_agentRadius);
+    return GeneratePath(a_startPoint, a_endPoint, indexA, indexB, a_agentRadius, a_allocator, a_tempAllocator);
 }
 // 2.5D Pathfinding
-Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, uint32_t a_startIndex, uint32_t a_endIndex, float a_agentRadius) const
+Array<glm::vec3> NavigationMesh::GeneratePath
+(
+    const glm::vec3& a_startPoint,
+    const glm::vec3& a_endPoint,
+    uint32_t a_startIndex,
+    uint32_t a_endIndex,
+    float a_agentRadius,
+    Allocator* a_allocator,
+    Allocator* a_tempAllocator
+) const
 {
     if (a_startIndex == uint32_t(-1) || a_endIndex == uint32_t(-1))
     {
-        return Array<glm::vec3>(MallocAllocator::Instance);
+        return Array<glm::vec3>(a_allocator);
     }
 
     if (a_startIndex == a_endIndex)
     {
-        Array<glm::vec3> path = Array<glm::vec3>(MallocAllocator::Instance);
+        Array<glm::vec3> path = Array<glm::vec3>(a_allocator);
 
         path.Push(a_startPoint);
         path.Push(a_endPoint);
@@ -354,8 +403,8 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
     }
 
     // Find path
-    Array<PathNode> queue = Array<PathNode>(MallocAllocator::Instance);
-    std::unordered_map<uint32_t, uint32_t> stepMap;
+    Array<PathNode> queue = Array<PathNode>(a_tempAllocator);
+    Dictionary<uint32_t, uint32_t> stepMap = Dictionary<uint32_t, uint32_t>(a_tempAllocator);
     PushPathValue(a_startIndex, m_faces, a_endPoint, &queue, &stepMap);
     while (!queue.Empty())
     {
@@ -370,7 +419,7 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
     }
 
     // Backtrace path
-    Array<uint32_t> pathIndices = Array<uint32_t>(MallocAllocator::Instance);
+    Array<uint32_t> pathIndices = Array<uint32_t>(a_tempAllocator);
 
     uint32_t node = a_endIndex;
     pathIndices.Push(node);
@@ -395,7 +444,7 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
     // In reality building the mesh based off the biggest agent and adjusting portals should be fine outside of extreme size differences
     const uint32_t pathIndexCount = pathIndices.Size();
 
-    Array<Portal> portals = Array<Portal>(MallocAllocator::Instance);
+    Array<Portal> portals = Array<Portal>(a_tempAllocator);
     portals.Reserve(pathIndexCount);
 
     for (uint32_t i = 1; i < pathIndexCount; ++i)
@@ -408,55 +457,63 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
 
         for (uint32_t j = 0; j < 3; ++j)
         {
-            if (pastFace.Connections[j] == curIndex)
+            if (pastFace.Connections[j] != curIndex)
             {
-                const uint32_t indexA = pastFace.Indicies[j];
-                const uint32_t indexB = pastFace.Indicies[(j + 1) % 3];
+                continue;
+            }
 
-                const glm::vec2 centerA = pastFace.Center.xz();
-                const glm::vec2 centerB = curFace.Center.xz();
-                // Should not happen but has the potential to
-                if (centerA == centerB)
-                {
-                    break;
-                }
+            const uint32_t indexA = pastFace.Indicies[j];
+            const uint32_t indexB = pastFace.Indicies[(j + 1) % 3];
 
-                const glm::vec2 diff = centerB - centerA;
-                const glm::vec2 right = glm::vec2(diff.y, -diff.x);
-
-                const glm::vec2 vertPos = m_vertices[indexA].xz();
-                const glm::vec2 vertDiff = vertPos - centerA;
-                // Non normalized but should not matter as only after the direction of the vector
-                if (glm::dot(vertDiff, right) > 0)
-                {
-                    const Portal port =
-                    {
-                        .LeftIndex = indexB,
-                        .RightIndex = indexA
-                    };
-
-                    portals.Push(port);
-
-                    break;
-                }
-
-                const Portal port =
-                {
-                    .LeftIndex = indexA,
-                    .RightIndex = indexB
-                };
-
-                portals.Push(port);
-
+            const glm::vec2 centerA = pastFace.Center.xz();
+            const glm::vec2 centerB = curFace.Center.xz();
+            // Should not happen but has the potential to
+            if (centerA == centerB)
+            {
                 break;
             }
+
+            const glm::vec2 diff = centerB - centerA;
+            const glm::vec2 right = glm::vec2(diff.y, -diff.x);
+
+            const glm::vec2 vertPos = m_vertices[indexA].xz();
+            const glm::vec2 vertDiff = vertPos - centerA;
+
+            // Non normalized but should not matter as only after the direction of the vector
+            const float dot = glm::dot(vertDiff, right);
+
+            const Portal port =
+            {
+                .LeftIndex = ILAMBDA(
+                {
+                    if (dot > 0)
+                    {
+                        ILRETURN indexB;
+                    }
+
+                    ILRETURN indexA;
+                }),
+                .RightIndex = ILAMBDA(
+                {
+                    if (dot > 0)
+                    {
+                        ILRETURN indexA;
+                    }
+
+                    ILRETURN indexB;
+                })
+            };
+
+            portals.Push(port);
+
+            break;
         }
     }
 
     // Pull path tight
     const uint32_t portalCount = portals.Size();
 
-    Array<glm::vec3> path = Array<glm::vec3>(MallocAllocator::Instance);
+    Array<glm::vec3> path = Array<glm::vec3>(a_allocator);
     path.Reserve(portalCount + 1);
     path.Push(a_startPoint);
 
@@ -480,7 +537,8 @@ Array<glm::vec3> NavigationMesh::GeneratePath(const glm::vec3& a_startPoint, con
         const glm::vec3& leftVertex = m_vertices[leftIndex];
         const glm::vec3& rightVertex = m_vertices[rightIndex];
 
-        const glm::vec3 offset = glm::normalize(rightVertex - leftVertex) * a_agentRadius;
+        const glm::vec3 axis = glm::normalize(rightVertex - leftVertex);
+        const glm::vec3 offset = axis * a_agentRadius;
 
         const glm::vec3 leftP = leftVertex + offset;
         const glm::vec3 rightP = rightVertex - offset;

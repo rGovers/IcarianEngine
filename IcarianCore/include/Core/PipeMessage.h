@@ -7,7 +7,7 @@
 #include <cstdint>
 
 namespace IcarianCore
-{   
+{
     enum e_PipeMessageType : uint32_t
     {
         PipeMessageType_Null = 0,
@@ -20,6 +20,8 @@ namespace IcarianCore
         PipeMessageType_FrameData,
         PipeMessageType_UpdateData,
         PipeMessageType_ProfileScope,
+        PipeMessageType_MemoryFrame,
+        PipeMessageType_TotalMemoryUsage,
         PipeMessageType_UnlockFrame,
         PipeMessageType_PushFrame,
         PipeMessageType_PushDMASwapFDBuffer,
@@ -37,23 +39,15 @@ namespace IcarianCore
     {
         e_PipeMessageType Type;
         uint32_t Length;
-        char* Data;
+        uint8_t* Data;
 
         static constexpr uint32_t Size = sizeof(Type) + sizeof(Length);
-
-        constexpr PipeMessage(e_PipeMessageType a_type = PipeMessageType_Null, uint32_t a_dataLength = 0, char* a_data = nullptr) :
-            Type(a_type),
-            Length(a_dataLength),
-            Data(a_data)
-        {
-
-        }
     };
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

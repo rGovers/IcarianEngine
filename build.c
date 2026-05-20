@@ -154,6 +154,10 @@ int main(int a_argc, char** a_argv)
             {
                 buildConfiguration = BuildConfiguration_Debug;
             }
+            else if (strcmp(buildConfigurationStr, "debugfast") == 0)
+            {
+                buildConfiguration = BuildConfiguration_DebugFast;
+            }
             else if (strcmp(buildConfigurationStr, "releasewithdebug") == 0)
             {
                 buildConfiguration = BuildConfiguration_ReleaseWithDebug;
@@ -221,6 +225,10 @@ int main(int a_argc, char** a_argv)
         else if (strcmp(a_argv[i], "-D") == 0)
         {
             buildConfiguration = BuildConfiguration_Debug;
+        }
+        else if (strcmp(a_argv[i], "-DF") == 0)
+        {
+            buildConfiguration = BuildConfiguration_DebugFast;
         }
         else if (strcmp(a_argv[i], "-R") == 0)
         {

@@ -45,22 +45,21 @@ private:
     AnimationControllerBindings*    m_bindings;
 
     TNCArray<e_AnimationUpdateMode> m_animators;
-    TNCArray<SkeletonData>          m_skeletons;  
+    TNCArray<SkeletonData>          m_skeletons;
 
     RuntimeFunction*                m_updateAnimatorFunc;
     RuntimeFunction*                m_updateAnimatorsFunc;
 
-    AnimationController();
-
 protected:
 
 public:
+    AnimationController();
     ~AnimationController();
 
     static void Init();
     static void Destroy();
 
-    static std::vector<uint32_t> GetAnimators(e_AnimationUpdateMode a_updateMode);
+    static Array<uint32_t> GetAnimators(e_AnimationUpdateMode a_updateMode);
 
     static void UpdateAnimator(uint32_t a_index, double a_deltaTime);
     static void UpdateAnimators(e_AnimationUpdateMode a_updateMode, double a_deltaTime);

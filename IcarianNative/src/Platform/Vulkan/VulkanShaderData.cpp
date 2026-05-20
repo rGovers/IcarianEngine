@@ -444,7 +444,7 @@ static void PushVulkanShaderBufferInput(Array<VulkanShaderInput>* a_inputs, cons
         {
             if (i.BufferType != a_bufferInput.BufferType)
             {
-                IERROR("Vulkan Shader type mixmatch: " + std::to_string(a_bufferInput.RealSlot));
+                IERROR("Vulkan Shader type mixmatch at " + COWU8String::FromValue(a_bufferInput.UserSlot, 10, MallocAllocator::Instance));
             }
 
             i.StageFlags |= a_stage;

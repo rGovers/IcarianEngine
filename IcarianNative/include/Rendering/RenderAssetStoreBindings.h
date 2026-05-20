@@ -5,9 +5,9 @@
 #pragma once
 
 #include <cstdint>
-#include <string_view>
 
 #include "DataTypes/Array.h"
+#include "DataTypes/COWString.h"
 
 class RenderAssetStore;
 
@@ -24,23 +24,31 @@ public:
     RenderAssetStoreBindings(RenderAssetStore* a_store);
     ~RenderAssetStoreBindings();
 
-    uint32_t GenerateFont(const std::string_view& a_path) const;
+    uint32_t GenerateFont(const char* a_path) const;
+    uint32_t GenerateFont(const COWU8String& a_path) const;
     void DestroyFont(uint32_t a_addr) const;
 
-    uint32_t GenerateModelFromString(uint32_t a_addr, const std::u32string_view& a_str, float a_fontSize, float a_scale, float a_depth) const;
+    uint32_t GenerateModelFromString(uint32_t a_addr, const CharU32* a_str, float a_fontSize, float a_scale, float a_depth) const;
+    uint32_t GenerateModelFromString(uint32_t a_addr, const COWU32String& a_str, float a_fontSize, float a_scale, float a_depth) const;
 
-    uint32_t GenerateMesh(const std::string_view& a_path, uint32_t a_index) const;
+    uint32_t GenerateMesh(const char* a_path, uint32_t a_index) const;
+    uint32_t GenerateMesh(const COWU8String& a_path, uint32_t a_index) const;
 
-    bool LoadModelData(const std::string_view& a_path, uint32_t a_index, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices) const;
-    uint32_t GenerateModel(const std::string_view& a_path, uint32_t a_index) const;
-    uint32_t GenerateSkinnedModel(const std::string_view& a_path, uint32_t a_index) const;
+    bool LoadModelData(const char* a_path, uint32_t a_index, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices) const;
+    bool LoadModelData(const COWU8String& a_path, uint32_t a_index, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices) const;
 
-    uint32_t GenerateTexture(const std::string_view& a_path) const;
+    uint32_t GenerateModel(const char* a_path, uint32_t a_index) const;
+    uint32_t GenerateModel(const COWU8String& a_path, uint32_t a_index) const;
+    uint32_t GenerateSkinnedModel(const char* a_path, uint32_t a_index) const;
+    uint32_t GenerateSkinnedModel(const COWU8String& a_path, uint32_t a_index) const;
+
+    uint32_t GenerateTexture(const char* a_path) const;
+    uint32_t GenerateTexture(const COWU8String& a_path) const;
 };
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

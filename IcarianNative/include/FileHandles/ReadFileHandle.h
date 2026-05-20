@@ -7,7 +7,8 @@
 #include "FileHandle.h"
 
 #include <cstdio>
-#include <filesystem>
+
+#include "DataTypes/COWString.h"
 
 class ReadFileHandle : public FileHandle
 {
@@ -28,12 +29,12 @@ public:
     virtual bool Ignore(uint64_t a_size);
     virtual bool EndOfFile() const;
 
-    static ReadFileHandle* OpenFile(const std::filesystem::path& a_path);
+    static ReadFileHandle* OpenFile(const COWU8String& a_path);
 };
 
 // MIT License
 //
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

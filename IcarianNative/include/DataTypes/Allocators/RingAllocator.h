@@ -9,6 +9,8 @@
 #include "Core/IcarianDefer.h"
 #include "IcarianMemory.h"
 
+ICARIAN_PUSH_FASTALLOCTOR
+
 // A no deallocation allocator
 // Loops back to the start when it runs out of memory
 // Note that this allocator has no bounds checking or sanitizer so overflows will write to future allocations
@@ -49,7 +51,7 @@ public:
         return (uint64_t)((char*)m_end - (char*)m_memory);
     }
 
-    virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
+    [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
     {
         void* next = AlignTo((uint8_t*)m_slider + a_size, (uintptr_t)a_alignment);
 
@@ -63,6 +65,8 @@ public:
         return m_slider;
     }
 };
+
+ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
 // 

@@ -45,31 +45,41 @@ NavigationBindings::~NavigationBindings()
 
 }
 
-uint32_t NavigationBindings::CreateNavMesh(const std::string_view& a_path) const
+uint32_t NavigationBindings::CreateNavMesh(const char* a_path) const
 {
-    NavigationMesh* mesh = new NavigationMesh(a_path);
+    const COWU8String str = COWU8String(a_path, MallocAllocator::Instance);
+
+    return CreateNavMesh(str);
+}
+uint32_t NavigationBindings::CreateNavMesh(const COWU8String& a_path) const
+{
+    NavigationMesh* mesh = MallocAllocator::Instance->Create<NavigationMesh>
+    (
+        a_path,
+        MallocAllocator::Instance,
+        MallocAllocator::Instance
+    );
 
     return m_navigation->m_meshes.PushVal(mesh);
 }
 void NavigationBindings::DestroyNavMesh(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_navigation->m_meshes.Size());
     IVERIFY(m_navigation->m_meshes.Exists(a_addr));
 
-    const NavigationMesh* mesh = m_navigation->m_meshes[a_addr];
-    IDEFER(delete mesh);
+    NavigationMesh* mesh = m_navigation->m_meshes[a_addr];
+    IDEFER(MallocAllocator::Instance->Destroy(mesh));
+
     m_navigation->m_meshes.Erase(a_addr);
 }
 Array<glm::vec3> NavigationBindings::GetNavMeshPath(uint32_t a_addr, const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const
 {
-    IVERIFY(a_addr < m_navigation->m_meshes.Size());
     IVERIFY(m_navigation->m_meshes.Exists(a_addr));
 
     const TReadLockArray<NavigationMesh*> a = m_navigation->m_meshes.ToReadLockArray();
 
     const NavigationMesh* mesh = a[a_addr];
 
-    return mesh->GeneratePath(a_startPoint, a_endPoint, a_agentRadius);
+    return mesh->GeneratePath(a_startPoint, a_endPoint, a_agentRadius, MallocAllocator::Instance, MallocAllocator::Instance);
 }
 
 Array<glm::vec3> NavigationBindings::GetNavigationPath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const
@@ -95,7 +105,16 @@ Array<glm::vec3> NavigationBindings::GetNavigationPath(const glm::vec3& a_startP
 
         if (startIndex != uint32_t(-1) && endIndex != uint32_t(-1))
         {
-            return mesh->GeneratePath(a_startPoint, a_endPoint, startIndex, endIndex, a_agentRadius);
+            return mesh->GeneratePath
+            (
+                a_startPoint,
+                a_endPoint,
+                startIndex,
+                endIndex,
+                a_agentRadius,
+                MallocAllocator::Instance,
+                MallocAllocator::Instance
+            );
         }
     }
 

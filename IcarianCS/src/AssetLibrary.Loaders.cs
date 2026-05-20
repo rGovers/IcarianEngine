@@ -9,10 +9,6 @@ using IcarianEngine.Rendering;
 using IcarianEngine.Rendering.Animation;
 using IcarianEngine.Rendering.Shaders;
 
-#ifdef ENABLE_EXPERIMENTAL
-using IcarianEngine.Rendering.Video;
-#endif
-
 namespace IcarianEngine
 {
     public static partial class AssetLibrary
@@ -64,13 +60,6 @@ namespace IcarianEngine
                 }
             }, a_priority);
         }
-
-#ifdef ENABLE_EXPERIMENTAL
-        public static VideoClip LoadVideoClip(string a_path)
-        {
-            return LoadData<VideoClip, VideoClipContainer>(a_path, s_videoClips);
-        }
-#endif
 
         /// <summary>
         /// Loads a <see cref="IcarianEngine.Rendering.Shaders.ComputeShader" /> from the given path in a <see cref="IcarianEngine.Mod.IcarianAssembly" /> in Graphics mode

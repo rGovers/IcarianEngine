@@ -4,25 +4,26 @@
 
 #pragma once
 
-#include "Core/IcarianAssert.h"
+#include "DataTypes/COWString.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "Logger.h"
 
 #define IERRSTRR(v) #v
 #define IERRSTR(v) IERRSTRR(v)
 
-#define IWARN(msg) Logger::Warning("IWARN: " + std::string(msg))
-#define IERROR(msg) IcarianError("IERROR: " + std::string(msg) + ": " IERRSTR(__FILE__) "," IERRSTR(__LINE__))
-#ifdef NDEBUG
-#define IVERIFY(val) void(0)
-#else
+#define IWARN(msg) Logger::Warning(COWU8String("IWARN: ", MallocAllocator::Instance) + (msg))
+#define IERROR(msg) IcarianError(COWU8String("IERROR: ", MallocAllocator::Instance) + (msg) + ": " IERRSTR(__FILE__) "," IERRSTR(__LINE__))
+#ifdef DEBUG
 #define IVERIFY(val) do { if (!(val)) { IERROR(#val); } } while (0)
+#else
+#define IVERIFY(val) void(0)
 #endif
 
-void IcarianError(const std::string_view& a_msg);
+void IcarianError(const COWU8String& a_msg);
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

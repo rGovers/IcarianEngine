@@ -89,6 +89,14 @@ struct DefaultHashFunctionImpl<void*>
 };
 
 template<>
+struct DefaultHashFunctionImpl<uint32_t>
+{
+    static uint64_t Hash(uint32_t a_value)
+    {
+        return HashFuncImpl::Hash64Shift((uint64_t)a_value);
+    }
+};
+template<>
 struct DefaultHashFunctionImpl<uint64_t>
 {
     static uint64_t Hash(uint64_t a_value)

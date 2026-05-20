@@ -8,10 +8,12 @@
 #define ISETBIT(val, bit) (val) |= 0b1 << (bit)
 #define ICLEARBIT(val, bit) (val) &= ~(0b1 << (bit))
 #define ITOGGLEBIT(state, val, bit) do { if (state) { ISETBIT(val, bit); } else { ICLEARBIT(val, bit); } } while (0)
+// Realised I am dumb and with a mask xor acts as a selective invert
+#define IINVERTBIT(val, bit) (val) ^= 0b1 << (bit)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

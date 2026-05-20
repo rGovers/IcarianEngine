@@ -17,9 +17,11 @@
 #include "Core/IcarianLambda.h"
 #include "Core/IPCPipe.h"
 #include "Core/SocketPipe.h"
+#include "Core/TotalMemoryUsageFrame.h"
 #include "DataTypes/Allocators/MallocAllocator.h"
 #include "DataTypes/Allocators/OSAllocator.h"
 #include "DataTypes/Allocators/RingAllocator.h"
+#include "DataTypes/Allocators/UberAllocator.h"
 #include "IcarianError.h"
 #include "InputManager.h"
 #include "Profiler.h"
@@ -38,7 +40,13 @@
     return addrPath.generic_string();
 }
 
-void HeadlessAppWindow::MessageCallback(const std::string_view& a_message, IcarianCore::e_LoggerMessageType a_type, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
+void HeadlessAppWindow::MessageCallback
+(
+    const COWU8String& a_message,
+    IcarianCore::e_LoggerMessageType a_type,
+    uint32_t a_stackTraceCount,
+    const char* const* a_stackTrace
+)
 {
     const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
 
@@ -62,75 +70,83 @@ void HeadlessAppWindow::MessageCallback(const std::string_view& a_message, Icari
     stackTraceSize += a_stackTraceCount;
 
     constexpr uint32_t HeaderSize = sizeof(IcarianCore::LoggerHeader);
-    const uint32_t strSize = (uint32_t)a_message.size();
+    const uint32_t strSize = a_message.Length();
 
     const uint32_t stackTraceOffset = HeaderSize + strSize;
     const uint32_t size = stackTraceOffset + stackTraceSize + 1;
 
-    char* data = (char*)m_msgAllocator->Allocate(size, 16);
-    memset(data, 0, size);
-
-    const IcarianCore::LoggerHeader header = 
+    const IcarianCore::PipeMessage msg =
     {
-        .Version = 0,
-        .Type = a_type,
-        .MessageOffset = HeaderSize,
-        .MessageSize = strSize,
-        .StackTraceOffset = stackTraceOffset,
-        .StackTraceSize = stackTraceSize,
+        .Type = IcarianCore::PipeMessageType_Message,
+        .Length = size,
+        .Data = ILAMBDA(
+        {
+            uint8_t* dat = m_msgAllocator->ZTAllocate<uint8_t>(size);
+
+            IcarianCore::LoggerHeader header;
+            header.Version = 0;
+            header.Type = a_type;
+            header.MessageOffset = HeaderSize;
+            header.MessageSize = strSize;
+            header.StackTraceOffset = stackTraceOffset;
+            header.StackTraceSize = stackTraceSize;
+
+            memcpy(dat, &header, sizeof(header));
+            memcpy(dat + header.MessageOffset, a_message.CStr(), strSize);
+
+            uint32_t offset = 0;
+            for (uint32_t i = 0; i < a_stackTraceCount; ++i)
+            {
+                const uint32_t size = sizes[i];
+
+                memcpy(dat + header.StackTraceOffset + offset, a_stackTrace[i], size);
+
+                offset += size + 1;
+            }
+
+            ILRETURN dat;
+        })
     };
-
-    memcpy(data, &header, sizeof(header));
-    memcpy(data + header.MessageOffset, a_message.data(), strSize);
-
-    uint32_t offset = 0;
-    for (uint32_t i = 0; i < a_stackTraceCount; ++i)
-    {
-        const uint32_t size = sizes[i];
-
-        memcpy(data + header.StackTraceOffset + offset, a_stackTrace[i], size);
-
-        offset += size + 1;
-    }
-
-    const IcarianCore::PipeMessage msg = IcarianCore::PipeMessage(IcarianCore::PipeMessageType_Message, size, data);
     m_queuedMessages.Push(msg);
 }
 void HeadlessAppWindow::ProfilerCallback(const Profiler::PData& a_profilerData)
 {
-    constexpr uint32_t ScopeSize = sizeof(ProfileScope);
-
     const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
 
-    IcarianCore::PipeMessage msg;
-    msg.Type = IcarianCore::PipeMessageType_ProfileScope;
-    msg.Length = ScopeSize;
-    msg.Data = (char*)m_msgAllocator->Allocate(ScopeSize, 16);
-
-    ProfileScope* scope = (ProfileScope*)msg.Data;
-
-    const int nameSize = glm::min((int)a_profilerData.Name.size(), NameMax - 1);
-    for (int i = 0; i < nameSize; ++i)
+    const IcarianCore::PipeMessage msg =
     {
-        scope->Name[i] = a_profilerData.Name[i];
-    }
-    scope->Name[nameSize] = 0;
-
-    scope->FrameCount = (uint16_t)glm::min((int)a_profilerData.Frames.size(), FrameMax);
-    for (uint16_t i = 0; i < scope->FrameCount; ++i)
-    {
-        const ProfileFrame& pFrame = a_profilerData.Frames[i];
-        ProfileTFrame& frame = scope->Frames[i];
-
-        const int frameNameSize = glm::min((int)pFrame.Name.size(), NameMax - 1);
-        for (int j = 0; j < frameNameSize; ++j)
+        .Type = IcarianCore::PipeMessageType_ProfileScope,
+        .Length = sizeof(ProfileScope),
+        .Data = ILAMBDA(
         {
-            frame.Name[j] = pFrame.Name[j];
-        }
-        frame.Name[frameNameSize] = 0;
-        frame.Stack = pFrame.Stack;
-        frame.Time = (float)pFrame.Duration;
-    }
+            ProfileScope* dat = m_msgAllocator->TAllocate<ProfileScope>();
+
+            const uint16_t nameSize = glm::min((uint16_t)a_profilerData.Name.Length(), (uint16_t)(NameMax - 1));
+            for (int i = 0; i < nameSize; ++i)
+            {
+                dat->Name[i] = a_profilerData.Name[i];
+            }
+            dat->Name[nameSize] = 0;
+
+            dat->FrameCount = (uint16_t)glm::min((uint16_t)a_profilerData.Frames.Size(), FrameMax);
+            for (uint16_t i = 0; i < dat->FrameCount; ++i)
+            {
+                const ProfileFrame& pFrame = a_profilerData.Frames[i];
+                ProfileTFrame& frame = dat->Frames[i];
+
+                const uint16_t frameNameSize = glm::min((uint16_t)pFrame.Name.Length(), (uint16_t)(NameMax - 1));
+                for (uint16_t j = 0; j < frameNameSize; ++j)
+                {
+                    frame.Name[j] = pFrame.Name[j];
+                }
+                frame.Name[frameNameSize] = 0;
+                frame.Stack = pFrame.Stack;
+                frame.Time = (float)pFrame.Duration;
+            }
+
+            ILRETURN (uint8_t*)dat;
+        })
+    };
 
     m_queuedMessages.Push(msg);
 }
@@ -142,7 +158,7 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
     m_pipe = nullptr;
     m_flags = 0;
 
-    m_msgAllocator = new RingAllocator(4 << 20, OSAllocator::Instance);
+    m_msgAllocator = MallocAllocator::Instance->Create<RingAllocator>(4 << 20, UberAllocator::Instance);
 
 #ifndef ICARIANNATIVE_ENABLE_DMA
     m_frameData = nullptr;
@@ -196,7 +212,7 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
     m_width = 1280;
     m_height = 720;
 
-    Logger::CallbackFunc = new Logger::Callback(std::bind
+    Logger::CallbackFunc = MallocAllocator::Instance->Create<Logger::Callback>(std::bind
     (
         &HeadlessAppWindow::MessageCallback,
         this,
@@ -205,7 +221,7 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
         std::placeholders::_3,
         std::placeholders::_4
     ));
-    Profiler::CallbackFunc = new Profiler::Callback(std::bind(&HeadlessAppWindow::ProfilerCallback, this, std::placeholders::_1));
+    Profiler::CallbackFunc = MallocAllocator::Instance->Create<Profiler::Callback>(std::bind(&HeadlessAppWindow::ProfilerCallback, this, std::placeholders::_1));
 
     m_prevTime = std::chrono::high_resolution_clock::now();
 
@@ -219,7 +235,11 @@ HeadlessAppWindow::~HeadlessAppWindow()
 
     if (m_pipe != nullptr)
     {
-        m_pipe->Send({ IcarianCore::PipeMessageType_Close });
+        const IcarianCore::PipeMessage msg = 
+        {
+            .Type = IcarianCore::PipeMessageType_Close
+        };
+        m_pipe->Send(msg);
 
         delete m_pipe;
         m_pipe = nullptr;
@@ -228,19 +248,19 @@ HeadlessAppWindow::~HeadlessAppWindow()
 #ifndef ICARIANNATIVE_ENABLE_DMA
     if (m_frameData != nullptr)
     {
-        delete[] m_frameData;
+        MallocAllocator::Instance->Free(m_frameData);
         m_frameData = nullptr;
     }
 #endif
 
-    delete m_runtimeMessageReceive;
+    MallocAllocator::Instance->Destroy(m_runtimeMessageReceive);
 
-    delete Logger::CallbackFunc;
+    MallocAllocator::Instance->Destroy(Logger::CallbackFunc);
     Logger::CallbackFunc = nullptr;
-    delete Profiler::CallbackFunc;
+    MallocAllocator::Instance->Destroy(Profiler::CallbackFunc);
     Profiler::CallbackFunc = nullptr;
 
-    delete m_msgAllocator;
+    MallocAllocator::Instance->Destroy(m_msgAllocator);
 }
 
 void HeadlessAppWindow::PushMessageQueue()
@@ -267,7 +287,13 @@ void HeadlessAppWindow::PushMessageQueue()
         {
             const IcarianCore::PipeMessage& msg = a[i];
 
-            IERRCHECK(m_pipe->Send(msg));
+            const IcarianCore::CommunicationPipe::e_SendError err = m_pipe->Send(msg);
+            if (err != IcarianCore::CommunicationPipe::SendError_Success)
+            {
+                printf("Send Message error: %s \n", IcarianCore::CommunicationPipe::SendErrorString(err));
+
+                ITRIGGERERR;
+            }
         }
 
         m_queuedMessages.UClear();
@@ -290,16 +316,20 @@ double HeadlessAppWindow::GetTime() const
 
 void HeadlessAppWindow::SetCursorState(e_CursorState a_state)
 {
-    constexpr uint32_t Size = sizeof(e_CursorState);
-
     const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
 
-    IcarianCore::PipeMessage msg;
-    msg.Type = IcarianCore::PipeMessageType_SetCursorState;
-    msg.Length = Size;
-    msg.Data = (char*)m_msgAllocator->Allocate(Size, 16);
-    *(e_CursorState*)msg.Data = a_state;
+    const IcarianCore::PipeMessage msg =
+    {
+        .Type = IcarianCore::PipeMessageType_SetCursorState,
+        .Length = sizeof(e_CursorState),
+        .Data = ILAMBDA(
+        {
+            e_CursorState* dat = m_msgAllocator->TAllocate<e_CursorState>();
+            *dat = a_state;
 
+            ILRETURN (uint8_t*)dat;
+        })
+    };
     m_queuedMessages.Push(msg);
 }
 
@@ -325,7 +355,7 @@ public:
         m_data = nullptr;
         if (m_length > 0)
         {
-            m_data = new uint8_t[m_length];
+            m_data = MallocAllocator::Instance->TAllocate<uint8_t>(m_length);
 
             memcpy(m_data, a_data, m_length);
         }
@@ -334,7 +364,7 @@ public:
     {
         if (m_data != nullptr)
         {
-            delete[] m_data;
+            MallocAllocator::Instance->Free(m_data);
             m_data = nullptr;
         }
     }
@@ -378,13 +408,6 @@ bool HeadlessAppWindow::PollMessage()
     std::queue<IcarianCore::PipeMessage> messages;
     if (!m_pipe->Receive(&messages))
     {
-        ISETBIT(m_flags, CloseBit);
-
-        delete m_pipe;
-        m_pipe = nullptr;
-
-        IERROR("Failed to receive message");
-
         return false;
     }
 
@@ -514,7 +537,7 @@ bool HeadlessAppWindow::PollMessage()
             const uintptr_t len = msg.Length - (strEnd - str);
             const uint8_t* data = (uint8_t*)strEnd;
 
-            ThreadPool::PushJob(new RuntimeMessageThreadJob(m_runtimeMessageReceive, str, data, len));
+            ThreadPool::PushJob(MallocAllocator::Instance->Create<RuntimeMessageThreadJob>(m_runtimeMessageReceive, str, data, len));
 
             break;
         }
@@ -526,7 +549,12 @@ bool HeadlessAppWindow::PollMessage()
         }
         default:
         {
-            IERROR("IcarianEngine: Invalid Pipe Message: " + std::to_string(msg.Type) + " " + std::to_string(msg.Length));
+            IERROR
+            (
+                "IcarianEngine: Invalid Pipe Message: " +
+                COWU8String::FromValue(msg.Type, 10, MallocAllocator::Instance) + " " +
+                COWU8String::FromValue(msg.Length, 10, MallocAllocator::Instance)
+            );
 
             break;
         }
@@ -541,10 +569,7 @@ void HeadlessAppWindow::Update()
     {
         PROFILESTACK("Polling");
 
-        if (!PollMessage())
-        {
-            return;
-        }
+        PollMessage();
     }
 
     {
@@ -569,7 +594,13 @@ void HeadlessAppWindow::Update()
 
         const glm::dvec2 tVec = glm::vec2(m_delta, m_time);
 
-        if (!m_pipe->Send({ IcarianCore::PipeMessageType_UpdateData, sizeof(glm::dvec2), (char*)&tVec}))
+        const IcarianCore::PipeMessage msg =
+        {
+            .Type = IcarianCore::PipeMessageType_UpdateData,
+            .Length = sizeof(glm::dvec2),
+            .Data = (uint8_t*)&tVec
+        };
+        if (m_pipe->Send(msg) != IcarianCore::CommunicationPipe::SendError_Success)
         {
             ISETBIT(m_flags, CloseBit);
 
@@ -595,7 +626,13 @@ void HeadlessAppWindow::Update()
 
             const std::lock_guard g = std::lock_guard(m_fLock);
 
-            if (!m_pipe->Send({ IcarianCore::PipeMessageType_PushFrame, m_width * m_height * 4, m_frameData }))
+            const IcarianCore::PipeMessage msg =
+            {
+                .Type = IcarianCore::PipeMessageType_PushFrame,
+                .Length = m_width * m_height * 4,
+                .Data = (uint8_t*)m_frameData
+            };
+            if (m_pipe->Send(msg) != IcarianCore::CommunicationPipe::SendError_Success)
             {
                 ISETBIT(m_flags, CloseBit);
 
@@ -611,6 +648,61 @@ void HeadlessAppWindow::Update()
 #endif
 
     {
+        PROFILESTACK("Profiler Data");
+
+        {
+            const uint64_t osUsage = OSAllocator::TrackerInstance->GetTrueMemoryUsage();
+            const uint64_t mallocUsage = MallocAllocator::TrackerInstance->GetTrueMemoryUsage();
+
+            const IcarianCore::TotalMemoryUsageFrame frame =
+            {
+                .OSUsage = osUsage,
+                .MallocUsage = mallocUsage,
+            };
+
+            const IcarianCore::PipeMessage msg =
+            {
+                .Type = IcarianCore::PipeMessageType_TotalMemoryUsage,
+                .Length = sizeof(frame),
+                .Data = (uint8_t*)&frame,
+            };
+            if (m_pipe->Send(msg) != IcarianCore::CommunicationPipe::SendError_Success)
+            {
+                ISETBIT(m_flags, CloseBit);
+
+                delete m_pipe;
+                m_pipe = nullptr;
+
+                IERROR("Failed to send total memory usage");
+
+                return;
+            }
+        }
+
+        {
+            const IcarianCore::MemoryUsageFrame frame = Profiler::GetMemoryFrames();
+
+            const IcarianCore::PipeMessage msg =
+            {
+                .Type = IcarianCore::PipeMessageType_MemoryFrame,
+                .Length = sizeof(frame),
+                .Data = (uint8_t*)&frame,
+            };
+            if (m_pipe->Send(msg) != IcarianCore::CommunicationPipe::SendError_Success)
+            {
+                ISETBIT(m_flags, CloseBit);
+
+                delete m_pipe;
+                m_pipe = nullptr;
+
+                IERROR("Failed to send memory frame");
+
+                return;
+            }
+        }
+    }
+
+    {
         PROFILESTACK("Messages");
 
         PushMessageQueue();
@@ -619,64 +711,90 @@ void HeadlessAppWindow::Update()
 
 void HeadlessAppWindow::PushFrameInfo(double a_delta, double a_time)
 {
-    constexpr int Size = sizeof(glm::dvec2);
-
     const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
 
-    IcarianCore::PipeMessage msg;
-    msg.Type = IcarianCore::PipeMessageType_FrameData;
-    msg.Length = Size;
-    msg.Data = (char*)m_msgAllocator->Allocate(Size, 16);
-    (*(glm::dvec2*)msg.Data).x = a_delta;
-    (*(glm::dvec2*)msg.Data).y = a_time;
+    const IcarianCore::PipeMessage msg =
+    {
+        .Type = IcarianCore::PipeMessageType_FrameData,
+        .Length = sizeof(glm::dvec2),
+        .Data = ILAMBDA(
+        {
+            glm::dvec2* dat = m_msgAllocator->TAllocate<glm::dvec2>();
+            dat->x = a_delta;
+            dat->y = a_time;
 
+            ILRETURN (uint8_t*)dat;
+        })
+    };
     m_queuedMessages.Push(msg);
 }
 
 #ifdef ICARIANNATIVE_ENABLE_DMA
 void HeadlessAppWindow::PushSwapBufferFD(const DMASwapBufferFD& a_swapBuffer)
 {
-    constexpr uint32_t Size = sizeof(DMASwapBufferFD);
-
     const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
 
-    IcarianCore::PipeMessage msg;
-    msg.Type = IcarianCore::PipeMessageType_PushDMASwapFDBuffer;
-    msg.Length = Size;
-    msg.Data = (char*)m_msgAllocator->Allocate(Size, 16);
-    (*(DMASwapBufferFD*)msg.Data) = a_swapBuffer;
+    const IcarianCore::PipeMessage msg =
+    {
+        .Type = IcarianCore::PipeMessageType_PushDMASwapFDBuffer,
+        .Length = sizeof(DMASwapBufferFD),
+        .Data = ILAMBDA(
+        {
+            DMASwapBufferFD* dat = m_msgAllocator->TAllocate<DMASwapBufferFD>();
+            *dat = a_swapBuffer;
 
+            ILRETURN (uint8_t*)dat;
+        })
+    };
     m_queuedMessages.Push(msg);
 }
 void HeadlessAppWindow::FlushSwapBufferFD()
 {
-    m_queuedMessages.Push(IcarianCore::PipeMessage(IcarianCore::PipeMessageType_FlushDMASwapFDBuffer));
+    const IcarianCore::PipeMessage msg =
+    {
+        .Type = IcarianCore::PipeMessageType_FlushDMASwapFDBuffer
+    };
+    m_queuedMessages.Push(msg);
 }
 
 #ifdef WIN32
 void HeadlessAppWindow::PushSwapBufferHandle(const DMASwapBufferHandle& a_swapBuffer)
 {
-    constexpr uint32_t Size = sizeof(DMASwapBufferHandle);
-
     const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
 
-    IcarianCore::PipeMessage msg;
-    msg.Type = IcarianCore::PipeMessageType_PushDMASwapHandleBuffer;
-    msg.Length = Size;
-    msg.Data = (char*)m_msgAllocator->Allocate(Size);
-    (*(DMASwapBufferHandle*)msg.Data) = a_swapBuffer;
+    const IcarianCore::PipeMessage msg =
+    {
+        .Type = IcarianCore::PipeMessageType_PushDMASwapHandleBuffer,
+        .Length = sizeof(DMASwapBufferHandle),
+        .Data = ILAMBDA(
+        {
+            DMASwapBufferHandle* dat = m_msgAllocator->TAllocate<DMASwapBufferHandle>();
+            *dat = a_swapBuffer;
 
+            ILRETURN (uint8_t*)dat;
+        })
+    };
     m_queuedMessages.Push(msg);
 }
 #endif
 void HeadlessAppWindow::FlushSwapBufferHandle()
 {
-    m_queuedMessages.Push(IcarianCore::PipeMessage(IcarianCore::PipeMessageType_FlushDMASwapHandleBuffer));
+    const IcarianCore::PipeMessage msg =
+    {
+        .Type = IcarianCore::PipeMessageType_FlushDMASwapHandleBuffer
+    };
+
+    m_queuedMessages.Push(msg);
 }
 
 void HeadlessAppWindow::DMASwap()
 {
-    m_queuedMessages.Push(IcarianCore::PipeMessage(IcarianCore::PipeMessageType_DMASwap));
+    const IcarianCore::PipeMessage msg =
+    {
+        .Type = IcarianCore::PipeMessageType_DMASwap
+    };
+
+    m_queuedMessages.Push(msg);
 }
 #else
 void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer)
@@ -692,7 +810,7 @@ void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const
 
         if (m_frameData == nullptr)
         {
-            m_frameData = new char[size];
+            m_frameData = MallocAllocator::Instance->TAllocate<char>(size);
         }
 
         memcpy(m_frameData, a_buffer, size);

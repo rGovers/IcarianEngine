@@ -19,6 +19,7 @@
 #include "Core/StringUtils.h"
 #include "DataTypes/Allocators/MallocAllocator.h"
 #include "DataTypes/Allocators/OSAllocator.h"
+#include "DataTypes/Allocators/UberAllocator.h"
 
 #define STBI_ASSERT(x) ICARIAN_ASSERT_MSG(x, "STBI Assert")
 
@@ -205,6 +206,8 @@ int APIENTRY WinMain(HINSTANCE a_hInstance, HINSTANCE a_hPrevInstance, LPSTR a_l
     IDEFER(MallocAllocator::Destroy());
     OSAllocator::Init();
     IDEFER(OSAllocator::Destroy());
+    UberAllocator::Init();
+    IDEFER(UberAllocator::Destroy());
 
     // Whatever enet needs we will do ourselves
     // We need a newer version and enet does not allow overriding
@@ -265,6 +268,8 @@ int main(int a_argc, char* a_argv[])
     IDEFER(MallocAllocator::Destroy());
     OSAllocator::Init();
     IDEFER(OSAllocator::Destroy());
+    UberAllocator::Init();
+    IDEFER(UberAllocator::Destroy());
 
     Config* config = new Config("./config.xml");
 

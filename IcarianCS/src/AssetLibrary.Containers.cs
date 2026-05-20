@@ -10,10 +10,6 @@ using IcarianEngine.Rendering.Shaders;
 using IcarianEngine.Rendering.UI;
 using System.Threading;
 
-#ifdef ENABLE_EXPERIMENTAL
-using IcarianEngine.Rendering.Video;
-#endif
-
 namespace IcarianEngine
 {
     /// @cond INTERNAL
@@ -81,51 +77,6 @@ namespace IcarianEngine
             return AudioClip.LoadAudioClip(a_input);
         }
     }
-
-#ifdef ENABLE_EXPERIMENTAL
-    class VideoClipContainer : IAssetContainer
-    {
-        public LoadStatus Status
-        {
-            get;
-            set;
-        }
-        public EventWaitHandle WaitHandle
-        {
-            get;
-            set;
-        }
-        public VideoClip Clip
-        {
-            get;
-            set;
-        }
-
-        public object Value
-        {
-            get
-            {
-                return Clip;
-            }
-            set
-            {
-                Clip = value as VideoClip;
-            }
-        }
-
-        public VideoClipContainer()
-        {
-            Status = LoadStatus.Unloaded;
-            WaitHandle = new EventWaitHandle(false, EventResetMode.ManualReset);
-            Clip = null;
-        }
-
-        public object LoadValue(string a_input)
-        {
-            return VideoClip.LoadVideoClip(a_input);
-        }
-    }
-#endif
 
     class GraphicsComputeShaderContainer : IAssetContainer
     {

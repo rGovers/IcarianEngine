@@ -6,7 +6,7 @@
 
 #include "Rendering/UI/UIElement.h"
 
-#include <string>
+#include "DataTypes/COWString.h"
 
 class TextUIElement : public UIElement
 {
@@ -16,10 +16,8 @@ private:
 
     RenderEngine*  m_lastRenderEngine;
 
-    SharedSpinLock m_lock;
+    COWU32String   m_text;
 
-    std::u32string m_text;
-    
     uint32_t       m_textureAddr;
     uint32_t       m_samplerAddr;
 
@@ -31,7 +29,7 @@ private:
 protected:
 
 public:
-    TextUIElement();
+    TextUIElement(Allocator* a_allocator);
     virtual ~TextUIElement();
 
     virtual e_UIElementType GetType() const
@@ -64,15 +62,15 @@ public:
         return m_flags & 0b1 << ValidBit;
     }
 
-    std::u32string GetText();
-    void SetText(const std::u32string_view& a_text);
+    COWU32String GetText() const;
+    void SetText(const COWU32String& a_text);
 
-    virtual void Update(RenderEngine* a_renderEngine);
+    virtual void Update(RenderEngine* a_renderEngine, Allocator* a_tempAllocator);
 };
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

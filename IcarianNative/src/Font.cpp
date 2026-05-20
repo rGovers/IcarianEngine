@@ -1,27 +1,28 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Rendering/UI/Font.h"
 
-#define GLM_FORCE_SWIZZLE 
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
 #include <cstring>
-#include <set>
 #include <stb_rect_pack.h>
-#include <unordered_map>
 
 #include "Core/Bitfield.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
 #include "DataTypes/Allocators/MallocAllocator.h"
+#include "DataTypes/Set.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "Trace.h"
 
-Font::Font(uint8_t* a_data)
+Font::Font(uint8_t* a_data, Allocator* a_allocator)
 {
+    m_allocator = a_allocator;
+
     m_data = a_data;
 
     const int offset = stbtt_GetFontOffsetForIndex(a_data, 0);
@@ -32,25 +33,28 @@ Font::Font(uint8_t* a_data)
 }
 Font::~Font()
 {
-    delete[] m_data;
+    m_allocator->Destroy(m_data);
 }
 
-Font* Font::LoadFont(const std::string_view& a_path)
+bool Font::LoadFont(Font* a_font, const COWU8String& a_path, Allocator* a_allocator)
 {
     IERRBLOCK;
 
     TRACE("Loading font");
     FileHandle* fileHandle = FileCache::LoadFile(a_path);
-    IERRCHECKRET(fileHandle != nullptr, nullptr);
+    IERRCHECKRET(fileHandle != nullptr, false);
+    IDEFER(MallocAllocator::Instance->Destroy(fileHandle));
 
     const uint32_t size = (uint32_t)fileHandle->GetSize();
 
-    uint8_t* dat = new uint8_t[size];
-    IERRDEFER(delete[] dat);
+    uint8_t* dat = a_allocator->TAllocate<uint8_t>(size);
+    IERRDEFER(a_allocator->Free(dat));
 
-    IERRCHECKRET(fileHandle->Read(dat, size) != size, nullptr);
+    IERRCHECKRET(fileHandle->Read(dat, size) != size, false);
 
-    return new Font(dat);
+    new (a_font) Font(dat, a_allocator);
+
+    return true;
 }
 
 struct CodePointTexture
@@ -62,21 +66,33 @@ struct CodePointTexture
     uint8_t* Data;
 };
 
-std::unordered_map<char32_t, CodePointTexture> GetTextures(const stbtt_fontinfo* a_fontInfo, float a_fontSize, const std::u32string_view& a_str)
+Dictionary<CharU32, CodePointTexture> GetTextures
+(
+    const stbtt_fontinfo* a_fontInfo,
+    float a_fontSize,
+    const COWU32String& a_str,
+    Allocator* a_allocator,
+    Allocator* a_tempAllocator
+)
 {
     const float scale = stbtt_ScaleForPixelHeight(a_fontInfo, a_fontSize);
 
-    std::unordered_map<char32_t, CodePointTexture> codePointTextures;
+    Dictionary<CharU32, CodePointTexture> codePointTextures = Dictionary<CharU32, CodePointTexture>(a_allocator);
 
-    std::set<char32_t> codePoints;
-    for (char32_t codepoint : a_str)
+    const Set<CharU32> codePoints = ILAMBDA(
     {
-        codePoints.insert(codepoint);
-    }
+        Set<CharU32> vals = Set<CharU32>(a_tempAllocator);
+        for (const CharU32 c : a_str)
+        {
+            vals.Push(c);
+        }
 
-    for (char32_t codepoint : codePoints)
+        ILRETURN vals;
+    });
+
+    for (const CharU32 c : codePoints)
     {
-        switch (codepoint)
+        switch (c)
         {
         case '\n':
         {
@@ -84,64 +100,104 @@ std::unordered_map<char32_t, CodePointTexture> GetTextures(const stbtt_fontinfo*
         }
         default:
         {
-            CodePointTexture cpt = { 0 };
-
             int lsb;
-            stbtt_GetCodepointHMetrics(a_fontInfo, (int)codepoint, &cpt.Advance, &lsb);
+            int advance;
+            stbtt_GetCodepointHMetrics(a_fontInfo, (int)c, &advance, &lsb);
 
             int x0;
             int y0;
             int x1;
             int y1;
-            stbtt_GetCodepointBitmapBox(a_fontInfo, (int)codepoint, scale, scale, &x0, &y0, &x1, &y1);
-            cpt.yOffset = y0;
+            stbtt_GetCodepointBitmapBox(a_fontInfo, (int)c, scale, scale, &x0, &y0, &x1, &y1);
 
-            cpt.Width = x1 - x0;
-            cpt.Height = y1 - y0;
-            if (codepoint != ' ')
+            const uint32_t width = (uint32_t)(x1 - x0);
+            const uint32_t height = (uint32_t)(y1 - y0);
+
+            const CodePointTexture cpt =
             {
-                const uint32_t size = cpt.Width * cpt.Height;
-                cpt.Data = new uint8_t[size];
-                memset(cpt.Data, 0, size * sizeof(uint8_t));
+                .Width = width,
+                .Height = height,
+                .Advance = advance,
+                .yOffset = y0,
+                .Data = ILAMBDA(
+                {
+                    if (c != ' ')
+                    {
+                        const uint32_t size = width * height;
+                        uint8_t* val = a_allocator->TAllocate<uint8_t>(size);
 
-                stbtt_MakeCodepointBitmap(a_fontInfo, (unsigned char*)cpt.Data, (int)cpt.Width, (int)cpt.Height, (int)cpt.Width, scale, scale, (int)codepoint);
-            }
-            
-            codePointTextures.emplace(codepoint, cpt);
+                        stbtt_MakeCodepointBitmap
+                        (
+                            a_fontInfo,
+                            (unsigned char*)val,
+                            (int)width,
+                            (int)height,
+                            (int)width,
+                            scale,
+                            scale,
+                            (int)c
+                        );
+
+                        ILRETURN val;
+                    }
+
+                    ILRETURN (uint8_t*)nullptr;
+                }),
+            };
+
+            codePointTextures.Push(c, cpt);
 
             break;
         }
-        }   
+        }
     }
 
     return codePointTextures;
 }
 
-uint8_t* Font::StringToTexture(const std::u32string_view& a_string, float a_fontSize, uint32_t a_width, uint32_t a_height) const
+uint8_t* Font::StringToTexture
+(
+    const COWU32String& a_string,
+    float a_fontSize,
+    uint32_t a_width,
+    uint32_t a_height,
+    Allocator* a_allocator,
+    Allocator* a_tempAllocator
+) const
 {
     // Changes have negative effects with small strings but alot faster with large strings with alot of repeating characters
     // Worth it as small string are fast enough anyway
     // Anyway the performance rat in me wants to use a chunk allocator but will hold off for now
-    const std::unordered_map<char32_t, CodePointTexture> codePointTextures = GetTextures(&m_fontInfo, a_fontSize, a_string);
+    const Dictionary<CharU32, CodePointTexture> codePointTextures = GetTextures
+    (
+        &m_fontInfo,
+        a_fontSize,
+        a_string,
+        a_tempAllocator,
+        a_tempAllocator
+    );
     IDEFER(
-    for (const auto iter : codePointTextures)
     {
-        delete[] iter.second.Data;
+        const Array<CodePointTexture> vals = codePointTextures.GetValues(a_tempAllocator);
+        for (const CodePointTexture& t : vals)
+        {
+            a_tempAllocator->Free(t.Data);
+        }
     });
-    
+
     const float scale = stbtt_ScaleForPixelHeight(&m_fontInfo, a_fontSize);
 
     int ascent;
     stbtt_GetFontVMetrics(&m_fontInfo, &ascent, NULL, NULL);
 
     const uint32_t size = a_width * a_height;
-    uint8_t* tex = new uint8_t[size] { 0 };
-    
+    uint8_t* tex = a_allocator->ZTAllocate<uint8_t>(size);
+
     uint32_t xPos = 0;
     uint32_t yPos = (uint32_t)(ascent * scale);
     for (const char32_t codePoint : a_string)
     {
-        switch (codePoint) 
+        switch (codePoint)
         {
         case '\n':
         {
@@ -152,7 +208,7 @@ uint8_t* Font::StringToTexture(const std::u32string_view& a_string, float a_font
         }
         case ' ':
         {
-            const CodePointTexture& cpt = codePointTextures.at(codePoint);
+            const CodePointTexture& cpt = codePointTextures[codePoint];
 
             xPos += (uint32_t)(cpt.Advance * scale);
 
@@ -160,7 +216,7 @@ uint8_t* Font::StringToTexture(const std::u32string_view& a_string, float a_font
         }
         default:
         {
-            const CodePointTexture& cpt = codePointTextures.at(codePoint);
+            const CodePointTexture& cpt = codePointTextures[codePoint];
 
             for (uint32_t y = 0; y < cpt.Height; ++y)
             {
@@ -181,15 +237,15 @@ uint8_t* Font::StringToTexture(const std::u32string_view& a_string, float a_font
                     const uint32_t index = x + (y * cpt.Width);
                     const uint32_t cIndex = cXPos + (cYPos * a_width);
 
-                    tex[cIndex] = (uint8_t)glm::min((uint32_t)UINT8_MAX, cpt.Data[index] + (uint32_t)tex[cIndex]);
+                    tex[cIndex] = (uint8_t)glm::min((uint32_t)std::numeric_limits<uint8_t>::max(), cpt.Data[index] + (uint32_t)tex[cIndex]);
                 }
             }
 
             xPos += (uint32_t)(cpt.Advance * scale);
 
             break;
-        }   
-        }        
+        }
+        }
     }
 
     return tex;
@@ -230,22 +286,21 @@ static uint32_t AddVertex(const glm::vec2& a_vert, Array<glm::vec2>* a_vertices)
     return size;
 }
 
-static void AddEdge(uint32_t a_lhs, uint32_t a_rhs, std::unordered_map<uint64_t, bool>* a_edgeTable)
+static void AddEdge(uint32_t a_lhs, uint32_t a_rhs, Dictionary<uint64_t, bool>* a_edgeTable)
 {
     const uint64_t edge = (uint64_t)a_lhs << 31 | a_rhs;
     const uint64_t invEdge = (uint64_t)a_rhs << 31 | a_lhs;
 
-    auto iter = a_edgeTable->find(edge);
-    if (iter != a_edgeTable->end())
+    if (a_edgeTable->Exists(edge))
     {
-        iter->second = false;
+        (*a_edgeTable)[edge] = false;
         (*a_edgeTable)[invEdge] = false;
 
         return;
     }
 
-    a_edgeTable->emplace(edge, true);
-    a_edgeTable->emplace(invEdge, true);
+    a_edgeTable->Push(edge, true);
+    a_edgeTable->Push(invEdge, true);
 }
 
 static uint32_t AddSideVertex(uint32_t a_index, uint32_t a_offset, Array<Vertex>* a_vertices, uint32_t* a_indexMap)
@@ -277,10 +332,10 @@ static void AddSideEdge(uint32_t a_indexA, uint32_t a_indexB, uint32_t a_sideVer
     const uint32_t qIndexC = qIndexB + 1;
     const uint32_t qIndexD = qIndexA + 1;
 
-    Vertex& vertA = a_vertices->Ref(qIndexA);
-    Vertex& vertB = a_vertices->Ref(qIndexB);
-    Vertex& vertC = a_vertices->Ref(qIndexC);
-    Vertex& vertD = a_vertices->Ref(qIndexD);
+    Vertex& vertA = (*a_vertices)[qIndexA];
+    Vertex& vertB = (*a_vertices)[qIndexB];
+    Vertex& vertC = (*a_vertices)[qIndexC];
+    Vertex& vertD = (*a_vertices)[qIndexD];
 
     const glm::vec3 posA = vertA.Position.xyz();
     const glm::vec3 posB = vertB.Position.xyz();
@@ -302,10 +357,21 @@ static void AddSideEdge(uint32_t a_indexA, uint32_t a_indexB, uint32_t a_sideVer
 
     a_indices->Push(qIndexB);
     a_indices->Push(qIndexD);
-    a_indices->Push(qIndexC); 
+    a_indices->Push(qIndexC);
 }
 
-void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, float a_scale, float a_depth, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius) const
+void Font::StringToModel
+(
+    const COWU32String& a_string,
+    float a_fontSize,
+    float a_scale,
+    float a_depth,
+    Array<Vertex>* a_vertices,
+    Array<uint32_t>* a_indices,
+    float* a_radius,
+    Allocator* a_allocator,
+    Allocator* a_tempAllocator
+) const
 {
     constexpr uint32_t EdgeTable[] =
     {
@@ -347,7 +413,7 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
     {
         // A                                B                                   C                                   D
         // 0
-        UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, 
+        UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX,
         // 1
         0,          4,          7,          UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX,
         // 2
@@ -387,25 +453,39 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
         Array<glm::vec2> Vertices;
     };
 
-    std::unordered_map<char32_t, CodepointModel> codePointModels;
+    Dictionary<CharU32, CodepointModel> codePointModels = Dictionary<CharU32, CodepointModel>(a_tempAllocator);
 
     {
-        const std::unordered_map<char32_t, CodePointTexture> codePointTextures = GetTextures(&m_fontInfo, a_fontSize, a_string);
+        const Dictionary<CharU32, CodePointTexture> codePointTextures = GetTextures
+        (
+            &m_fontInfo,
+            a_fontSize,
+            a_string,
+            a_tempAllocator,
+            a_tempAllocator
+        );
 
+        const Array<CharU32> keys = codePointTextures.GetKeys(a_tempAllocator);
+        const Array<CodePointTexture> values = codePointTextures.GetValues(a_tempAllocator);
+
+        IVERIFY(keys.Size() == values.Size());
+
+        const uint32_t size = keys.Size();
         // Not the most effectient probably should not be rasterizing it but already had code around for rasterized fonts
-        for (const auto iter : codePointTextures)
+        for (uint32_t i = 0; i < size; ++i)
         {
-            const CodePointTexture& tex = iter.second;
-            IDEFER(delete[] tex.Data);
+            const CodePointTexture& tex = values[i];
+            IDEFER(a_tempAllocator->Free(tex.Data));
 
             CodepointModel model =
             {
                 .yOffset = (float)tex.yOffset,
                 .Advance = (float)tex.Advance,
-                .Vertices = Array<glm::vec2>(MallocAllocator::Instance)
+                .Vertices = Array<glm::vec2>(a_tempAllocator)
             };
 
-            switch (iter.first)
+            const CharU32 c = keys[i];
+            switch (c)
             {
             case ' ':
             case '\n':
@@ -505,7 +585,7 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
             }
             }
 
-            codePointModels.emplace(iter.first, model);
+            codePointModels.Push(c, model);
         }
     }
 
@@ -514,9 +594,9 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
     int ascent;
     stbtt_GetFontVMetrics(&m_fontInfo, &ascent, NULL, NULL);
 
-    Array<glm::vec2> stringVertices = Array<glm::vec2>(MallocAllocator::Instance);
-    Array<uint32_t> stringIndices = Array<uint32_t>(MallocAllocator::Instance);
-    std::unordered_map<uint64_t, bool> uniqueEdge;
+    Array<glm::vec2> stringVertices = Array<glm::vec2>(a_tempAllocator);
+    Array<uint32_t> stringIndices = Array<uint32_t>(a_tempAllocator);
+    Dictionary<uint64_t, bool> uniqueEdge = Dictionary<uint64_t, bool>(a_tempAllocator);
 
     stringIndices.Reserve(1024);
     stringVertices.Reserve(1024);
@@ -526,7 +606,7 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
     glm::vec2 pos = glm::vec2(0, newLine);
     for (const char32_t codePoint : a_string)
     {
-        switch (codePoint) 
+        switch (codePoint)
         {
         case '\n':
         {
@@ -537,7 +617,7 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
         }
         case ' ':
         {
-            const CodepointModel& model = codePointModels.at(codePoint);
+            const CodepointModel& model = codePointModels[codePoint];
 
             pos.x += model.Advance * scale;
 
@@ -545,7 +625,7 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
         }
         default:
         {
-            const CodepointModel& model = codePointModels.at(codePoint);
+            const CodepointModel& model = codePointModels[codePoint];
 
             const glm::vec2 offset = glm::vec2(0.0f, model.yOffset);
 
@@ -605,8 +685,8 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
     const uint32_t indexCount = stringIndices.Size();
     const uint32_t sideIndexCount = indexCount * 2;
 
-    uint32_t* indexMap = new uint32_t[indexCount];
-    IDEFER(delete[] indexMap);
+    uint32_t* indexMap = a_tempAllocator->TAllocate<uint32_t>(indexCount);
+    IDEFER(a_tempAllocator->Free(indexMap));
     memset(indexMap, -1, indexCount * sizeof(uint32_t));
 
     a_indices->Reserve(sideIndexCount);
@@ -631,19 +711,19 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
         a_indices->Push(invIndexA);
 
         const uint64_t edgeA = (uint64_t)indexA << 31 | indexB;
-        if (uniqueEdge.at(edgeA))
+        if (uniqueEdge[edgeA])
         {
             AddSideEdge(indexA, indexB, sideVertCount, indexMap, a_vertices, a_indices);
         }
 
         const uint64_t edgeB = (uint64_t)indexB << 31 | indexC;
-        if (uniqueEdge.at(edgeB))
+        if (uniqueEdge[edgeB])
         {
             AddSideEdge(indexB, indexC, sideVertCount, indexMap, a_vertices, a_indices);
         }
 
         const uint64_t edgeC = (uint64_t)indexC << 31 | indexA;
-        if (uniqueEdge.at(edgeC))
+        if (uniqueEdge[edgeC])
         {
             AddSideEdge(indexC, indexA, sideVertCount, indexMap, a_vertices, a_indices);
         }
@@ -652,26 +732,26 @@ void Font::StringToModel(const std::u32string_view& a_string, float a_fontSize, 
     const uint32_t vertCount = a_vertices->Size();
     for (uint32_t i = sideVertCount; i < vertCount; ++i)
     {
-        Vertex& vert = a_vertices->Ref(i);
+        Vertex& vert = (*a_vertices)[i];
 
         vert.Normal = glm::normalize(vert.Normal);
     }
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

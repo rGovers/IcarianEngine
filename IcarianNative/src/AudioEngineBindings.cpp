@@ -13,6 +13,7 @@
 #include "Core/StringUtils.h"
 #include "DataTypes/Allocators/ComplexAllocator.h"
 #include "IcarianError.h"
+#include "IO.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
@@ -44,47 +45,48 @@ AudioEngineBindings::~AudioEngineBindings()
 
 }
 
-uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const std::string_view& a_path) const
+uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const char* a_path) const
+{
+    const COWU8String str = COWU8String(a_path, m_engine->m_allocator);
+
+    return GenerateAudioClipFromFile(str);
+}
+uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const COWU8String& a_path) const
 {
     IERRBLOCK;
 
     TRACE("Creating AudioClip");
 
-    const std::filesystem::path p = std::filesystem::path(a_path);
-    const std::filesystem::path ext = p.extension();
+    const COWU8String ext = IO::GetExtension(a_path, m_engine->m_allocator);
 
     Allocator* allocator = m_engine->GetAllocator();
-    AudioClip* clip = nullptr;
-    IERRDEFER(
+    AudioClip* clip = ILAMBDA(
     {
-        if (clip != nullptr)
+        switch (StringHash<uint32_t>(ext.CStr()))
         {
-            allocator->Destroy(clip);
+        case StringHash<uint32_t>(".ogg"):
+        {
+            ILRETURN (AudioClip*)allocator->Create<OGGAudioClip>(a_path);
         }
+        case StringHash<uint32_t>(".wav"):
+        {
+            ILRETURN (AudioClip*)allocator->Create<WAVAudioClip>(a_path, m_engine->m_allocator);
+        }
+        default:
+        {
+            break;
+        }
+        }
+
+        ILRETURN (AudioClip*)nullptr;
     });
 
-    const std::string extStr = ext.string();
-    switch (StringHash<uint32_t>(extStr.c_str()))
-    {
-    case StringHash<uint32_t>(".ogg"):
-    {
-        clip = allocator->Create<OGGAudioClip>(a_path);
-
-        IERRCHECKRET(clip->GetSampleSize() > 0, -1);
-
-        break;
-    }
-    case StringHash<uint32_t>(".wav"):
-    {
-        clip = allocator->Create<WAVAudioClip>(a_path);
-
-        IERRCHECKRET(clip->GetSampleSize() > 0, -1);
-
-        break;
-    }
-    }
-
     IERRCHECKRET(clip != nullptr, -1);
+
+    IERRDEFER(allocator->Destroy(clip));
+
+    IERRCHECKRET(clip->GetSampleSize() > 0, -1);
+    IERRCHECKRET(clip->GetSampleRate() > 0, -1);
 
     return m_engine->m_audioClips.PushVal(clip);
 }
@@ -133,7 +135,7 @@ uint32_t AudioEngineBindings::GenerateAudioSource(uint32_t a_transformAddr, uint
     IVERIFY(a_clipAddr != uint32_t(-1));
 
     TRACE("Creating AudioSource");
-    const AudioSourceBuffer buffer 
+    const AudioSourceBuffer buffer
     {
         .TransformAddr = a_transformAddr,
         .AudioClipAddr = a_clipAddr,
@@ -164,7 +166,7 @@ void AudioEngineBindings::DestroyAudioSource(uint32_t a_addr) const
                 ma_sound_uninit(&source->MASound);
                 ma_data_source_uninit(&source->MABaseSource);
 
-                delete source;
+                m_engine->m_allocator->Destroy(source);
             });
 
             m_engine->m_audioStreams.Erase(buffer.AudioStream);

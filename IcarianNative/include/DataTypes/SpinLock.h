@@ -25,7 +25,7 @@ class SpinLock
 {
 private:
     volatile std::atomic<bool> m_state;
-    
+
 protected:
 
 public:
@@ -95,8 +95,8 @@ public:
                 }
             }
 
-            if (m_read.load(std::memory_order_seq_cst) <= 0) 
-            { 
+            if (m_read.load(std::memory_order_seq_cst) <= 0)
+            {
                 return;
             }
 
@@ -120,7 +120,7 @@ public:
                 }
 
                 continue;
-            }            
+            }
 
             m_read.fetch_add(1, std::memory_order_acquire);
 

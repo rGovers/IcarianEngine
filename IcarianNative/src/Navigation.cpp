@@ -6,21 +6,21 @@
 
 #include "AI/NavigationBindings.h"
 #include "AI/NavigationMesh.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 
 Navigation::Navigation()
 {
-    m_bindings = new NavigationBindings(this);
+    m_bindings = MallocAllocator::Instance->Create<NavigationBindings>(this);
 }
 Navigation::~Navigation()
 {
-    delete m_bindings;
+    MallocAllocator::Instance->Destroy(m_bindings);
 
     for (uint32_t i = 0; i < m_meshes.Size(); ++i)
     {
         if (m_meshes.Exists(i))
         {
-            delete m_meshes[i];
-            m_meshes[i] = nullptr;
+            MallocAllocator::Instance->Destroy(m_meshes[i]);
         }
     }
 }

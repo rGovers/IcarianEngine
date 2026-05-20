@@ -33,21 +33,22 @@
     }, IOP_UINT32 a_addr, IOP_UINT32 a_fontAddr) \
     F(IOP_STRING, IcarianEngine.Rendering.UI, TextUIElementInterop, GetText, \
     { \
-        const std::u32string text = Instance->GetTextElementText(a_addr); \
-        return mono_string_new_utf32(mono_domain_get(), (mono_unichar4*)text.c_str(), (int32_t)text.size()); \
+        const COWU32String text = Instance->GetTextElementText(a_addr); \
+        MonoDomain* domain = mono_domain_get(); \
+        return mono_string_new_utf32(domain, (mono_unichar4*)text.Data(), (int32_t)text.Length()); \
     }, IOP_UINT32 a_addr) \
     F(void, IcarianEngine.Rendering.UI, TextUIElementInterop, SetText, \
     { \
         mono_unichar4* str = mono_string_to_utf32(a_str); \
         IDEFER(mono_free(str)); \
-        Instance->SetTextElementText(a_addr, (char32_t*)str); \
+        Instance->SetTextElementText(a_addr, (CharU32*)str); \
     }, IOP_UINT32 a_addr, IOP_STRING a_str) \
 
 /// @endcond
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

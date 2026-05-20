@@ -22,12 +22,18 @@ LibVulkan::LibVulkan()
 {
     IERRBLOCK;
 
-    IERRDEFER(IcarianError
+    IERRDEFER(
+    {
+        const COWU8String str = COWU8String
         (
-"Icarian Engine failed to load Vulkan. \n\
-\n\
-Please ensure you have a Vulkan 1.2 capable GPU and drivers are upto date."
-        ));
+            "Icarian Engine failed to load Vulkan. \n"
+            "\n"
+            "Please ensure you have a Vulkan 1.2 capable GPU and drivers are upto date.",
+            MallocAllocator::Instance
+        );
+
+        IcarianError(str);
+    });
 
     // Yes I am aware there are more efficent ways to deal with Vulkan and can directly load driver bindings over going through vulkan-1.dll however until it is an issue KISS
     // If it is a good implementation vulkan-1.dll vkGetInstanceProcAddr should give the driver bindings anyway atleast in theory drivers/Windows are a bitch so cannot be certain

@@ -71,7 +71,7 @@ public:
         m_data = m_allocator->ZTAllocate<T>(m_capacity);
         for (uint32_t i = 0; i < m_size; ++i)
         {
-            m_data[i] = a_data[i];
+            new (m_data + i) T(a_data[i]);
         }
     }
     ~Array()
@@ -107,7 +107,7 @@ public:
         m_data = m_allocator->ZTAllocate<T>(m_capacity);
         for (uint32_t i = 0; i < m_size; ++i)
         {
-            m_data[i] = a_other.m_data[i];
+            new (m_data + i) T(a_other.m_data[i]);
         }
 
         return *this;
@@ -178,7 +178,7 @@ public:
             Reserve(m_capacity << 1);
         }
 
-        m_data[m_size] = a_data;
+        new (m_data + m_size) T(a_data);
     }
     void Insert(uint32_t a_index, const T& a_data)
     {
@@ -192,7 +192,7 @@ public:
 
         memmove(m_data + a_index + 1, m_data + a_index, (m_size - a_index) * sizeof(T));
 
-        m_data[a_index] = a_data;
+        new (m_data + a_index) T(a_data);
     }
 
     void Erase(uint32_t a_index)
@@ -262,7 +262,7 @@ public:
     }
     inline void Set(uint32_t a_index, const T& a_value)
     {
-        m_data[a_index] = a_value;
+        new (m_data + a_index) T(a_value);
     }
 };
 

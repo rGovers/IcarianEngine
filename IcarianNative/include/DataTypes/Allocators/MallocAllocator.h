@@ -8,6 +8,12 @@
 
 #include <cstdlib>
 
+#include "IcarianMemory.h"
+
+class TrackerAllocator;
+
+ICARIAN_PUSH_FASTALLOCTOR
+
 class MallocAllocator : public Allocator
 {
 private:
@@ -17,7 +23,11 @@ protected:
 public:
     [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
     {
-        return aligned_alloc((size_t)a_alignment, (size_t)a_size);
+        // aligned_alloc requires that size be a multiple of alignment which is annoying as we just want it on the alignment boundary
+        // To get around this we just round up the size if needed
+        const uint64_t alignedSize = AlignTo(a_size, a_alignment);
+
+        return aligned_alloc((size_t)a_alignment, (size_t)alignedSize);
     }
 
     virtual void Free(void* a_ptr)
@@ -26,10 +36,13 @@ public:
     }
 
     static Allocator* Instance;
+    static TrackerAllocator* TrackerInstance;
 
     static void Init();
     static void Destroy();
 };
+
+ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
 // 

@@ -11,10 +11,6 @@ using IcarianEngine.Rendering.Shaders;
 using System;
 using System.Collections.Concurrent;
 
-#ifdef ENABLE_EXPERIMENTAL
-using IcarianEngine.Rendering.Video;
-#endif
-
 namespace IcarianEngine
 {
     /// <summary>
@@ -31,9 +27,6 @@ namespace IcarianEngine
     public static partial class AssetLibrary
     {
         static ConcurrentDictionary<string, AudioClipContainer>             s_audioClips;
-#ifdef ENABLE_EXPERIMENTAL
-        static ConcurrentDictionary<string, VideoClipContainer>             s_videoClips;
- #endif
 
         static ConcurrentDictionary<string, MaterialContainer>              s_materials;
         static ConcurrentDictionary<string, GraphicsComputeShaderContainer> s_graphicsComputeShaders;
@@ -118,9 +111,6 @@ namespace IcarianEngine
         internal static void Init()
         {
             s_audioClips = new ConcurrentDictionary<string, AudioClipContainer>();
-#ifdef ENABLE_EXPERIMENTAL
-            s_videoClips = new ConcurrentDictionary<string, VideoClipContainer>();
-#endif
 
             s_materials = new ConcurrentDictionary<string, MaterialContainer>();
 
@@ -149,7 +139,7 @@ namespace IcarianEngine
         static string GetPath(string a_path)
         {
             if (!Application.IsEditor)
-            {   
+            {
                 return ModControl.GetAssetPath(a_path);
             }
 
@@ -178,26 +168,6 @@ namespace IcarianEngine
                     clip.Clip.Dispose();
                 }
             }
-
-#ifdef ENABLE_EXPERIMENTAL
-            foreach (VideoClipContainer clip in s_videoClips.Values)
-            {
-                if (clip.Status == LoadStatus.Failed)
-                {
-                    continue;
-                }
-
-                if (clip.Status != LoadStatus.Loaded)
-                {
-                    clip.WaitHandle.WaitOne();
-                }
-
-                if (clip.Clip != null && !clip.Clip.IsDisposed)
-                {
-                    clip.Clip.Dispose();
-                }
-            }
-#endif
 
             foreach (GraphicsComputeShaderContainer cShader in s_graphicsComputeShaders.Values)
             {

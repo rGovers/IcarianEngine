@@ -9,7 +9,8 @@
 #include "Rendering/RenderEngine.h"
 #include "Rendering/UI/Font.h"
 
-TextUIElement::TextUIElement() : UIElement()
+TextUIElement::TextUIElement(Allocator* a_allocator) : UIElement(a_allocator),
+    m_text(a_allocator)
 {
     m_fontAddr = -1;
     m_fontSize = 10.0f;
@@ -39,33 +40,28 @@ TextUIElement::~TextUIElement()
 
 void TextUIElement::SetFontAddr(uint32_t a_addr)
 {
-    const ThreadGuard g = ThreadGuard(m_lock);
-
     m_fontAddr = a_addr;
 
     ISETBIT(m_flags, RefreshBit);
 }
-std::u32string TextUIElement::GetText()
-{
-    const SharedThreadGuard g = SharedThreadGuard(m_lock);
 
+COWU32String TextUIElement::GetText() const
+{
     return m_text;
 }
-void TextUIElement::SetText(const std::u32string_view& a_text)
+void TextUIElement::SetText(const COWU32String& a_text)
 {
-    const ThreadGuard g = ThreadGuard(m_lock);
+    Allocator* allocator = GetAllocator();
 
-    m_text = std::u32string(a_text);
+    m_text = COWU32String(a_text, allocator);
 
     ISETBIT(m_flags, RefreshBit);
 }
 
-void TextUIElement::Update(RenderEngine* a_renderEngine)
+void TextUIElement::Update(RenderEngine* a_renderEngine, Allocator* a_tempAllocator)
 {
     if (IISBITSET(m_flags, RefreshBit) && m_fontAddr != uint32_t(-1))
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
-
         if (m_textureAddr != uint32_t(-1))
         {
             m_lastRenderEngine->DestroyTexture(m_textureAddr);
@@ -83,11 +79,25 @@ void TextUIElement::Update(RenderEngine* a_renderEngine)
 
         const glm::vec2 size = GetSize();
 
-        const unsigned char* data = font->StringToTexture(m_text, m_fontSize, (uint32_t)size.x, (uint32_t)size.y);
-        IDEFER(delete[] data);
+        uint8_t* data = font->StringToTexture
+        (
+            m_text,
+            m_fontSize,
+            (uint32_t)size.x,
+            (uint32_t)size.y,
+            a_tempAllocator,
+            a_tempAllocator
+        );
+        IDEFER(a_tempAllocator->Free(data));
 
         m_textureAddr = a_renderEngine->GenerateTexture((uint32_t)size.x, (uint32_t)size.y, TextureFormat_Alpha, data);
-        m_samplerAddr = a_renderEngine->GenerateTextureSampler(m_textureAddr, TextureMode_Texture, TextureFilter_Linear, TextureAddress_ClampToEdge);
+        m_samplerAddr = a_renderEngine->GenerateTextureSampler
+        (
+            m_textureAddr,
+            TextureMode_Texture,
+            TextureFilter_Linear,
+            TextureAddress_ClampToEdge
+        );
 
         m_lastRenderEngine = a_renderEngine;
 
@@ -98,7 +108,7 @@ void TextUIElement::Update(RenderEngine* a_renderEngine)
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

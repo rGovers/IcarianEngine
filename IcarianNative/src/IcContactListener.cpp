@@ -4,6 +4,7 @@
 
 #include "Physics/IcContactListener.h"
 
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "Physics/PhysicsEngine.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
@@ -27,7 +28,7 @@ public:
 
     }
 
-    virtual void Execute() 
+    virtual void Execute()
     {
         void* args[] =
         {
@@ -48,9 +49,9 @@ IcContactListener::IcContactListener(PhysicsEngine* a_engine)
 }
 IcContactListener::~IcContactListener()
 {
-    delete m_onCollisionEnterFunc;
-    delete m_onCollisionStayFunc;
-    delete m_onCollisionExitFunc;
+    MallocAllocator::Instance->Destroy(m_onCollisionEnterFunc);
+    MallocAllocator::Instance->Destroy(m_onCollisionStayFunc);
+    MallocAllocator::Instance->Destroy(m_onCollisionExitFunc);
 }
 
 JPH::ValidateResult IcContactListener::OnContactValidate(const JPH::Body &a_lhs, const JPH::Body &a_rhs, JPH::RVec3Arg a_baseOffset, const JPH::CollideShapeResult &a_collisionResult)
@@ -70,7 +71,7 @@ void IcContactListener::OnContactAdded(const JPH::Body& a_lhs, const JPH::Body& 
     const JPH::uint32 bodyAIndex = bodyAID.GetIndex();
     const JPH::uint32 bodyBIndex = bodyBID.GetIndex();
 
-    const CollisionDataBuffer data = 
+    const CollisionDataBuffer data =
     {
         .IsTrigger = (uint32_t)a_ioSettings.mIsSensor,
         .BodyAddrA = (uint32_t)m_engine->GetBodyAddr(bodyAIndex),
@@ -80,7 +81,7 @@ void IcContactListener::OnContactAdded(const JPH::Body& a_lhs, const JPH::Body& 
         .Depth = (float)a_manifold.mPenetrationDepth
     };
 
-    ThreadPool::PushJob(new ContactThreadJob(data, m_onCollisionEnterFunc));
+    ThreadPool::PushJob(MallocAllocator::Instance->Create<ContactThreadJob>(data, m_onCollisionEnterFunc));
 }
 void IcContactListener::OnContactPersisted(const JPH::Body& a_lhs, const JPH::Body& a_rhs, const JPH::ContactManifold& a_manifold, JPH::ContactSettings& a_ioSettings)
 {
@@ -103,7 +104,7 @@ void IcContactListener::OnContactPersisted(const JPH::Body& a_lhs, const JPH::Bo
         .Depth = (float)a_manifold.mPenetrationDepth
     };
 
-    ThreadPool::PushJob(new ContactThreadJob(data, m_onCollisionStayFunc));
+    ThreadPool::PushJob(MallocAllocator::Instance->Create<ContactThreadJob>(data, m_onCollisionStayFunc));
 }
 void IcContactListener::OnContactRemoved(const JPH::SubShapeIDPair& a_shapePair)
 {
@@ -119,12 +120,12 @@ void IcContactListener::OnContactRemoved(const JPH::SubShapeIDPair& a_shapePair)
         .BodyAddrB = m_engine->GetBodyAddr(bodyBIndex)
     };
 
-    ThreadPool::PushJob(new ContactThreadJob(data, m_onCollisionExitFunc));
+    ThreadPool::PushJob(MallocAllocator::Instance->Create<ContactThreadJob>(data, m_onCollisionExitFunc));
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

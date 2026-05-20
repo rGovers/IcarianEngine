@@ -32,15 +32,14 @@
     { \
         mono_unichar4* str = mono_string_to_utf32(a_str); \
         IDEFER(mono_free(str)); \
-        return Instance->GenerateModelFromString(a_addr, std::u32string_view((char32_t*)str), a_fontSize, a_scale, a_depth); \
+        return Instance->GenerateModelFromString(a_addr, (CharU32*)str, a_fontSize, a_scale, a_depth); \
     }, IOP_UINT32 a_addr, IOP_STRING a_str, float a_fontSize, float a_scale, float a_depth) \
-
 
 /// @endcond
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

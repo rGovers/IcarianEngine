@@ -79,7 +79,7 @@ void VulkanComputeShader::CreateFromFShader
     const COWU8String error = FlareShader::GLSLFromFlareShader(&shader, builder, a_allocator, a_allocator);
     if (!error.Empty())
     {
-        IERROR(std::string("Flare Compute Shader generation error: ") + error.CStr());
+        IERROR("Flare Compute Shader generation error: " + error);
     }
 
     const VulkanComputeGLSLShaderBuilder glslBuilder =

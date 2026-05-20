@@ -5,6 +5,7 @@
 #include "Networking/NetworkManager.h"
 
 #include "Core/IcarianDefer.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "DeletionQueue.h"
 #include "IcarianError.h"
 #include "Logger.h"
@@ -80,10 +81,10 @@ NetworkManager::NetworkManager()
 }
 NetworkManager::~NetworkManager()
 {
-    delete m_networkClientReceiveFunction;
-    delete m_networkClientDisconnectFunction;
+    MallocAllocator::Instance->Destroy(m_networkClientReceiveFunction);
+    MallocAllocator::Instance->Destroy(m_networkClientDisconnectFunction);
 
-    delete m_networkServerConnectFunction;
+    MallocAllocator::Instance->Destroy(m_networkServerConnectFunction);
 
     for (uint32_t i = 0; i < m_servers.Size(); ++i)
     {

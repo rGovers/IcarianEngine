@@ -17,7 +17,7 @@ UIControl* UIControl::Instance = nullptr;
 
 UIControl::UIControl()
 {
-    m_bindings = new UIControlBindings(this);
+    m_bindings = MallocAllocator::Instance->Create<UIControlBindings>(this);
 
     m_onNormal = RuntimeManager::GetFunction("IcarianEngine.Rendering.UI", "UIElement", ":OnNormalS(uint,uint)");
     m_onHover = RuntimeManager::GetFunction("IcarianEngine.Rendering.UI", "UIElement", ":OnHoverS(uint,uint)");
@@ -26,12 +26,12 @@ UIControl::UIControl()
 }
 UIControl::~UIControl()
 {
-    delete m_onNormal;
-    delete m_onHover;
-    delete m_onPressed;
-    delete m_onReleased;
+    MallocAllocator::Instance->Destroy(m_onNormal);
+    MallocAllocator::Instance->Destroy(m_onHover);
+    MallocAllocator::Instance->Destroy(m_onPressed);
+    MallocAllocator::Instance->Destroy(m_onReleased);
 
-    delete m_bindings;
+    MallocAllocator::Instance->Destroy(m_bindings);
 
     for (uint32_t i = 0; i < m_canvas.Size(); ++i)
     {
@@ -44,7 +44,7 @@ UIControl::~UIControl()
         {
             Logger::Warning("CanvasBuffer ChildElements was not deleted");
 
-            delete[] m_canvas[i].ChildElements;
+            MallocAllocator::Instance->Free(m_canvas[i].ChildElements);
         }
     }
 
@@ -54,7 +54,7 @@ UIControl::~UIControl()
         {
             Logger::Warning("UIElement was not deleted");
 
-            delete m_uiElements[i];
+            MallocAllocator::Instance->Destroy(m_uiElements[i]);
         }
     }
 }
@@ -63,28 +63,26 @@ void UIControl::Init()
 {
     if (Instance == nullptr)
     {
-        Instance = new UIControl();
+        Instance = MallocAllocator::Instance->Create<UIControl>();
     }
 }
 void UIControl::Destroy()
 {
     if (Instance != nullptr)
     {
-        delete Instance;
+        MallocAllocator::Instance->Destroy(Instance);
         Instance = nullptr;
     }
 }
 
 CanvasBuffer UIControl::GetCanvas(uint32_t a_addr)
 {
-    IVERIFY(a_addr < Instance->m_canvas.Size());
     IVERIFY(Instance->m_canvas.Exists(a_addr));
 
     return Instance->m_canvas[a_addr];
 }
 void UIControl::SetCanvas(uint32_t a_addr, const CanvasBuffer& a_buffer)
 {
-    IVERIFY(a_addr < Instance->m_canvas.Size());
     IVERIFY(Instance->m_canvas.Exists(a_addr));
 
     Instance->m_canvas.LockSet(a_addr, a_buffer);
@@ -92,7 +90,6 @@ void UIControl::SetCanvas(uint32_t a_addr, const CanvasBuffer& a_buffer)
 
 UIElement* UIControl::GetUIElement(uint32_t a_addr)
 {
-    IVERIFY(a_addr < Instance->m_uiElements.Size());
     IVERIFY(Instance->m_uiElements.Exists(a_addr));
 
     return Instance->m_uiElements[a_addr];
@@ -114,13 +111,11 @@ static bool IsInside(const CanvasBuffer& a_canvas, const UIElement* a_element, c
 
 void UIControl::SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_pos, const glm::vec2& a_screenSize)
 {
-    IVERIFY(a_canvasAddr < Instance->m_canvas.Size());
     IVERIFY(Instance->m_canvas.Exists(a_canvasAddr));
-    IVERIFY(a_elementAddr < Instance->m_uiElements.Size());
     IVERIFY(Instance->m_uiElements.Exists(a_elementAddr));
 
     const CanvasBuffer& canvas = Instance->m_canvas[a_canvasAddr];
-    UIElement* element = Instance->m_uiElements[a_elementAddr];    
+    UIElement* element = Instance->m_uiElements[a_elementAddr];
 
     const e_ElementState state = element->GetState();
 
@@ -130,7 +125,11 @@ void UIControl::SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const 
         {
             element->SetState(ElementState_Hovered);
 
-            void* args[] = { &a_canvasAddr, &a_elementAddr };
+            void* args[] =
+            {
+                 &a_canvasAddr,
+                 &a_elementAddr
+            };
 
             Instance->m_onHover->Exec(args);
         }
@@ -139,10 +138,10 @@ void UIControl::SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const 
     {
         element->SetState(ElementState_Normal);
 
-        void* args[] = 
-        { 
-            &a_canvasAddr, 
-            &a_elementAddr 
+        void* args[] =
+        {
+            &a_canvasAddr,
+            &a_elementAddr
         };
 
         Instance->m_onNormal->Exec(args);
@@ -163,9 +162,7 @@ void UIControl::SendCursor(uint32_t a_canvasAddr, uint32_t a_elementAddr, const 
 
 bool UIControl::SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_pos, const glm::vec2& a_screenSize)
 {
-    IVERIFY(a_canvasAddr < Instance->m_canvas.Size());
     IVERIFY(Instance->m_canvas.Exists(a_canvasAddr));
-    IVERIFY(a_elementAddr < Instance->m_uiElements.Size());
     IVERIFY(Instance->m_uiElements.Exists(a_elementAddr));
 
     const CanvasBuffer& canvas = Instance->m_canvas[a_canvasAddr];
@@ -179,11 +176,15 @@ bool UIControl::SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const g
         {
             element->SetState(ElementState_Pressed);
 
-            void* args[] = { &a_canvasAddr, &a_elementAddr };
+            void* args[] =
+            {
+                &a_canvasAddr,
+                &a_elementAddr
+            };
 
             Instance->m_onPressed->Exec(args);
         }
-        
+
         return true;
     }
     else 
@@ -195,10 +196,10 @@ bool UIControl::SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const g
         {
             element->SetState(ElementState_Normal);
 
-            void* args[] = 
-            { 
-                &a_canvasAddr, 
-                &a_elementAddr 
+            void* args[] =
+            {
+                &a_canvasAddr,
+                &a_elementAddr
             };
 
             Instance->m_onNormal->Exec(args);
@@ -232,9 +233,7 @@ bool UIControl::SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const g
 
 void UIControl::SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const glm::vec2& a_pos, const glm::vec2& a_screenSize)
 {
-    IVERIFY(a_canvasAddr < Instance->m_canvas.Size());
     IVERIFY(Instance->m_canvas.Exists(a_canvasAddr));
-    IVERIFY(a_elementAddr < Instance->m_uiElements.Size());
     IVERIFY(Instance->m_uiElements.Exists(a_elementAddr));
 
     const CanvasBuffer& canvas = Instance->m_canvas[a_canvasAddr];
@@ -250,10 +249,10 @@ void UIControl::SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const
         {
             element->SetState(ElementState_Released);
 
-            void* args[] = 
-            { 
-                &a_canvasAddr, 
-                &a_elementAddr 
+            void* args[] =
+            {
+                &a_canvasAddr,
+                &a_elementAddr
             };
 
             Instance->m_onReleased->Exec(args);
@@ -264,10 +263,10 @@ void UIControl::SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const
         {
             element->SetState(ElementState_Hovered);
 
-            void* args[] = 
-            { 
-                &a_canvasAddr, 
-                &a_elementAddr 
+            void* args[] =
+            {
+                &a_canvasAddr,
+                &a_elementAddr
             };
 
             Instance->m_onHover->Exec(args);
@@ -284,10 +283,10 @@ void UIControl::SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const
     {
         element->SetState(ElementState_Normal);
 
-        void* args[] = 
+        void* args[] =
         { 
-            &a_canvasAddr, 
-            &a_elementAddr 
+            &a_canvasAddr,
+            &a_elementAddr
         };
 
         Instance->m_onNormal->Exec(args);
@@ -325,7 +324,7 @@ void UIControl::UpdateCursor(const glm::vec2& a_pos, const glm::vec2& a_size)
         }
 
         const CanvasBuffer& canvas = a[i];
-        if (!IISBITSET(canvas.Flags, CanvasBuffer::CaptureInputBit)) 
+        if (!IISBITSET(canvas.Flags, CanvasBuffer::CaptureInputBit))
         {
             continue;
         }

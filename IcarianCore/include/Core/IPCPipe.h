@@ -15,10 +15,12 @@
 #include <string_view>
 
 namespace IcarianCore
-{   
+{
     class IPCPipe : public CommunicationPipe
     {
     private:
+        // TODO: Probably need to update the Windows implementation of this class
+        // I have just left it for the time being
 #ifdef WIN32
         SOCKET m_pipeSock;
 #else
@@ -41,14 +43,14 @@ namespace IcarianCore
 
         virtual bool IsAlive() const;
 
-        virtual bool Send(const PipeMessage& a_msg);
+        virtual e_SendError Send(const PipeMessage& a_msg);
         virtual bool Receive(std::queue<PipeMessage>* a_messages);
     };
 }
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -5,6 +5,7 @@
 #include "FileCache.h"
 
 #include <cstring>
+#include <filesystem>
 #include <thread>
 
 #ifdef ICARIANNATIVE_ENABLE_PIPEFILE
@@ -21,6 +22,12 @@
 #include "Core/IcarianError.h"
 #include "Core/IcarianLambda.h"
 #include "Core/StringUtils.h"
+#include "DataTypes/Allocators/BlockAllocator.h"
+#include "DataTypes/Allocators/LeakAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
+#include "DataTypes/Allocators/MultiSourceAllocator.h"
+#include "DataTypes/Allocators/OSAllocator.h"
+#include "DataTypes/Allocators/UberAllocator.h"
 #include "DataTypes/ThreadGuard.h"
 #include "FileHandles/ReadFileHandle.h"
 #include "IcarianError.h"
@@ -67,21 +74,21 @@ RUNTIME_FUNCTION(uint32_t, FileCache, CachedFile,
 
     return FileCache::ExistsInCache(str);
 }, MonoString* a_path)
-RUNTIME_FUNCTION(MonoArray*, FileCache, ReadFileData, 
+RUNTIME_FUNCTION(MonoArray*, FileCache, ReadFileData,
 {
     IERRBLOCK;
-    
+
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
     FileHandle* handle = FileCache::LoadFile(str);
     IERRCHECKRET(handle != nullptr, NULL);
-    IDEFER(delete handle);
+    IDEFER(MallocAllocator::Instance->Destroy(handle));
 
     const uint64_t size = handle->GetSize();
 
-    uint8_t* dat = new uint8_t[size];
-    IDEFER(delete[] dat);
+    uint8_t* dat = MallocAllocator::Instance->ZTAllocate<uint8_t>(size);
+    IDEFER(MallocAllocator::Instance->Free(dat));
 
     IERRCHECKRET(handle->Read(dat, size) == size, NULL);
 
@@ -93,13 +100,14 @@ RUNTIME_FUNCTION(MonoArray*, FileCache, ReadFileData,
 
     return arr;
 }, MonoString* a_path)
-RUNTIME_FUNCTION(void, FileCache, WriteFileData, 
+RUNTIME_FUNCTION(void, FileCache, WriteFileData,
 {
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
     const uint64_t size = mono_array_length(a_data);
-    uint8_t* dat = new uint8_t[size];
+    uint8_t* dat = MallocAllocator::Instance->ZTAllocate<uint8_t>(size);
+    IDEFER(MallocAllocator::Instance->Destroy(dat));
 
     for (uint64_t i = 0; i < size; ++i)
     {
@@ -117,33 +125,67 @@ RUNTIME_FUNCTION(void, FileCache, WriteFileData,
         }
     }
 
-    FileCache::PushFile(str, dat, (uint32_t)size, (bool)a_pinFile);
+    FileCache::PushFile(COWU8String(str, MallocAllocator::Instance), dat, (uint32_t)size, (bool)a_pinFile);
 }, MonoString* a_path, MonoArray* a_data, uint32_t a_writeFile, uint32_t a_pinFile)
 
 FileCache::FileCache(uint32_t a_sizeMiB, uint32_t a_pipefileID)
 {
     IERRBLOCK;
 
-    m_size = (uint64_t)a_sizeMiB << MiBToByteShift;
-    m_allocated = 0;
+    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, UberAllocator::Instance);
+    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, UberAllocator::Instance);
+
+    m_allocatorChain = m_smallAllocator->Create<Array<Allocator*>>(m_smallAllocator);
+
+    const AllocationSource allocatorSources[] =
+    {
+        {
+            .Alloc = m_smallAllocator,
+            .MaxSize = SmallAllocatorSize >> 1,
+        },
+        {
+            .Alloc = m_largeAllocator,
+            .MaxSize = LargeAllocatorSize >> 1,
+        },
+        {
+            .Alloc = OSAllocator::Instance,
+            .MaxSize = uint64_t(-1),
+        },
+    };
+
+    constexpr uint32_t AllocatorCount = sizeof(allocatorSources) / sizeof(*allocatorSources);
+
+    m_allocator = m_smallAllocator->Create<MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
+    m_allocatorChain->Push(m_allocator);
+
+    m_trackerAllocator = m_smallAllocator->Create<TrackerAllocator>(m_allocator);
+    m_allocator = m_trackerAllocator;
+    m_allocatorChain->Push(m_allocator);
+
+#ifdef DEBUG
+    m_allocator = m_smallAllocator->Create<LeakAllocator>(m_allocator);
+    m_allocatorChain->Push(m_allocator);
+#endif
+
+    m_data = m_allocator->ZTAllocate<ClassData>();
+    m_data->Files = Dictionary<COWU8String, FileBuffer*>(m_allocator);
+
+    m_data->Size = (uint64_t)a_sizeMiB << MiBToByteShift;
 
 #ifdef ICARIANNATIVE_ENABLE_PIPEFILE
     TRACE("Initializing pipefile");
-    m_pipefileID = a_pipefileID;
+    m_data->PipefileID = a_pipefileID;
 
-    m_readBuffer = malloc(SharedBufferSize);
+    m_data->ReadBuffer = m_allocator->ZAllocate(SharedBufferSize, 16);
 
-    m_commandBuffer = NULL;
-    m_dataBuffer = NULL;
+    const COWU8String idStr = COWU8String::FromValue(m_data->PipefileID, 10, m_allocator);
 
-    const std::string idStr = std::to_string(m_pipefileID);
-
-    const std::string cmdStr = CommandBufferName + idStr;
-    const std::string dataStr = DataBufferName + idStr;
+    const COWU8String cmdStr = CommandBufferName + idStr;
+    const COWU8String dataStr = DataBufferName + idStr;
 
     // TODO: Implement Windows version of this
 #ifndef WIN32
-    const int commandFd = shm_open(cmdStr.c_str(), O_RDWR, 0);
+    const int commandFd = shm_open(cmdStr.CStr(), O_RDWR, 0);
     if (commandFd < 0)
     {
         Logger::Error("Failed to initialize Pipefile falling back to FileIO");
@@ -151,20 +193,28 @@ FileCache::FileCache(uint32_t a_sizeMiB, uint32_t a_pipefileID)
         ITRIGGERERR;
     }
     IDEFER(close(commandFd));
-    IERRDEFER(shm_unlink(cmdStr.c_str()));
+    IERRDEFER(shm_unlink(cmdStr.CStr()));
 
-    m_commandBuffer = (IcarianCore::SharedMemoryBuffer*)mmap(NULL, (size_t)SharedBufferSize, PROT_READ | PROT_WRITE, MAP_SHARED, commandFd, 0);
-    if (m_commandBuffer == MAP_FAILED || m_commandBuffer == NULL)
+    m_data->CommandBuffer = (IcarianCore::SharedMemoryBuffer*)mmap
+    (
+        NULL,
+        (size_t)SharedBufferSize,
+        PROT_READ | PROT_WRITE,
+        MAP_SHARED,
+        commandFd,
+        0
+    );
+    if (m_data->CommandBuffer == MAP_FAILED || m_data->CommandBuffer == NULL)
     {
         IERROR("Failed to map pipefile command shared memory buffer");
     }
     IERRDEFER(
     {
-        munmap(m_commandBuffer, SharedBufferSize);
-        m_commandBuffer = NULL;
+        munmap(m_data->CommandBuffer, SharedBufferSize);
+        m_data->CommandBuffer = NULL;
     });
 
-    const int dataFd = shm_open(dataStr.c_str(), O_RDWR, 0);
+    const int dataFd = shm_open(dataStr.CStr(), O_RDWR, 0);
     if (dataFd < 0)
     {
         Logger::Error("Failed to initialize Pipefile falling back to FileIO");
@@ -172,57 +222,83 @@ FileCache::FileCache(uint32_t a_sizeMiB, uint32_t a_pipefileID)
         ITRIGGERERR;
     }
     IDEFER(close(dataFd));
-    IERRDEFER(shm_unlink(dataStr.c_str()));
+    IERRDEFER(shm_unlink(dataStr.CStr()));
 
-    m_dataBuffer = (IcarianCore::SharedMemoryBuffer*)mmap(NULL, (size_t)SharedBufferSize, PROT_READ | PROT_WRITE, MAP_SHARED, dataFd, 0);
-    if (m_dataBuffer == MAP_FAILED || m_dataBuffer == NULL)
+    m_data->DataBuffer = (IcarianCore::SharedMemoryBuffer*)mmap
+    (
+        NULL,
+        (size_t)SharedBufferSize,
+        PROT_READ | PROT_WRITE,
+        MAP_SHARED,
+        dataFd,
+        0
+    );
+    if (m_data->DataBuffer == MAP_FAILED || m_data->DataBuffer == NULL)
     {
         IERROR("Failed to map pipefile data shared memory buffer");
     }
     IERRDEFER(
     {
-        munmap(m_dataBuffer, SharedBufferSize);
-        m_dataBuffer = NULL;
+        munmap(m_data->DataBuffer, SharedBufferSize);
+        m_data->DataBuffer = NULL;
     });
 #endif
 #endif
 }
 FileCache::~FileCache()
 {
-    for (const auto& iter : m_files)
     {
-        const FileBuffer* buffer = iter.second;
+        const Array<FileBuffer*> buffer = m_data->Files.GetValues(m_allocator);
 
-        delete[] (uint8_t*)buffer->Data;
-        delete buffer;
+        for (FileBuffer* b : buffer)
+        {
+            m_allocator->Free(b->Data);
+            m_allocator->Destroy(b);
+        }
     }
 
 #ifdef ICARIANNATIVE_ENABLE_PIPEFILE
-    free(m_readBuffer);
+    {
+        m_allocator->Free(m_data->ReadBuffer);
 
-    const std::string idStr = std::to_string(m_pipefileID);
+        const COWU8String idStr = COWU8String::FromValue(m_data->PipefileID, 10, m_allocator);
 
-    const std::string cmdStr = CommandBufferName + idStr;
-    const std::string dataStr = DataBufferName + idStr;
+        const COWU8String cmdStr = CommandBufferName + idStr;
+        const COWU8String dataStr = DataBufferName + idStr;
 
 #ifndef WIN32
-    if (m_commandBuffer != NULL)
-    {
-        munmap(m_commandBuffer, SharedBufferSize);
-        m_commandBuffer = NULL;
+        if (m_data->CommandBuffer != NULL)
+        {
+            munmap(m_data->CommandBuffer, SharedBufferSize);
+            m_data->CommandBuffer = NULL;
 
-        shm_unlink(cmdStr.c_str());
-    }
+            shm_unlink(cmdStr.CStr());
+        }
 
-    if (m_dataBuffer != NULL)
-    {
-        munmap(m_dataBuffer, SharedBufferSize);
-        m_dataBuffer = NULL;
+        if (m_data->DataBuffer != NULL)
+        {
+            munmap(m_data->DataBuffer, SharedBufferSize);
+            m_data->DataBuffer = NULL;
 
-        shm_unlink(dataStr.c_str());
+            shm_unlink(dataStr.CStr());
+        }
+#endif
     }
 #endif
-#endif
+
+    m_allocator->Destroy(m_data);
+
+    const uint32_t allocatorChainSize = m_allocatorChain->Size();
+    for (uint32_t i = 0; i < allocatorChainSize; ++i)
+    {
+        Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
+        m_smallAllocator->Destroy(alloc);
+    }
+
+    m_smallAllocator->Destroy(m_allocatorChain);
+
+    MallocAllocator::Instance->Destroy(m_largeAllocator);
+    MallocAllocator::Instance->Destroy(m_smallAllocator);
 }
 
 #ifdef ICARIANNATIVE_ENABLE_PIPEFILE
@@ -240,7 +316,7 @@ void FileCache::Init(uint32_t a_sizeMB, uint32_t a_pipefileID)
 {
     if (Instance == nullptr)
     {
-        Instance = new FileCache(a_sizeMB, a_pipefileID);
+        Instance = MallocAllocator::Instance->Create<FileCache>(a_sizeMB, a_pipefileID);
     }
 
     // Not having a FileCache is valid so init the functions out here
@@ -253,30 +329,28 @@ void FileCache::Destroy()
 {
     if (Instance != nullptr)
     {
-        delete Instance;
+        MallocAllocator::Instance->Destroy(Instance);
         Instance = nullptr;
     }
 }
 
-static FileBuffer* GenerateFileBuffer(FileHandle* a_file)
+static FileBuffer* GenerateFileBuffer(FileHandle* a_file, Allocator* a_allocator)
 {
     const uint64_t size = a_file->GetSize();
 
-    FileBuffer* buffer = new FileBuffer();
+    FileBuffer* buffer = a_allocator->ZTAllocate<FileBuffer>();
     buffer->Size = size;
-    buffer->Data = new uint8_t[size];
+    buffer->Data = a_allocator->ZTAllocate<uint8_t>(size);
     if (a_file->Read(buffer->Data, size) != size)
     {
         IERROR("Failed to read FileHandle into FileBuffer");
     }
     buffer->TimePoint = std::chrono::high_resolution_clock::now();
-    buffer->Lock = 0;
-    buffer->Flags = 0;
 
     return buffer;
 }
 
-void FileCache::SubmitPipeRequest(IcarianCore::e_PipefileDataType a_type, const std::string_view& a_path, uint32_t a_size, uint32_t a_offset)
+void FileCache::SubmitPipeRequest(IcarianCore::e_PipefileDataType a_type, const char* a_path, uint32_t a_size, uint32_t a_offset)
 {
 #ifdef ICARIANNATIVE_ENABLE_PIPEFILE
     if (Instance == nullptr)
@@ -284,45 +358,51 @@ void FileCache::SubmitPipeRequest(IcarianCore::e_PipefileDataType a_type, const 
         IERROR("Making pipe request with no FileCache");
     }
 
-    if (Instance->m_commandBuffer == NULL || Instance->m_dataBuffer == NULL)
+    if (Instance->m_data->CommandBuffer == NULL || Instance->m_data->DataBuffer == NULL)
     {
         IERROR("Making pipe request with no pipe");
     }
 
     // TODO: I should probably build a work queue so I can be smarter about awaiting
-    const size_t pathSize = a_path.size();
-    if (pathSize <= 0)
+    if (a_path[0] == 0)
     {
         IERROR("Pipe request with empty string");
     }
 
-    if (pathSize >= (IcarianCore::PipefileHeader::MaxPathSize - 1))
+    const char* slider = a_path;
+    while (*slider != 0)
+    {
+        ++slider;
+    }
+
+    const uint32_t pathSize = (uint32_t)(slider - a_path);
+    if (pathSize >= IcarianCore::PipefileHeader::MaxPathSize - 1)
     {
         IERROR("Pipe path size greater then max path size");
     }
 
     const std::unique_lock g = std::unique_lock(Instance->m_commandPipelock);
 
-    while (Instance->m_commandBuffer->State != IcarianCore::SharedMemoryBufferState_Write)
+    while (Instance->m_data->CommandBuffer->State != IcarianCore::SharedMemoryBufferState_Write)
     {
         // The other side of the buffer is probably busy so just wait for it to be populated
         // This is mostly so the other process can get access to resources incase it is us hogging them
         std::this_thread::yield();
     }
 
-    IVERIFY(Instance->m_commandBuffer->Size >= sizeof(IcarianCore::PipefileHeader));
-    IDEFER(Instance->m_commandBuffer->State = IcarianCore::SharedMemoryBufferState_Read);
+    IVERIFY(Instance->m_data->CommandBuffer->Size >= sizeof(IcarianCore::PipefileHeader));
+    IDEFER(Instance->m_data->CommandBuffer->State = IcarianCore::SharedMemoryBufferState_Read);
 
-    IcarianCore::PipefileHeader* header = GetPipefileHeader(Instance->m_commandBuffer);
+    IcarianCore::PipefileHeader* header = GetPipefileHeader(Instance->m_data->CommandBuffer);
     header->Type = a_type;
     header->Size = a_size;
     header->Offset = a_offset;
     header->Partial = false;
-    a_path.copy(header->Path, pathSize, 0);
+    memcpy(header->Path, a_path, pathSize);
     header->Path[pathSize] = 0;
 #endif
 }
-e_PipeFileError FileCache::AwaitPipeData(IcarianCore::e_PipefileDataType a_type, const std::string_view& a_path, uint32_t* a_bufferSize, uint8_t** a_data)
+e_PipeFileError FileCache::AwaitPipeData(IcarianCore::e_PipefileDataType a_type, const char* a_path, uint32_t* a_bufferSize, uint8_t** a_data)
 {
 #ifdef ICARIANNATIVE_ENABLE_PIPEFILE
     return AwaitPipeData(a_type, a_path, 0, a_bufferSize, a_data);
@@ -330,7 +410,14 @@ e_PipeFileError FileCache::AwaitPipeData(IcarianCore::e_PipefileDataType a_type,
     return PipeFileError_Invalid;
 #endif
 }
-e_PipeFileError FileCache::AwaitPipeData(IcarianCore::e_PipefileDataType a_type, const std::string_view& a_path, uint32_t a_offset, uint32_t* a_bufferSize, uint8_t** a_data)
+e_PipeFileError FileCache::AwaitPipeData
+(
+    IcarianCore::e_PipefileDataType a_type,
+    const char* a_path,
+    uint32_t a_offset,
+    uint32_t* a_bufferSize,
+    uint8_t** a_data
+)
 {
     IVERIFY(a_bufferSize != nullptr);
     IVERIFY(a_data != nullptr);
@@ -341,7 +428,7 @@ e_PipeFileError FileCache::AwaitPipeData(IcarianCore::e_PipefileDataType a_type,
         IERROR("Awaiting pipe data with no FileCache");
     }
 
-    if (Instance->m_commandBuffer == NULL || Instance->m_dataBuffer == NULL)
+    if (Instance->m_data->CommandBuffer == NULL || Instance->m_data->ReadBuffer == NULL)
     {
         IERROR("Awaiting pipe data with no pipe");
     }
@@ -355,29 +442,30 @@ e_PipeFileError FileCache::AwaitPipeData(IcarianCore::e_PipefileDataType a_type,
         {
             const std::unique_lock g = std::unique_lock(Instance->m_dataPipelock);
 
-            if (Instance->m_dataBuffer->State == IcarianCore::SharedMemoryBufferState_Read)
+            if (Instance->m_data->DataBuffer->State == IcarianCore::SharedMemoryBufferState_Read)
             {
-                IVERIFY(Instance->m_dataBuffer->Size > sizeof(IcarianCore::PipefileHeader));
+                IVERIFY(Instance->m_data->DataBuffer->Size > sizeof(IcarianCore::PipefileHeader));
 
-                IcarianCore::PipefileHeader* header = GetPipefileHeader(Instance->m_dataBuffer);
+                IcarianCore::PipefileHeader* header = GetPipefileHeader(Instance->m_data->DataBuffer);
 
                 if (header->Type == IcarianCore::PipefileDataType_Invalid)
                 {
                     IVERIFY(header->Size == sizeof(IcarianCore::PipefileHeader));
 
                     volatile IcarianCore::PipefileHeader* invalidHeader = (IcarianCore::PipefileHeader*)GetDataSection(header);
-
-                    if (invalidHeader->Type == a_type && invalidHeader->Offset == a_offset && header->Path == a_path)
+                    if (invalidHeader->Type == a_type && invalidHeader->Offset == a_offset && strcmp(header->Path, a_path) == 0)
                     {
+                        Instance->m_data->DataBuffer->State = IcarianCore::SharedMemoryBufferState_Write;
+
                         return PipeFileError_Invalid;
                     }
                 }
 
-                if (header->Type == a_type && header->Offset == a_offset && header->Path == a_path)
+                if (header->Type == a_type && header->Offset == a_offset && strcmp(header->Path, a_path) == 0)
                 {
                     Instance->m_readLock.lock();
 
-                    IDEFER(Instance->m_dataBuffer->State = IcarianCore::SharedMemoryBufferState_Write);
+                    IDEFER(Instance->m_data->DataBuffer->State = IcarianCore::SharedMemoryBufferState_Write);
 
                     const uint32_t size = header->Size;
                     if (size > SharedBufferSize - sizeof(IcarianCore::PipefileHeader) - sizeof(IcarianCore::SharedMemoryBuffer))
@@ -387,9 +475,7 @@ e_PipeFileError FileCache::AwaitPipeData(IcarianCore::e_PipefileDataType a_type,
 
                     volatile uint8_t* data = GetDataSection(header);
 
-                    // TODO: Look into having the FileCache hold a buffer and handing it back to the FileCache when done over allocating and deallocating
-                    // We know the max size ahead of time so probably an effective stratergy
-                    *a_data = (uint8_t*)Instance->m_readBuffer;
+                    *a_data = (uint8_t*)Instance->m_data->ReadBuffer;
 
                     for (uint32_t i = 0; i < size; ++i)
                     {
@@ -423,12 +509,18 @@ void FileCache::FreePipeData()
 #endif
 }
 
-bool FileCache::Exists(const std::string_view& a_str)
+bool FileCache::Exists(const char* a_str)
+{
+    const COWU8String str = COWU8String(a_str, Instance->m_allocator);
+
+    return Exists(str);
+}
+bool FileCache::Exists(const COWU8String& a_str)
 {
     if (Instance != nullptr)
     {
-        const size_t protocolIndex = a_str.find("://");
-        if (protocolIndex != std::string_view::npos)
+        const size_t protocolIndex = a_str.FindString("://");
+        if (protocolIndex != uint32_t(-1))
         {
             constexpr uint32_t BufferSize = 16;
             if (protocolIndex >= (BufferSize - 1))
@@ -437,27 +529,46 @@ bool FileCache::Exists(const std::string_view& a_str)
             }
 
             char buffer[BufferSize];
+            memset(buffer, 0, BufferSize);
 
-            a_str.copy(buffer, protocolIndex, 0);
-            buffer[protocolIndex] = 0;
+            for (uint32_t i = 0; i < protocolIndex; ++i)
+            {
+                buffer[i] = a_str[i];
+            }
 
             switch (StringHash<uint32_t>(buffer))
             {
             case StringHash<uint32_t>("pipe"):
             {
 #ifdef ICARIANNATIVE_ENABLE_PIPEFILE
-                if (Instance->m_dataBuffer == NULL || Instance->m_commandBuffer == NULL)
+                if (Instance->m_data->DataBuffer == NULL || Instance->m_data->CommandBuffer == NULL)
                 {
                     return false;
                 }
 
-                const std::string_view str = a_str.substr(protocolIndex + 3);
+                const uint32_t length = a_str.Length();
+                const uint32_t offset = protocolIndex + 3;
+                const uint32_t size = length - offset;
+                if (size >= IcarianCore::PipefileHeader::MaxPathSize)
+                {
+                    IERROR("Checking if file from pipe with path length greater then max path size");
 
-                SubmitPipeRequest(IcarianCore::PipefileDataType_Exists, str);
+                    return false;
+                }
+
+                char pathBuffer[IcarianCore::PipefileHeader::MaxPathSize];
+                memset(pathBuffer, 0, IcarianCore::PipefileHeader::MaxPathSize);
+
+                for (uint32_t i = 0; i < size; ++i)
+                {
+                    pathBuffer[i] = a_str[i + offset];
+                }
+
+                SubmitPipeRequest(IcarianCore::PipefileDataType_Exists, pathBuffer);
 
                 uint8_t* data;
                 uint32_t dataSize;
-                const e_PipeFileError error = AwaitPipeData(IcarianCore::PipefileDataType_Exists, str, &dataSize, &data);
+                const e_PipeFileError error = AwaitPipeData(IcarianCore::PipefileDataType_Exists, pathBuffer, &dataSize, &data);
 
                 IVERIFY(data != nullptr);
                 IDEFER(FreePipeData());
@@ -486,63 +597,93 @@ bool FileCache::Exists(const std::string_view& a_str)
         }
     }
 
-    return std::filesystem::exists(a_str);
+    const char* cStr = a_str.CStr();
+    return std::filesystem::exists(cStr);
 }
-bool FileCache::ExistsInCache(const std::string_view& a_str)
+bool FileCache::ExistsInCache(const char* a_str)
 {
+    if (Instance == nullptr)
+    {
+        return false;
+    }
+
+    const COWU8String str = COWU8String(a_str, Instance->m_allocator);
+
+    return ExistsInCache(str);
+}
+bool FileCache::ExistsInCache(const COWU8String& a_str)
+{
+    if (Instance == nullptr)
+    {
+        return false;
+    }
+
     const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
 
-    return Instance->m_files.find(std::string(a_str)) != Instance->m_files.end();
+    return Instance->m_data->Files.Exists(a_str);
 }
 
-void FileCache::PushFile(const std::string_view& a_path, uint8_t* a_data, uint32_t a_size, bool a_pin)
+void FileCache::PushFile(const char* a_path, const uint8_t* a_data, uint32_t a_size, bool a_pin)
 {
-    const std::string str = std::string(a_path);
+    if (Instance == nullptr)
+    {
+        IWARN("Pushing file with no FileCache");
+
+        return;
+    }
+
+    const COWU8String str = COWU8String(a_path, Instance->m_allocator);
+
+    PushFile(str, a_data, a_size, a_pin);
+}
+void FileCache::PushFile(const COWU8String& a_path, const uint8_t* a_data, uint32_t a_size, bool a_pin)
+{
+    if (Instance == nullptr)
+    {
+        IWARN("Pushing file with no FileCache");
+
+        return;
+    }
 
     const ThreadGuard g = ThreadGuard(Instance->m_lock);
 
-    const auto iter = Instance->m_files.find(str);
-    if (iter != Instance->m_files.end())
+    if (Instance->m_data->Files.Exists(a_path))
     {
-        FileBuffer* buffer = iter->second;
+        FileBuffer* buffer = Instance->m_data->Files[a_path];
         while (buffer->Lock > 0)
         {
             std::this_thread::yield();
         }
 
-        Instance->m_allocated -= buffer->Size;
-        Instance->m_allocated += a_size;
-
-        delete[] (uint8_t*)buffer->Data;
+        if (buffer->Size < a_size)
+        {
+            Instance->m_allocator->Free(buffer->Data);
+            buffer->Data = Instance->m_allocator->TAllocate<uint8_t>(a_size);
+        }
 
         buffer->Size = a_size;
-        buffer->Data = a_data;
+        memcpy(buffer->Data, a_data, (size_t)a_size);
         buffer->TimePoint = std::chrono::high_resolution_clock::now();
-        buffer->Flags = 0;
 
-        if (a_pin)
-        {
-            ISETBIT(buffer->Flags, FileBuffer::PinnedBit);
-        }
+        ITOGGLEBIT(a_pin, buffer->Flags, FileBuffer::PinnedBit);
 
         return;
     }
 
-    Instance->m_allocated += a_size;
+    const COWU8String str = COWU8String(a_path, Instance->m_allocator);
 
-    FileBuffer* buffer = new FileBuffer();
+    FileBuffer* buffer = Instance->m_allocator->ZTAllocate<FileBuffer>();
     buffer->Size = a_size;
-    buffer->Data = a_data;
+    buffer->Data = Instance->m_allocator->TAllocate<uint8_t>();
+    memcpy(buffer->Data, a_data, (size_t)a_size);
     buffer->TimePoint = std::chrono::high_resolution_clock::now();
-    buffer->Lock = 0;
-    buffer->Flags = 0;
 
     if (a_pin)
     {
         ISETBIT(buffer->Flags, FileBuffer::PinnedBit);
     }
 
-    Instance->m_files.emplace(str, buffer);
+    Instance->m_data->Files.Push(str, buffer);
 }
 
 void FileCache::Update()
@@ -552,16 +693,16 @@ void FileCache::Update()
         return;
     }
 
-    Instance->m_updateFrame = (Instance->m_updateFrame + 1) % 4;
+    Instance->m_data->UpdateFrame = (Instance->m_data->UpdateFrame + 1) % 4;
     // Want to clear it if we are over half full but do not need to do it regularly
-    if (Instance->m_updateFrame != 0)
+    if (Instance->m_data->UpdateFrame != 0)
     {
         return;
-        
     }
 
-    const uint64_t halfSize = Instance->m_size >> 1;
-    if (Instance->m_allocated < halfSize)
+    const uint64_t allocated = Instance->m_trackerAllocator->GetMemoryUsage();
+    const uint64_t halfSize = Instance->m_data->Size >> 1;
+    if (allocated < halfSize)
     {
         return;
     }
@@ -570,19 +711,19 @@ void FileCache::Update()
 
     const ThreadGuard g = ThreadGuard(Instance->m_lock);
 
-    const uint32_t mapSize = (uint32_t)Instance->m_files.size();
-    if (mapSize == 0)
+    const Array<COWU8String> keyArray = Instance->m_data->Files.GetKeys(Instance->m_allocator);
+    if (keyArray.Empty())
     {
         return;
     }
 
-    std::string* keys = new std::string[mapSize];
-    IDEFER(delete[] keys);
-    uint32_t keyCount = 0;
+    const Array<FileBuffer*> valueArray = Instance->m_data->Files.GetValues(Instance->m_allocator);
+    IVERIFY(keyArray.Size() == valueArray.Size());
 
-    for (const auto& iter : Instance->m_files) 
+    const uint32_t size = keyArray.Size();
+    for (uint32_t i = 0; i < size; ++i)
     {
-        const FileBuffer* buffer = iter.second;
+        FileBuffer* buffer = valueArray[i];
         if (IISBITSET(buffer->Flags, FileBuffer::PinnedBit))
         {
             continue;
@@ -593,51 +734,40 @@ void FileCache::Update()
             continue;
         }
 
-        const float timePassed = std::chrono::duration<float>(now - buffer->TimePoint).count();
-        if (timePassed > 1.0f) 
+        const std::chrono::duration timePassed = std::chrono::duration(now - buffer->TimePoint);
+        if (timePassed <= std::chrono::seconds(1))
         {
-            keys[keyCount++] = iter.first;
+            continue;
         }
-    }
 
-    if (keyCount <= 0)
-    {
-        return;
-    }
+        Instance->m_data->Files.Erase(keyArray[i]);
 
-    TRACE("Flushing File Cache");
-    for (uint32_t i = 0; i < keyCount; ++i)
-    {
-        const std::string& key = keys[i];
-
-        // Use at otherwise does not compile in the Steam Sniper runtime
-        const FileBuffer* buffer = Instance->m_files.at(key);
-        IDEFER(
-        {
-            delete[] (uint8_t*)buffer->Data;
-            delete buffer;
-        });
-
-        Instance->m_files.erase(key);
+        Instance->m_allocator->Free(buffer->Data);
+        Instance->m_allocator->Destroy(buffer);
     }
 }
 
-FileHandle* FileCache::LoadFile(const std::string_view& a_path)
+FileHandle* FileCache::LoadFile(const char* a_path)
+{
+    const COWU8String str = COWU8String(a_path, Instance->m_allocator);
+
+    return LoadFile(str);
+}
+FileHandle* FileCache::LoadFile(const COWU8String& a_path)
 {
     if (Instance == nullptr)
     {
         return ReadFileHandle::OpenFile(a_path);
     }
 
-    const std::string pathStr = std::string(a_path);
-
     {
         const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
 
-        const auto iter = Instance->m_files.find(pathStr);
-        if (iter != Instance->m_files.end())
+        if (Instance->m_data->Files.Exists(a_path))
         {
-            return new CacheFileHandle(iter->second);
+            FileBuffer* buffer = Instance->m_data->Files[a_path];
+
+            return MallocAllocator::Instance->Create<CacheFileHandle>(buffer);
         }
     }
 
@@ -645,8 +775,8 @@ FileHandle* FileCache::LoadFile(const std::string_view& a_path)
 
     FileHandle* handle = ILAMBDA(
     {
-        const size_t protocolIndex = a_path.find("://");
-        if (protocolIndex != std::string_view::npos)
+        const size_t protocolIndex = a_path.FindString("://");
+        if (protocolIndex != uint32_t(-1))
         {
             constexpr uint32_t BufferSize = 16;
             if (protocolIndex >= (BufferSize - 1))
@@ -655,18 +785,38 @@ FileHandle* FileCache::LoadFile(const std::string_view& a_path)
             }
 
             char buffer[BufferSize];
+            memset(buffer, 0, BufferSize);
 
-            a_path.copy(buffer, protocolIndex, 0);
-            buffer[protocolIndex] = 0;
+            for (uint32_t i = 0; i < protocolIndex; ++i)
+            {
+                buffer[i] = a_path[i];
+            }
 
             switch (StringHash<uint32_t>(buffer))
             {
 #ifdef ICARIANNATIVE_ENABLE_PIPEFILE
             case StringHash<uint32_t>("pipe"):
             {
-                const std::string_view str = a_path.substr(protocolIndex + 3);
+                const uint32_t length = a_path.Length();
+                const uint32_t offset = protocolIndex + 3;
+                const uint32_t size = length - offset;
 
-                ILRETURN (FileHandle*)new PipeFileHandle(str.data());
+                if (size >= IcarianCore::PipefileHeader::MaxPathSize)
+                {
+                    IERROR("Reading file from pipe with path length greater then max path size");
+
+                    ILRETURN (FileHandle*)nullptr;
+                }
+
+                char pathBuffer[IcarianCore::PipefileHeader::MaxPathSize];
+                memset(pathBuffer, 0, IcarianCore::PipefileHeader::MaxPathSize);
+
+                for (uint32_t i = 0; i < size; ++i)
+                {
+                    pathBuffer[i] = a_path[i + offset];
+                }
+
+                ILRETURN (FileHandle*)MallocAllocator::Instance->Create<PipeFileHandle>(pathBuffer);
             }
 #endif
             default:
@@ -684,68 +834,85 @@ FileHandle* FileCache::LoadFile(const std::string_view& a_path)
         return nullptr;
     }
 
-    const uint64_t maxSize = Instance->m_size >> 3;
+    const uint64_t maxSize = Instance->m_data->Size >> 3;
     const uint64_t size = handle->GetSize();
     if (size >= maxSize)
     {
         return handle;
     }
 
-    if (Instance->m_allocated < Instance->m_size && size < Instance->m_size - Instance->m_allocated)
+    const uint64_t allocated = Instance->m_trackerAllocator->GetMemoryUsage();
+    if (allocated >= size)
     {
-        IDEFER(delete handle);
+        return handle;
+    }
 
-        FileBuffer* buffer = GenerateFileBuffer(handle);
+    const uint32_t overheadSize = size + 256;
+    if (overheadSize < Instance->m_data->Size - allocated)
+    {
+        IDEFER(MallocAllocator::Instance->Destroy(handle));
 
-        Instance->m_allocated += size;
+        FileBuffer* buffer = GenerateFileBuffer(handle, Instance->m_allocator);
 
-        Instance->m_files.emplace(a_path, buffer);
+        const COWU8String str = COWU8String(a_path, Instance->m_allocator);
+        Instance->m_data->Files.Push(str, buffer);
 
-        return new CacheFileHandle(buffer);
+        return MallocAllocator::Instance->Create<CacheFileHandle>(buffer);
     }
 
     const uint64_t offsetSize = ILAMBDA(
     {
-        if (Instance->m_allocated > Instance->m_size)
+        if (allocated > size)
         {
-            ILRETURN Instance-> m_allocated - Instance->m_size;
+            ILRETURN allocated - Instance->m_data->Size;
         }
 
         ILRETURN uint64_t(0);
     });
 
-    const uint64_t finalSize = offsetSize + size;
+    const uint64_t finalSize = offsetSize + overheadSize;
 
-    std::string key;
+    const Array<COWU8String> keyArray = Instance->m_data->Files.GetKeys(Instance->m_allocator);
+    const Array<FileBuffer*> valueArray = Instance->m_data->Files.GetValues(Instance->m_allocator);
+
+    IVERIFY(keyArray.Size() == valueArray.Size());
+
+    COWU8String key = COWU8String(Instance->m_allocator);
     FileBuffer* b = nullptr;
-    // Looking for a file to delete that so that the current file can fit
-    // No point deleting a file if we cannot fit it
-    for (const auto& iter : Instance->m_files)
+    const uint32_t keySize = keyArray.Size();
+    for (uint32_t i = 0; i < keySize; ++i)
     {
-        FileBuffer* buffer = iter.second;
+        FileBuffer* buffer = valueArray[i];
         if (IISBITSET(buffer->Flags, FileBuffer::PinnedBit))
         {
             continue;
         }
 
-        if (buffer->Size >= finalSize && buffer->Lock == 0)
+        if (buffer->Size < finalSize)
         {
-            if (b == nullptr)
-            {
-                key = iter.first;
-                b = buffer;
-
-                continue;
-            }
-
-            if (buffer->TimePoint > b->TimePoint)
-            {
-                continue;
-            }
-
-            key = iter.first;
-            b = buffer;
+            continue;
         }
+
+        if (buffer->Lock != 0)
+        {
+            continue;
+        }
+
+        if (b == nullptr)
+        {
+            key = keyArray[i];
+            b = buffer;
+
+            continue;
+        }
+
+        if (buffer->TimePoint > b->TimePoint)
+        {
+            continue;
+        }
+
+        key = keyArray[i];
+        b = buffer;
     }
 
     if (b == nullptr)
@@ -753,24 +920,22 @@ FileHandle* FileCache::LoadFile(const std::string_view& a_path)
         return handle;
     }
 
-    IDEFER(delete handle);
+    IDEFER(MallocAllocator::Instance->Destroy(handle));
 
-    Instance->m_files.erase(key);
-    Instance->m_allocated -= b->Size;
-    delete[] (uint8_t*)b->Data;
-    delete b;
+    Instance->m_data->Files.Erase(key);
+    Instance->m_allocator->Free(b->Data);
+    Instance->m_allocator->Destroy(b);
 
-    b = GenerateFileBuffer(handle);
+    b = GenerateFileBuffer(handle, Instance->m_allocator);
 
-    Instance->m_files.emplace(a_path, b);
-    Instance->m_allocated += b->Size;
+    Instance->m_data->Files.Push(a_path, b);
 
-    return new CacheFileHandle(b);
+    return MallocAllocator::Instance->Create<CacheFileHandle>(b);
 }
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

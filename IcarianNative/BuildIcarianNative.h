@@ -84,7 +84,7 @@ static CUBE_CProject BuildIcarianNativeProject(const char* a_path, e_TargetPlatf
     project.Language = CUBE_CProjectLanguage_CPP;
     project.OutputPath = CUBE_Path_CreateC("./build");
 
-    if (a_configuration == BuildConfiguration_Debug)
+    if (a_configuration == BuildConfiguration_Debug || a_configuration == BuildConfiguration_DebugFast)
     {
         CUBE_CProject_AppendDefine(&project, "DEBUG");
     }
@@ -280,8 +280,26 @@ static CUBE_CProject BuildIcarianNativeProject(const char* a_path, e_TargetPlatf
 
         break;
     }
+    case BuildConfiguration_DebugFast:
+    {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_FAST_ALLOCATOR");
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        if (a_targetPlatform != TargetPlatform_Windows)
+        {
+            CUBE_CProject_AppendCFlag(&project, "-rdynamic");
+        }
+
+        if (a_targetPlatform == TargetPlatform_Linux)
+        {
+            CUBE_CProject_AppendCFlag(&project, "-Og");
+        }
+
+        break;
+    }
     case BuildConfiguration_ReleaseWithDebug:
     {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_FAST_ALLOCATOR");
         CUBE_CProject_AppendCFlag(&project, "-mavx");
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
@@ -315,6 +333,7 @@ static CUBE_CProject BuildIcarianNativeProject(const char* a_path, e_TargetPlatf
     }
     case BuildConfiguration_Release:
     {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_FAST_ALLOCATOR");
         CUBE_CProject_AppendCFlag(&project, "-mavx");
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");

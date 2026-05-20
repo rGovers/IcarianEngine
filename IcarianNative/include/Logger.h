@@ -6,14 +6,14 @@
 
 #include <cstdint>
 #include <functional>
-#include <string_view>
 
 #include "Core/LoggerHeader.h"
+#include "DataTypes/COWString.h"
 
 class Logger
 {
 public:
-    typedef std::function<void(const std::string_view&, IcarianCore::e_LoggerMessageType, uint32_t, const char* const*)> Callback;
+    typedef std::function<void(const COWU8String&, IcarianCore::e_LoggerMessageType, uint32_t, const char* const*)> Callback;
 private:
 
 protected:
@@ -21,16 +21,19 @@ protected:
 public:
     static Callback* CallbackFunc;
 
-    static void Message(const std::string_view& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
-    static void Warning(const std::string_view& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
-    static void Error(const std::string_view& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
+    static void Message(const char* a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
+    static void Message(const COWU8String& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
+    static void Warning(const char* a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
+    static void Warning(const COWU8String& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
+    static void Error(const char* a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
+    static void Error(const COWU8String& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
 
     static void Init();
 };
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

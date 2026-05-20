@@ -4,6 +4,8 @@
 
 #include "Rendering/AnimationController.h"
 
+#include "Core/Bitfield.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "Rendering/AnimationControllerBindings.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
@@ -19,47 +21,49 @@ AnimationController::AnimationController()
     m_updateAnimatorFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering.Animation", "Animator", ":UpdateAnimatorS(uint,double)");
     m_updateAnimatorsFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering.Animation", "Animator", ":UpdateAnimatorsS(uint[],double)");
 
-    m_bindings = new AnimationControllerBindings(this);
+    m_bindings = MallocAllocator::Instance->Create<AnimationControllerBindings>(this);
 }
 AnimationController::~AnimationController()
 {
-    delete m_bindings;
+    MallocAllocator::Instance->Destroy(m_bindings);
 
-    delete m_updateAnimatorFunc;
-    delete m_updateAnimatorsFunc;
+    MallocAllocator::Instance->Destroy(m_updateAnimatorFunc);
+    MallocAllocator::Instance->Destroy(m_updateAnimatorsFunc);
 }
 
 void AnimationController::Init()
 {
     if (Instance == nullptr)
     {
-        Instance = new AnimationController();
+        Instance = MallocAllocator::Instance->Create<AnimationController>();
     }
 }
 void AnimationController::Destroy()
 {
     if (Instance != nullptr)
     {
-        delete Instance;
+        MallocAllocator::Instance->Destroy(Instance);
         Instance = nullptr;
     }
 }
 
-std::vector<uint32_t> AnimationController::GetAnimators(e_AnimationUpdateMode a_updateMode)
-{   
-    const std::vector<bool> stateVector = Instance->m_animators.ToStateVector();
-    const std::vector<e_AnimationUpdateMode> modeVector = Instance->m_animators.ToVector();
+Array<uint32_t> AnimationController::GetAnimators(e_AnimationUpdateMode a_updateMode)
+{
+    const uint32_t size = Instance->m_animators.Size();
+    const Array<uint8_t> state = Instance->m_animators.ToPackedStateArray(MallocAllocator::Instance);
+    const Array<e_AnimationUpdateMode> mode = Instance->m_animators.ToArray(MallocAllocator::Instance);
 
-    const uint32_t size = (uint32_t)stateVector.size();
-    
-    std::vector<uint32_t> animators;
-    animators.reserve(size);
+    Array<uint32_t> animators = Array<uint32_t>(MallocAllocator::Instance);
+    animators.Reserve(size);
 
     for (uint32_t i = 0; i < size; ++i)
     {
-        if (stateVector[i] && (modeVector[i] & a_updateMode))
+        const uint32_t index = i / 8;
+        const uint32_t offset = i % 8;
+
+        if (IISBITSET(state[index], offset) && (mode[i] & a_updateMode))
         {
-            animators.push_back(i);
+            animators.Push(i);
         }
     }
 
@@ -68,19 +72,19 @@ std::vector<uint32_t> AnimationController::GetAnimators(e_AnimationUpdateMode a_
 
 void AnimationController::UpdateAnimator(uint32_t a_index, double a_deltaTime)
 {
-    void* args[] = 
-    { 
-        &a_index, 
-        &a_deltaTime 
+    void* args[] =
+    {
+        &a_index,
+        &a_deltaTime
     };
 
     Instance->m_updateAnimatorFunc->Exec(args);
 }
 void AnimationController::UpdateAnimators(e_AnimationUpdateMode a_updateMode, double a_deltaTime)
 {
-    const std::vector<uint32_t> animators = GetAnimators(a_updateMode);
+    const Array<uint32_t> animators = GetAnimators(a_updateMode);
 
-    const uint32_t count = (uint32_t)animators.size();
+    const uint32_t count = animators.Size();
     if (count > 0)
     {
         MonoArray* animatorsArray = mono_array_new(mono_domain_get(), mono_get_uint32_class(), (uintptr_t)count);
@@ -89,10 +93,10 @@ void AnimationController::UpdateAnimators(e_AnimationUpdateMode a_updateMode, do
             mono_array_set(animatorsArray, uint32_t, i, animators[i]);
         }
 
-        void* args[] = 
-        { 
-            animatorsArray, 
-            &a_deltaTime 
+        void* args[] =
+        {
+            animatorsArray,
+            &a_deltaTime
         };
 
         Instance->m_updateAnimatorsFunc->Exec(args);
@@ -112,7 +116,7 @@ public:
         m_animator(a_animator),
         m_deltaTime(a_deltaTime)
     {
-        
+
     }
 
     inline void Execute()
@@ -136,19 +140,19 @@ void AnimationController::DispatchUpdate(double a_deltaTime)
             {
             case AnimationUpdateMode_PooledUpdateLow:
             {
-                ThreadPool::PushJob(new AnimatorThreadJob(i, a_deltaTime, JobPriority_EngineLow));
+                ThreadPool::PushJob(MallocAllocator::Instance->Create<AnimatorThreadJob>(i, a_deltaTime, JobPriority_EngineLow));
 
                 break;
             }
             case AnimationUpdateMode_PooledUpdateMedium:
             {
-                ThreadPool::PushJob(new AnimatorThreadJob(i, a_deltaTime, JobPriority_EngineMedium));
+                ThreadPool::PushJob(MallocAllocator::Instance->Create<AnimatorThreadJob>(i, a_deltaTime, JobPriority_EngineMedium));
 
                 break;
             }
             case AnimationUpdateMode_PooledUpdateHigh:
             {
-                ThreadPool::PushJob(new AnimatorThreadJob(i, a_deltaTime, JobPriority_EngineHigh));
+                ThreadPool::PushJob(MallocAllocator::Instance->Create<AnimatorThreadJob>(i, a_deltaTime, JobPriority_EngineHigh));
 
                 break;
             }
@@ -168,7 +172,7 @@ SkeletonData AnimationController::GetSkeleton(uint32_t a_index)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

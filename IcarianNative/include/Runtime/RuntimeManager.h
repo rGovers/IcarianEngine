@@ -5,14 +5,18 @@
 #pragma once
 
 #include <cstdint>
-#include <filesystem>
 #include <mono/jit/jit.h>
 #include <mono/metadata/assembly.h>
-#include <string_view>
-#include <unordered_map>
 
-class RenderEngine;
+#include "DataTypes/Array.h"
+#include "DataTypes/COWString.h"
+#include "DataTypes/Dictionary.h"
+
+class Allocator;
+class BlockAllocator;
+class Config;
 class RuntimeFunction;
+class TrackerAllocator;
 
 #define FLARE_MONO_EXPORT(ret, func, ...) static ret func(__VA_ARGS__)
 
@@ -29,30 +33,44 @@ class RuntimeFunction;
 class RuntimeManager
 {
 private:
-    std::unordered_map<std::string, std::filesystem::path> m_dllLookup;
+    static constexpr uint32_t SmallAllocatorSize = 32 << 10;
+    static constexpr uint32_t LargeAllocatorSize = 32 << 20;
+    static constexpr bool EnableLeakTracking = false;
 
-    MonoDomain*                                            m_domain;
-    MonoAssembly*                                          m_assembly;
-                                        
-    MonoImage*                                             m_image;
-                                        
-    MonoClass*                                             m_programClass;
-                                        
-    MonoMethod*                                            m_initMethod;
-    MonoMethod*                                            m_updateMethod;
-    MonoMethod*                                            m_lateUpdateMethod;
-    MonoMethod*                                            m_shutdownMethod;
+    BlockAllocator*                       m_smallAllocator;
+    BlockAllocator*                       m_largeAllocator;
 
-    RuntimeManager();
+    TrackerAllocator*                     m_trackerAllocator;
+
+    Array<Allocator*>*                    m_allocatorChain;
+
+    MonoAllocatorVTable                   m_allocatorTable;
+
+    Dictionary<COWU8String, COWU8String>* m_dllLookup;
+
+    MonoDomain*                           m_domain;
+    MonoAssembly*                         m_assembly;
+
+    MonoImage*                            m_image;
+
+    MonoClass*                            m_programClass;
+
+    MonoMethod*                           m_initMethod;
+    MonoMethod*                           m_updateMethod;
+    MonoMethod*                           m_lateUpdateMethod;
+    MonoMethod*                           m_shutdownMethod;
+
 protected:
 
 public:
+    RuntimeManager(Config* a_config);
     ~RuntimeManager();
 
-    static void Init();
+    static void Init(Config* a_config);
     static void Destroy();
 
-    static void BindFunction(const std::string_view& a_location, void* a_function);
+    static void BindFunction(const char* a_location, void* a_function);
+    static void BindFunction(const COWU8String& a_location, void* a_function);
 
     static void Exec(int32_t a_argc, char* a_argv[]);
     static void Update(double a_delta, double a_time);
@@ -60,19 +78,23 @@ public:
 
     static void AttachThread();
 
-    static void PushDLLPath(const std::filesystem::path& a_path);
-    static std::filesystem::path GetDLLPath(const std::string_view& a_name);
+    static void PushDLLPath(const char* a_path);
+    static void PushDLLPath(const COWU8String& a_path);
+    static COWU8String GetDLLPath(const char* a_path);
+    static COWU8String GetDLLPath(const COWU8String& a_name);
 
     static MonoDomain* GetDomain();
 
-    static MonoClass* GetClass(const std::string_view& a_namespace, const std::string_view& a_name);
+    static MonoClass* GetClass(const char* a_namespace, const char* a_name);
+    static MonoClass* GetClass(const COWU8String& a_namespace, const COWU8String& a_name);
 
-    static RuntimeFunction* GetFunction(const std::string_view& a_namespace, const std::string_view& a_class, const std::string_view& a_method);
+    static RuntimeFunction* GetFunction(const char* a_namespace, const char* a_class, const char* a_method);
+    static RuntimeFunction* GetFunction(const COWU8String& a_namespace, const COWU8String& a_class, const COWU8String& a_method);
 };
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -161,7 +161,7 @@ Array<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const COWU8String& a_str, boo
     constexpr TBuiltInResource Resource = spirv_create_resources();
     if (!shader.parse(&Resource, 100, true, Messages))
     {
-		IERROR("Parsing Failed: " + std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(cStr));
+		IERROR(COWU8String("Parsing Failed: ", MallocAllocator::Instance) + shader.getInfoLog() + "\n" + shader.getInfoDebugLog() + "\n" + cStr);
 
 		return Array<uint32_t>(a_allocator);
     }
@@ -171,7 +171,7 @@ Array<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const COWU8String& a_str, boo
 
     if (!program.link(Messages))
     {
-		IERROR("Linking Failed: " + std::string(shader.getInfoLog()) + "\n" + shader.getInfoDebugLog() + "\n" + std::string(cStr));
+		IERROR(COWU8String("Linking Failed: ", MallocAllocator::Instance) + shader.getInfoLog() + "\n" + shader.getInfoDebugLog() + "\n" + cStr);
 
 		return Array<uint32_t>(a_allocator);
     }

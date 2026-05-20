@@ -19,7 +19,7 @@ static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     project.Language = CUBE_CProjectLanguage_C;
     project.OutputPath = CUBE_Path_CreateC("./build/");
 
-    if (a_configuration == BuildConfiguration_Debug)
+    if (a_configuration == BuildConfiguration_Debug || a_configuration == BuildConfiguration_DebugFast)
     {
         CUBE_CProject_AppendDefine(&project, "DEBUG");
     }
@@ -55,13 +55,13 @@ static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     {
     case TargetPlatform_Windows:
     {
-        CUBE_CProject_AppendDefines(&project, 
+        CUBE_CProject_AppendDefines(&project,
             "WIN32",
             "_WIN32",
             "_GLFW_WIN32"
         );
 
-        CUBE_CProject_AppendSources(&project, 
+        CUBE_CProject_AppendSources(&project,
             "./src/wgl_context.c",
             "./src/win32_init.c",
             "./src/win32_joystick.c",
@@ -82,7 +82,7 @@ static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfigu
             "_GLFW_WAYLAND",
             "_GLFW_X11"
         );
-        
+
         CUBE_CProject_AppendSources(&project, 
             "./src/glx_context.c",
             "./src/linux_joystick.c",
@@ -134,6 +134,7 @@ static CUBE_CProject BuildGLFW(e_TargetPlatform a_targetPlatform, e_BuildConfigu
 
         break;
     }
+    case BuildConfiguration_DebugFast:
     case BuildConfiguration_ReleaseWithDebug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
@@ -165,7 +166,7 @@ static CUBE_CProject BuildMINIZ(e_TargetPlatform a_targetPlatform, e_BuildConfig
     project.Language = CUBE_CProjectLanguage_C;
     project.OutputPath = CUBE_Path_CreateC("./build/");
 
-    if (a_configuration == BuildConfiguration_Debug)
+    if (a_configuration == BuildConfiguration_Debug || a_configuration == BuildConfiguration_DebugFast)
     {
         CUBE_CProject_AppendDefine(&project, "DEBUG");
     }
@@ -190,6 +191,7 @@ static CUBE_CProject BuildMINIZ(e_TargetPlatform a_targetPlatform, e_BuildConfig
 
         break;
     }
+    case BuildConfiguration_DebugFast:
     case BuildConfiguration_ReleaseWithDebug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
@@ -224,7 +226,7 @@ static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     project.Language = CUBE_CProjectLanguage_C;
     project.OutputPath = CUBE_Path_CreateC("./build/c/");
 
-    if (a_configuration == BuildConfiguration_Debug)
+    if (a_configuration == BuildConfiguration_Debug || a_configuration == BuildConfiguration_DebugFast)
     {
         CUBE_CProject_AppendDefine(&project, "DEBUG");
     }
@@ -288,7 +290,7 @@ static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfigu
 
     CUBE_CProject_AppendCFlag(&project, "-std=c11");
 
-    switch (a_configuration) 
+    switch (a_configuration)
     {
     case BuildConfiguration_Debug:
     {
@@ -296,6 +298,7 @@ static CUBE_CProject BuildKTXC(e_TargetPlatform a_targetPlatform, e_BuildConfigu
 
         break;
     }
+    case BuildConfiguration_DebugFast:
     case BuildConfiguration_ReleaseWithDebug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
@@ -325,7 +328,7 @@ static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfi
     project.Language = CUBE_CProjectLanguage_CPP;
     project.OutputPath = CUBE_Path_CreateC("./build/cpp/");
 
-    if (a_configuration == BuildConfiguration_Debug)
+    if (a_configuration == BuildConfiguration_Debug || a_configuration == BuildConfiguration_DebugFast)
     {
         CUBE_CProject_AppendDefine(&project, "DEBUG");
     }
@@ -375,7 +378,7 @@ static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfi
     CUBE_CProject_AppendCFlag(&project, "-std=c++11");
     CUBE_CProject_AppendCFlag(&project, "-msse4.1");
 
-    switch (a_configuration) 
+    switch (a_configuration)
     {
     case BuildConfiguration_Debug:
     {
@@ -383,6 +386,7 @@ static CUBE_CProject BuildKTXCPP(e_TargetPlatform a_targetPlatform, e_BuildConfi
 
         break;
     }
+    case BuildConfiguration_DebugFast:
     case BuildConfiguration_ReleaseWithDebug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
@@ -412,7 +416,7 @@ static CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildCo
     project.Language = CUBE_CProjectLanguage_C;
     project.OutputPath = CUBE_Path_CreateC("./build/writec/");
 
-    if (a_configuration == BuildConfiguration_Debug)
+    if (a_configuration == BuildConfiguration_Debug || a_configuration == BuildConfiguration_DebugFast)
     {
         CUBE_CProject_AppendDefine(&project, "DEBUG");
     }
@@ -486,6 +490,7 @@ static CUBE_CProject BuildKTXWriteC(e_TargetPlatform a_targetPlatform, e_BuildCo
 
         break;
     }
+    case BuildConfiguration_DebugFast:
     case BuildConfiguration_ReleaseWithDebug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
@@ -515,7 +520,7 @@ static CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_Build
     project.Language = CUBE_CProjectLanguage_CPP;
     project.OutputPath = CUBE_Path_CreateC("./build/writecpp");
 
-    if (a_configuration == BuildConfiguration_Debug)
+    if (a_configuration == BuildConfiguration_Debug || a_configuration == BuildConfiguration_DebugFast)
     {
         CUBE_CProject_AppendDefine(&project, "DEBUG");
     }
@@ -590,6 +595,7 @@ static CUBE_CProject BuildKTXWriteCPP(e_TargetPlatform a_targetPlatform, e_Build
 
         break;
     }
+    case BuildConfiguration_DebugFast:
     case BuildConfiguration_ReleaseWithDebug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
@@ -620,7 +626,7 @@ static CUBE_CProject BuildUnzip(e_TargetPlatform a_targetPlatform, e_BuildConfig
     project.Language = CUBE_CProjectLanguage_C;
     project.OutputPath = CUBE_Path_CreateC("./build/");
 
-    if (a_configuration == BuildConfiguration_Debug)
+    if (a_configuration == BuildConfiguration_Debug || a_configuration == BuildConfiguration_DebugFast)
     {
         CUBE_CProject_AppendDefine(&project, "DEBUG");
     }
@@ -655,6 +661,7 @@ static CUBE_CProject BuildUnzip(e_TargetPlatform a_targetPlatform, e_BuildConfig
 
         break;
     }
+    case BuildConfiguration_DebugFast:
     case BuildConfiguration_ReleaseWithDebug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
@@ -685,7 +692,7 @@ static CUBE_CProject BuildZLib(e_TargetPlatform a_targetPlatform, e_BuildConfigu
     project.Language = CUBE_CProjectLanguage_C;
     project.OutputPath = CUBE_Path_CreateC("./build/");
 
-    if (a_configuration == BuildConfiguration_Debug)
+    if (a_configuration == BuildConfiguration_Debug || a_configuration == BuildConfiguration_DebugFast)
     {
         CUBE_CProject_AppendDefine(&project, "DEBUG");
     }
@@ -729,7 +736,7 @@ static CUBE_CProject BuildZLib(e_TargetPlatform a_targetPlatform, e_BuildConfigu
         "./zutil.c"
     );
 
-    switch (a_configuration) 
+    switch (a_configuration)
     {
     case BuildConfiguration_Debug:
     {
@@ -737,6 +744,7 @@ static CUBE_CProject BuildZLib(e_TargetPlatform a_targetPlatform, e_BuildConfigu
 
         break;
     }
+    case BuildConfiguration_DebugFast:
     case BuildConfiguration_ReleaseWithDebug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
@@ -767,7 +775,7 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
     project.Language = CUBE_CProjectLanguage_CPP;
     project.OutputPath = CUBE_Path_CreateC("./build/");
 
-    if (a_configuration == BuildConfiguration_Debug)
+    if (a_configuration == BuildConfiguration_Debug || a_configuration == BuildConfiguration_DebugFast)
     {
         CUBE_CProject_AppendDefine(&project, "DEBUG");
     }
@@ -784,7 +792,7 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
         );
     }
 
-    CUBE_CProject_AppendDefines(&project, 
+    CUBE_CProject_AppendDefines(&project,
         "RAPIDJSON_HAS_STDSTRING",
 
         "ASSIMP_BUILD_NO_EXPORT",
@@ -957,7 +965,7 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
         "./code/AssetLib/Irr/IRRShared.cpp"
     );
 
-    switch (a_configuration) 
+    switch (a_configuration)
     {
     case BuildConfiguration_Debug:
     {
@@ -965,6 +973,7 @@ static CUBE_CProject BuildAssimp(e_TargetPlatform a_targetPlatform, e_BuildConfi
 
         break;
     }
+    case BuildConfiguration_DebugFast:
     case BuildConfiguration_ReleaseWithDebug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
@@ -1051,6 +1060,7 @@ static CUBE_CProject BuildENetProject(e_TargetPlatform a_targetPlatform, e_Build
 
         break;
     }
+    case BuildConfiguration_DebugFast:
     case BuildConfiguration_ReleaseWithDebug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
@@ -1086,7 +1096,7 @@ static CUBE_CProject BuildMeshOptimizer(e_TargetPlatform a_targetPlatform, e_Bui
     project.Language = CUBE_CProjectLanguage_CPP;
     project.OutputPath = CUBE_Path_CreateC("./build/");
 
-    CUBE_CProject_AppendSources(&project, 
+    CUBE_CProject_AppendSources(&project,
         "./src/allocator.cpp",
         "./src/clusterizer.cpp",
         "./src/indexanalyzer.cpp",
@@ -1116,6 +1126,7 @@ static CUBE_CProject BuildMeshOptimizer(e_TargetPlatform a_targetPlatform, e_Bui
 
         break;
     }
+    case BuildConfiguration_DebugFast:
     case BuildConfiguration_ReleaseWithDebug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");

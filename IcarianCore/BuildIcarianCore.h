@@ -25,7 +25,7 @@ CUBE_CProject BuildIcarianCoreProject(const char* a_path, CBBOOL a_enableAssert,
         CUBE_CProject_AppendDefine(&project, "ICARIAN_ENABLE_ASSERT");
     }
 
-    if (a_configuration == BuildConfiguration_Debug)
+    if (a_configuration == BuildConfiguration_Debug || a_configuration == BuildConfiguration_DebugFast)
     {
         CUBE_CProject_AppendDefine(&project, "DEBUG");
     }
@@ -42,7 +42,7 @@ CUBE_CProject BuildIcarianCoreProject(const char* a_path, CBBOOL a_enableAssert,
 
     if (a_targetPlatform == TargetPlatform_Windows)
     {
-        CUBE_CProject_AppendDefines(&project, 
+        CUBE_CProject_AppendDefines(&project,
             "WIN32",
             "_WIN32"
         );
@@ -123,6 +123,17 @@ CUBE_CProject BuildIcarianCoreProject(const char* a_path, CBBOOL a_enableAssert,
     case BuildConfiguration_Debug:
     {
         CUBE_CProject_AppendCFlag(&project, "-g");
+
+        break;
+    }
+    case BuildConfiguration_DebugFast:
+    {
+        CUBE_CProject_AppendCFlag(&project, "-g");
+
+        if (a_targetPlatform == TargetPlatform_Linux)
+        {
+            CUBE_CProject_AppendCFlag(&project, "-Og");
+        }
 
         break;
     }

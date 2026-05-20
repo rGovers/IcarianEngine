@@ -11,6 +11,7 @@
 #include "Config.h"
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "DeletionQueue.h"
 #include "FileCache.h"
 #include "InputManager.h"
@@ -23,7 +24,6 @@
 #include "Rendering/AnimationController.h"
 #include "Rendering/RenderEngine.h"
 #include "Rendering/UI/UIControl.h"
-#include "Rendering/Video/VideoManager.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 #include "ThreadPool.h"
@@ -99,7 +99,7 @@ RUNTIME_FUNCTION(void, Application, SetFullscreenState,
 
 static void AppAssertCallback(const std::string& a_string)
 {
-    Logger::Error(a_string);
+    Logger::Error(a_string.c_str());
 }
 
 Application::Application(Config* a_config)
@@ -115,15 +115,15 @@ Application::Application(Config* a_config)
     AssertCallbackFunc = (AssertCallback)AppAssertCallback;
 
     DeletionQueue::Init();
-    RuntimeManager::Init();
+    RuntimeManager::Init(a_config);
 
     if (a_config->IsHeadless())
     {
-        m_appWindow = new HeadlessAppWindow(this, a_config);
+        m_appWindow = MallocAllocator::Instance->Create<HeadlessAppWindow>(this, a_config);
     }
     else
     {
-        m_appWindow = new GLFWAppWindow(this, a_config);
+        m_appWindow = MallocAllocator::Instance->Create<GLFWAppWindow>(this, a_config);
     }
 
     const uint32_t cacheSize = a_config->GetFileCacheSize();
@@ -141,16 +141,15 @@ Application::Application(Config* a_config)
 
     AnimationController::Init();
 
-    m_inputManager = new InputManager();
+    m_inputManager = MallocAllocator::Instance->Create<InputManager>();
 
     ObjectManager::Init();
-    VideoManager::Init();
 
-    m_navigation = new Navigation();
-    m_audioEngine = new AudioEngine();
-    m_physicsEngine = new PhysicsEngine(m_config);
-    m_renderEngine = new RenderEngine(m_appWindow, m_config);
-    m_networkManager = new NetworkManager();
+    m_navigation = MallocAllocator::Instance->Create<Navigation>();
+    m_audioEngine = MallocAllocator::Instance->Create<AudioEngine>(m_config);
+    m_physicsEngine = MallocAllocator::Instance->Create<PhysicsEngine>(m_config);
+    m_renderEngine = MallocAllocator::Instance->Create<RenderEngine>(m_appWindow, m_config);
+    m_networkManager = MallocAllocator::Instance->Create<NetworkManager>();
 
     APPLICATION_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 
@@ -179,16 +178,15 @@ Application::~Application()
     AnimationController::Destroy();
     UIControl::Destroy();
 
-    delete m_navigation;
-    delete m_audioEngine;
-    delete m_physicsEngine;
-    delete m_renderEngine;
-    delete m_inputManager;
-    delete m_networkManager;
+    MallocAllocator::Instance->Destroy(m_navigation);
+    MallocAllocator::Instance->Destroy(m_audioEngine);
+    MallocAllocator::Instance->Destroy(m_physicsEngine);
+    MallocAllocator::Instance->Destroy(m_renderEngine);
+    MallocAllocator::Instance->Destroy(m_inputManager);
+    MallocAllocator::Instance->Destroy(m_networkManager);
     delete m_config;
 
     ObjectManager::Destroy();
-    VideoManager::Destroy();
 
     Random::Destroy();
     Profiler::Destroy();
@@ -198,7 +196,7 @@ Application::~Application()
     FileCache::Destroy();
 
     TRACE("Final Disposal");
-    delete m_appWindow;
+    MallocAllocator::Instance->Destroy(m_appWindow);
 }
 
 void Application::SetCursorState(e_CursorState a_state)

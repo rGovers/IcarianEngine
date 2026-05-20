@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <string>
+#include "DataTypes/COWString.h"
 
 enum e_MessageDialogType
 {
@@ -15,7 +15,7 @@ enum e_MessageDialogType
     MessageDialogType_End,
 };
 
-void MessageDialog(e_MessageDialogType a_type, const std::string& a_str);
+void MessageDialog(e_MessageDialogType a_type, const COWU8String& a_str);
 
 // MIT License
 // 

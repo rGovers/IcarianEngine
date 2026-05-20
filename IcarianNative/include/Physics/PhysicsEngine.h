@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "DataTypes/Dictionary.h"
 #ifdef WIN32
 // Windows being annoying again if it is not included first
 #include "Core/WindowsHeaders.h"
@@ -21,7 +22,6 @@
 #include <Jolt/Physics/Body/BodyID.h>
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <Jolt/Physics/PhysicsSystem.h>
-#include <unordered_map>
 
 #include "DataTypes/TNCArray.h"
 #include "Physics/IcBodyActivationListener.h"
@@ -36,6 +36,7 @@ class BlockAllocator;
 class Config;
 class PhysicsEngineBindings;
 class RuntimeFunction;
+class TrackerAllocator;
 
 struct BodyBinding
 {
@@ -58,50 +59,62 @@ private:
 
     static constexpr uint32_t MaxBodies = 65535;
     static constexpr uint32_t MaxContactConstraints = 1024 * 10;
-    static constexpr uint32_t AllocatorSize = 1024 * 1024 * 10;
+    static constexpr uint32_t TempAllocatorSize = 1024 * 1024 * 10;
     static constexpr uint32_t SmallAllocatorSize = 8 << 10;
     static constexpr uint32_t LargeAllocatorSize = 8 << 20;
 
-    BlockAllocator*                           m_smallAllocator;
-    BlockAllocator*                           m_largeAllocator;
+    struct ClassData
+    {
+        PhysicsEngineBindings*                    RuntimeBindings;
 
-    PhysicsEngineBindings*                    m_runtimeBindings;
+        JPH::TempAllocatorImpl*                   TempAllocator;
 
-    JPH::TempAllocatorImpl*                   m_tempAllocator;
+        // Apparently Intel decided no fun allowed so array instead of uint64_t
+        uint8_t                                   ObjectLayerCollisions[8];
 
-    // Apparently Intel decided no fun allowed so array instead of uint64_t
-    uint8_t                                   m_objectLayerCollisions[8];
+        double                                    FixedTimePassed;
+        double                                    FixedTimeStep;
+        double                                    FixedTimeTimer;
 
-    double                                    m_fixedTimePassed;
-    double                                    m_fixedTimeStep;
-    double                                    m_fixedTimeTimer;
+        RuntimeFunction*                          FixedUpdateFunction;
 
-    RuntimeFunction*                          m_fixedUpdateFunction;
+        // FFS got foot gunned by RAII. Raw pointers it is then
+        IcPhysicsJobSystem*                       JobSystem;
+        IcBroadPhaseLayerInterface*               BroadPhase;
+        IcObjectVsBroadPhaseLayerFilter*          ObjectBroad;
+        IcObjectLayerPairFilter*                  PairFilter;
 
-    // FFS got foot gunned by RAII. Raw pointers it is then
-    IcPhysicsJobSystem*                       m_jobSystem;
-    IcBroadPhaseLayerInterface*               m_broadPhase;
-    IcObjectVsBroadPhaseLayerFilter*          m_objectBroad;
-    IcObjectLayerPairFilter*                  m_pairFilter;
+        IcBodyActivationListener*                 ActivationListener;
+        IcContactListener*                        ContactListener;
+        IcCharacterListener*                      CharacterListener;
 
-    IcBodyActivationListener*                 m_activationListener;
-    IcContactListener*                        m_contactListener;
-    IcCharacterListener*                      m_characterListener;
+        JPH::PhysicsSystem*                       PhysicsSystem;
 
-    JPH::PhysicsSystem*                       m_physicsSystem;
+        TNCArray<JPH::ShapeSettings::ShapeResult> CollisionShapes;
+        TNCArray<BodyBinding>                     BodyBindings;
+        TNCArray<JPH::CharacterVirtual*>          Characters;
 
-    SharedSpinLock                            m_bodyMapLock;
-    std::unordered_map<JPH::uint32, uint32_t> m_bodyMap;
+        Dictionary<JPH::uint32, uint32_t>         BodyMap;
+    };
 
-    TNCArray<JPH::ShapeSettings::ShapeResult> m_collisionShapes;
-    TNCArray<BodyBinding>                     m_bodyBindings;
-    TNCArray<JPH::CharacterVirtual*>          m_characters;
+    BlockAllocator*    m_smallAllocator;
+    BlockAllocator*    m_largeAllocator;
+
+    TrackerAllocator*  m_trackerAllocator;
+
+    Array<Allocator*>* m_allocatorChain;
+
+    ClassData*         m_data;
+
+    SharedSpinLock     m_bodyMapLock;
 
 protected:
 
 public:
     PhysicsEngine(Config* a_config);
     ~PhysicsEngine();
+
+    Allocator* GetAllocator() const;
 
     bool CanObjectLayersCollide(uint32_t a_lhs, uint32_t a_rhs) const;
 

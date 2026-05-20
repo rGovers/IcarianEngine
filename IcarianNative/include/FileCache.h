@@ -6,14 +6,16 @@
 
 #include <cstdint>
 #include <mutex>
-#include <string>
-#include <string_view>
-#include <unordered_map>
 
 #include "Core/SharedMemoryBuffer.h"
 #include "Core/Pipefile.h"
+#include "DataTypes/COWString.h"
+#include "DataTypes/Dictionary.h"
 #include "DataTypes/SpinLock.h"
 #include "FileHandles/CacheFileHandle.h"
+
+class BlockAllocator;
+class TrackerAllocator;
 
 enum e_PipeFileError
 {
@@ -27,14 +29,6 @@ enum e_PipeFileError
 class FileCache
 {
 private:
-    SharedSpinLock                               m_lock;
-    uint64_t                                     m_size;
-    uint64_t                                     m_allocated;
-    uint32_t                                     m_updateFrame;
-
-    // Use string as compilers seem to be hit or miss as to path as a key
-    std::unordered_map<std::string, FileBuffer*> m_files;
-
 #ifdef ICARIANNATIVE_ENABLE_PIPEFILE
 #ifndef WIN32
     static constexpr char CommandBufferName[] = "IcarianEditorAssetCommand";
@@ -42,27 +36,52 @@ private:
 #endif
 
     static constexpr uint32_t SharedBufferSize = 10 << 10;
-
-    uint32_t                                     m_pipefileID;
-
-    // May be a while so just use a mutex over a spinlock
-    std::mutex                                   m_commandPipelock;
-    std::mutex                                   m_dataPipelock;
-    std::mutex                                   m_readLock;
-
-    IcarianCore::SharedMemoryBuffer*             m_commandBuffer;
-    IcarianCore::SharedMemoryBuffer*             m_dataBuffer;
-
-    void*                                        m_readBuffer;
 #endif
 
-    FileCache(uint32_t a_sizeMiB, uint32_t a_pipefileID);
+    static constexpr uint32_t SmallAllocatorSize = 8 << 10;
+    static constexpr uint32_t LargeAllocatorSize = 8 << 20;
 
-    FileHandle* GenerateFileHandle(const std::string& a_path, FILE* a_file, uint64_t a_size);
+    struct ClassData
+    {
+        uint64_t                             Size;
+        uint32_t                             UpdateFrame;
+
+        // Use string as compilers seem to be hit or miss as to path as a key
+        Dictionary<COWU8String, FileBuffer*> Files;
+
+#ifdef ICARIANNATIVE_ENABLE_PIPEFILE
+        uint32_t                             PipefileID;
+
+        IcarianCore::SharedMemoryBuffer*     CommandBuffer;
+        IcarianCore::SharedMemoryBuffer*     DataBuffer;
+
+        void*                                ReadBuffer;
+#endif
+    };
+
+    BlockAllocator*                      m_smallAllocator;
+    BlockAllocator*                      m_largeAllocator;
+
+    Allocator*                           m_allocator;
+    TrackerAllocator*                    m_trackerAllocator;
+
+    Array<Allocator*>*                   m_allocatorChain;
+
+    ClassData*                           m_data;
+
+    SharedSpinLock                       m_lock;
+
+    // May be a while so just use a mutex over a spinlock
+    std::mutex                           m_commandPipelock;
+    std::mutex                           m_dataPipelock;
+    std::mutex                           m_readLock;
+
+    FileHandle* GenerateFileHandle(const COWU8String& a_path, FILE* a_file, uint64_t a_size);
 
 protected:
 
 public:
+    FileCache(uint32_t a_sizeMiB, uint32_t a_pipefileID);
     ~FileCache();
 
     static void Init(uint32_t a_sizeMiB, uint32_t a_pipefileID);
@@ -71,25 +90,37 @@ public:
     // I am not a fan of this there is a very bad flaw that can result in getting the data of an unrelated request for now but just ignoring it
     // Either way this has awful code smell and not happy with it
     // TOOD: Fix this may need to unify this into a single function with blocking depending on shit
-    static void SubmitPipeRequest(IcarianCore::e_PipefileDataType a_type, const std::string_view& a_path, uint32_t a_size = 0, uint32_t a_offset = 0);
-    static e_PipeFileError AwaitPipeData(IcarianCore::e_PipefileDataType a_type, const std::string_view& a_path, uint32_t* a_bufferSize, uint8_t** a_data);
-    static e_PipeFileError AwaitPipeData(IcarianCore::e_PipefileDataType a_type, const std::string_view& a_path, uint32_t a_offset, uint32_t* a_bufferSize, uint8_t** a_data);
+    static void SubmitPipeRequest(IcarianCore::e_PipefileDataType a_type, const char* a_path, uint32_t a_size = 0, uint32_t a_offset = 0);
+    static e_PipeFileError AwaitPipeData(IcarianCore::e_PipefileDataType a_type, const char* a_path, uint32_t* a_bufferSize, uint8_t** a_data);
+    static e_PipeFileError AwaitPipeData
+    (
+        IcarianCore::e_PipefileDataType a_type,
+        const char* a_path,
+        uint32_t a_offset,
+        uint32_t* a_bufferSize,
+        uint8_t** a_data
+    );
     static void FreePipeData();
 
-    static bool Exists(const std::string_view& a_str);
-    static bool ExistsInCache(const std::string_view& a_str);
+    static bool Exists(const char* a_path);
+    static bool Exists(const COWU8String& a_path);
+    static bool ExistsInCache(const char* a_path);
+    static bool ExistsInCache(const COWU8String& a_path);
 
     static void Update();
 
-    static void PushFile(const std::string_view& a_str, uint8_t* a_data, uint32_t a_size, bool a_pin);
-    static FileHandle* LoadCachedFile(const std::string_view& a_str);
+    static void PushFile(const char* a_path, const uint8_t* a_data, uint32_t a_size, bool a_pin);
+    static void PushFile(const COWU8String& a_path, const uint8_t* a_data, uint32_t a_size, bool a_pin);
+    static FileHandle* LoadCachedFile(const char* a_path);
+    static FileHandle* LoadCachedFile(const COWU8String& a_path);
 
-    static FileHandle* LoadFile(const std::string_view& a_path);
+    static FileHandle* LoadFile(const char* a_path);
+    static FileHandle* LoadFile(const COWU8String& a_path);
 };
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

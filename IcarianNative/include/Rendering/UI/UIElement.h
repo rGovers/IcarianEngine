@@ -23,6 +23,8 @@ enum e_UIElementType : uint16_t
 class UIElement
 {
 private:
+    Allocator*     m_allocator;
+
     uint32_t*      m_children;
     uint32_t       m_childCount;
 
@@ -46,8 +48,13 @@ private:
 protected:
 
 public:
-    UIElement();
+    UIElement(Allocator* a_allocator);
     virtual ~UIElement();
+
+    inline Allocator* GetAllocator()
+    {
+        return m_allocator;
+    }
 
     inline e_ElementState GetState() const
     {
@@ -83,7 +90,7 @@ public:
     {
         m_pos = a_pos;
     }
-    
+
     inline glm::vec2 GetSize() const
     {
         return m_size;
@@ -132,12 +139,12 @@ public:
         return UIElementType_Base;
     }
 
-    virtual void Update(RenderEngine* a_renderEngine);
+    virtual void Update(RenderEngine* a_renderEngine, Allocator* a_tempAllocator);
 };
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

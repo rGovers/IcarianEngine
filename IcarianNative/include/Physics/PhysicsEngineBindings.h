@@ -9,7 +9,8 @@
 
 #include <cstdint>
 #include <Jolt/Core/Core.h>
-#include <string_view>
+
+#include "DataTypes/COWString.h"
 
 class PhysicsEngine;
 
@@ -22,7 +23,7 @@ private:
     PhysicsEngine* m_engine;
 
     void AddBody(JPH::uint32 a_id, uint32_t a_index) const;
-    
+
 protected:
 
 public:
@@ -37,13 +38,14 @@ public:
 
     uint32_t CreateCapsuleShape(float a_height, float a_radius) const;
     float GetCapsuleShapeHeight(uint32_t a_addr) const;
-    float GetCasuleShapeRadius(uint32_t a_addr) const;
+    float GetCapsuleShapeRadius(uint32_t a_addr) const;
 
     uint32_t CreateCylinderShape(float a_height, float a_radius) const;
     float GetCylinderShapeHeight(uint32_t a_addr) const;
     float GetCylinderShapeRadius(uint32_t a_addr) const;
 
-    uint32_t CreateMeshShape(const std::string_view& a_path) const;
+    uint32_t CreateMeshShape(const char* a_path) const;
+    uint32_t CreateMeshShape(const COWU8String& a_path) const;
 
     void DestroyCollisionShape(uint32_t a_addr) const;
 
@@ -87,7 +89,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

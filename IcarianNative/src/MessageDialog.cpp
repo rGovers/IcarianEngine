@@ -18,9 +18,9 @@
     "Error",
 };
 
-void MessageDialog(e_MessageDialogType a_type, const std::string& a_str)
+void MessageDialog(e_MessageDialogType a_type, const COWU8String& a_str)
 {
-    switch (a_type) 
+    switch (a_type)
     {
     case MessageDialogType_Message:
     {
@@ -78,7 +78,7 @@ void MessageDialog(e_MessageDialogType a_type, const std::string& a_str)
 
     const char* dialogStr = DialogStrings[a_type];
 
-    MessageBoxA(NULL, a_str.c_str(), dialogStr, type);
+    MessageBoxA(NULL, a_str.CStr(), dialogStr, type);
 #endif
 }
 

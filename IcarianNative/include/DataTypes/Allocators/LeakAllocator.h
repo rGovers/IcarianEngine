@@ -14,10 +14,11 @@
 
 #include <cstdio>
 
-#include "DataTypes/COWString.h"
 #include "DataTypes/Dictionary.h"
 #include "DataTypes/SpinLock.h"
 #include "DataTypes/ThreadGuard.h"
+
+ICARIAN_PUSH_FASTALLOCTOR
 
 class LeakAllocator : public ComplexAllocator
 {
@@ -26,7 +27,9 @@ private:
 
     struct Metadata
     {
-        Array<COWU8String> Stacktrace;
+#ifdef __linux__
+        Array<void*> Backtrace;
+#endif
         uint64_t Size;
     };
 
@@ -38,6 +41,110 @@ private:
     // I have a lot more to worry about in Debug performance wise
     // We should probably handle this better down the line however
     SpinLock                    m_lock;
+
+    static void PrintBacktrace(const Metadata& a_metadata)
+    {
+#ifdef __linux__
+        const uint32_t backtraceSize = a_metadata.Backtrace.Size();
+        if (backtraceSize <= 1)
+        {
+            printf("Unknown Stacktrace \n");
+
+            return;
+        }
+
+        void* const* backtraceData = a_metadata.Backtrace.Data();
+        char** symbols = backtrace_symbols(backtraceData, backtraceSize);
+        IDEFER(free(symbols));
+
+        for (uint32_t i = 1; i < backtraceSize; ++i)
+        {
+            const char* symStr = symbols[i];
+            if (symStr == NULL || symStr[0] == 0)
+            {
+                printf("[%d] Unknown symbol \n", i - 1);
+
+                continue;
+            }
+
+#ifdef __GNUC__
+            const uint32_t startIndex = ILAMBDA(
+            {
+                const char* slider = symStr;
+                while (*slider != 0)
+                {
+                    if (*slider == '(')
+                    {
+                        ILRETURN (uint32_t)(slider - symStr);
+                    }
+
+                    ++slider;
+                }
+
+                ILRETURN uint32_t(-1);
+            });
+            if (startIndex != uint32_t(-1))
+            {
+                const uint32_t nextIndex = startIndex + 1;
+
+                const uint32_t endIndex = ILAMBDA(
+                {
+                    const char* slider = symStr + nextIndex;
+                    while (*slider != 0)
+                    {
+                        if (*slider == '+')
+                        {
+                            ILRETURN (uint32_t)(slider - symStr);
+                        }
+
+                        ++slider;
+                    }
+
+                    ILRETURN uint32_t(-1);
+                });
+
+                if (endIndex != uint32_t(-1))
+                {
+                    constexpr uint32_t BufferSize = 2048;
+
+                    const uint32_t size = ILAMBDA(
+                    {
+                        const uint32_t val = endIndex - nextIndex;
+                        if (val > BufferSize - 2)
+                        {
+                            ILRETURN BufferSize - 2;
+                        }
+
+                        ILRETURN val;
+                    });
+
+                    if (size > 0)
+                    {
+                        char buffer[BufferSize];
+                        memcpy(buffer, symStr + nextIndex, size);
+                        buffer[size] = 0;
+
+                        char* name = abi::__cxa_demangle(buffer, NULL, NULL, NULL);
+                        IDEFER(free(name));
+
+                        if (name != NULL && name[0] != 0)
+                        {
+                            printf("[%d] %s %s \n", i - 1, name, symStr);
+
+                            continue;
+                        }
+
+                        printf("[%d] %s %s \n", i - 1, buffer, symStr);
+
+                        continue;
+                    }
+                }
+            }
+#endif
+            printf("[%d] %s \n", i - 1, symStr);
+        }
+#endif
+    }
 
 protected:
 
@@ -65,18 +172,7 @@ public:
                 printf("    Leaked allocation of size %lu bytes \n\n", m.Size);
                 printf(" --------------------------------------- \n\n");
 
-                const uint32_t size = m.Stacktrace.Size();
-                if (size <= 0)
-                {
-                    printf("Unknown Stacktrace \n");
-
-                    continue;
-                }
-
-                for (uint32_t i = 0; i < size; ++i)
-                {
-                    printf("[%d] %s \n", i, m.Stacktrace[i].CStr());
-                }
+                PrintBacktrace(m);
             }
 
             IERROR("Leak allocator detected leaked memory");
@@ -103,101 +199,17 @@ public:
 
         void* ptr = m_upstreamAllocator->Allocate(a_size, a_alignment);
 
-        Array<COWU8String> bkArray = Array<COWU8String>(m_upstreamAllocator);
 #ifdef __linux__
-        void* array[BacktraceSize];
-        const uint32_t size = (uint32_t)backtrace(array, BacktraceSize);
-
-        char** symbols = backtrace_symbols(array, (int)size);
-        IDEFER(free(symbols));
-
-        for (uint32_t i = 0; i < size; ++i)
-        {
-            const char* str = symbols[i];
-            if (str == nullptr)
-            {
-                const COWU8String symbolStr = COWU8String("Unknown Symbol", m_storageAllocator);
-                bkArray.Push(symbolStr);
-
-                continue;
-            }
-
-#ifdef __GNUC__
-            const char* slider = str;
-            while (*slider != 0)
-            {
-                ++slider;
-            }
-
-            char* buffer = m_storageAllocator->ZTAllocate<char>((slider - str) + 1);
-            IDEFER(m_storageAllocator->Free(buffer));
-
-            if (buffer != NULL)
-            {
-                bool write = false;
-                uint32_t writeIndex = 0;
-
-                slider = str;
-                while (true)
-                {
-                    const char chr = *slider;
-                    if (chr == 0)
-                    {
-                        break;
-                    }
-
-                    if (chr == ')' || chr == '+')
-                    {
-                        buffer[writeIndex] = 0;
-
-                        break;
-                    }
-
-                    if (write)
-                    {
-                        buffer[writeIndex++] = chr;
-                    }
-
-                    if (chr == '(')
-                    {
-                        write = true;
-                    }
-
-                    ++slider;
-                }
-
-                char* name = abi::__cxa_demangle(buffer, NULL, NULL, NULL);
-                if (name == NULL)
-                {
-                    const COWU8String symbolStr = COWU8String(buffer, m_storageAllocator);
-                    bkArray.Push(symbolStr);
-
-                    continue;
-                }
-                IDEFER(free(name));
-
-                const COWU8String symbolStr = COWU8String(name, m_storageAllocator);
-                bkArray.Push(symbolStr);
-            }
-            else
-            {
-                const COWU8String symbolStr = COWU8String("Unknown Symbol", m_storageAllocator);
-                bkArray.Push(symbolStr);
-            }
-#else
-            const COWU8String symbolStr = COWU8String(str, m_storageAllocator);
-            bkArray.Push(symbolStr);
-#endif
-        }
-#endif
+        void* bt[BacktraceSize];
+        const uint32_t btSize = (uint32_t)backtrace(bt, BacktraceSize);
 
         const Metadata data =
         {
-            .Stacktrace = bkArray,
+            .Backtrace = Array<void*>(bt, btSize, m_storageAllocator),
             .Size = a_size,
         };
-
         m_data.Push(ptr, data);
+#endif
 
         return ptr;
     }
@@ -217,7 +229,6 @@ public:
                 IERROR("Likely multi free or does not exist");
             }
         }
-        IDEFER(Free(a_ptr));
 
         const Metadata data = ILAMBDA(
         {
@@ -225,6 +236,13 @@ public:
 
             ILRETURN m_data[a_ptr];
         });
+
+        if (data.Size >= a_size)
+        {
+            return a_ptr;
+        }
+        IDEFER(Free(a_ptr));
+
         void* ptr = Allocate(a_size, a_alignment);
         memcpy(ptr, a_ptr, data.Size);
 
@@ -248,6 +266,8 @@ public:
         m_upstreamAllocator->Free(a_ptr);
     }
 };
+
+ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
 // 

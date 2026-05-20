@@ -21,7 +21,7 @@
     }, IOP_UINT32 a_addr) \
     F(float, IcarianEngine.Physics.Shapes, CapsuleCollisionShapeInterop, GetRadius, \
     { \
-        return Instance->GetCasuleShapeRadius(a_addr); \
+        return Instance->GetCapsuleShapeRadius(a_addr); \
     }, IOP_UINT32 a_addr) \
 
 
@@ -29,7 +29,7 @@
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

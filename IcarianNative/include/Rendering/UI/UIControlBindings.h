@@ -4,10 +4,10 @@
 
 #pragma once
 
-#define GLM_FORCE_SWIZZLE 
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
-#include <string>
+#include "DataTypes/COWString.h"
 
 class RuntimeManager;
 class UIControl;
@@ -49,8 +49,9 @@ public:
     e_ElementState GetElementState(uint32_t a_addr) const;
 
     uint32_t CreateTextElement() const;
-    std::u32string GetTextElementText(uint32_t a_addr) const;
-    void SetTextElementText(uint32_t a_addr, const std::u32string_view& a_text) const;
+    COWU32String GetTextElementText(uint32_t a_addr) const;
+    void SetTextElementText(uint32_t a_addr, const CharU32* a_text) const;
+    void SetTextElementText(uint32_t a_addr, const COWU32String& a_text) const;
     uint32_t GetTextElementFont(uint32_t a_addr) const;
     void SetTextElementFont(uint32_t a_addr, uint32_t a_fontAddr) const;
     float GetTextElementFontSize(uint32_t a_addr) const;

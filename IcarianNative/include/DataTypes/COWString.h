@@ -4,7 +4,20 @@
 
 #pragma once
 
-#include "DataTypes/COWBasicString.h"
+#include <cstdint>
+
+class Allocator;
+template<typename CharType>
+class COWBasicString;
+
+// Grumble Grumble
+// Have to define our own char types as for some reason char8_t is missing until C++20/C23
+// GCC pulled char8_t back to C++11 so yeah standards thing despite the fact it will compile without warnings
+// Clang also has a habbit of copying GCC so yeah....
+// Not the end of the world as Unicode is built around 8, 16 and 32 bit integer types just annoying
+typedef uint8_t CharU8;
+typedef uint16_t CharU16;
+typedef uint32_t CharU32;
 
 using COWU8String = COWBasicString<CharU8>;
 using COWU16String = COWBasicString<CharU16>;
@@ -20,6 +33,8 @@ COWU8String COWU8FromUnicode(const COWU16String& a_str, Allocator* a_allocator);
 COWU8String COWU8FromUnicode(const CharU32* a_str, Allocator* a_allocator);
 COWU8String COWU8FromUnicode(const CharU32* a_str, uint32_t a_length, Allocator* a_allocator);
 COWU8String COWU8FromUnicode(const COWU32String& a_str, Allocator* a_allocator);
+
+#include "DataTypes/COWBasicString.h"
 
 // MIT License
 // 

@@ -5,30 +5,71 @@
 #include "DataTypes/Allocators/MallocAllocator.h"
 
 #include "DataTypes/Allocators/LeakAllocator.h"
+#include "DataTypes/Allocators/TrackerAllocator.h"
 
 Allocator* MallocAllocator::Instance = nullptr;
+TrackerAllocator* MallocAllocator::TrackerInstance = nullptr;
+
+constexpr uint32_t AllocatorChainSize = 4;
+static Allocator* AllocatorChain[AllocatorChainSize];
+
+static void InsertAllocator(Allocator* a_allocator)
+{
+    for (uint32_t i = 0; i < AllocatorChainSize; ++i)
+    {
+        if (AllocatorChain[i] != nullptr)
+        {
+            continue;
+        }
+
+        AllocatorChain[i] = a_allocator;
+
+        return;
+    }
+
+    IERROR("No more room for allocators in chain");
+}
 
 void MallocAllocator::Init()
 {
-    if (MallocAllocator::Instance == nullptr)
+    if (Instance == nullptr)
     {
-        MallocAllocator::Instance = new MallocAllocator();
+        for (uint32_t i = 0; i < AllocatorChainSize; ++i)
+        {
+            AllocatorChain[i] = nullptr;
+        }
+
+        MallocAllocator* mallocAlloc = new MallocAllocator();
+        InsertAllocator(mallocAlloc);
+
+        TrackerAllocator* tracker = new TrackerAllocator(mallocAlloc);
+        TrackerInstance = tracker;
+        Instance = tracker;
+        InsertAllocator(tracker);
 
 #ifdef DEBUG
-        MallocAllocator::Instance = new LeakAllocator(MallocAllocator::Instance);
+        LeakAllocator* leakAllocator = new LeakAllocator(Instance);
+        Instance = leakAllocator;
+        InsertAllocator(leakAllocator);
 #endif
     }
 }
 void MallocAllocator::Destroy()
 {
-    if (MallocAllocator::Instance != nullptr)
+    if (Instance != nullptr)
     {
-#ifdef DEBUG
-        Allocator* upstreamAllocator = ((LeakAllocator*)MallocAllocator::Instance)->GetUpstreamAllocator();
-        IDEFER(delete upstreamAllocator);
-#endif
-        delete MallocAllocator::Instance;
-        MallocAllocator::Instance = nullptr;
+        for (uint32_t i = 0; i < AllocatorChainSize; ++i)
+        {
+            Allocator* alloc = AllocatorChain[AllocatorChainSize - i - 1];
+            if (alloc == nullptr)
+            {
+                continue;
+            }
+
+            delete alloc;
+        }
+
+        Instance = nullptr;
     }
 }
 

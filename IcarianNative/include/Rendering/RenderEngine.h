@@ -34,6 +34,8 @@ private:
     friend class VulkanRenderEngineBackend;
 #endif
 
+    // TODO: Probably need to tune this number
+    static constexpr double SleepMillisecondBuffer = 0.1;
     static constexpr uint32_t PastDeltaCount = 10;
     static constexpr float MinFrameTime = 1 / 500.0f;
     static constexpr float MaxFrameTime = 1 / 50.0f;

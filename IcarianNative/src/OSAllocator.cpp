@@ -8,39 +8,54 @@
 #include "DataTypes/Allocators/LeakAllocator.h"
 
 Allocator* OSAllocator::Instance = nullptr;
+TrackerAllocator* OSAllocator::TrackerInstance = nullptr;
+
+// Need to unwind in a specific order so need to keep track of everything
+static OSAllocator* InternalOSAllocator = nullptr;
+static BlockAllocator* InternalBlockAllocator = nullptr;
+static LeakAllocator* InternalLeakAllocator = nullptr;
 
 void OSAllocator::Init()
 {
-    if (OSAllocator::Instance == nullptr)
+    if (Instance == nullptr)
     {
-        OSAllocator::Instance = new OSAllocator();
+        OSAllocator* osAlloc = new OSAllocator();
+        InternalOSAllocator = osAlloc;
+
+        TrackerAllocator* tracker = new TrackerAllocator(osAlloc);
+        TrackerInstance = tracker;
+        Instance = tracker;
 
 #ifdef DEBUG
-        // Preferably do not want he LeakDetector to run on raw pages so allocate a BlockAllocator for it
-        // Still want a LeakAllocator to see if we leak memory pages we get from the OS
-        // This leak detector should never trigger but if it does it likely means there is a broken Allocator implementation in the codebase
-        BlockAllocator* blockAllocator = new BlockAllocator(8 << 10, OSAllocator::Instance);
-
-        OSAllocator::Instance = new LeakAllocator(OSAllocator::Instance, blockAllocator);
+        InternalBlockAllocator = new BlockAllocator(8 << 10, Instance);
+        InternalLeakAllocator = new LeakAllocator(Instance, InternalBlockAllocator);
+        Instance = InternalLeakAllocator;
 #endif
     }
 }
 void OSAllocator::Destroy()
 {
-    if (OSAllocator::Instance != nullptr)
+    if (Instance != nullptr)
     {
-#ifdef DEBUG
-        LeakAllocator* leakAllocator = (LeakAllocator*)OSAllocator::Instance;
+        if (InternalLeakAllocator != nullptr)
+        {
+            delete InternalLeakAllocator;
+            InternalLeakAllocator = nullptr;
+        }
 
-        Allocator* upstreamAllocator = leakAllocator->GetUpstreamAllocator();
-        IDEFER(delete upstreamAllocator);
+        if (InternalBlockAllocator != nullptr)
+        {
+            delete InternalBlockAllocator;
+            InternalBlockAllocator = nullptr;
+        }
 
-        Allocator* storageAllocator = leakAllocator->GetStorageAllocator();
-        IDEFER(delete storageAllocator);
-#endif
+        delete TrackerInstance;
+        TrackerInstance = nullptr;
 
-        delete OSAllocator::Instance;
-        OSAllocator::Instance = nullptr;
+        delete InternalOSAllocator;
+        InternalOSAllocator = nullptr;
+
+        Instance = nullptr;
     }
 }
 

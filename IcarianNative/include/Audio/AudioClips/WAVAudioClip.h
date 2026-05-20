@@ -6,13 +6,12 @@
 
 #include "Audio/AudioClips/AudioClip.h"
 
-#include <string>
-#include <string_view>
+#include "DataTypes/COWString.h"
 
 class WAVAudioClip : public AudioClip
 {
 private:
-    std::string   m_path;
+    COWU8String   m_path;
 
     uint64_t      m_dataOffset;
     uint64_t      m_dataSize;
@@ -25,7 +24,7 @@ private:
 protected:
 
 public:
-    WAVAudioClip(const std::string_view& a_path);
+    WAVAudioClip(const COWU8String& a_path, Allocator* a_allocator);
     virtual ~WAVAudioClip();
 
     virtual float GetDuration() const;
@@ -36,12 +35,12 @@ public:
 
     virtual e_AudioFormat GetAudioFormat() const;
 
-    virtual uint8_t* GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize);
+    virtual uint8_t* GetAudioData(Allocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize);
 };
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

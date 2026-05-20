@@ -14,7 +14,7 @@ private:
 protected:
 
 public:
-    ImageUIElement();
+    ImageUIElement(Allocator* a_allocator);
     virtual ~ImageUIElement();
 
     virtual e_UIElementType GetType() const
@@ -31,12 +31,12 @@ public:
         m_samplerAddr = a_addr;
     }
 
-    virtual void Update(RenderEngine* a_renderEngine);
+    virtual void Update(RenderEngine* a_renderEngine, Allocator* a_tempAllocator);
 };
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

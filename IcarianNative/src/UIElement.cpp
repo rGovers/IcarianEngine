@@ -7,8 +7,10 @@
 
 #include <glm/gtx/matrix_transform_2d.hpp>
 
-UIElement::UIElement()
+UIElement::UIElement(Allocator* a_allocator)
 {
+    m_allocator = a_allocator;
+
     m_parent = -1;
     m_childCount = 0;
     m_children = nullptr;
@@ -27,25 +29,21 @@ UIElement::~UIElement()
 {
     if (m_children != nullptr)
     {
-        delete[] m_children;
+        m_allocator->Free(m_children);
         m_children = nullptr;
     }
 }
 
 void UIElement::AddChild(uint32_t a_childAddr)
 {
-    const uint32_t* oldBuffer = m_children;
-    IDEFER(
-    if (oldBuffer != nullptr)
-    {
-        delete[] oldBuffer;
-    });
+    uint32_t* oldBuffer = m_children;
+    IDEFER(m_allocator->Free(oldBuffer));
 
-    m_children = new uint32_t[m_childCount + 1];
+    m_children = m_allocator->TAllocate<uint32_t>(m_childCount + 1);
     for (uint32_t i = 0; i < m_childCount; ++i)
     {
         m_children[i] = oldBuffer[i];
-    } 
+    }
 
     m_children[m_childCount++] = a_childAddr;
 }
@@ -53,17 +51,19 @@ void UIElement::RemoveChild(uint32_t a_childAddr)
 {
     for (uint32_t i = 0; i < m_childCount; ++i) 
     {
-        if (m_children[i] == a_childAddr) 
+        if (m_children[i] != a_childAddr) 
         {
-            --m_childCount;
-
-            for (uint32_t j = i; j < m_childCount; ++j) 
-            {
-                m_children[j] = m_children[j + 1];
-            }
-
-            return;
+            continue;
         }
+
+        --m_childCount;
+
+        for (uint32_t j = i; j < m_childCount; ++j) 
+        {
+            m_children[j] = m_children[j + 1];
+        }
+
+        return;
     }
 }
 
@@ -71,7 +71,7 @@ float UIElement::GetXPosition(const CanvasBuffer& a_canvas, const glm::vec2& a_s
 {
     const float scaledPos = m_pos.x / a_canvas.ReferenceResolution.x;
 
-    switch (m_xAnchor) 
+    switch (m_xAnchor)
     {
     case UIXAnchor_Left:
     {
@@ -166,7 +166,7 @@ float UIElement::GetXSize(const CanvasBuffer& a_canvas, const glm::vec2& a_scree
 {
     const float scaled = m_size.x / a_canvas.ReferenceResolution.x;
 
-    switch (m_xAnchor) 
+    switch (m_xAnchor)
     {
     case UIXAnchor_Left:
     case UIXAnchor_Middle:
@@ -236,14 +236,14 @@ glm::vec2 UIElement::GetCanvasScale(const CanvasBuffer& a_canvas, const glm::vec
     );
 }
 
-void UIElement::Update(RenderEngine* a_renderEngine)
+void UIElement::Update(RenderEngine* a_renderEngine, Allocator* a_tempAllocator)
 {
 
 }
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

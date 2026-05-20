@@ -6,11 +6,14 @@
 
 #include <chrono>
 #include <functional>
-#include <shared_mutex>
-#include <string>
 #include <thread>
 #include <unordered_map>
-#include <vector>
+
+#include "Core/IcarianDefer.h"
+#include "Core/MemoryUsageFrame.h"
+#include "DataTypes/Array.h"
+#include "DataTypes/COWString.h"
+#include "DataTypes/SpinLock.h"
 
 #if !defined(NDEBUG) && !defined(ICARIANNATIVE_ENABLE_PROFILER)
 #define ICARIANNATIVE_ENABLE_PROFILER
@@ -18,11 +21,19 @@
 
 struct ProfileFrame
 {
-    std::string Name;
+    COWU8String Name;
     double Duration;
     std::chrono::high_resolution_clock::time_point StartTime;
     uint32_t Stack;
     bool End;
+};
+
+enum e_ProfilerMemoryFrame
+{
+    ProfilerMemoryFrame_CSharp,
+    ProfilerMemoryFrame_Audio,
+    ProfilerMemoryFrame_Rendering,
+    ProfilerMemoryFrame_Physics,
 };
 
 class Profiler
@@ -30,23 +41,22 @@ class Profiler
 public:
     struct PData
     {
-        std::string Name;
-        std::vector<ProfileFrame> Frames;
+        COWU8String Name;
+        Array<ProfileFrame> Frames;
     };
 
     typedef std::function<void(const PData&)> Callback;
 
 private:
-    static Profiler* Instance;
+    SharedSpinLock                             m_lock;
 
-    std::shared_mutex                          m_mutex;
     std::unordered_map<std::thread::id, PData> m_data;
-
-    Profiler();
+    IcarianCore::MemoryUsageFrame              m_memoryFrame;
 
 protected:
 
 public:
+    Profiler();
     ~Profiler();
 
     static Callback* CallbackFunc;
@@ -54,23 +64,16 @@ public:
     static void Init();
     static void Destroy();
 
-    static void Start(const std::string_view& a_name);
+    static void Start(const char* a_name);
+    static void Start(const COWU8String& a_name);
     static void Stop();
 
-    static void StartFrame(const std::string_view& a_name);
-    static void StopFrame();
-};
+    static void PushMemoryFrame(e_ProfilerMemoryFrame a_frame, uint64_t a_size);
+    static IcarianCore::MemoryUsageFrame GetMemoryFrames();
 
-struct StackProfilerFrame 
-{ 
-    StackProfilerFrame(const std::string_view& a_name)
-    { 
-        Profiler::StartFrame(a_name); 
-    } 
-    ~StackProfilerFrame() 
-    { 
-        Profiler::StopFrame(); 
-    } 
+    static void StartFrame(const char* a_name);
+    static void StartFrame(const COWU8String& a_name);
+    static void StopFrame();
 };
 
 #ifndef PROFILESTACK
@@ -78,7 +81,7 @@ struct StackProfilerFrame
 #define ICARIAN_PROFILE_VAL_NAMEI(i) pFrame##i
 #define ICARIAN_PROFILE_VAL_NAME(i) ICARIAN_PROFILE_VAL_NAMEI(i)
 
-#define PROFILESTACK(str) volatile StackProfilerFrame ICARIAN_PROFILE_VAL_NAME(__COUNTER__) = StackProfilerFrame(str)
+#define PROFILESTACK(str) Profiler::StartFrame(str); IDEFER(Profiler::StopFrame())
 #else
 #define PROFILESTACK(str) void(0)
 #endif
@@ -86,7 +89,7 @@ struct StackProfilerFrame
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

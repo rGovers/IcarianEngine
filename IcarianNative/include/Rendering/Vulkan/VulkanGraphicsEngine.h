@@ -139,7 +139,6 @@ private:
     TNCArray<VulkanModel*>                  m_models;
     TNCArray<VulkanMesh*>                   m_meshes;
     TNCArray<VulkanTexture*>                m_textures;
-    TNCArray<VulkanVideoTexture*>           m_videoTextures;
 
     TNCArray<VulkanRenderTexture*>          m_renderTextures;
     TNCArray<VulkanDepthCubeRenderTexture*> m_depthCubeRenderTextures;

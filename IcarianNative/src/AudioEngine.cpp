@@ -6,6 +6,7 @@
 
 #include "Audio/AudioClips/AudioClip.h"
 #include "Audio/AudioEngineBindings.h"
+#include "Config.h"
 #include "Core/Bitfield.h"
 #include "Core/IcarianError.h"
 #include "DataTypes/Allocators/BlockAllocator.h"
@@ -14,6 +15,7 @@
 #include "DataTypes/Allocators/MultiSourceAllocator.h"
 #include "DataTypes/Allocators/OSAllocator.h"
 #include "DataTypes/Allocators/RingAllocator.h"
+#include "DataTypes/Allocators/UberAllocator.h"
 #include "IcarianError.h"
 #include "Logger.h"
 #include "ObjectManager.h"
@@ -42,12 +44,14 @@ static void MAIFree(void* a_ptr, void* a_userData)
     allocator->Free(a_ptr);
 }
 
-AudioEngine::AudioEngine()
+AudioEngine::AudioEngine(Config* a_config)
 {
     IERRBLOCK;
 
-    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, OSAllocator::Instance);
-    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, OSAllocator::Instance);
+    m_trackerAllocator = nullptr;
+
+    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, UberAllocator::Instance);
+    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, UberAllocator::Instance);
 
     const AllocationSource allocatorSources[] =
     {
@@ -65,14 +69,26 @@ AudioEngine::AudioEngine()
         },
     };
 
+    m_allocatorChain = m_smallAllocator->Create<Array<Allocator*>>(m_smallAllocator);
+
     constexpr uint32_t AllocatorCount = sizeof(allocatorSources) / sizeof(*allocatorSources);
 
     // External library so allow standalone allocations so it can do oversize allocations
     // I have no control over their memory so I cannot ensure that the allocations will fit
     // Otherwise use 16KiB block sizes and fit them in those blocks
     m_allocator = m_smallAllocator->Create<MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
+    m_allocatorChain->Push(m_allocator);
+
+    if (a_config->IsHeadless())
+    {
+        m_trackerAllocator = m_smallAllocator->Create<TrackerAllocator>(m_allocator);
+        m_allocator = m_trackerAllocator;
+        m_allocatorChain->Push(m_allocator);
+    }
+
 #ifdef DEBUG
     m_allocator = m_smallAllocator->Create<LeakAllocator>(m_allocator);
+    m_allocatorChain->Push(m_allocator);
 #endif
 
     m_init = true;
@@ -87,8 +103,6 @@ AudioEngine::AudioEngine()
     TRACE("Creating AudioEngine...");
     Instance = this;
 
-
-
     ma_engine_config config = ma_engine_config_init();
     // TODO: Multi listener
     config.listenerCount = 1;
@@ -100,8 +114,8 @@ AudioEngine::AudioEngine()
     IERRCHECK(ma_engine_init(&config, &m_engine) == MA_SUCCESS);
     IERRDEFER(ma_engine_uninit(&m_engine));
 
-    m_ringAllocator = m_allocator->Create<RingAllocator>(1 << 20, OSAllocator::Instance);
-    m_bindings = m_allocator->Create<AudioEngineBindings>(this);   
+    m_ringAllocator = m_allocator->Create<RingAllocator>(RingAllocatorSize, m_allocator);
+    m_bindings = m_allocator->Create<AudioEngineBindings>(this);
 }
 AudioEngine::~AudioEngine()
 {
@@ -169,13 +183,14 @@ AudioEngine::~AudioEngine()
 
     m_allocator->Destroy(m_ringAllocator);
 
+    const uint32_t allocatorChainSize = m_allocatorChain->Size();
+    for (uint32_t i = 0; i < allocatorChainSize; ++i)
     {
-#ifdef DEBUG
-        Allocator* upstreamAllocator = ((LeakAllocator*)m_allocator)->GetUpstreamAllocator();
-        IDEFER(m_smallAllocator->Destroy(upstreamAllocator));
-#endif
-        m_smallAllocator->Destroy(m_allocator);
+        Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
+        m_smallAllocator->Destroy(alloc);
     }
+
+    m_smallAllocator->Destroy(m_allocatorChain);
 
     MallocAllocator::Instance->Destroy(m_largeAllocator);
     MallocAllocator::Instance->Destroy(m_smallAllocator);
@@ -381,7 +396,7 @@ static ma_result MAIDataSourceGetDataFormat(ma_data_source* a_dataSource, ma_for
         }
         }
     }
-    
+
     return MA_SUCCESS;
 
     // return Instance->DataSourceGetDataFormat(a_dataSource, a_format, a_channels, a_sampleRate, a_channelMap, a_channelMapCap);
@@ -572,6 +587,13 @@ void AudioEngine::Update()
         return;
     }
 
+    if (m_trackerAllocator != nullptr)
+    {
+        const uint64_t size = m_trackerAllocator->GetMemoryUsage();
+
+        Profiler::PushMemoryFrame(ProfilerMemoryFrame_Audio, size);
+    }
+
     {
         PROFILESTACK("Audio Listeners");
 
@@ -740,6 +762,13 @@ void AudioEngine::Update()
                 ma_sound_set_direction(&source->MASound, forward.x, forward.y, forward.z);
             }
         }
+    }
+
+    {
+        PROFILESTACK("Audio Memory");
+
+        m_smallAllocator->TrimBlocks();
+        m_largeAllocator->TrimBlocks();
     }
 }
 

@@ -23,6 +23,8 @@
 #include "IcarianMemory.h"
 #include "Trace.h"
 
+ICARIAN_PUSH_FASTALLOCTOR
+
 // First time implementing an allocator that is not just a ring so please forgive me for the mess
 // Should probably have looked at existing allocators but fuck it we wing it in this house
 class BlockAllocator : public ComplexAllocator
@@ -67,20 +69,6 @@ private:
 
     BlockHeader* m_block;
     uint32_t     m_blockSize;
-
-    char** CreateBacktrace(uint32_t* a_size)
-    {
-        *a_size = 0;
-
-#ifdef __linux__
-        void* array[BacktraceSize];
-        *a_size = (uint32_t)backtrace(array, BacktraceSize);
-
-        return backtrace_symbols(array, *a_size);
-#endif
-
-        return nullptr;
-    }
 
     static AllocationHeader* AllocationFromPointer(const void* a_ptr)
     {
@@ -196,7 +184,7 @@ private:
     static bool IsBlockFree(const BlockHeader* a_header)
     {
         const AllocationHeader* allocHeader = GetFirstAllocation(a_header);
-        while (allocHeader != NULL) 
+        while (allocHeader != NULL)
         {
             IDEFER(allocHeader = NextAllocation(allocHeader));
 
@@ -382,7 +370,6 @@ public:
                 correctedHeader->BlockOffset = (uint32_t)((uintptr_t)correctedHeader - (uintptr_t)blockHeader);
                 correctedHeader->Flags = 0;
 
-
                 if (firstHeader == allocationHeader)
                 {
                     blockHeader->First = correctedHeader;
@@ -392,12 +379,23 @@ public:
                 const bool roomToSlice = remainingSize > 128;
                 if (!roomToSlice)
                 {
-                    // Not sure if I should just do the next header as even if it is not free the code should be able to handle it
-                    // Doing this for correctness as I do not want to walk the list further as I already have a pointer "allocated"
-                    // May walk the list or just set to the next in future need to think about it
                     if (blockHeader->Free == allocationHeader)
                     {
-                        blockHeader->Free = NULL;
+                        AllocationHeader* nextFree = NULL;
+                        AllocationHeader* iter = NextAllocation(allocationHeader);
+                        while (iter != NULL)
+                        {
+                            if (IISBITSET(iter->Flags, AllocationHeader::FreeFlagBit))
+                            {
+                                nextFree = iter;
+
+                                break;
+                            }
+
+                            iter = NextAllocation(iter);
+                        }
+
+                        blockHeader->Free = nextFree;
                     }
 
                     return ptr;
@@ -432,8 +430,7 @@ public:
 
     virtual void Free(void* a_ptr)
     {
-        const bool isNull = (uintptr_t)a_ptr < sizeof(AllocationHeader);
-        if (isNull)
+        if (a_ptr == nullptr)
         {
             return;
         }
@@ -523,8 +520,7 @@ public:
     // NOTE: This is not thread safe
     [[nodiscard]] virtual void* Realloc(void* a_ptr, uint64_t a_size, uint32_t a_alignment)
     {
-        const bool isNull = (uintptr_t)a_ptr < sizeof(AllocationHeader);
-        if (isNull)
+        if (a_ptr == nullptr)
         {
             return Allocate(a_size, a_alignment);
         }
@@ -594,6 +590,8 @@ public:
         return m_blockSize;
     }
 };
+
+ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
 // 

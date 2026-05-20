@@ -7,9 +7,8 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include <string_view>
-
 #include "DataTypes/Array.h"
+#include "DataTypes/COWString.h"
 
 struct NavigationFace
 {
@@ -23,27 +22,45 @@ struct NavigationFace
 class NavigationMesh
 {
 private:
-    uint32_t        m_vertexCount;
-    glm::vec3*      m_vertices;
+    Allocator*      m_allocator;
 
-    uint32_t        m_faceCount;
+    glm::vec3*      m_vertices;
     NavigationFace* m_faces;
+
+    uint32_t        m_vertexCount;
+    uint32_t        m_faceCount;
 
 protected:
 
 public:
-    NavigationMesh(const std::string_view& a_path);
+    NavigationMesh(const COWU8String& a_path, Allocator* a_allocator, Allocator* a_tempAllocator);
     ~NavigationMesh();
 
     uint32_t GetIndex(const glm::vec3& a_point) const;
 
-    Array<glm::vec3> GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const;
-    Array<glm::vec3> GeneratePath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, uint32_t a_startIndex, uint32_t a_endIndex, float a_agentRadius) const;
+    Array<glm::vec3> GeneratePath
+    (
+        const glm::vec3& a_startPoint,
+        const glm::vec3& a_endPoint,
+        float a_agentRadius,
+        Allocator* a_allocator,
+        Allocator* a_tempAllocator
+    ) const;
+    Array<glm::vec3> GeneratePath
+    (
+        const glm::vec3& a_startPoint,
+        const glm::vec3& a_endPoint,
+        uint32_t a_startIndex,
+        uint32_t a_endIndex,
+        float a_agentRadius,
+        Allocator* a_allocator,
+        Allocator* a_tempAllocator
+    ) const;
 };
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

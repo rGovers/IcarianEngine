@@ -8,9 +8,9 @@
 #include <glm/glm.hpp>
 
 #include <cstdint>
-#include <string_view>
 
 #include "DataTypes/Array.h"
+#include "DataTypes/COWString.h"
 
 class Navigation;
 
@@ -25,7 +25,8 @@ public:
     NavigationBindings(Navigation* a_navigation);
     ~NavigationBindings();
 
-    uint32_t CreateNavMesh(const std::string_view& a_path) const;
+    uint32_t CreateNavMesh(const char* a_path) const;
+    uint32_t CreateNavMesh(const COWU8String& a_path) const;
     void DestroyNavMesh(uint32_t a_addr) const;
     Array<glm::vec3> GetNavMeshPath(uint32_t a_addr, const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const;
 
@@ -34,7 +35,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

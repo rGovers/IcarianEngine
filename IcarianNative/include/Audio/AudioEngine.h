@@ -13,8 +13,10 @@
 class AudioClip;
 class AudioEngineBindings;
 class BlockAllocator;
+class Config;
 class ComplexAllocator;
 class RingAllocator;
+class TrackerAllocator;
 
 #include "EngineAudioSourceInteropStructures.h"
 #include "EngineAudioMixerInteropStructures.h"
@@ -37,9 +39,14 @@ private:
     constexpr static uint32_t SampleRate = 48000;
     constexpr static uint32_t SmallAllocatorSize = 8 << 10;
     constexpr static uint32_t LargeAllocatorSize = 8 << 20;
+    constexpr static uint32_t RingAllocatorSize = 1 << 20;
 
     BlockAllocator*               m_smallAllocator;
     BlockAllocator*               m_largeAllocator;
+
+    TrackerAllocator*             m_trackerAllocator;
+
+    Array<Allocator*>*            m_allocatorChain;
 
     ComplexAllocator*             m_allocator;
     RingAllocator*                m_ringAllocator;
@@ -60,7 +67,7 @@ private:
 protected:
 
 public:
-    AudioEngine();
+    AudioEngine(Config* a_config);
     ~AudioEngine();
 
     inline ComplexAllocator* GetAllocator() const

@@ -45,7 +45,7 @@ void IcBodyActivationListener::OnBodyDeactivated(const JPH::BodyID& a_bodyID, JP
     TLockArray<JPH::BodyID> a = m_bodies.ToLockArray();
     for (JPH::BodyID& val : a) 
     {
-        if (val == a_bodyID) 
+        if (val == a_bodyID)
         {
             val = JPH::BodyID();
 

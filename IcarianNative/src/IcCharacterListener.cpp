@@ -4,6 +4,7 @@
 
 #include "Physics/IcCharacterListener.h"
 
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "Physics/PhysicsEngine.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
@@ -19,10 +20,10 @@ IcCharacterListener::IcCharacterListener(PhysicsEngine* a_engine)
 }
 IcCharacterListener::~IcCharacterListener()
 {
-    delete m_onAdjustBody;
-    delete m_onContactValidate;
-    delete m_onContactAdded;
-    delete m_onContactSolve;
+    MallocAllocator::Instance->Destroy(m_onAdjustBody);
+    MallocAllocator::Instance->Destroy(m_onContactValidate);
+    MallocAllocator::Instance->Destroy(m_onContactAdded);
+    MallocAllocator::Instance->Destroy(m_onContactSolve);
 }
 
 void IcCharacterListener::OnAdjustBodyVelocity(const JPH::CharacterVirtual* a_character, const JPH::Body& a_body, JPH::Vec3& a_velocity, JPH::Vec3& a_angularVelocity)
@@ -120,7 +121,7 @@ void IcCharacterListener::OnContactSolve(const JPH::CharacterVirtual* a_characte
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

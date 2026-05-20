@@ -10,6 +10,8 @@
 #include "IcarianError.h"
 #include "IcarianMemory.h"
 
+ICARIAN_PUSH_FASTALLOCTOR
+
 struct AllocationSource
 {
     Allocator* Alloc;
@@ -130,6 +132,10 @@ public:
 
         AllocationHeader* header = AllocationFromPointer(a_ptr);
         VerifyAllocation(header);
+        if (header->Size >= a_size)
+        {
+            return a_ptr;
+        }
 
         void* basePtr = (uint8_t*)header - header->BaseOffset;
         Allocator* allocator = m_sources[header->AllocatorIndex].Alloc;
@@ -141,6 +147,8 @@ public:
         return newPtr;
     }
 };
+
+ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
 // 

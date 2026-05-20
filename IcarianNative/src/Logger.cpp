@@ -8,6 +8,7 @@
 
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
@@ -28,14 +29,14 @@ RUNTIME_FUNCTION(void, Logger, PushMessage,
         ILRETURN uint32_t(0);
     });
 
-    char* const* stackTrace = ILAMBDA(
+    char** stackTrace = ILAMBDA(
     {
         if (stackTraceCount <= 0)
         {
             ILRETURN (char**)nullptr;
         }
 
-        char** vals = new char*[stackTraceCount];
+        char** vals = MallocAllocator::Instance->TAllocate<char*>(stackTraceCount);
 
         for (uint32_t i = 0; i < stackTraceCount; ++i)
         {
@@ -55,7 +56,7 @@ RUNTIME_FUNCTION(void, Logger, PushMessage,
                 mono_free(stackTrace[i]);
             }
 
-            delete[] stackTrace;
+            MallocAllocator::Instance->Free(stackTrace);
         }
     });
 
@@ -76,14 +77,14 @@ RUNTIME_FUNCTION(void, Logger, PushWarning,
         ILRETURN uint32_t(0);
     });
 
-    char* const* stackTrace = ILAMBDA(
+    char** stackTrace = ILAMBDA(
     {
         if (stackTraceCount <= 0)
         {
             ILRETURN (char**)nullptr;
         }
 
-        char** vals = new char*[stackTraceCount];
+        char** vals = MallocAllocator::Instance->TAllocate<char*>(stackTraceCount);
 
         for (uint32_t i = 0; i < stackTraceCount; ++i)
         {
@@ -103,7 +104,7 @@ RUNTIME_FUNCTION(void, Logger, PushWarning,
                 mono_free(stackTrace[i]);
             }
 
-            delete[] stackTrace;
+            MallocAllocator::Instance->Free(stackTrace);
         }
     });
 
@@ -124,14 +125,14 @@ RUNTIME_FUNCTION(void, Logger, PushError,
         ILRETURN uint32_t(0);
     });
 
-    char* const* stackTrace = ILAMBDA(
+    char** stackTrace = ILAMBDA(
     {
         if (stackTraceCount <= 0)
         {
             ILRETURN (char**)nullptr;
         }
 
-        char** vals = new char*[stackTraceCount];
+        char** vals = MallocAllocator::Instance->TAllocate<char*>(stackTraceCount);
 
         for (uint32_t i = 0; i < stackTraceCount; ++i)
         {
@@ -151,39 +152,57 @@ RUNTIME_FUNCTION(void, Logger, PushError,
                 mono_free(stackTrace[i]);
             }
 
-            delete[] stackTrace;
+            MallocAllocator::Instance->Free(stackTrace);
         }
     });
 
     Logger::Error(str, stackTraceCount, stackTrace);
 }, MonoString* a_string, MonoArray* a_stackTrace)
 
-void Logger::Message(const std::string_view& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
+void Logger::Message(const char* a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
+{
+    const COWU8String msg = COWU8String(a_msg, MallocAllocator::Instance);
+
+    Message(msg, a_stackTraceCount, a_stackTrace);
+}
+void Logger::Message(const COWU8String& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
     if (CallbackFunc != nullptr)
     {
         (*CallbackFunc)(a_msg, IcarianCore::LoggerMessageType_Message, a_stackTraceCount, a_stackTrace);
     }
 
-    std::cout << "IEM: " << a_msg << "\n";
+    std::cout << "IEM: " << a_msg.CStr() << "\n";
 }
-void Logger::Warning(const std::string_view& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
+void Logger::Warning(const char* a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
+{
+    const COWU8String msg = COWU8String(a_msg, MallocAllocator::Instance);
+
+    Warning(msg, a_stackTraceCount, a_stackTrace);
+}
+void Logger::Warning(const COWU8String& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
     if (CallbackFunc != nullptr)
     {
         (*CallbackFunc)(a_msg, IcarianCore::LoggerMessageType_Warning, a_stackTraceCount, a_stackTrace);
     }
 
-    std::cout << "IEW: " << a_msg << "\n";
+    std::cout << "IEW: " << a_msg.CStr() << "\n";
 }
-void Logger::Error(const std::string_view& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
+void Logger::Error(const char* a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
+{
+    const COWU8String msg = COWU8String(a_msg, MallocAllocator::Instance);
+
+    Error(msg, a_stackTraceCount, a_stackTrace);
+}
+void Logger::Error(const COWU8String& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
     if (CallbackFunc != nullptr)
     {
         (*CallbackFunc)(a_msg, IcarianCore::LoggerMessageType_Error, a_stackTraceCount, a_stackTrace);
     }
 
-    std::cout << "IEE: " << a_msg << "\n";
+    std::cout << "IEE: " << a_msg.CStr() << "\n";
 }
 void Logger::Init()
 {
@@ -196,7 +215,7 @@ void Logger::Init()
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

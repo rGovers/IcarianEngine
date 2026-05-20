@@ -101,7 +101,7 @@ void VulkanPixelShader::CreateFromFShader(VulkanPixelShader* a_out, const Vulkan
     const COWU8String error = FlareShader::GLSLFromFlareShader(&shader, builder, a_allocator, tempAllocator);
     if (!error.Empty())
     {
-        IERROR(std::string("Flare Pixel Shader generation error: ") + error.CStr());
+        IERROR("Flare Pixel Shader generation error: " + error);
     }
 
     const VulkanPixelGLSLShaderBuilder glslBuilder =

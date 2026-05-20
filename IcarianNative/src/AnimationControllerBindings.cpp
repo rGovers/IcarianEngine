@@ -13,6 +13,7 @@
 #include "DeletionQueue.h"
 #include "FileCache.h"
 #include "IcarianError.h"
+#include "IO.h"
 #include "Rendering/AnimationController.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
@@ -45,14 +46,12 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
-    const std::filesystem::path path = std::filesystem::path(str);
-    const std::filesystem::path ext = path.extension();
+    const COWU8String path = COWU8String(str, MallocAllocator::Instance);
+    const COWU8String ext = IO::GetExtension(path, MallocAllocator::Instance);
 
     RuntimeImportBoneData data = { 0 };
 
-    const std::string extStr = ext.string();
-
-    switch (StringHash<uint32_t>(extStr.c_str()))
+    switch (StringHash<uint32_t>(ext.CStr()))
     {
     case StringHash<uint32_t>(".dae"):
     case StringHash<uint32_t>(".fbx"):
@@ -61,22 +60,22 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
     {
         FileHandle* handle = FileCache::LoadFile(str);
         IVERIFY(handle != nullptr);
-        IDEFER(delete handle);
+        IDEFER(MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
-        uint8_t* dat = new uint8_t[size];
-        IDEFER(delete[] dat);
+        uint8_t* dat = MallocAllocator::Instance->TAllocate<uint8_t>(size);
+        IDEFER(MallocAllocator::Instance->Free(dat));
 
         if (handle->Read(dat, size) != size)
         {
-            IERROR("Failed to read Skeleton file: " + path.string());
+            IERROR("Failed to read Skeleton file: " + path);
 
             break;
         }
 
         Assimp::Importer importer;
 
-        const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, 0, extStr.c_str() + 1);
+        const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, 0, ext.CStr() + 1);
         IVERIFY(scene != nullptr);
 
         if (scene->mNumSkeletons <= 0)
@@ -125,7 +124,7 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
     }
     default:
     {
-        IERROR("Invalid Skeleton file extension: " + path.string());
+        IERROR("Invalid Skeleton file extension: " + path);
 
         break;
     }
@@ -147,16 +146,15 @@ RUNTIME_FUNCTION(void, SkinnedMeshRenderer, PushBoneData,
     Instance->PushSkeletonBoneData(a_addr, a_transformIndex, bindPose);
 }, uint32_t a_addr, uint32_t a_transformIndex, MonoArray* a_bindPose)
 
-RUNTIME_FUNCTION(MonoArray*, AnimationClip, LoadExternalAnimationData, 
+RUNTIME_FUNCTION(MonoArray*, AnimationClip, LoadExternalAnimationData,
 {
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
-    const std::filesystem::path path = std::filesystem::path(str);
-    const std::filesystem::path ext = path.extension();
-    const std::string extStr = ext.string();
+    const COWU8String path = COWU8String(str, MallocAllocator::Instance);
+    const COWU8String ext = IO::GetExtension(path, MallocAllocator::Instance);
 
-    switch (StringHash<uint32_t>(extStr.c_str()))
+    switch (StringHash<uint32_t>(ext.CStr()))
     {
     case StringHash<uint32_t>(".dae"):
     case StringHash<uint32_t>(".fbx"):
@@ -165,22 +163,22 @@ RUNTIME_FUNCTION(MonoArray*, AnimationClip, LoadExternalAnimationData,
     {
         FileHandle* handle = FileCache::LoadFile(str);
         IVERIFY(handle != nullptr);
-        IDEFER(delete handle);
+        IDEFER(MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
-        uint8_t* dat = new uint8_t[size];
-        IDEFER(delete[] dat);
+        uint8_t* dat = MallocAllocator::Instance->TAllocate<uint8_t>(size);
+        IDEFER(MallocAllocator::Instance->Free(dat));
 
         if (handle->Read(dat, size) != size)
         {
-            IERROR("Failed to read external animation clip file: " + path.string());
+            IERROR("Failed to read external animation clip file: " + path);
 
             break;
         }
 
         Assimp::Importer importer;
 
-        const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, 0, extStr.c_str() + 1);
+        const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, 0, ext.CStr() + 1);
         IVERIFY(scene != nullptr);
 
         if (scene->mNumAnimations <= 0)
@@ -288,7 +286,7 @@ RUNTIME_FUNCTION(MonoArray*, AnimationClip, LoadExternalAnimationData,
     }
     default:
     {
-        IERROR("Invalid external animation clip extension: " + path.string());
+        IERROR("Invalid external animation clip extension: " + path);
 
         break;
     }

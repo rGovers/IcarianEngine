@@ -6,15 +6,17 @@
 
 #include <cstdint>
 #include <stb_truetype.h>
-#include <string_view>
 
 #include "DataTypes/Array.h"
+#include "DataTypes/COWString.h"
 
 #include "EngineModelInteropStructures.h"
 
 class Font
 {
 private:
+    Allocator*     m_allocator;
+
     stbtt_fontinfo m_fontInfo;
     // Forgot that stbb_fontinfo does not own the data or copy it, so we need to keep it around
     uint8_t*       m_data;
@@ -22,13 +24,32 @@ private:
 protected:
 
 public:
-    Font(uint8_t* a_data);
+    Font(uint8_t* a_data, Allocator* a_allocator);
     ~Font();
 
-    static Font* LoadFont(const std::string_view& a_path);
+    static bool LoadFont(Font* a_font, const COWU8String& a_path, Allocator* a_allocator);
 
-    uint8_t* StringToTexture(const std::u32string_view& a_string, float a_fontSize, uint32_t a_width, uint32_t a_height) const;
-    void StringToModel(const std::u32string_view& a_string, float a_fontSize, float a_scale, float a_depth, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius) const;
+    uint8_t* StringToTexture
+    (
+        const COWU32String& a_string,
+        float a_fontSize,
+        uint32_t a_width,
+        uint32_t a_height,
+        Allocator* a_allocator,
+        Allocator* a_tempAllocator
+    ) const;
+    void StringToModel
+    (
+        const COWU32String& a_string,
+        float a_fontSize,
+        float a_scale,
+        float a_depth,
+        Array<Vertex>* a_vertices,
+        Array<uint32_t>* a_indices,
+        float* a_radius,
+        Allocator* a_allocator,
+        Allocator* a_tempAllocator
+    ) const;
 };
 
 // MIT License

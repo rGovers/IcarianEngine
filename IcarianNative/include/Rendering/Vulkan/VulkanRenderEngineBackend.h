@@ -15,9 +15,11 @@
 #include "DataTypes/TArray.h"
 #include "DataTypes/TLockObj.h"
 
+class Allocator;
 class AppWindow;
 class LibVulkan;
 class StackAllocator;
+class TrackerAllocator;
 class VulkanComputeEngine;
 class VulkanGraphicsEngine;
 class VulkanPushPool;
@@ -209,61 +211,65 @@ private:
     // Just custom memory allocator things as RAII forces an initializtion order based on the members
     struct ClassData
     {
-        LibVulkan*                    VulkanLib;
+        LibVulkan*                     VulkanLib;
 
-        VulkanComputeEngine*          ComputeEngine;
-        VulkanGraphicsEngine*         GraphicsEngine;
-        VulkanSwapchain*              Swapchain;
-        VulkanPushPool*               PushPool;
+        VulkanComputeEngine*           ComputeEngine;
+        VulkanGraphicsEngine*          GraphicsEngine;
+        VulkanSwapchain*               Swapchain;
+        VulkanPushPool*                PushPool;
 
-        Array<RenderScratchAllocator> ScratchAllocators;
+        TArray<RenderScratchAllocator> ScratchAllocators;
 
         // Was bugging me taking up 8x the memory needed so.... uint8_t bitmask it is
-        uint8_t*                      OptionalExtensionMask;
+        uint8_t*                       OptionalExtensionMask;
 
-        VmaAllocator                  VMAAllocator;
+        VmaAllocator                   VMAAllocator;
 
-        vk::Instance                  Instance;
-        vk::DebugUtilsMessengerEXT    Messenger;
+        vk::Instance                   Instance;
+        vk::DebugUtilsMessengerEXT     Messenger;
 
-        vk::PhysicalDevice            PhysicalDevice;
-        vk::Device                    LogicalDevice;
+        vk::PhysicalDevice             PhysicalDevice;
+        vk::Device                     LogicalDevice;
 
-        vk::Queue                     ComputeQueue;
-        vk::Queue                     VideoDecodeQueue;
-        vk::Queue                     GraphicsQueue;
-        vk::Queue                     PresentQueue;
+        vk::Queue                      ComputeQueue;
+        vk::Queue                      VideoDecodeQueue;
+        vk::Queue                      GraphicsQueue;
+        vk::Queue                      PresentQueue;
 
-        TArray<VulkanDeletionObject*> DeletionObjects[VulkanDeletionQueueSize];
+        TArray<VulkanDeletionObject*>  DeletionObjects[VulkanDeletionQueueSize];
 
-        Array<vk::Semaphore>          InterSemaphore[VulkanMaxFlightFrames];
+        Array<vk::Semaphore>           InterSemaphore[VulkanMaxFlightFrames];
 
-        vk::CommandPool               CommandPools[CommandIndex_Last];
+        vk::CommandPool                CommandPools[CommandIndex_Last];
 
-        uint32_t                      ScratchIndex;
-        uint32_t                      ImageIndex;
-        uint32_t                      CurrentFrame;
-        uint32_t                      CurrentFlightFrame;
-        uint32_t                      DeletionQueueIndex;
+        uint32_t                       ScratchIndex;
+        uint32_t                       ImageIndex;
+        uint32_t                       CurrentFrame;
+        uint32_t                       CurrentFlightFrame;
+        uint32_t                       DeletionQueueIndex;
 
-        uint32_t                      ComputeQueueIndex;
-        uint32_t                      VideoDecodeQueueIndex;
-        uint32_t                      GraphicsQueueIndex;
-        uint32_t                      PresentQueueIndex;
+        uint32_t                       ComputeQueueIndex;
+        uint32_t                       VideoDecodeQueueIndex;
+        uint32_t                       GraphicsQueueIndex;
+        uint32_t                       PresentQueueIndex;
 
-        VulkanVideoDecodeCapabilities VideoDecodeCapabilities;
+        VulkanVideoDecodeCapabilities  VideoDecodeCapabilities;
     };
 
-    BlockAllocator*   m_smallAllocator;
-    BlockAllocator*   m_largeAllocator;
+    BlockAllocator*    m_smallAllocator;
+    BlockAllocator*    m_largeAllocator;
 
-    ComplexAllocator* m_allocator;
-    ComplexAllocator* m_deletionAllocator;
+    TrackerAllocator*  m_trackerAllocator;
 
-    ClassData*        m_data;
+    ComplexAllocator*  m_allocator;
+    Array<Allocator*>* m_allocatorChain;
 
-    SharedSpinLock    m_scratchLock;
-    SpinLock          m_graphicsQueueLock;
+    ComplexAllocator*  m_deletionAllocator;
+
+    ClassData*         m_data;
+
+    SharedSpinLock     m_scratchLock;
+    SpinLock           m_graphicsQueueLock;
 
     void InternalPushDeletionObject(VulkanDeletionObject* a_object);
 

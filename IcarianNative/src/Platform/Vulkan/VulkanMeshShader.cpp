@@ -101,7 +101,7 @@ void VulkanMeshShader::CreateFromFShader(VulkanMeshShader* a_out, const VulkanMe
     const COWU8String error = FlareShader::GLSLFromFlareShader(&shader, builder, a_allocator, tempAllocator);
     if (!error.Empty())
     {
-        IERROR(std::string("Flare Mesh Shader generation error: ") + error.CStr());
+        IERROR("Flare Mesh Shader generation error: " + error);
     }
 
     const Array<uint32_t> spirv = spirv_fromGLSL(EShLangMesh, shader, true, a_builder.EntryPoint, a_tempAllocator);

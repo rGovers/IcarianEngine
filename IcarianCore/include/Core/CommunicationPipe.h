@@ -8,27 +8,55 @@
 
 #include "Core/PipeMessage.h"
 
+#define I_INTER_SENDERRORTABLE(F) \
+    F(Success) \
+    F(Timeout) \
+    F(Fail) \
+
+#define I_INTER_SENDERROR_ENUM(val) SendError_##val,
+#define I_INTER_SENDERROR_STR(val) case SendError_##val: { return #val; }
+
 namespace IcarianCore
-{   
+{
     class CommunicationPipe
     {
+    public:
+        enum e_SendError
+        {
+            I_INTER_SENDERRORTABLE(I_INTER_SENDERROR_ENUM)
+        };
+
     private:
 
     protected:
 
     public:
+        static constexpr const char* SendErrorString(e_SendError a_error)
+        {
+            switch (a_error)
+            {
+            I_INTER_SENDERRORTABLE(I_INTER_SENDERROR_STR)
+            default:
+            {
+                break;
+            }
+            }
+
+            return "Unknown";
+        }
+
         virtual ~CommunicationPipe() { };
 
         virtual bool IsAlive() const = 0;
 
-        virtual bool Send(const PipeMessage& a_msg) = 0;
+        virtual e_SendError Send(const PipeMessage& a_msg) = 0;
         virtual bool Receive(std::queue<PipeMessage>* a_messages) = 0;
     };
 }
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

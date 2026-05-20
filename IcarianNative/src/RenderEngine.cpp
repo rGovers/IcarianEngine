@@ -8,6 +8,7 @@
 #include "AppWindow/HeadlessAppWindow.h"
 #include "Config.h"
 #include "Core/IcarianDefer.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "DeletionQueue.h"
 #include "Profiler.h"
 #include "Rendering/AnimationController.h"
@@ -38,14 +39,14 @@ RenderEngine::RenderEngine(AppWindow* a_window, Config* a_config)
     {
     case RenderingEngine_Null:
     {
-        m_backend = new NullRenderEngineBackend(this);
+        m_backend = MallocAllocator::Instance->Create<NullRenderEngineBackend>(this);
 
         break;
     }
     case RenderingEngine_Vulkan:
     {
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-        m_backend = new VulkanRenderEngineBackend(this);
+        m_backend = MallocAllocator::Instance->Create<VulkanRenderEngineBackend>(this);
 #else
         IcarianError("Vulkan is not enabled");
 #endif
@@ -62,7 +63,7 @@ RenderEngine::RenderEngine(AppWindow* a_window, Config* a_config)
 
     m_join = true;
 
-    m_assets = new RenderAssetStore(this);
+    m_assets = MallocAllocator::Instance->Create<RenderAssetStore>(this);
 }
 RenderEngine::~RenderEngine()
 {
@@ -77,10 +78,10 @@ RenderEngine::~RenderEngine()
 
     spirv_destroy();
 
-    delete m_backend;
-    delete m_assets;
+    MallocAllocator::Instance->Destroy(m_backend);
+    MallocAllocator::Instance->Destroy(m_assets);
 
-    delete m_frameUpdateFunction;
+    MallocAllocator::Instance->Destroy(m_frameUpdateFunction);
 }
 
 void RenderEngine::Start()
@@ -207,7 +208,32 @@ void RenderEngine::Run()
                             break;
                         }
 
-                        std::this_thread::yield();
+                        // Want to do a last mile busy wait but can sleep until the last mile
+                        // We want to do sleep over yield as yield will only put us to the back of the ready queue
+                        // Sleep will put us in the platform blocking thread queue until the duration has passed then put us to the back of the ready queue
+                        // We want to stop sleeping before the target time as we may take a while to move from the ready queue to running
+                        // All this assumes a platform with a decent scheduler and implements it the way mentioned
+                        // And I swear if I have to fight the Windows scheduler 1 more time
+                        // Yes I am aware some platforms have a realtime scheduler this has not caused issues not using a realtime thread so far and just doing
+                        // clever timing tricks that account for delays
+                        // TODO: Likely need to finetune the buffer time for busy waiting
+                        const double sleepTime = targetFrameTime - delta - (SleepMillisecondBuffer / 1000.0);
+                        if (sleepTime > 0.0)
+                        {
+                            const std::chrono::duration<double> time = std::chrono::duration<double>(sleepTime);
+                            std::this_thread::sleep_for(time);
+                        }
+                        else
+                        {
+                            // Timers are not infinite resolution so just wait in place for a bit
+                            // There is a small quirk on some but not all POSIX platforms that if you infinite poll with no gap between polls it will never update
+                            // We do this because sometimes timers can be implemented as a poll to a hardware timer
+                            // Much hair pulling in IPC code to discover that quirk hence the 1ms despite supporting 0ms in docs on polls
+                            // Why do I have to know implementation details and interactions between CPUs/libc/Kernels to fix bugs
+                            // Decentralization strikes once again!~
+                            volatile int wait = 0;
+                            while (wait++ < 16) { };
+                        }
                     }
                 }
 

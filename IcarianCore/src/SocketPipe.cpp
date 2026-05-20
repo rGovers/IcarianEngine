@@ -9,6 +9,7 @@
 #include <thread>
 
 #include "Core/IcarianError.h"
+#include "Core/IcarianLambda.h"
 
 namespace IcarianCore 
 {
@@ -83,7 +84,7 @@ DesDisconnectEnd:;
 
         uint32_t attempts = 0;
 
-        // TODO: Been having issues with gettings Windows->Windows connection on localhost
+        // TODO: Been having issues with getting Windows->Windows connections on localhost
         // Unix->Unix works on localhost, Unix->Windows and Windows->Windows works over the network but being weird and just failing with success on Windows->Windows
         // I am 90% sure it is not ENet as I have also had weirdness with raw sockets on Windows
         // Been having issues getting a connection so spin a couple times before we give up
@@ -105,7 +106,7 @@ DesDisconnectEnd:;
         }
         IERRDEFER(enet_peer_reset(peer));
 
-        attempts = 0;        
+        attempts = 0;
 
         while (true)
         {
@@ -204,8 +205,8 @@ DesDisconnectEnd:;
                         if (packetSize > PipeMessage::Size)
                         {
                             const uint64_t dataSize = packetSize - PipeMessage::Size;
-                        
-                            msg.Data = new char[dataSize];
+
+                            msg.Data = new uint8_t[dataSize];
                             memcpy(msg.Data, packet->data + PipeMessage::Size, dataSize);
                         }
                         else if (packetSize < PipeMessage::Size)
@@ -231,7 +232,7 @@ DesDisconnectEnd:;
                             case ENET_EVENT_TYPE_RECEIVE:
                             {
                                 enet_packet_destroy(event.packet);
-    
+
                                 break;
                             }
                             case ENET_EVENT_TYPE_DISCONNECT:
@@ -244,7 +245,7 @@ DesDisconnectEnd:;
                             }
                             }
                         }
-    
+
                         enet_peer_reset(a_pipe->m_peer);
 RunDisconnectEnd:;
 
@@ -283,30 +284,30 @@ RunDisconnectEnd:;
 
                     enet_uint8 channel = 0;
                     enet_uint32 flags = 0;
-                    switch (msg.Type) 
+                    switch (msg.Type)
                     {
                     case PipeMessageType_PushFrame:
                     {
                         channel = 1;
-            
+
                         break;
                     }
                     default:
                     {
                         flags |= ENET_PACKET_FLAG_RELIABLE;
-            
+
                         break;
                     }
                     }
-            
+
                     ENetPacket* packet = enet_packet_create(&msg, (size_t)PipeMessage::Size, flags);
                     if (msg.Data != nullptr && msg.Length > 0)
                     {
                         enet_packet_resize(packet, (size_t)PipeMessage::Size + msg.Length);
-            
+
                         memcpy(packet->data + PipeMessage::Size, msg.Data, msg.Length);
                     }
-            
+
                     if (enet_peer_send(a_pipe->m_peer, channel, packet) < 0)
                     {
                         break;
@@ -323,27 +324,44 @@ RunDisconnectEnd:;
         a_pipe->m_joined = true;
     }
 
-    bool SocketPipe::Send(const PipeMessage& a_msg)
+    CommunicationPipe::e_SendError SocketPipe::Send(const PipeMessage& a_msg)
     {
         if (!IsAlive())
         {
-            return false;
+            return SendError_Fail;
         }
-        
+
         const std::lock_guard g = std::lock_guard(m_readLock);
 
-        PipeMessage msg;
-        msg.Type = a_msg.Type;
-        if (a_msg.Length > 0 && a_msg.Data != nullptr)
+        const PipeMessage msg =
         {
-            msg.Length = a_msg.Length;
-            msg.Data = new char[msg.Length];
-            memcpy(msg.Data, a_msg.Data, msg.Length);
-        }
+            .Type = a_msg.Type,
+            .Length = ILAMBDA(
+            {
+                if (a_msg.Length > 0 && a_msg.Data != nullptr)
+                {
+                    ILRETURN a_msg.Length;
+                }
+
+                ILRETURN uint32_t(0);
+            }),
+            .Data = ILAMBDA(
+            {
+                if (a_msg.Length > 0 && a_msg.Data != nullptr)
+                {
+                    uint8_t* val = new uint8_t[a_msg.Length];
+                    memcpy(val, a_msg.Data, a_msg.Length);
+
+                    ILRETURN val;
+                }
+
+                ILRETURN (uint8_t*)nullptr;
+            })
+        };
 
         m_readQueue.emplace(msg);
 
-        return true;
+        return SendError_Success;
     }
     bool SocketPipe::Receive(std::queue<PipeMessage>* a_messages)
     {
@@ -354,7 +372,7 @@ RunDisconnectEnd:;
 
         const std::lock_guard g = std::lock_guard(m_writeLock);
 
-        while (!m_writeQueue.empty()) 
+        while (!m_writeQueue.empty())
         {
             const PipeMessage& msg = m_writeQueue.front();
             a_messages->emplace(msg);
@@ -368,7 +386,7 @@ RunDisconnectEnd:;
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

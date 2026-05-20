@@ -102,7 +102,7 @@ void VulkanTaskShader::CreateFromFShader(VulkanTaskShader* a_out, const VulkanTa
     const COWU8String error = FlareShader::GLSLFromFlareShader(&shader, builder, a_allocator, tempAllocator);
     if (!error.Empty())
     {
-        IERROR(std::string("Flare Task Shader generation error: ") + error.CStr());
+        IERROR("Flare Task Shader generation error: " + error);
     }
 
     const VulkanTaskGLSLShaderBuilder glslBuilder =

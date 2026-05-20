@@ -16,6 +16,7 @@
 #include "DataTypes/Allocators/StackAllocator.h"
 #include "DeletionQueue.h"
 #include "FileCache.h"
+#include "IO.h"
 #include "ObjectManager.h"
 #include "Rendering/RenderAssetStore.h"
 #include "Rendering/RenderEngine.h"
@@ -79,9 +80,6 @@ static VulkanGraphicsEngineBindings* Instance = nullptr;
     F(void, IcarianEngine.Rendering, MeshRenderer, DestroyRenderStack, { IPUSHDELETIONFUNC(Instance->DestroyMeshRenderStack(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
     \
     F(void, IcarianEngine.Rendering, Texture, DestroyTexture, { IPUSHDELETIONFUNC(Instance->DestroyTexture(a_addr), DeletionIndex_Render); }, uint32_t a_addr) \
-    \
-    F(uint32_t, IcarianEngine.Rendering.Video, VideoTexture, GenerateTexture, { return Instance->GenerateVideoTexture(a_addr); }, uint32_t a_addr) \
-    F(void, IcarianEngine.Rendering.Video, VideoTexture, DestroyTexture, { IPUSHDELETIONFUNC({ Instance->DestroyVideoTexture(a_addr); }, DeletionIndex_Render); }, uint32_t a_addr) \
     \
     F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateTextureSampler, { return Instance->GenerateTextureSampler(a_texture, (e_TextureFilter)a_filter, (e_TextureAddress)a_addressMode ); }, uint32_t a_texture, uint32_t a_filter, uint32_t a_addressMode) \
     F(uint32_t, IcarianEngine.Rendering, TextureSampler, GenerateRenderTextureSampler, { return Instance->GenerateRenderTextureSampler(a_renderTexture, a_textureIndex, (e_TextureFilter)a_filter, (e_TextureAddress)a_addressMode); }, uint32_t a_renderTexture, uint32_t a_textureIndex, uint32_t a_filter, uint32_t a_addressMode) \
@@ -180,9 +178,7 @@ RUNTIME_FUNCTION(uint32_t, ComputeShader, GenerateGraphicsFromFile,
 
     // Will break on Windows if we are over the stack size as Windows is terrible with large paths so "safe" to use the scratch allocator
     const COWU8String pathStr = COWU8String(str, scratchAllocator);
-    const uint32_t index = pathStr.FindLastCharacter('.');
-    IERRCHECKRET(index != uint32_t(-1), -1);
-    const COWU8String extStr = pathStr.Substring(index, pathStr.Length(), scratchAllocator);
+    const COWU8String extStr = IO::GetExtension(pathStr, scratchAllocator);
 
     switch (StringHash<uint32_t>(extStr.CStr())) 
     {
@@ -190,7 +186,7 @@ RUNTIME_FUNCTION(uint32_t, ComputeShader, GenerateGraphicsFromFile,
     {
         FileHandle* handle = FileCache::LoadFile(str);
         IERRCHECKRET(handle != nullptr, -1);
-        IDEFER(delete handle);
+        IDEFER(MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
 
@@ -204,7 +200,8 @@ RUNTIME_FUNCTION(uint32_t, ComputeShader, GenerateGraphicsFromFile,
     }
     default:
     {
-        IWARN(std::string("Compute Shader invalid file format: ") + str);
+        const COWU8String msg = COWU8String("Compute Shader invalid file format: ", MallocAllocator::Instance) + str;
+        IWARN(msg);
 
         break;
     }
@@ -252,18 +249,16 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
     else
     {
         const COWU8String pathStr = COWU8String(str, scratchAllocator);
-        const uint32_t index = pathStr.FindLastCharacter('.');
-        IERRCHECKRET(index != uint32_t(-1), -1);
-        const COWU8String extStr = pathStr.Substring(index, pathStr.Length(), scratchAllocator);
+        const COWU8String extStr = IO::GetExtension(pathStr, scratchAllocator);
 
         // Slower as just one comparison but can be expanded and consistant with pixel shader
-        switch (StringHash<uint32_t>(extStr.CStr())) 
+        switch (StringHash<uint32_t>(extStr.CStr()))
         {
         case StringHash<uint32_t>(".fvert"):
         {
             FileHandle* handle = FileCache::LoadFile(str);
             IERRCHECKRET(handle != nullptr, -1);
-            IDEFER(delete handle);
+            IDEFER(MallocAllocator::Instance->Destroy(handle));
 
             const uint64_t size = handle->GetSize();
 
@@ -274,7 +269,8 @@ RUNTIME_FUNCTION(uint32_t, VertexShader, GenerateFromFile,
         }
         default:
         {
-            IWARN(std::string("Vertex Shader invalid file format: ") + str);
+            const COWU8String msg = COWU8String("Vertex Shader invalid file format: ", MallocAllocator::Instance) + str;
+            IWARN(msg);
 
             break;
         }
@@ -307,18 +303,16 @@ RUNTIME_FUNCTION(uint32_t, MeshShader, GenerateFromFile,
     IDEFER(mono_free(str));
 
     const COWU8String pathStr = COWU8String(str, scratchAllocator);
-    const uint32_t index = pathStr.FindLastCharacter('.');
-    IERRCHECKRET(index != uint32_t(-1), -1);
-    const COWU8String extStr = pathStr.Substring(index, pathStr.Length(), scratchAllocator);
+    const COWU8String extStr = IO::GetExtension(pathStr, scratchAllocator);
 
     // Slower as just one comparison but can be expanded and consistant with pixel shader
-    switch (StringHash<uint32_t>(extStr.CStr())) 
+    switch (StringHash<uint32_t>(extStr.CStr()))
     {
     case StringHash<uint32_t>(".fmesh"):
     {
         FileHandle* handle = FileCache::LoadFile(str);
         IERRCHECKRET(handle != nullptr, -1);
-        IDEFER(delete handle);
+        IDEFER(MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
 
@@ -329,7 +323,8 @@ RUNTIME_FUNCTION(uint32_t, MeshShader, GenerateFromFile,
     }
     default:
     {
-        IWARN(std::string("Mesh Shader invalid file format: ") + str);
+        const COWU8String msg = COWU8String("Mesh Shader invalid file format: ", MallocAllocator::Instance) + str;
+        IWARN(msg);
 
         break;
     }
@@ -371,18 +366,16 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
     else
     {
         const COWU8String pathStr = COWU8String(str, scratchAllocator);
-        const uint32_t index = pathStr.FindLastCharacter('.');
-        IERRCHECKRET(index != uint32_t(-1), -1);
-        const COWU8String extStr = pathStr.Substring(index, pathStr.Length(), scratchAllocator);
+        const COWU8String extStr = IO::GetExtension(pathStr, scratchAllocator);
 
-        switch (StringHash<uint32_t>(extStr.CStr())) 
+        switch (StringHash<uint32_t>(extStr.CStr()))
         {
         case StringHash<uint32_t>(".fpix"):
         case StringHash<uint32_t>(".ffrag"):
         {
             FileHandle* handle = FileCache::LoadFile(str);
             IERRCHECKRET(handle != nullptr, -1);
-            IDEFER(delete handle);
+            IDEFER(MallocAllocator::Instance->Destroy(handle));
 
             const uint64_t size = handle->GetSize();
 
@@ -393,7 +386,8 @@ RUNTIME_FUNCTION(uint32_t, PixelShader, GenerateFromFile,
         }
         default:
         {
-            IWARN(std::string("PixelShader invalid file format: ") + str);
+            const COWU8String msg = COWU8String("PixelShader invalid file format: ", MallocAllocator::Instance) + str;
+            IWARN(msg);
 
             break;
         }
@@ -1030,7 +1024,7 @@ VulkanGraphicsEngineBindings::VulkanGraphicsEngineBindings(VulkanGraphicsEngine*
 }
 VulkanGraphicsEngineBindings::~VulkanGraphicsEngineBindings()
 {
-    delete m_userArrayCallback;
+    MallocAllocator::Instance->Destroy(m_userArrayCallback);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateFComputeShaderAddr(const COWU8String& a_str) const
@@ -1616,25 +1610,6 @@ void VulkanGraphicsEngineBindings::DestroyGraphicsParticle2D(uint32_t a_addr) co
 void VulkanGraphicsEngineBindings::DestroyTexture(uint32_t a_addr) const
 {
     m_graphicsEngine->DestroyTexture(a_addr);
-}
-
-uint32_t VulkanGraphicsEngineBindings::GenerateVideoTexture(uint32_t a_videoAddr) const
-{
-    Allocator* allocator = m_graphicsEngine->m_vulkanEngine->GetAllocator();
-
-    VulkanVideoTexture* texture = allocator->Create<VulkanVideoTexture>(m_graphicsEngine->m_vulkanEngine, a_videoAddr);
-
-    return m_graphicsEngine->m_videoTextures.PushVal(texture);
-}
-void VulkanGraphicsEngineBindings::DestroyVideoTexture(uint32_t a_addr) const
-{
-    IVERIFY(m_graphicsEngine->m_videoTextures.Exists(a_addr));
-
-    Allocator* allocator = m_graphicsEngine->m_vulkanEngine->GetAllocator();
-
-    VulkanVideoTexture* texture = m_graphicsEngine->m_videoTextures[a_addr];
-    IDEFER(allocator->Destroy(texture));
-    m_graphicsEngine->m_videoTextures.Erase(a_addr);
 }
 
 uint32_t VulkanGraphicsEngineBindings::GenerateTextureSampler(uint32_t a_texture, e_TextureFilter a_filter, e_TextureAddress a_addressMode) const

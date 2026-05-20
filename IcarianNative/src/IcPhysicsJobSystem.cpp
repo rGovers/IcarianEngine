@@ -4,6 +4,8 @@
 
 #include "Physics/IcPhysicsJobSystem.h"
 
+#include "DataTypes/Allocators/MallocAllocator.h"
+
 IcPhysicsJobSystem::IcPhysicsJobSystem(JPH::uint a_numBarriers)
 {
     Init(a_numBarriers);
@@ -12,7 +14,7 @@ IcPhysicsJobSystem::IcPhysicsJobSystem(JPH::uint a_numBarriers)
 }
 IcPhysicsJobSystem::~IcPhysicsJobSystem()
 {
-    
+
 }
 
 int IcPhysicsJobSystem::GetMaxConcurrency() const
@@ -48,13 +50,13 @@ void IcPhysicsJobSystem::FreeJob(Job* a_job)
 
 void IcPhysicsJobSystem::QueueJob(Job* a_job)
 {
-    ThreadPool::PushJob(new PhysicsJob(a_job));
+    ThreadPool::PushJob(MallocAllocator::Instance->Create<PhysicsJob>(a_job));
 }
 void IcPhysicsJobSystem::QueueJobs(Job** a_jobs, JPH::uint a_numJobs)
 {
     for (JPH::uint i = 0; i < a_numJobs; ++i)
-    {        
-        ThreadPool::PushJob(new PhysicsJob(a_jobs[i]));
+    {
+        ThreadPool::PushJob(MallocAllocator::Instance->Create<PhysicsJob>(a_jobs[i]));
     }
 }
 

@@ -10,12 +10,23 @@
 #include <mono/metadata/mono-config.h>
 #include <mono/utils/mono-dl-fallback.h>
 
+#include "Config.h"
 #include "Core/IcarianDefer.h"
+#include "Core/StringUtils.h"
+#include "DataTypes/Allocators/BlockAllocator.h"
+#include "DataTypes/Allocators/LeakAllocator.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
+#include "DataTypes/Allocators/MultiSourceAllocator.h"
+#include "DataTypes/Allocators/OSAllocator.h"
+#include "DataTypes/Allocators/TrackerAllocator.h"
+#include "DataTypes/Allocators/UberAllocator.h"
 #include "IcarianError.h"
+#include "IO.h"
 #include "Profiler.h"
 #include "Rendering/RenderEngine.h"
 #include "Runtime/RuntimeFunction.h"
 
+static ComplexAllocator* Alloc = nullptr;
 static RuntimeManager* Instance = nullptr;
 
 #include "EngineIcarianAssemblyInterop.h"
@@ -40,44 +51,51 @@ static constexpr uint32_t MonoNativeBaseNameLength = sizeof(MonoNativeBaseName) 
 
 static void* RuntimeDLOpen(const char* a_name, int a_flags, char** a_error, void* a_userData)
 {
-    const std::filesystem::path p = RuntimeManager::GetDLLPath(a_name);
+    const COWU8String path = RuntimeManager::GetDLLPath(a_name);
 
 #ifdef WIN32
-    if (!p.empty())
+    if (!path.Empty())
     {
-        const std::filesystem::path ext = p.extension();
-        
+        const COWU8String ext = IO::GetExtension(path, Alloc);
+
         if (ext == ".dll")
         {
-            const std::string str = p.string();
-
-            return LoadLibraryA(str.c_str());
-        }   
+            return LoadLibraryA(path.CStr());
+        }
     }
 #else
-    if (!p.empty())
+    if (!path.Empty())
     {
-        const std::filesystem::path ext = p.extension();
+        const COWU8String ext = IO::GetExtension(path, Alloc);
 
         if (ext == ".so")
         {
-            const std::string str = p.string();
-
-            void* handle = dlopen(str.c_str(), a_flags);
+            void* handle = dlopen(path.CStr(), a_flags);
             if (handle == NULL)
             {
-                IERROR(std::string("Failed to open DLL: ") + dlerror());
+                IERROR(COWU8String("Failed to open DLL: ", MallocAllocator::Instance) + dlerror());
             }
 
-            return handle; 
+            return handle;
         }
     }
 
-    const uint32_t len = (uint32_t)strlen(a_name);
+    const uint32_t len = ILAMBDA(
+    {
+        const char* slider = a_name;
+        while (*slider != 0)
+        {
+            ++slider;
+        }
+
+        ILRETURN (uint32_t)(slider - a_name);
+    });
     const char* ptrLib = a_name + len - MonoNativeLibNameLength;
     const char* ptrBase = a_name + len - MonoNativeBaseNameLength;
 
-    if ((len > MonoNativeLibNameLength && strcmp(ptrLib, MonoNativeLibName) == 0) || (len > MonoNativeBaseNameLength && strcmp(ptrBase, MonoNativeBaseName) == 0))
+    const bool isNative = len > MonoNativeLibNameLength && strcmp(ptrLib, MonoNativeLibName) == 0;
+    const bool isBaseNative = len > MonoNativeBaseNameLength && strcmp(ptrBase, MonoNativeBaseName) == 0;
+    if (isNative || isBaseNative)
     {
         return MonoThisLibHandle;
     }
@@ -108,8 +126,99 @@ static void* RuntimeDLSymbol(void* a_handle, const char* a_name, char** a_error,
     return NULL;
 }
 
-RuntimeManager::RuntimeManager()
+constexpr static uint32_t RuntimeDefaultAllocationAlignment = 16;
+
+static void* Mono_Malloc(size_t a_size)
 {
+    return Alloc->Allocate((uint64_t)a_size, RuntimeDefaultAllocationAlignment);
+}
+static void Mono_Free(void* a_ptr)
+{
+    Alloc->Free(a_ptr);
+}
+static void* Mono_Realloc(void* a_ptr, size_t a_count)
+{
+    return Alloc->Realloc(a_ptr, a_count, RuntimeDefaultAllocationAlignment);
+}
+static void* Mono_Calloc(size_t a_count, size_t a_size)
+{
+    // C Spec is weird about 0 sized allocations and seems to be implementation dependent in the real world so *shrugs*
+    if (a_count == 0)
+    {
+        return nullptr;
+    }
+
+    if (a_size == 0)
+    {
+        return nullptr;
+    }
+
+    // Urgh just looked at the spec and alignment is a requirement and Mono wants us to be a malloc allocator
+    // This is dumb as we are returning memory larger then was requested worst case N * (RuntimeDefaultAllocationAlignment - 1) bytes extra
+    // Normally would look at the library to check if the elements need to be aligned but this is for a C# runtime so can make no assurances so just follow the spec for safety
+    const uint64_t alignedSize = AlignTo((uint64_t)a_size, RuntimeDefaultAllocationAlignment);
+    const uint64_t finalSize = (uint64_t)a_count * alignedSize;
+    return Alloc->ZAllocate(finalSize, RuntimeDefaultAllocationAlignment);
+}
+
+RuntimeManager::RuntimeManager(Config* a_config)
+{
+    IVERIFY(Alloc == nullptr);
+    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, UberAllocator::Instance);
+    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, UberAllocator::Instance);
+
+    m_allocatorChain = m_smallAllocator->Create<Array<Allocator*>>(m_smallAllocator);
+
+    const AllocationSource allocatorSources[] =
+    {
+        {
+            .Alloc = m_smallAllocator,
+            .MaxSize = SmallAllocatorSize >> 1,
+        },
+        {
+            .Alloc = m_largeAllocator,
+            .MaxSize = LargeAllocatorSize >> 1,
+        },
+        {
+            .Alloc = OSAllocator::Instance,
+            .MaxSize = uint64_t(-1),
+        },
+    };
+
+    constexpr uint32_t AllocatorCount = sizeof(allocatorSources) / sizeof(*allocatorSources);
+
+    Alloc = m_smallAllocator->Create<MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
+    m_allocatorChain->Push(Alloc);
+
+    if (a_config->IsHeadless())
+    {
+        m_trackerAllocator = m_smallAllocator->Create<TrackerAllocator>(Alloc);
+        Alloc = m_trackerAllocator;
+        m_allocatorChain->Push(Alloc);
+    }
+
+#ifdef DEBUG
+    if constexpr (EnableLeakTracking)
+    {
+        Alloc = m_smallAllocator->Create<LeakAllocator>(Alloc);
+
+        m_allocatorChain->Push(Alloc);
+    }
+#endif
+
+    m_dllLookup = Alloc->Create<Dictionary<COWU8String, COWU8String>>(Alloc);
+
+    m_allocatorTable =
+    {
+        .version = MONO_ALLOCATOR_VTABLE_VERSION,
+        .malloc = Mono_Malloc,
+        .realloc = Mono_Realloc,
+        .free = Mono_Free,
+        .calloc = Mono_Calloc,
+    };
+
+    mono_set_allocator_vtable(&m_allocatorTable);
+
     mono_config_parse(NULL);
 
     const std::filesystem::path currentDir = std::filesystem::current_path();
@@ -117,8 +226,11 @@ RuntimeManager::RuntimeManager()
     const std::filesystem::path libDir = currentDir / "lib";
     const std::filesystem::path etcDir = currentDir / "etc";
 
-    mono_set_dirs(libDir.string().c_str(), etcDir.string().c_str());
-    
+    const std::string libStr = libDir.generic_string();
+    const std::string etcStr = etcDir.generic_string();
+
+    mono_set_dirs(libStr.c_str(), etcStr.c_str());
+
 #ifndef WIN32
     IcarianCore::MonoNativeImpl::Init();
 #endif
@@ -172,24 +284,49 @@ RuntimeManager::~RuntimeManager()
     mono_jit_cleanup(m_domain);
 
     mono_dl_fallback_unregister(NULL);
-    
+
 #ifndef WIN32
     IcarianCore::MonoNativeImpl::Destroy();
 #endif
+
+    Alloc->Destroy(m_dllLookup);
+
+    // Well gave Mono a custom allocator and got good news, bad news and good news
+    // Good News. ASan is no longer complaining about a memory leak
+    // Bad News. Our allocator is now complaining about a memory leak and ASan can no longer see it as we are handling the memory
+    // Good News. I now know which system has the leak
+    // That is our allocator and ASan against Mono and the reports match so I think Mono has a memory leak
+    // UPDATE: Welp after sifting through the LeakAllocator Mono is a leaky sieve there is no single leak
+    // It is gonna be a project and a half to fix them all therefore *plugs ears* LALALALALALA CANNOT HEAR YOU
+    // In all seriousness this may be a ignore the issue until I find a couple months to spare to write a C# runtime
+    // I am not gonna put effort into a deprecated runtime
+    IVERIFY(Alloc != nullptr);
+
+    const uint32_t allocatorChainSize = m_allocatorChain->Size();
+    for (uint32_t i = 0; i < allocatorChainSize; ++i)
+    {
+        Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
+        m_smallAllocator->Destroy(alloc);
+    }
+
+    m_smallAllocator->Destroy(m_allocatorChain);
+
+    MallocAllocator::Instance->Destroy(m_largeAllocator);
+    MallocAllocator::Instance->Destroy(m_smallAllocator);
 }
 
-void RuntimeManager::Init()
+void RuntimeManager::Init(Config* a_config)
 {
     if (Instance == nullptr)
     {
-        Instance = new RuntimeManager();
+        Instance = MallocAllocator::Instance->Create<RuntimeManager>(a_config);
     }
 }
 void RuntimeManager::Destroy()
 {
     if (Instance != nullptr)
     {
-        delete Instance;
+        MallocAllocator::Instance->Destroy(Instance);
         Instance = nullptr;
     }
 }
@@ -214,7 +351,14 @@ void RuntimeManager::Exec(int a_argc, char* a_argv[])
 void RuntimeManager::Update(double a_delta, double a_time)
 {
     PROFILESTACK("Runtime Update");
-    
+
+    if (Instance->m_trackerAllocator != nullptr)
+    {
+        const uint64_t size = Instance->m_trackerAllocator->GetMemoryUsage();
+
+        Profiler::PushMemoryFrame(ProfilerMemoryFrame_CSharp, size);
+    }
+
     void* args[] =
     {
         &a_delta,
@@ -222,6 +366,13 @@ void RuntimeManager::Update(double a_delta, double a_time)
     };
 
     mono_runtime_invoke(Instance->m_updateMethod, NULL, args, NULL);
+
+    {
+        PROFILESTACK("Runtime NatMemory");
+
+        Instance->m_smallAllocator->TrimBlocks();
+        Instance->m_largeAllocator->TrimBlocks();
+    }
 }
 void RuntimeManager::LateUpdate()
 {
@@ -230,9 +381,14 @@ void RuntimeManager::LateUpdate()
     mono_runtime_invoke(Instance->m_lateUpdateMethod, NULL, NULL, NULL);
 }
 
-void RuntimeManager::BindFunction(const std::string_view& a_location, void* a_function)
+void RuntimeManager::BindFunction(const char* a_location, void* a_function)
 {
-    mono_add_internal_call(a_location.data(), a_function);
+    mono_add_internal_call(a_location, a_function);
+}
+void RuntimeManager::BindFunction(const COWU8String& a_location, void* a_function)
+{
+    const char* str = a_location.CStr();
+    BindFunction(str, a_function);
 }
 
 void RuntimeManager::AttachThread()
@@ -240,56 +396,69 @@ void RuntimeManager::AttachThread()
     mono_jit_thread_attach(Instance->m_domain);
 }
 
-void RuntimeManager::PushDLLPath(const std::filesystem::path& a_path)
+void RuntimeManager::PushDLLPath(const char* a_path)
 {
-    const std::filesystem::path filename = a_path.filename();
+    const COWU8String path = COWU8String(a_path, Alloc);
 
-    Instance->m_dllLookup.emplace(filename.string(), a_path);
+    PushDLLPath(path);
 }
-std::filesystem::path RuntimeManager::GetDLLPath(const std::string_view& a_path)
+void RuntimeManager::PushDLLPath(const COWU8String& a_path)
+{
+    const COWU8String ext = IO::GetExtension(a_path, Alloc);
+    if (!ext.Empty())
+    {
+        switch (StringHash(ext.CStr()))
+        {
+        case StringHash(".dll"):
+        case StringHash(".so"):
+        {
+            break;
+        }
+        default:
+        {
+            IERROR("Invalid DLL type");
+
+            break;
+        }
+        }
+    }
+
+    const COWU8String filename = IO::GetFilename(a_path, Alloc);
+    const COWU8String path = COWU8String(a_path, Alloc);
+
+    Instance->m_dllLookup->Push(filename, path);
+}
+COWU8String RuntimeManager::GetDLLPath(const char* a_path)
 {
     if (Instance == nullptr)
     {
-        return std::filesystem::path();
+        return COWU8String(Alloc);
     }
 
-    const std::filesystem::path assemblyPath = std::filesystem::path(a_path);
-    const std::filesystem::path filename = assemblyPath.filename();
-    const std::string s = filename.string();
+    const COWU8String path = COWU8String(a_path, Alloc);
 
-    auto iter = Instance->m_dllLookup.find(s);
-    if (iter != Instance->m_dllLookup.end())
+    return GetDLLPath(path);
+}
+COWU8String RuntimeManager::GetDLLPath(const COWU8String& a_path)
+{
+    if (Instance == nullptr)
     {
-        return iter->second;
+        return COWU8String(Alloc);
     }
 
-#ifdef WIN32
-    iter = Instance->m_dllLookup.find(s + ".dll");
-    if (iter != Instance->m_dllLookup.end())
+    const COWU8String filename = IO::GetFilename(a_path, Alloc);
+    if (Instance->m_dllLookup->Exists(filename))
     {
-        return iter->second;
-    }
-#else
-    iter = Instance->m_dllLookup.find(s + ".so");
-    if (iter != Instance->m_dllLookup.end())
-    {
-        return iter->second;
+        return Instance->m_dllLookup->GetValue(filename);
     }
 
-    iter = Instance->m_dllLookup.find("lib" + s);
-    if (iter != Instance->m_dllLookup.end())
+    const COWU8String libFilename = "lib" + filename;
+    if (Instance->m_dllLookup->Exists(libFilename))
     {
-        return iter->second;
+        return Instance->m_dllLookup->GetValue(libFilename);
     }
 
-    iter = Instance->m_dllLookup.find("lib" + s + ".so");
-    if (iter != Instance->m_dllLookup.end())
-    {
-        return iter->second;
-    }
-#endif
-
-    return std::filesystem::path();
+    return COWU8String(Alloc);
 }
 
 MonoDomain* RuntimeManager::GetDomain()
@@ -297,28 +466,43 @@ MonoDomain* RuntimeManager::GetDomain()
     return Instance->m_domain;
 }
 
-MonoClass* RuntimeManager::GetClass(const std::string_view& a_namespace, const std::string_view& a_name)
+MonoClass* RuntimeManager::GetClass(const char* a_namespace, const char* a_name)
 {
-    return mono_class_from_name(Instance->m_image, a_namespace.data(), a_name.data());
+    return mono_class_from_name(Instance->m_image, a_namespace, a_name);
+}
+MonoClass* RuntimeManager::GetClass(const COWU8String& a_namespace, const COWU8String& a_name)
+{
+    const char* ns = a_namespace.CStr();
+    const char* n = a_name.CStr();
+
+    return GetClass(ns, n);
 }
 
-RuntimeFunction* RuntimeManager::GetFunction(const std::string_view& a_namespace, const std::string_view& a_class, const std::string_view& a_method)
+RuntimeFunction* RuntimeManager::GetFunction(const char* a_namespace, const char* a_class, const char* a_method)
 {
-    MonoClass* cls = mono_class_from_name(Instance->m_image, a_namespace.data(), a_class.data());
+    MonoClass* cls = mono_class_from_name(Instance->m_image, a_namespace, a_class);
     IVERIFY(cls != NULL);
 
-    MonoMethodDesc* desc = mono_method_desc_new(a_method.data(), 0);
+    MonoMethodDesc* desc = mono_method_desc_new(a_method, 0);
     IVERIFY(desc != NULL);
     IDEFER(mono_method_desc_free(desc));
     MonoMethod* method = mono_method_desc_search_in_class(desc, cls);
     IVERIFY(method != NULL);
 
-    return new RuntimeFunction(method);
+    return MallocAllocator::Instance->Create<RuntimeFunction>(method);
+}
+RuntimeFunction* RuntimeManager::GetFunction(const COWU8String& a_namespace, const COWU8String& a_class, const COWU8String& a_method)
+{
+    const char* ns = a_namespace.CStr();
+    const char* c = a_class.CStr();
+    const char* m = a_method.CStr();
+
+    return GetFunction(ns, c, m);
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

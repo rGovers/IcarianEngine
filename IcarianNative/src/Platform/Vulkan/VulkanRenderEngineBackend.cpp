@@ -17,6 +17,7 @@
 #include "DataTypes/Allocators/MultiSourceAllocator.h"
 #include "DataTypes/Allocators/OSAllocator.h"
 #include "DataTypes/Allocators/StackAllocator.h"
+#include "DataTypes/Allocators/UberAllocator.h"
 #include "DataTypes/Set.h"
 #include "Logger.h"
 #include "Profiler.h"
@@ -191,24 +192,25 @@ static VKAPI_ATTR vk::Bool32 VKAPI_CALL DebugCallback
 )
 {
     constexpr static const char* ValidationPrefix = "Vulkan Validation Layer: ";
+    const COWU8String str = COWU8String(ValidationPrefix, MallocAllocator::Instance) + a_callbackData->pMessage;
 
     switch (a_msgSeverity)
     {
     case vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo:
     {
-        Logger::Message(std::string(ValidationPrefix) + a_callbackData->pMessage);
+        Logger::Message(str);
 
         break;
     }
     case vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning:
     {
-        Logger::Warning(std::string(ValidationPrefix) + a_callbackData->pMessage);
+        Logger::Warning(str);
 
         break;
     }
     case vk::DebugUtilsMessageSeverityFlagBitsEXT::eError:
     {
-        Logger::Error(std::string(ValidationPrefix) + a_callbackData->pMessage);
+        Logger::Error(str);
 
         // return vk::True;
         break;
@@ -481,8 +483,12 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 {
     Instance = this;
 
-    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, OSAllocator::Instance);
-    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, OSAllocator::Instance);
+    m_trackerAllocator = nullptr;
+
+    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, UberAllocator::Instance);
+    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, UberAllocator::Instance);
+
+    m_allocatorChain = m_smallAllocator->Create<Array<Allocator*>>(m_smallAllocator);
 
     const AllocationSource allocationSources[] =
     {
@@ -503,19 +509,31 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     constexpr uint32_t AllocationSourceCount = sizeof(allocationSources) / sizeof(*allocationSources);
 
     m_allocator = m_smallAllocator->Create<MultiSourceAllocator>(m_smallAllocator, allocationSources, AllocationSourceCount);
+    m_allocatorChain->Push(m_allocator);
+
+    const RenderEngine* renderEngine = GetRenderEngine();
+    AppWindow* window = renderEngine->m_window;
+
+    const bool headless = window->IsHeadless();
+    if (headless)
+    {
+        m_trackerAllocator = m_smallAllocator->Create<TrackerAllocator>(m_allocator);
+        m_allocator = m_trackerAllocator;
+        m_allocatorChain->Push(m_allocator);
+    }
+
 #ifdef DEBUG
     m_allocator = m_smallAllocator->Create<LeakAllocator>(m_allocator);
+    m_allocatorChain->Push(m_allocator);
 #endif
 
-    m_deletionAllocator = m_allocator->Create<BlockAllocator>(DeletionAllocatorSize, OSAllocator::Instance);
+    m_deletionAllocator = m_allocator->Create<BlockAllocator>(DeletionAllocatorSize, m_allocator);
 
     m_data = m_allocator->ZTAllocate<ClassData>();
     for (uint32_t i = 0; i < VulkanMaxFlightFrames; ++i)
     {
         m_data->InterSemaphore[i] = Array<vk::Semaphore>(m_allocator);
     }
-
-    m_data->ScratchAllocators = Array<RenderScratchAllocator>(m_allocator);
 
     m_data->ImageIndex = -1;
 
@@ -529,13 +547,8 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     VULKAN_HPP_DEFAULT_DISPATCHER.init((PFN_vkGetInstanceProcAddr)m_data->VulkanLib->vkGetInstanceProcAddr);
 
-    const RenderEngine* renderEngine = GetRenderEngine();
-    AppWindow* window = renderEngine->m_window;
-
     const Config* config = renderEngine->GetConfig();
     const bool forceMesh = config->ForceMesh();
-
-    const bool headless = window->IsHeadless();
 
     const Array<const char*> enabledLayers = ILAMBDA(
     {
@@ -640,7 +653,15 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     if (deviceCount <= 0)
     {
-        IcarianError("No GPU found to run.");
+        const COWU8String str = COWU8String
+        (
+            "No suitable GPU found to run. "
+
+            "Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM and Mesh Shader capabilites.",
+            MallocAllocator::Instance
+        );
+
+        IcarianError(str);
     }
 
     // TODO: Should probably skip device selection if the user specifies a override
@@ -676,12 +697,15 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     if (m_data->PhysicalDevice == vk::PhysicalDevice(nullptr))
     {
-        IcarianError
+        const COWU8String str = COWU8String
         (
-"No suitable GPU found to run. \
-\
-Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM and Mesh Shader capabilites."
+            "No suitable GPU found to run. "
+
+            "Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM and Mesh Shader capabilites.",
+            MallocAllocator::Instance
         );
+
+        IcarianError(str);
     }
 
     TRACE("Found Vulkan Physical Device");
@@ -724,7 +748,7 @@ NextExtension:;
     });
 
     // Did for testing but leaving to make sure nothing weird is happening
-    Logger::Message(std::string("Selected GPU: ") + props.deviceName.data());
+    Logger::Message(COWU8String("Selected GPU: ", MallocAllocator::Instance) + props.deviceName.data());
 
     m_data->ComputeQueueIndex = -1;
     m_data->VideoDecodeQueueIndex = -1;
@@ -1109,22 +1133,27 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
     m_allocator->Free(m_data->OptionalExtensionMask);
 
     TRACE("Destroying Rendering Allocators");
-    for (const RenderScratchAllocator& a : m_data->ScratchAllocators)
     {
-        m_allocator->Destroy(a.Allocator);
+        TReadLockArray<RenderScratchAllocator> a = m_data->ScratchAllocators.ToReadLockArray();
+
+        for (const RenderScratchAllocator& alloc : a)
+        {
+            m_allocator->Destroy(alloc.Allocator);
+        }
     }
 
     m_allocator->Destroy(m_data);
 
     m_allocator->Destroy(m_deletionAllocator);
 
+    const uint32_t allocatorChainSize = m_allocatorChain->Size();
+    for (uint32_t i = 0; i < allocatorChainSize; ++i)
     {
-#ifdef DEBUG
-        Allocator* upstreamAllocator = ((LeakAllocator*)m_allocator)->GetUpstreamAllocator();
-        IDEFER(m_smallAllocator->Destroy(upstreamAllocator));
-#endif
-        m_smallAllocator->Destroy(m_allocator);
+        Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
+        m_smallAllocator->Destroy(alloc);
     }
+
+    m_smallAllocator->Destroy(m_allocatorChain);
 
     MallocAllocator::Instance->Destroy(m_smallAllocator);
     MallocAllocator::Instance->Destroy(m_largeAllocator);
@@ -1157,6 +1186,13 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     // TODO: Can probably better manage semaphores.
     const RenderEngine* renderEngine = GetRenderEngine();
     AppWindow* window = renderEngine->m_window;
+
+    if (m_trackerAllocator != nullptr)
+    {
+        const uint64_t size = m_trackerAllocator->GetMemoryUsage();
+
+        Profiler::PushMemoryFrame(ProfilerMemoryFrame_Rendering, size);
+    }
 
     // When we are running headless RenderDoc does not know when a frame begins or ends because we do not use a system swapchain
     // To get around that we need to tell RenderDoc when a frame begins and ends
@@ -1509,11 +1545,30 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
         for (uint32_t i = 0; i < m_data->ScratchIndex; ++i)
         {
-            const RenderScratchAllocator& a = m_data->ScratchAllocators[i];
+            bool wait = false;
 
-            while (a.Count > 0) { }
+            while (true)
+            {
+                if (wait)
+                {
+                    volatile int busy = 0;
 
-            a.Allocator->Reset();
+                    while (busy++ < 16) { };
+                }
+
+                TLockArray<RenderScratchAllocator> a = m_data->ScratchAllocators.ToLockArray();
+
+                if (a[i].Count > 0)
+                {
+                    wait = true;
+
+                    continue;
+                }
+
+                a[i].Allocator->Reset();
+
+                break;
+            }
         }
 
         ScratchAllocator.Clear();
@@ -1625,7 +1680,7 @@ void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, Spi
         case CommandIndex_Compute:
         {
             ILRETURN m_data->ComputeQueue;
-        } 
+        }
         case CommandIndex_VideoDecode:
         {
             ILRETURN m_data->VideoDecodeQueue;
@@ -1822,18 +1877,28 @@ void VulkanRenderEngineBackend::IncrementScratchFrame(uint32_t a_index)
     {
         const SharedThreadGuard g = SharedThreadGuard(m_scratchLock);
 
-        ++(m_data->ScratchAllocators[a_index].Count);
+        TLockArray<RenderScratchAllocator> a = m_data->ScratchAllocators.ToLockArray();
+
+        IVERIFY(a[a_index].Count == 0);
+
+        ++(a[a_index].Count);
 
         return;
     }
 
-    ++(m_data->ScratchAllocators[a_index].Count);
+    TLockArray<RenderScratchAllocator> a = m_data->ScratchAllocators.ToLockArray();
+
+    ++(a[a_index].Count);
 }
 void VulkanRenderEngineBackend::DecrementScratchFrame(uint32_t a_index)
 {
     IVERIFY(a_index < m_data->ScratchAllocators.Size());
 
-    --(m_data->ScratchAllocators[a_index].Count);
+    TLockArray<RenderScratchAllocator> a = m_data->ScratchAllocators.ToLockArray();
+
+    IVERIFY(a[a_index].Count > 0);
+
+    --(a[a_index].Count);
 }
 
 StackAllocator* VulkanRenderEngineBackend::GetStackAllocator(uint32_t* a_index)
@@ -1846,7 +1911,7 @@ StackAllocator* VulkanRenderEngineBackend::GetStackAllocator(uint32_t* a_index)
 
     if (m_data->ScratchIndex >= m_data->ScratchAllocators.Size())
     {
-        StackAllocator* allocator = m_allocator->Create<StackAllocator>(ScratchAllocatorSize, OSAllocator::Instance);
+        StackAllocator* allocator = m_allocator->Create<StackAllocator>(ScratchAllocatorSize, m_allocator);
 
         const RenderScratchAllocator data =
         {
@@ -1856,9 +1921,11 @@ StackAllocator* VulkanRenderEngineBackend::GetStackAllocator(uint32_t* a_index)
         m_data->ScratchAllocators.Push(data);
     }
 
+    const TLockArray<RenderScratchAllocator> a = m_data->ScratchAllocators.ToLockArray();
+
     *a_index = index;
 
-    return m_data->ScratchAllocators[index].Allocator;
+    return a[index].Allocator;
 }
 
 void VulkanRenderEngineBackend::InternalPushDeletionObject(VulkanDeletionObject* a_object)

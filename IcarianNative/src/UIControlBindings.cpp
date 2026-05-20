@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 
 #include "Core/IcarianDefer.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "IcarianError.h"
 #include "Rendering/UI/ImageUIElement.h"
 #include "Rendering/UI/TextUIElement.h"
@@ -46,7 +47,7 @@ UIControlBindings::~UIControlBindings()
 uint32_t UIControlBindings::CreateCanvas(const glm::vec2& a_refResolution) const
 {
     TRACE("Creating Canvas");
-    const CanvasBuffer buffer = 
+    const CanvasBuffer buffer =
     {
         .ReferenceResolution = a_refResolution,
     };
@@ -56,22 +57,16 @@ uint32_t UIControlBindings::CreateCanvas(const glm::vec2& a_refResolution) const
 void UIControlBindings::DestroyCanvas(uint32_t a_addr) const
 {
     TRACE("Destroying Canvas");
-    IVERIFY(a_addr < m_uiControl->m_canvas.Size());
     IVERIFY(m_uiControl->m_canvas.Exists(a_addr));
 
     const CanvasBuffer buffer = m_uiControl->m_canvas[a_addr];
-    IDEFER(
-    if (buffer.ChildElements != nullptr)
-	{
-		delete[] buffer.ChildElements;
-	});
+    IDEFER(MallocAllocator::Instance->Free(buffer.ChildElements));
+
     m_uiControl->m_canvas.Erase(a_addr);
 }
 void UIControlBindings::AddCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_canvas.Size());
     IVERIFY(m_uiControl->m_canvas.Exists(a_addr));
-    IVERIFY(a_uiElementAddr < m_uiControl->m_uiElements.Size());   
     IVERIFY(m_uiControl->m_uiElements.Exists(a_uiElementAddr));
 
     {
@@ -96,9 +91,9 @@ void UIControlBindings::AddCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr
             }
         }
 
-        const uint32_t* oldBuffer = buffer.ChildElements;
-        IDEFER(delete[] oldBuffer);
-        buffer.ChildElements = new uint32_t[buffer.ChildCount + 1];
+        uint32_t* oldBuffer = buffer.ChildElements;
+        IDEFER(MallocAllocator::Instance->Free(oldBuffer));
+        buffer.ChildElements = MallocAllocator::Instance->TAllocate<uint32_t>(buffer.ChildCount + 1);
 
         for (uint32_t i = 0; i < buffer.ChildCount; ++i)
         {
@@ -107,19 +102,17 @@ void UIControlBindings::AddCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr
 
         buffer.ChildElements[buffer.ChildCount++] = a_uiElementAddr;
     }
-    
+
     {
         TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
-        
+
         UIElement* element = a[a_uiElementAddr];
         element->SetParent(-1);
     }
 }
 void UIControlBindings::RemoveCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_canvas.Size());
     IVERIFY(m_uiControl->m_canvas.Exists(a_addr));
-    IVERIFY(a_uiElementAddr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_uiElementAddr));
 
     {
@@ -151,52 +144,48 @@ uint32_t* UIControlBindings::GetCanvasChildren(uint32_t a_addr, uint32_t* a_coun
 
 uint32_t UIControlBindings::CreateUIElement() const
 {
-    UIElement* element = new UIElement();
+    UIElement* element = MallocAllocator::Instance->Create<UIElement>(MallocAllocator::Instance);
 
     return m_uiControl->m_uiElements.PushVal(element);
 }
 void UIControlBindings::DestroyUIElement(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
-    const UIElement* element = m_uiControl->m_uiElements[a_addr];
-    IDEFER(delete element);
+    UIElement* element = m_uiControl->m_uiElements[a_addr];
+    IDEFER(MallocAllocator::Instance->Destroy(element));
     m_uiControl->m_uiElements.Erase(a_addr);
 }
 void UIControlBindings::AddElementChild(uint32_t a_addr, uint32_t a_childAddr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
-    IVERIFY(a_childAddr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_childAddr));
 
     TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
 
     UIElement* pElement = a[a_addr];
     pElement->AddChild(a_childAddr);
+
     UIElement* cElement = a[a_childAddr];
     cElement->SetParent(a_addr);
 }
 void UIControlBindings::RemoveElementChild(uint32_t a_addr, uint32_t a_childAddr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
-    IVERIFY(a_childAddr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_childAddr));
 
     TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
 
     UIElement* pElement = a[a_addr];
     pElement->RemoveChild(a_childAddr);
-    UIElement* cElement = a[a_addr];
+
+    UIElement* cElement = a[a_childAddr];
     cElement->SetParent(-1);
 }
 uint32_t* UIControlBindings::GetElementChildren(uint32_t a_addr, uint32_t* a_count) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
-    
+
     const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
 
     const UIElement* element = a[a_addr];
@@ -206,7 +195,6 @@ uint32_t* UIControlBindings::GetElementChildren(uint32_t a_addr, uint32_t* a_cou
 }
 glm::vec2 UIControlBindings::GetElementPosition(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
     const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
@@ -216,7 +204,6 @@ glm::vec2 UIControlBindings::GetElementPosition(uint32_t a_addr) const
 }
 void UIControlBindings::SetElementPosition(uint32_t a_addr, const glm::vec2& a_pos) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
     TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
@@ -226,7 +213,6 @@ void UIControlBindings::SetElementPosition(uint32_t a_addr, const glm::vec2& a_p
 }
 glm::vec2 UIControlBindings::GetElementSize(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
     const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
@@ -236,7 +222,6 @@ glm::vec2 UIControlBindings::GetElementSize(uint32_t a_addr) const
 }
 void UIControlBindings::SetElementSize(uint32_t a_addr, const glm::vec2& a_size) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
     TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
@@ -246,7 +231,6 @@ void UIControlBindings::SetElementSize(uint32_t a_addr, const glm::vec2& a_size)
 }
 glm::vec4 UIControlBindings::GetElementColor(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
     const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
@@ -256,7 +240,6 @@ glm::vec4 UIControlBindings::GetElementColor(uint32_t a_addr) const
 }
 void UIControlBindings::SetElementColor(uint32_t a_addr, const glm::vec4& a_color) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
     TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
@@ -266,7 +249,6 @@ void UIControlBindings::SetElementColor(uint32_t a_addr, const glm::vec4& a_colo
 }
 e_UIXAnchor UIControlBindings::GetElementXAnchor(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
     const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
@@ -276,7 +258,6 @@ e_UIXAnchor UIControlBindings::GetElementXAnchor(uint32_t a_addr) const
 }
 void UIControlBindings::SetElementXAnchor(uint32_t a_addr, e_UIXAnchor a_anchor) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
     TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
@@ -286,7 +267,6 @@ void UIControlBindings::SetElementXAnchor(uint32_t a_addr, e_UIXAnchor a_anchor)
 }
 e_UIYAnchor UIControlBindings::GetElementYAnchor(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
     const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
@@ -296,7 +276,6 @@ e_UIYAnchor UIControlBindings::GetElementYAnchor(uint32_t a_addr) const
 }
 void UIControlBindings::SetElementYAnchor(uint32_t a_addr, e_UIYAnchor a_anchor) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
     TLockArray<UIElement*> a = m_uiControl->m_uiElements.ToLockArray();
@@ -306,7 +285,6 @@ void UIControlBindings::SetElementYAnchor(uint32_t a_addr, e_UIYAnchor a_anchor)
 }
 e_ElementState UIControlBindings::GetElementState(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
     const TReadLockArray<UIElement*> a = m_uiControl->m_uiElements.ToReadLockArray();
@@ -318,13 +296,12 @@ e_ElementState UIControlBindings::GetElementState(uint32_t a_addr) const
 uint32_t UIControlBindings::CreateTextElement() const
 {
     TRACE("Creating Text UI Element");
-    TextUIElement* element = new TextUIElement();
+    TextUIElement* element = MallocAllocator::Instance->Create<TextUIElement>(MallocAllocator::Instance);
 
     return m_uiControl->m_uiElements.PushVal(element);
 }
-std::u32string UIControlBindings::GetTextElementText(uint32_t a_addr) const
+COWU32String UIControlBindings::GetTextElementText(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
     IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
 
@@ -333,9 +310,14 @@ std::u32string UIControlBindings::GetTextElementText(uint32_t a_addr) const
     TextUIElement* element = (TextUIElement*)a[a_addr];
     return element->GetText();
 }
-void UIControlBindings::SetTextElementText(uint32_t a_addr, const std::u32string_view& a_text) const
+void UIControlBindings::SetTextElementText(uint32_t a_addr, const CharU32* a_text) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
+    const COWU32String str = COWU32String(a_text, MallocAllocator::Instance);
+
+    SetTextElementText(a_addr, str);
+}
+void UIControlBindings::SetTextElementText(uint32_t a_addr, const COWU32String& a_text) const
+{
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
     IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
 
@@ -346,7 +328,6 @@ void UIControlBindings::SetTextElementText(uint32_t a_addr, const std::u32string
 }
 uint32_t UIControlBindings::GetTextElementFont(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
     IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
 
@@ -357,7 +338,6 @@ uint32_t UIControlBindings::GetTextElementFont(uint32_t a_addr) const
 }
 void UIControlBindings::SetTextElementFont(uint32_t a_addr, uint32_t a_fontAddr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
     IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
 
@@ -368,7 +348,6 @@ void UIControlBindings::SetTextElementFont(uint32_t a_addr, uint32_t a_fontAddr)
 }
 float UIControlBindings::GetTextElementFontSize(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
     IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
 
@@ -379,7 +358,6 @@ float UIControlBindings::GetTextElementFontSize(uint32_t a_addr) const
 }
 void UIControlBindings::SetTextElementFontSize(uint32_t a_addr, float a_size) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
     IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
 
@@ -392,13 +370,12 @@ void UIControlBindings::SetTextElementFontSize(uint32_t a_addr, float a_size) co
 uint32_t UIControlBindings::CreateImageElement() const
 {
     TRACE("Creating Image UI Element");
-    ImageUIElement* element = new ImageUIElement();
+    ImageUIElement* element = MallocAllocator::Instance->Create<ImageUIElement>(MallocAllocator::Instance);
 
     return m_uiControl->m_uiElements.PushVal(element);
 }
 uint32_t UIControlBindings::GetImageElementSampler(uint32_t a_addr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
     IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Image);
 
@@ -409,7 +386,6 @@ uint32_t UIControlBindings::GetImageElementSampler(uint32_t a_addr) const
 }
 void UIControlBindings::SetImageElementSampler(uint32_t a_addr, uint32_t a_samplerAddr) const
 {
-    IVERIFY(a_addr < m_uiControl->m_uiElements.Size());
     IVERIFY(m_uiControl->m_uiElements[a_addr] != nullptr);
     IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Image);
 
@@ -421,7 +397,7 @@ void UIControlBindings::SetImageElementSampler(uint32_t a_addr, uint32_t a_sampl
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

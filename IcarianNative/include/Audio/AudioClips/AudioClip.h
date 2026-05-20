@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-class RingAllocator;
+class Allocator;
 
 enum e_AudioFormat : uint16_t
 {
@@ -34,12 +34,12 @@ public:
         return AudioFormat_S16;
     }
 
-    virtual uint8_t* GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize) = 0;
+    virtual uint8_t* GetAudioData(Allocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize) = 0;
 };
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

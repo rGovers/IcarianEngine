@@ -38,6 +38,7 @@
 #include "DataTypes/Allocators/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
+#include "IO.h"
 #include "ObjectManager.h"
 #include "Physics/InterfaceLock.h"
 #include "Physics/PhysicsEngine.h"
@@ -77,7 +78,6 @@ ENGINE_PHYSICS_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 PhysicsEngineBindings::PhysicsEngineBindings(PhysicsEngine* a_engine)
 {
     TRACE("Binding physics functions to C#");
-    
     m_engine = a_engine;
 
     Instance = this;
@@ -112,19 +112,19 @@ uint32_t PhysicsEngineBindings::CreateSphereShape(float a_radius) const
     if (result.HasError())
     {
         const JPH::String str = result.GetError();
-        IERROR(std::string("Jolt: ") + str.c_str());
+        IERROR(COWU8String("Jolt: ", MallocAllocator::Instance) + str.c_str());
 
         return -1;
     }
     IVERIFY(result.IsValid());
 
-    return m_engine->m_collisionShapes.PushVal(result);
+    return m_engine->m_data->CollisionShapes.PushVal(result);
 }
 float PhysicsEngineBindings::GetSphereShapeRadius(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
+    IVERIFY(m_engine->m_data->CollisionShapes.Exists(a_addr));
 
-    const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
+    const JPH::ShapeRefC shape = m_engine->m_data->CollisionShapes[a_addr].Get();
     IVERIFY(shape->GetSubType() == JPH::EShapeSubType::Sphere);
 
     return shape->GetInnerRadius();
@@ -141,19 +141,19 @@ uint32_t PhysicsEngineBindings::CreateBoxShape(const glm::vec3& a_extents) const
     if (result.HasError())
     {
         const JPH::String str = result.GetError();
-        IERROR(std::string("Jolt: ") + str.c_str());
+        IERROR(COWU8String("Jolt: ", MallocAllocator::Instance) + str.c_str());
 
         return -1;
     }
     IVERIFY(result.IsValid());
 
-    return m_engine->m_collisionShapes.PushVal(result);
+    return m_engine->m_data->CollisionShapes.PushVal(result);
 }
 glm::vec3 PhysicsEngineBindings::GetBoxShapeExtents(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
+    IVERIFY(m_engine->m_data->CollisionShapes.Exists(a_addr));
 
-    const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
+    const JPH::ShapeRefC shape = m_engine->m_data->CollisionShapes[a_addr].Get();
     IVERIFY(shape->GetSubType() == JPH::EShapeSubType::Box);
 
     const JPH::BoxShape* bShape = (JPH::BoxShape*)shape.GetPtr();
@@ -166,36 +166,49 @@ glm::vec3 PhysicsEngineBindings::GetBoxShapeExtents(uint32_t a_addr) const
 uint32_t PhysicsEngineBindings::CreateCapsuleShape(float a_height, float a_radius) const
 {
     TRACE("Creating Capsule Shape");
-    const JPH::CapsuleShapeSettings capsuleSettings = JPH::CapsuleShapeSettings(a_height * 0.5f, a_radius);
+    const float halfHeight = a_height * 0.5f;
+    if (halfHeight < a_radius)
+    {
+        // We are requesting a capsule shape that is impossible to make
+        return -1;
+    }
+
+    // After looking in Jolt we expect the height to be inclusive of the radius however they expect it to be exclusive of the radius
+    // To correct for this we need to subtract the radius from the result
+    // Not sure how I missed this considering it says height of cylinder not capsule
+    const JPH::CapsuleShapeSettings capsuleSettings = JPH::CapsuleShapeSettings(halfHeight - a_radius, a_radius);
     const JPH::ShapeSettings::ShapeResult result = capsuleSettings.Create();
 
     if (result.HasError())
     {
         const JPH::String str = result.GetError();
-        IERROR(std::string("Jolt: ") + str.c_str());
+        IERROR(COWU8String("Jolt: ", MallocAllocator::Instance) + str.c_str());
 
         return -1;
     }
     IVERIFY(result.IsValid());
 
-    return m_engine->m_collisionShapes.PushVal(result);
+    return m_engine->m_data->CollisionShapes.PushVal(result);
 }
 float PhysicsEngineBindings::GetCapsuleShapeHeight(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
+    IVERIFY(m_engine->m_data->CollisionShapes.Exists(a_addr));
 
-    const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
+    const JPH::ShapeRefC shape = m_engine->m_data->CollisionShapes[a_addr].Get();
     IVERIFY(shape->GetSubType() == JPH::EShapeSubType::Capsule);
 
     const JPH::CapsuleShape* cShape = (JPH::CapsuleShape*)shape.GetPtr();
 
-    return cShape->GetHalfHeightOfCylinder() * 2.0f;
-}
-float PhysicsEngineBindings::GetCasuleShapeRadius(uint32_t a_addr) const
-{
-    IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
+    const float halfHeight = cShape->GetHalfHeightOfCylinder();
+    const float radius = cShape->GetRadius();
 
-    const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
+    return (halfHeight + radius) * 2.0f;
+}
+float PhysicsEngineBindings::GetCapsuleShapeRadius(uint32_t a_addr) const
+{
+    IVERIFY(m_engine->m_data->CollisionShapes.Exists(a_addr));
+
+    const JPH::ShapeRefC shape = m_engine->m_data->CollisionShapes[a_addr].Get();
     IVERIFY(shape->GetSubType() == JPH::EShapeSubType::Capsule);
 
     const JPH::CapsuleShape* cShape = (JPH::CapsuleShape*)shape.GetPtr();
@@ -212,19 +225,19 @@ uint32_t PhysicsEngineBindings::CreateCylinderShape(float a_height, float a_radi
     if (result.HasError())
     {
         const JPH::String str = result.GetError();
-        IERROR(std::string("Jolt: ") + str.c_str());
+        IERROR(COWU8String("Jolt: ", MallocAllocator::Instance) + str.c_str());
 
         return -1;
     }
     IVERIFY(result.IsValid());
 
-    return m_engine->m_collisionShapes.PushVal(result);
+    return m_engine->m_data->CollisionShapes.PushVal(result);
 }
 float PhysicsEngineBindings::GetCylinderShapeHeight(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
+    IVERIFY(m_engine->m_data->CollisionShapes.Exists(a_addr));
 
-    const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
+    const JPH::ShapeRefC shape = m_engine->m_data->CollisionShapes[a_addr].Get();
     IVERIFY(shape->GetSubType() == JPH::EShapeSubType::Cylinder);
 
     const JPH::CylinderShape* cShape = (JPH::CylinderShape*)shape.GetPtr();
@@ -233,9 +246,9 @@ float PhysicsEngineBindings::GetCylinderShapeHeight(uint32_t a_addr) const
 }
 float PhysicsEngineBindings::GetCylinderShapeRadius(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
+    IVERIFY(m_engine->m_data->CollisionShapes.Exists(a_addr));
 
-    const JPH::ShapeRefC shape = m_engine->m_collisionShapes[a_addr].Get();
+    const JPH::ShapeRefC shape = m_engine->m_data->CollisionShapes[a_addr].Get();
     IVERIFY(shape->GetSubType() == JPH::EShapeSubType::Cylinder);
 
     const JPH::CylinderShape* cShape = (JPH::CylinderShape*)shape.GetPtr();
@@ -243,17 +256,23 @@ float PhysicsEngineBindings::GetCylinderShapeRadius(uint32_t a_addr) const
     return cShape->GetRadius();
 }
 
-uint32_t PhysicsEngineBindings::CreateMeshShape(const std::string_view& a_path) const
+uint32_t PhysicsEngineBindings::CreateMeshShape(const char* a_path) const
+{
+    Allocator* allocator = m_engine->GetAllocator();
+    const COWU8String str = COWU8String(a_path, allocator);
+
+    return CreateMeshShape(str);
+}
+uint32_t PhysicsEngineBindings::CreateMeshShape(const COWU8String& a_path) const
 {
     IERRBLOCK;
 
     TRACE("Creating Mesh Shape");
 
-    const std::filesystem::path p = std::filesystem::path(a_path);
-    const std::filesystem::path ext = p.extension();
-    const std::string extStr = ext.string();
+    Allocator* allocator = m_engine->GetAllocator();
+    const COWU8String ext = IO::GetExtension(a_path, allocator);
 
-    switch (StringHash<uint32_t>(extStr.c_str()))
+    switch (StringHash<uint32_t>(ext.CStr()))
     {
     case StringHash<uint32_t>(".obj"):
     case StringHash<uint32_t>(".dae"):
@@ -263,16 +282,22 @@ uint32_t PhysicsEngineBindings::CreateMeshShape(const std::string_view& a_path) 
     {
         FileHandle* handle = FileCache::LoadFile(a_path);
         IERRCHECKRET(handle != nullptr, -1);
-        IDEFER(delete handle);
+        IDEFER(MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
-        uint8_t* dat = new uint8_t[size];
-        IDEFER(delete[] dat);
+        uint8_t* dat = MallocAllocator::Instance->TAllocate<uint8_t>(size);
+        IDEFER(MallocAllocator::Instance->Destroy(dat));
         IERRCHECKRET(handle->Read(dat, size) == size, -1);
 
         Assimp::Importer importer;
 
-        const aiScene* scene = importer.ReadFileFromMemory(dat, (size_t)size, aiProcess_Triangulate | aiProcess_PreTransformVertices, extStr.c_str() + 1);
+        const aiScene* scene = importer.ReadFileFromMemory
+        (
+            dat,
+            (size_t)size,
+            aiProcess_Triangulate | aiProcess_PreTransformVertices,
+            ext.CStr() + 1
+        );
         IERRCHECKRET(scene != nullptr, -1);
 
         JPH::IndexedTriangleList faces;
@@ -310,13 +335,13 @@ uint32_t PhysicsEngineBindings::CreateMeshShape(const std::string_view& a_path) 
         if (result.HasError())
         {
             const JPH::String str = result.GetError();
-            IERROR(std::string("Jolt: ") + str.c_str());
+            IERROR(COWU8String("Jolt: ", MallocAllocator::Instance) + str.c_str());
 
             return -1;
         }
         IVERIFY(result.IsValid());
 
-        return m_engine->m_collisionShapes.PushVal(result);
+        return m_engine->m_data->CollisionShapes.PushVal(result);
     }
     default:
     {
@@ -329,15 +354,15 @@ uint32_t PhysicsEngineBindings::CreateMeshShape(const std::string_view& a_path) 
 
 void PhysicsEngineBindings::DestroyCollisionShape(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_collisionShapes.Exists(a_addr));
+    IVERIFY(m_engine->m_data->CollisionShapes.Exists(a_addr));
 
-    m_engine->m_collisionShapes[a_addr].Clear();
+    m_engine->m_data->CollisionShapes[a_addr].Clear();
 }
 
 uint32_t PhysicsEngineBindings::CreateCharacterController(uint32_t a_transformAddr, uint32_t a_colliderAddr, const glm::vec3& a_up, float a_slopeAngle, float a_mass) const
 {
     TRACE("Creating Character Controller");
-    IVERIFY(m_engine->m_collisionShapes.Exists(a_colliderAddr));
+    IVERIFY(m_engine->m_data->CollisionShapes.Exists(a_colliderAddr));
 
     const glm::mat4 globalTransform = ObjectManager::GetGlobalMatrix(a_transformAddr);
 
@@ -352,45 +377,46 @@ uint32_t PhysicsEngineBindings::CreateCharacterController(uint32_t a_transformAd
     settings.mMass = a_mass;
     settings.mMaxSlopeAngle = a_slopeAngle;
     settings.mUp = JPH::Vec3(a_up.x, a_up.y, a_up.z);
-    settings.mShape = m_engine->m_collisionShapes[a_colliderAddr].Get();
+    settings.mShape = m_engine->m_data->CollisionShapes[a_colliderAddr].Get();
 
     JPH::CharacterVirtual* character = new JPH::CharacterVirtual
     (
-        &settings, 
-        JPH::RVec3Arg(translation.x, translation.y, translation.z), 
-        JPH::QuatArg(rotation.x, rotation.y, rotation.z, rotation.w), 
-        m_engine->m_physicsSystem
+        &settings,
+        JPH::RVec3Arg(translation.x, translation.y, translation.z),
+        JPH::QuatArg(rotation.x, rotation.y, rotation.z, rotation.w),
+        m_engine->m_data->PhysicsSystem
     );
 
-    const uint32_t index = m_engine->m_characters.PushVal(character);
+    const uint32_t index = m_engine->m_data->Characters.PushVal(character);
 
-    character->SetListener(m_engine->m_characterListener);
+    character->SetListener(m_engine->m_data->CharacterListener);
     character->SetUserData((JPH::uint64)index << 32 | (JPH::uint64)a_transformAddr);
 
     return index;
 }
 void PhysicsEngineBindings::DestroyCharacterController(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_characters.Exists(a_addr));
+    IVERIFY(m_engine->m_data->Characters.Exists(a_addr));
 
-    const JPH::CharacterVirtual* character = m_engine->m_characters[a_addr];
+    const JPH::CharacterVirtual* character = m_engine->m_data->Characters[a_addr];
     IDEFER(delete character);
-    m_engine->m_characters.Erase(a_addr);
+
+    m_engine->m_data->Characters.Erase(a_addr);
 }
 glm::vec3 PhysicsEngineBindings::GetCharacterControllerVelocity(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_characters.Exists(a_addr));
+    IVERIFY(m_engine->m_data->Characters.Exists(a_addr));
 
-    const JPH::CharacterVirtual* character = m_engine->m_characters[a_addr];
+    const JPH::CharacterVirtual* character = m_engine->m_data->Characters[a_addr];
     const JPH::Vec3 vel = character->GetLinearVelocity();
 
     return glm::vec3(vel.GetX(), vel.GetY(), vel.GetZ());
 }
 void PhysicsEngineBindings::SetCharacterControllerVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const
 {
-    IVERIFY(m_engine->m_characters.Exists(a_addr));
+    IVERIFY(m_engine->m_data->Characters.Exists(a_addr));
 
-    JPH::CharacterVirtual* character = m_engine->m_characters[a_addr];
+    JPH::CharacterVirtual* character = m_engine->m_data->Characters[a_addr];
     character->SetLinearVelocity(JPH::Vec3Arg(a_velocity.x, a_velocity.y, a_velocity.z));
 }
 
@@ -398,21 +424,20 @@ void PhysicsEngineBindings::AddBody(JPH::uint32 a_id, uint32_t a_index) const
 {
     const ThreadGuard g = ThreadGuard(m_engine->m_bodyMapLock);
 
-    auto iter = m_engine->m_bodyMap.find(a_id);
-    if (iter != m_engine->m_bodyMap.end()) 
+    if (m_engine->m_data->BodyMap.Exists(a_id))
     {
-        iter->second = a_index;
-    } 
-    else 
+        m_engine->m_data->BodyMap[a_id] = a_index;
+    }
+    else
     {
-        m_engine->m_bodyMap.emplace(a_id, a_index);
+        m_engine->m_data->BodyMap.Push(a_id, a_index);
     }
 }
 
 uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const
 {
     TRACE("Creating Physics Body");
-    IVERIFY(m_engine->m_collisionShapes.Exists(a_colliderAddr));
+    IVERIFY(m_engine->m_data->CollisionShapes.Exists(a_colliderAddr));
 
     const glm::mat4 globalTransform = ObjectManager::GetGlobalMatrix(a_transformAddr);
 
@@ -425,14 +450,14 @@ uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint
 
     const JPH::BodyCreationSettings bodySettings = JPH::BodyCreationSettings
     (
-        m_engine->m_collisionShapes[a_colliderAddr].Get(), 
-        JPH::RVec3(translation.x, translation.y, translation.z), 
-        JPH::Quat(rotation.x, rotation.y, rotation.z, rotation.w), 
-        JPH::EMotionType::Static, 
+        m_engine->m_data->CollisionShapes[a_colliderAddr].Get(),
+        JPH::RVec3(translation.x, translation.y, translation.z),
+        JPH::Quat(rotation.x, rotation.y, rotation.z, rotation.w),
+        JPH::EMotionType::Static,
         PhysicsEngine::LayerNonMoving
     );
 
-    JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+    JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
     const JPH::BodyID id = bodyinterface.CreateAndAddBody(bodySettings, JPH::EActivation::DontActivate);
 
     const BodyBinding binding = 
@@ -440,7 +465,7 @@ uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint
         .TransformAddr = a_transformAddr,
         .Body = id
     };
-    const uint32_t index = m_engine->m_bodyBindings.PushVal(binding);
+    const uint32_t index = m_engine->m_data->BodyBindings.PushVal(binding);
 
     AddBody(id.GetIndex(), index);
 
@@ -448,32 +473,32 @@ uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint
 }
 void PhysicsEngineBindings::DestroyPhysicsBody(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
-    m_engine->m_bodyBindings.Erase(a_addr);
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
+    m_engine->m_data->BodyBindings.Erase(a_addr);
 
-    JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+    JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
     bodyinterface.RemoveBody(binding.Body);
     bodyinterface.DestroyBody(binding.Body);
 }
 void PhysicsEngineBindings::SetPhysicsBodyPosition(uint32_t a_addr, const glm::vec3& a_pos) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+    JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
 
     bodyinterface.SetPosition(binding.Body, JPH::Vec3(a_pos.x, a_pos.y, a_pos.z), JPH::EActivation::Activate);
 }
 glm::vec3 PhysicsEngineBindings::GetPhysicsBodyPosition(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    const JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+    const JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
 
     const JPH::RVec3 pos = bodyinterface.GetPosition(binding.Body);
 
@@ -490,21 +515,26 @@ glm::vec3 PhysicsEngineBindings::GetPhysicsBodyPosition(uint32_t a_addr) const
 }
 void PhysicsEngineBindings::SetPhysicsBodyRotation(uint32_t a_addr, const glm::quat& a_rot) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+    JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
 
-    bodyinterface.SetRotation(binding.Body, JPH::Quat(a_rot.x, a_rot.y, a_rot.z, a_rot.w), JPH::EActivation::Activate);
+    bodyinterface.SetRotation
+    (
+        binding.Body,
+        JPH::Quat(a_rot.x, a_rot.y, a_rot.z, a_rot.w),
+        JPH::EActivation::Activate
+    );
 }
 glm::quat PhysicsEngineBindings::GetPhysicsBodyRotation(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    const JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+    const JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
 
     const JPH::Quat rot = bodyinterface.GetRotation(binding.Body);
 
@@ -528,7 +558,7 @@ glm::quat PhysicsEngineBindings::GetPhysicsBodyRotation(uint32_t a_addr) const
 
 uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, uint32_t a_layer, float a_mass) const
 {
-    IVERIFY(m_engine->m_collisionShapes.Exists(a_colliderAddr));
+    IVERIFY(m_engine->m_data->CollisionShapes.Exists(a_colliderAddr));
     IVERIFY(a_layer < 8);
 
     const glm::mat4 globalTransform = ObjectManager::GetGlobalMatrix(a_transformAddr);
@@ -542,7 +572,7 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
 
     JPH::BodyCreationSettings bodySettings = JPH::BodyCreationSettings
     (
-        m_engine->m_collisionShapes[a_colliderAddr].Get(),
+        m_engine->m_data->CollisionShapes[a_colliderAddr].Get(),
         JPH::RVec3(translation.x, translation.y, translation.z),
         JPH::Quat(rotation.x, rotation.y, rotation.z, rotation.w),
         JPH::EMotionType::Dynamic,
@@ -553,16 +583,16 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
     bodySettings.mMotionQuality = JPH::EMotionQuality::LinearCast;
     bodySettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
 
-    JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+    JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
     const JPH::BodyID id = bodyinterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
-    IDEFER(m_engine->m_activationListener->OnBodyActivated(id, 0));
+    IDEFER(m_engine->m_data->ActivationListener->OnBodyActivated(id, 0));
 
-    const BodyBinding binding = 
+    const BodyBinding binding =
     {
-        .TransformAddr = a_transformAddr, 
+        .TransformAddr = a_transformAddr,
         .Body = id
     };
-    const uint32_t index = m_engine->m_bodyBindings.PushVal(binding);
+    const uint32_t index = m_engine->m_data->BodyBindings.PushVal(binding);
 
     AddBody(id.GetIndex(), index);
 
@@ -570,11 +600,11 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
 }
 void PhysicsEngineBindings::SetRigidBodyGravityFactor(uint32_t a_addr, float a_factor) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyLockInterface();
     const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, bodyinterface);
 
     JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
@@ -584,11 +614,11 @@ void PhysicsEngineBindings::SetRigidBodyGravityFactor(uint32_t a_addr, float a_f
 }
 float PhysicsEngineBindings::GetRigidBodyGravityFactor(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyLockInterface();
     const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(binding.Body, bodyinterface);
 
     const JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
@@ -598,11 +628,11 @@ float PhysicsEngineBindings::GetRigidBodyGravityFactor(uint32_t a_addr) const
 }
 glm::vec3 PhysicsEngineBindings::GetRigidBodyVelocity(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyLockInterface();
     const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(binding.Body, bodyinterface);
 
     const JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
@@ -613,11 +643,11 @@ glm::vec3 PhysicsEngineBindings::GetRigidBodyVelocity(uint32_t a_addr) const
 }
 void PhysicsEngineBindings::SetRigidBodyVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyLockInterface();
     const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, bodyinterface);
 
     JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
@@ -625,11 +655,11 @@ void PhysicsEngineBindings::SetRigidBodyVelocity(uint32_t a_addr, const glm::vec
 }
 glm::vec3 PhysicsEngineBindings::GetRigidBodyAngularVelocity(uint32_t a_addr) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyLockInterface();
     const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(binding.Body, bodyinterface);
 
     const JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
@@ -640,11 +670,11 @@ glm::vec3 PhysicsEngineBindings::GetRigidBodyAngularVelocity(uint32_t a_addr) co
 }
 void PhysicsEngineBindings::SetRigidBodyAngularVelocity(uint32_t a_addr, const glm::vec3& a_velocity) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyLockInterface();
     const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, bodyinterface);
 
     JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
@@ -652,15 +682,15 @@ void PhysicsEngineBindings::SetRigidBodyAngularVelocity(uint32_t a_addr, const g
 }
 void PhysicsEngineBindings::RigidBodyAddForce(uint32_t a_addr, const glm::vec3& a_force, e_ForceMode a_mode) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyLockInterface();
     const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, bodyinterface);
 
     JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
-    switch (a_mode) 
+    switch (a_mode)
     {
     case ForceMode_Impulse:
     {
@@ -678,11 +708,11 @@ void PhysicsEngineBindings::RigidBodyAddForce(uint32_t a_addr, const glm::vec3& 
 }
 void PhysicsEngineBindings::RigidBodyAddTorque(uint32_t a_addr, const glm::vec3& a_torque, e_ForceMode a_mode) const
 {
-    IVERIFY(m_engine->m_bodyBindings.Exists(a_addr));
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
-    const BodyBinding binding = m_engine->m_bodyBindings[a_addr];
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_physicsSystem->GetBodyLockInterface();
+    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyLockInterface();
     const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, bodyinterface);
 
     JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
@@ -697,7 +727,7 @@ void PhysicsEngineBindings::RigidBodyAddTorque(uint32_t a_addr, const glm::vec3&
     default:
     {
         body->AddTorque(JPH::Vec3(a_torque.x, a_torque.y, a_torque.z));
-        
+
         break;
     }
     }
@@ -705,7 +735,7 @@ void PhysicsEngineBindings::RigidBodyAddTorque(uint32_t a_addr, const glm::vec3&
 
 uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint32_t a_colliderAddr) const
 {
-    IVERIFY(m_engine->m_collisionShapes.Exists(a_colliderAddr));
+    IVERIFY(m_engine->m_data->CollisionShapes.Exists(a_colliderAddr));
 
     const glm::mat4 globalTransform = ObjectManager::GetGlobalMatrix(a_transformAddr);
 
@@ -718,7 +748,7 @@ uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint
 
     JPH::BodyCreationSettings bodySettings = JPH::BodyCreationSettings
     (
-        m_engine->m_collisionShapes[a_colliderAddr].Get(),
+        m_engine->m_data->CollisionShapes[a_colliderAddr].Get(),
         JPH::RVec3(translation.x, translation.y, translation.z),
         JPH::Quat(rotation.x, rotation.y, rotation.z, rotation.w),
         JPH::EMotionType::Static,
@@ -726,7 +756,7 @@ uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint
     );
     bodySettings.mIsSensor = true;
 
-    JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+    JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
     const JPH::BodyID id = bodyinterface.CreateAndAddBody(bodySettings, JPH::EActivation::DontActivate);
 
     const BodyBinding binding = 
@@ -734,7 +764,7 @@ uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint
         .TransformAddr = a_transformAddr,
         .Body = id
     };
-    const uint32_t index = m_engine->m_bodyBindings.PushVal(binding);
+    const uint32_t index = m_engine->m_data->BodyBindings.PushVal(binding);
 
     AddBody(id.GetIndex(), index);
 
@@ -743,11 +773,11 @@ uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint
 
 void PhysicsEngineBindings::SetGravity(const glm::vec3& a_gravity) const
 {
-    m_engine->m_physicsSystem->SetGravity(JPH::Vec3(a_gravity.x, a_gravity.y, a_gravity.z));
+    m_engine->m_data->PhysicsSystem->SetGravity(JPH::Vec3(a_gravity.x, a_gravity.y, a_gravity.z));
 }
 glm::vec3 PhysicsEngineBindings::GetGravity() const
 {
-    const JPH::Vec3 gravity = m_engine->m_physicsSystem->GetGravity();
+    const JPH::Vec3 gravity = m_engine->m_data->PhysicsSystem->GetGravity();
 
     return glm::vec3(gravity.GetX(), gravity.GetY(), gravity.GetZ());
 }
@@ -761,22 +791,29 @@ void PhysicsEngineBindings::SetObjectLayerCollision(uint32_t a_lhs, uint32_t a_r
     IVERIFY(a_lhs < 8);
     IVERIFY(a_rhs < 8);
 
-    ITOGGLEBIT(a_state, m_engine->m_objectLayerCollisions[a_lhs], a_rhs);
+    ITOGGLEBIT(a_state, m_engine->m_data->ObjectLayerCollisions[a_lhs], a_rhs);
     // Not sure if I should toggle on both sides may change later just doing it for now
-    ITOGGLEBIT(a_state, m_engine->m_objectLayerCollisions[a_rhs], a_lhs);
+    ITOGGLEBIT(a_state, m_engine->m_data->ObjectLayerCollisions[a_rhs], a_lhs);
 }
 
 RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, const glm::vec3& a_dir, uint32_t* a_resultCount) const
 {
     *a_resultCount = 0;
 
-    const JPH::NarrowPhaseQuery& narrow = m_engine->m_physicsSystem->GetNarrowPhaseQuery();
+    const JPH::NarrowPhaseQuery& narrow = m_engine->m_data->PhysicsSystem->GetNarrowPhaseQuery();
 
-    JPH::RRayCast ray;
-    ray.mOrigin = JPH::Vec3(a_pos.x, a_pos.y, a_pos.z);
-    ray.mDirection = JPH::Vec3(a_dir.x, a_dir.y, a_dir.z);
+    const JPH::RRayCast ray = ILAMBDA(
+    {
+        JPH::RRayCast val;
+        val.mOrigin = JPH::Vec3(a_pos.x, a_pos.y, a_pos.z);
+        val.mDirection = JPH::Vec3(a_dir.x, a_dir.y, a_dir.z);
+
+        ILRETURN val;
+    });
 
     constexpr JPH::RayCastSettings Settings;
+
+    Allocator* allocator = m_engine->GetAllocator();
 
     class RayCollector : public JPH::CastRayCollector
     {
@@ -799,16 +836,16 @@ RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, cons
 
             Results.Push(a_result);
         }
-    } collector(MallocAllocator::Instance);
+    } collector(allocator);
 
     narrow.CastRay(ray, Settings, collector);
 
     if (!collector.Results.Empty())
     {
         *a_resultCount = collector.Results.Size();
-        RaycastResultBuffer* results = new RaycastResultBuffer[*a_resultCount];
+        RaycastResultBuffer* results = MallocAllocator::Instance->TAllocate<RaycastResultBuffer>(*a_resultCount);
 
-        const JPH::BodyInterface& bodyinterface = m_engine->m_physicsSystem->GetBodyInterface();
+        const JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
 
         for (uint32_t i = 0; i < *a_resultCount; ++i)
         {
@@ -823,10 +860,12 @@ RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, cons
             const JPH::RMat44 rot = mat.GetRotation();
             const JPH::Vec3 normal = rot * shape->GetSurfaceNormal(res.mSubShapeID2, invMat * pos);
 
+            const uint32_t bodyIndex = res.mBodyID.GetIndex();
+
             results[i].Fraction = res.mFraction;
             results[i].Position = glm::vec3(pos.GetX(), pos.GetY(), pos.GetZ());
             results[i].Normal = glm::vec3(normal.GetX(), normal.GetY(), normal.GetZ());
-            results[i].BodyAddr = m_engine->GetBodyAddr(res.mBodyID.GetIndex());
+            results[i].BodyAddr = m_engine->GetBodyAddr(bodyIndex);
         }
 
         return results;
@@ -838,7 +877,7 @@ uint32_t* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float a
 {
     *a_resultCount = 0;
 
-    const JPH::BroadPhaseQuery& broad = m_engine->m_physicsSystem->GetBroadPhaseQuery();
+    const JPH::BroadPhaseQuery& broad = m_engine->m_data->PhysicsSystem->GetBroadPhaseQuery();
 
     JPH::AllHitCollisionCollector<JPH::CollideShapeBodyCollector> collector;
     broad.CollideSphere(JPH::Vec3(a_pos.x, a_pos.y, a_pos.z), a_radius, collector);
@@ -848,11 +887,13 @@ uint32_t* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float a
         *a_resultCount = (uint32_t)collector.mHits.size();
 
         const JPH::BodyID* ids = collector.mHits.data();
-        uint32_t* results = new uint32_t[*a_resultCount];
+        uint32_t* results = MallocAllocator::Instance->TAllocate<uint32_t>(*a_resultCount);
 
         for (uint32_t i = 0; i < *a_resultCount; ++i)
         {
-            results[i] = m_engine->GetBodyAddr(ids[i].GetIndex());
+            const uint32_t index = ids[i].GetIndex();
+
+            results[i] = m_engine->GetBodyAddr(index);
         }
 
         return results;
@@ -864,21 +905,26 @@ uint32_t* PhysicsEngineBindings::BoxCollision(const glm::mat4& a_transform, cons
 {
     *a_resultCount = 0;
 
-    const JPH::BroadPhaseQuery& broad = m_engine->m_physicsSystem->GetBroadPhaseQuery();
+    const JPH::BroadPhaseQuery& broad = m_engine->m_data->PhysicsSystem->GetBroadPhaseQuery();
 
     const glm::vec3 halfExtents = a_extents * 0.5f;
 
     JPH::AllHitCollisionCollector<JPH::CollideShapeBodyCollector> collector;
 
-    JPH::OrientedBox box;
-    box.mHalfExtents = JPH::Vec3(halfExtents.x, halfExtents.y, halfExtents.z);
-    box.mOrientation = JPH::Mat44
-    (
-        JPH::Vec4(a_transform[0][0], a_transform[0][1], a_transform[0][2], a_transform[0][3]),
-        JPH::Vec4(a_transform[1][0], a_transform[1][1], a_transform[1][2], a_transform[1][3]),
-        JPH::Vec4(a_transform[2][0], a_transform[2][1], a_transform[2][2], a_transform[2][3]),
-        JPH::Vec4(a_transform[3][0], a_transform[3][1], a_transform[3][2], a_transform[3][3])
-    );
+    const JPH::OrientedBox box = ILAMBDA(
+    {
+        JPH::OrientedBox val;
+        val.mHalfExtents = JPH::Vec3(halfExtents.x, halfExtents.y, halfExtents.z);
+        val.mOrientation = JPH::Mat44
+        (
+            JPH::Vec4(a_transform[0][0], a_transform[0][1], a_transform[0][2], a_transform[0][3]),
+            JPH::Vec4(a_transform[1][0], a_transform[1][1], a_transform[1][2], a_transform[1][3]),
+            JPH::Vec4(a_transform[2][0], a_transform[2][1], a_transform[2][2], a_transform[2][3]),
+            JPH::Vec4(a_transform[3][0], a_transform[3][1], a_transform[3][2], a_transform[3][3])
+        );
+
+        ILRETURN val;
+    });
 
     broad.CollideOrientedBox(box, collector);
 
@@ -887,11 +933,13 @@ uint32_t* PhysicsEngineBindings::BoxCollision(const glm::mat4& a_transform, cons
         *a_resultCount = (uint32_t)collector.mHits.size();
 
         const JPH::BodyID* ids = collector.mHits.data();
-        uint32_t* results = new uint32_t[*a_resultCount];
+        uint32_t* results = MallocAllocator::Instance->TAllocate<uint32_t>(*a_resultCount);
 
         for (uint32_t i = 0; i < *a_resultCount; ++i)
         {
-            results[i] = m_engine->GetBodyAddr(ids[i].GetIndex());
+            const uint32_t index = ids[i].GetIndex();
+
+            results[i] = m_engine->GetBodyAddr(index);
         }
 
         return results;
@@ -903,13 +951,18 @@ uint32_t* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm
 {
     *a_resultCount = 0;
 
-    const JPH::BroadPhaseQuery& broad = m_engine->m_physicsSystem->GetBroadPhaseQuery();
+    const JPH::BroadPhaseQuery& broad = m_engine->m_data->PhysicsSystem->GetBroadPhaseQuery();
 
     JPH::AllHitCollisionCollector<JPH::CollideShapeBodyCollector> collector;
 
-    JPH::AABox box;
-    box.mMin = JPH::Vec3(a_min.x, a_min.y, a_min.z);
-    box.mMax = JPH::Vec3(a_max.x, a_max.y, a_max.z);
+    const JPH::AABox box = ILAMBDA(
+    {
+        JPH::AABox val;
+        val.mMin = JPH::Vec3(a_min.x, a_min.y, a_min.z);
+        val.mMax = JPH::Vec3(a_max.x, a_max.y, a_max.z);
+
+        ILRETURN val;
+    });
 
     broad.CollideAABox(box, collector);
 
@@ -918,11 +971,13 @@ uint32_t* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm
         *a_resultCount = (uint32_t)collector.mHits.size();
 
         const JPH::BodyID* ids = collector.mHits.data();
-        uint32_t* results = new uint32_t[*a_resultCount];
+        uint32_t* results = MallocAllocator::Instance->TAllocate<uint32_t>(*a_resultCount);
 
         for (uint32_t i = 0; i < *a_resultCount; ++i)
         {
-            results[i] = m_engine->GetBodyAddr(ids[i].GetIndex());
+            const uint32_t index = ids[i].GetIndex();
+
+            results[i] = m_engine->GetBodyAddr(index);
         }
 
         return results;

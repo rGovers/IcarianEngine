@@ -10,6 +10,7 @@
 #include "AppWindow/HeadlessAppWindow.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
@@ -703,7 +704,7 @@ VulkanSwapchain::~VulkanSwapchain()
     device.destroyRenderPass(m_renderPass);
     device.destroyRenderPass(m_renderPassNoClear);
 
-    delete m_resizeFunc;
+    MallocAllocator::Instance->Destroy(m_resizeFunc);
 
     Destroy();
 
@@ -809,7 +810,7 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaph
         const vk::Result result = device.waitForFences(1, &fence, vk::True, 10000);
         if (result != vk::Result::eSuccess)
         {
-            // VKRESWARNMSG(result, "Could not wait for fence");
+            VKRESWARNMSG(result, "Could not wait for fence");
             // IERROR("Could not wait for fence");
 
             return false;
@@ -830,7 +831,7 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaph
                 &m_height
             };
 
-            m_resizeFunc->Exec(args);   
+            m_resizeFunc->Exec(args);
         }
 
         HeadlessAppWindow* window = (HeadlessAppWindow*)m_window;

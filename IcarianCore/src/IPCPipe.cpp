@@ -4,9 +4,11 @@
 
 #include "Core/IPCPipe.h"
 
+#include <chrono>
 #include <cstdio>
 
 #ifndef WIN32
+#include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
 #include <sys/socket.h>
@@ -15,6 +17,7 @@
 #endif
 
 #include "Core/IcarianError.h"
+#include "Core/IcarianLambda.h"
 
 namespace IcarianCore
 {
@@ -90,6 +93,12 @@ namespace IcarianCore
         setsockopt(pipeSock, SOL_SOCKET, SO_NOSIGPIPE, &setSigpipe, sizeof(setSigpipe));
 #endif
 
+#ifdef O_NONBLOCK
+        const int flags = fcntl(pipeSock, F_GETFL, 0);
+        IERRCHECKRET(flags >= 0, nullptr);
+        IERRCHECKRET(fcntl(pipeSock, F_SETFL, flags | O_NONBLOCK) >= 0, nullptr);
+#endif
+
         IPCPipe* pipe = new IPCPipe();
         pipe->m_pipeSock = pipeSock;
 
@@ -101,6 +110,8 @@ namespace IcarianCore
 
     IPCPipe* IPCPipe::Connect(const std::string_view& a_pipeName)
     {
+        IERRBLOCK;
+
 #ifdef WIN32
         const SOCKET clientSock = socket(AF_UNIX, SOCK_STREAM, 0);
 
@@ -117,10 +128,19 @@ namespace IcarianCore
         }
 #else
         const int clientSock = socket(AF_UNIX, SOCK_STREAM, 0);
+        IERRCHECKRET(clientSock >= 0, nullptr);
+        IERRDEFER(close(clientSock));
 
 #ifdef SO_NOSIGPIPE
         int setSigpipe = 1;
         setsockopt(clientSock, SOL_SOCKET, SO_NOSIGPIPE, &setSigpipe, sizeof(setSigpipe));
+#endif
+
+#ifdef O_NONBLOCK
+        // Flags should be zero but get the flags regardless do not know what POSIX implementations will do
+        const int flags = fcntl(clientSock, F_GETFL, 0);
+        IERRCHECKRET(flags >= 0, nullptr);
+        IERRCHECKRET(fcntl(clientSock, F_SETFL, flags | O_NONBLOCK) >= 0, nullptr);
 #endif
 
         struct sockaddr_un serverAddr;
@@ -128,12 +148,7 @@ namespace IcarianCore
         serverAddr.sun_family = AF_UNIX;
         strncpy(serverAddr.sun_path, a_pipeName.data(), sizeof(serverAddr.sun_path) - 1);
 
-        if (connect(clientSock, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0)
-        {
-            perror("connect");
-
-            return nullptr;
-        }
+        IERRCHECKRET(connect(clientSock, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) >= 0, nullptr);
 #endif
 
         IPCPipe* pipe = new IPCPipe();
@@ -245,51 +260,85 @@ namespace IcarianCore
 #endif
     }
 
-    bool IPCPipe::Send(const PipeMessage& a_msg)
+#ifndef WIN32
+    static CommunicationPipe::e_SendError SendData
+    (
+        int a_socket,
+        const void* a_data,
+        uint32_t a_size,
+        const std::chrono::high_resolution_clock::time_point& startTime,
+        int a_flags
+    )
     {
         IERRBLOCK;
 
+        uint32_t bytesSent = 0;
+        while (bytesSent < a_size)
+        {
+            const int bytes = send(a_socket, a_data, a_size - bytesSent, a_flags);
+            if (bytes > 0)
+            {
+                bytesSent += (uint32_t)bytes;
+
+                continue;
+            }
+
+            // Capture the value incase someone else touches it
+            const int err = errno;
+
+            const std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
+            IERRCHECKRET(std::chrono::duration<double>(now - startTime).count() < 5.0, CommunicationPipe::SendError_Timeout);
+
+            if (bytes < 0)
+            {
+                IERRCHECKRET(err == EAGAIN || err == EWOULDBLOCK, CommunicationPipe::SendError_Fail);
+            }
+        }
+
+        return CommunicationPipe::SendError_Success;
+    }
+#endif
+
+    CommunicationPipe::e_SendError IPCPipe::Send(const PipeMessage& a_msg)
+    {
+        const std::chrono::high_resolution_clock::time_point startTime = std::chrono::high_resolution_clock::now();
+
 #ifdef WIN32
+        IERRBLOCK;
+
         const int bytesSent = send(m_pipeSock, (const char*)&a_msg, PipeMessage::Size, 0);
-        IERRCHECKRET(bytesSent >= 0, false);
+        IERRCHECKRET(bytesSent >= 0, SendError_Fail);
 
         if (a_msg.Data != nullptr)
         {
             const int bytesSent = send(m_pipeSock, a_msg.Data, a_msg.Length, 0);
-            IERRCHECKRET(bytesSent >= 0, false);
+            IERRCHECKRET(bytesSent >= 0, SendError_Fail);
         }
 #else
+        constexpr int SendFlags = ILAMBDA(
+        {
+            int flags = 0;
 
 #ifdef MSG_NOSIGNAL
-        constexpr int SendFlags = MSG_NOSIGNAL;
-#else
-        constexpr int SendFlags = 0;
+            flags |= MSG_NOSIGNAL;
 #endif
 
-        // Theoretically could become an issue cause we are not checking is the whole message was sent
-        // has not been an issue when running for long periods of time so ignoring as not running stuff that needs 100% uptime and lazy
-        const int bytesSent = send(m_pipeSock, &a_msg, PipeMessage::Size, SendFlags);
-        IERRCHECKRET(bytesSent >= 0, false);
+            ILRETURN flags;
+        });
 
-        IERRCHECKRET(bytesSent == PipeMessage::Size, false);
+        const CommunicationPipe::e_SendError err = SendData(m_pipeSock, &a_msg, PipeMessage::Size, startTime, SendFlags);
+        if (err != SendError_Success)
+        {
+            return err;
+        }
 
         if (a_msg.Data != nullptr)
         {
-            uint32_t bytesSent = 0;
-
-            while (bytesSent < a_msg.Length)
-            {
-                // Seems to get cutoff occasionally when sending large messages so we need to loop
-                // seems to have fixed the occasional malformed message
-                const int bytes = send(m_pipeSock, a_msg.Data + bytesSent, a_msg.Length - bytesSent, SendFlags);
-                IERRCHECKRET(bytes >= 0, false);
-
-                bytesSent += (uint32_t)bytes;
-            }
+            return SendData(m_pipeSock, a_msg.Data, a_msg.Length, startTime, SendFlags);
         }
 #endif
 
-        return true;
+        return SendError_Success;
     }
     bool IPCPipe::Receive(std::queue<PipeMessage>* a_messages)
     {
@@ -355,7 +404,7 @@ namespace IcarianCore
 
                 while (true)
                 {
-                    PipeMessage msg;
+                    PipeMessage msg = { };
 
                     const int bytesReceived = recv(m_pipeSock, &msg, PipeMessage::Size, ReceiveFlags);
                     if (bytesReceived <= 0)
@@ -368,7 +417,7 @@ namespace IcarianCore
 
                     if (msg.Length > 0)
                     {
-                        msg.Data = new char[msg.Length];
+                        msg.Data = new uint8_t[msg.Length];
                         IERRDEFER(delete[] msg.Data);
 
                         uint32_t bytesReceived = 0;
@@ -389,7 +438,7 @@ namespace IcarianCore
 
             if (pollFd.revents & POLLIN)
             {
-                PipeMessage msg;
+                PipeMessage msg = { };
 
                 const int bytesReceived = recv(m_pipeSock, &msg, PipeMessage::Size, ReceiveFlags);
                 IERRCHECKRET(bytesReceived >= 0, false);
@@ -399,7 +448,7 @@ namespace IcarianCore
 
                 if (msg.Length > 0)
                 {
-                    msg.Data = new char[msg.Length];
+                    msg.Data = new uint8_t[msg.Length];
                     IERRDEFER(delete[] msg.Data);
 
                     uint32_t bytesReceived = 0;
@@ -423,7 +472,7 @@ namespace IcarianCore
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

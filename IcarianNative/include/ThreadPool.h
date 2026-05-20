@@ -26,7 +26,7 @@ private:
 
     RuntimeFunction*                                                m_runtimeDispatch;
 
-    std::thread*                                                    m_threads;
+    std::thread**                                                   m_threads;
 
     std::mutex                                                      m_lock;
     std::condition_variable                                         m_jobAvailable;
@@ -44,11 +44,10 @@ private:
 
     void Start();
 
-    ThreadPool(uint32_t a_threadCount);
-
 protected:
 
 public:
+    ThreadPool(uint32_t a_threadCount);
     ~ThreadPool();
 
     static void Init(const Config* a_config);

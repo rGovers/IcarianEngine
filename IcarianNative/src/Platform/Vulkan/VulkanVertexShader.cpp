@@ -101,7 +101,7 @@ void VulkanVertexShader::CreateFromFShader(VulkanVertexShader* a_out, const Vulk
     const COWU8String error = FlareShader::GLSLFromFlareShader(&shader, builder, a_allocator, tempAllocator);
     if (!error.Empty())
     {
-        IERROR(std::string("Flare Vertex Shader generation error: ") + error.CStr());
+        IERROR("Flare Vertex Shader generation error: " + error);
     }
 
     const VulkanVertexGLSLShaderBuilder glslBuilder =

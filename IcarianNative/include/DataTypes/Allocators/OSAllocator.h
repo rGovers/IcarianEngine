@@ -6,8 +6,11 @@
 
 #include "DataTypes/Allocators/Allocator.h"
 
+#include "DataTypes/Allocators/TrackerAllocator.h"
 #include "IcarianError.h"
 #include "IcarianMemory.h"
+
+ICARIAN_PUSH_FASTALLOCTOR
 
 class OSAllocator : public Allocator
 {
@@ -111,10 +114,13 @@ public:
     }
 
     static Allocator* Instance;
+    static TrackerAllocator* TrackerInstance;
 
     static void Init();
     static void Destroy();
 };
+
+ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
 // 

@@ -4,32 +4,36 @@
 
 #pragma once
 
-// The magic 3 macros that make the names format correctly
-#define ICARIAN_DEFER_NAMEI(a, b) a##b
-#define ICARIAN_DEFER_NAMEM(a, b) ICARIAN_DEFER_NAMEI(a, b)
-#define ICARIAN_DEFER_NAME(a) ICARIAN_DEFER_NAMEM(a, __LINE__)
+#include "Core/IcarianPragma.h"
 
-// Improved version of defer
-// I have discovered the trinity of auto decltype and using
-// Figured out how to get rid of the need to pass a parameter
-// A mess that exploits the fact that C++ compilers are aggressive with optimizations and inlining with const values and single use variables
-// and to the people that say just use templates, fuck templates
-#define IDEFER(code) \
-    const auto ICARIAN_DEFER_NAME(_defer) = [&] { code; }; \
-    using ICARIAN_DEFER_NAME(_t) = decltype(ICARIAN_DEFER_NAME(_defer)); \
-    const struct ICARIAN_DEFER_NAME(_defer_struct) \
+#define ICARIAN_DEFER_NAMEI(a, b, c) a##_cnt##b##ln##c
+#define ICARIAN_DEFER_NAMEM(a, b, c) ICARIAN_DEFER_NAMEI(a, b, c)
+#define ICARIAN_DEFER_NAME(x, a) ICARIAN_DEFER_NAMEM(a, x, __LINE__)
+
+#if defined(__GNUC__) && !defined(__clang__)
+#define ICARIAN_DEFEROPTIMIZE_ATTRIBUTE __attribute__((optimize("-O3")))
+#else
+#define ICARIAN_DEFEROPTIMIZE_ATTRIBUTE
+#endif
+
+#define ICARIAN_INTERNAL_DEFER(x, code) \
+    const auto ICARIAN_DEFER_NAME(x, _defer) = [&] ICARIAN_DEFEROPTIMIZE_ATTRIBUTE { code; }; \
+    using ICARIAN_DEFER_NAME(x, _t) = decltype(ICARIAN_DEFER_NAME(x, _defer)); \
+    const struct ICARIAN_DEFER_NAME(x, _defer_struct) \
     { \
-        ICARIAN_DEFER_NAME(_t) m_val; \
-        explicit ICARIAN_DEFER_NAME(_defer_struct)(ICARIAN_DEFER_NAME(_t) a_val) : m_val(a_val) { } \
-        ~ICARIAN_DEFER_NAME(_defer_struct)() \
+        ICARIAN_DEFER_NAME(x, _t) m_val; \
+        explicit ICARIAN_DEFEROPTIMIZE_ATTRIBUTE ICARIAN_DEFER_NAME(x, _defer_struct)(ICARIAN_DEFER_NAME(x, _t) a_val) : m_val(a_val) { } \
+        ICARIAN_DEFEROPTIMIZE_ATTRIBUTE ~ICARIAN_DEFER_NAME(x, _defer_struct)() \
         { \
             m_val(); \
         } \
-    } ICARIAN_DEFER_NAME(_defer_var)(ICARIAN_DEFER_NAME(_defer))
+    } ICARIAN_DEFER_NAME(x, _defer_var)(ICARIAN_DEFER_NAME(x, _defer))
+
+#define IDEFER(code) ICARIAN_INTERNAL_DEFER(__COUNTER__, code)
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

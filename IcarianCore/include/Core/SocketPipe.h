@@ -49,7 +49,7 @@ namespace IcarianCore
 
         virtual bool IsAlive() const;
 
-        virtual bool Send(const PipeMessage& a_msg);
+        virtual e_SendError Send(const PipeMessage& a_msg);
         virtual bool Receive(std::queue<PipeMessage>* a_messages);
     };
 }

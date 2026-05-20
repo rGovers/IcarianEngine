@@ -18,9 +18,11 @@
 #include "DataTypes/Allocators/BlockAllocator.h"
 #include "DataTypes/Allocators/LeakAllocator.h"
 #include "DataTypes/Allocators/MallocAllocator.h"
-#include "DataTypes/Allocators/OSAllocator.h"
 #include "DataTypes/Allocators/StackAllocator.h"
+#include "DataTypes/Allocators/UberAllocator.h"
+#include "DataTypes/TStatic.h"
 #include "FileCache.h"
+#include "IO.h"
 #include "IcarianError.h"
 #include "Rendering/RenderAssetStoreBindings.h"
 #include "Rendering/RenderEngine.h"
@@ -30,7 +32,7 @@ static TStatic<uint32_t> ScratchAllocator = TStatic<uint32_t>();
 
 RenderAssetStore::RenderAssetStore(RenderEngine* a_renderEngine)
 {
-    m_blockAllocator = MallocAllocator::Instance->Create<BlockAllocator>(BlockAllocatorSize, OSAllocator::Instance);
+    m_blockAllocator = MallocAllocator::Instance->Create<BlockAllocator>(BlockAllocatorSize, UberAllocator::Instance);
 #ifdef DEBUG
     m_blockAllocator = MallocAllocator::Instance->Create<LeakAllocator>(m_blockAllocator);
 #endif
@@ -216,7 +218,7 @@ void RenderAssetStore::Update()
                 asset.DeReq = 0;
                 ICLEARBIT(asset.Flags, RenderAsset::MarkBit);
             }
-            else 
+            else
             {
                 ++asset.DeReq;
             }
@@ -455,7 +457,7 @@ static void AILoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<ui
     }
 }
 
-bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius)
+bool RenderAssetStore::LoadModelData(const COWU8String& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius)
 {
     IERRBLOCK;
 
@@ -480,13 +482,10 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
         --alloc.Count;
     });
 
-    const std::filesystem::path p = std::filesystem::path(a_path);
-
-    const std::filesystem::path ext = p.extension();
-    const std::string extStr = ext.string();
+    const COWU8String extStr = IO::GetExtension(a_path, scratchAllocator);
 
     // TODO: Create and handle pre optimized files
-    switch (StringHash<uint32_t>(extStr.c_str())) 
+    switch (StringHash<uint32_t>(extStr.CStr()))
     {
     case StringHash<uint32_t>(".obj"):
     case StringHash<uint32_t>(".dae"):
@@ -499,7 +498,7 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
 
         FileHandle* handle = FileCache::LoadFile(a_path);
         IERRCHECKRET(handle != nullptr, false);
-        IDEFER(delete handle);
+        IDEFER(MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
         uint8_t* dat = scratchAllocator->TAllocate<uint8_t>(size);
@@ -512,7 +511,7 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
             dat,
             (size_t)size,
             aiProcess_Triangulate | aiProcess_PreTransformVertices,
-            extStr.c_str() + 1
+            extStr.CStr() + 1
         );
         IERRCHECKRET(scene != nullptr, false);
 
@@ -572,7 +571,7 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
     }
     default:
     {
-        IERROR("Invalid model file extension: " + std::string(a_path));
+        IERROR("Invalid model file extension: " + a_path);
 
         break;
     }
@@ -581,7 +580,7 @@ bool RenderAssetStore::LoadModelData(const std::string_view& a_path, uint8_t a_d
     return false;
 }
 
-uint32_t RenderAssetStore::LoadMeshData(const std::string_view& a_path, uint8_t a_index)
+uint32_t RenderAssetStore::LoadMeshData(const COWU8String& a_path, uint8_t a_index)
 {
     IERRBLOCK;
 
@@ -631,8 +630,9 @@ uint32_t RenderAssetStore::LoadMeshData(const std::string_view& a_path, uint8_t 
     meshopt_Meshlet* meshoptMeshlets = scratchAllocator->TAllocate<meshopt_Meshlet>(maxMeshletCount);
 
     uint32_t* meshletVertices = scratchAllocator->TAllocate<uint32_t>(maxMeshletCount * MeshletVertexCount);
+    IDEFER(scratchAllocator->Free(meshletVertices));
     uint8_t* meshletTriangles = scratchAllocator->TAllocate<uint8_t>(maxMeshletCount * MeshletTriangleCount * 3);
-    IDEFER(delete[] meshletTriangles);
+    IDEFER(scratchAllocator->Free(meshletTriangles));
 
     const size_t meshletCount = meshopt_buildMeshlets
     (
@@ -707,7 +707,7 @@ uint32_t RenderAssetStore::LoadMeshData(const std::string_view& a_path, uint8_t 
         radius
     );
 }
-uint32_t RenderAssetStore::LoadMesh(const std::string_view& a_path, uint8_t a_index)
+uint32_t RenderAssetStore::LoadMesh(const COWU8String& a_path, uint8_t a_index)
 {
     const uint32_t addr = LoadMeshData(a_path, a_index);
     if (addr == uint32_t(-1))
@@ -717,7 +717,7 @@ uint32_t RenderAssetStore::LoadMesh(const std::string_view& a_path, uint8_t a_in
 
     const RenderAsset asset =
     {
-        .Path = std::string(a_path),
+        .Path = COWU8String(a_path, m_blockAllocator),
         .InternalAddress = addr,
         // .InternalAddress = uint32_t(-1),
         .Data = a_index,
@@ -756,7 +756,7 @@ uint32_t RenderAssetStore::GetMesh(uint32_t a_addr)
     return asset.InternalAddress;
 }
 
-uint32_t RenderAssetStore::LoadModel(const std::string_view& a_path, uint8_t a_index)
+uint32_t RenderAssetStore::LoadModel(const COWU8String& a_path, uint8_t a_index)
 {
     constexpr uint16_t VertexStride = sizeof(Vertex);
 
@@ -789,7 +789,7 @@ uint32_t RenderAssetStore::LoadModel(const std::string_view& a_path, uint8_t a_i
 
     const RenderAsset asset =
     {
-        .Path = std::string(a_path),
+        .Path = COWU8String(a_path, m_blockAllocator),
         .InternalAddress = modelAddr,
         .Data = (uint8_t)a_index,
     };
@@ -797,7 +797,15 @@ uint32_t RenderAssetStore::LoadModel(const std::string_view& a_path, uint8_t a_i
     return m_data->Models.PushVal(asset);
 }
 
-static void LoadSkinnedMesh(const aiMesh* a_mesh, Array<SkinnedVertex>* a_vertices, Array<uint32_t>* a_indices, const std::unordered_map<std::string, int>& a_boneMap, float* a_rSqr)
+static void LoadSkinnedMesh
+(
+    const aiMesh* a_mesh,
+    Array<SkinnedVertex>* a_vertices,
+    Array<uint32_t>* a_indices,
+    const Dictionary<COWU8String, int>& a_boneMap,
+    float* a_rSqr,
+    Allocator* a_tempAllocator
+)
 {
     const bool hasNormal = a_mesh->HasNormals();
     const bool hasUV = a_mesh->HasTextureCoords(0);
@@ -877,13 +885,13 @@ static void LoadSkinnedMesh(const aiMesh* a_mesh, Array<SkinnedVertex>* a_vertic
                     const uint32_t weights = glm::min(uint32_t(4), (uint32_t)bone->mNumWeights);
                     for (uint32_t j = 0; j < weights; ++j)
                     {
-                        const auto iter = a_boneMap.find(bone->mName.C_Str());
-                        if (iter == a_boneMap.end())
+                        const COWU8String str = COWU8String(bone->mName.C_Str(), bone->mName.length, a_tempAllocator);
+                        if (!a_boneMap.Exists(str))
                         {
                             continue;
                         }
 
-                        b[j] = iter->second;
+                        b[j] = a_boneMap[str];
                     }
 
                     ILRETURN b;
@@ -893,7 +901,7 @@ static void LoadSkinnedMesh(const aiMesh* a_mesh, Array<SkinnedVertex>* a_vertic
             })
         };
 
-        *a_rSqr = glm::max(glm::dot(v.Position.xyz(), v.Position.xyz()), *a_rSqr);
+        *a_rSqr = glm::max(glm::length2(v.Position.xyz()), *a_rSqr);
 
         a_vertices->Push(v);
     }
@@ -908,7 +916,7 @@ static void LoadSkinnedMesh(const aiMesh* a_mesh, Array<SkinnedVertex>* a_vertic
     }
 }
 
-uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::string_view& a_path)
+uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const COWU8String& a_path)
 {
     IERRBLOCK;
 
@@ -933,13 +941,11 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
         --alloc.Count;
     });
 
-    const std::filesystem::path path = std::filesystem::path(a_path);
-    const std::filesystem::path ext = path.extension();
-    const std::string extStr = ext.string();
+    const COWU8String ext = IO::GetExtension(a_path, scratchAllocator);
 
     constexpr uint16_t VertexStride = sizeof(SkinnedVertex);
 
-    switch (StringHash<uint32_t>(extStr.c_str())) 
+    switch (StringHash<uint32_t>(ext.CStr()))
     {
     case StringHash<uint32_t>(".dae"):
     case StringHash<uint32_t>(".fbx"):
@@ -951,7 +957,7 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
 
         FileHandle* handle = FileCache::LoadFile(a_path);
         IERRCHECKRET(handle != nullptr, -1);
-        IDEFER(delete handle);
+        IDEFER(MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
         uint8_t* dat = scratchAllocator->TAllocate<uint8_t>(size);
@@ -965,20 +971,21 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
             dat,
             (size_t)size,
             aiProcess_Triangulate | aiProcess_PreTransformVertices,
-            extStr.c_str() + 1
+            ext.CStr() + 1
         );
         IERRCHECKRET(scene != nullptr, -1);
         IERRCHECKRET(scene->mNumSkeletons > 0, -1);
 
-        std::unordered_map<std::string, int> boneMap;
+        Dictionary<COWU8String, int> boneMap = Dictionary<COWU8String, int>(scratchAllocator);
 
         const aiSkeleton* skeleton = scene->mSkeletons[0];
         for (unsigned int i = 0; i < skeleton->mNumBones; ++i)
         {
             const aiSkeletonBone* bone = skeleton->mBones[i];
-            const std::string name = bone->mNode->mName.C_Str();
+            const aiString& boneName = bone->mNode->mName;
+            const COWU8String name = COWU8String(boneName.C_Str(), boneName.length, scratchAllocator);
 
-            boneMap.emplace(name, i);
+            boneMap.Push(name, i);
         }
 
         Array<SkinnedVertex> vertices = Array<SkinnedVertex>(m_blockAllocator);
@@ -988,19 +995,25 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
         {
             IERRCHECKRET(a_data < scene->mNumMeshes, -1);
 
-            LoadSkinnedMesh(scene->mMeshes[a_data], &vertices, &indices, boneMap, &radSqr);
+            scratchAllocator->PushStackPointer();
+            IDEFER(scratchAllocator->PopStackPointer());
+
+            LoadSkinnedMesh(scene->mMeshes[a_data], &vertices, &indices, boneMap, &radSqr, scratchAllocator);
         }
         else
         {
             for (uint32_t i = 0; i < scene->mNumMeshes; ++i)
             {
-                LoadSkinnedMesh(scene->mMeshes[i], &vertices, &indices, boneMap, &radSqr);
+                scratchAllocator->PushStackPointer();
+                IDEFER(scratchAllocator->PopStackPointer());
+
+                LoadSkinnedMesh(scene->mMeshes[i], &vertices, &indices, boneMap, &radSqr, scratchAllocator);
             }
         }
 
         if (vertices.Empty() || indices.Empty() || radSqr <= 0)
         {
-            IWARN("Empty Model: " + std::string(a_path));
+            IWARN("Empty Model: " + a_path);
 
             break;
         }
@@ -1023,10 +1036,9 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
 
     return -1;
 }
-uint32_t RenderAssetStore::LoadSkinnedModel(const std::string_view& a_path, uint8_t a_index)
+uint32_t RenderAssetStore::LoadSkinnedModel(const COWU8String& a_path, uint8_t a_index)
 {
     const uint32_t internalAddr = LoadSkinnedModelFile(m_data->Renderer, (uint8_t)a_index, a_path);
-
     if (internalAddr == uint32_t(-1))
     {
         return -1;
@@ -1034,7 +1046,7 @@ uint32_t RenderAssetStore::LoadSkinnedModel(const std::string_view& a_path, uint
 
     const RenderAsset asset =
     {
-        .Path = std::string(a_path),
+        .Path = COWU8String(a_path, m_blockAllocator),
         .InternalAddress = internalAddr,
         .Data = (uint8_t)a_index,
         .Flags = 0b1 << RenderAsset::SkinnedBit
@@ -1105,11 +1117,11 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
     return asset.InternalAddress;
 }
 
-uint32_t RenderAssetStore::LoadTexture(const std::string_view& a_path)
+uint32_t RenderAssetStore::LoadTexture(const COWU8String& a_path)
 {
     const RenderAsset asset =
     {
-        .Path = std::string(a_path),
+        .Path = COWU8String(a_path, m_blockAllocator),
         .InternalAddress = uint32_t(-1),
     };
 
@@ -1233,11 +1245,9 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
     RenderAsset& asset = a[a_addr];
     if (asset.InternalAddress == uint32_t(-1))
     {
-        const std::filesystem::path path = asset.Path;
-        const std::filesystem::path ext = path.extension();
-        const std::string extStr = ext.string();
+        const COWU8String ext = IO::GetExtension(asset.Path, scratchAllocator);
 
-        switch (StringHash<uint32_t>(extStr.c_str())) 
+        switch (StringHash<uint32_t>(ext.CStr()))
         {
         case StringHash<uint32_t>(".png"):
         {
@@ -1248,8 +1258,7 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
                 break;
             }
-
-            IDEFER(delete handle);
+            IDEFER(MallocAllocator::Instance->Destroy(handle));
 
             const stbi_io_callbacks callbacks = 
             {
@@ -1261,7 +1270,15 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
             int width;
 	    	int height;
 	    	int channels;
-            stbi_uc* pixels = stbi_load_from_callbacks(&callbacks, handle, &width, &height, &channels, STBI_rgb_alpha);
+            stbi_uc* pixels = stbi_load_from_callbacks
+            (
+                &callbacks,
+                handle,
+                &width,
+                &height,
+                &channels,
+                STBI_rgb_alpha
+            );
             if (pixels != nullptr)
             {
                 IDEFER(stbi_image_free(pixels));
@@ -1293,9 +1310,9 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
                 break;
             }
-            IDEFER(delete handle);
+            IDEFER(MallocAllocator::Instance->Destroy(handle));
 
-            ktxStream stream = 
+            ktxStream stream =
             {
                 .read = &KTX_FileHandle_Read,
                 .skip = &KTX_FileHandle_Skip,
@@ -1307,7 +1324,7 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
                 .type = eStreamTypeCustom,
                 .data =
                 {
-                    .custom_ptr = 
+                    .custom_ptr =
                     {
                         .address = handle
                     }
@@ -1355,14 +1372,14 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
             }
             else
             {
-                IERROR("GetTexture failed to parse file: " + path.string());
+                IERROR("GetTexture failed to parse file: " + asset.Path);
             }
 
             break;
         }
         default:
         {
-            IERROR("GetTexture invalid file extension: " + path.string());
+            IERROR("GetTexture invalid file extension: " + asset.Path);
 
             break;
         }
@@ -1381,7 +1398,7 @@ uint32_t RenderAssetStore::GetScratchAllocatorIndex()
     {
         if (m_data->ScratchIndex >= m_data->StackAllocators.Size())
         {
-            StackAllocator* allocator = m_blockAllocator->Create<StackAllocator>(ScratchAllocatorSize, OSAllocator::Instance);
+            StackAllocator* allocator = m_blockAllocator->Create<StackAllocator>(ScratchAllocatorSize, UberAllocator::Instance);
 
             const RenderAssetScratchAllocator data =
             {

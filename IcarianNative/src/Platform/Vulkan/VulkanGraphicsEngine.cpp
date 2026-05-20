@@ -13,6 +13,7 @@
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
 #include "Core/ShaderBuffers.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "DataTypes/Allocators/StackAllocator.h"
 #include "IcarianError.h"
 #include "Logger.h"
@@ -451,19 +452,19 @@ VulkanGraphicsEngine::~VulkanGraphicsEngine()
         blockAllocator->Destroy(m_commandPool[i]);
     }
 
-    delete m_shadowSetupFunc;
-    delete m_preShadowFunc;
-    delete m_postShadowFunc;
-    delete m_preRenderFunc;
-    delete m_postRenderFunc;
-    delete m_lightSetupFunc;
-    delete m_preShadowLightFunc;
-    delete m_postShadowLightFunc;
-    delete m_preLightFunc;
-    delete m_postLightFunc;
-    delete m_preForwardFunc;
-    delete m_postForwardFunc;
-    delete m_postProcessFunc;
+    MallocAllocator::Instance->Destroy(m_shadowSetupFunc);
+    MallocAllocator::Instance->Destroy(m_preShadowFunc);
+    MallocAllocator::Instance->Destroy(m_postShadowFunc);
+    MallocAllocator::Instance->Destroy(m_preRenderFunc);
+    MallocAllocator::Instance->Destroy(m_postRenderFunc);
+    MallocAllocator::Instance->Destroy(m_lightSetupFunc);
+    MallocAllocator::Instance->Destroy(m_preShadowLightFunc);
+    MallocAllocator::Instance->Destroy(m_postShadowLightFunc);
+    MallocAllocator::Instance->Destroy(m_preLightFunc);
+    MallocAllocator::Instance->Destroy(m_postLightFunc);
+    MallocAllocator::Instance->Destroy(m_preForwardFunc);
+    MallocAllocator::Instance->Destroy(m_postForwardFunc);
+    MallocAllocator::Instance->Destroy(m_postProcessFunc);
 }
 
 void VulkanGraphicsEngine::Cleanup()
@@ -622,18 +623,6 @@ void VulkanGraphicsEngine::Cleanup()
             Logger::Warning("Texture sampler data was not destroyed");
 
             allocator->Destroy((VulkanTextureSampler*)m_textureSampler[i].Data);
-        }
-    }
-
-    TRACE("Checking if video textures where deleted");
-    for (uint32_t i = 0; i < m_videoTextures.Size(); ++i)
-    {
-        if (m_videoTextures.Exists(i))
-        {
-            Logger::Warning("Video Texture was not destroyed");
-
-            allocator->Destroy(m_videoTextures[i]);
-            m_videoTextures.Erase(i);
         }
     }
 }
@@ -3681,7 +3670,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t
     return vCmdBuffer;
 }
 
-void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint32_t a_addr, const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize, uint32_t a_index)
+void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint32_t a_addr, const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize,uint32_t a_index)
 {
     const bool valid = a_addr != uint32_t(-1);
     if (!valid)
@@ -3701,12 +3690,21 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
     const glm::vec2 screenPos = pos * a_screenSize;
     const glm::vec2 screenSize = scale * a_screenSize;
 
-    element->Update(m_vulkanEngine->GetRenderEngine());
+    RenderEngine* renderEngine = m_vulkanEngine->GetRenderEngine();
+
+    {
+        RENDERSCRATCHFRAME;
+
+        Allocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+
+        element->Update(renderEngine, scratchAllocator);
+    }
 
     VulkanPipeline* pipeline = nullptr;
     VulkanShaderData* shaderData = nullptr;
 
-    switch (element->GetType())
+    const e_UIElementType type = element->GetType();
+    switch (type)
     {
     case UIElementType_Base:
     {
@@ -3716,23 +3714,43 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
     {
         const TextUIElement* text = (TextUIElement*)element;
 
-        if (text->IsValid())
+        if (!text->IsValid())
         {
-            const vk::Rect2D scissor = vk::Rect2D({ (int32_t)screenPos.x, (int32_t)screenPos.y }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y });
-            a_commandBuffer.setScissor(0, 1, &scissor);
-            const vk::Viewport viewport = vk::Viewport(screenPos.x, screenPos.y, screenSize.x, screenSize.y, 0.0f, 1.0f);
-            a_commandBuffer.setViewport(0, 1, &viewport);
-
-            pipeline = GetPipeline(-1, m_textUIPipelineAddr);
-            IVERIFY(pipeline != nullptr);
-            shaderData = pipeline->GetShaderData();
-            IVERIFY(shaderData != nullptr);
-
-            const uint32_t samplerAddr = text->GetSamplerAddr();
-            const TextureSamplerBuffer& sampler = GetTextureSampler(samplerAddr);
-
-            shaderData->PushTexture(a_commandBuffer, 0, sampler, a_index);
+            break;
         }
+
+        const vk::Rect2D scissor = vk::Rect2D
+        (
+            {
+                (int32_t)screenPos.x,
+                (int32_t)screenPos.y
+            },
+            {
+                (uint32_t)screenSize.x,
+                (uint32_t)screenSize.y
+            }
+        );
+        a_commandBuffer.setScissor(0, 1, &scissor);
+        const vk::Viewport viewport = vk::Viewport
+        (
+            screenPos.x,
+            screenPos.y,
+            screenSize.x,
+            screenSize.y,
+            0.0f,
+            1.0f
+        );
+        a_commandBuffer.setViewport(0, 1, &viewport);
+
+        pipeline = GetPipeline(-1, m_textUIPipelineAddr);
+        IVERIFY(pipeline != nullptr);
+        shaderData = pipeline->GetShaderData();
+        IVERIFY(shaderData != nullptr);
+
+        const uint32_t samplerAddr = text->GetSamplerAddr();
+        const TextureSamplerBuffer& sampler = GetTextureSampler(samplerAddr);
+
+        shaderData->PushTexture(a_commandBuffer, 0, sampler, a_index);
 
         break;
     }
@@ -3740,9 +3758,33 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
     {
         const ImageUIElement* image = (ImageUIElement*)element;
 
-        const vk::Rect2D scissor = vk::Rect2D({ (int32_t)screenPos.x, (int32_t)screenPos.y }, { (uint32_t)screenSize.x, (uint32_t)screenSize.y });
+        const uint32_t samplerAddr = image->GetSamplerAddr();
+        if (samplerAddr == uint32_t(-1))
+        {
+            break;
+        }
+
+        const vk::Rect2D scissor = vk::Rect2D
+        (
+            {
+                (int32_t)screenPos.x,
+                (int32_t)screenPos.y
+            },
+            {
+                (uint32_t)screenSize.x,
+                (uint32_t)screenSize.y
+            }
+        );
         a_commandBuffer.setScissor(0, 1, &scissor);
-        const vk::Viewport viewport = vk::Viewport(screenPos.x, screenPos.y, screenSize.x, screenSize.y, 0.0f, 1.0f);
+        const vk::Viewport viewport = vk::Viewport
+        (
+            screenPos.x,
+            screenPos.y,
+            screenSize.x,
+            screenSize.y,
+            0.0f,
+            1.0f
+        );
         a_commandBuffer.setViewport(0, 1, &viewport);
 
         pipeline = GetPipeline(-1, m_imageUIPipelineAddr);
@@ -3750,7 +3792,6 @@ void VulkanGraphicsEngine::DrawUIElement(vk::CommandBuffer a_commandBuffer, uint
         shaderData = pipeline->GetShaderData();
         IVERIFY(shaderData != nullptr);
 
-        const uint32_t samplerAddr = image->GetSamplerAddr();
         const TextureSamplerBuffer& sampler = GetTextureSampler(samplerAddr);
 
         shaderData->PushTexture(a_commandBuffer, 0, sampler, a_index);
@@ -3955,7 +3996,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
         const uint32_t camIndex = camIndices[i];
         const uint32_t poolIndex = i * DrawingPassCount;
 
-        FThreadJob<VulkanCommandBuffer, DrawCallBind>* dirShadowJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* dirShadowJob = MallocAllocator::Instance->Create<FThreadJob<VulkanCommandBuffer, DrawCallBind>>
         (
             DrawCallBind(this, camIndex, poolIndex + 0, a_index, &VulkanGraphicsEngine::DirectionalShadowPass),
             JobPriority_EngineUrgent
@@ -3963,7 +4004,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
         futures.emplace_back(dirShadowJob->GetFuture());
         ThreadPool::PushJob(dirShadowJob);
 
-        FThreadJob<VulkanCommandBuffer, DrawCallBind>* pointShadowJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* pointShadowJob = MallocAllocator::Instance->Create<FThreadJob<VulkanCommandBuffer, DrawCallBind>>
         (
             DrawCallBind(this, camIndex, poolIndex + 1, a_index, &VulkanGraphicsEngine::PointShadowPass),
             JobPriority_EngineUrgent
@@ -3971,7 +4012,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
         futures.emplace_back(pointShadowJob->GetFuture());
         ThreadPool::PushJob(pointShadowJob);
 
-        FThreadJob<VulkanCommandBuffer, DrawCallBind>* spotShadowJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* spotShadowJob = MallocAllocator::Instance->Create<FThreadJob<VulkanCommandBuffer, DrawCallBind>>
         (
             DrawCallBind(this, camIndex, poolIndex + 2, a_index, &VulkanGraphicsEngine::SpotShadowPass),
             JobPriority_EngineUrgent
@@ -3979,7 +4020,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
         futures.emplace_back(spotShadowJob->GetFuture());
         ThreadPool::PushJob(spotShadowJob);
 
-        FThreadJob<VulkanCommandBuffer, DrawCallBind>* drawJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* drawJob = MallocAllocator::Instance->Create<FThreadJob<VulkanCommandBuffer, DrawCallBind>>
         (
             DrawCallBind(this, camIndex, poolIndex + 3, a_index, &VulkanGraphicsEngine::DrawPass),
             JobPriority_EngineUrgent
@@ -3987,7 +4028,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
         futures.emplace_back(drawJob->GetFuture());
         ThreadPool::PushJob(drawJob);
 
-        FThreadJob<VulkanCommandBuffer, DrawCallBind>* lightJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* lightJob = MallocAllocator::Instance->Create<FThreadJob<VulkanCommandBuffer, DrawCallBind>>
         (
             DrawCallBind(this, camIndex, poolIndex + 4, a_index, &VulkanGraphicsEngine::LightPass),
             JobPriority_EngineUrgent
@@ -3995,7 +4036,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
         futures.emplace_back(lightJob->GetFuture());
         ThreadPool::PushJob(lightJob);
 
-        FThreadJob<VulkanCommandBuffer, DrawCallBind>* forwardJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* forwardJob = MallocAllocator::Instance->Create<FThreadJob<VulkanCommandBuffer, DrawCallBind>>
         (
             DrawCallBind(this, camIndex, poolIndex + 5, a_index, &VulkanGraphicsEngine::ForwardPass),
             JobPriority_EngineUrgent
@@ -4003,7 +4044,7 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
         futures.emplace_back(forwardJob->GetFuture());
         ThreadPool::PushJob(forwardJob);
 
-        FThreadJob<VulkanCommandBuffer, DrawCallBind>* postJob = new FThreadJob<VulkanCommandBuffer, DrawCallBind>
+        FThreadJob<VulkanCommandBuffer, DrawCallBind>* postJob = MallocAllocator::Instance->Create<FThreadJob<VulkanCommandBuffer, DrawCallBind>>
         (
             DrawCallBind(this, camIndex, poolIndex + 6, a_index, &VulkanGraphicsEngine::PostPass),
             JobPriority_EngineUrgent
@@ -4013,39 +4054,6 @@ Array<VulkanCommandBuffer> VulkanGraphicsEngine::Update(double a_delta, double a
     }
 
     Array<VulkanCommandBuffer> cmdBuffers = Array<VulkanCommandBuffer>(blockAllocator);
-    // TODO: Disabling this for now as it is a mess
-    // {
-    //     PROFILESTACK("Video Decode");
-    //
-    //     RENDERSCRATCHFRAME;
-    //
-    //     const Array<VulkanVideoTexture*, RenderScratchAlloc> videoTextures = m_videoTextures.ToActiveArray<RenderScratchAlloc>();
-    //     if (!videoTextures.Empty())
-    //     {
-    //         if (m_vulkanEngine->IsVideoEnabled())
-    //         {
-    //             device.resetCommandPool(m_decodePool[a_index]);
-    //
-    //             const vk::CommandBuffer commandBuffer = m_decodeBuffer[a_index];
-    //
-    //             constexpr vk::CommandBufferBeginInfo BeginInfo;
-    //             commandBuffer.begin(BeginInfo);
-    //             IDEFER(commandBuffer.end());
-    //
-    //             for (VulkanVideoTexture* tex : videoTextures)
-    //             {
-    //                 tex->UpdateVulkan(commandBuffer, a_delta);
-    //             }
-    //
-    //             const VulkanCommandBuffer buffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_VideoDecode);
-    //             cmdBuffers.Push(buffer);
-    //         }
-    //         else
-    //         {
-    //             IERROR("Software decoding not supported");
-    //         }
-    //     }
-    // }
 
     Array<vk::CommandBuffer> uiBuffers = Array<vk::CommandBuffer>(blockAllocator);
     {

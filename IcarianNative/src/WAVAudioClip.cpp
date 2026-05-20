@@ -7,7 +7,8 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include "DataTypes/Allocators/RingAllocator.h"
+#include "Core/IcarianError.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 
@@ -31,117 +32,115 @@ constexpr static uint32_t GetFormatSize(e_AudioFormat a_format)
 }
 
 // Not accounting for endian not an issue currently but may become an issue down the line
-WAVAudioClip::WAVAudioClip(const std::string_view& a_path)
+WAVAudioClip::WAVAudioClip(const COWU8String& a_path, Allocator* a_allocator) :
+    m_path(a_path, a_allocator)
 {
-    m_path = a_path;
+    IERRBLOCK;
 
     m_sampleRate = 0;
     m_channelCount = 0;
 
     FileHandle* handle = FileCache::LoadFile(m_path);
-    if (handle != nullptr)
+    IERRCHECK(handle != nullptr);
+    IDEFER(MallocAllocator::Instance->Destroy(handle));
+
+    char buffer[16];
+    if (handle->Read(buffer, 12) != 12)
     {
-        IDEFER(delete handle);
+        return;
+    }
 
-        char buffer[16];
-        if (handle->Read(buffer, 12) != 12)
+    constexpr char RIFFStr[] = "RIFF";
+    constexpr char WAVEStr[] = "WAVE";
+    if (*(uint32_t*)RIFFStr != *(uint32_t*)buffer && *(uint32_t*)WAVEStr != *(uint32_t*)(buffer + 8))
+    {
+        return;
+    }
+
+    constexpr char FMTStr[] = "fmt ";
+    constexpr char DATAStr[] = "data";
+
+    const uint32_t fmtInt = *(uint32_t*)FMTStr;
+    const uint32_t dataInt = *(uint32_t*)DATAStr;
+
+    while (true)
+    {
+        handle->Read(buffer, 4);
+        const uint32_t bufferInt = *(uint32_t*)buffer;
+
+        handle->Read(buffer, 4);
+        const uint32_t chunkSize = *(uint32_t*)buffer;
+
+        if (chunkSize == 0)
         {
-            return;
+            IERROR("WAV invalid chunk size");
         }
 
-        constexpr char RIFFStr[] = "RIFF";
-        constexpr char WAVEStr[] = "WAVE";
-
-        if (*(uint32_t*)RIFFStr != *(uint32_t*)buffer && *(uint32_t*)WAVEStr != *(uint32_t*)(buffer + 8))
+        if (bufferInt == fmtInt)
         {
-            return;
-        }
+            // WAVE format
+            handle->Read(buffer, 2);
 
-        constexpr char FMTStr[] = "fmt ";
-        constexpr char DATAStr[] = "data";
-
-        const uint32_t fmtInt = *(uint32_t*)FMTStr;
-        const uint32_t dataInt = *(uint32_t*)DATAStr;
-
-        while (true)
-        {
-            handle->Read(buffer, 4);
-            const uint32_t bufferInt = *(uint32_t*)buffer;
+            handle->Read(buffer, 2);
+            m_channelCount = *(uint16_t*)buffer;
 
             handle->Read(buffer, 4);
-            const uint32_t chunkSize = *(uint32_t*)buffer;
+            m_sampleRate = *(uint32_t*)buffer;
 
-            if (chunkSize == 0)
+            // Byte rate
+            handle->Read(buffer, 4);
+
+            // Block align
+            handle->Read(buffer, 2);
+
+            handle->Read(buffer, 2);
+            const uint16_t bitsPerSample = *(uint16_t*)buffer;
+
+            switch (bitsPerSample)
             {
-                IERROR("WAV invalid chunk size");
-            }
-
-            if (bufferInt == fmtInt)
+            case 8:
             {
-                // WAVE format
-                handle->Read(buffer, 2);
-
-                handle->Read(buffer, 2);
-                m_channelCount = *(uint16_t*)buffer;
-
-                handle->Read(buffer, 4);
-                m_sampleRate = *(uint32_t*)buffer;
-
-                // Byte rate
-                handle->Read(buffer, 4);
-
-                // Block align
-                handle->Read(buffer, 2);
-
-                handle->Read(buffer, 2);
-                const uint16_t bitsPerSample = *(uint16_t*)buffer;
-
-                switch (bitsPerSample)
-                {
-                case 8:
-                {
-                    m_format = AudioFormat_U8;
-
-                    break;
-                }
-                case 16:
-                {
-                    m_format = AudioFormat_S16;
-
-                    break;
-                }
-                default:
-                {
-                    IERROR("Wav invalid bits per sample");
-                }
-                }
-
-                // There is several forms of the fmt chunk and we do not care about the extended format
-                const int32_t offset = chunkSize - 16;
-                if (offset > 0)
-                {
-                    handle->Ignore(offset);
-                }
-            }
-            // Seems some applications take the spec as a guideline and not rules so just have to hope stumble across the fmt chunk before reaching the data chunk
-            // Hopefully does not bite me in the ass continuing to follow the spec and expecting data last
-            // Will deal with that later if it becomes an issue
-            else if (bufferInt == dataInt)
-            {
-                m_dataOffset = handle->GetOffset();
-                m_dataSize = chunkSize;
-
-                if (m_dataSize == 0 || m_channelCount == 0 || m_sampleRate == 0)
-                {
-                    IERROR("WAV invalid file");
-                }
+                m_format = AudioFormat_U8;
 
                 break;
             }
-            else
+            case 16:
             {
-                handle->Ignore(chunkSize);
+                m_format = AudioFormat_S16;
+
+                break;
             }
+            default:
+            {
+                IERROR("Wav invalid bits per sample");
+            }
+            }
+
+            // There is several forms of the fmt chunk and we do not care about the extended format
+            const int32_t offset = chunkSize - 16;
+            if (offset > 0)
+            {
+                handle->Ignore(offset);
+            }
+        }
+        // Seems some applications take the spec as a guideline and not rules so just have to hope stumble across the fmt chunk before reaching the data chunk
+        // Hopefully does not bite me in the ass continuing to follow the spec and expecting data last
+        // Will deal with that later if it becomes an issue
+        else if (bufferInt == dataInt)
+        {
+            m_dataOffset = handle->GetOffset();
+            m_dataSize = chunkSize;
+
+            if (m_dataSize == 0 || m_channelCount == 0 || m_sampleRate == 0)
+            {
+                IERROR("WAV invalid file");
+            }
+
+            break;
+        }
+        else
+        {
+            handle->Ignore(chunkSize);
         }
     }
 }
@@ -173,35 +172,29 @@ e_AudioFormat WAVAudioClip::GetAudioFormat() const
     return m_format;
 }
 
-uint8_t* WAVAudioClip::GetAudioData(RingAllocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
+uint8_t* WAVAudioClip::GetAudioData(Allocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
 {
+    IERRBLOCK;
+
     *a_outSampleSize = 0;
 
     FileHandle* handle = FileCache::LoadFile(m_path);
-    if (handle == nullptr)
-    {
-        return nullptr;
-    }
-    IDEFER(delete handle);
+    IERRCHECKRET(handle != nullptr, nullptr);
+    IDEFER(MallocAllocator::Instance->Destroy(handle));
 
     const uint32_t formatSize = GetFormatSize(m_format);
 
     const uint64_t seekOffset = a_sampleOffset * m_channelCount * formatSize;
-    if (!handle->Seek(m_dataOffset + seekOffset))
-    {
-        return nullptr;
-    }
+    IERRCHECKRET(handle->Seek(m_dataOffset + seekOffset), nullptr);
 
     const uint64_t remainingSamples = GetSampleSize() - a_sampleOffset;
     const uint64_t samplesToRead = glm::min((uint64_t)a_sampleSize, remainingSamples);
     const uint64_t size = samplesToRead * m_channelCount;
     const uint64_t sampleSize = size * formatSize;
 
-    uint8_t* data = (uint8_t*)a_allocator->Allocate(sampleSize, 1);
-    if (handle->Read(data, sampleSize) != sampleSize)
-    {
-        return nullptr;
-    }
+    uint8_t* data = a_allocator->TAllocate<uint8_t>(sampleSize);
+    IERRDEFER(a_allocator->Free(data));
+    IERRCHECKRET(handle->Read(data, sampleSize) == sampleSize, nullptr);
 
     *a_outSampleSize = (uint32_t)samplesToRead;
 

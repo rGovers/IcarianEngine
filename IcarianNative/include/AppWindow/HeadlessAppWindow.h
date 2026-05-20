@@ -25,8 +25,8 @@ class RuntimeFunction;
 class HeadlessAppWindow : public AppWindow
 {
 private:
-    static constexpr int NameMax = 16;
-    static constexpr int FrameMax = 64;
+    static constexpr uint16_t NameMax = 16;
+    static constexpr uint16_t FrameMax = 64;
 
     struct ProfileTFrame
     {
@@ -75,7 +75,7 @@ private:
 
     void PushMessageQueue();
 
-    void MessageCallback(const std::string_view& a_message, IcarianCore::e_LoggerMessageType a_type, uint32_t a_stackTraceCount, const char* const* a_stackTrace);
+    void MessageCallback(const COWU8String& a_message, IcarianCore::e_LoggerMessageType a_type, uint32_t a_stackTraceCount, const char* const* a_stackTrace);
     void ProfilerCallback(const Profiler::PData& a_profilerData);
 
     bool PollMessage();
@@ -141,7 +141,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

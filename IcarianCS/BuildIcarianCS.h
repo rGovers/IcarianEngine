@@ -215,7 +215,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableSt
         "./src/Physics/PhysicsBody.cs",
         "./src/Physics/RigidBody.cs",
         "./src/Physics/TriggerBody.cs",
-        
+
         "./src/Physics/Shapes/BoxCollisionShape.cs",
         "./src/Physics/Shapes/CapsuleCollisionShape.cs",
         "./src/Physics/Shapes/CollisionShape.cs",
@@ -278,10 +278,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableSt
         "./src/Rendering/UI/CanvasRenderer.cs",
         "./src/Rendering/UI/ImageUIElement.cs",
         "./src/Rendering/UI/TextUIElement.cs",
-        "./src/Rendering/UI/UIElement.cs",
-        
-        "./src/Rendering/Video/VideoClip.cs",
-        "./src/Rendering/Video/VideoTexture.cs"
+        "./src/Rendering/UI/UIElement.cs"
     );
 
     CUBE_CSProject_AppendReference(&project, "System.Xml.dll");

@@ -5,25 +5,22 @@
 #pragma once
 
 #include <cstdint>
-#include <string>
-#include <string_view>
 
+#include "DataTypes/COWString.h"
 #include "DataTypes/TNCArray.h"
-#include "DataTypes/TStatic.h"
 
 class Font;
 class RenderEngine;
 class RenderAssetStoreBindings;
 class StackAllocator;
+class TrackerAllocator;
 
 struct RenderAsset
 {
     static constexpr uint32_t MarkBit = 0;
     static constexpr uint32_t SkinnedBit = 1;
 
-    // Paths are broken but strings work for some bloody reason
-    // std::filesystem::path Path;
-    std::string Path;
+    COWU8String Path;
     uint32_t InternalAddress;
     uint16_t DeReq;
     uint8_t Data;
@@ -70,14 +67,17 @@ private:
 
     static constexpr uint16_t DeReqCount = 20;
 
-    Allocator*        m_blockAllocator;
+    Allocator*         m_blockAllocator;
+    TrackerAllocator*  m_trackerAllocator;
 
-    ClassData*        m_data;
+    Array<Allocator*>* m_allocatorChain;
 
-    SpinLock          m_scratchLock;
+    ClassData*         m_data;
 
-    uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const std::string_view& a_path);
-    uint32_t LoadMeshData(const std::string_view& a_path, uint8_t a_index);
+    SpinLock           m_scratchLock;
+
+    uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const COWU8String& a_path);
+    uint32_t LoadMeshData(const COWU8String& a_path, uint8_t a_index);
 
 protected:
 
@@ -93,17 +93,17 @@ public:
         return m_data->Fonts[a_addr];
     }
 
-    [[nodiscard]] uint32_t LoadMesh(const std::string_view& a_path, uint8_t a_index);
+    [[nodiscard]] uint32_t LoadMesh(const COWU8String& a_path, uint8_t a_index);
     void DestroyMesh(uint32_t a_addr);
     uint32_t GetMesh(uint32_t a_addr);
 
-    bool LoadModelData(const std::string_view& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius);
-    [[nodiscard]] uint32_t LoadModel(const std::string_view& a_path, uint8_t a_index);
-    [[nodiscard]] uint32_t LoadSkinnedModel(const std::string_view& a_path, uint8_t a_index);
+    bool LoadModelData(const COWU8String& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius);
+    [[nodiscard]] uint32_t LoadModel(const COWU8String& a_path, uint8_t a_index);
+    [[nodiscard]] uint32_t LoadSkinnedModel(const COWU8String& a_path, uint8_t a_index);
     void DestroyModel(uint32_t a_addr);
     uint32_t GetModel(uint32_t a_addr);
 
-    [[nodiscard]] uint32_t LoadTexture(const std::string_view& a_path);
+    [[nodiscard]] uint32_t LoadTexture(const COWU8String& a_path);
     void DestroyTexture(uint32_t a_addr);
     uint32_t GetTexture(uint32_t a_addr);
 

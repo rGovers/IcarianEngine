@@ -4,7 +4,10 @@
 
 #include "FileHandles/ReadFileHandle.h"
 
+#include <filesystem>
+
 #include "Core/IcarianError.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 
 ReadFileHandle::ReadFileHandle(FILE* a_file, uint64_t a_size)
 {
@@ -41,15 +44,15 @@ bool ReadFileHandle::EndOfFile() const
     return feof(m_file) != 0;
 }
 
-ReadFileHandle* ReadFileHandle::OpenFile(const std::filesystem::path& a_path)
+ReadFileHandle* ReadFileHandle::OpenFile(const COWU8String& a_path)
 {
     IERRBLOCK;
 
-    IERRCHECKRET(std::filesystem::exists(a_path), nullptr);
+    const char* cStr = a_path.CStr();
 
-    const std::string pathStr = a_path.generic_string();
+    IERRCHECKRET(std::filesystem::exists(cStr), nullptr);
 
-    FILE* fp = fopen(pathStr.c_str(), "rb");
+    FILE* fp = fopen(cStr, "rb");
     IERRCHECKRET(fp != NULL, nullptr);
     IERRDEFER(fclose(fp));
 
@@ -59,12 +62,12 @@ ReadFileHandle* ReadFileHandle::OpenFile(const std::filesystem::path& a_path)
 
     IERRCHECKRET(size >= 0, nullptr);
 
-    return new ReadFileHandle(fp, (uint64_t)size);
+    return MallocAllocator::Instance->Create<ReadFileHandle>(fp, (uint64_t)size);
 }
 
 // MIT License
 //
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

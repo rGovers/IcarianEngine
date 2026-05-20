@@ -10,6 +10,8 @@
 #include "IcarianError.h"
 #include "IcarianMemory.h"
 
+ICARIAN_PUSH_FASTALLOCTOR
+
 class StackAllocator : public Allocator
 {
 private:
@@ -84,7 +86,7 @@ public:
         m_stackSlider = m_memory;
     }
 
-    virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
+    [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
     {
         void* ptr = AlignTo((uint8_t*)m_stackSlider, a_alignment);
         void* next = (char*)ptr + a_size;
@@ -106,6 +108,8 @@ public:
         return ptr;
     }
 };
+
+ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
 // 

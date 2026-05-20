@@ -20,6 +20,25 @@
 #include <utility>
 
 #include "Core/IcarianLambda.h"
+#include "Core/IcarianPragma.h"
+
+#ifdef ICARIANNATIVE_FAST_ALLOCATOR
+// #if 1
+#if defined(__GNUC__) && !defined(__clang__)
+#define ICARIAN_PUSH_FASTALLOCTOR \
+    ICARIAN_PRAGMA(GCC push_options) \
+    ICARIAN_PRAGMA(GCC optimize("03"))
+#define ICARIAN_POP_FASTALLOCTOR ICARIAN_PRAGMA(GCC pop_options)
+#else
+#define ICARIAN_PUSH_FASTALLOCTOR
+#define ICARIAN_POP_FASTALLOCTOR
+#endif
+#else
+#define ICARIAN_PUSH_FASTALLOCTOR
+#define ICARIAN_POP_FASTALLOCTOR
+#endif
+
+ICARIAN_PUSH_FASTALLOCTOR
 
 class Allocator
 {
@@ -100,6 +119,8 @@ public:
         Free(a_ptr);
     }
 };
+
+ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
 // 

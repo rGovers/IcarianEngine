@@ -6,6 +6,8 @@
 
 #include "DataTypes/Allocators/Allocator.h"
 
+ICARIAN_PUSH_FASTALLOCTOR
+
 class ComplexAllocator : public Allocator
 {
 private:
@@ -17,6 +19,8 @@ public:
 
     [[nodiscard]] virtual void* Realloc(void* a_ptr, uint64_t a_size, uint32_t a_alignment) = 0;
 };
+
+ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
 // 

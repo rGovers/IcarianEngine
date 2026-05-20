@@ -33,7 +33,8 @@
         const Array<glm::vec3> path = Instance->GetNavMeshPath(a_addr, a_startPoint, a_endPoint, a_agentRadius); \
         const uint32_t count = path.Size(); \
         MonoClass* klass = RuntimeManager::GetClass("IcarianEngine.Maths", "Vector3"); \
-        MonoArray* arr = mono_array_new(mono_domain_get(), klass, count); \
+        MonoDomain* domain = mono_domain_get(); \
+        MonoArray* arr = mono_array_new(domain, klass, count); \
         for (uint32_t i = 0; i < count; ++i) \
         { \
             mono_array_set(arr, IOP_VEC3, i, path[i]); \

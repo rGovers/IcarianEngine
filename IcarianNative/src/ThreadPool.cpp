@@ -9,6 +9,7 @@
 #include "Config.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 #include "IcarianError.h"
 #include "Logger.h"
 #include "Runtime/RuntimeManager.h"
@@ -21,7 +22,7 @@ static ThreadPool* Instance = nullptr;
 // The lazy part of me won against the part that wants to write clean code
 // My apologies to the poor soul that has to decipher this definition
 #define THREADPOOL_BINDING_FUNCTION_TABLE(F) \
-    F(void, IcarianEngine, ThreadPool, AddJob, { ThreadPool::PushJob(new RuntimeThreadJob(a_objectAddr, (e_JobPriority)a_priority)); }, uint32_t a_objectAddr, uint32_t a_priority) \
+    F(void, IcarianEngine, ThreadPool, AddJob, { ThreadPool::PushJob(MallocAllocator::Instance->Create<RuntimeThreadJob>(a_objectAddr, (e_JobPriority)a_priority)); }, uint32_t a_objectAddr, uint32_t a_priority) \
     F(uint32_t, IcarianEngine, ThreadPool, GetThreadCount, { return ThreadPool::GetThreadCount(); }) \
     F(uint32_t, IcarianEngine, ThreadPool, GetQueueSize, { return ThreadPool::GetQueueSize(); }) \
     \
@@ -40,15 +41,10 @@ ThreadPool::ThreadPool(uint32_t a_threadCount)
 
     m_threadCount = a_threadCount;
 
-    m_threads = new std::thread[m_threadCount];
-    m_join = new bool[m_threadCount];
+    m_threads = MallocAllocator::Instance->TAllocate<std::thread*>(m_threadCount);
+    m_join = MallocAllocator::Instance->ZTAllocate<bool>(m_threadCount);
 
     m_runtimeDispatch = RuntimeManager::GetFunction("IcarianEngine", "ThreadPool", ":Dispatch(uint)");
-
-    for (uint32_t i = 0; i < m_threadCount; ++i)
-    {
-        m_join[i] = false;
-    }
 }
 ThreadPool::~ThreadPool()
 {
@@ -57,26 +53,27 @@ ThreadPool::~ThreadPool()
 
     for (uint32_t i = 0; i < m_threadCount; ++i)
     {
-        while (!m_join[i]) 
+        while (!m_join[i])
         {
             std::this_thread::yield();
         }
 
-        m_threads[i].join();
+        m_threads[i]->join();
+        MallocAllocator::Instance->Destroy(m_threads[i]);
     }
 
-    delete[] m_threads;
-    delete[] m_join;
+    MallocAllocator::Instance->Free(m_threads);
+    MallocAllocator::Instance->Free((void*)m_join);
 
     while (!m_jobQueue.empty())
     {
         ThreadJob* job = m_jobQueue.top();
         m_jobQueue.pop();
 
-        delete job;
+        MallocAllocator::Instance->Destroy(job);
     }
 
-    delete m_runtimeDispatch;
+    MallocAllocator::Instance->Destroy(m_runtimeDispatch);
 
     for (uint32_t i = 0; i < m_runtimeLocks.Size(); ++i)
     {
@@ -84,7 +81,7 @@ ThreadPool::~ThreadPool()
         {
             Logger::Warning("Lock was not destroyed");
 
-            delete m_runtimeLocks[i];
+            MallocAllocator::Instance->Destroy(m_runtimeLocks[i]);
         }
     }
 
@@ -99,14 +96,14 @@ void ThreadPool::Start()
 
     for (uint32_t i = 0; i < highJobs; ++i)
     {
-        m_threads[i] = std::thread(ThreadPool::Run, i, JobPriority_RuntimeHigh);
+        m_threads[i] = MallocAllocator::Instance->Create<std::thread>(ThreadPool::Run, i, JobPriority_RuntimeHigh);
     }
 
     for (uint32_t i = 0; i < lowJobs; ++i)
     {
         const uint32_t index = i + highJobs;
 
-        m_threads[index] = std::thread(ThreadPool::Run, index, JobPriority_RuntimeLow);
+        m_threads[index] = MallocAllocator::Instance->Create<std::thread>(ThreadPool::Run, index, JobPriority_RuntimeLow);
     }
 }
 void ThreadPool::Stop()
@@ -142,7 +139,7 @@ void ThreadPool::Init(const Config* a_config)
             ILRETURN val;
         });
 
-        Instance = new ThreadPool(threadCount);
+        Instance = MallocAllocator::Instance->Create<ThreadPool>(threadCount);
         Instance->Start();
     }
 }
@@ -152,14 +149,14 @@ void ThreadPool::Destroy()
     {
         TRACE("Destroying thread pool");
 
-        delete Instance;
+        MallocAllocator::Instance->Destroy(Instance);
         Instance = nullptr;
     }
 }
 
 uint32_t ThreadPool::GenerateLock()
 {
-    SharedSpinLock* lock = new SharedSpinLock();
+    SharedSpinLock* lock = MallocAllocator::Instance->Create<SharedSpinLock>();
 
     {
         TLockArray<SharedSpinLock*> a = Instance->m_runtimeLocks.ToLockArray();
@@ -183,8 +180,8 @@ void ThreadPool::DestroyLock(uint32_t a_addr)
     IVERIFY(a_addr < Instance->m_runtimeLocks.Size());
     IVERIFY(Instance->m_runtimeLocks[a_addr] != nullptr);
 
-    const SharedSpinLock* lock = Instance->m_runtimeLocks[a_addr];
-    IDEFER(delete lock);
+    SharedSpinLock* lock = Instance->m_runtimeLocks[a_addr];
+    IDEFER(MallocAllocator::Instance->Destroy(lock));
     Instance->m_runtimeLocks.LockSet(a_addr, nullptr);
 }
 
@@ -261,9 +258,11 @@ void ThreadPool::Run(uint32_t a_thread, e_JobPriority a_priority)
         ThreadJob* job = nullptr;
         ThreadJob** jobPtr = &job;
         IDEFER(
-        if (*jobPtr != nullptr) 
         {
-            delete *jobPtr; 
+            if (*jobPtr != nullptr) 
+            {
+                MallocAllocator::Instance->Destroy(*jobPtr);
+            }
         });
 
         {

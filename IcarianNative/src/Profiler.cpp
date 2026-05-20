@@ -4,14 +4,14 @@
 
 #include "Profiler.h"
 
-#include <mutex>
-
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
+#include "DataTypes/ThreadGuard.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
-Profiler* Profiler::Instance = nullptr;
+static Profiler* Instance = nullptr;
 Profiler::Callback* Profiler::CallbackFunc = nullptr;
 
 RUNTIME_FUNCTION(void, Profiler, StartFrame, 
@@ -30,6 +30,8 @@ Profiler::Profiler()
 {
     BIND_FUNCTION(IcarianEngine, Profiler, StartFrame);
     BIND_FUNCTION(IcarianEngine, Profiler, StopFrame);
+
+    m_memoryFrame = { };
 }
 Profiler::~Profiler()
 {
@@ -41,7 +43,7 @@ void Profiler::Init()
     TRACE("Initializing Profiler");
     if (Instance == nullptr)
     {
-        Instance = new Profiler();
+        Instance = MallocAllocator::Instance->Create<Profiler>();
     }
 }
 void Profiler::Destroy()
@@ -49,20 +51,29 @@ void Profiler::Destroy()
     TRACE("Destroying Profiler");
     if (Instance != nullptr)
     {
-        delete Instance;
+        MallocAllocator::Instance->Destroy(Instance);
         Instance = nullptr;
     }
 }
 
-void Profiler::Start(const std::string_view& a_name)
+void Profiler::Start(const char* a_name)
+{
+#ifdef ICARIANNATIVE_ENABLE_PROFILER
+    Start(COWU8String(a_name, MallocAllocator::Instance));
+#endif
+}
+void Profiler::Start(const COWU8String& a_name)
 {
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
     const std::thread::id tID = std::this_thread::get_id();
 
-    const std::unique_lock lock = std::unique_lock(Instance->m_mutex);
+    const ThreadGuard g = ThreadGuard(Instance->m_lock);
 
-    PData data = PData();
-    data.Name = std::string(a_name);
+    const PData data =
+    {
+        .Name = COWU8String(a_name, MallocAllocator::Instance),
+        .Frames = Array<ProfileFrame>(MallocAllocator::Instance),
+    };
 
     Instance->m_data.emplace(tID, data);
 #endif
@@ -72,11 +83,11 @@ void Profiler::Stop()
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
     const std::thread::id tID = std::this_thread::get_id();
 
-    const std::unique_lock lock = std::unique_lock(Instance->m_mutex);
+    const ThreadGuard lock = ThreadGuard(Instance->m_lock);
 
     const auto iter = Instance->m_data.find(tID);
     ICARIAN_ASSERT_MSG(iter != Instance->m_data.end(), "Profiler not started on thread");
-    
+
     if (CallbackFunc != nullptr)
     {
         (*CallbackFunc)(iter->second);
@@ -86,19 +97,66 @@ void Profiler::Stop()
 #endif
 }
 
-void Profiler::StartFrame(const std::string_view& a_name)
+void Profiler::PushMemoryFrame(e_ProfilerMemoryFrame a_frame, uint64_t a_size)
+{
+    switch (a_frame)
+    {
+    case ProfilerMemoryFrame_CSharp:
+    {
+        Instance->m_memoryFrame.CSharpUsage = a_size;
+
+        break;
+    }
+    case ProfilerMemoryFrame_Audio:
+    {
+        Instance->m_memoryFrame.AudioUsage = a_size;
+
+        break;
+    }
+    case ProfilerMemoryFrame_Rendering:
+    {
+        Instance->m_memoryFrame.RenderingUsage = a_size;
+
+        break;
+    }
+    case ProfilerMemoryFrame_Physics:
+    {
+        Instance->m_memoryFrame.PhysicsUsage = a_size;
+
+        break;
+    }
+    default:
+    {
+        IERROR("Invalid memory frame");
+
+        break;
+    }
+    }
+}
+IcarianCore::MemoryUsageFrame Profiler::GetMemoryFrames()
+{
+    return Instance->m_memoryFrame;
+}
+
+void Profiler::StartFrame(const char* a_name)
+{
+#ifdef ICARIANNATIVE_ENABLE_PROFILER
+    StartFrame(COWU8String(a_name, MallocAllocator::Instance));
+#endif
+}
+void Profiler::StartFrame(const COWU8String& a_name)
 {
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
     const std::chrono::high_resolution_clock::time_point startTime = std::chrono::high_resolution_clock::now();
     const std::thread::id tID = std::this_thread::get_id();
 
-    const std::shared_lock lock = std::shared_lock(Instance->m_mutex);
+    const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
 
     const auto iter = Instance->m_data.find(tID);
-    ICARIAN_ASSERT_MSG(iter != Instance->m_data.end(), "Profiler not started on thread");
+    IVERIFY(iter != Instance->m_data.end());
 
     uint32_t stack = 0;
-    if (!iter->second.Frames.empty())
+    if (!iter->second.Frames.Empty())
     {
         auto iIter = iter->second.Frames.end();
         while (iIter != iter->second.Frames.begin())
@@ -122,14 +180,16 @@ void Profiler::StartFrame(const std::string_view& a_name)
         }
     }
 
-    ProfileFrame frame;
-    frame.StartTime = startTime;
-    frame.Duration = 0.0;
-    frame.Name = std::string(a_name);
-    frame.Stack = stack;
-    frame.End = false;
+    const ProfileFrame frame = 
+    {
+        .Name = COWU8String(a_name, MallocAllocator::Instance),
+        .Duration = 0.0,
+        .StartTime = startTime,
+        .Stack = stack,
+        .End = false,
+    };
 
-    iter->second.Frames.emplace_back(frame);
+    iter->second.Frames.Push(frame);
 #endif
 }
 void Profiler::StopFrame()
@@ -138,11 +198,11 @@ void Profiler::StopFrame()
     const std::chrono::high_resolution_clock::time_point endTime = std::chrono::high_resolution_clock::now();
     const std::thread::id tID = std::this_thread::get_id();
 
-    const std::shared_lock lock = std::shared_lock(Instance->m_mutex);
+    const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
 
     const auto iter = Instance->m_data.find(tID);
-    ICARIAN_ASSERT_MSG(iter != Instance->m_data.end(), "Profiler not started on thread");
-    ICARIAN_ASSERT_MSG(!iter->second.Frames.empty(), "Profiler Frame not created on thread");
+    IVERIFY(iter != Instance->m_data.end());
+    IVERIFY(!iter->second.Frames.Empty());
 
     auto iIter = iter->second.Frames.end();
     while (iIter != iter->second.Frames.begin())
@@ -158,13 +218,13 @@ void Profiler::StopFrame()
         }
     }
 
-    ICARIAN_ASSERT_MSG(0, "Profiler Start End Frame mismatch");
+    IERROR("Profiler Start End Frame mismatch");
 #endif
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

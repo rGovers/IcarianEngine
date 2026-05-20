@@ -9,20 +9,20 @@
 #include "Core/WindowsHeaders.h"
 #endif
 
-void IcarianError(const std::string_view& a_msg)
+void IcarianError(const COWU8String& a_msg)
 {
 #ifdef WIN32
-    MessageBoxA(NULL, a_msg.data(), NULL, MB_OK);
+    MessageBoxA(NULL, a_msg.CStr(), NULL, MB_OK);
 #endif
 
-    ICARIAN_ASSERT_MSG_R(0, a_msg);
+    ICARIAN_ASSERT_MSG_R(0, a_msg.CStr());
 
     exit(1);
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

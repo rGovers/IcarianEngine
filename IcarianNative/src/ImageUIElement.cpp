@@ -4,7 +4,7 @@
 
 #include "Rendering/UI/ImageUIElement.h"
 
-ImageUIElement::ImageUIElement()
+ImageUIElement::ImageUIElement(Allocator* a_allocator) : UIElement(a_allocator)
 {
     m_samplerAddr = -1;
 }
@@ -13,14 +13,14 @@ ImageUIElement::~ImageUIElement()
 
 }
 
-void ImageUIElement::Update(RenderEngine* a_renderEngine)
+void ImageUIElement::Update(RenderEngine* a_renderEngine, Allocator* a_tempAllocator)
 {
-    
+
 }
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

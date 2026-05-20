@@ -5,7 +5,8 @@
 #pragma once
 
 #include <cstdint>
-#include <string_view>
+
+#include "DataTypes/COWString.h"
 
 class AudioEngine;
 
@@ -23,7 +24,8 @@ public:
     AudioEngineBindings(AudioEngine* a_engine);
     ~AudioEngineBindings();
 
-    uint32_t GenerateAudioClipFromFile(const std::string_view& a_path) const;
+    uint32_t GenerateAudioClipFromFile(const char* a_path) const;
+    uint32_t GenerateAudioClipFromFile(const COWU8String& a_path) const;
     void DestroyAudioClip(uint32_t a_addr) const;
     float GetAudioClipDuration(uint32_t a_addr) const;
     uint32_t GetAudioClipSampleRate(uint32_t a_addr) const;

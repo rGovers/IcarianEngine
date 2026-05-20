@@ -29,6 +29,7 @@ typedef enum
 typedef enum
 {
     BuildConfiguration_Debug,
+    BuildConfiguration_DebugFast,
     BuildConfiguration_ReleaseWithDebug,
     BuildConfiguration_Release,
 } e_BuildConfiguration;
@@ -277,7 +278,7 @@ CBBOOL ShadersToHeader(const CUBE_Path* a_shaderPaths, CBUINT32 a_shaderCount, c
 
     fclose(outputFile);
 
-    return CBTRUE;       
+    return CBTRUE;
 }
 CBBOOL ShadersToCSHeader(const CUBE_Path* a_shaderPaths, CBUINT32 a_shaderCount, const char* a_outputFile)
 {
@@ -423,6 +424,7 @@ void PrintHelp()
     printf("  " BUILD_CONSOLECOLOUR_CYAN "--configuration=" BUILD_CONSOLECOLOUR_GREEN "<configuration>" BUILD_CONSOLECOLOUR_RESET " - Set the build configuration. \n");
     printf("    Valid values are: \n");
     printf("      " BUILD_CONSOLECOLOUR_CYAN "debug" BUILD_CONSOLECOLOUR_RESET " - Debug\n");
+    printf("      " BUILD_CONSOLECOLOUR_CYAN "debugfast" BUILD_CONSOLECOLOUR_RESET " - Debug with minor optimizations\n");
     printf("      " BUILD_CONSOLECOLOUR_CYAN "releasewithdebug" BUILD_CONSOLECOLOUR_RESET " - Release with debug symbols\n");
     printf("      " BUILD_CONSOLECOLOUR_CYAN "release" BUILD_CONSOLECOLOUR_RESET " - Release\n");
     printf("\n");
