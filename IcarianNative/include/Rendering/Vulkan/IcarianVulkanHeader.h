@@ -44,9 +44,14 @@ ICARIAN_WARNINGPOP
 static constexpr uint32_t VulkanMaxFlightFrames = 2;
 static constexpr uint32_t VulkanFlightPoolSize = VulkanMaxFlightFrames + 1;
 static constexpr uint32_t VulkanDeletionQueueSize = VulkanFlightPoolSize + 1;
-static constexpr uint16_t VulkanVersionHash = StringHash<uint16_t>(ICARIAN_VULKANVERSION_STRI(ICARIANNATIVE_VERSION_PATCH) "." ICARIAN_VULKANVERSION_STRI(ICARIANNATIVE_COMMIT_HASH) "." ICARIAN_VULKANVERSION_STRI(ICARIANNATIVE_VERSION_TAG));
-
-static constexpr uint32_t VulkanEngineVersion = VK_MAKE_API_VERSION(0, ICARIANNATIVE_VERSION_MAJOR, ICARIANNATIVE_VERSION_MINOR, VulkanVersionHash);
+static constexpr uint32_t VulkanEngineVersionHash = StringHash<uint32_t>
+(
+    ICARIAN_VULKANVERSION_STRI(ICARIANNATIVE_VERSION_MAJOR) "."
+    ICARIAN_VULKANVERSION_STRI(ICARIANNATIVE_VERSION_MINOR) "."
+    ICARIAN_VULKANVERSION_STRI(ICARIANNATIVE_VERSION_PATCH) ":"
+    ICARIAN_VULKANVERSION_STRI(ICARIANNATIVE_COMMIT_HASH) " "
+    ICARIAN_VULKANVERSION_STRI(ICARIANNATIVE_VERSION_TAG)
+);
 
 // AMD debuggers do not support multi queue so switch this to true when you need to do graphics debugging with AMD tools
 // AMD GPUs run just fine it is just their debuggers
@@ -339,7 +344,7 @@ static constexpr const char* VulkanErrorPrefix = "VkError: ";
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

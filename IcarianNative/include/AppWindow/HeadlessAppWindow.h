@@ -18,6 +18,7 @@
 #include "Logger.h"
 #include "Profiler.h"
 
+class Application;
 class Config;
 class RingAllocator;
 class RuntimeFunction;
@@ -46,19 +47,18 @@ private:
     static constexpr uint32_t CloseBit = 0;
     static constexpr uint32_t RemoteBit = 1;
 
+    Application*                                   m_app;
     IcarianCore::CommunicationPipe*                m_pipe;
 
     TArray<IcarianCore::PipeMessage>               m_queuedMessages;
 
     RuntimeFunction*                               m_runtimeMessageReceive;
 
-#ifndef ICARIANNATIVE_ENABLE_DMA
     std::mutex                                     m_fLock;
     volatile bool                                  m_unlockWindow;
     uint64_t                                       m_windowFrame;
     uint64_t                                       m_gpuFrame;
-    char*                                          m_frameData;
-#endif
+    uint8_t*                                       m_frameData;
 
     RingAllocator*                                 m_msgAllocator;
 
@@ -66,7 +66,7 @@ private:
     uint32_t                                       m_height;
 
     std::chrono::high_resolution_clock::time_point m_prevTime;
-   
+
     double                                         m_delta;
     double                                         m_time;
 
@@ -134,9 +134,8 @@ public:
     void FlushSwapBufferHandle();
 
     void DMASwap();
-#else
-    void PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer);
 #endif
+    void PushFrameData(uint32_t a_width, uint32_t a_height, const uint8_t* a_buffer);
 };
 
 // MIT License

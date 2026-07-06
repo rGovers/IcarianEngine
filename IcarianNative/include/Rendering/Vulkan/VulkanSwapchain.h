@@ -9,11 +9,11 @@
 #define GLM_FORCE_SWIZZLE 
 #include <glm/glm.hpp>
 
-#include "Core/Bitfield.h"
 #include "DataTypes/Array.h"
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 class AppWindow;
+class Config;
 class RuntimeFunction;
 class RuntimeManager;
 class VulkanRenderEngineBackend;
@@ -49,6 +49,17 @@ class VulkanSwapchain
 private:
     constexpr static bool ForceHeadless = false;
 
+    constexpr static uint32_t VSyncBit = 0;
+    constexpr static uint32_t DMABit = 1;
+
+    enum e_SwapchainMode
+    {
+        SwapchainMode_Null,
+        SwapchainMode_Application,
+        SwapchainMode_Headless,
+        SwapchainMode_HeadlessDMA
+    };
+
     Allocator*                  m_allocator;
 
     AppWindow*                  m_window;
@@ -56,58 +67,58 @@ private:
 
     RuntimeFunction*            m_resizeFunc;
 
-    Array<VulkanSwapchainImage> m_images;
+    VulkanSwapchainImage*       m_images;
 
     vk::Semaphore               m_startSemaphores[VulkanMaxFlightFrames];
     vk::Semaphore               m_endSemaphores[VulkanMaxFlightFrames];
     vk::Fence                   m_fences[VulkanMaxFlightFrames];
 
 #ifdef ICARIANNATIVE_ENABLE_DMA
-#ifdef WIN32
-    HANDLE                      m_startSemaphoreHandle[VulkanMaxFlightFrames];
-    HANDLE                      m_endSemaphoreHandle[VulkanMaxFlightFrames];
-#else
-    int                         m_startSemaphoreFD[VulkanMaxFlightFrames];
-    int                         m_endSemaphoreFD[VulkanMaxFlightFrames];
-#endif
-
     VmaPool                     m_pool;
     // Needs to remain valid for the pool hence in the Swapchain
     VkExportMemoryAllocateInfo  m_exportInfo;
-#else
+
+    uint64_t                    m_mainTimelineVal;
+    uint64_t                    m_renderTimelineVal;
+    uint32_t                    m_signalIndex;
+#endif
     vk::Buffer                  m_buffer;
     VmaAllocation               m_allocBuffer;
-
-    unsigned char               m_init;
-#endif
 
     vk::SwapchainKHR            m_swapchain;
     vk::RenderPass              m_renderPass;
     vk::RenderPass              m_renderPassNoClear;
 
-    vk::SurfaceFormatKHR        m_surfaceFormat;
-
     uint32_t                    m_width;
     uint32_t                    m_height;
+    uint32_t                    m_imageCount;
 
-    bool                        m_vSync;
+    e_SwapchainMode             m_mode;
+
+    uint8_t                     m_init;
+    uint8_t                     m_flags;
 
     void Init(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator);
-    void InitHeadless(uint32_t a_width, uint32_t a_height);
+    void InitHeadless(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator);
+    void InitHeadlessDMA(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator);
     void Destroy();
 
 protected:
 
 public:
-    VulkanSwapchain(VulkanRenderEngineBackend* a_engine, AppWindow* a_window, Allocator* a_allocator, Allocator* a_tempAllocator);
+    VulkanSwapchain
+    (
+        VulkanRenderEngineBackend* a_engine,
+        AppWindow* a_window,
+        const Config* a_config,
+        Allocator* a_allocator,
+        Allocator* a_tempAllocator
+    );
     ~VulkanSwapchain();
 
     static SwapChainSupportInfo QuerySwapChainSupport(const vk::PhysicalDevice& a_device, const vk::SurfaceKHR& a_surface, Allocator* a_allocator, Allocator* a_tempAllocator);
 
-    inline vk::SurfaceFormatKHR GetSurfaceFormat() const
-    {
-        return m_surfaceFormat;
-    }
+    vk::SurfaceFormatKHR GetSurfaceFormat(Allocator* a_tempAllocator) const;
 
     inline uint32_t GetWidth() const
     {
@@ -136,10 +147,16 @@ public:
         return m_endSemaphores[a_index];
     }
 
-    inline vk::Framebuffer GetFramebuffer(uint32_t a_index) const
+    inline bool IsTimeline() const
     {
-        return m_images[a_index].Framebuffer;
+        return m_mode == SwapchainMode_HeadlessDMA;
     }
+    inline uint64_t GetTimelineValue() const
+    {
+        return m_renderTimelineVal;
+    }
+
+    vk::Framebuffer GetFramebuffer(uint32_t a_index) const;
     inline vk::SwapchainKHR GetSwapchain() const
     {
         return m_swapchain;
@@ -148,14 +165,7 @@ public:
     vk::Image GetTexture() const;
     vk::ImageLayout GetImageLayout() const;
 
-    inline bool IsInitialized(uint32_t a_index) const
-    {
-#ifdef ICARIANNATIVE_ENABLE_DMA
-        return true;
-#else
-        return IISBITSET(m_init, a_index);
-#endif
-    }
+    void DMASignal();
 
     bool StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaphore, double a_delta, double a_time, Allocator* a_tempAllocator);
     void EndFrame(uint32_t a_imageIndex);

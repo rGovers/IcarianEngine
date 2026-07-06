@@ -106,7 +106,7 @@ static CUBE_CProject BuildIcarianNativeProject(const char* a_path, e_TargetPlatf
     }
 
     CUBE_CProject_AppendDefines(&project,
-        "ICARIANNATIVE_VERSION_MAJOR=2025",
+        "ICARIANNATIVE_VERSION_MAJOR=2026",
         "ICARIANNATIVE_VERSION_MINOR=0",
         "ICARIANNATIVE_VERSION_PATCH=0",
         commitDefine.Data,

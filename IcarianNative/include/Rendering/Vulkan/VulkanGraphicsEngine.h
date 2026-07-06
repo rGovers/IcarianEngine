@@ -200,17 +200,12 @@ private:
 protected:
 
 public:
-    VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEngine);
+    VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEngine, VulkanSwapchain* a_swapchain);
     ~VulkanGraphicsEngine();
 
     // Code reeks but cannot be fucked
     // Later me problem
     void Cleanup();
-
-    inline void SetSwapchain(VulkanSwapchain* a_swapchain)
-    {
-        m_swapchain = a_swapchain;
-    }
 
     inline VulkanMeshEmulationData* GetMeshEmulationData() const
     {

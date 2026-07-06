@@ -2,29 +2,37 @@
 // 
 // License at end of file.
 
-using IcarianEngine.Physics.Shapes;
 using System;
 
-namespace IcarianEngine.Definitions
+namespace IcarianEngine
 {
-    public class CollisionShapeDef : Def
+    public class EditorTypeInheritsAttribute : Attribute
     {
-        /// <summary>
-        /// The Type of <see cref="IcarianEngine.Physics.Shapes.CollisionShape" /> to create
-        /// </summary>
-        [HideInEditor]
-        public Type CollisionShapeType = typeof(CollisionShape);
+        Type m_type;
+        bool m_inclusive;
 
-        public override void PostResolve()
+        public Type InheritsType
         {
-            if (CollisionShapeType != typeof(CollisionShape) && !CollisionShapeType.IsSubclassOf(typeof(CollisionShape)))
+            get
             {
-                Logger.IcarianError($"Collision Shape Def Invalid CollisionShapeType: {CollisionShapeType}");
-
-                return;
+                return m_type;
             }
         }
-    };
+
+        public bool IsInclusive
+        {
+            get
+            {
+                return m_inclusive;
+            }
+        }
+
+        public EditorTypeInheritsAttribute(Type a_type, bool a_inclusive)
+        {
+            m_type = a_type;
+            m_inclusive = a_inclusive;
+        }
+    }
 }
 
 // MIT License

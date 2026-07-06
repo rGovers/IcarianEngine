@@ -42,6 +42,8 @@ struct RenderAssetScratchAllocator
 class RenderAssetStore
 {
 public:
+    // TODO: I realised that resource that passed the number of frames to be freed will not be in use on the GPU
+    // So I can implement a fast path free for the resources
     static constexpr uint32_t RenderAssetStoreBit = 30;
 
 private:

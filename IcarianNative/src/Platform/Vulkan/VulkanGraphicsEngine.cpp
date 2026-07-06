@@ -55,7 +55,7 @@
 
 #include "EngineLightInteropStructures.h"
 
-VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEngine) :
+VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEngine, VulkanSwapchain* a_swapchain) :
     m_pipelines(a_vulkanEngine->GetAllocator()),
     m_shadowPipelines(a_vulkanEngine->GetAllocator()),
     m_cubeShadowPipelines(a_vulkanEngine->GetAllocator()),
@@ -66,6 +66,8 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     m_cameraUniforms(a_vulkanEngine->GetAllocator())
 {
     m_vulkanEngine = a_vulkanEngine;
+
+    m_swapchain = a_swapchain;
 
     Allocator* blockAllocator = m_vulkanEngine->GetAllocator();
     StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
@@ -94,39 +96,51 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
     {
         RENDERSCRATCHFRAME;
 
+        const uint32_t vertexShader = ILAMBDA(
+        {
+            RENDERSCRATCHFRAME;
+
+            const COWU8String str = COWU8String
+            (
+                UIVertexShader,
+                sizeof(UIVertexShader) / sizeof(*UIVertexShader),
+                scratchAllocator
+            );
+
+            ILRETURN GenerateFVertexShader(str);
+        });
+        const uint32_t pixelShader = ILAMBDA(
+        {
+            RENDERSCRATCHFRAME;
+
+            const COWU8String str = COWU8String
+            (
+                UITextPixelShader,
+                sizeof(UITextPixelShader) / sizeof(*UITextPixelShader),
+                scratchAllocator
+            );
+
+            ILRETURN GenerateFPixelShader(str);
+        });
+
+        constexpr uint8_t Flags = ILAMBDA(
+        {
+            uint8_t val = 0;
+
+            ISETBIT(val, RenderProgram::DestroyFlag);
+
+            ILRETURN val;
+        });
+
         const RenderProgram textProgram =
         {
-            .VertexShader = ILAMBDA(
-            {
-                RENDERSCRATCHFRAME;
-
-                const COWU8String str = COWU8String
-                (
-                    UIVertexShader,
-                    sizeof(UIVertexShader) / sizeof(*UIVertexShader),
-                    scratchAllocator
-                );
-
-                ILRETURN GenerateFVertexShader(str);
-            }),
-            .PixelShader = ILAMBDA(
-            {
-                RENDERSCRATCHFRAME;
-
-                const COWU8String str = COWU8String
-                (
-                    UITextPixelShader,
-                    sizeof(UITextPixelShader) / sizeof(*UITextPixelShader),
-                    scratchAllocator
-                );
-
-                ILRETURN GenerateFPixelShader(str);
-            }),
+            .VertexShader = vertexShader,
+            .PixelShader = pixelShader,
             .ShadowVertexShader = uint32_t(-1),
             .ColorBlendMode = MaterialBlendMode_Alpha,
             .CullingMode = CullMode_None,
             .PrimitiveMode = PrimitiveMode_TriangleStrip,
-            .Flags = 0b1 << RenderProgram::DestroyFlag
+            .Flags = Flags,
         };
 
         m_textUIPipelineAddr = GenerateRenderProgram(textProgram, scratchAllocator);

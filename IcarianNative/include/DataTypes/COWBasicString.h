@@ -991,6 +991,11 @@ FindNextStringInstance:;
             break;
         }
 
+        if (slider == dataPtr)
+        {
+            return;
+        }
+
         const CharType* endSlider = slider;
         while (*endSlider != 0)
         {
@@ -1000,14 +1005,13 @@ FindNextStringInstance:;
         const uint32_t len = endSlider - slider;
         IDEFER(m_length = len);
 
-        const uint32_t size = DataBlobSize(len);
-        void* newDataBlob = m_allocator->ZAllocate(size, alignof(std::atomic<uint32_t>));
+        void* newDataBlob = CreateDataBlob(len, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
         std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
         *atomPtr = 1;
 
-        CharType* newData = DataPtr(m_dataBlob);
+        CharType* newData = DataPtr(newDataBlob);
         for (uint32_t i = 0; i < len; ++i)
         {
             newData[i] = slider[i];
@@ -1053,10 +1057,13 @@ FindNextStringInstance:;
         }
 
         const uint32_t len = endSlider - dataPtr;
+        if (len == m_length)
+        {
+            return;
+        }
         IDEFER(m_length = len);
 
-        const uint32_t size = DataBlobSize(len);
-        void* newDataBlob = m_allocator->ZAllocate(size, alignof(std::atomic<uint32_t>));
+        void* newDataBlob = CreateDataBlob(len, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
         std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
@@ -1102,6 +1109,9 @@ FindNextStringInstance:;
             return;
         }
 
+        const uint32_t len = m_length;
+        IDEFER(m_length = len);
+
         void* newDataBlob = CreateDataBlob(m_length, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
@@ -1113,16 +1123,20 @@ FindNextStringInstance:;
 
         constexpr uint8_t Shift = 'a' - 'A';
 
-        for (uintptr_t i = 0; i < m_length; ++i)
+        for (uint32_t i = 0; i < m_length; ++i)
         {
-            if (dataPtr[i] >= 'a' && dataPtr[i] <= 'z')
+            const CharType chr = ILAMBDA(
             {
-                newData[i] = dataPtr[i] - Shift;
-            }
-            else
-            {
-                newData[i] = dataPtr[i];
-            }
+                const CharType val = dataPtr[i];
+                if (val >= 'a' && val <= 'z')
+                {
+                    ILRETURN (CharType)(val - Shift);
+                }
+
+                ILRETURN val;
+            });
+
+            newData[i] = chr;
         }
 
         ClearData();
@@ -1135,6 +1149,9 @@ FindNextStringInstance:;
             return;
         }
 
+        const uint32_t len = m_length;
+        IDEFER(m_length = len);
+
         void* newDataBlob = CreateDataBlob(m_length, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
@@ -1146,16 +1163,20 @@ FindNextStringInstance:;
 
         constexpr uint8_t Shift = 'a' - 'A';
 
-        for (uintptr_t i = 0; i < m_length; ++i)
+        for (uint32_t i = 0; i < m_length; ++i)
         {
-            if (dataPtr[i] >= 'A' && dataPtr[i] <= 'Z')
+            const CharType chr = ILAMBDA(
             {
-                newData[i] = dataPtr[i] + Shift;
-            }
-            else
-            {
-                newData[i] = dataPtr[i];
-            }
+                const CharType val = dataPtr[i];
+                if (val >= 'A' && val <= 'Z')
+                {
+                    ILRETURN (CharType)(val + Shift);
+                }
+
+                ILRETURN val;
+            });
+
+            newData[i] = chr;
         }
 
         ClearData();

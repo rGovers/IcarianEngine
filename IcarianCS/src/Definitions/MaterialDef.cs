@@ -25,20 +25,20 @@ namespace IcarianEngine.Definitions
     public struct TextureInput
     {
         /// <summary>
-        /// Which slot to use for the texture.
+        /// Which slot to use for the <see cref="IcarianEngine.Rendering.Texture" />.
         /// </summary>
         public uint Slot;
         /// <summary>
-        /// Path relative to the project for the texture file to be used.
+        /// Path relative to the project for the <see cref="IcarianEngine.Rendering.Texture" /> file to be used.
         /// </summary>
         [EditorPathString(new string[] { ".png", ".ktx2" })]
         public string Path;
         /// <summary>
-        /// How to handle the texture when it is out of bounds.
+        /// How to handle the <see cref="IcarianEngine.Rendering.Texture" /> when it is out of bounds.
         /// </summary>
         public TextureAddress AddressMode;
         /// <summary>
-        /// How to filter the texture when it is scaled.
+        /// How to filter the <see cref="IcarianEngine.Rendering.Texture" /> when it is scaled.
         /// </summary>
         public TextureFilter FilterMode;
 
@@ -59,37 +59,39 @@ namespace IcarianEngine.Definitions
     public class MaterialDef : Def
     {
         /// <summary>
-        /// Path relative to <see cref="IcarianEngine.Mod.IcarianAssembly" /> for the <see cref="IcarianEngine.Rendering.VertexShader" /> file to be used
+        /// Path relative to <see cref="IcarianEngine.Mod.IcarianAssembly" /> for the <see cref="IcarianEngine.Rendering.Shaders.VertexShader" /> file to be used
         /// </summary>
-        /// Mutualy exclusive with <see cref="IcarianEngine.Rendering.MeshShader" />
-        [EditorTooltip("Path relative to the project for the vertex shader file to be used. Exclusive with Mesh Shader."), EditorPathString(new string[] { ".fvert" })]
+        /// Mutualy exclusive with MeshShaderPath
+        [EditorTooltip("Path relative to the project for the VertexShader file to be used. Mutally exclusive with MeshShaderPath."), EditorPathString(new string[] { ".fvert" })]
         public string VertexShaderPath;
         /// <summary>
-        /// Path relative to <see cref="IcarianEngine.Mod.IcarianAssembly" /> for the <see cref="IcarianEngine.Rendering.MeshShader" /> file to be used
+        /// Path relative to <see cref="IcarianEngine.Mod.IcarianAssembly" /> for the <see cref="IcarianEngine.Rendering.Shaders.MeshShader" /> file to be used
         /// </summary>
-        [EditorTooltip("Path relative to the project for the vertex shader file to be used. Exclusive with Mesh Shader."), EditorPathString(new string[] { ".fmesh" })]
+        /// Mutally exclusive with VertexShaderPath
+        [EditorTooltip("Path relative to the project for the MeshShader file to be used. Mutually exclusive with VertexShaderPath."), EditorPathString(new string[] { ".fmesh" })]
         public string MeshShaderPath;
         /// <summary>
-        /// Path relative to the project for the pixel shader file to be used.
+        /// Path relative to the project for the <see cref="IcarianEngine.Rendering.Shaders.PixelShader" /> file to be used.
         /// </summary>
-        [EditorTooltip("Path relative to the project for the pixel shader file to be used"), EditorPathString(new string[] { ".fpix", ".ffrag" })]
+        [EditorTooltip("Path relative to the project for the PixelShader file to be used"), EditorPathString(new string[] { ".fpix", ".ffrag" })]
         public string PixelShaderPath;
         /// <summary>
-        /// Used to determine if it will be rendered by a camera in a matching layer.
+        /// Used to determine if it will be rendered by a <see cref="IcarianEngine.Rendering.Camera" /> in a matching layer.
         /// </summary>
-        [EditorBitfield, EditorTooltip("Used to determine if it will be rendered by a camera in a matching layer.")]
+        [EditorBitfield, EditorTooltip("Used to determine if it will be rendered by a Camera in a matching layer.")]
         public uint RenderLayer = 0b1;
 
         /// <summary>
         /// Determine the type of vertex used for the shader.
         /// </summary>
+        [EditorTooltip("Determine the type of Vertex used for the shader")]
         public Type VertexType = typeof(Vertex);
 
         /// <summary>
         /// Deterimine vertex data the shader uses for input.
         /// </summary>
         /// When this is null it will use the GetAttributes method on the VertexType to determine the attributes.
-        [EditorTooltip("Deterimine vertex data the shader uses for input")]
+        [EditorTooltip("Determine vertex data the shader uses for input")]
         public List<VertexInputAttribute> VertexAttributes = null;
 
         /// <summary>
@@ -99,27 +101,27 @@ namespace IcarianEngine.Definitions
         public CullMode CullingMode = CullMode.Back;
 
         /// <summary>
-        /// Which primitive mode to use when rendering.
+        /// Whether to render the <see cref="IcarianEngine.Rendering.Material" /> with points, lines or triangles
         /// </summary>
-        [EditorTooltip("Which primitive mode to use when rendering")]
+        [EditorTooltip("Whether to render the Material with points, lines or triangles")]
         public PrimitiveMode PrimitiveMode = PrimitiveMode.Triangles;
 
         /// <summary>
-        /// The blending mode of the material.
+        /// The MaterialBlendMode of the <see cref="IcarianEngine.Rendering.Material" />.
         /// </summary>
-        [EditorTooltip("The blending mode of the material")]
+        [EditorTooltip("The blending mode of the Material")]
         public MaterialBlendMode ColorBlendMode = MaterialBlendMode.None;
 
         /// <summary>
-        /// Texture the material uses.
+        /// Texture the <see cref="IcarianEngine.Rendering.Material" /> uses.
         /// </summary>
-        [EditorTooltip("Textures the material uses")]
+        [EditorTooltip("Textures the Material uses")]
         public List<TextureInput> TextureInputs = null;
 
         /// <summary>
-        /// Path relative to the project for the shadow pixel shader file to be used.
+        /// Path relative to the project for the shadow <see cref="IcarianEngine.Rendering.Shaders.VertexShader" /> file to be used.
         /// </summary>
-        [EditorTooltip("Path relative to the project for the shadow vertex shader file to be used"), EditorPathString(new string[] { ".fvert" })]
+        [EditorTooltip("Path relative to the project for the shadow VertexShader file to be used"), EditorPathString(new string[] { ".fvert" })]
         public string ShadowVertexShaderPath;
 
         /// <summary>
@@ -269,7 +271,7 @@ namespace IcarianEngine.Definitions
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -123,6 +123,7 @@ static CUBE_CSProject BuildIcarianCSProject(CBBOOL a_optimise, CBBOOL a_enableSt
         "./src/EditorPathStringAttribute.cs",
         "./src/EditorRangeAttribute.cs",
         "./src/EditorTooltipAttribute.cs",
+        "./src/EditorTypeInheritsAttribute.cs",
         "./src/Extensions.cs",
         "./src/FileCache.cs",
         "./src/GameObject.cs",

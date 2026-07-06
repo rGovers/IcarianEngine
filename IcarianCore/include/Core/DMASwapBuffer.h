@@ -17,8 +17,6 @@ struct DMASwapBufferFD
     uint64_t Size;
     uint64_t Offset;
     int ImageFD;
-    int StartSemaphore;
-    int EndSemaphore;
 };
 
 #ifdef WIN32
@@ -29,14 +27,12 @@ struct DMASwapBufferHandle
     uint64_t Size;
     uint64_t Offset;
     HANDLE ImageHandle;
-    HANDLE StartSemaphore;
-    HANDLE EndSemaphore;
 };
 #endif
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

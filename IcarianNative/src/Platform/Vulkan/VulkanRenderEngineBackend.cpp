@@ -224,10 +224,15 @@ static VKAPI_ATTR vk::Bool32 VKAPI_CALL DebugCallback
     return vk::False;
 }
 
-static Array<uint8_t> GetDeviceExtensionSupport(const vk::PhysicalDevice& a_device, const Array<const char*>& a_extensions, Allocator* a_allocator)
+static Array<uint8_t> GetDeviceExtensionSupport
+(
+    const vk::PhysicalDevice& a_device,
+    const Array<const char*>& a_extensions,
+    Allocator* a_allocator, 
+    Allocator* a_tempAllocator
+)
 {
     const uint32_t size = a_extensions.Size();
-
     const uint32_t arraySize = (size / 8) + 1;
 
     Array<uint8_t> mask = Array<uint8_t>(a_allocator);
@@ -237,8 +242,8 @@ static Array<uint8_t> GetDeviceExtensionSupport(const vk::PhysicalDevice& a_devi
     uint32_t extensionCount;
     VKRESERR(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, nullptr));
 
-    vk::ExtensionProperties* availableExtensions = a_allocator->TAllocate<vk::ExtensionProperties>(extensionCount);
-    IDEFER(a_allocator->Free(availableExtensions));
+    vk::ExtensionProperties* availableExtensions = a_tempAllocator->TAllocate<vk::ExtensionProperties>(extensionCount);
+    IDEFER(a_tempAllocator->Free(availableExtensions));
 
     VKRESERR(a_device.enumerateDeviceExtensionProperties(nullptr, &extensionCount, availableExtensions));
 
@@ -265,7 +270,7 @@ static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, cons
 {
     const uint32_t size = a_extensions.Size();
 
-    const Array<uint8_t> support = GetDeviceExtensionSupport(a_device, a_extensions, a_tempAllocator);
+    const Array<uint8_t> support = GetDeviceExtensionSupport(a_device, a_extensions, a_tempAllocator, a_tempAllocator);
     for (uint32_t i = 0; i < size; ++i)
     {
         const uint32_t index = i / 8;
@@ -282,7 +287,7 @@ static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, cons
 static uint32_t GetDeviceExtensionScore(const vk::PhysicalDevice& a_device, Allocator* a_tempAllocator)
 {
     const Array<const char*> optionalArray = Array<const char*>(OptionalDeviceExtensions, OptionalDeviceExtensionCount, a_tempAllocator);
-    const Array<uint8_t> support = GetDeviceExtensionSupport(a_device, optionalArray, a_tempAllocator);
+    const Array<uint8_t> support = GetDeviceExtensionSupport(a_device, optionalArray, a_tempAllocator, a_tempAllocator);
 
     uint32_t score = 0;
     for (uint32_t i = 0; i < OptionalDeviceExtensionCount; ++i)
@@ -570,14 +575,16 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         ILRETURN vals;
     });
 
-    const std::string applicationName = renderEngine->m_config->GetApplicationName();
+    const std::string applicationName = config->GetApplicationName();
+    const std::string applicationVersion = config->GetApplicationVersion();
+    const uint32_t appVersionHash = StringHash<uint32_t>(applicationVersion.c_str());
 
     const vk::ApplicationInfo appInfo = vk::ApplicationInfo
     (
         applicationName.c_str(),
-        0U,
+        appVersionHash,
         "IcarianEngine",
-        VulkanEngineVersion,
+        VulkanEngineVersionHash,
         ICARIAN_VULKAN_VERSION,
         nullptr
     );
@@ -711,7 +718,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     TRACE("Found Vulkan Physical Device");
 
     const Array<const char*> optionalExtensions = Array<const char*>(OptionalDeviceExtensions, OptionalDeviceExtensionCount, scratchAllocator);
-    const Array<uint8_t> optionalMask = GetDeviceExtensionSupport(m_data->PhysicalDevice, optionalExtensions, scratchAllocator);
+    const Array<uint8_t> optionalMask = GetDeviceExtensionSupport(m_data->PhysicalDevice, optionalExtensions, scratchAllocator, scratchAllocator);
 
     constexpr uint32_t OptionalMaskSize = OptionalDeviceExtensionCount / 8 + 1;
     m_data->OptionalExtensionMask = m_allocator->ZTAllocate<uint8_t>(OptionalMaskSize);
@@ -916,6 +923,16 @@ NextExtension:;
         nextChain = &meshShaderFeature.pNext;
     }
 
+    vk::PhysicalDeviceVulkan12Features vk12Feature;
+    const bool isTimelineNeeded = config->AllowDMA();
+    if (isTimelineNeeded)
+    {
+        vk12Feature.timelineSemaphore = vk::True;
+
+        *nextChain = &vk12Feature;
+        nextChain = &vk12Feature.pNext;
+    }
+
     constexpr uint32_t EnabledLayerCount = ILAMBDA(
     {
         if constexpr (VulkanEnableValidationLayers)
@@ -1022,8 +1039,13 @@ NextExtension:;
     }
 
     m_data->PushPool = m_allocator->Create<VulkanPushPool>(this);
+    {
+        RENDERSCRATCHFRAME;
+
+        m_data->Swapchain = m_allocator->Create<VulkanSwapchain>(this, window, config, m_allocator, scratchAllocator);
+    }
     m_data->ComputeEngine = m_allocator->Create<VulkanComputeEngine>(this);
-    m_data->GraphicsEngine = m_allocator->Create<VulkanGraphicsEngine>(this);
+    m_data->GraphicsEngine = m_allocator->Create<VulkanGraphicsEngine>(this, m_data->Swapchain);
 
 #ifdef DEBUG
     printf("Used scratch memory in setup: %dKiB \n", (uint32_t)(scratchAllocator->GetUsedSize() >> 10));
@@ -1183,10 +1205,6 @@ bool VulkanRenderEngineBackend::IsExtensionEnabled(const std::string_view& a_ext
 
 void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 {
-    // TODO: Can probably better manage semaphores.
-    const RenderEngine* renderEngine = GetRenderEngine();
-    AppWindow* window = renderEngine->m_window;
-
     if (m_trackerAllocator != nullptr)
     {
         const uint64_t size = m_trackerAllocator->GetMemoryUsage();
@@ -1199,21 +1217,13 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     LibRenderDoc::StartFrame();
     IDEFER(LibRenderDoc::EndFrame());
 
-    const bool init = m_data->Swapchain != nullptr;
+    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     vk::Semaphore lastSemaphore;
     {
         PROFILESTACK("Swap Setup");
 
         RENDERSCRATCHFRAME;
-
-        StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
-
-        if (!init)
-        {
-            m_data->Swapchain = m_allocator->Create<VulkanSwapchain>(this, window, m_allocator, scratchAllocator);
-            m_data->GraphicsEngine->SetSwapchain(m_data->Swapchain);
-        }
 
         if (!m_data->Swapchain->StartFrame(&m_data->ImageIndex, &lastSemaphore, a_delta, a_time, scratchAllocator))
         {
@@ -1267,10 +1277,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
         // Need to see if there is a reliable way of seeing and adapting based off it but probably a rabbit hole on its own
         // I have seen a worst case of a drop from ~1.1ms to ~1.4ms frame times
         // TODO: Investigate why it is a regression on some and an improvement on others suspect resource contention
-
         RENDERSCRATCHFRAME;
-
-        StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
         Array<Array<VulkanCommandBuffer>> commandBuckets = Array<Array<VulkanCommandBuffer>>(scratchAllocator);
         commandBuckets.Reserve(buffersSize);
@@ -1373,18 +1380,55 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
             constexpr vk::PipelineStageFlags ChainFlags = vk::PipelineStageFlagBits::eAllCommands;
 
-            const vk::SubmitInfo initialSubmit = vk::SubmitInfo
+            const uint64_t timelineVal = m_data->Swapchain->GetTimelineValue();
+            const vk::TimelineSemaphoreSubmitInfo timelineSubmit = vk::TimelineSemaphoreSubmitInfo
             (
                 1,
-                &lastSemaphore,
+                &timelineVal,
+                0,
+                nullptr
+            );
+            const void* initialNext = ILAMBDA(
+            {
+                if (lastSemaphore != vk::Semaphore(nullptr) && m_data->Swapchain->IsTimeline())
+                {
+                    ILRETURN (void*)&timelineSubmit;
+                }
+
+                ILRETURN (void*)nullptr;
+            });
+
+            const uint32_t initialSemaphoreCount = ILAMBDA(
+            {
+                if (lastSemaphore != vk::Semaphore(nullptr))
+                {
+                    ILRETURN (uint32_t)1;
+                }
+
+                ILRETURN (uint32_t)0;
+            });
+            const vk::Semaphore* initialSemaphores = ILAMBDA(
+            {
+                if (lastSemaphore != vk::Semaphore(nullptr))
+                {
+                    ILRETURN &lastSemaphore;
+                }
+
+                ILRETURN (vk::Semaphore*)nullptr;
+            });
+
+            const vk::SubmitInfo initialSubmit = vk::SubmitInfo
+            (
+                initialSemaphoreCount,
+                initialSemaphores,
                 &ChainFlags,
                 // Huh apparently this is valid and can chain semaphores without executing a command buffer
                 0,
                 nullptr,
                 chainSemaphoreCount,
-                chainSemaphores
+                chainSemaphores,
+                initialNext
             );
-
             VKRESERRMSG(m_data->GraphicsQueue.submit(1, &initialSubmit, nullptr), "Failed to submit initial chain");
 
             lastSemaphore = chainSemaphores[0];
@@ -1779,6 +1823,14 @@ uint64_t VulkanRenderEngineBackend::GetTotalDeviceMemory() const
     }
 
     return total;
+}
+
+void VulkanRenderEngineBackend::DMASignal()
+{
+    IVERIFY(m_data != nullptr);
+    IVERIFY(m_data->Swapchain != nullptr);
+
+    m_data->Swapchain->DMASignal();
 }
 
 uint32_t VulkanRenderEngineBackend::GenerateMesh

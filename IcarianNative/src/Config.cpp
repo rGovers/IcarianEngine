@@ -10,66 +10,76 @@
 
 #include "Core/StringUtils.h"
 
-Config::Config(const std::string_view& a_path)
+Config::Config(const char* a_path)
 {
     m_flags = 0;
 
     tinyxml2::XMLDocument doc;
-    if (doc.LoadFile(a_path.data()) == tinyxml2::XML_SUCCESS)
+    if (doc.LoadFile(a_path) != tinyxml2::XML_SUCCESS)
     {
-        tinyxml2::XMLElement* configEle = doc.FirstChildElement("Config");
-        assert(configEle != nullptr);
+        return;
+    }
 
-        for (tinyxml2::XMLElement* element = configEle->FirstChildElement(); element != nullptr; element = element->NextSiblingElement())
+    tinyxml2::XMLElement* configEle = doc.FirstChildElement("Config");
+    assert(configEle != nullptr);
+
+    for (tinyxml2::XMLElement* element = configEle->FirstChildElement(); element != nullptr; element = element->NextSiblingElement())
+    {
+        const char* name = element->Name();
+
+        switch (StringHash(name))
         {
-            switch (StringHash(element->Name()))
+        case StringHash("ApplicationName"):
+        {
+            m_appName = element->GetText();
+
+            break;
+        }
+        case StringHash("ApplicationVersion"):
+        {
+            m_appVersion = element->GetText();
+
+            break;
+        }
+        case StringHash("RenderingEngine"):
+        {
+            switch (StringHash(element->GetText()))
             {
-            case StringHash("ApplicationName"):
+            case StringHash("Vulkan"):
             {
-                m_appName = element->GetText();
+                m_renderingEngine = RenderingEngine_Vulkan;
 
                 break;
             }
-            case StringHash("RenderingEngine"):
+            default:
             {
-                switch (StringHash(element->GetText()))
-                {
-                case StringHash("Vulkan"):
-                {
-                    m_renderingEngine = RenderingEngine_Vulkan;
-
-                    break;
-                }
-                default:
-                {
-                    m_renderingEngine = RenderingEngine_Null;
-
-                    break;
-                }
-                }
-
-                break;
-            }
-            case StringHash("ForceMesh"):
-            {
-                const bool value = element->BoolText();
-                ITOGGLEBIT(value, m_flags, ForceMeshBit);
-
-                break;
-            }
-            case StringHash("FileCacheSize"):
-            {
-                m_fileCacheSize = (uint32_t)element->IntText();
-
-                break;
-            }
-            case StringHash("FixedTimeStep"):
-            {
-                m_fixedTimeStep = element->DoubleText();
+                m_renderingEngine = RenderingEngine_Null;
 
                 break;
             }
             }
+
+            break;
+        }
+        case StringHash("ForceMesh"):
+        {
+            const bool value = element->BoolText();
+            ITOGGLEBIT(value, m_flags, ForceMeshBit);
+
+            break;
+        }
+        case StringHash("FileCacheSize"):
+        {
+            m_fileCacheSize = (uint32_t)element->IntText();
+
+            break;
+        }
+        case StringHash("FixedTimeStep"):
+        {
+            m_fixedTimeStep = element->DoubleText();
+
+            break;
+        }
         }
     }
 }
@@ -80,7 +90,7 @@ Config::~Config()
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

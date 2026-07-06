@@ -154,9 +154,10 @@ void HeadlessAppWindow::ProfilerCallback(const Profiler::PData& a_profilerData)
 HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : AppWindow(a_app)
 {
     TRACE("Creating Headless Window");
-
     m_pipe = nullptr;
     m_flags = 0;
+
+    m_app = a_app;
 
     m_msgAllocator = MallocAllocator::Instance->Create<RingAllocator>(4 << 20, UberAllocator::Instance);
 
@@ -193,7 +194,7 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
 
         const std::string addrStr = GetAddr(PipeName + std::to_string(ipcPipeID));
 
-        m_pipe = IcarianCore::IPCPipe::Connect(addrStr);
+        m_pipe = IcarianCore::IPCPipe::Connect(addrStr.c_str());
 #endif
     }
 
@@ -281,12 +282,8 @@ void HeadlessAppWindow::PushMessageQueue()
     {
         TLockArray<IcarianCore::PipeMessage> a = m_queuedMessages.ToLockArray();
 
-        const uint32_t size = a.Size();
-
-        for (uint32_t i = 0; i < size; ++i)
+        for (const IcarianCore::PipeMessage& msg : a)
         {
-            const IcarianCore::PipeMessage& msg = a[i];
-
             const IcarianCore::CommunicationPipe::e_SendError err = m_pipe->Send(msg);
             if (err != IcarianCore::CommunicationPipe::SendError_Success)
             {
@@ -431,11 +428,16 @@ bool HeadlessAppWindow::PollMessage()
         }
         case IcarianCore::PipeMessageType_UnlockFrame:
         {
-#ifdef ICARIANNATIVE_ENABLE_DMA
-            // IERROR("DMA enabled UnlockFrame not available");
-#else
             m_unlockWindow = true;
-#endif
+
+            break;
+        }
+        case IcarianCore::PipeMessageType_DMASignal:
+        {
+            RenderEngine* engine = m_app->GetRenderEngine();
+            IVERIFY(engine != nullptr);
+
+            engine->DMASignal();
 
             break;
         }
@@ -446,15 +448,13 @@ bool HeadlessAppWindow::PollMessage()
             m_width = (uint32_t)size.x;
             m_height = (uint32_t)size.y;
 
-#ifndef ICARIANNATIVE_ENABLE_DMA
             const std::lock_guard g = std::lock_guard(m_fLock);
 
             if (m_frameData != nullptr)
             {
-                delete[] m_frameData;
+                MallocAllocator::Instance->Free(m_frameData);
                 m_frameData = nullptr;
             }
-#endif
 
             break;
         }
@@ -480,22 +480,28 @@ bool HeadlessAppWindow::PollMessage()
 
             const unsigned char mouseState = *(unsigned char*)msg.Data;
 
+            const glm::vec2 cursorPos = inputManager->GetCursorPos();
+            const glm::vec2 winSizeVec = glm::vec2((float)m_width, (float)m_height);
+
             bool leftDown = IISBITSET(mouseState, MouseButton_Left);
             if (leftDown)
             {
-                if (UIControl::SubmitClick(inputManager->GetCursorPos(), glm::vec2((float)m_width, (float)m_height)))
+                if (UIControl::SubmitClick(cursorPos, winSizeVec))
                 {
                     leftDown = false;
                 }
             }
             else 
             {
-                UIControl::SubmitRelease(inputManager->GetCursorPos(), glm::vec2((float)m_width, (float)m_height));
+                UIControl::SubmitRelease(cursorPos, winSizeVec);
             }
 
+            const bool middleDown = IISBITSET(mouseState, MouseButton_Middle);
+            const bool rightDown = IISBITSET(mouseState, MouseButton_Right);
+
             inputManager->SetMouseButton(MouseButton_Left, leftDown);
-            inputManager->SetMouseButton(MouseButton_Middle, IISBITSET(mouseState, MouseButton_Middle));
-            inputManager->SetMouseButton(MouseButton_Right, IISBITSET(mouseState, MouseButton_Right));
+            inputManager->SetMouseButton(MouseButton_Middle, middleDown);
+            inputManager->SetMouseButton(MouseButton_Right, rightDown);
 
             break;
         }
@@ -600,8 +606,12 @@ void HeadlessAppWindow::Update()
             .Length = sizeof(glm::dvec2),
             .Data = (uint8_t*)&tVec
         };
-        if (m_pipe->Send(msg) != IcarianCore::CommunicationPipe::SendError_Success)
+
+        const IcarianCore::CommunicationPipe::e_SendError err = m_pipe->Send(msg);
+        if (err != IcarianCore::CommunicationPipe::SendError_Success)
         {
+            printf("Send Message error: %s \n", IcarianCore::CommunicationPipe::SendErrorString(err));
+
             ISETBIT(m_flags, CloseBit);
 
             delete m_pipe;
@@ -632,8 +642,12 @@ void HeadlessAppWindow::Update()
                 .Length = m_width * m_height * 4,
                 .Data = (uint8_t*)m_frameData
             };
-            if (m_pipe->Send(msg) != IcarianCore::CommunicationPipe::SendError_Success)
+
+            const IcarianCore::CommunicationPipe::e_SendError err = m_pipe->Send(msg);
+            if (err != IcarianCore::CommunicationPipe::SendError_Success)
             {
+                printf("Send Message error: %s \n", IcarianCore::CommunicationPipe::SendErrorString(err));
+
                 ISETBIT(m_flags, CloseBit);
 
                 delete m_pipe;
@@ -666,8 +680,12 @@ void HeadlessAppWindow::Update()
                 .Length = sizeof(frame),
                 .Data = (uint8_t*)&frame,
             };
-            if (m_pipe->Send(msg) != IcarianCore::CommunicationPipe::SendError_Success)
+
+            const IcarianCore::CommunicationPipe::e_SendError err = m_pipe->Send(msg);
+            if (err != IcarianCore::CommunicationPipe::SendError_Success)
             {
+                printf("Send Message error: %s \n", IcarianCore::CommunicationPipe::SendErrorString(err));
+
                 ISETBIT(m_flags, CloseBit);
 
                 delete m_pipe;
@@ -688,8 +706,12 @@ void HeadlessAppWindow::Update()
                 .Length = sizeof(frame),
                 .Data = (uint8_t*)&frame,
             };
-            if (m_pipe->Send(msg) != IcarianCore::CommunicationPipe::SendError_Success)
+
+            const IcarianCore::CommunicationPipe::e_SendError err = m_pipe->Send(msg);
+            if (err != IcarianCore::CommunicationPipe::SendError_Success)
             {
+                printf("Send Message error: %s \n", IcarianCore::CommunicationPipe::SendErrorString(err));
+
                 ISETBIT(m_flags, CloseBit);
 
                 delete m_pipe;
@@ -796,8 +818,9 @@ void HeadlessAppWindow::DMASwap()
 
     m_queuedMessages.Push(msg);
 }
-#else
-void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const char* a_buffer)
+#endif
+
+void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const uint8_t* a_buffer)
 {
     PROFILESTACK("Frame Data");
 
@@ -810,13 +833,12 @@ void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const
 
         if (m_frameData == nullptr)
         {
-            m_frameData = MallocAllocator::Instance->TAllocate<char>(size);
+            m_frameData = MallocAllocator::Instance->TAllocate<uint8_t>(size);
         }
 
         memcpy(m_frameData, a_buffer, size);
     }
 }
-#endif
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 

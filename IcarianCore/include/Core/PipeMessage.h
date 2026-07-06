@@ -28,6 +28,7 @@ namespace IcarianCore
         PipeMessageType_FlushDMASwapFDBuffer,
         PipeMessageType_PushDMASwapHandleBuffer,
         PipeMessageType_FlushDMASwapHandleBuffer,
+        PipeMessageType_DMASignal,
         PipeMessageType_DMASwap,
         PipeMessageType_Message,
         PipeMessageType_CaptureFrame,

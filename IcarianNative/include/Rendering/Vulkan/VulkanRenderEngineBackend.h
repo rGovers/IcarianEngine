@@ -294,6 +294,8 @@ public:
     virtual uint64_t GetUsedDeviceMemory() const;
     virtual uint64_t GetTotalDeviceMemory() const;
 
+    virtual void DMASignal();
+
     virtual uint32_t GenerateMesh
     (
         const void* a_vertices,

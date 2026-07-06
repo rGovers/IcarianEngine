@@ -10,22 +10,44 @@ namespace IcarianEngine.Definitions
 {
     public class GameObjectDef : Def
     {
+        /// <summary>
+        /// Type of <see cref="IcarianEngine.GameObject" /> to create
+        /// </summary>
+        [EditorTooltip("Type of GameObject to create"), EditorTypeInherits(typeof(GameObject), true)]
         public Type ObjectType = typeof(GameObject);
 
-        [EditorTooltip("GameObject name")]
+        /// <summary>
+        /// Name to give the spawned <see cref="IcarianEngine.GameObject" />
+        /// </summary>
+        [EditorTooltip("Name to give the spawned GameObject")]
         public string Name;
 
-        [EditorTooltip("GameObject position offset")]
+        /// <summary>
+        /// <see cref="IcarianEngine.GameObject" /> local position offset
+        /// </summary>
+        [EditorTooltip("GameObject local position offset")]
         public Vector3 Translation = Vector3.Zero;
-        [EditorTooltip("GameObject rotation offset")]
+        /// <summary>
+        /// <see cref="IcarianEngine.GameObject" /> local rotation offset
+        /// </summary>
+        [EditorTooltip("GameObject local rotation offset")]
         public Quaternion Rotation = Quaternion.Identity;
-        [EditorTooltip("GameObject scale offset")]
-        public Vector3 Scale = Vector3.One;        
+        /// <summary>
+        /// <see cref="IcarianEngine.GameObject" /> local scale offset
+        /// </summary>
+        [EditorTooltip("GameObject local scale offset")]
+        public Vector3 Scale = Vector3.One;
 
+        /// <summary>
+        /// List of <see cref="IcarianEngine.Component" />s the <see cref="IcarianEngine.GameObject" /> is composed of
+        /// </summary>
         [EditorTooltip("List of Components the GameObject is composed of")]
         public List<ComponentDef> Components = new List<ComponentDef>();
 
-        [EditorTooltip("GameObject children")]
+        /// <summary>
+        /// List of children of the <see cref="IcarianEngine.GameObject" />
+        /// </summary>
+        [EditorTooltip("List of children of the GameObject")]
         public List<GameObjectDef> Children = new List<GameObjectDef>();
 
         /// <summary>
@@ -69,7 +91,7 @@ namespace IcarianEngine.Definitions
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

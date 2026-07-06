@@ -389,7 +389,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
             const uint32_t openPos = shader.FindCharacter('(', definePos);
 
-            COWU8String defName = shader.Substring
+            const COWU8String defName = shader.Substring
             (
                 definePos + 2,
                 openPos,
@@ -430,7 +430,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
             COWU8String rStr = COWU8String(a_tempAllocator);
 
-            switch (StringHash(defName.CStr()))
+            switch (defName.Hash())
             {
             case StringHash("workgroup"):
             {
@@ -477,13 +477,19 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                 isMesh = true;
 
-                COWU8String argString = args[0];
-                argString.TrimWhitespace();
-                argString.ToLower();
+                const COWU8String argString = ILAMBDA(
+                {
+                    COWU8String val = args[0];
+                    val.TrimWhitespace();
+                    val.ToLower();
+
+                    ILRETURN val;
+                });
 
                 const e_MeshShaderPrimitive primitiveType = ILAMBDA(
                 {
-                    switch (StringHash<uint32_t>(argString.CStr()))
+                    const char* cStr = argString.CStr();
+                    switch (StringHash<uint32_t>(cStr))
                     {
                     case StringHash<uint32_t>("triangles"):
                     {
@@ -726,7 +732,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                 isMesh = true;
 
-                switch (a_builder.Platform) 
+                switch (a_builder.Platform)
                 {
                 case ShaderPlatform_Vulkan:
                 {
@@ -761,7 +767,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                 isMesh = true;
 
-                switch (a_builder.Platform) 
+                switch (a_builder.Platform)
                 {
                 case ShaderPlatform_Vulkan:
                 {
@@ -810,7 +816,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                 isMesh = true;
 
-                switch (a_builder.Platform) 
+                switch (a_builder.Platform)
                 {
                 case ShaderPlatform_Vulkan:
                 {
@@ -1359,7 +1365,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                     " layout(std140,binding=" + slotStr + ",set=" + slotStr + ") readonly buffer UserArray"
                     " { int Count; UserArrayData objects[]; } " + args[2] + ";";
 
-                const ShaderBufferInput input = 
+                const ShaderBufferInput input =
                 {
                     .UserSlot = userSlot,
                     .RealSlot = currentSlot,
@@ -1499,6 +1505,11 @@ COWU8String FlareShader::GLSLFromFlareShader
                 imported.Push(key);
 
                 break;
+            }
+            default:
+            {
+                return "Flare Shader invalid define: " + defName + ": line " +
+                    COWU8String::FromValue(currentLine, 10, a_allocator);
             }
             }
 

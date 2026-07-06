@@ -15,7 +15,16 @@ constexpr const char VulkanLib[] = "vulkan-1.dll";
 #else
 #include <dlfcn.h>
 
-constexpr const char VulkanLib[] = "libvulkan.so";
+constexpr const char* VulkanLibraries[] = 
+{
+    // NOTE 1: May have to update this list as time goes on
+    // This is Linux distro specific and there seem to be no documentation that gives all the names
+    // I am aware this still breaks on more exotic Linux setups so if it is non trivial we do not support them anyway
+    "libvulkan.so",
+    // Some opt to have it as a generic symlink while others have it as .1 version
+    // Before we assumed that there would be a generic symlink but that broke on distros that did not provide it
+    "libvulkan.so.1"
+};
 #endif
 
 LibVulkan::LibVulkan()
@@ -47,13 +56,23 @@ LibVulkan::LibVulkan()
     vkGetDeviceProcAddr = (void*)GetProcAddress(lib, "vkGetDeviceProcAddr");
     IERRCHECK(vkGetDeviceProcAddr != NULL);
 #else
-    m_lib = dlopen(VulkanLib, RTLD_LAZY | RTLD_LOCAL);
-    IERRCHECK(m_lib != NULL);
+    for (const char* l : VulkanLibraries)
+    {
+        m_lib = dlopen(l, RTLD_LAZY | RTLD_LOCAL);
+        if (m_lib == NULL)
+        {
+            continue;
+        }
 
-    vkGetInstanceProcAddr = dlsym(m_lib, "vkGetInstanceProcAddr");
-    IERRCHECK(vkGetInstanceProcAddr != NULL);
-    vkGetDeviceProcAddr = dlsym(m_lib, "vkGetDeviceProcAddr");
-    IERRCHECK(vkGetDeviceProcAddr != NULL);
+        vkGetInstanceProcAddr = dlsym(m_lib, "vkGetInstanceProcAddr");
+        IERRCHECK(vkGetInstanceProcAddr != NULL);
+        vkGetDeviceProcAddr = dlsym(m_lib, "vkGetDeviceProcAddr");
+        IERRCHECK(vkGetDeviceProcAddr != NULL);
+
+        return;
+    }
+
+    ITRIGGERERR;
 #endif
 }
 LibVulkan::~LibVulkan()
@@ -69,7 +88,7 @@ LibVulkan::~LibVulkan()
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

@@ -274,7 +274,7 @@ namespace IcarianEngine.Mod
             {
                 return CoreAssembly.GetTypeValue(a_name);
             }
-            
+
             return null;
         }
         /// <summary>
@@ -285,6 +285,11 @@ namespace IcarianEngine.Mod
         /// <returns>The Type. Null if failed</returns>
         public static Type GetTypeValue(string a_name, bool a_def = false)
         {
+            if (string.IsNullOrWhiteSpace(a_name) || a_name == "Null")
+            {
+                return null;
+            }
+
             Type t = GetCoreTypeValue(a_name, a_def);
             if (t != null)
             {
@@ -528,7 +533,7 @@ namespace IcarianEngine.Mod
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

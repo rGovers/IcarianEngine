@@ -72,6 +72,16 @@ static void ChangeConfig(const char* a_arg, Config* a_config)
     case StringHash("--headless"):
     {
         a_config->SetHeadless(true);
+        a_config->SetRemote(false);
+        a_config->SetAllowDMA(false);
+
+        break;
+    }
+    case StringHash("--dma-headless"):
+    {
+        a_config->SetHeadless(true);
+        a_config->SetRemote(false);
+        a_config->SetAllowDMA(true);
 
         break;
     }
@@ -79,6 +89,7 @@ static void ChangeConfig(const char* a_arg, Config* a_config)
     {
         a_config->SetHeadless(true);
         a_config->SetRemote(true);
+        a_config->SetAllowDMA(false);
 
         break;
     }

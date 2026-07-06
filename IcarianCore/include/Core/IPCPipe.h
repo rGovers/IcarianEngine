@@ -11,25 +11,52 @@
 #include "Core/CommunicationPipe.h"
 #include "Core/PipeMessage.h"
 
+#include <mutex>
 #include <queue>
-#include <string_view>
+#include <thread>
 
 namespace IcarianCore
 {
     class IPCPipe : public CommunicationPipe
     {
     private:
+        constexpr static uint32_t PartialReadBit = 0;
+        constexpr static uint32_t PartialWriteBit = 1;
+
         // TODO: Probably need to update the Windows implementation of this class
         // I have just left it for the time being
 #ifdef WIN32
-        SOCKET m_pipeSock;
+        SOCKET                  m_pipeSock;
 #else
-        int    m_pipeSock;
+        int                     m_pipeSock;
 #endif
 
-        bool   m_closed;
+        std::mutex              m_sendLock;
+        std::mutex              m_receiveLock;
 
-        IPCPipe();
+        std::queue<PipeMessage> m_sendQueue;
+        std::queue<PipeMessage> m_receiveQueue;
+
+        std::thread             m_thread;
+
+        uint32_t                m_sendOffset;
+        uint32_t                m_receiveOffset;
+
+        PipeMessage             m_partialSend;
+        PipeMessage             m_partialReceive;
+
+        uint8_t                 m_flags;
+
+        volatile bool           m_join;
+        volatile bool           m_joined;
+
+#ifdef WIN32
+        IPCPipe(SOCKET a_socket);
+#else
+        IPCPipe(int a_socket);
+#endif
+
+        static void Run(IPCPipe* a_pipe);
 
     protected:
 
@@ -38,8 +65,8 @@ namespace IcarianCore
 
         IPCPipe* Accept(float a_timeoutSec) const;
 
-        static IPCPipe* Connect(const std::string_view& a_pipeName);
-        static IPCPipe* Create(const std::string_view& a_pipeName);
+        static IPCPipe* Connect(const char* a_pipeName);
+        static IPCPipe* Create(const char* a_pipeName);
 
         virtual bool IsAlive() const;
 

@@ -37,7 +37,7 @@ namespace IcarianEngine.Rendering
         /// <summary>
         /// The stride between each Vertex.
         /// </summary>
-        public ushort VertexStride; 
+        public ushort VertexStride;
         /// <summary>
         /// The attributes of the Vertex type when using <see cref="IcarianEngine.Rendering.VertexShader" />
         /// </summary>
@@ -67,7 +67,7 @@ namespace IcarianEngine.Rendering
         /// The object used for user UBO variables.
         /// </summary>
         /// Required if the user adds UserUBO to ShaderInputs. 
-        /// Must be a struct. 
+        /// Must be a struct.
         /// Mutually exclusive with UBOData
         public object UBOBuffer;
         ///<summary>
@@ -75,7 +75,7 @@ namespace IcarianEngine.Rendering
         /// </summary>
         /// Required if the user adds UserUBO to ShaderInputs. 
         /// Mutually exclusive with UBOObject.
-        public byte[] UBOData; 
+        public byte[] UBOData;
         /// <summary>
         /// The Array for the user array variables
         /// </summary>
@@ -640,6 +640,13 @@ IOP_CSMACRO(pragma warning restore CS0162)
         /// @see IcarianEngine.AssetLibrary.GetMaterial
         public static Material FromDef(MaterialDef a_def)
         {
+            if (a_def == null)
+            {
+                Logger.IcarianError("Material null Def");
+
+                return null;
+            }
+
             bool vertexSet = !string.IsNullOrWhiteSpace(a_def.VertexShaderPath);
             bool meshSet = !string.IsNullOrWhiteSpace(a_def.MeshShaderPath);
             if (!vertexSet && !meshSet)
@@ -663,7 +670,7 @@ IOP_CSMACRO(pragma warning restore CS0162)
                 return null;
             }
 
-            if (a_def.VertexType == null)
+            if (vertexSet && a_def.VertexType == null)
             {
                 Logger.IcarianError("Material no vertex type");
 
@@ -830,7 +837,7 @@ IOP_CSMACRO(pragma warning restore CS0162)
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

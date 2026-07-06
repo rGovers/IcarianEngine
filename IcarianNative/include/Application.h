@@ -54,6 +54,11 @@ public:
         return m_appWindow->GetHeight();
     }
 
+    inline RenderEngine* GetRenderEngine() const
+    {
+        return m_renderEngine;
+    }
+
     inline void SetTimeScale(float a_timeScale)
     {
         m_timeScale = a_timeScale;
@@ -101,7 +106,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2024 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

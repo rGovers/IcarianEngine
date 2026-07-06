@@ -5,7 +5,6 @@
 #pragma once
 
 #include <string>
-#include <string_view>
 
 #include "Core/Bitfield.h"
 #include "Rendering/RenderEngine.h"
@@ -19,8 +18,10 @@ private:
     static constexpr uint32_t UnlockUPSBit = 3;
     static constexpr uint32_t UnlockFPSBit = 4;
     static constexpr uint32_t ForceMeshBit = 5;
+    static constexpr uint32_t AllowDMABit = 6;
 
     static constexpr char DefaultAppName[] = "IcarianEngine";
+    static constexpr char DefaultAppVersion[] = "0";
 
     double            m_fixedTimeStep = 1.0 / 50.0;
     uint32_t          m_fileCacheSize = 256;
@@ -31,6 +32,7 @@ private:
     uint32_t          m_threadCount = uint32_t(-1);
 
     std::string       m_appName = std::string(DefaultAppName);
+    std::string       m_appVersion = std::string(DefaultAppVersion);
 
     uint16_t          m_remotePort = 9001;
     e_RenderingEngine m_renderingEngine = RenderingEngine_Vulkan;
@@ -40,7 +42,7 @@ private:
 protected:
 
 public:
-    Config(const std::string_view& a_path);
+    Config(const char* a_path);
     ~Config();
 
     inline double GetFixedTimeStep() const
@@ -113,9 +115,13 @@ public:
         ITOGGLEBIT(a_value, m_flags, DisableWaylandBit);
     }
 
-    inline const std::string GetApplicationName() const
+    inline std::string GetApplicationName() const
     {
         return m_appName;
+    }
+    inline std::string GetApplicationVersion() const
+    {
+        return m_appVersion;
     }
     inline e_RenderingEngine GetRenderingEngine() const
     {
@@ -129,6 +135,15 @@ public:
     inline void SetHeadless(bool a_value)
     {
         ITOGGLEBIT(a_value, m_flags, HeadlessBit);
+    }
+
+    inline bool AllowDMA() const
+    {
+        return IISBITSET(m_flags, AllowDMABit);
+    }
+    inline void SetAllowDMA(bool a_value)
+    {
+        ITOGGLEBIT(a_value, m_flags, AllowDMABit);
     }
 
     inline bool IsRemote() const
@@ -152,7 +167,7 @@ public:
 
 // MIT License
 // 
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
