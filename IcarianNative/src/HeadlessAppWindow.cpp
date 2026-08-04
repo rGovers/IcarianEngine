@@ -1,14 +1,11 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "AppWindow/HeadlessAppWindow.h"
 
-#define GLM_FORCE_SWIZZLE 
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
-
-#include <filesystem>
-#include <string>
 
 #include "Application.h"
 #include "Config.h"
@@ -18,27 +15,23 @@
 #include "Core/IPCPipe.h"
 #include "Core/SocketPipe.h"
 #include "Core/TotalMemoryUsageFrame.h"
+#include "DataTypes/Allocators/Allocator.h"
 #include "DataTypes/Allocators/MallocAllocator.h"
 #include "DataTypes/Allocators/OSAllocator.h"
 #include "DataTypes/Allocators/RingAllocator.h"
 #include "DataTypes/Allocators/UberAllocator.h"
+#include "DataTypes/COWString.h"
 #include "IcarianError.h"
 #include "InputManager.h"
+#include "IO.h"
 #include "Profiler.h"
 #include "Rendering/LibRenderDoc.h"
+#include "Rendering/RenderEngine.h"
 #include "Rendering/UI/UIControl.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 #include "ThreadPool.h"
 #include "Trace.h"
-
-[[maybe_unused]] static std::string GetAddr(const std::string_view& a_addr)
-{
-    const std::filesystem::path tmpPath = std::filesystem::temp_directory_path();
-    const std::filesystem::path addrPath = tmpPath / a_addr;
-
-    return addrPath.generic_string();
-}
 
 void HeadlessAppWindow::MessageCallback
 (
@@ -48,10 +41,13 @@ void HeadlessAppWindow::MessageCallback
     const char* const* a_stackTrace
 )
 {
-    const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
-
     uint32_t stackTraceSize = 0;
-    uint32_t* sizes = m_msgAllocator->TAllocate<uint32_t>(a_stackTraceCount); 
+    uint32_t* sizes = ILAMBDA(
+    {
+        const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
+        ILRETURN m_msgAllocator->TAllocate<uint32_t>(a_stackTraceCount);
+    });
     for (uint32_t i = 0; i < a_stackTraceCount; ++i)
     {
         const char* slider = a_stackTrace[i];
@@ -81,7 +77,12 @@ void HeadlessAppWindow::MessageCallback
         .Length = size,
         .Data = ILAMBDA(
         {
-            uint8_t* dat = m_msgAllocator->ZTAllocate<uint8_t>(size);
+            uint8_t* dat;
+           {
+               const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
+               dat = m_msgAllocator->ZTAllocate<uint8_t>(size);
+           }
 
             IcarianCore::LoggerHeader header;
             header.Version = 0;
@@ -109,57 +110,407 @@ void HeadlessAppWindow::MessageCallback
     };
     m_queuedMessages.Push(msg);
 }
-void HeadlessAppWindow::ProfilerCallback(const Profiler::PData& a_profilerData)
+
+struct ProfileFrameData
 {
-    const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+    uint32_t NameID;
+    float Time;
+};
+
+struct ProfileScopeHeader
+{
+    uint32_t Version;
+    uint32_t NameID;
+    uint32_t FrameCount;
+};
+
+class HeadlessCPUProfilerCallbackItem : public Profiler::CPUCallbackItem
+{
+private:
+    HeadlessAppWindow* m_window;
+
+protected:
+
+public:
+    HeadlessCPUProfilerCallbackItem(HeadlessAppWindow* a_window)
+    {
+        m_window = a_window;
+    }
+
+    virtual void Execute(const ProfilerCPUData& a_data)
+    {
+        m_window->ProfilerCPUCallback(a_data);
+    }
+};
+void HeadlessAppWindow::ProfilerCPUCallback(const ProfilerCPUData& a_profilerData)
+{
+    const uint16_t count = (uint16_t)a_profilerData.Frames.Size();
+    const uint32_t length = sizeof(ProfileScopeHeader) + (uint32_t)count * sizeof(ProfileFrameData);
+
+    uint8_t* dat = ILAMBDA(
+    {
+        const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
+        ILRETURN m_msgAllocator->ZTAllocate<uint8_t>(length);
+    });
+
+    const COWU8String scopeStr = COWU8String(a_profilerData.Name, MallocAllocator::Instance);
+
+    uint32_t scopeID;
+    {
+        const ThreadGuard g = ThreadGuard(m_profileLock);
+
+        if (!m_profilerScopes.GetIfExists(scopeStr, &scopeID))
+        {
+            scopeID = m_profileIndex++;
+
+            m_profilerScopes.Push(scopeStr, scopeID);
+
+            const uint32_t strLen = scopeStr.Length();
+            const uint32_t length = sizeof(uint32_t) + strLen + 1;
+
+            const IcarianCore::PipeMessage msg =
+            {
+                .Type = IcarianCore::PipeMessageType_ProfileNewScope,
+                .Length = length,
+                .Data = ILAMBDA(
+                {
+                    uint8_t* val;
+                    {
+                        const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
+                        val = m_msgAllocator->ZTAllocate<uint8_t>(length);
+                    }
+
+                    memcpy(val, &scopeID, sizeof(uint32_t));
+
+                    const char* cStr = scopeStr.CStr();
+                    memcpy(val + sizeof(uint32_t), cStr, strLen);
+
+                    ILRETURN val;
+                }),
+            };
+
+            m_queuedMessages.Push(msg);
+        }
+    }
+
+    const ProfileScopeHeader scope =
+    {
+        .Version = 0,
+        .NameID = scopeID,
+        .FrameCount = count,
+    };
+
+    memcpy(dat, &scope, sizeof(ProfileScopeHeader));
+
+    Array<uint32_t> lastParent = Array<uint32_t>(MallocAllocator::Instance);
+    lastParent.Push(uint32_t(-1));
+
+    for (uint32_t i = 0; i < count; ++i)
+    {
+        const ProfileFrame& f = a_profilerData.Frames[i];
+
+        const COWU8String frameStr = "[" + scopeStr + "]" + f.Name
+            + COWU8String::FromValue(f.Stack, 10, MallocAllocator::Instance);
+
+        uint32_t nameID;
+
+        {
+            const ThreadGuard g = ThreadGuard(m_profileLock);
+
+            if (!m_profilerFrames.GetIfExists(frameStr, &nameID))
+            {
+                nameID = m_frameIndex++;
+
+                m_profilerFrames.Push(frameStr, nameID);
+
+                const uint32_t strLen = f.Name.Length();
+                const uint32_t length = sizeof(uint32_t) * 3 + strLen + 1;
+
+                const uint32_t parent = lastParent[f.Stack];
+
+                const IcarianCore::PipeMessage msg =
+                {
+                    .Type = IcarianCore::PipeMessageType_ProfileNewFrame,
+                    .Length = length,
+                    .Data = ILAMBDA(
+                    {
+                        uint8_t* val;
+                        {
+                            const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
+                            val = m_msgAllocator->ZTAllocate<uint8_t>(length);
+                        }
+
+                        uint32_t offset = 0;
+
+                        memcpy(val + offset, &scopeID, sizeof(uint32_t));
+                        offset += sizeof(uint32_t);
+
+                        memcpy(val + offset, &nameID, sizeof(uint32_t));
+                        offset += sizeof(uint32_t);
+
+                        memcpy(val + offset, &parent, sizeof(uint32_t));
+                        offset += sizeof(uint32_t);
+
+                        const char* cStr = f.Name.CStr();
+                        memcpy(val + offset, cStr, strLen);
+
+                        ILRETURN val;
+                    }),
+                };
+
+                m_queuedMessages.Push(msg);
+            }
+        }
+
+        IVERIFY(nameID != uint32_t(-1));
+
+        const ProfileFrameData frame =
+        {
+            .NameID = nameID,
+            .Time = (float)f.Duration,
+        };
+
+        const uint32_t offset = sizeof(ProfileScopeHeader) + i * sizeof(ProfileFrameData);
+        memcpy(dat + offset, &frame, sizeof(ProfileFrameData));
+
+        const uint32_t nextStack = f.Stack + 1;
+        if (nextStack >= lastParent.Size())
+        {
+            lastParent.Resize(nextStack << 1);
+        }
+
+        lastParent[nextStack] = nameID;
+    }
 
     const IcarianCore::PipeMessage msg =
     {
         .Type = IcarianCore::PipeMessageType_ProfileScope,
-        .Length = sizeof(ProfileScope),
-        .Data = ILAMBDA(
-        {
-            ProfileScope* dat = m_msgAllocator->TAllocate<ProfileScope>();
-
-            const uint16_t nameSize = glm::min((uint16_t)a_profilerData.Name.Length(), (uint16_t)(NameMax - 1));
-            for (int i = 0; i < nameSize; ++i)
-            {
-                dat->Name[i] = a_profilerData.Name[i];
-            }
-            dat->Name[nameSize] = 0;
-
-            dat->FrameCount = (uint16_t)glm::min((uint16_t)a_profilerData.Frames.Size(), FrameMax);
-            for (uint16_t i = 0; i < dat->FrameCount; ++i)
-            {
-                const ProfileFrame& pFrame = a_profilerData.Frames[i];
-                ProfileTFrame& frame = dat->Frames[i];
-
-                const uint16_t frameNameSize = glm::min((uint16_t)pFrame.Name.Length(), (uint16_t)(NameMax - 1));
-                for (uint16_t j = 0; j < frameNameSize; ++j)
-                {
-                    frame.Name[j] = pFrame.Name[j];
-                }
-                frame.Name[frameNameSize] = 0;
-                frame.Stack = pFrame.Stack;
-                frame.Time = (float)pFrame.Duration;
-            }
-
-            ILRETURN (uint8_t*)dat;
-        })
+        .Length = length,
+        .Data = dat,
     };
 
     m_queuedMessages.Push(msg);
 }
 
-HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : AppWindow(a_app)
+class HeadlessGPUProfilerCallbackItem : public Profiler::GPUCallbackItem
+{
+private:
+    HeadlessAppWindow* m_window;
+
+protected:
+
+public:
+    HeadlessGPUProfilerCallbackItem(HeadlessAppWindow* a_window)
+    {
+        m_window = a_window;
+    }
+
+    virtual void Execute(const ProfilerGPUFrameData* a_data, uint32_t a_count)
+    {
+        m_window->ProfilerGPUCallback(a_data, a_count);
+    }
+};
+void HeadlessAppWindow::ProfilerGPUCallback(const ProfilerGPUFrameData* a_data, uint32_t a_count)
+{
+    for (uint32_t i = 0; i < a_count; ++i)
+    {
+        const uint32_t itemCount = a_data[i].Items.Size();
+        const uint32_t length = sizeof(ProfileScopeHeader) + itemCount * sizeof(ProfileFrameData);
+        uint8_t* dat = ILAMBDA(
+        {
+            const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
+            ILRETURN m_msgAllocator->ZTAllocate<uint8_t>(length);
+        });
+
+        uint32_t passNameID = -1;
+
+        const COWU8String passStr = COWU8String(a_data[i].Name, MallocAllocator::Instance);
+
+        {
+            const ThreadGuard g = ThreadGuard(m_gpuProfileLock);
+
+            if (!m_gpuProfilePasses.GetIfExists(a_data[i].Name, &passNameID))
+            {
+                passNameID = m_gpuProfilePassIndex++;
+
+                m_gpuProfilePasses.Push(passStr, passNameID);
+
+                const uint32_t strLen = passStr.Length();
+                const uint32_t length = sizeof(uint32_t) + strLen + 1;
+
+                const IcarianCore::PipeMessage msg =
+                {
+                    .Type = IcarianCore::PipeMessageType_ProfileNewGPUPass,
+                    .Length = length,
+                    .Data = ILAMBDA(
+                    {
+                        uint8_t* val;
+                        {
+                            const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
+                            val = m_msgAllocator->ZTAllocate<uint8_t>(length);
+                        }
+
+                        memcpy(val, &passNameID, sizeof(uint32_t));
+
+                        const char* cStr = passStr.CStr();
+                        memcpy(val + sizeof(uint32_t), cStr, strLen);
+
+                        ILRETURN val;
+                    }),
+                };
+
+                m_queuedMessages.Push(msg);
+            }
+        }
+
+        IVERIFY(passNameID != uint32_t(-1));
+
+        const ProfileScopeHeader header =
+        {
+            .Version = 0,
+            .NameID = passNameID,
+            .FrameCount = itemCount,
+        };
+
+        memcpy(dat, &header, sizeof(ProfileScopeHeader));
+
+        for (uint32_t j = 0; j < itemCount; ++j)
+        {
+            const ProfilerGPUFrameItem& it = a_data[i].Items[j];
+
+            const COWU8String itemStr = "[" + passStr + "]" + it.Name;
+
+            uint32_t itemID = -1;
+            {
+                const ThreadGuard g = ThreadGuard(m_gpuProfileLock);
+
+                if (!m_gpuProfileItems.GetIfExists(itemStr, &itemID))
+                {
+                    itemID = m_gpuProfileItemIndex++;
+
+                    m_gpuProfileItems.Push(itemStr, itemID);
+
+                    const uint32_t strLen = it.Name.Length();
+                    const uint32_t length = sizeof(uint32_t) * 2 + strLen + 1;
+
+                    const IcarianCore::PipeMessage msg =
+                    {
+                        .Type = IcarianCore::PipeMessageType_ProfileNewGPUItem,
+                        .Length = length,
+                        .Data = ILAMBDA(
+                        {
+                            uint8_t* val;
+                            {
+                                const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+
+                                val = m_msgAllocator->ZTAllocate<uint8_t>(length);
+                            }
+
+                            uint32_t offset = 0;
+
+                            memcpy(val + offset, &passNameID, sizeof(uint32_t));
+                            offset += sizeof(uint32_t);
+
+                            memcpy(val + offset, &itemID, sizeof(uint32_t));
+                            offset += sizeof(uint32_t);
+
+                            const char* cStr = it.Name.CStr();
+                            memcpy(val + offset, cStr, strLen);
+
+                            ILRETURN val;
+                        }),
+                    };
+
+                    m_queuedMessages.Push(msg);
+                }
+            }
+
+            IVERIFY(itemID != uint32_t(-1));
+
+            const ProfileFrameData item =
+            {
+                .NameID = itemID,
+                .Time = (float)it.Duration,
+            };
+
+            const uint32_t offset = sizeof(ProfileScopeHeader) + j * sizeof(ProfileFrameData);
+            memcpy(dat + offset, &item, sizeof(ProfileFrameData));
+        }
+
+        const IcarianCore::PipeMessage msg =
+        {
+            .Type = IcarianCore::PipeMessageType_ProfileGPUPass,
+            .Length = length,
+            .Data = dat,
+        };
+
+        m_queuedMessages.Push(msg);
+    }
+}
+
+class HeadlessGPUETEProfilerCallbackItem : public Profiler::GPUETECallbackItem
+{
+private:
+    HeadlessAppWindow* m_window;
+
+protected:
+
+public:
+    HeadlessGPUETEProfilerCallbackItem(HeadlessAppWindow* a_window)
+    {
+        m_window = a_window;
+    }
+
+    virtual void Execute(float a_time)
+    {
+        m_window->ProfilerGPUETECallback(a_time);
+    }
+};
+void HeadlessAppWindow::ProfilerGPUETECallback(float a_time)
+{
+    const IcarianCore::PipeMessage msg =
+    {
+        .Type = IcarianCore::PipeMessageType_ProfileGPUEndToEndTime,
+        .Length = sizeof(float),
+        .Data = ILAMBDA(
+        {
+            float* val;
+
+            {
+                const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+                val = m_msgAllocator->TAllocate<float>();
+            }
+
+            *val = a_time;
+
+            ILRETURN (uint8_t*)val;
+        }),
+    };
+
+    m_queuedMessages.Push(msg);
+}
+
+HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : AppWindow(a_app),
+    m_gpuProfilePasses(MallocAllocator::Instance),
+    m_gpuProfileItems(MallocAllocator::Instance),
+    m_profilerScopes(MallocAllocator::Instance),
+    m_profilerFrames(MallocAllocator::Instance)
 {
     TRACE("Creating Headless Window");
     m_pipe = nullptr;
     m_flags = 0;
 
-    m_app = a_app;
+    m_gpuProfilePassIndex = 0;
+    m_gpuProfileItemIndex = 0;
+    m_profileIndex = 0;
+    m_frameIndex = 0;
 
-    m_msgAllocator = MallocAllocator::Instance->Create<RingAllocator>(4 << 20, UberAllocator::Instance);
+    m_msgAllocator = MallocAllocator::Instance->Create<RingAllocator>(16 << 20, UberAllocator::Instance);
 
 #ifndef ICARIANNATIVE_ENABLE_DMA
     m_frameData = nullptr;
@@ -192,9 +543,12 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
             IERROR("Invalid IPC pipe ID");
         }
 
-        const std::string addrStr = GetAddr(PipeName + std::to_string(ipcPipeID));
+        const COWU8String tempDir = IO::GetTemporaryDirectory(MallocAllocator::Instance);
+        const COWU8String pipeName = PipeName + COWU8String::FromValue(ipcPipeID, 10, MallocAllocator::Instance);
 
-        m_pipe = IcarianCore::IPCPipe::Connect(addrStr.c_str());
+        const COWU8String path = IO::CombinePath(tempDir, pipeName, MallocAllocator::Instance);
+
+        m_pipe = IcarianCore::IPCPipe::Connect(path.CStr());
 #endif
     }
 
@@ -222,7 +576,10 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
         std::placeholders::_3,
         std::placeholders::_4
     ));
-    Profiler::CallbackFunc = MallocAllocator::Instance->Create<Profiler::Callback>(std::bind(&HeadlessAppWindow::ProfilerCallback, this, std::placeholders::_1));
+
+    Profiler::CPUCallback = MallocAllocator::Instance->Create<HeadlessCPUProfilerCallbackItem>(this);
+    Profiler::GPUCallback = MallocAllocator::Instance->Create<HeadlessGPUProfilerCallbackItem>(this);
+    Profiler::GPUETECallback = MallocAllocator::Instance->Create<HeadlessGPUETEProfilerCallbackItem>(this);
 
     m_prevTime = std::chrono::high_resolution_clock::now();
 
@@ -236,7 +593,7 @@ HeadlessAppWindow::~HeadlessAppWindow()
 
     if (m_pipe != nullptr)
     {
-        const IcarianCore::PipeMessage msg = 
+        const IcarianCore::PipeMessage msg =
         {
             .Type = IcarianCore::PipeMessageType_Close
         };
@@ -258,8 +615,13 @@ HeadlessAppWindow::~HeadlessAppWindow()
 
     MallocAllocator::Instance->Destroy(Logger::CallbackFunc);
     Logger::CallbackFunc = nullptr;
-    MallocAllocator::Instance->Destroy(Profiler::CallbackFunc);
-    Profiler::CallbackFunc = nullptr;
+
+    MallocAllocator::Instance->Destroy(Profiler::CPUCallback);
+    Profiler::CPUCallback = nullptr;
+    MallocAllocator::Instance->Destroy(Profiler::GPUCallback);
+    Profiler::GPUCallback = nullptr;
+    MallocAllocator::Instance->Destroy(Profiler::GPUETECallback);
+    Profiler::GPUETECallback = nullptr;
 
     MallocAllocator::Instance->Destroy(m_msgAllocator);
 }
@@ -413,9 +775,11 @@ bool HeadlessAppWindow::PollMessage()
         const IcarianCore::PipeMessage msg = messages.front();
         messages.pop();
         IDEFER(
-        if (msg.Data != nullptr)
         {
-            delete[] msg.Data;
+            if (msg.Data != nullptr)
+            {
+                delete[] msg.Data;
+            }
         });
 
         switch (msg.Type)
@@ -429,15 +793,6 @@ bool HeadlessAppWindow::PollMessage()
         case IcarianCore::PipeMessageType_UnlockFrame:
         {
             m_unlockWindow = true;
-
-            break;
-        }
-        case IcarianCore::PipeMessageType_DMASignal:
-        {
-            RenderEngine* engine = m_app->GetRenderEngine();
-            IVERIFY(engine != nullptr);
-
-            engine->DMASignal();
 
             break;
         }
@@ -491,7 +846,7 @@ bool HeadlessAppWindow::PollMessage()
                     leftDown = false;
                 }
             }
-            else 
+            else
             {
                 UIControl::SubmitRelease(cursorPos, winSizeVec);
             }
@@ -582,7 +937,7 @@ void HeadlessAppWindow::Update()
         PROFILESTACK("Timing");
 
         std::chrono::high_resolution_clock::time_point time;
-        while (true) 
+        while (true)
         {
             time = std::chrono::high_resolution_clock::now();
             m_delta = std::chrono::duration<double>(time - m_prevTime).count();
@@ -752,22 +1107,23 @@ void HeadlessAppWindow::PushFrameInfo(double a_delta, double a_time)
 }
 
 #ifdef ICARIANNATIVE_ENABLE_DMA
-void HeadlessAppWindow::PushSwapBufferFD(const DMASwapBufferFD& a_swapBuffer)
+void HeadlessAppWindow::PushSwapBufferFD(const IcarianCore::DMASwapBufferFD& a_swapBuffer)
 {
     const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
 
     const IcarianCore::PipeMessage msg =
     {
         .Type = IcarianCore::PipeMessageType_PushDMASwapFDBuffer,
-        .Length = sizeof(DMASwapBufferFD),
+        .Length = sizeof(IcarianCore::DMASwapBufferFD),
         .Data = ILAMBDA(
         {
-            DMASwapBufferFD* dat = m_msgAllocator->TAllocate<DMASwapBufferFD>();
+            IcarianCore::DMASwapBufferFD* dat = m_msgAllocator->TAllocate<IcarianCore::DMASwapBufferFD>();
             *dat = a_swapBuffer;
 
             ILRETURN (uint8_t*)dat;
         })
     };
+
     m_queuedMessages.Push(msg);
 }
 void HeadlessAppWindow::FlushSwapBufferFD()
@@ -776,11 +1132,12 @@ void HeadlessAppWindow::FlushSwapBufferFD()
     {
         .Type = IcarianCore::PipeMessageType_FlushDMASwapFDBuffer
     };
+
     m_queuedMessages.Push(msg);
 }
 
 #ifdef WIN32
-void HeadlessAppWindow::PushSwapBufferHandle(const DMASwapBufferHandle& a_swapBuffer)
+void HeadlessAppWindow::PushSwapBufferHandle(const IcarianCore::DMASwapBufferHandle& a_swapBuffer)
 {
     const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
 
@@ -790,15 +1147,15 @@ void HeadlessAppWindow::PushSwapBufferHandle(const DMASwapBufferHandle& a_swapBu
         .Length = sizeof(DMASwapBufferHandle),
         .Data = ILAMBDA(
         {
-            DMASwapBufferHandle* dat = m_msgAllocator->TAllocate<DMASwapBufferHandle>();
+            IcarianCore::DMASwapBufferHandle* dat = m_msgAllocator->TAllocate<IcarianCore::DMASwapBufferHandle>();
             *dat = a_swapBuffer;
 
             ILRETURN (uint8_t*)dat;
         })
     };
+
     m_queuedMessages.Push(msg);
 }
-#endif
 void HeadlessAppWindow::FlushSwapBufferHandle()
 {
     const IcarianCore::PipeMessage msg =
@@ -808,16 +1165,7 @@ void HeadlessAppWindow::FlushSwapBufferHandle()
 
     m_queuedMessages.Push(msg);
 }
-
-void HeadlessAppWindow::DMASwap()
-{
-    const IcarianCore::PipeMessage msg =
-    {
-        .Type = IcarianCore::PipeMessageType_DMASwap
-    };
-
-    m_queuedMessages.Push(msg);
-}
+#endif
 #endif
 
 void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const uint8_t* a_buffer)
@@ -862,19 +1210,19 @@ Array<const char*> HeadlessAppWindow::GetRequiredVulkanExtenions() const
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

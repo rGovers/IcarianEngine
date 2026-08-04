@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Physics/PhysicsEngineBindings.h"
@@ -460,7 +460,7 @@ uint32_t PhysicsEngineBindings::CreatePhysicsBody(uint32_t a_transformAddr, uint
     JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
     const JPH::BodyID id = bodyinterface.CreateAndAddBody(bodySettings, JPH::EActivation::DontActivate);
 
-    const BodyBinding binding = 
+    const BodyBinding binding =
     {
         .TransformAddr = a_transformAddr,
         .Body = id
@@ -556,7 +556,14 @@ glm::quat PhysicsEngineBindings::GetPhysicsBodyRotation(uint32_t a_addr) const
     return glm::quat(rot.GetX(), rot.GetY(), rot.GetZ(), rot.GetW()) * invQuat;
 }
 
-uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32_t a_colliderAddr, uint32_t a_layer, float a_mass) const
+uint32_t PhysicsEngineBindings::CreateRigidBody
+(
+    uint32_t a_transformAddr,
+    uint32_t a_colliderAddr,
+    uint32_t a_layer,
+    uint32_t a_constraintFlags,
+    float a_mass
+) const
 {
     IVERIFY(m_engine->m_data->CollisionShapes.Exists(a_colliderAddr));
     IVERIFY(a_layer < 8);
@@ -570,6 +577,39 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
     glm::vec4 perspective;
     glm::decompose(globalTransform, scale, rotation, translation, skew, perspective);
 
+    const JPH::EAllowedDOFs dof = ILAMBDA(
+    {
+        JPH::EAllowedDOFs val = JPH::EAllowedDOFs::None;
+
+        if (!IISBITSET(a_constraintFlags, RigidBodyConstraints_TranslateX))
+        {
+            val |= JPH::EAllowedDOFs::TranslationX;
+        }
+        if (!IISBITSET(a_constraintFlags, RigidBodyConstraints_TranslateY))
+        {
+            val |= JPH::EAllowedDOFs::TranslationY;
+        }
+        if (!IISBITSET(a_constraintFlags, RigidBodyConstraints_TranslateZ))
+        {
+            val |= JPH::EAllowedDOFs::TranslationZ;
+        }
+
+        if (!IISBITSET(a_constraintFlags, RigidBodyConstraints_RotateX))
+        {
+            val |= JPH::EAllowedDOFs::RotationX;
+        }
+        if (!IISBITSET(a_constraintFlags, RigidBodyConstraints_RotateY))
+        {
+            val |= JPH::EAllowedDOFs::RotationY;
+        }
+        if (!IISBITSET(a_constraintFlags, RigidBodyConstraints_RotateZ))
+        {
+            val |= JPH::EAllowedDOFs::RotationZ;
+        }
+
+        ILRETURN val;
+    });
+
     JPH::BodyCreationSettings bodySettings = JPH::BodyCreationSettings
     (
         m_engine->m_data->CollisionShapes[a_colliderAddr].Get(),
@@ -578,13 +618,13 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
         JPH::EMotionType::Dynamic,
         (JPH::ObjectLayer)a_layer
     );
+    bodySettings.mAllowedDOFs = dof;
     bodySettings.mMassPropertiesOverride.mMass = a_mass;
-    // Should probably make this a setting and default to discrete but for now cast
     bodySettings.mMotionQuality = JPH::EMotionQuality::LinearCast;
     bodySettings.mOverrideMassProperties = JPH::EOverrideMassProperties::CalculateInertia;
 
-    JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
-    const JPH::BodyID id = bodyinterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
+    JPH::BodyInterface& bodyInterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
+    const JPH::BodyID id = bodyInterface.CreateAndAddBody(bodySettings, JPH::EActivation::Activate);
     IDEFER(m_engine->m_data->ActivationListener->OnBodyActivated(id, 0));
 
     const BodyBinding binding =
@@ -592,11 +632,42 @@ uint32_t PhysicsEngineBindings::CreateRigidBody(uint32_t a_transformAddr, uint32
         .TransformAddr = a_transformAddr,
         .Body = id
     };
-    const uint32_t index = m_engine->m_data->BodyBindings.PushVal(binding);
 
-    AddBody(id.GetIndex(), index);
+    const uint32_t index = m_engine->m_data->BodyBindings.PushVal(binding);
+    const JPH::uint32 idIndex = id.GetIndex();
+
+    AddBody(idIndex, index);
 
     return index;
+}
+void PhysicsEngineBindings::SetRigidBodyCastQuality(uint32_t a_addr, e_RigidBodyCastQuality a_quality) const
+{
+    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
+
+    const JPH::EMotionQuality quality = ILAMBDA(
+    {
+        switch (a_quality)
+        {
+        case RigidBodyCastQuality_Discrete:
+        {
+            ILRETURN JPH::EMotionQuality::Discrete;
+        }
+        case RigidBodyCastQuality_Cast:
+        {
+            ILRETURN JPH::EMotionQuality::LinearCast;
+        }
+        }
+
+        IERROR("Invalid quality type");
+
+        ILRETURN JPH::EMotionQuality::Discrete;
+    });
+
+    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
+
+    JPH::BodyInterface& bodyInterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
+
+    bodyInterface.SetMotionQuality(binding.Body, quality);
 }
 void PhysicsEngineBindings::SetRigidBodyGravityFactor(uint32_t a_addr, float a_factor) const
 {
@@ -611,20 +682,6 @@ void PhysicsEngineBindings::SetRigidBodyGravityFactor(uint32_t a_addr, float a_f
 
     JPH::MotionProperties* properties = body->GetMotionProperties();
     properties->SetGravityFactor(a_factor);
-}
-float PhysicsEngineBindings::GetRigidBodyGravityFactor(uint32_t a_addr) const
-{
-    IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
-
-    const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
-
-    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyLockInterface();
-    const PhysicsInterfaceReadLock lock = PhysicsInterfaceReadLock(binding.Body, bodyinterface);
-
-    const JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
-
-    const JPH::MotionProperties* properties = body->GetMotionProperties();
-    return properties->GetGravityFactor();
 }
 glm::vec3 PhysicsEngineBindings::GetRigidBodyVelocity(uint32_t a_addr) const
 {
@@ -684,23 +741,25 @@ void PhysicsEngineBindings::RigidBodyAddForce(uint32_t a_addr, const glm::vec3& 
 {
     IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
+    if (a_force == glm::vec3(0.0f))
+    {
+        return;
+    }
+
     const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyLockInterface();
-    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, bodyinterface);
-
-    JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
+    JPH::BodyInterface& interface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
     switch (a_mode)
     {
     case ForceMode_Impulse:
     {
-        body->AddImpulse(JPH::Vec3(a_force.x, a_force.y, a_force.z));
+        interface.AddImpulse(binding.Body, JPH::Vec3(a_force.x, a_force.y, a_force.z));
 
         break;
     }
     default:
     {
-        body->AddForce(JPH::Vec3(a_force.x, a_force.y, a_force.z));
+        interface.AddForce(binding.Body, JPH::Vec3(a_force.x, a_force.y, a_force.z), JPH::EActivation::Activate);
 
         break;
     }
@@ -710,23 +769,25 @@ void PhysicsEngineBindings::RigidBodyAddTorque(uint32_t a_addr, const glm::vec3&
 {
     IVERIFY(m_engine->m_data->BodyBindings.Exists(a_addr));
 
+    if (a_torque == glm::vec3(0.0f))
+    {
+        return;
+    }
+
     const BodyBinding binding = m_engine->m_data->BodyBindings[a_addr];
 
-    const JPH::BodyLockInterfaceLocking& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyLockInterface();
-    const PhysicsInterfaceWriteLock lock = PhysicsInterfaceWriteLock(binding.Body, bodyinterface);
-
-    JPH::Body* body = bodyinterface.TryGetBody(binding.Body);
-    switch (a_mode) 
+    JPH::BodyInterface& interface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
+    switch (a_mode)
     {
     case ForceMode_Impulse:
     {
-        body->AddAngularImpulse(JPH::Vec3(a_torque.x, a_torque.y, a_torque.z));
+        interface.AddAngularImpulse(binding.Body, JPH::Vec3(a_torque.x, a_torque.y, a_torque.z));
 
         break;
     }
     default:
     {
-        body->AddTorque(JPH::Vec3(a_torque.x, a_torque.y, a_torque.z));
+        interface.AddTorque(binding.Body, JPH::Vec3(a_torque.x, a_torque.y, a_torque.z), JPH::EActivation::Activate);
 
         break;
     }
@@ -759,7 +820,7 @@ uint32_t PhysicsEngineBindings::CreateTriggerBody(uint32_t a_transformAddr, uint
     JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
     const JPH::BodyID id = bodyinterface.CreateAndAddBody(bodySettings, JPH::EActivation::DontActivate);
 
-    const BodyBinding binding = 
+    const BodyBinding binding =
     {
         .TransformAddr = a_transformAddr,
         .Body = id
@@ -987,19 +1048,19 @@ uint32_t* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

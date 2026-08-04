@@ -1,17 +1,29 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Config.h"
 
-#include <assert.h>
-#include <string>
 #include <tinyxml2.h>
 
 #include "Core/StringUtils.h"
+#include "DataTypes/Allocators/MallocAllocator.h"
 
-Config::Config(const char* a_path)
+Config::Config(const char* a_path) :
+    m_appName(DefaultAppName, MallocAllocator::Instance),
+    m_appVersion(DefaultAppVersion, MallocAllocator::Instance)
 {
+    m_fixedTimeStep = 1.0 / 50.0;
+    m_fileCacheSize = 256;
+
+    m_pipefileID = uint32_t(-1);
+    m_ipcId = uint32_t(-1);
+
+    m_threadCount = uint32_t(-1);
+
+    m_remotePort = 9001;
+    m_renderingEngine = RenderingEngine_Vulkan;
+
     m_flags = 0;
 
     tinyxml2::XMLDocument doc;
@@ -21,7 +33,7 @@ Config::Config(const char* a_path)
     }
 
     tinyxml2::XMLElement* configEle = doc.FirstChildElement("Config");
-    assert(configEle != nullptr);
+    ICARIAN_ASSERT(configEle != nullptr);
 
     for (tinyxml2::XMLElement* element = configEle->FirstChildElement(); element != nullptr; element = element->NextSiblingElement())
     {
@@ -31,13 +43,17 @@ Config::Config(const char* a_path)
         {
         case StringHash("ApplicationName"):
         {
-            m_appName = element->GetText();
+            const char* text = element->GetText();
+
+            m_appName = COWU8String(text, MallocAllocator::Instance);
 
             break;
         }
         case StringHash("ApplicationVersion"):
         {
-            m_appVersion = element->GetText();
+            const char* text = element->GetText();
+
+            m_appVersion = COWU8String(text, MallocAllocator::Instance);
 
             break;
         }
@@ -89,19 +105,19 @@ Config::~Config()
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

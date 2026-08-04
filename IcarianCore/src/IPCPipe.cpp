@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Core/IPCPipe.h"
@@ -93,8 +93,8 @@ namespace IcarianCore
 
         return new IPCPipe(pipeSock);
 #else
-        struct pollfd pollFd = 
-        { 
+        struct pollfd pollFd =
+        {
             .fd = m_pipeSock,
             .events = POLLIN,
         };
@@ -409,10 +409,7 @@ namespace IcarianCore
                                 while (bytesReceived < msg.Length)
                                 {
                                     const int bytes = recv(a_pipe->m_pipeSock, msg.Data + bytesReceived, msg.Length - bytesReceived, ReceiveFlags);
-                                    if (bytes <= 0)
-                                    {
-                                        ITRIGGERERR;
-                                    }
+                                    IERRCHECK(bytes > 0);
 
                                     bytesReceived += bytes;
                                 }
@@ -552,7 +549,6 @@ namespace IcarianCore
                         if (sent < 0)
                         {
                             const int err = errno;
-
                             IERRCHECK(err == EAGAIN || err == EWOULDBLOCK);
 
                             break;
@@ -663,8 +659,6 @@ namespace IcarianCore
             return SendError_Fail;
         }
 
-        const std::unique_lock g = std::unique_lock(m_sendLock);
-
         const bool validData = a_msg.Length > 0 && a_msg.Data != nullptr;
         const PipeMessage msg =
         {
@@ -691,6 +685,8 @@ namespace IcarianCore
                 ILRETURN (uint8_t*)nullptr;
             }),
         };
+
+        const std::unique_lock g = std::unique_lock(m_sendLock);
 
         m_sendQueue.emplace(msg);
 
@@ -720,19 +716,19 @@ namespace IcarianCore
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

@@ -1,12 +1,11 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
-#include <string>
-
 #include "Core/Bitfield.h"
+#include "DataTypes/COWString.h"
 #include "Rendering/RenderEngine.h"
 
 class Config
@@ -23,19 +22,19 @@ private:
     static constexpr char DefaultAppName[] = "IcarianEngine";
     static constexpr char DefaultAppVersion[] = "0";
 
-    double            m_fixedTimeStep = 1.0 / 50.0;
-    uint32_t          m_fileCacheSize = 256;
+    double            m_fixedTimeStep;
+    uint32_t          m_fileCacheSize;
 
-    uint32_t          m_pipefileID = uint32_t(-1);
-    uint32_t          m_ipcId = uint32_t(-1);
+    uint32_t          m_pipefileID;
+    uint32_t          m_ipcId;
 
-    uint32_t          m_threadCount = uint32_t(-1);
+    uint32_t          m_threadCount;
 
-    std::string       m_appName = std::string(DefaultAppName);
-    std::string       m_appVersion = std::string(DefaultAppVersion);
+    COWU8String       m_appName;
+    COWU8String       m_appVersion;
 
-    uint16_t          m_remotePort = 9001;
-    e_RenderingEngine m_renderingEngine = RenderingEngine_Vulkan;
+    uint16_t          m_remotePort;
+    e_RenderingEngine m_renderingEngine;
 
     uint8_t           m_flags;
 
@@ -115,11 +114,11 @@ public:
         ITOGGLEBIT(a_value, m_flags, DisableWaylandBit);
     }
 
-    inline std::string GetApplicationName() const
+    inline COWU8String GetApplicationName() const
     {
         return m_appName;
     }
-    inline std::string GetApplicationVersion() const
+    inline COWU8String GetApplicationVersion() const
     {
         return m_appVersion;
     }
@@ -166,19 +165,19 @@ public:
 };
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

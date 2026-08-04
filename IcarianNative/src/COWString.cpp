@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "DataTypes/COWString.h"
@@ -129,10 +129,10 @@ COWU8String COWU8FromUnicode(const CharU16* a_str, uint32_t a_length, Allocator*
 }
 COWU8String COWU8FromUnicode(const COWU16String& a_str, Allocator* a_allocator)
 {
-    const CharU16* data = a_str.StrPtr();
-    const uintptr_t len = a_str.Length();
+    const CharU16* data = a_str.Data();
+    const uint32_t len = a_str.Length();
 
-    return COWU8FromUnicode(data, (uint32_t)len, a_allocator);
+    return COWU8FromUnicode(data, len, a_allocator);
 }
 COWU8String COWU8FromUnicode(const CharU32* a_str, Allocator* a_allocator)
 {
@@ -191,26 +191,26 @@ COWU8String COWU8FromUnicode(const CharU32* a_str, uint32_t a_length, Allocator*
 }
 COWU8String COWU8FromUnicode(const COWU32String& a_str, Allocator* a_allocator)
 {
-    const CharU32* data = a_str.StrPtr();
+    const CharU32* data = a_str.Data();
     const uintptr_t len = a_str.Length();
 
     return COWU8FromUnicode(data, (uint32_t)len, a_allocator);
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

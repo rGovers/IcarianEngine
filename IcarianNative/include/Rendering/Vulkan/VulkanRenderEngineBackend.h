@@ -14,6 +14,7 @@
 #include "DataTypes/SpinLock.h"
 #include "DataTypes/TArray.h"
 #include "DataTypes/TLockObj.h"
+#include "Rendering/Vulkan/VulkanCommandBuffer.h"
 
 class Allocator;
 class AppWindow;
@@ -24,14 +25,6 @@ class VulkanComputeEngine;
 class VulkanGraphicsEngine;
 class VulkanPushPool;
 class VulkanSwapchain;
-
-struct VulkanVideoDecodeCapabilities
-{
-    vk::VideoProfileInfoKHR VideoProfile;
-    vk::VideoDecodeCapabilitiesKHR DecodeCapabilities;
-    vk::VideoCapabilitiesKHR VideoCapabilities;
-    vk::VideoDecodeH264CapabilitiesKHR DecodeH264Capabilities;
-};
 
 // Wrapper to use scratch allocator with engine types
 struct RenderScratchAlloc
@@ -115,56 +108,6 @@ public:
     }
 };
 
-template<typename T>
-struct STLRenderBlockAlloc
-{
-public:
-    typedef uint64_t size_type;
-    typedef uint64_t difference_type;
-    typedef T* pointer;
-    typedef const T* const_pointer;
-    typedef T& reference;
-    typedef const T& const_reference;
-    typedef T value_type;
-
-    pointer allocate(size_type a_n, const void* a_hint = 0)
-    {
-        return (pointer)RenderBlockAlloc::Allocate(a_n * sizeof(value_type), alignof(value_type));
-    }
-    void deallocate(pointer a_p, size_type a_n)
-    {
-        RenderBlockAlloc::Free(a_p);
-    }
-
-    void construct(pointer a_p, const_reference a_val)
-    {
-        new (a_p) value_type(a_val);
-    }
-    template<typename U, typename ... Args>
-    void construct(U* a_p, Args&&... a_args)
-    {
-        new (a_p) U(std::forward<Args>(a_args)...);
-    }
-    void destroy(pointer p)
-    {
-        p->~value_type();
-    }
-
-    STLRenderBlockAlloc()
-    {
-
-    }
-    STLRenderBlockAlloc(const STLRenderBlockAlloc& a_other) noexcept
-    {
-
-    }
-    template<typename U>
-    STLRenderBlockAlloc(const STLRenderBlockAlloc<U>& a_other) noexcept
-    {
-
-    }
-};
-
 struct RenderScratchAllocator
 {
     volatile uint32_t Count;
@@ -199,12 +142,6 @@ private:
     constexpr static uint32_t LargeAllocatorSize = 8 << 20;
     constexpr static uint32_t DeletionAllocatorSize = 2 << 10;
     constexpr static uint64_t ScratchAllocatorSize = 1 << 20;
-
-    constexpr static vk::VideoDecodeH264ProfileInfoKHR DecodeProfile = vk::VideoDecodeH264ProfileInfoKHR
-    (
-        STD_VIDEO_H264_PROFILE_IDC_HIGH,
-        vk::VideoDecodeH264PictureLayoutFlagBitsKHR::eInterlacedInterleavedLines
-    );
 
     // Need to wrap the data in another struct as it depend on an allocator that we create in the constructor
     // All this is to prevent RAII related crashes while still allowing RAII and preventing the use of pointers for manual management
@@ -242,18 +179,19 @@ private:
 
         vk::CommandPool                CommandPools[CommandIndex_Last];
 
+        float                          TimestampPeriod;
+
         uint32_t                       ScratchIndex;
         uint32_t                       ImageIndex;
         uint32_t                       CurrentFrame;
         uint32_t                       CurrentFlightFrame;
         uint32_t                       DeletionQueueIndex;
 
-        uint32_t                       ComputeQueueIndex;
-        uint32_t                       VideoDecodeQueueIndex;
         uint32_t                       GraphicsQueueIndex;
+        uint32_t                       ComputeQueueIndex;
         uint32_t                       PresentQueueIndex;
 
-        VulkanVideoDecodeCapabilities  VideoDecodeCapabilities;
+        uint8_t                        QueueTimingFlags;
     };
 
     BlockAllocator*    m_smallAllocator;
@@ -293,8 +231,6 @@ public:
 
     virtual uint64_t GetUsedDeviceMemory() const;
     virtual uint64_t GetTotalDeviceMemory() const;
-
-    virtual void DMASignal();
 
     virtual uint32_t GenerateMesh
     (
@@ -353,11 +289,6 @@ public:
         return m_data->PushPool;
     }
 
-    inline const VulkanVideoDecodeCapabilities* GetVideoDecodeCapabilities() const
-    {
-        return &m_data->VideoDecodeCapabilities;
-    }
-
     void IncrementScratchFrame(uint32_t a_index);
     void DecrementScratchFrame(uint32_t a_index);
 
@@ -398,10 +329,6 @@ public:
     {
         return m_data->ComputeQueueIndex;
     }
-    inline uint32_t GetVideoDecodeIndex() const
-    {
-        return m_data->VideoDecodeQueueIndex;
-    }
     inline uint32_t GetGraphicsQueueIndex() const
     {
         return m_data->GraphicsQueueIndex;
@@ -437,15 +364,16 @@ public:
         return m_data->CurrentFlightFrame;
     }
 
+    inline float GetTimestampPeriod() const
+    {
+        return m_data->TimestampPeriod;
+    }
+
     inline bool IsMeshEnabled() const
     {
         return !VulkanForceMeshEmulation && IsExtensionEnabled(VK_EXT_MESH_SHADER_EXTENSION_NAME);
     }
-
-    inline bool IsVideoEnabled() const
-    {
-        return IsExtensionEnabled(VK_KHR_VIDEO_DECODE_H264_EXTENSION_NAME) && IsExtensionEnabled(VK_KHR_VIDEO_MAINTENANCE_1_EXTENSION_NAME);
-    }
+    bool IsQueueTimingEnabled(e_VulkanCommandBufferType a_type) const;
 };
 
 #endif

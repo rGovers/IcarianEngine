@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -27,6 +27,7 @@
 #include "Rendering/Vulkan/VulkanCommandBuffer.h"
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 #include "Rendering/Vulkan/VulkanGraphicsEngine.h"
+#include "Rendering/Vulkan/VulkanProfiler.h"
 #include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanSwapchain.h"
 #include "Runtime/RuntimeManager.h"
@@ -49,7 +50,7 @@ ICARIAN_WARNINGSUPPRESS("-Wformat");
 #include <vk_mem_alloc.h>
 ICARIAN_WARNINGPOP
 
-constexpr const char* ValidationLayers[] = 
+constexpr const char* ValidationLayers[] =
 {
     "VK_LAYER_KHRONOS_validation"
 };
@@ -73,7 +74,7 @@ constexpr const char* HeadlessDeviceExtensions[] =
 #endif
 };
 
-constexpr const char* OptionalDeviceExtensions[] = 
+constexpr const char* OptionalDeviceExtensions[] =
 {
     VK_EXT_MESH_SHADER_EXTENSION_NAME,
     VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME,
@@ -228,7 +229,7 @@ static Array<uint8_t> GetDeviceExtensionSupport
 (
     const vk::PhysicalDevice& a_device,
     const Array<const char*>& a_extensions,
-    Allocator* a_allocator, 
+    Allocator* a_allocator,
     Allocator* a_tempAllocator
 )
 {
@@ -311,6 +312,10 @@ static bool IsDeviceSuitable
 )
 {
     const vk::PhysicalDeviceProperties properties = a_device.getProperties();
+    if (properties.limits.maxSamplerAnisotropy <= 0)
+    {
+        return false;
+    }
 
     if (properties.limits.maxDrawIndirectCount <= 1)
     {
@@ -391,7 +396,7 @@ static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device, Allocator* a_
     // Weighting the score
     // While there are situations that one type can be better then the other generally in this order
     // UPDATE: Had to remove CPU score and up the discrete score as a software renderer on a 5950 X was beating a 7900 XTX oops.....
-    switch (properties.deviceType) 
+    switch (properties.deviceType)
     {
     case vk::PhysicalDeviceType::eDiscreteGpu:
     {
@@ -424,8 +429,7 @@ static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device, Allocator* a_
 
         if (heap.flags & vk::MemoryHeapFlagBits::eDeviceLocal)
         {
-            // Rate the device by the 1/4 GiB of memory
-            const uint32_t memScore = (uint32_t)(heap.size / (0b1 << 28));
+            const uint32_t memScore = (uint32_t)(heap.size / (256 << 20));
 
             score += memScore;
         }
@@ -458,7 +462,7 @@ NextIter:;
     }
 
     return true;
-} 
+}
 
 static Array<const char*> GetRequiredExtensions(const AppWindow* a_window, Allocator* a_allocator)
 {
@@ -575,13 +579,13 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         ILRETURN vals;
     });
 
-    const std::string applicationName = config->GetApplicationName();
-    const std::string applicationVersion = config->GetApplicationVersion();
-    const uint32_t appVersionHash = StringHash<uint32_t>(applicationVersion.c_str());
+    const COWU8String applicationName = config->GetApplicationName();
+    const COWU8String applicationVersion = config->GetApplicationVersion();
+    const uint32_t appVersionHash = applicationVersion.Hash();
 
     const vk::ApplicationInfo appInfo = vk::ApplicationInfo
     (
-        applicationName.c_str(),
+        applicationName.CStr(),
         appVersionHash,
         "IcarianEngine",
         VulkanEngineVersionHash,
@@ -655,8 +659,13 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         }
     }
 
-    uint32_t deviceCount = 0;
-    VKRESERR(m_data->Instance.enumeratePhysicalDevices(&deviceCount, nullptr));
+    const uint32_t deviceCount = ILAMBDA(
+    {
+        uint32_t val;
+        VKRESERR(m_data->Instance.enumeratePhysicalDevices(&val, nullptr));
+
+        ILRETURN val;
+    });
 
     if (deviceCount <= 0)
     {
@@ -675,7 +684,9 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     const vk::PhysicalDevice* devices = ILAMBDA(
     {
         vk::PhysicalDevice* vals = scratchAllocator->TAllocate<vk::PhysicalDevice>(deviceCount);
-        VKRESERR(m_data->Instance.enumeratePhysicalDevices(&deviceCount, vals));
+
+        uint32_t count = deviceCount;
+        VKRESERR(m_data->Instance.enumeratePhysicalDevices(&count, vals));
 
         ILRETURN vals;
     });
@@ -754,12 +765,13 @@ NextExtension:;
         ILRETURN val;
     });
 
+    m_data->TimestampPeriod = props.limits.timestampPeriod;
+
     // Did for testing but leaving to make sure nothing weird is happening
     Logger::Message(COWU8String("Selected GPU: ", MallocAllocator::Instance) + props.deviceName.data());
 
-    m_data->ComputeQueueIndex = -1;
-    m_data->VideoDecodeQueueIndex = -1;
     m_data->GraphicsQueueIndex = -1;
+    m_data->ComputeQueueIndex = -1;
     m_data->PresentQueueIndex = -1;
 
     if constexpr (AMDDebuggerFix)
@@ -772,25 +784,38 @@ NextExtension:;
     {
         RENDERSCRATCHFRAME;
 
-        uint32_t queueFamilyCount = 0;
-        m_data->PhysicalDevice.getQueueFamilyProperties(&queueFamilyCount, nullptr);
+        const uint32_t queueFamilyCount = ILAMBDA(
+        {
+            uint32_t val;
+            m_data->PhysicalDevice.getQueueFamilyProperties(&val, nullptr);
 
-        vk::QueueFamilyProperties* queueFamilies = scratchAllocator->TAllocate<vk::QueueFamilyProperties>(queueFamilyCount);
-        m_data->PhysicalDevice.getQueueFamilyProperties(&queueFamilyCount, queueFamilies);
+            ILRETURN val;
+        });
+
+        const vk::QueueFamilyProperties* queueFamilies = ILAMBDA(
+        {
+            vk::QueueFamilyProperties* vals = scratchAllocator->TAllocate<vk::QueueFamilyProperties>(queueFamilyCount);
+
+            uint32_t count = queueFamilyCount;
+            m_data->PhysicalDevice.getQueueFamilyProperties(&count, vals);
+
+            ILRETURN vals;
+        });
+
+        const bool enableTimestamp = props.limits.timestampPeriod != 0.0f;
 
         const vk::SurfaceKHR surface = window->GetSurface(m_data->Instance);
 
         for (uint32_t i = 0; i < queueFamilyCount; ++i)
         {
+            const vk::QueueFamilyProperties& q = queueFamilies[i];
+
             // If I am reading correctly Vulkan makes a guarantee that there will be atleast 1 combined graphics and compute queue
-            if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eGraphics && queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
+            if (q.queueFlags & vk::QueueFlagBits::eGraphics && q.queueFlags & vk::QueueFlagBits::eCompute)
             {
                 m_data->GraphicsQueueIndex = i;
-            }
 
-            if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eVideoDecodeKHR)
-            {
-                m_data->VideoDecodeQueueIndex = i;
+                ITOGGLEBIT(enableTimestamp && q.timestampValidBits != 0, m_data->QueueTimingFlags, VulkanCommandBufferType_Graphics);
             }
 
             if (!headless)
@@ -820,7 +845,7 @@ NextExtension:;
                 }
             }
 
-            if (queueFamilies[i].queueFlags & vk::QueueFlagBits::eCompute)
+            if (q.queueFlags & vk::QueueFlagBits::eCompute)
             {
                 // Want present queue to be last resort
                 // Have it wanting to use the present queue on NVIDIA cards so this is needed
@@ -829,11 +854,15 @@ NextExtension:;
                     if (m_data->ComputeQueueIndex == uint32_t(-1))
                     {
                         m_data->ComputeQueueIndex = i;
+
+                        ITOGGLEBIT(enableTimestamp && q.timestampValidBits != 0, m_data->QueueTimingFlags, VulkanCommandBufferType_Compute);
                     }
                 }
                 else
                 {
                     m_data->ComputeQueueIndex = i;
+
+                    ITOGGLEBIT(enableTimestamp && q.timestampValidBits != 0, m_data->QueueTimingFlags, VulkanCommandBufferType_Compute);
                 }
             }
         }
@@ -844,17 +873,13 @@ NextExtension:;
     {
         UniqueQueueFamilyT vals = UniqueQueueFamilyT(scratchAllocator);
 
-        if (m_data->ComputeQueueIndex != uint32_t(-1))
-        {
-            vals.Push(m_data->ComputeQueueIndex);
-        }
-        if (m_data->VideoDecodeQueueIndex != uint32_t(-1))
-        {
-            vals.Push(m_data->VideoDecodeQueueIndex);
-        }
         if (m_data->GraphicsQueueIndex != uint32_t(-1))
         {
             vals.Push(m_data->GraphicsQueueIndex);
+        }
+        if (m_data->ComputeQueueIndex != uint32_t(-1))
+        {
+            vals.Push(m_data->ComputeQueueIndex);
         }
         if (m_data->PresentQueueIndex != uint32_t(-1))
         {
@@ -895,20 +920,6 @@ NextExtension:;
 
     void** nextChain = &deviceFeatures2.pNext;
 
-    vk::PhysicalDeviceSamplerYcbcrConversionFeatures ycbcrConversionFeatures;
-    vk::PhysicalDeviceVideoMaintenance1FeaturesKHR videoMaintance1Features;
-    const bool isVideoEnabled = IsVideoEnabled();
-    if (isVideoEnabled)
-    {
-        videoMaintance1Features.videoMaintenance1 = vk::True;
-
-        ycbcrConversionFeatures.samplerYcbcrConversion = vk::True;
-        ycbcrConversionFeatures.pNext = &videoMaintance1Features;
-
-        *nextChain = &ycbcrConversionFeatures;
-        nextChain = &videoMaintance1Features.pNext;
-    }
-
     vk::PhysicalDeviceMeshShaderFeaturesEXT meshShaderFeature;
     const bool isMeshEnabled = IsMeshEnabled();
     if (isMeshEnabled)
@@ -924,41 +935,22 @@ NextExtension:;
     }
 
     vk::PhysicalDeviceVulkan12Features vk12Feature;
-    const bool isTimelineNeeded = config->AllowDMA();
-    if (isTimelineNeeded)
+    // vk12Feature.timelineSemaphore = vk::True;
+    if (m_data->QueueTimingFlags != 0)
     {
-        vk12Feature.timelineSemaphore = vk::True;
-
-        *nextChain = &vk12Feature;
-        nextChain = &vk12Feature.pNext;
+        vk12Feature.hostQueryReset = vk::True;
     }
 
-    constexpr uint32_t EnabledLayerCount = ILAMBDA(
-    {
-        if constexpr (VulkanEnableValidationLayers)
-        {
-            ILRETURN (uint32_t)(sizeof(ValidationLayers) / sizeof(*ValidationLayers));
-        }
-
-        ILRETURN uint32_t(0);
-    });
-    constexpr const char* const* EnabledLayerNames = ILAMBDA(
-    {
-        if constexpr (VulkanEnableValidationLayers)
-        {
-            ILRETURN ValidationLayers;
-        }
-
-        ILRETURN (const char* const*)nullptr;
-    });
+    *nextChain = &vk12Feature;
+    nextChain = &vk12Feature.pNext;
 
     const vk::DeviceCreateInfo deviceCreateInfo = vk::DeviceCreateInfo
     (
         { },
         queueCreateInfos.Size(),
         queueCreateInfos.Data(),
-        EnabledLayerCount,
-        EnabledLayerNames,
+        0,
+        nullptr,
         extensions.Size(),
         extensions.Data(),
         nullptr,
@@ -969,7 +961,7 @@ NextExtension:;
     VKRESERRMSG(m_data->PhysicalDevice.createDevice(&deviceCreateInfo, nullptr, &m_data->LogicalDevice), "Failed to create Vulkan Logic Device");
     VULKAN_HPP_DEFAULT_DISPATCHER.init(m_data->LogicalDevice);
 
-    const VmaVulkanFunctions vulkanFunctions = 
+    const VmaVulkanFunctions vulkanFunctions =
     {
         .vkGetInstanceProcAddr = (PFN_vkGetInstanceProcAddr)m_data->VulkanLib->vkGetInstanceProcAddr,
         .vkGetDeviceProcAddr = (PFN_vkGetDeviceProcAddr)m_data->VulkanLib->vkGetDeviceProcAddr
@@ -989,17 +981,13 @@ NextExtension:;
 
     // By what I can tell most devices use the same queue for graphics and compute this is for correctness shold not affect much
     // Not fussed if it shares with graphics as long as it is not the present queue
-    if (m_data->ComputeQueueIndex != uint32_t(-1))
-    {
-        m_data->LogicalDevice.getQueue(m_data->ComputeQueueIndex, 0, &m_data->ComputeQueue);
-    }
-    if (m_data->VideoDecodeQueueIndex != uint32_t(-1))
-    {
-        m_data->LogicalDevice.getQueue(m_data->VideoDecodeQueueIndex, 0, &m_data->VideoDecodeQueue);
-    }
     if (m_data->GraphicsQueueIndex != uint32_t(-1))
     {
         m_data->LogicalDevice.getQueue(m_data->GraphicsQueueIndex, 0, &m_data->GraphicsQueue);
+    }
+    if (m_data->ComputeQueueIndex != uint32_t(-1))
+    {
+        m_data->LogicalDevice.getQueue(m_data->ComputeQueueIndex, 0, &m_data->ComputeQueue);
     }
     if (m_data->PresentQueueIndex != uint32_t(-1))
     {
@@ -1014,29 +1002,12 @@ NextExtension:;
         m_data->GraphicsQueueIndex
     );
 
-    for (unsigned int i = 0; i < CommandIndex_Last; ++i)
+    for (uint32_t i = 0; i < CommandIndex_Last; ++i)
     {
         VKRESERRMSG(m_data->LogicalDevice.createCommandPool(&poolInfo, nullptr, &m_data->CommandPools[i]), "Failed to create command pool");
     }
 
-    if (isVideoEnabled)
-    {
-        m_data->VideoDecodeCapabilities = { };
-
-        m_data->VideoDecodeCapabilities.VideoProfile = vk::VideoProfileInfoKHR
-        (
-            vk::VideoCodecOperationFlagBitsKHR::eDecodeH264,
-            vk::VideoChromaSubsamplingFlagBitsKHR::e420,
-            vk::VideoComponentBitDepthFlagBitsKHR::e8,
-            vk::VideoComponentBitDepthFlagBitsKHR::e8,
-            &DecodeProfile
-        );
-
-        m_data->VideoDecodeCapabilities.VideoCapabilities.pNext = &m_data->VideoDecodeCapabilities.DecodeCapabilities;
-        m_data->VideoDecodeCapabilities.DecodeCapabilities.pNext = &m_data->VideoDecodeCapabilities.DecodeH264Capabilities;
-
-        VKRESERR(m_data->PhysicalDevice.getVideoCapabilitiesKHR(&m_data->VideoDecodeCapabilities.VideoProfile, &m_data->VideoDecodeCapabilities.VideoCapabilities));
-    }
+    VulkanProfiler::Init(this);
 
     m_data->PushPool = m_allocator->Create<VulkanPushPool>(this);
     {
@@ -1086,6 +1057,8 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
     }
 
     m_allocator->Destroy(m_data->GraphicsEngine);
+
+    VulkanProfiler::Destroy();
 
     TRACE("Final destroy Vulkan Deletion Objects");
     for (uint32_t i = 0; i < VulkanDeletionQueueSize; ++i)
@@ -1231,11 +1204,12 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
         }
     }
 
+    VulkanProfiler::Update(m_data->CurrentFlightFrame);
+
     Profiler::StartFrame("Render Update");
 
     m_data->PushPool->Reset(m_data->CurrentFrame);
 
-    // TODO: Down the line setup the compute and graphics engine to return VulkanCommandBuffers
     const VulkanCommandBuffer computeCommandBuffer = m_data->ComputeEngine->Update(a_delta, a_time, m_data->CurrentFrame);
     const vk::CommandBuffer vulkanComputeBuffer = computeCommandBuffer.GetCommandBuffer();
 
@@ -1243,12 +1217,10 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
     Profiler::StartFrame("Render Setup");
 
-    // TODO: This can probably be updated to account for buckets over command buffers
     const uint32_t buffersSize = commandBuffers.Size();
     const uint32_t targetSemaphores = buffersSize + 3;
 
     const uint32_t semaphoreCount = m_data->InterSemaphore[m_data->CurrentFlightFrame].Size();
-    // const uint32_t endBuffer = buffersSize - 1;
 
     if (targetSemaphores > semaphoreCount)
     {
@@ -1380,32 +1352,14 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
             constexpr vk::PipelineStageFlags ChainFlags = vk::PipelineStageFlagBits::eAllCommands;
 
-            const uint64_t timelineVal = m_data->Swapchain->GetTimelineValue();
-            const vk::TimelineSemaphoreSubmitInfo timelineSubmit = vk::TimelineSemaphoreSubmitInfo
-            (
-                1,
-                &timelineVal,
-                0,
-                nullptr
-            );
-            const void* initialNext = ILAMBDA(
-            {
-                if (lastSemaphore != vk::Semaphore(nullptr) && m_data->Swapchain->IsTimeline())
-                {
-                    ILRETURN (void*)&timelineSubmit;
-                }
-
-                ILRETURN (void*)nullptr;
-            });
-
             const uint32_t initialSemaphoreCount = ILAMBDA(
             {
                 if (lastSemaphore != vk::Semaphore(nullptr))
                 {
-                    ILRETURN (uint32_t)1;
+                    ILRETURN uint32_t(1);
                 }
 
-                ILRETURN (uint32_t)0;
+                ILRETURN uint32_t(0);
             });
             const vk::Semaphore* initialSemaphores = ILAMBDA(
             {
@@ -1417,17 +1371,18 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
                 ILRETURN (vk::Semaphore*)nullptr;
             });
 
+            const vk::CommandBuffer pStartCmd = VulkanProfiler::GetStartCommandBuffer(m_data->CurrentFrame);
+
             const vk::SubmitInfo initialSubmit = vk::SubmitInfo
             (
                 initialSemaphoreCount,
                 initialSemaphores,
                 &ChainFlags,
-                // Huh apparently this is valid and can chain semaphores without executing a command buffer
-                0,
-                nullptr,
+                1,
+                &pStartCmd,
                 chainSemaphoreCount,
                 chainSemaphores,
-                initialNext
+                nullptr
             );
             VKRESERRMSG(m_data->GraphicsQueue.submit(1, &initialSubmit, nullptr), "Failed to submit initial chain");
 
@@ -1522,14 +1477,15 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
 
             const vk::Semaphore swapSemaphore = m_data->Swapchain->GetEndSemaphore(m_data->CurrentFlightFrame);
             const vk::Fence swapFence = m_data->Swapchain->GetFence(m_data->CurrentFlightFrame);
+            const vk::CommandBuffer pEndCmd = VulkanProfiler::GetEndCommandBuffer(m_data->CurrentFrame);
 
             const vk::SubmitInfo submitInfo = vk::SubmitInfo
             (
                 chainSemaphoreCount,
                 waitSemaphores,
                 waitFlags,
-                0,
-                nullptr,
+                1,
+                &pEndCmd,
                 1,
                 &swapSemaphore
             );
@@ -1580,38 +1536,39 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     {
         PROFILESTACK("Allocators");
 
-        m_smallAllocator->TrimBlocks();
-        m_largeAllocator->TrimBlocks();
+        {
+            PROFILESTACK("Trim Main Allocator");
 
+            m_smallAllocator->TrimBlocks();
+            m_largeAllocator->TrimBlocks();
+        }
+
+
+        PROFILESTACK("Reset Scratch Allocators");
         // With the Scratch allocators can sometimes be used by scripting threads so need to wait on them to finish
         // I clear the TStatic because not all thread may need a scratch allocator and prefer hand them out as needed
         const ThreadGuard g = ThreadGuard(m_scratchLock);
 
         for (uint32_t i = 0; i < m_data->ScratchIndex; ++i)
         {
-            bool wait = false;
-
             while (true)
             {
-                if (wait)
                 {
-                    volatile int busy = 0;
+                    TLockArray<RenderScratchAllocator> a = m_data->ScratchAllocators.ToLockArray();
 
-                    while (busy++ < 16) { };
+                    if (a[i].Count <= 0)
+                    {
+                        a[i].Allocator->Reset();
+
+                        break;
+                    }
                 }
 
-                TLockArray<RenderScratchAllocator> a = m_data->ScratchAllocators.ToLockArray();
+                PROFILESTACK("Wait");
 
-                if (a[i].Count > 0)
-                {
-                    wait = true;
+                volatile int busy = 0;
 
-                    continue;
-                }
-
-                a[i].Allocator->Reset();
-
-                break;
+                while (busy++ < 16) { };
             }
         }
 
@@ -1637,7 +1594,7 @@ public:
         m_pool = a_pool;
         m_buffer = a_buffer;
     }
-    virtual ~VulkanCommandBufferDeletionObject() 
+    virtual ~VulkanCommandBufferDeletionObject()
     {
 
     }
@@ -1825,14 +1782,6 @@ uint64_t VulkanRenderEngineBackend::GetTotalDeviceMemory() const
     return total;
 }
 
-void VulkanRenderEngineBackend::DMASignal()
-{
-    IVERIFY(m_data != nullptr);
-    IVERIFY(m_data->Swapchain != nullptr);
-
-    m_data->Swapchain->DMASignal();
-}
-
 uint32_t VulkanRenderEngineBackend::GenerateMesh
 (
     const void* a_vertices,
@@ -1985,22 +1934,27 @@ void VulkanRenderEngineBackend::InternalPushDeletionObject(VulkanDeletionObject*
     m_data->DeletionObjects[m_data->DeletionQueueIndex].Push(a_object);
 }
 
+bool VulkanRenderEngineBackend::IsQueueTimingEnabled(e_VulkanCommandBufferType a_type) const
+{
+    return IISBITSET(m_data->QueueTimingFlags, a_type);
+}
+
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

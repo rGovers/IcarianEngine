@@ -35,6 +35,7 @@
 #include "Rendering/Vulkan/VulkanMesh.h"
 #include "Rendering/Vulkan/VulkanModel.h"
 #include "Rendering/Vulkan/VulkanPipeline.h"
+#include "Rendering/Vulkan/VulkanProfiler.h"
 #include "Rendering/Vulkan/VulkanPushPool.h"
 #include "Rendering/Vulkan/VulkanRenderCommand.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
@@ -185,33 +186,6 @@ VulkanGraphicsEngine::VulkanGraphicsEngine(VulkanRenderEngineBackend* a_vulkanEn
         };
 
         m_imageUIPipelineAddr = GenerateRenderProgram(imageProgram, scratchAllocator);
-    }
-
-    const uint32_t decodeIndex = m_vulkanEngine->GetVideoDecodeIndex();
-    if (decodeIndex != uint32_t(-1))
-    {
-        TRACE("Allocating video decode command pools");
-        const vk::CommandPoolCreateInfo poolInfo = vk::CommandPoolCreateInfo
-        (
-            vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
-            decodeIndex
-        );
-
-        const vk::Device device = m_vulkanEngine->GetLogicalDevice();
-
-        for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
-        {
-            VKRESERRMSG(device.createCommandPool(&poolInfo, nullptr, &m_decodePool[i]), "Failed to create video decode command pool");
-
-            const vk::CommandBufferAllocateInfo commandBufferInfo = vk::CommandBufferAllocateInfo
-            (
-                m_decodePool[i],
-                vk::CommandBufferLevel::ePrimary,
-                1
-            );
-
-            VKRESERRMSG(device.allocateCommandBuffers(&commandBufferInfo, &m_decodeBuffer[i]), "Failed to allocate video decode command buffer");
-        }
     }
 
     m_timeUniform = blockAllocator->Create<VulkanUniformBuffer>(m_vulkanEngine, sizeof(IcarianCore::ShaderTimeBuffer));
@@ -489,16 +463,20 @@ void VulkanGraphicsEngine::Cleanup()
 
     const RenderProgram textProgram = m_shaderPrograms[m_textUIPipelineAddr];
     IDEFER(
-    if (textProgram.VertexAttributes != nullptr)
     {
-        delete[] textProgram.VertexAttributes;
+        if (textProgram.VertexAttributes != nullptr)
+        {
+            delete[] textProgram.VertexAttributes;
+        }
     });
 
     const RenderProgram imageProgram = m_shaderPrograms[m_imageUIPipelineAddr];
     IDEFER(
-    if (imageProgram.VertexAttributes != nullptr)
     {
-        delete[] imageProgram.VertexAttributes;
+        if (imageProgram.VertexAttributes != nullptr)
+        {
+            delete[] imageProgram.VertexAttributes;
+        }
     });
 
     DestroyRenderProgram(m_textUIPipelineAddr);
@@ -516,15 +494,6 @@ void VulkanGraphicsEngine::Cleanup()
 
         m_commandPool[i]->Clear();
         m_commandBuffers[i]->Clear();
-    }
-
-    const uint32_t decodeIndex = m_vulkanEngine->GetVideoDecodeIndex();
-    if (decodeIndex != uint32_t(-1))
-    {
-        for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
-        {
-            device.destroyCommandPool(m_decodePool[i]);
-        }
     }
 
     TRACE("Deleting camera ubos");
@@ -1283,7 +1252,7 @@ VulkanPipeline* VulkanGraphicsEngine::GetComputeMeshPipeline(uint32_t a_pipeline
     Allocator* allocator = m_vulkanEngine->GetAllocator();
     VulkanPipeline* pipeline = allocator->TAllocate<VulkanPipeline>();
 
-    const VulkanGraphicsComputePipelineBuilder builder = 
+    const VulkanGraphicsComputePipelineBuilder builder =
     {
         .Engine = m_vulkanEngine,
         .GraphicsEngine = this,
@@ -2095,7 +2064,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
 
     Profiler::StartFrame("Update");
 
-    if (m_directionalLights.Size() == 0)
+    if (m_directionalLights.Empty())
     {
         Profiler::StopFrame();
 
@@ -2107,6 +2076,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
     IDEFER(commandBuffer.end());
     vCmdBuffer.SetCommandBuffer(commandBuffer);
+
+    VulkanProfiler::StartTimingPoint(vCmdBuffer, "Directional Shadow Pass");
 
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Directional Shadow Pass", 255, 0, 0);
 
@@ -2133,6 +2104,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
         PROFILESTACK("Shadow Setup");
 
         m_shadowSetupFunc->Exec(shadowSetupArgs);
+
+        VulkanProfiler::PushTimingPoint(vCmdBuffer, "Shadow Setup");
     }
 
     const uint32_t size = m_directionalLights.Size();
@@ -2172,6 +2145,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
                 PROFILESTACK("Pre Shadow");
 
                 m_preShadowFunc->Exec(shadowArgs);
+
+                VulkanProfiler::PushTimingPoint(vCmdBuffer, "Pre Shadow");
             }
 
             const uint32_t splitCount = lightData.GetSplitCount();
@@ -2219,10 +2194,14 @@ VulkanCommandBuffer VulkanGraphicsEngine::DirectionalShadowPass(uint32_t a_camIn
                 a_frameIndex
             );
 
+            VulkanProfiler::PushTimingPoint(vCmdBuffer, "Draw");
+
             {
                 PROFILESTACK("Post Shadow");
 
                 m_postShadowFunc->Exec(shadowArgs);
+
+                VulkanProfiler::PushTimingPoint(vCmdBuffer, "Post Shadow");
             }
         }
     }
@@ -2253,7 +2232,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
 
     Profiler::StartFrame("Update");
 
-    if (m_pointLights.Size() == 0)
+    if (m_pointLights.Empty())
     {
         Profiler::StopFrame();
 
@@ -2265,6 +2244,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
     IDEFER(commandBuffer.end());
     vCmdBuffer.SetCommandBuffer(commandBuffer);
+
+    VulkanProfiler::StartTimingPoint(vCmdBuffer, "Point Shadow Pass");
 
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Point Shadow Pass", 255, 0, 0);
 
@@ -2291,6 +2272,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
         PROFILESTACK("Shadow Setup");
 
         m_shadowSetupFunc->Exec(shadowSetupArgs);
+
+        VulkanProfiler::PushTimingPoint(vCmdBuffer, "Shadow Setup");
     }
 
     const uint32_t swapWidth = m_swapchain->GetWidth();
@@ -2394,6 +2377,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::PointShadowPass(uint32_t a_camIndex, u
         }
     }
 
+    VulkanProfiler::PushTimingPoint(vCmdBuffer, "Draw");
+
     renderCommand.Flush();
 
     Profiler::StopFrame();
@@ -2413,7 +2398,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, ui
 
     Profiler::StartFrame("Update");
 
-    if (m_spotLights.Size() == 0)
+    if (m_spotLights.Empty())
     {
         Profiler::StopFrame();
 
@@ -2425,6 +2410,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, ui
     const vk::CommandBuffer commandBuffer = StartCommandBuffer(a_bufferIndex, a_frameIndex);
     IDEFER(commandBuffer.end());
     vCmdBuffer.SetCommandBuffer(commandBuffer);
+
+    VulkanProfiler::StartTimingPoint(vCmdBuffer, "Spot Shadow Pass");
 
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Spot Shadow Pass", 255, 0, 0);
 
@@ -2443,6 +2430,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, ui
         PROFILESTACK("Shadow Setup");
 
         m_shadowSetupFunc->Exec(shadowSetupArgs);
+
+        VulkanProfiler::PushTimingPoint(vCmdBuffer, "Shadow Setup");
     }
 
     const uint32_t swapWidth = m_swapchain->GetWidth();
@@ -2500,6 +2489,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, ui
             PROFILESTACK("Pre Shadow");
 
             m_preShadowFunc->Exec(shadowArgs);
+
+            VulkanProfiler::PushTimingPoint(vCmdBuffer, "Pre Shadow");
         }
 
         const uint32_t lightRenderTexture = lightBuffer->LightRenderTextures[0];
@@ -2536,10 +2527,14 @@ VulkanCommandBuffer VulkanGraphicsEngine::SpotShadowPass(uint32_t a_camIndex, ui
 
         DrawShadow(splits[0].LVP, buffer.Radius, buffer.ShadowBias, buffer.RenderLayer, lightRenderTexture, false, commandBuffer, a_frameIndex);
 
+        VulkanProfiler::PushTimingPoint(vCmdBuffer, "Draw");
+
         {
             PROFILESTACK("Post Shadow");
 
             m_postShadowFunc->Exec(shadowArgs);
+
+            VulkanProfiler::PushTimingPoint(vCmdBuffer, "Post Shadow");
         }
     }
 
@@ -2563,6 +2558,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t
     IDEFER(commandBuffer.end());
     const VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_Graphics, VulkanCommandBufferStage_DeferredPass);
 
+    VulkanProfiler::StartTimingPoint(vCmdBuffer, "Draw Pass");
+
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Draw Pass", 0, 255, 0);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand(m_vulkanEngine, this, m_swapchain, commandBuffer, a_camIndex, a_bufferIndex));
@@ -2576,6 +2573,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t
         PROFILESTACK("Pre Render");
 
         m_preRenderFunc->Exec(camArgs);
+
+        VulkanProfiler::PushTimingPoint(vCmdBuffer, "Pre Render");
     }
 
     const VulkanRenderTexture* renderTexture = renderCommand.GetRenderTexture();
@@ -2603,10 +2602,14 @@ VulkanCommandBuffer VulkanGraphicsEngine::DrawPass(uint32_t a_camIndex, uint32_t
 
     Draw(false, camBuffer, frustum, &renderCommand, a_frameIndex);
 
+    VulkanProfiler::PushTimingPoint(vCmdBuffer, "Draw");
+
     {
         PROFILESTACK("Post Render");
 
         m_postRenderFunc->Exec(camArgs);
+
+        VulkanProfiler::PushTimingPoint(vCmdBuffer, "Post Render");
     }
 
     renderCommand.Flush();
@@ -2634,6 +2637,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
     IDEFER(commandBuffer.end());
     const VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_Graphics, VulkanCommandBufferStage_LightingPass);
 
+    VulkanProfiler::StartTimingPoint(vCmdBuffer, "Light Pass");
+
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Light Pass", 0, 0, 255);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand
@@ -2656,6 +2661,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         PROFILESTACK("Light Setup");
 
         m_lightSetupFunc->Exec(lightSetupArgs);
+
+        VulkanProfiler::PushTimingPoint(vCmdBuffer, "Light Setup");
     }
 
     const VulkanRenderTexture* renderTexture = renderCommand.GetRenderTexture();
@@ -2686,7 +2693,7 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
         {
         case LightType_Directional:
         {
-            PROFILESTACK("S Dir Light");
+            PROFILESTACK("Shadow Directional Light");
 
             RENDERSCRATCHFRAME;
 
@@ -2777,11 +2784,13 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                 commandBuffer.draw(4, 1, 0, 0);
             }
 
+            VulkanProfiler::PushTimingPoint(vCmdBuffer, "Shadow Directional Light");
+
             break;
         }
         case LightType_Point:
         {
-            PROFILESTACK("S Point Light");
+            PROFILESTACK("Shadow Point Light");
 
             RENDERSCRATCHFRAME;
 
@@ -2897,11 +2906,13 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                 commandBuffer.draw(4, 1, 0, 0);
             }
 
+            VulkanProfiler::PushTimingPoint(vCmdBuffer, "Shadow Point Light");
+
             break;
         }
         case LightType_Spot:
         {
-            PROFILESTACK("S Spot Light");
+            PROFILESTACK("Shadow Spot Light");
 
             RENDERSCRATCHFRAME;
 
@@ -3039,6 +3050,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                 commandBuffer.draw(4, 1, 0, 0);
             }
 
+            VulkanProfiler::PushTimingPoint(vCmdBuffer, "Shadow Spot Light");
+
             break;
         }
         default:
@@ -3155,11 +3168,13 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                 }
             }
 
+            VulkanProfiler::PushTimingPoint(vCmdBuffer, "Ambient Light");
+
             break;
         }
         case LightType_Directional:
         {
-            PROFILESTACK("Dir Light");
+            PROFILESTACK("Directional Light");
 
             RENDERSCRATCHFRAME;
 
@@ -3269,6 +3284,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                     renderCommand.DrawMaterial(scratchAllocator);
                 }
             }
+
+            VulkanProfiler::PushTimingPoint(vCmdBuffer, "Directional Light");
 
             break;
         }
@@ -3397,6 +3414,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                 }
             }
 
+            VulkanProfiler::PushTimingPoint(vCmdBuffer, "Point Light");
+
             break;
         }
         case LightType_Spot:
@@ -3458,9 +3477,9 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
 
                     data->PushUniformBuffer
                     (
-                        commandBuffer, 
-                        spotLightInput.RealSlot, 
-                        uniformBuffer, 
+                        commandBuffer,
+                        spotLightInput.RealSlot,
+                        uniformBuffer,
                         a_frameIndex
                     );
 
@@ -3534,6 +3553,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::LightPass(uint32_t a_camIndex, uint32_
                 }
             }
 
+            VulkanProfiler::PushTimingPoint(vCmdBuffer, "Spot Light");
+
             break;
         }
         default:
@@ -3570,6 +3591,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint3
     IDEFER(commandBuffer.end());
     const VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_Graphics, VulkanCommandBufferStage_ForwardPass);
 
+    VulkanProfiler::StartTimingPoint(vCmdBuffer, "Forward Pass");
+
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Forward Pass", 0, 255, 255);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand
@@ -3592,6 +3615,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint3
 
         IVERIFY(m_preForwardFunc != nullptr);
         m_preForwardFunc->Exec(camArgs);
+
+        VulkanProfiler::PushTimingPoint(vCmdBuffer, "Pre Forward");
     }
 
     uint32_t screenWidth = m_swapchain->GetWidth();
@@ -3607,6 +3632,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint3
     const Frustum frustum = camBuffer.ToFrustum(glm::vec2(screenWidth, screenHeight));
 
     Draw(true, camBuffer, frustum, &renderCommand, a_frameIndex);
+
+    VulkanProfiler::PushTimingPoint(vCmdBuffer, "Draw");
 
     {
         PROFILESTACK("Particles");
@@ -3632,6 +3659,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint3
                 scratchAllocator
             );
         }
+
+        VulkanProfiler::PushTimingPoint(vCmdBuffer, "Particles");
     }
 
     {
@@ -3639,6 +3668,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::ForwardPass(uint32_t a_camIndex, uint3
 
         IVERIFY(m_postForwardFunc != nullptr);
         m_postForwardFunc->Exec(camArgs);
+
+        VulkanProfiler::PushTimingPoint(vCmdBuffer, "Post Forward");
     }
 
     renderCommand.Flush();
@@ -3658,6 +3689,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t
     IDEFER(commandBuffer.end());
     const VulkanCommandBuffer vCmdBuffer = VulkanCommandBuffer(commandBuffer, VulkanCommandBufferType_Graphics, VulkanCommandBufferStage_PostPass);
 
+    VulkanProfiler::StartTimingPoint(vCmdBuffer, "Post Pass");
+
     VULKAN_MARKER_COL(m_vulkanEngine, commandBuffer, "Post Pass", 255, 255, 0);
 
     VulkanRenderCommand& renderCommand = m_renderCommands.Push(VulkanRenderCommand
@@ -3676,6 +3709,8 @@ VulkanCommandBuffer VulkanGraphicsEngine::PostPass(uint32_t a_camIndex, uint32_t
     };
 
     m_postProcessFunc->Exec(camArgs);
+
+    VulkanProfiler::PushTimingPoint(vCmdBuffer, "Post Processing");
 
     renderCommand.Flush();
 

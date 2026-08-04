@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Physics/PhysicsEngine.h"
@@ -310,7 +310,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
     }
 
     {
-        PROFILESTACK("Physics Sim");
+        PROFILESTACK("Physics Simulation");
 
         m_data->FixedTimeTimer += a_delta;
 
@@ -325,13 +325,17 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
             m_data->FixedTimeTimer -= m_data->FixedTimeStep;
             m_data->FixedTimePassed += m_data->FixedTimeStep;
 
-            void* args[] =
             {
-                &m_data->FixedTimeStep,
-                &m_data->FixedTimePassed
-            };
+                PROFILESTACK("Fixed Update");
 
-            m_data->FixedUpdateFunction->Exec(args);
+                void* args[] =
+                {
+                    &m_data->FixedTimeStep,
+                    &m_data->FixedTimePassed
+                };
+
+                m_data->FixedUpdateFunction->Exec(args);
+            }
 
             const JPH::Vec3 gravity = m_data->PhysicsSystem->GetGravity();
 
@@ -341,9 +345,11 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
             const Array<JPH::CharacterVirtual*> characters = m_data->Characters.ToActiveArray(Alloc);
             for (JPH::CharacterVirtual* c : characters)
             {
+                PROFILESTACK("Character Update");
+
                 const JPH::Vec3 up = c->GetUp();
 
-                const JPH::CharacterVirtual::ExtendedUpdateSettings updateSettings = 
+                const JPH::CharacterVirtual::ExtendedUpdateSettings updateSettings =
                 {
                     .mStickToFloorStepDown = -up * 0.2f,
                     .mWalkStairsStepUp = up * 0.2f
@@ -362,6 +368,8 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
                 );
             }
 
+            PROFILESTACK("Physics Step");
+
             m_data->PhysicsSystem->Update(timeStep, steps, m_data->TempAllocator, m_data->JobSystem);
         }
     }
@@ -376,7 +384,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
             const SharedThreadGuard g = SharedThreadGuard(m_bodyMapLock);
 
             // Should not need but doing just incase for good practice as it multithreaded app
-            // FFS something in WIN32 means that I can no longer call this interface without a compiler error bodyInterface it is 
+            // FFS something in WIN32 means that I can no longer call this interface without a compiler error bodyInterface it is
             const JPH::BodyLockInterfaceLocking& bodyinterface = m_data->PhysicsSystem->GetBodyLockInterface();
 
             // Need to sync the physics transform to the transform
@@ -454,19 +462,19 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

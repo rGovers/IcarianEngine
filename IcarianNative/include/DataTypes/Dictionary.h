@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -40,14 +40,14 @@ private:
 
     void DestroyKeyValue(KeyValueData* a_pair)
     {
-        if constexpr (!std::is_trivially_destructible<TValue>()) 
+        if constexpr (!std::is_trivially_destructible<TValue>())
         {
             TValue* dat = &a_pair->Value;
 
             dat->~TValue();
         }
 
-        if constexpr (!std::is_trivially_destructible<TKey>()) 
+        if constexpr (!std::is_trivially_destructible<TKey>())
         {
             TKey* dat = &a_pair->Key;
 
@@ -113,14 +113,18 @@ private:
 
         const uint64_t hash = Hasher::Hash(a_key);
         const uint32_t index = hash % m_size;
-        Bucket& b = m_buckets[index];
+        const Bucket& b = m_buckets[index];
 
         for (uint32_t i = 0; i < b.Size; ++i)
         {
             const KeyValueData& data = b.Values[i];
-            if (data.Hash != hash)
+
+            if constexpr (!std::is_trivial<TKey>())
             {
-                continue;
+                if (data.Hash != hash)
+                {
+                    continue;
+                }
             }
 
             if (data.Key != a_key)
@@ -292,22 +296,43 @@ public:
 
         return bucket != uint32_t(-1) && index != uint32_t(-1);
     }
+    bool GetIfExists(const TKey& a_key, TValue* a_value) const
+    {
+        IVERIFY(a_value != nullptr);
+
+        if (m_size <= 0)
+        {
+            return false;
+        }
+
+        uint32_t bucket;
+        uint32_t index;
+        GetIndex(a_key, &bucket, &index);
+        if (bucket == uint32_t(-1) || index == uint32_t(-1))
+        {
+            return false;
+        }
+
+        *a_value = m_buckets[bucket].Values[index].Value;
+
+        return true;
+    }
 
     void Push(const TKey& a_key, const TValue& a_value)
     {
         IVERIFY(!Exists(a_key));
 
-        const uint64_t hash = Hasher::Hash(a_key);
         if (m_size <= 0)
         {
             GrowHashTable(1);
         }
 
+        const uint64_t hash = Hasher::Hash(a_key);
         uint32_t index = hash % m_size;
         Bucket oldBucket = m_buckets[index];
         if (oldBucket.Size >= GrowthSize)
         {
-            GrowHashTable((m_size << 1));
+            GrowHashTable(m_size << 1);
 
             index = hash % m_size;
             oldBucket = m_buckets[index];
@@ -409,19 +434,19 @@ public:
 };
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

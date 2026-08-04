@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "GamePad.h"
@@ -11,6 +11,8 @@
 #include <linux/joystick.h>
 #include <unistd.h>
 #endif
+
+#include "Core/Bitfield.h"
 
 GamePad::GamePad()
 {
@@ -167,7 +169,7 @@ GamePad* GamePad::GetGamePad(uint32_t a_index)
     const std::string path = "/dev/input/js" + std::to_string(a_index);
 
     const int fd = open(path.c_str(), O_RDONLY | O_NONBLOCK);
-    
+
     if (fd != -1)
     {
         GamePad* gamePad = new GamePad();
@@ -288,68 +290,51 @@ void GamePad::Update()
         case JS_EVENT_BUTTON:
         {
             const e_GamePadButton button = GetButtonMap(event.number);
-
-            if (button < GamePadButton_Last)
+            if (button >= GamePadButton_Last)
             {
-                if (event.value)
-                {
-                    m_buttonState |= 0b1 << button;
-                }
-                else
-                {
-                    m_buttonState &= ~(0b1 << button);
-                }
+                break;
             }
+
+            ITOGGLEBIT(event.value, m_buttonState, button);
 
             break;
         }
         case JS_EVENT_AXIS:
         {
             const e_GamePadAxis axis = GetAxisVal(event.number);
+            if (axis >= GamePadAxis_Last)
+            {
+                break;
+            }
+
             const uint32_t index = GetAxisIndex(event.number);
 
-            if (axis < GamePadAxis_Last)
+            m_axes[axis][index] = event.value / (float)INT16_MAX;
+
+            switch (axis)
             {
-                m_axes[axis][index] = event.value / (float)INT16_MAX;
+            case GamePadAxis_LeftTrigger:
+            case GamePadAxis_RightTrigger:
+            {
+                const float val = (m_axes[axis][index] * 0.5f) + 0.5f;
 
-                if (axis == GamePadAxis_DPad)
-                {
-                    if (m_axes[axis][0] < -DPadThreshold)
-                    {
-                        m_buttonState |= 0b1 << GamePadButton_DPadLeft;
-                    }
-                    else
-                    {
-                        m_buttonState &= ~(0b1 << GamePadButton_DPadLeft);
-                    }
+                m_axes[axis] = glm::vec2(val);
 
-                    if (m_axes[axis][0] > DPadThreshold)
-                    {
-                        m_buttonState |= 0b1 << GamePadButton_DPadRight;
-                    }
-                    else
-                    {
-                        m_buttonState &= ~(0b1 << GamePadButton_DPadRight);
-                    }
+                break;
+            }
+            case GamePadAxis_DPad:
+            {
+                ITOGGLEBIT(m_axes[axis][0] < -DPadThreshold, m_buttonState, GamePadButton_DPadLeft);
+                ITOGGLEBIT(m_axes[axis][0] > DPadThreshold, m_buttonState, GamePadButton_DPadRight);
+                ITOGGLEBIT(m_axes[axis][1] > DPadThreshold, m_buttonState, GamePadButton_DPadUp);
+                ITOGGLEBIT(m_axes[axis][1] < -DPadThreshold, m_buttonState, GamePadButton_DPadDown);
 
-                    if (m_axes[axis][1] > DPadThreshold)
-                    {
-                        m_buttonState |= 0b1 << GamePadButton_DPadUp;
-                    }
-                    else
-                    {
-                        m_buttonState &= ~(0b1 << GamePadButton_DPadUp);
-                    }
-
-                    if (m_axes[axis][1] < -DPadThreshold)
-                    {
-                        m_buttonState |= 0b1 << GamePadButton_DPadDown;
-                    }
-                    else
-                    {
-                        m_buttonState &= ~(0b1 << GamePadButton_DPadDown);
-                    }
-                }
+                break;
+            }
+            default:
+            {
+                break;
+            }
             }
 
             break;
@@ -365,19 +350,19 @@ void GamePad::Update()
 }
 
 // MIT License
-// 
-// Copyright (c) 2024 River Govers
-// 
+//
+// Copyright (c) 2026 River Govers
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

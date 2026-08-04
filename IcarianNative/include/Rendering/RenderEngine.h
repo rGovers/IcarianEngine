@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -36,7 +36,7 @@ private:
 
     // TODO: Probably need to tune this number
     static constexpr double SleepMillisecondBuffer = 0.1;
-    static constexpr uint32_t PastDeltaCount = 10;
+    static constexpr uint32_t PastDeltaCount = 30;
     static constexpr float MinFrameTime = 1 / 500.0f;
     static constexpr float MaxFrameTime = 1 / 50.0f;
     static constexpr float RemoteFrameTime = 1 / 60.0f;
@@ -84,8 +84,6 @@ public:
 
     uint64_t GetUsedDeviceMemory() const;
     uint64_t GetTotalDeviceMemory() const;
-
-    void DMASignal();
 
     [[nodiscard]] uint32_t GenerateMesh
     (
@@ -140,19 +138,19 @@ public:
 };
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

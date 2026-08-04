@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "AppWindow/GLFWAppWindow.h"
@@ -122,15 +122,15 @@ static constexpr int GLFWKeyTable[] =
     GLFW_KEY_RIGHT_ALT,
     GLFW_KEY_RIGHT_SUPER,
 
-    GLFW_KEY_F1, 
-    GLFW_KEY_F2, 
-    GLFW_KEY_F3, 
-    GLFW_KEY_F4, 
-    GLFW_KEY_F5, 
-    GLFW_KEY_F6, 
-    GLFW_KEY_F7, 
-    GLFW_KEY_F8, 
-    GLFW_KEY_F9, 
+    GLFW_KEY_F1,
+    GLFW_KEY_F2,
+    GLFW_KEY_F3,
+    GLFW_KEY_F4,
+    GLFW_KEY_F5,
+    GLFW_KEY_F6,
+    GLFW_KEY_F7,
+    GLFW_KEY_F8,
+    GLFW_KEY_F9,
     GLFW_KEY_F10,
     GLFW_KEY_F11,
     GLFW_KEY_F12,
@@ -166,7 +166,9 @@ GLFWAppWindow::GLFWAppWindow(Application* a_app, Config* a_config) : AppWindow(a
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-    m_window = glfwCreateWindow(1280, 720, a_config->GetApplicationName().data(), NULL, NULL);
+
+    const COWU8String appName = a_config->GetApplicationName();
+    m_window = glfwCreateWindow(1280, 720, appName.CStr(), NULL, NULL);
 
     glfwSetWindowSizeLimits(m_window, 640, 480, GLFW_DONT_CARE, GLFW_DONT_CARE);
 
@@ -206,7 +208,7 @@ double GLFWAppWindow::GetTime() const
 
 void GLFWAppWindow::SetCursorState(e_CursorState a_state)
 {
-    switch (a_state) 
+    switch (a_state)
     {
     case CursorState_Normal:
     {
@@ -309,7 +311,7 @@ void GLFWAppWindow::Update()
                 leftDown = false;
             }
         }
-        else 
+        else
         {
             UIControl::SubmitRelease((glm::vec2)cPos, (glm::vec2)winSize);
         }
@@ -327,11 +329,11 @@ void GLFWAppWindow::Update()
         {
             if (inputManager->IsKeyDown(KeyCode_F4))
             {
-                // Alt+F4 is unreliable under XWayland 
+                // Alt+F4 is unreliable under XWayland
                 m_shouldClose = true;
             }
         }
-    }  
+    }
 }
 
 uint32_t GLFWAppWindow::GetWidth() const
@@ -401,7 +403,7 @@ AppMonitor* GLFWAppWindow::GetMonitors(int* a_count) const
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-vk::SurfaceKHR GLFWAppWindow::GetSurface(const vk::Instance& a_instance) 
+vk::SurfaceKHR GLFWAppWindow::GetSurface(const vk::Instance& a_instance)
 {
     if (m_surface == vk::SurfaceKHR(nullptr))
     {
@@ -423,19 +425,19 @@ Array<const char*> GLFWAppWindow::GetRequiredVulkanExtenions() const
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

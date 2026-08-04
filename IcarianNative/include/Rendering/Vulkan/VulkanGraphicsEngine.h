@@ -161,9 +161,6 @@ private:
 
     VulkanUniformBuffer*                    m_timeUniform;
 
-    vk::CommandPool                         m_decodePool[VulkanFlightPoolSize];
-    vk::CommandBuffer                       m_decodeBuffer[VulkanFlightPoolSize];
-
     Array<vk::CommandPool>*                 m_commandPool[VulkanFlightPoolSize];
     Array<vk::CommandBuffer>*               m_commandBuffers[VulkanFlightPoolSize];
 
@@ -288,7 +285,7 @@ public:
     [[nodiscard]] uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);
     [[nodiscard]] uint32_t GenerateMipMappedTexture
     (
-        uint32_t a_width, 
+        uint32_t a_width,
         uint32_t a_height,
         uint32_t a_levels,
         const uint64_t* a_offsets,

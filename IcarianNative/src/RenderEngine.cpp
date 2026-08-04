@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Rendering/RenderEngine.h"
@@ -18,6 +18,7 @@
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
+#include "glm/common.hpp"
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
@@ -100,7 +101,7 @@ void RenderEngine::Stop()
 
     TRACE("Stopping Render Thread");
     m_shutdown = true;
-    while (!m_join) 
+    while (!m_join)
     {
         std::this_thread::yield();
     }
@@ -167,9 +168,14 @@ void RenderEngine::Run()
 
                         const double diff = max - min;
                         // Sit just below the max frame time as we want to keep frametimes stable
-                        const double target = max - diff * 0.1f;
+                        const double target = max - diff * 0.1;
+                        const double change = (target - targetFrameTime) * 0.5;
+                        const double changeAbs = glm::abs(change);
+                        const double changeSign = glm::sign(change);
 
-                        targetFrameTime += glm::min((target - targetFrameTime) * 0.5f, (double)MaxFrameTimeAdjustment);
+                        const double maxChange = glm::min(changeAbs, (double)MaxFrameTimeAdjustment);
+
+                        targetFrameTime += maxChange * changeSign;
                         targetFrameTime = glm::min(targetFrameTime, (double)MaxFrameTime);
                     }
 
@@ -183,9 +189,9 @@ void RenderEngine::Run()
                         }
                     }
 
-                    // Above 500 FPS frame times get to variable so unless the user disables the cap just cap it
+                    // Above 500 FPS frame times get too variable so unless the user disables the cap just cap it
                     // Also no reason to waste system resources at this point
-                    if (m_config->IsFPSUnlocked())
+                    if (!m_config->IsFPSUnlocked())
                     {
                         targetFrameTime = glm::max(targetFrameTime, (double)MinFrameTime);
                     }
@@ -220,11 +226,15 @@ void RenderEngine::Run()
                         const double sleepTime = targetFrameTime - delta - (SleepMillisecondBuffer / 1000.0);
                         if (sleepTime > 0.0)
                         {
+                            PROFILESTACK("Sleep");
+
                             const std::chrono::duration<double> time = std::chrono::duration<double>(sleepTime);
                             std::this_thread::sleep_for(time);
                         }
                         else
                         {
+                            PROFILESTACK("Busy Wait");
+
                             // Timers are not infinite resolution so just wait in place for a bit
                             // There is a small quirk on some but not all POSIX platforms that if you infinite poll with no gap between polls it will never update
                             // We do this because sometimes timers can be implemented as a poll to a hardware timer
@@ -296,11 +306,6 @@ uint64_t RenderEngine::GetUsedDeviceMemory() const
 uint64_t RenderEngine::GetTotalDeviceMemory() const
 {
     return m_backend->GetTotalDeviceMemory();
-}
-
-void RenderEngine::DMASignal()
-{
-    m_backend->DMASignal();
 }
 
 uint32_t RenderEngine::GenerateMesh
@@ -397,19 +402,19 @@ Font* RenderEngine::GetFont(uint32_t a_addr) const
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

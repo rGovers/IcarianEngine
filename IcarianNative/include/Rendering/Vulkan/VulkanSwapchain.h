@@ -1,14 +1,16 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#define GLM_FORCE_SWIZZLE 
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
+#include "Core/Bitfield.h"
+#include "Core/DMASwapBuffer.h"
 #include "DataTypes/Array.h"
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
@@ -49,6 +51,8 @@ class VulkanSwapchain
 private:
     constexpr static bool ForceHeadless = false;
 
+    constexpr static char DMAName[] = "IcarianEditor-DMA";
+
     constexpr static uint32_t VSyncBit = 0;
     constexpr static uint32_t DMABit = 1;
 
@@ -60,43 +64,45 @@ private:
         SwapchainMode_HeadlessDMA
     };
 
-    Allocator*                  m_allocator;
+    Allocator*                             m_allocator;
 
-    AppWindow*                  m_window;
-    VulkanRenderEngineBackend*  m_engine;
+    AppWindow*                             m_window;
+    VulkanRenderEngineBackend*             m_engine;
 
-    RuntimeFunction*            m_resizeFunc;
+    RuntimeFunction*                       m_resizeFunc;
 
-    VulkanSwapchainImage*       m_images;
+    VulkanSwapchainImage*                  m_images;
 
-    vk::Semaphore               m_startSemaphores[VulkanMaxFlightFrames];
-    vk::Semaphore               m_endSemaphores[VulkanMaxFlightFrames];
-    vk::Fence                   m_fences[VulkanMaxFlightFrames];
+    vk::Semaphore                          m_startSemaphores[VulkanMaxFlightFrames];
+    vk::Semaphore                          m_endSemaphores[VulkanMaxFlightFrames];
+    vk::Fence                              m_fences[VulkanMaxFlightFrames];
 
 #ifdef ICARIANNATIVE_ENABLE_DMA
-    VmaPool                     m_pool;
+    VmaPool                                m_pool;
     // Needs to remain valid for the pool hence in the Swapchain
-    VkExportMemoryAllocateInfo  m_exportInfo;
+    VkExportMemoryAllocateInfo             m_exportInfo;
 
-    uint64_t                    m_mainTimelineVal;
-    uint64_t                    m_renderTimelineVal;
-    uint32_t                    m_signalIndex;
+    volatile IcarianCore::DMAMemoryBuffer* m_dmaBuffer;
+    uint64_t                               m_timelineVal;
+
+    uint32_t                               m_ipcID;
 #endif
-    vk::Buffer                  m_buffer;
-    VmaAllocation               m_allocBuffer;
 
-    vk::SwapchainKHR            m_swapchain;
-    vk::RenderPass              m_renderPass;
-    vk::RenderPass              m_renderPassNoClear;
+    vk::Buffer                             m_buffer;
+    VmaAllocation                          m_allocBuffer;
 
-    uint32_t                    m_width;
-    uint32_t                    m_height;
-    uint32_t                    m_imageCount;
+    vk::SwapchainKHR                       m_swapchain;
+    vk::RenderPass                         m_renderPass;
+    vk::RenderPass                         m_renderPassNoClear;
 
-    e_SwapchainMode             m_mode;
+    uint32_t                               m_width;
+    uint32_t                               m_height;
+    uint32_t                               m_imageCount;
 
-    uint8_t                     m_init;
-    uint8_t                     m_flags;
+    e_SwapchainMode                        m_mode;
+
+    uint8_t                                m_init;
+    uint8_t                                m_flags;
 
     void Init(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator);
     void InitHeadless(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator);
@@ -147,13 +153,9 @@ public:
         return m_endSemaphores[a_index];
     }
 
-    inline bool IsTimeline() const
+    inline bool IsDMAEnabled()
     {
-        return m_mode == SwapchainMode_HeadlessDMA;
-    }
-    inline uint64_t GetTimelineValue() const
-    {
-        return m_renderTimelineVal;
+        return IISBITSET(m_flags, DMABit) && m_dmaBuffer != nullptr;
     }
 
     vk::Framebuffer GetFramebuffer(uint32_t a_index) const;
@@ -165,8 +167,6 @@ public:
     vk::Image GetTexture() const;
     vk::ImageLayout GetImageLayout() const;
 
-    void DMASignal();
-
     bool StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaphore, double a_delta, double a_time, Allocator* a_tempAllocator);
     void EndFrame(uint32_t a_imageIndex);
 };
@@ -174,19 +174,19 @@ public:
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

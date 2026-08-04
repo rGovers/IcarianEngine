@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -16,6 +16,14 @@
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
+
+#ifdef ICARIANNATIVE_ENABLE_DMA
+#ifndef WIN32
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
+#endif
 
 static vk::SurfaceFormatKHR GetSurfaceFormatFromFormats(const Array<vk::SurfaceFormatKHR>& a_formats)
 {
@@ -494,9 +502,7 @@ void VulkanSwapchain::InitHeadlessDMA(uint32_t a_width, uint32_t a_height, Alloc
 
     m_init = 0;
 
-    m_signalIndex = 0;
-    m_mainTimelineVal = 1;
-    m_renderTimelineVal = 1;
+    m_timelineVal = 0;
 
     m_width = a_width;
     m_height = a_height;
@@ -506,23 +512,25 @@ void VulkanSwapchain::InitHeadlessDMA(uint32_t a_width, uint32_t a_height, Alloc
 
     device.waitIdle();
 
-    constexpr vk::SemaphoreTypeCreateInfo TimelineCreateInfo = vk::SemaphoreTypeCreateInfo
-    (
-        vk::SemaphoreType::eTimeline,
-        0
-    );
-    const vk::SemaphoreCreateInfo startSemaphoreInfo = vk::SemaphoreCreateInfo
-    (
-        { },
-        &TimelineCreateInfo
-    );
+    // constexpr vk::SemaphoreTypeCreateInfo TimelineCreateInfo = vk::SemaphoreTypeCreateInfo
+    // (
+    //     vk::SemaphoreType::eTimeline,
+    //     0
+    // );
+    // const vk::SemaphoreCreateInfo startSemaphoreInfo = vk::SemaphoreCreateInfo
+    // (
+    //     { },
+    //     &TimelineCreateInfo
+    // );
 
-    const vk::SemaphoreCreateInfo endSemaphoreInfo = vk::SemaphoreCreateInfo();
+    // const vk::SemaphoreCreateInfo endSemaphoreInfo = vk::SemaphoreCreateInfo();
+
+    constexpr vk::SemaphoreCreateInfo SemaphoreInfo = vk::SemaphoreCreateInfo();
 
     for (uint32_t i = 0; i < VulkanMaxFlightFrames; ++i)
     {
-        VKRESERRMSG(device.createSemaphore(&startSemaphoreInfo, nullptr, &m_startSemaphores[i]), "Failed to create semaphore");
-        VKRESERRMSG(device.createSemaphore(&endSemaphoreInfo, nullptr, &m_endSemaphores[i]), "Failed to create semaphore");
+        VKRESERRMSG(device.createSemaphore(&SemaphoreInfo, nullptr, &m_startSemaphores[i]), "Failed to create semaphore");
+        VKRESERRMSG(device.createSemaphore(&SemaphoreInfo, nullptr, &m_endSemaphores[i]), "Failed to create semaphore");
     }
 
     const vk::SurfaceFormatKHR surfaceFormat = GetSurfaceFormat(a_tempAllocator);
@@ -668,7 +676,7 @@ void VulkanSwapchain::InitHeadlessDMA(uint32_t a_width, uint32_t a_height, Alloc
         HANDLE handle = device.getMemoryWin32HandleKHR(handleInfo);
         IVERIFY(handle != INVALID_HANDLE_VALUE);
 
-        const DMASwapBufferHandle swapBuffer =
+        const IcarianCore::DMASwapBufferHandle swapBuffer =
         {
             .Width = m_width,
             .Height = m_height,
@@ -688,7 +696,7 @@ void VulkanSwapchain::InitHeadlessDMA(uint32_t a_width, uint32_t a_height, Alloc
         int fd = device.getMemoryFdKHR(fdInfo);
         IVERIFY(fd >= 0);
 
-        const DMASwapBufferFD swapBuffer =
+        const IcarianCore::DMASwapBufferFD swapBuffer =
         {
             .Width = m_width,
             .Height = m_height,
@@ -882,9 +890,32 @@ VulkanSwapchain::VulkanSwapchain
 
     m_resizeFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering", "RenderPipeline", ":ResizeS(uint,uint)");
 
-    const vk::Device device = m_engine->GetLogicalDevice(); 
+    const vk::Device device = m_engine->GetLogicalDevice();
 
 #ifdef ICARIANNATIVE_ENABLE_DMA
+    m_dmaBuffer = nullptr;
+
+    m_ipcID = a_config->GetIPCID();
+
+    if (allowDMA)
+    {
+#ifndef WIN32
+        const COWU8String dmaAddr = DMAName + COWU8String::FromValue(m_ipcID, 10, a_tempAllocator);
+        const int dmaFd = shm_open(dmaAddr.CStr(), O_RDWR, 0);
+        if (dmaFd >= 0)
+        {
+            IDEFER(close(dmaFd));
+
+            m_dmaBuffer = (IcarianCore::DMAMemoryBuffer*)mmap(NULL, sizeof(IcarianCore::DMAMemoryBuffer), PROT_READ | PROT_WRITE, MAP_SHARED, dmaFd, 0);
+            if (m_dmaBuffer == MAP_FAILED || m_dmaBuffer == NULL)
+            {
+                shm_unlink(dmaAddr.CStr());
+                m_dmaBuffer = nullptr;
+            }
+        }
+#endif
+    }
+
     const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
     // Want to make sure it hits one of the bigger pools?
@@ -942,7 +973,7 @@ VulkanSwapchain::VulkanSwapchain
         }),
     };
 
-    const VmaPoolCreateInfo poolCreateInfo = 
+    const VmaPoolCreateInfo poolCreateInfo =
     {
         .memoryTypeIndex = memIndex,
         .pMemoryAllocateNext = &m_exportInfo,
@@ -976,16 +1007,28 @@ VulkanSwapchain::~VulkanSwapchain()
 #ifdef ICARIANNATIVE_ENABLE_DMA
     const VmaAllocator allocator = m_engine->GetVMAAllocator();
 
+    if (m_dmaBuffer != nullptr)
+    {
+        const COWU8String addrStr = DMAName + COWU8String::FromValue(m_ipcID, 10, m_allocator);
+        shm_unlink(addrStr.CStr());
+    }
+
     vmaDestroyPool(allocator, m_pool);
 #endif
 }
 
-SwapChainSupportInfo VulkanSwapchain::QuerySwapChainSupport(const vk::PhysicalDevice& a_device, const vk::SurfaceKHR& a_surface, Allocator* a_allocator, Allocator* a_tempAllocator)
+SwapChainSupportInfo VulkanSwapchain::QuerySwapChainSupport
+(
+    const vk::PhysicalDevice& a_device,
+    const vk::SurfaceKHR& a_surface,
+    Allocator* a_allocator,
+    Allocator* a_tempAllocator
+)
 {
     vk::SurfaceCapabilitiesKHR capabilites;
     VKRESERR(a_device.getSurfaceCapabilitiesKHR(a_surface, &capabilites));
 
-    const SwapChainSupportInfo info = 
+    const SwapChainSupportInfo info =
     {
         .Capabilites = capabilites,
         .Formats = ILAMBDA(
@@ -1101,28 +1144,6 @@ vk::ImageLayout VulkanSwapchain::GetImageLayout() const
     return vk::ImageLayout();
 }
 
-void VulkanSwapchain::DMASignal()
-{
-#ifdef ICARIANNATIVE_ENABLE_DMA
-    const vk::Device device = m_engine->GetLogicalDevice();
-
-    const vk::SemaphoreSignalInfo info = vk::SemaphoreSignalInfo
-    (
-        m_startSemaphores[m_signalIndex],
-        m_mainTimelineVal
-    );
-    device.signalSemaphore(info);
-
-    m_signalIndex = (m_signalIndex + 1) % VulkanMaxFlightFrames;
-    if (m_signalIndex == 0)
-    {
-        ++m_mainTimelineVal;
-    }
-#else
-    IERROR("DMA signal with DMA disabled in build settings");
-#endif
-}
-
 bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaphore, double a_delta, double a_time, Allocator* a_tempAllocator)
 {
     *a_semaphore = nullptr;
@@ -1148,12 +1169,13 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaph
         ILRETURN (uint32_t)2;
     });
 
-    if (m_mode == SwapchainMode_Null)
+    const bool setup = m_mode == SwapchainMode_Null;
+    if (setup)
     {
         const bool headless = m_window->IsHeadless() || ForceHeadless;
         if (headless)
         {
-            if (IISBITSET(m_flags, DMABit))
+            if (IsDMAEnabled())
             {
                 InitHeadlessDMA(winWidth, winHeight, a_tempAllocator);
             }
@@ -1295,17 +1317,35 @@ bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaph
             m_resizeFunc->Exec(args);
         }
 
+        // Yes this is bad practice but the Vulkan spec does not get explict enough with semaphores and the driver and DRM freak the fuck out
+        // The workaround just dont sync and handle syncing yourself
+        // So yes the null semaphore is intentional and it gives me the shivers
+        // *a_semaphore = m_startSemaphores[flightFrame];
+        ++m_dmaBuffer->RenderOutput;
+
+        const uint64_t timelineVal = ILAMBDA(
+        {
+            PROFILESTACK("Timeline Wait");
+
+            while (true)
+            {
+                const uint64_t val = m_dmaBuffer->Timeline;
+                if (val > m_timelineVal)
+                {
+                    ILRETURN val;
+                }
+
+                std::this_thread::yield();
+            }
+
+            ILRETURN uint64_t(-1);
+        });
+        IDEFER(m_timelineVal = timelineVal);
+
         HeadlessAppWindow* window = (HeadlessAppWindow*)m_window;
         window->PushFrameInfo(a_delta, a_time);
 
-        if (IISBITSET(m_init, *a_imageIndex))
-        {
-            window->DMASwap();
-
-            *a_semaphore = m_startSemaphores[flightFrame];
-        }
-
-        *a_imageIndex = (*a_imageIndex + 1) % VulkanMaxFlightFrames;
+        *a_imageIndex = timelineVal % VulkanMaxFlightFrames;
 #else
         IERROR("Swapchain in DMA mode with DMA disabled in build settings");
 #endif
@@ -1385,7 +1425,7 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
             0,
             0,
             SubResource,
-            {0, 0, 0},
+            { 0, 0, 0 },
             { m_width, m_height, 1 }
         );
 
@@ -1410,19 +1450,7 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
     }
     case SwapchainMode_HeadlessDMA:
     {
-#ifdef ICARIANNATIVE_ENABLE_DMA
-        ISETBIT(m_init, a_imageIndex);
-
-        if (a_imageIndex == 0)
-        {
-            if (m_mainTimelineVal >= m_renderTimelineVal)
-            {
-                m_renderTimelineVal = m_mainTimelineVal;
-            }
-
-            ++m_renderTimelineVal;
-        }
-#else
+#ifndef ICARIANNATIVE_ENABLE_DMA
         IERROR("Swapchain in DMA mode with DMA disabled in build settings");
 #endif
 
@@ -1440,19 +1468,19 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

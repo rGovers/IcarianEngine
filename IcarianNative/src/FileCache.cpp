@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "FileCache.h"
@@ -31,6 +31,7 @@
 #include "DataTypes/ThreadGuard.h"
 #include "FileHandles/ReadFileHandle.h"
 #include "IcarianError.h"
+#include "Profiler.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
@@ -40,7 +41,7 @@
 
 static FileCache* Instance = nullptr;
 
-// KiB = 1024 bytes 
+// KiB = 1024 bytes
 // MiB = 1024 KiB
 // Therefore KiB = B * 1024
 // MiB = KiB * 1024
@@ -693,6 +694,9 @@ void FileCache::Update()
         return;
     }
 
+    const uint64_t allocated = Instance->m_trackerAllocator->GetMemoryUsage();
+    Profiler::PushMemoryFrame(ProfilerMemoryFrame_FileCache, allocated);
+
     Instance->m_data->UpdateFrame = (Instance->m_data->UpdateFrame + 1) % 4;
     // Want to clear it if we are over half full but do not need to do it regularly
     if (Instance->m_data->UpdateFrame != 0)
@@ -700,7 +704,6 @@ void FileCache::Update()
         return;
     }
 
-    const uint64_t allocated = Instance->m_trackerAllocator->GetMemoryUsage();
     const uint64_t halfSize = Instance->m_data->Size >> 1;
     if (allocated < halfSize)
     {
@@ -842,10 +845,6 @@ FileHandle* FileCache::LoadFile(const COWU8String& a_path)
     }
 
     const uint64_t allocated = Instance->m_trackerAllocator->GetMemoryUsage();
-    if (allocated >= size)
-    {
-        return handle;
-    }
 
     const uint32_t overheadSize = size + 256;
     if (overheadSize < Instance->m_data->Size - allocated)
@@ -862,7 +861,7 @@ FileHandle* FileCache::LoadFile(const COWU8String& a_path)
 
     const uint64_t offsetSize = ILAMBDA(
     {
-        if (allocated > size)
+        if (allocated > Instance->m_data->Size)
         {
             ILRETURN allocated - Instance->m_data->Size;
         }
@@ -934,19 +933,19 @@ FileHandle* FileCache::LoadFile(const COWU8String& a_path)
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

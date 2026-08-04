@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 using IcarianEngine.Definitions;
@@ -29,9 +29,11 @@ namespace IcarianEngine.Physics
         /// <param name="a_other">The other body that collision ended with</param>
         public delegate void EndCollisionCallback(PhysicsBody a_other);
 
-        uint  m_objectLayer = 0;
-        float m_mass = 10.0f;
-        float m_gravityFactor = 1.0f;
+        uint                 m_objectLayer;
+        float                m_mass;
+        float                m_gravityFactor;
+        RigidBodyCastQuality m_castQuality;
+        byte                 m_constraints;
 
         /// <summary>
         /// Callback used for events on collision enter
@@ -47,7 +49,7 @@ namespace IcarianEngine.Physics
         public EndCollisionCallback OnCollisionEndCallback;
 
         /// <summary>
-        /// The Definition used to create the RigidBody
+        /// The <see cref="IcarianEngine.Definitions.RigidBodyDef" /> used to create the RigidBody
         /// <summary>
         public RigidBodyDef RigidBodyDef
         {
@@ -68,15 +70,17 @@ namespace IcarianEngine.Physics
             }
             set
             {
-                if (m_mass != value)
+                if (m_mass == value)
                 {
-                    m_mass = value;
+                    return;
+                }
 
-                    RebuildBody();
-                    if (InternalAddr != uint.MaxValue)
-                    {
-                        SetBody(InternalAddr, this);
-                    }
+                m_mass = value;
+
+                RebuildBody();
+                if (InternalAddr != uint.MaxValue)
+                {
+                    SetBody(InternalAddr, this);
                 }
             }
         }
@@ -92,14 +96,16 @@ namespace IcarianEngine.Physics
             }
             set
             {
-                if (m_gravityFactor != value)
+                if (m_gravityFactor == value)
                 {
-                    m_gravityFactor = value;
+                    return;
+                }
 
-                    if (InternalAddr != uint.MaxValue)
-                    {
-                        RigidBodyInterop.SetGravityFactor(InternalAddr, m_gravityFactor);
-                    }
+                m_gravityFactor = value;
+
+                if (InternalAddr != uint.MaxValue)
+                {
+                    RigidBodyInterop.SetGravityFactor(InternalAddr, m_gravityFactor);
                 }
             }
         }
@@ -115,15 +121,17 @@ namespace IcarianEngine.Physics
             }
             set
             {
-                if (m_objectLayer != value)
+                if (m_objectLayer == value)
                 {
-                    m_objectLayer = value;
+                    return;
+                }
 
-                    RebuildBody();
-                    if (InternalAddr != uint.MaxValue)
-                    {
-                        SetBody(InternalAddr, this);
-                    }
+                m_objectLayer = value;
+
+                RebuildBody();
+                if (InternalAddr != uint.MaxValue)
+                {
+                    SetBody(InternalAddr, this);
                 }
             }
         }
@@ -182,6 +190,258 @@ namespace IcarianEngine.Physics
         }
 
         /// <summary>
+        /// The RigidBody collision cast quality
+        /// </summary>
+        public RigidBodyCastQuality CastQuality
+        {
+            get
+            {
+                return m_castQuality;
+            }
+            set
+            {
+                if (m_castQuality == value)
+                {
+                    return;
+                }
+
+                m_castQuality = value;
+
+                if (InternalAddr != uint.MaxValue)
+                {
+                    RigidBodyInterop.SetCastQuality(InternalAddr, (uint)m_castQuality);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Whether to constain tranlation forces applied on the X axis
+        /// </summary>
+        public bool TranslateXConstained
+        {
+            get
+            {
+                return (m_constraints & (0b1U << (int)RigidBodyConstraints.TranslateX)) != 0;
+            }
+            set
+            {
+                bool oldValue = (m_constraints & (0b1U << (int)RigidBodyConstraints.TranslateX)) != 0;
+                if (value == oldValue)
+                {
+                    return;
+                }
+
+                unchecked
+                {
+                    if (value)
+                    {
+                        m_constraints |= (byte)(0b1U << (int)RigidBodyConstraints.TranslateX);
+                    }
+                    else
+                    {
+                        m_constraints &= (byte)~(0b1U << (int)RigidBodyConstraints.TranslateX);
+                    }
+                }
+
+                RebuildBody();
+                if (InternalAddr != uint.MaxValue)
+                {
+                    SetBody(InternalAddr, this);
+                }
+            }
+        }
+        /// <summary>
+        /// Whether to constain tranlation forces applied on the Y axis
+        /// </summary>
+        public bool TranslateYConstrained
+        {
+            get
+            {
+                return (m_constraints & (0b1U << (int)RigidBodyConstraints.TranslateY)) != 0;
+            }
+            set
+            {
+                bool oldValue = (m_constraints & (0b1U << (int)RigidBodyConstraints.TranslateY)) != 0;
+                if (value == oldValue)
+                {
+                    return;
+                }
+
+                unchecked
+                {
+                    if (value)
+                    {
+                        m_constraints |= (byte)(0b1U << (int)RigidBodyConstraints.TranslateY);
+                    }
+                    else
+                    {
+                        m_constraints &= (byte)~(0b1U << (int)RigidBodyConstraints.TranslateY);
+                    }
+                }
+
+                RebuildBody();
+                if (InternalAddr != uint.MaxValue)
+                {
+                    SetBody(InternalAddr, this);
+                }
+            }
+        }
+        /// <summary>
+        /// Whether to constain tranlation forces applied on the Z axis
+        /// </summary>
+        public bool TranslateZConstrained
+        {
+            get
+            {
+                return (m_constraints & (0b1U << (int)RigidBodyConstraints.TranslateZ)) != 0;
+            }
+            set
+            {
+                bool oldValue = (m_constraints & (0b1U << (int)RigidBodyConstraints.TranslateZ)) != 0;
+                if (value == oldValue)
+                {
+                    return;
+                }
+
+                unchecked
+                {
+                    if (value)
+                    {
+                        m_constraints |= (byte)(0b1U << (int)RigidBodyConstraints.TranslateZ);
+                    }
+                    else
+                    {
+                        m_constraints &= (byte)~(0b1U << (int)RigidBodyConstraints.TranslateZ);
+                    }
+                }
+
+                RebuildBody();
+                if (InternalAddr != uint.MaxValue)
+                {
+                    SetBody(InternalAddr, this);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Whether to constain rotation forces applied on the X axis
+        /// </summary>
+        public bool RotateXConstrained
+        {
+            get
+            {
+                return (m_constraints & (0b1U << (int)RigidBodyConstraints.RotateX)) != 0;
+            }
+            set
+            {
+                bool oldValue = (m_constraints & (0b1U << (int)RigidBodyConstraints.RotateX)) != 0;
+                if (value == oldValue)
+                {
+                    return;
+                }
+
+                unchecked
+                {
+                    if (value)
+                    {
+                        m_constraints |= (byte)(0b1U << (int)RigidBodyConstraints.RotateX);
+                    }
+                    else
+                    {
+                        m_constraints &= (byte)~(0b1U << (int)RigidBodyConstraints.RotateX);
+                    }
+                }
+
+                RebuildBody();
+                if (InternalAddr != uint.MaxValue)
+                {
+                    SetBody(InternalAddr, this);
+                }
+            }
+        }
+        /// <summary>
+        /// Whether to constain rotation forces applied on the Y axis
+        /// </summary>
+        public bool RotateYConstrained
+        {
+            get
+            {
+                return (m_constraints & (0b1U << (int)RigidBodyConstraints.RotateY)) != 0;
+            }
+            set
+            {
+                bool oldValue = (m_constraints & (0b1U << (int)RigidBodyConstraints.RotateY)) != 0;
+                if (value == oldValue)
+                {
+                    return;
+                }
+
+                unchecked
+                {
+                    if (value)
+                    {
+                        m_constraints |= (byte)(0b1U << (int)RigidBodyConstraints.RotateY);
+                    }
+                    else
+                    {
+                        m_constraints &= (byte)~(0b1U << (int)RigidBodyConstraints.RotateY);
+                    }
+                }
+
+                RebuildBody();
+                if (InternalAddr != uint.MaxValue)
+                {
+                    SetBody(InternalAddr, this);
+                }
+            }
+        }
+        /// <summary>
+        /// Whether to constain rotation forces applied on the Z axis
+        /// </summary>
+        public bool RotateZConstrained
+        {
+            get
+            {
+                return (m_constraints & (0b1U << (int)RigidBodyConstraints.RotateZ)) != 0;
+            }
+            set
+            {
+                bool oldValue = (m_constraints & (0b1U << (int)RigidBodyConstraints.RotateZ)) != 0;
+                if (value == oldValue)
+                {
+                    return;
+                }
+
+                unchecked
+                {
+                    if (value)
+                    {
+                        m_constraints |= (byte)(0b1U << (int)RigidBodyConstraints.RotateZ);
+                    }
+                    else
+                    {
+                        m_constraints &= (byte)~(0b1U << (int)RigidBodyConstraints.RotateZ);
+                    }
+                }
+
+                RebuildBody();
+                if (InternalAddr != uint.MaxValue)
+                {
+                    SetBody(InternalAddr, this);
+                }
+            }
+        }
+
+        public RigidBody()
+        {
+            m_objectLayer = 0;
+            m_mass = 10.0f;
+            m_gravityFactor = 1.0f;
+            m_castQuality = RigidBodyCastQuality.Discrete;
+            m_constraints = 0;
+        }
+
+        /// <summary>
         /// Called when the RigidBody is created
         /// </summary>
         public override void Init()
@@ -205,7 +465,7 @@ namespace IcarianEngine.Physics
         {
             if (InternalAddr == uint.MaxValue)
             {
-                Logger.IcarianWarning("Adding force to unitialised RigidBody");
+                Logger.IcarianWarning("Adding force to unintialised RigidBody");
 
                 return;
             }
@@ -235,7 +495,7 @@ namespace IcarianEngine.Physics
         {
             if (InternalAddr == uint.MaxValue)
             {
-                Logger.IcarianWarning("Adding torque to unitialised RigidBody");
+                Logger.IcarianWarning("Adding torque to unintialised RigidBody");
 
                 return;
             }
@@ -280,8 +540,16 @@ namespace IcarianEngine.Physics
             CollisionShape shape = CollisionShape;
             if (shape != null)
             {
-                InternalAddr = RigidBodyInterop.CreateRigidBody(Transform.InternalAddr, shape.InternalAddr, m_objectLayer, m_mass);
+                InternalAddr = RigidBodyInterop.CreateRigidBody
+                (
+                    Transform.InternalAddr,
+                    shape.InternalAddr,
+                    m_objectLayer,
+                    (uint)m_constraints,
+                    m_mass
+                );
 
+                RigidBodyInterop.SetCastQuality(InternalAddr, (uint)m_castQuality);
                 RigidBodyInterop.SetGravityFactor(InternalAddr, m_gravityFactor);
                 RigidBodyInterop.SetVelocity(InternalAddr, vel);
                 RigidBodyInterop.SetAngularVelocity(InternalAddr, angVel);
@@ -291,19 +559,19 @@ namespace IcarianEngine.Physics
 }
 
 // MIT License
-// 
-// Copyright (c) 2024 River Govers
-// 
+//
+// Copyright (c) 2026 River Govers
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

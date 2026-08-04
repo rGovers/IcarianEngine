@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -12,6 +12,7 @@
 #include "Core/IcarianDefer.h"
 #include "DataTypes/Allocators/Allocator.h"
 #include "DataTypes/COWString.h"
+#include "IcarianMemory.h"
 
 // TODO: Replace the char* specialization functions to ensure that they are only using the bottom 128 values
 // They are the only values cross compatible between ASCII and Unicode
@@ -21,17 +22,26 @@ class COWBasicString
 private:
 
 protected:
-    Allocator*             m_allocator;
+    struct DataHeader
+    {
+        std::atomic<uint32_t> Count;
+        uint32_t Length;
+    };
+
+    Allocator* m_allocator;
 
     // Turns out a std::atomic needs to be trivially constructable to be well formed
     // So.... Shoving all the data into a single pointer to save an allocation is perfectly valid
-    void*                  m_dataBlob;
-
-    uint32_t               m_length;
+    void*      m_dataBlob;
 
     template<typename T>
     constexpr static uint32_t CStrLength(const T* a_str)
     {
+        if (a_str == nullptr)
+        {
+            return 0;
+        }
+
         const T* slider = a_str;
         while (*slider != 0)
         {
@@ -43,23 +53,32 @@ protected:
 
     constexpr static uint32_t DataBlobSize(uint32_t a_strLength)
     {
-        return a_strLength + sizeof(std::atomic<uint32_t>) + 1;
-    }
-    static void* CreateDataBlob(uint32_t a_strLength, Allocator* a_allocator)
-    {
-        constexpr uint32_t Alignment = alignof(std::atomic<uint32_t>);
+        const uint32_t stringSize = (a_strLength + 1) * sizeof(CharType);
+        // Need to align for correctness
+        constexpr uint32_t PaddedHeaderSize = AlignTo<uint32_t>(sizeof(DataHeader), alignof(CharType));
 
-        const uint32_t size = DataBlobSize(a_strLength);
-        return a_allocator->ZAllocate(size, Alignment);
+        return PaddedHeaderSize + stringSize;
     }
 
-    constexpr static std::atomic<uint32_t>* AtomicPtr(void* a_ptr)
+    constexpr static DataHeader* HeaderPtr(void* a_ptr)
     {
-        return (std::atomic<uint32_t>*)a_ptr;
+        return (DataHeader*)a_ptr;
     }
     constexpr static CharType* DataPtr(void* a_ptr)
     {
-        return (CharType*)((uint8_t*)a_ptr + sizeof(std::atomic<uint32_t>));
+        return (CharType*)AlignTo((uint8_t*)a_ptr + sizeof(DataHeader), alignof(CharType));
+    }
+
+    static void* CreateDataBlob(uint32_t a_strLength, Allocator* a_allocator)
+    {
+        const uint32_t size = DataBlobSize(a_strLength);
+
+        void* ptr = a_allocator->ZAllocate(size, alignof(DataHeader));
+
+        DataHeader* header = HeaderPtr(ptr);
+        header->Length = a_strLength;
+
+        return ptr;
     }
 
     void ClearData()
@@ -71,16 +90,15 @@ protected:
 
         ICARIAN_ASSERT(m_allocator != nullptr);
 
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(m_dataBlob);
-        ICARIAN_ASSERT(*atomPtr > 0);
+        DataHeader* header = HeaderPtr(m_dataBlob);
+        ICARIAN_ASSERT(header->Count > 0);
 
-        if (atomPtr->fetch_sub(1, std::memory_order_release) <= 1)
+        if (header->Count.fetch_sub(1, std::memory_order_release) <= 1)
         {
             m_allocator->Free(m_dataBlob);
         }
 
         m_dataBlob = nullptr;
-        m_length = 0;
     }
 
 public:
@@ -148,49 +166,52 @@ public:
     COWBasicString(Allocator* a_allocator)
     {
         m_allocator = a_allocator;
-
-        m_length = 0;
-
-        m_dataBlob = CreateDataBlob(m_length, m_allocator);
-
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(m_dataBlob);
-        *atomPtr = 1;
+        m_dataBlob = nullptr;
     }
     COWBasicString(const COWBasicString& a_other)
     {
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(a_other.m_dataBlob);
-        atomPtr->fetch_add(1, std::memory_order_acquire);
+        if (a_other.m_dataBlob != nullptr)
+        {
+            DataHeader* header = HeaderPtr(a_other.m_dataBlob);
+            header->Count.fetch_add(1, std::memory_order_acquire);
+        }
 
         m_allocator = a_other.m_allocator;
-
         m_dataBlob = a_other.m_dataBlob;
-
-        m_length = a_other.m_length;
     }
     COWBasicString(const COWBasicString& a_other, Allocator* a_allocator)
     {
         m_allocator = a_allocator;
 
-        m_length = a_other.m_length;
-
         if (a_other.m_allocator == m_allocator)
         {
-            std::atomic<uint32_t>* atomPtr = AtomicPtr(a_other.m_dataBlob);
-            atomPtr->fetch_add(1, std::memory_order_acquire);
+            if (a_other.m_dataBlob != nullptr)
+            {
+                DataHeader* header = HeaderPtr(a_other.m_dataBlob);
+                header->Count.fetch_add(1, std::memory_order_acquire);
+            }
 
             m_dataBlob = a_other.m_dataBlob;
 
             return;
         }
 
-        m_dataBlob = CreateDataBlob(m_length, m_allocator);
+        m_dataBlob = nullptr;
 
-        std::atomic<uint32_t>* count = AtomicPtr(m_dataBlob);
-        *count = 1;
+        const uint32_t otherLen = a_other.Length();
+        if (otherLen <= 0)
+        {
+            return;
+        }
+
+        m_dataBlob = CreateDataBlob(otherLen, m_allocator);
+
+        DataHeader* header = HeaderPtr(m_dataBlob);
+        header->Count = 1;
 
         const CharType* otherData = DataPtr(a_other.m_dataBlob);
         CharType* data = DataPtr(m_dataBlob);
-        for (uint32_t i = 0; i < m_length; ++i)
+        for (uint32_t i = 0; i < otherLen; ++i)
         {
             data[i] = otherData[i];
         }
@@ -204,18 +225,20 @@ public:
     COWBasicString(const CharType* a_data, uint32_t a_length, Allocator* a_allocator)
     {
         m_allocator = a_allocator;
+        m_dataBlob = nullptr;
 
-        m_length = a_length;
+        if (a_length <= 0)
+        {
+            return;
+        }
 
-        const uint32_t size = DataBlobSize(m_length);
+        m_dataBlob = CreateDataBlob(a_length, a_allocator);
 
-        m_dataBlob = m_allocator->ZAllocate(size, alignof(std::atomic<uint32_t>));
-
-        std::atomic<uint32_t>* count = AtomicPtr(m_dataBlob);
-        *count = 1;
+        DataHeader* header = HeaderPtr(m_dataBlob);
+        header->Count = 1;
 
         CharType* data = DataPtr(m_dataBlob);
-        for (uint32_t i = 0; i < m_length; ++i)
+        for (uint32_t i = 0; i < a_length; ++i)
         {
             data[i] = a_data[i];
         }
@@ -231,16 +254,20 @@ public:
     COWBasicString(const char* a_data, uint32_t a_length, Allocator* a_allocator)
     {
         m_allocator = a_allocator;
+        m_dataBlob = nullptr;
 
-        m_length = a_length;
+        if (a_length <= 0)
+        {
+            return;
+        }
 
-        m_dataBlob = CreateDataBlob(m_length, m_allocator);
+        m_dataBlob = CreateDataBlob(a_length, m_allocator);
 
-        std::atomic<uint32_t>* count = AtomicPtr(m_dataBlob);
-        *count = 1;
+        DataHeader* header = HeaderPtr(m_dataBlob);
+        header->Count = 1;
 
         CharType* data = DataPtr(m_dataBlob);
-        for (uint32_t i = 0; i < m_length; ++i)
+        for (uint32_t i = 0; i < a_length; ++i)
         {
             const char chr = a_data[i];
             ICARIAN_ASSERT(chr >= 0);
@@ -255,22 +282,28 @@ public:
 
     COWBasicString& operator =(const COWBasicString& a_other)
     {
-        std::atomic<uint32_t>* count = AtomicPtr(a_other.m_dataBlob);
-        count->fetch_add(1, std::memory_order_acquire);
+        if (a_other.m_dataBlob != nullptr)
+        {
+            DataHeader* header = HeaderPtr(a_other.m_dataBlob);
+            header->Count.fetch_add(1, std::memory_order_acquire);
+        }
 
         ClearData();
 
         m_allocator = a_other.m_allocator;
         m_dataBlob = a_other.m_dataBlob;
-        m_length = a_other.m_length;
 
         return *this;
     }
 
     inline iterator begin()
     {
-        CharType* dataPtr = DataPtr(m_dataBlob);
+        if (m_dataBlob == nullptr)
+        {
+            return iterator();
+        }
 
+        CharType* dataPtr = DataPtr(m_dataBlob);
         return iterator(dataPtr);
     }
     inline iterator end()
@@ -280,8 +313,12 @@ public:
 
     inline const iterator begin() const
     {
-        CharType* dataPtr = DataPtr(m_dataBlob);
+        if (m_dataBlob == nullptr)
+        {
+            return iterator();
+        }
 
+        CharType* dataPtr = DataPtr(m_dataBlob);
         return iterator(dataPtr);
     }
     inline const iterator end() const
@@ -289,11 +326,77 @@ public:
         return iterator();
     }
 
+    const CharType* Data() const
+    {
+        if (m_dataBlob == nullptr)
+        {
+            return nullptr;
+        }
+
+        return DataPtr(m_dataBlob);
+    }
+    template<typename T = CharType, std::enable_if_t<std::is_same<T, CharU8>::value>* = nullptr>
+    inline const char* CStr() const
+    {
+        return (char*)Data();
+    }
+
+    uint32_t Length() const
+    {
+        if (m_dataBlob == nullptr)
+        {
+            return 0;
+        }
+
+        const DataHeader* header = HeaderPtr(m_dataBlob);
+        return header->Length;
+    }
+    bool Empty() const
+    {
+        if (m_dataBlob == nullptr)
+        {
+            return true;
+        }
+
+        const DataHeader* header = HeaderPtr(m_dataBlob);
+        return header->Length <= 0;
+    }
+
     void Prepend(const COWBasicString& a_other)
     {
-        const CharType* dataPtr = a_other.DataPtr();
+        const CharType* dataPtr = a_other.Data();
+        const uint32_t length = a_other.Length();
 
-        Prepend(dataPtr, a_other.m_length);
+        Prepend(dataPtr, length);
+    }
+    template<typename T = CharType, std::enable_if_t<std::is_same<T, CharU8>::value>* = nullptr>
+    void Prepend(char a_chr)
+    {
+        ICARIAN_ASSERT(a_chr >= 0);
+
+        Prepend((CharType)a_chr);
+    }
+    void Prepend(CharType a_chr)
+    {
+        const uint32_t oldLength = Length();
+        const uint32_t newLength = oldLength + 1;
+
+        void* newDataBlob = CreateDataBlob(newLength, m_allocator);
+        IDEFER(m_dataBlob = newDataBlob);
+
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
+
+        CharType* newData = DataPtr(newDataBlob);
+        newData[0] = a_chr;
+
+        const CharType* dataPtr = Data();
+        for (uint32_t i = 0; i < oldLength; ++i)
+        {
+            newData[i + 1] = dataPtr[i];
+        }
+
+        ClearData();
     }
     void Prepend(const CharType* a_other)
     {
@@ -317,14 +420,14 @@ public:
             return;
         }
 
-        const uint32_t length = m_length + a_length;
-        IDEFER(m_length = length);
+        const uint32_t oldLength = Length();
+        const uint32_t newLength = oldLength + a_length;
 
-        void* newDataBlob = CreateDataBlob(length, m_allocator);
+        void* newDataBlob = CreateDataBlob(newLength, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
-        *atomPtr = 1;
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
 
         CharType* newData = DataPtr(newDataBlob);
         for (uint32_t i = 0; i < a_length; ++i)
@@ -332,8 +435,8 @@ public:
             newData[i] = a_other[i];
         }
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
-        for (uint32_t i = 0; i < m_length; ++i)
+        const CharType* dataPtr = Data();
+        for (uint32_t i = 0; i < oldLength; ++i)
         {
             newData[i + a_length] = dataPtr[i];
         }
@@ -364,14 +467,14 @@ public:
             return;
         }
 
-        const uint32_t length = m_length + a_length;
-        IDEFER(m_length = length);
+        const uint32_t oldLength = Length();
+        const uint32_t length = oldLength + a_length;
 
         void* newDataBlob = CreateDataBlob(length, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
-        *atomPtr = 1;
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
 
         CharType* newData = DataPtr(newDataBlob);
         for (uint32_t i = 0; i < a_length; ++i)
@@ -382,8 +485,8 @@ public:
             newData[i] = chr;
         }
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
-        for (uint32_t i = 0; i < m_length; ++i)
+        const CharType* dataPtr = Data();
+        for (uint32_t i = 0; i < oldLength; ++i)
         {
             newData[i + a_length] = dataPtr[i];
         }
@@ -393,9 +496,39 @@ public:
 
     void Append(const COWBasicString& a_other)
     {
-        const CharType* dataPtr = DataPtr(a_other.m_dataBlob);
+        const CharType* dataPtr = a_other.Data();
+        const uint32_t length = a_other.Length();
 
-        Append(dataPtr, a_other.m_length);
+        Append(dataPtr, length);
+    }
+    template<typename T = CharType, std::enable_if_t<std::is_same<T, CharU8>::value>* = nullptr>
+    void Append(char a_chr)
+    {
+        ICARIAN_ASSERT(a_chr >= 0);
+
+        Append((CharType)a_chr);
+    }
+    void Append(CharType a_chr)
+    {
+        const uint32_t oldLength = Length();
+        const uint32_t newLength = oldLength + 1;
+
+        void* newDataBlob = CreateDataBlob(newLength, m_allocator);
+        IDEFER(m_dataBlob = newDataBlob);
+
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
+
+        const CharType* dataPtr = Data();
+        CharType* newData = DataPtr(newDataBlob);
+
+        for (uint32_t i = 0; i < oldLength; ++i)
+        {
+            newData[i] = dataPtr[i];
+        }
+        newData[oldLength] = a_chr;
+
+        ClearData();
     }
     void Append(const CharType* a_other)
     {
@@ -404,13 +537,8 @@ public:
             return;
         }
 
-        const CharType* slider = a_other;
-        while (*slider != 0)
-        {
-            ++slider;
-        }
-
-        Append(a_other, (uint32_t)(slider - a_other));
+        const uint32_t len = CStrLength(a_other);
+        Append(a_other, len);
     }
     void Append(const CharType* a_other, uint32_t a_length)
     {
@@ -424,25 +552,25 @@ public:
             return;
         }
 
-        const uint32_t length = m_length + a_length;
-        IDEFER(m_length = length);
+        const uint32_t oldLength = Length();
+        const uint32_t newLength = oldLength + a_length;
 
-        void* newDataBlob = CreateDataBlob(length, m_allocator);
+        void* newDataBlob = CreateDataBlob(newLength, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
-        *atomPtr = 1;
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        const CharType* dataPtr = Data();
         CharType* newData = DataPtr(newDataBlob);
 
-        for (uint32_t i = 0; i < m_length; ++i)
+        for (uint32_t i = 0; i < oldLength; ++i)
         {
             newData[i] = dataPtr[i];
         }
         for (uint32_t i = 0; i < a_length; ++i)
         {
-            newData[i + m_length] = a_other[i];
+            newData[i + oldLength] = a_other[i];
         }
 
         ClearData();
@@ -471,25 +599,25 @@ public:
             return;
         }
 
-        const uint32_t length = m_length + a_length;
-        IDEFER(m_length = length);
+        const uint32_t oldLength = Length();
+        const uint32_t newLength = oldLength + a_length;
 
-        void* newDataBlob = CreateDataBlob(length, m_allocator);
+        void* newDataBlob = CreateDataBlob(newLength, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
-        *atomPtr = 1;
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        const CharType* dataPtr = Data();
         CharType* newData = DataPtr(newDataBlob);
 
-        for (uint32_t i = 0; i < m_length; ++i)
+        for (uint32_t i = 0; i < oldLength; ++i)
         {
             newData[i] = dataPtr[i];
         }
         for (uint32_t i = 0; i < a_length; ++i)
         {
-            newData[i + m_length] = a_other[i];
+            newData[i + oldLength] = a_other[i];
         }
 
         ClearData();
@@ -497,12 +625,18 @@ public:
 
     uint32_t FindCharacter(CharType a_chr, uint32_t a_startIndex) const
     {
-        if (a_startIndex > m_length)
+        const uint32_t length = Length();
+        if (length <= 0)
         {
             return uint32_t(-1);
         }
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        if (a_startIndex > length)
+        {
+            return uint32_t(-1);
+        }
+
+        const CharType* dataPtr = Data();
 
         const CharType* slider = dataPtr + a_startIndex;
         while (*slider != 0)
@@ -524,12 +658,18 @@ public:
 
     uint32_t FindLastCharacter(CharType a_chr, uint32_t a_startIndex) const
     {
-        if (a_startIndex > m_length)
+        const uint32_t length = Length();
+        if (length <= 0)
         {
             return uint32_t(-1);
         }
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        if (a_startIndex > length)
+        {
+            return uint32_t(-1);
+        }
+
+        const CharType* dataPtr = Data();
 
         uint32_t lastIndex = a_startIndex;
         uint32_t outIndex = uint32_t(-1);
@@ -573,13 +713,14 @@ public:
 
     uint32_t FindString(const COWBasicString& a_str) const
     {
-        const CharType* strPtr = a_str.StrPtr();
+        const CharType* strPtr = a_str.Data();
+        const uint32_t length = a_str.Length();
 
-        return FindString(strPtr);
+        return FindString(strPtr, length, 0);
     }
     uint32_t FindString(const COWBasicString& a_str, uint32_t a_startIndex) const
     {
-        const CharType* strPtr = a_str.StrPtr();
+        const CharType* strPtr = a_str.Data();
 
         return FindString(strPtr, a_startIndex);
     }
@@ -589,7 +730,8 @@ public:
     }
     uint32_t FindString(const CharType* a_str, uint32_t a_startIndex) const
     {
-        if (a_startIndex > m_length)
+        const uint32_t length = Length();
+        if (a_startIndex > length)
         {
             return uint32_t(-1);
         }
@@ -599,35 +741,41 @@ public:
             return uint32_t(-1);
         }
 
-        const CharType* slider = a_str;
-        while (*slider != 0)
-        {
-            ++slider;
-        }
-
-        return FindString(a_str, (uint32_t)(slider - a_str), a_startIndex);
+        const uint32_t strLen = CStrLength(a_str);
+        return FindString(a_str, strLen, a_startIndex);
     }
     uint32_t FindString(const CharType* a_str, uint32_t a_length, uint32_t a_startIndex) const
     {
-        if (a_startIndex > m_length)
+        if (a_str == nullptr)
         {
             return uint32_t(-1);
         }
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        if (a_length <= 0)
+        {
+            return uint32_t(-1);
+        }
+
+        const uint32_t length = Length();
+        if (length <= 0)
+        {
+            return uint32_t(-1);
+        }
+
+        if (a_startIndex > length)
+        {
+            return uint32_t(-1);
+        }
+
+        const CharType* dataPtr = Data();
 
         const CharType* slider = dataPtr + a_startIndex;
-        while (true)
+        const CharType* endPtr = dataPtr + length - a_length;
+        while (slider <= endPtr)
         {
             for (uint32_t i = 0; i < a_length; ++i)
             {
-                const CharType sliderChr = slider[i];
-                if (sliderChr == 0)
-                {
-                    return uint32_t(-1);
-                }
-
-                if (sliderChr == a_str[i])
+                if (slider[i] == a_str[i])
                 {
                     continue;
                 }
@@ -641,21 +789,13 @@ FindNextStringInstance:;
 
             ++slider;
         }
+
+        return uint32_t(-1);
     }
 
     inline Allocator* GetAllocator() const
     {
         return m_allocator;
-    }
-
-    template<typename T = CharType, std::enable_if_t<std::is_same<T, CharU8>::value>* = nullptr>
-    inline const char* CStr() const
-    {
-        return (char*)DataPtr(m_dataBlob);
-    }
-    inline const CharType* Data() const
-    {
-        return DataPtr(m_dataBlob);
     }
 
     template<typename T = CharType, std::enable_if_t<std::is_same<T, CharU8>::value>* = nullptr>
@@ -671,8 +811,22 @@ FindNextStringInstance:;
 
     bool operator ==(const CharType* a_str) const
     {
-        const CharType* sliderA = DataPtr(m_dataBlob);
+        const CharType* sliderA = Data();
         const CharType* sliderB = a_str;
+        if (sliderA == nullptr)
+        {
+            if (sliderB == nullptr)
+            {
+                return true;
+            }
+
+            return a_str[0] == 0;
+        }
+
+        if (sliderB == nullptr)
+        {
+            return false;
+        }
 
         while (true)
         {
@@ -697,43 +851,38 @@ FindNextStringInstance:;
 
     bool operator ==(const COWBasicString& a_other) const
     {
-        const CharType* sliderA = DataPtr(m_dataBlob);
-        const CharType* sliderB = DataPtr(a_other.m_dataBlob);
-
-        while (true)
+        const uint32_t lenA = Length();
+        const uint32_t lenB = a_other.Length();
+        if (lenA != lenB)
         {
-            if (*sliderA == 0)
-            {
-                return *sliderB == 0;
-            }
+            return false;
+        }
 
-            if (*sliderA != *sliderB)
+        const CharType* dataA = Data();
+        const CharType* dataB = a_other.Data();
+        for (uint32_t i = 0; i < lenA; ++i)
+        {
+            if (dataA[i] != dataB[i])
             {
                 return false;
             }
-
-            ++sliderA;
-            ++sliderB;
         }
+
+        return true;
     }
     bool operator !=(const COWBasicString& a_other) const
     {
         return !(*this == a_other);
     }
 
-    const CharType* StrPtr() const
-    {
-        return DataPtr(m_dataBlob);
-    }
-
-    COWBasicString operator +(const COWBasicString& a_other)
+    COWBasicString operator +(const COWBasicString& a_other) const
     {
         COWBasicString str = COWBasicString(*this);
         str.Append(a_other);
 
         return str;
     }
-    COWBasicString operator +(const CharType* a_other)
+    COWBasicString operator +(const CharType* a_other) const
     {
         COWBasicString str = COWBasicString(*this);
         str.Append(a_other);
@@ -741,7 +890,7 @@ FindNextStringInstance:;
         return str;
     }
     template<typename T = CharType, std::enable_if_t<std::is_same<T, CharU8>::value>* = nullptr>
-    COWBasicString operator +(const char* a_other)
+    COWBasicString operator +(const char* a_other) const
     {
         COWBasicString str = COWBasicString(*this);
         str.Append(a_other);
@@ -771,45 +920,35 @@ FindNextStringInstance:;
 
     inline CharType& operator [](uint32_t a_index)
     {
-        ICARIAN_ASSERT(a_index <= m_length);
+        ICARIAN_ASSERT(a_index < Length());
 
         CharType* dataPtr = DataPtr(m_dataBlob);
-
         return dataPtr[a_index];
     }
     inline const CharType& operator [](uint32_t a_index) const
     {
-        ICARIAN_ASSERT(a_index <= m_length);
+        ICARIAN_ASSERT(a_index < Length());
 
         CharType* dataPtr = DataPtr(m_dataBlob);
-
         return dataPtr[a_index];
-    }
-
-    inline bool Empty() const
-    {
-        return m_length == 0;
-    }
-
-    inline uint32_t Length() const
-    {
-        return m_length;
     }
 
     COWBasicString Substring(uint32_t a_startIndex, uint32_t a_endIndex, Allocator* a_allocator) const
     {
-        ICARIAN_ASSERT(a_startIndex <= m_length);
-        ICARIAN_ASSERT(a_endIndex <= m_length);
+        ICARIAN_ASSERT(a_startIndex <= Length());
+        ICARIAN_ASSERT(a_endIndex <= Length());
         ICARIAN_ASSERT(a_endIndex >= a_startIndex);
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        const CharType* dataPtr = Data();
         return COWBasicString(dataPtr + a_startIndex, a_endIndex - a_startIndex, a_allocator);
     }
 
     void Replace(uint32_t a_startIndex, uint32_t a_endIndex, const COWBasicString& a_str)
     {
-        const CharType* dataPtr = DataPtr(a_str.m_dataBlob);
-        Replace(a_startIndex, a_endIndex, dataPtr, a_str.m_length);
+        const CharType* dataPtr = a_str.Data();
+        const uint32_t length = a_str.Length();
+
+        Replace(a_startIndex, a_endIndex, dataPtr, length);
     }
     void Replace(uint32_t a_startIndex, uint32_t a_endIndex, const CharType* a_str)
     {
@@ -818,26 +957,33 @@ FindNextStringInstance:;
     }
     void Replace(uint32_t a_startIndex, uint32_t a_endIndex, const CharType* a_str, uint32_t a_length)
     {
-        ICARIAN_ASSERT(a_startIndex <= m_length);
-        ICARIAN_ASSERT(a_endIndex <= m_length);
+        ICARIAN_ASSERT(a_startIndex <= Length());
+        ICARIAN_ASSERT(a_endIndex <= Length());
+
+        if (a_startIndex == a_endIndex)
+        {
+            Insert(a_startIndex, a_str, a_length);
+
+            return;
+        }
+
         ICARIAN_ASSERT(a_endIndex > a_startIndex);
-        ICARIAN_ASSERT(a_str != nullptr);
 
         const uint32_t size = a_endIndex - a_startIndex;
 
-        const uint32_t len = m_length - size + a_length;
-        IDEFER(m_length = len);
+        const uint32_t oldLength = Length();
+        const uint32_t newLength = oldLength - size + a_length;
 
-        const uint32_t endSize = m_length - a_endIndex;
+        const uint32_t endSize = oldLength - a_endIndex;
         const uint32_t offset = a_startIndex + a_length;
 
-        void* newDataBlob = CreateDataBlob(len, m_allocator);
+        void* newDataBlob = CreateDataBlob(newLength, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
-        *atomPtr = 1;
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        const CharType* dataPtr = Data();
         CharType* newData = DataPtr(newDataBlob);
 
         for (uint32_t i = 0; i < a_startIndex; ++i)
@@ -861,36 +1007,34 @@ FindNextStringInstance:;
     void Clear()
     {
         ClearData();
-
-        m_length = 0;
-
-        m_dataBlob = CreateDataBlob(m_length, m_allocator);
-
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(m_dataBlob);
-        *atomPtr = 1;
     }
 
     void Erase(uint32_t a_startIndex, uint32_t a_endIndex)
     {
-        ICARIAN_ASSERT(a_startIndex < m_length);
-        ICARIAN_ASSERT(a_endIndex < m_length);
+        ICARIAN_ASSERT(a_startIndex <= Length());
+        ICARIAN_ASSERT(a_endIndex <= Length());
 
         ICARIAN_ASSERT(a_startIndex < a_endIndex);
 
         const uint32_t size = a_endIndex - a_startIndex;
-        const uint32_t len = m_length - size;
-        const uint32_t endLen = m_length - a_endIndex;
-        IDEFER(m_length = len);
+        const uint32_t oldLength = Length();
+        const uint32_t newLength = oldLength - size;
+        if (newLength == 0)
+        {
+            ClearData();
 
-        const uint32_t dataSize = DataBlobSize(len);
+            return;
+        }
 
-        void* newDataBlob = m_allocator->ZAllocate(dataSize, alignof(std::atomic<uint32_t>));
+        const uint32_t endLen = oldLength - a_endIndex;
+
+        void* newDataBlob = CreateDataBlob(newLength, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
-        *atomPtr = 1;
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        const CharType* dataPtr = Data();
         CharType* newData = DataPtr(newDataBlob);
 
         for (uint32_t i = 0; i < a_startIndex; ++i)
@@ -913,22 +1057,20 @@ FindNextStringInstance:;
     }
     void Insert(uint32_t a_index, const CharType* a_str, uint32_t a_length)
     {
-        ICARIAN_ASSERT(a_index <= m_length);
+        ICARIAN_ASSERT(a_index <= Length());
 
-        const uint32_t len = m_length + a_length;
+        const uint32_t oldLength = Length();
+        const uint32_t newLength = oldLength + a_length;
         const uint32_t offset = a_index + a_length;
-        const uint32_t endLen = m_length - a_index;
-        IDEFER(m_length = len);
+        const uint32_t endLen = oldLength - a_index;
 
-        const uint32_t size = DataBlobSize(len);
-
-        void* newDataBlob = m_allocator->ZAllocate(size, alignof(std::atomic<uint32_t>));
+        void* newDataBlob = CreateDataBlob(newLength, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
-        *atomPtr = 1;
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        const CharType* dataPtr = Data();
         CharType* newData = DataPtr(newDataBlob);
 
         for (uint32_t i = 0; i < a_index; ++i)
@@ -950,9 +1092,10 @@ FindNextStringInstance:;
     }
     void Insert(uint32_t a_index, const COWBasicString& a_str)
     {
-        const CharType* dataPtr = DataPtr(a_str.m_dataBlob);
+        const CharType* dataPtr = a_str.Data();
+        const uint32_t length = a_str.Length();
 
-        Insert(a_index, dataPtr, a_str.m_length);
+        Insert(a_index, dataPtr, length);
     }
 
     void TrimProceedingWhitespace()
@@ -962,7 +1105,7 @@ FindNextStringInstance:;
             return;
         }
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        const CharType* dataPtr = Data();
 
         const CharType* slider = dataPtr;
         while (true)
@@ -971,7 +1114,7 @@ FindNextStringInstance:;
             {
             case 0:
             {
-                Clear();
+                ClearData();
 
                 return;
             }
@@ -1003,13 +1146,12 @@ FindNextStringInstance:;
         }
 
         const uint32_t len = endSlider - slider;
-        IDEFER(m_length = len);
 
         void* newDataBlob = CreateDataBlob(len, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
-        *atomPtr = 1;
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
 
         CharType* newData = DataPtr(newDataBlob);
         for (uint32_t i = 0; i < len; ++i)
@@ -1026,19 +1168,20 @@ FindNextStringInstance:;
             return;
         }
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        const uint32_t oldLength = Length();
+        const CharType* dataPtr = Data();
 
-        const CharType* endSlider = dataPtr + m_length;
+        const CharType* endSlider = dataPtr + oldLength;
         while (true)
         {
             if (endSlider < dataPtr)
             {
-                Clear();
+                ClearData();
 
                 return;
             }
 
-            switch (*endSlider) 
+            switch (*endSlider)
             {
             case 9:
             case ' ':
@@ -1056,21 +1199,20 @@ FindNextStringInstance:;
             break;
         }
 
-        const uint32_t len = endSlider - dataPtr;
-        if (len == m_length)
+        const uint32_t newLength = endSlider - dataPtr;
+        if (newLength == oldLength)
         {
             return;
         }
-        IDEFER(m_length = len);
 
-        void* newDataBlob = CreateDataBlob(len, m_allocator);
+        void* newDataBlob = CreateDataBlob(newLength, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
-        *atomPtr = 1;
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
 
         CharType* newData = DataPtr(newDataBlob);
-        for (uint32_t i = 0; i < len; ++i)
+        for (uint32_t i = 0; i < newLength; ++i)
         {
             newData[i] = dataPtr[i];
         }
@@ -1099,31 +1241,29 @@ FindNextStringInstance:;
         return hash;
     }
 
-    // Should probably do something better so it works with all languages 
+    // Should probably do something better so it works with all languages
     // but for now keep it to utf8 and plug ears in blissful ignorance
     template<typename T = CharType, std::enable_if_t<std::is_same<T, CharU8>::value>* = nullptr>
     void ToUpper()
     {
-        if (m_length <= 0)
+        const uint32_t length = Length();
+        if (length <= 0)
         {
             return;
         }
 
-        const uint32_t len = m_length;
-        IDEFER(m_length = len);
-
-        void* newDataBlob = CreateDataBlob(m_length, m_allocator);
+        void* newDataBlob = CreateDataBlob(length, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
-        *atomPtr = 1;
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        const CharType* dataPtr = Data();
         CharType* newData = DataPtr(newDataBlob);
 
         constexpr uint8_t Shift = 'a' - 'A';
 
-        for (uint32_t i = 0; i < m_length; ++i)
+        for (uint32_t i = 0; i < length; ++i)
         {
             const CharType chr = ILAMBDA(
             {
@@ -1144,26 +1284,24 @@ FindNextStringInstance:;
     template<typename T = CharType, std::enable_if_t<std::is_same<T, CharU8>::value>* = nullptr>
     void ToLower()
     {
-        if (m_length <= 0)
+        const uint32_t length = Length();
+        if (length <= 0)
         {
             return;
         }
 
-        const uint32_t len = m_length;
-        IDEFER(m_length = len);
-
-        void* newDataBlob = CreateDataBlob(m_length, m_allocator);
+        void* newDataBlob = CreateDataBlob(length, m_allocator);
         IDEFER(m_dataBlob = newDataBlob);
 
-        std::atomic<uint32_t>* atomPtr = AtomicPtr(newDataBlob);
-        *atomPtr = 1;
+        DataHeader* header = HeaderPtr(newDataBlob);
+        header->Count = 1;
 
-        const CharType* dataPtr = DataPtr(m_dataBlob);
+        const CharType* dataPtr = Data();
         CharType* newData = DataPtr(newDataBlob);
 
         constexpr uint8_t Shift = 'a' - 'A';
 
-        for (uint32_t i = 0; i < m_length; ++i)
+        for (uint32_t i = 0; i < length; ++i)
         {
             const CharType chr = ILAMBDA(
             {
@@ -1189,9 +1327,14 @@ FindNextStringInstance:;
             return false;
         }
 
+        const CharType* slider = Data();
+        if (slider == nullptr)
+        {
+            return false;
+        }
+
         *a_value = 0;
 
-        const CharType* slider = DataPtr(m_dataBlob);
         while (*slider != 0)
         {
             IDEFER(++slider);
@@ -1272,11 +1415,15 @@ FindNextStringInstance:;
             return false;
         }
 
+        const CharType* slider = Data();
+        if (slider == nullptr)
+        {
+            return false;
+        }
+
         *a_value = 0;
 
         bool invert = false;
-
-        const CharType* slider = DataPtr(m_dataBlob);
         while (*slider != 0)
         {
             IDEFER(++slider);
@@ -1368,9 +1515,13 @@ FindNextStringInstance:;
             return false;
         }
 
-        *a_value = 0;
+        const CharType* slider = Data();
+        if (slider == nullptr)
+        {
+            return false;
+        }
 
-        const CharType* slider = DataPtr(m_dataBlob);
+        *a_value = 0;
         while (*slider != 0)
         {
             IDEFER(++slider);
@@ -1451,11 +1602,15 @@ FindNextStringInstance:;
             return false;
         }
 
+        const CharType* slider = Data();
+        if (slider == nullptr)
+        {
+            return false;
+        }
+
         *a_value = 0;
 
         bool invert = false;
-
-        const CharType* slider = DataPtr(m_dataBlob);
         while (*slider != 0)
         {
             IDEFER(++slider);
@@ -1697,19 +1852,19 @@ inline bool operator ==(const char* a_lhs, const COWBasicString<CharU8>& a_rhs)
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

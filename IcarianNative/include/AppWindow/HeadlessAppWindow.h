@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -14,6 +14,7 @@
 #include "Core/DMASwapBuffer.h"
 #include "Core/CommunicationPipe.h"
 #include "Core/PipeMessage.h"
+#include "DataTypes/Dictionary.h"
 #include "DataTypes/TArray.h"
 #include "Logger.h"
 #include "Profiler.h"
@@ -26,33 +27,25 @@ class RuntimeFunction;
 class HeadlessAppWindow : public AppWindow
 {
 private:
-    static constexpr uint16_t NameMax = 16;
-    static constexpr uint16_t FrameMax = 64;
-
-    struct ProfileTFrame
-    {
-        char Name[NameMax];
-        float Time;
-        uint8_t Stack;
-    };
-
-    struct ProfileScope
-    {
-        char Name[NameMax];
-        uint16_t FrameCount;
-        ProfileTFrame Frames[FrameMax];
-    };
-
     static constexpr char PipeName[] = "IcarianEditor-IPC";
     static constexpr uint32_t CloseBit = 0;
     static constexpr uint32_t RemoteBit = 1;
 
-    Application*                                   m_app;
     IcarianCore::CommunicationPipe*                m_pipe;
 
     TArray<IcarianCore::PipeMessage>               m_queuedMessages;
 
     RuntimeFunction*                               m_runtimeMessageReceive;
+
+    Dictionary<COWU8String, uint32_t>              m_gpuProfilePasses;
+    Dictionary<COWU8String, uint32_t>              m_gpuProfileItems;
+    Dictionary<COWU8String, uint32_t>              m_profilerScopes;
+    Dictionary<COWU8String, uint32_t>              m_profilerFrames;
+
+    uint32_t                                       m_gpuProfilePassIndex;
+    uint32_t                                       m_gpuProfileItemIndex;
+    uint32_t                                       m_profileIndex;
+    uint32_t                                       m_frameIndex;
 
     std::mutex                                     m_fLock;
     volatile bool                                  m_unlockWindow;
@@ -72,11 +65,12 @@ private:
 
     uint8_t                                        m_flags;
     SpinLock                                       m_msgAllocatorLock;
+    SpinLock                                       m_profileLock;
+    SpinLock                                       m_gpuProfileLock;
 
     void PushMessageQueue();
 
     void MessageCallback(const COWU8String& a_message, IcarianCore::e_LoggerMessageType a_type, uint32_t a_stackTraceCount, const char* const* a_stackTrace);
-    void ProfilerCallback(const Profiler::PData& a_profilerData);
 
     bool PollMessage();
 
@@ -85,6 +79,10 @@ protected:
 public:
     HeadlessAppWindow(Application* a_app, Config* a_config);
     ~HeadlessAppWindow();
+
+    void ProfilerCPUCallback(const ProfilerCPUData& a_profilerData);
+    void ProfilerGPUCallback(const ProfilerGPUFrameData* a_data, uint32_t a_count);
+    void ProfilerGPUETECallback(float a_time);
 
     virtual bool ShouldClose() const;
 
@@ -125,33 +123,31 @@ public:
     void PushFrameInfo(double a_delta, double a_time);
 
 #ifdef ICARIANNATIVE_ENABLE_DMA
-    void PushSwapBufferFD(const DMASwapBufferFD& a_swapbuffer);
+    void PushSwapBufferFD(const IcarianCore::DMASwapBufferFD& a_swapbuffer);
     void FlushSwapBufferFD();
 
 #ifdef WIN32
-    void PushSwapBufferHandle(const DMASwapBufferHandle& a_swapBuffer);
-#endif
+    void PushSwapBufferHandle(const IcarianCore::DMASwapBufferHandle& a_swapBuffer);
     void FlushSwapBufferHandle();
-
-    void DMASwap();
+#endif
 #endif
     void PushFrameData(uint32_t a_width, uint32_t a_height, const uint8_t* a_buffer);
 };
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

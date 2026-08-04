@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Application.h"
@@ -84,7 +84,7 @@ RUNTIME_FUNCTION(MonoArray*, Application, GetMonitors,
 
     return arr;
 })
-RUNTIME_FUNCTION(void, Application, SetFullscreenState, 
+RUNTIME_FUNCTION(void, Application, SetFullscreenState,
 {
     AppMonitor appMonitor;
     appMonitor.Width = a_monitor.Width;
@@ -93,7 +93,7 @@ RUNTIME_FUNCTION(void, Application, SetFullscreenState,
 
     IPUSHDELETIONFUNC(
     {
-        Instance->SetFullscreen(appMonitor, (bool)a_state, a_width, a_height);   
+        Instance->SetFullscreen(appMonitor, (bool)a_state, a_width, a_height);
     }, DeletionIndex_Render);
 }, Monitor a_monitor, uint32_t a_state, uint32_t a_width, uint32_t a_height)
 
@@ -276,7 +276,7 @@ void Application::Run(int32_t a_argc, char* a_argv[])
             RuntimeManager::LateUpdate();
         }
 
-        DeletionQueue::Flush(DeletionIndex_Update); 
+        DeletionQueue::Flush(DeletionIndex_Update);
 
         Profiler::Stop();
     }
@@ -285,19 +285,19 @@ void Application::Run(int32_t a_argc, char* a_argv[])
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2025 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

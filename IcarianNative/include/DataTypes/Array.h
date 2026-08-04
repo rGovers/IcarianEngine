@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -202,7 +202,7 @@ public:
 
         if constexpr (!std::is_trivially_destructible<T>())
         {
-            // Today I learned that not just pointer values but pointers can be deconstructed 
+            // Today I learned that not just pointer values but pointers can be deconstructed
             // Thank you for this knowledge debugger now I live in horror
             // What vodoo is happening that I can deconstruct a address what is there to deconstruct?!
             // TF it is a NOP what the actual fuck
@@ -226,21 +226,23 @@ public:
         {
             for (uint32_t i = m_size; i < a_size; ++i)
             {
-                m_data[i] = T();
+                new (m_data + i) T();
             }
         }
     }
     void Reserve(uint32_t a_size)
     {
-        if (a_size > m_capacity)
+        if (a_size <= m_capacity)
         {
-            IDEFER(m_capacity = a_size);
-
-            T* newData = m_allocator->ZTAllocate<T>(a_size);
-            memcpy((void*)newData, m_data, m_capacity * sizeof(T));
-            m_allocator->Free(m_data);
-            m_data = newData;
+            return;
         }
+
+        IDEFER(m_capacity = a_size);
+
+        T* newData = m_allocator->ZTAllocate<T>(a_size);
+        memcpy((void*)newData, m_data, m_size * sizeof(T));
+        m_allocator->Free(m_data);
+        m_data = newData;
     }
 
     inline T& operator [](uint32_t a_index)
@@ -267,19 +269,19 @@ public:
 };
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
