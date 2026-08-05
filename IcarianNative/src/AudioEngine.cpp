@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Audio/AudioEngine.h"
@@ -8,14 +8,14 @@
 #include "Audio/AudioEngineBindings.h"
 #include "Config.h"
 #include "Core/Bitfield.h"
+#include "Core/DataTypes/Allocators/BlockAllocator.h"
+#include "Core/DataTypes/Allocators/LeakAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/MultiSourceAllocator.h"
+#include "Core/DataTypes/Allocators/OSAllocator.h"
+#include "Core/DataTypes/Allocators/RingAllocator.h"
+#include "Core/DataTypes/Allocators/UberAllocator.h"
 #include "Core/IcarianError.h"
-#include "DataTypes/Allocators/BlockAllocator.h"
-#include "DataTypes/Allocators/LeakAllocator.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
-#include "DataTypes/Allocators/MultiSourceAllocator.h"
-#include "DataTypes/Allocators/OSAllocator.h"
-#include "DataTypes/Allocators/RingAllocator.h"
-#include "DataTypes/Allocators/UberAllocator.h"
 #include "IcarianError.h"
 #include "Logger.h"
 #include "ObjectManager.h"
@@ -26,20 +26,20 @@ static AudioEngine* Instance = nullptr;
 
 static void* MAIAlloc(size_t a_size, void* a_userData)
 {
-    ComplexAllocator* allocator = (ComplexAllocator*)a_userData;
+    IcarianCore::ComplexAllocator* allocator = (IcarianCore::ComplexAllocator*)a_userData;
 
     // Do not see anything about alignment so just going to assume 16 byte alignment
     return allocator->Allocate((uint64_t)a_size, 16);
 }
 static void* MAIRealloc(void* a_ptr, size_t a_size, void* a_userData)
 {
-    ComplexAllocator* allocator = (ComplexAllocator*)a_userData;
+    IcarianCore::ComplexAllocator* allocator = (IcarianCore::ComplexAllocator*)a_userData;
 
     return allocator->Realloc(a_ptr, (uint64_t)a_size, 16);
 }
 static void MAIFree(void* a_ptr, void* a_userData)
 {
-    ComplexAllocator* allocator = (ComplexAllocator*)a_userData;
+    IcarianCore::ComplexAllocator* allocator = (IcarianCore::ComplexAllocator*)a_userData;
 
     allocator->Free(a_ptr);
 }
@@ -50,10 +50,10 @@ AudioEngine::AudioEngine(Config* a_config)
 
     m_trackerAllocator = nullptr;
 
-    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, UberAllocator::Instance);
-    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, UberAllocator::Instance);
+    m_smallAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::BlockAllocator>(SmallAllocatorSize, IcarianCore::UberAllocator::Instance);
+    m_largeAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::BlockAllocator>(LargeAllocatorSize, IcarianCore::UberAllocator::Instance);
 
-    const AllocationSource allocatorSources[] =
+    const IcarianCore::AllocationSource allocatorSources[] =
     {
         {
             .Alloc = m_smallAllocator,
@@ -64,30 +64,30 @@ AudioEngine::AudioEngine(Config* a_config)
             .MaxSize = LargeAllocatorSize >> 1,
         },
         {
-            .Alloc = OSAllocator::Instance,
+            .Alloc = IcarianCore::OSAllocator::Instance,
             .MaxSize = uint64_t(-1),
         },
     };
 
-    m_allocatorChain = m_smallAllocator->Create<Array<Allocator*>>(m_smallAllocator);
+    m_allocatorChain = m_smallAllocator->Create<IcarianCore::Array<IcarianCore::Allocator*>>(m_smallAllocator);
 
     constexpr uint32_t AllocatorCount = sizeof(allocatorSources) / sizeof(*allocatorSources);
 
     // External library so allow standalone allocations so it can do oversize allocations
     // I have no control over their memory so I cannot ensure that the allocations will fit
     // Otherwise use 16KiB block sizes and fit them in those blocks
-    m_allocator = m_smallAllocator->Create<MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
+    m_allocator = m_smallAllocator->Create<IcarianCore::MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
     m_allocatorChain->Push(m_allocator);
 
     if (a_config->IsHeadless())
     {
-        m_trackerAllocator = m_smallAllocator->Create<TrackerAllocator>(m_allocator);
+        m_trackerAllocator = m_smallAllocator->Create<IcarianCore::TrackerAllocator>(m_allocator);
         m_allocator = m_trackerAllocator;
         m_allocatorChain->Push(m_allocator);
     }
 
 #ifdef DEBUG
-    m_allocator = m_smallAllocator->Create<LeakAllocator>(m_allocator);
+    m_allocator = m_smallAllocator->Create<IcarianCore::LeakAllocator>(m_allocator);
     m_allocatorChain->Push(m_allocator);
 #endif
 
@@ -114,7 +114,7 @@ AudioEngine::AudioEngine(Config* a_config)
     IERRCHECK(ma_engine_init(&config, &m_engine) == MA_SUCCESS);
     IERRDEFER(ma_engine_uninit(&m_engine));
 
-    m_ringAllocator = m_allocator->Create<RingAllocator>(RingAllocatorSize, m_allocator);
+    m_ringAllocator = m_allocator->Create<IcarianCore::RingAllocator>(RingAllocatorSize, m_allocator);
     m_bindings = m_allocator->Create<AudioEngineBindings>(this);
 }
 AudioEngine::~AudioEngine()
@@ -186,14 +186,14 @@ AudioEngine::~AudioEngine()
     const uint32_t allocatorChainSize = m_allocatorChain->Size();
     for (uint32_t i = 0; i < allocatorChainSize; ++i)
     {
-        Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
+        IcarianCore::Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
         m_smallAllocator->Destroy(alloc);
     }
 
     m_smallAllocator->Destroy(m_allocatorChain);
 
-    MallocAllocator::Instance->Destroy(m_largeAllocator);
-    MallocAllocator::Instance->Destroy(m_smallAllocator);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_largeAllocator);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_smallAllocator);
 }
 
 constexpr static uint32_t GetFormatSize(e_AudioFormat a_format)
@@ -597,7 +597,7 @@ void AudioEngine::Update()
     {
         PROFILESTACK("Audio Listeners");
 
-        const Array<AudioListenerBuffer> a = m_audioListeners.ToActiveArray(m_ringAllocator);
+        const IcarianCore::Array<AudioListenerBuffer> a = m_audioListeners.ToActiveArray(m_ringAllocator);
         const uint32_t size = a.Size();
 
         for (uint32_t i = 0; i < size; ++i)
@@ -626,7 +626,7 @@ void AudioEngine::Update()
         PROFILESTACK("Audio Sources");
 
         const uint32_t size = m_audioSources.Size();
-        const Array<uint8_t> states = m_audioSources.ToPackedStateArray(m_ringAllocator);
+        const IcarianCore::Array<uint8_t> states = m_audioSources.ToPackedStateArray(m_ringAllocator);
         TLockArray<AudioSourceBuffer> sources = m_audioSources.ToLockArray();
 
         TLockArray<AudioClip*> clips = m_audioClips.ToLockArray();
@@ -673,7 +673,7 @@ void AudioEngine::Update()
                 ma_data_source_config dataConfig = ma_data_source_config_init();
                 dataConfig.vtable = &DataSourceVTable;
 
-                // Miniaudio will try to retrieve info while we have the lock and there is no way that I am aware of 
+                // Miniaudio will try to retrieve info while we have the lock and there is no way that I am aware of
                 // to provide ahead of time or defer retrieval so have to pass it through kinda annoying
                 MAISource* source = m_allocator->Create<MAISource>();
                 source->SourceAddr = i,
@@ -773,19 +773,19 @@ void AudioEngine::Update()
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

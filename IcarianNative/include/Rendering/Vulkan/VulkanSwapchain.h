@@ -10,8 +10,8 @@
 #include <glm/glm.hpp>
 
 #include "Core/Bitfield.h"
+#include "Core/DataTypes/Array.h"
 #include "Core/DMASwapBuffer.h"
-#include "DataTypes/Array.h"
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
 class AppWindow;
@@ -24,8 +24,8 @@ class VulkanRenderPass;
 struct SwapChainSupportInfo
 {
     vk::SurfaceCapabilitiesKHR Capabilites;
-    Array<vk::SurfaceFormatKHR> Formats;
-    Array<vk::PresentModeKHR> PresentModes;
+    IcarianCore::Array<vk::SurfaceFormatKHR> Formats;
+    IcarianCore::Array<vk::PresentModeKHR> PresentModes;
 };
 
 struct VulkanSwapchainImage
@@ -64,7 +64,7 @@ private:
         SwapchainMode_HeadlessDMA
     };
 
-    Allocator*                             m_allocator;
+    IcarianCore::Allocator*                m_allocator;
 
     AppWindow*                             m_window;
     VulkanRenderEngineBackend*             m_engine;
@@ -104,9 +104,9 @@ private:
     uint8_t                                m_init;
     uint8_t                                m_flags;
 
-    void Init(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator);
-    void InitHeadless(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator);
-    void InitHeadlessDMA(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator);
+    void Init(uint32_t a_width, uint32_t a_height, IcarianCore::Allocator* a_tempAllocator);
+    void InitHeadless(uint32_t a_width, uint32_t a_height, IcarianCore::Allocator* a_tempAllocator);
+    void InitHeadlessDMA(uint32_t a_width, uint32_t a_height, IcarianCore::Allocator* a_tempAllocator);
     void Destroy();
 
 protected:
@@ -117,14 +117,20 @@ public:
         VulkanRenderEngineBackend* a_engine,
         AppWindow* a_window,
         const Config* a_config,
-        Allocator* a_allocator,
-        Allocator* a_tempAllocator
+        IcarianCore::Allocator* a_allocator,
+        IcarianCore::Allocator* a_tempAllocator
     );
     ~VulkanSwapchain();
 
-    static SwapChainSupportInfo QuerySwapChainSupport(const vk::PhysicalDevice& a_device, const vk::SurfaceKHR& a_surface, Allocator* a_allocator, Allocator* a_tempAllocator);
+    static SwapChainSupportInfo QuerySwapChainSupport
+    (
+        const vk::PhysicalDevice& a_device,
+        const vk::SurfaceKHR& a_surface,
+        IcarianCore::Allocator* a_allocator,
+        IcarianCore::Allocator* a_tempAllocator
+    );
 
-    vk::SurfaceFormatKHR GetSurfaceFormat(Allocator* a_tempAllocator) const;
+    vk::SurfaceFormatKHR GetSurfaceFormat(IcarianCore::Allocator* a_tempAllocator) const;
 
     inline uint32_t GetWidth() const
     {
@@ -167,7 +173,7 @@ public:
     vk::Image GetTexture() const;
     vk::ImageLayout GetImageLayout() const;
 
-    bool StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaphore, double a_delta, double a_time, Allocator* a_tempAllocator);
+    bool StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaphore, double a_delta, double a_time, IcarianCore::Allocator* a_tempAllocator);
     void EndFrame(uint32_t a_imageIndex);
 };
 

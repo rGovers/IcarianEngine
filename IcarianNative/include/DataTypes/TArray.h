@@ -8,7 +8,7 @@
 #include <cstdlib>
 #include <vector>
 
-#include "DataTypes/Array.h"
+#include "Core/DataTypes/Array.h"
 #include "DataTypes/TLockArray.h"
 
 // When in doubt with memory issues write it C style with C++ features
@@ -18,9 +18,9 @@ template<typename T>
 class TArray
 {
 private:
-    T*             m_data;
-    uint32_t       m_size;
-    SharedSpinLock m_lock;
+    T*                          m_data;
+    uint32_t                    m_size;
+    IcarianCore::SharedSpinLock m_lock;
 
     inline void DestroyData()
     {
@@ -43,8 +43,8 @@ public:
     }
     TArray(const TArray& a_other)
     {
-        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard otherG = IcarianCore::ThreadGuard(a_other.m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         m_size = a_other.m_size;
         const uint32_t aSize = sizeof(T) * m_size;
@@ -53,8 +53,8 @@ public:
     }
     TArray(TArray&& a_other)
     {
-        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard otherG = IcarianCore::ThreadGuard(a_other.m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         m_size = a_other.m_size;
         m_data = a_other.m_data;
@@ -64,7 +64,7 @@ public:
     }
     TArray(const T* a_data, uint32_t a_size)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         m_size = a_size;
         m_data = (T*)calloc(m_size, sizeof(T));
@@ -75,7 +75,7 @@ public:
     }
     TArray(const T* a_start, const T* a_end)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         const uint32_t aSize = a_end - a_start;
 
@@ -88,7 +88,7 @@ public:
     }
     explicit TArray(const std::vector<T>& a_vec)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         m_size = (uint32_t)a_vec.size();
         const uint32_t aSize = sizeof(T) * m_size;
@@ -101,7 +101,7 @@ public:
     }
     ~TArray()
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         if (m_data != nullptr)
         {
@@ -113,8 +113,8 @@ public:
 
     TArray& operator =(const TArray& a_other)
     {
-        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard otherG = IcarianCore::ThreadGuard(a_other.m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         if (m_data != nullptr)
         {
@@ -133,15 +133,15 @@ public:
         return *this;
     }
 
-    Array<T> ToArray(Allocator* a_allocator)
+    IcarianCore::Array<T> ToArray(IcarianCore::Allocator* a_allocator)
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
-        return Array<T>(m_data, m_size, a_allocator);
+        return IcarianCore::Array<T>(m_data, m_size, a_allocator);
     }
     std::vector<T> ToVector()
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
         return std::vector<T>(m_data, m_data + m_size);
     }
@@ -149,7 +149,6 @@ public:
     TLockArray<T> ToLockArray()
     {
         TLockArray<T> a = TLockArray<T>(m_lock);
-
         a.SetData(m_data, m_size);
 
         return a;
@@ -157,13 +156,12 @@ public:
     TReadLockArray<T> ToReadLockArray()
     {
         TReadLockArray<T> a = TReadLockArray<T>(m_lock);
-
         a.SetData(m_data, m_size);
 
         return a;
     }
 
-    SharedSpinLock& SpinLock()
+    IcarianCore::SharedSpinLock& SpinLock()
     {
         return m_lock;
     }
@@ -183,20 +181,20 @@ public:
 
     inline T& operator [](uint32_t a_index)
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
         return m_data[a_index];
     }
     inline void LockSet(uint32_t a_index, const T& a_value)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         m_data[a_index] = a_value;
     }
 
     inline void Push(const T& a_data)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         UPush(a_data);
     }
@@ -211,7 +209,7 @@ public:
 
     inline uint32_t PushVal(const T& a_data)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         return UPushVal(a_data);
     }
@@ -226,7 +224,7 @@ public:
     }
     inline void PushVals(const T& a_data, uint32_t a_count)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         return UPushVals(a_data, a_count);
     }
@@ -241,7 +239,7 @@ public:
 
     T Pop()
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         T dat = m_data[--m_size];
 
@@ -254,7 +252,7 @@ public:
     }
     inline void Erase(uint32_t a_index)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         UErase(a_index);
     }
@@ -279,7 +277,7 @@ public:
     }
     void Erase(uint32_t a_start, uint32_t a_end)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         const uint32_t diff = a_end - a_start;
 
@@ -308,7 +306,7 @@ public:
 
     inline void Clear()
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         UClear();
     }

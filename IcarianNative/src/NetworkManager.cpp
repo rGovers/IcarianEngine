@@ -1,11 +1,11 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Networking/NetworkManager.h"
 
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Core/IcarianDefer.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
 #include "DeletionQueue.h"
 #include "IcarianError.h"
 #include "Logger.h"
@@ -81,10 +81,10 @@ NetworkManager::NetworkManager()
 }
 NetworkManager::~NetworkManager()
 {
-    MallocAllocator::Instance->Destroy(m_networkClientReceiveFunction);
-    MallocAllocator::Instance->Destroy(m_networkClientDisconnectFunction);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_networkClientReceiveFunction);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_networkClientDisconnectFunction);
 
-    MallocAllocator::Instance->Destroy(m_networkServerConnectFunction);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_networkServerConnectFunction);
 
     for (uint32_t i = 0; i < m_servers.Size(); ++i)
     {
@@ -260,7 +260,7 @@ void NetworkManager::Update()
             }
         }
     }
-    
+
     {
         const std::vector<bool> states = m_servers.ToStateVector();
         TLockArray<NetworkServer*> servers = m_servers.ToLockArray();
@@ -273,23 +273,23 @@ void NetworkManager::Update()
                 servers[i]->Update();
             }
         }
-    }   
+    }
 }
 
 // MIT License
-// 
-// Copyright (c) 2025 River Govers
-// 
+//
+// Copyright (c) 2026 River Govers
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

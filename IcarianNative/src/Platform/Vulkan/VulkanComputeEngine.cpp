@@ -1,14 +1,14 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
 #include "Rendering/Vulkan/VulkanComputeEngine.h"
 
+#include "Core/DataTypes/Allocators/StackAllocator.h"
 #include "Core/IcarianDefer.h"
 #include "Core/ShaderBuffers.h"
-#include "DataTypes/Allocators/StackAllocator.h"
 #include "Logger.h"
 #include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
 #include "Rendering/Vulkan/VulkanComputeEngineBindings.h"
@@ -23,7 +23,7 @@ VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
 {
     m_engine = a_engine;
 
-    Allocator* allocator = m_engine->GetAllocator();
+    IcarianCore::Allocator* allocator = m_engine->GetAllocator();
 
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -53,7 +53,7 @@ VulkanComputeEngine::VulkanComputeEngine(VulkanRenderEngineBackend* a_engine)
 }
 VulkanComputeEngine::~VulkanComputeEngine()
 {
-    Allocator* allocator = m_engine->GetAllocator();
+   IcarianCore:: Allocator* allocator = m_engine->GetAllocator();
 
     allocator->Destroy(m_bindings);
 
@@ -120,7 +120,7 @@ VulkanCommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, u
 {
     RENDERSCRATCHFRAME;
 
-    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+    IcarianCore::StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     const vk::Device device = m_engine->GetLogicalDevice();
 
@@ -141,7 +141,7 @@ VulkanCommandBuffer VulkanComputeEngine::Update(double a_delta, double a_time, u
 
     VULKAN_MARKER_COL(m_engine, cmdBuffer, "Compute Pass", 128, 128, 128);
 
-    const Array<ComputeParticleBuffer> particleBuffers = m_particleBuffers.ToActiveArray(scratchAllocator);
+    const IcarianCore::Array<ComputeParticleBuffer> particleBuffers = m_particleBuffers.ToActiveArray(scratchAllocator);
     for (const ComputeParticleBuffer& buffer : particleBuffers)
     {
         VulkanComputeParticle* pSys = (VulkanComputeParticle*)buffer.Data;
@@ -176,21 +176,21 @@ vk::Buffer VulkanComputeEngine::GetParticleBufferData(uint32_t a_addr)
     IVERIFY(m_particleBuffers.Exists(a_addr));
 
     const ComputeParticleBuffer buffer = m_particleBuffers[a_addr];
-    VulkanComputeParticle* data = (VulkanComputeParticle*)buffer.Data; 
+    VulkanComputeParticle* data = (VulkanComputeParticle*)buffer.Data;
 
     return data->GetComputeBuffer();
 }
 
-uint32_t VulkanComputeEngine::GenerateComputeFShader(const COWU8String& a_str, Allocator* a_tempAllocator)
+uint32_t VulkanComputeEngine::GenerateComputeFShader(const IcarianCore::COWU8String& a_str, IcarianCore::Allocator* a_tempAllocator)
 {
-    Allocator* blockAllocator = m_engine->GetAllocator();
+    IcarianCore::Allocator* blockAllocator = m_engine->GetAllocator();
 
     const VulkanComputeFShaderBuilder builder =
     {
         .Engine = m_engine,
         .String = a_str,
-        .Imports = Dictionary<COWU8String, COWU8String>(a_tempAllocator),
-        .EntryPoint = COWU8String("main", a_tempAllocator),
+        .Imports = IcarianCore::Dictionary<IcarianCore::COWU8String, IcarianCore::COWU8String>(a_tempAllocator),
+        .EntryPoint = IcarianCore::COWU8String("main", a_tempAllocator),
     };
 
     // TODO: Imports for compute shaders
@@ -203,7 +203,7 @@ void VulkanComputeEngine::DestroyComputeShader(uint32_t a_addr)
 {
     IVERIFY(m_shaders.Exists(a_addr));
 
-    Allocator* blockAllocator = m_engine->GetAllocator();
+    IcarianCore::Allocator* blockAllocator = m_engine->GetAllocator();
 
     VulkanComputeShader* shader = m_shaders[a_addr];
     IDEFER(blockAllocator->Destroy(shader));
@@ -219,7 +219,7 @@ VulkanComputeShader* VulkanComputeEngine::GetComputeShader(uint32_t a_addr)
 
 uint32_t VulkanComputeEngine::GenerateComputePipelineLayout(const ShaderBufferInput* a_inputs, uint32_t a_count)
 {
-    Allocator* blockAllocator = m_engine->GetAllocator();
+    IcarianCore::Allocator* blockAllocator = m_engine->GetAllocator();
 
     VulkanComputeLayout* layout = blockAllocator->Create<VulkanComputeLayout>(m_engine, a_inputs, a_count, blockAllocator);
 
@@ -229,7 +229,7 @@ void VulkanComputeEngine::DestroyComputePipelineLayout(uint32_t a_addr)
 {
     IVERIFY(m_layouts.Exists(a_addr));
 
-    Allocator* blockAllocator = m_engine->GetAllocator();
+    IcarianCore::Allocator* blockAllocator = m_engine->GetAllocator();
 
     VulkanComputeLayout* layout = m_layouts[a_addr];
     IDEFER(blockAllocator->Destroy(layout));
@@ -269,19 +269,19 @@ VulkanComputePipeline* VulkanComputeEngine::GetComputePipeline(uint32_t a_addr)
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

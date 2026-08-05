@@ -15,12 +15,11 @@
 #include "Core/IPCPipe.h"
 #include "Core/SocketPipe.h"
 #include "Core/TotalMemoryUsageFrame.h"
-#include "DataTypes/Allocators/Allocator.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
-#include "DataTypes/Allocators/OSAllocator.h"
-#include "DataTypes/Allocators/RingAllocator.h"
-#include "DataTypes/Allocators/UberAllocator.h"
-#include "DataTypes/COWString.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/OSAllocator.h"
+#include "Core/DataTypes/Allocators/RingAllocator.h"
+#include "Core/DataTypes/Allocators/UberAllocator.h"
+#include "Core/DataTypes/COWString.h"
 #include "IcarianError.h"
 #include "InputManager.h"
 #include "IO.h"
@@ -35,7 +34,7 @@
 
 void HeadlessAppWindow::MessageCallback
 (
-    const COWU8String& a_message,
+    const IcarianCore::COWU8String& a_message,
     IcarianCore::e_LoggerMessageType a_type,
     uint32_t a_stackTraceCount,
     const char* const* a_stackTrace
@@ -44,7 +43,7 @@ void HeadlessAppWindow::MessageCallback
     uint32_t stackTraceSize = 0;
     uint32_t* sizes = ILAMBDA(
     {
-        const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_msgAllocatorLock);
 
         ILRETURN m_msgAllocator->TAllocate<uint32_t>(a_stackTraceCount);
     });
@@ -79,7 +78,7 @@ void HeadlessAppWindow::MessageCallback
         {
             uint8_t* dat;
            {
-               const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+               const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_msgAllocatorLock);
 
                dat = m_msgAllocator->ZTAllocate<uint8_t>(size);
            }
@@ -149,16 +148,16 @@ void HeadlessAppWindow::ProfilerCPUCallback(const ProfilerCPUData& a_profilerDat
 
     uint8_t* dat = ILAMBDA(
     {
-        const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_msgAllocatorLock);
 
         ILRETURN m_msgAllocator->ZTAllocate<uint8_t>(length);
     });
 
-    const COWU8String scopeStr = COWU8String(a_profilerData.Name, MallocAllocator::Instance);
+    const IcarianCore::COWU8String scopeStr = IcarianCore::COWU8String(a_profilerData.Name, IcarianCore::MallocAllocator::Instance);
 
     uint32_t scopeID;
     {
-        const ThreadGuard g = ThreadGuard(m_profileLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_profileLock);
 
         if (!m_profilerScopes.GetIfExists(scopeStr, &scopeID))
         {
@@ -177,7 +176,7 @@ void HeadlessAppWindow::ProfilerCPUCallback(const ProfilerCPUData& a_profilerDat
                 {
                     uint8_t* val;
                     {
-                        const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+                        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_msgAllocatorLock);
 
                         val = m_msgAllocator->ZTAllocate<uint8_t>(length);
                     }
@@ -204,20 +203,20 @@ void HeadlessAppWindow::ProfilerCPUCallback(const ProfilerCPUData& a_profilerDat
 
     memcpy(dat, &scope, sizeof(ProfileScopeHeader));
 
-    Array<uint32_t> lastParent = Array<uint32_t>(MallocAllocator::Instance);
+    IcarianCore::Array<uint32_t> lastParent = IcarianCore::Array<uint32_t>(IcarianCore::MallocAllocator::Instance);
     lastParent.Push(uint32_t(-1));
 
     for (uint32_t i = 0; i < count; ++i)
     {
         const ProfileFrame& f = a_profilerData.Frames[i];
 
-        const COWU8String frameStr = "[" + scopeStr + "]" + f.Name
-            + COWU8String::FromValue(f.Stack, 10, MallocAllocator::Instance);
+        const IcarianCore::COWU8String frameStr = "[" + scopeStr + "]" + f.Name
+            + IcarianCore::COWU8String::FromValue(f.Stack, 10, IcarianCore::MallocAllocator::Instance);
 
         uint32_t nameID;
 
         {
-            const ThreadGuard g = ThreadGuard(m_profileLock);
+            const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_profileLock);
 
             if (!m_profilerFrames.GetIfExists(frameStr, &nameID))
             {
@@ -238,7 +237,7 @@ void HeadlessAppWindow::ProfilerCPUCallback(const ProfilerCPUData& a_profilerDat
                     {
                         uint8_t* val;
                         {
-                            const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+                            const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_msgAllocatorLock);
 
                             val = m_msgAllocator->ZTAllocate<uint8_t>(length);
                         }
@@ -321,17 +320,17 @@ void HeadlessAppWindow::ProfilerGPUCallback(const ProfilerGPUFrameData* a_data, 
         const uint32_t length = sizeof(ProfileScopeHeader) + itemCount * sizeof(ProfileFrameData);
         uint8_t* dat = ILAMBDA(
         {
-            const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+            const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_msgAllocatorLock);
 
             ILRETURN m_msgAllocator->ZTAllocate<uint8_t>(length);
         });
 
         uint32_t passNameID = -1;
 
-        const COWU8String passStr = COWU8String(a_data[i].Name, MallocAllocator::Instance);
+        const IcarianCore::COWU8String passStr = IcarianCore::COWU8String(a_data[i].Name, IcarianCore::MallocAllocator::Instance);
 
         {
-            const ThreadGuard g = ThreadGuard(m_gpuProfileLock);
+            const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_gpuProfileLock);
 
             if (!m_gpuProfilePasses.GetIfExists(a_data[i].Name, &passNameID))
             {
@@ -350,7 +349,7 @@ void HeadlessAppWindow::ProfilerGPUCallback(const ProfilerGPUFrameData* a_data, 
                     {
                         uint8_t* val;
                         {
-                            const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+                            const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_msgAllocatorLock);
 
                             val = m_msgAllocator->ZTAllocate<uint8_t>(length);
                         }
@@ -383,11 +382,11 @@ void HeadlessAppWindow::ProfilerGPUCallback(const ProfilerGPUFrameData* a_data, 
         {
             const ProfilerGPUFrameItem& it = a_data[i].Items[j];
 
-            const COWU8String itemStr = "[" + passStr + "]" + it.Name;
+            const IcarianCore::COWU8String itemStr = "[" + passStr + "]" + it.Name;
 
             uint32_t itemID = -1;
             {
-                const ThreadGuard g = ThreadGuard(m_gpuProfileLock);
+                const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_gpuProfileLock);
 
                 if (!m_gpuProfileItems.GetIfExists(itemStr, &itemID))
                 {
@@ -406,7 +405,7 @@ void HeadlessAppWindow::ProfilerGPUCallback(const ProfilerGPUFrameData* a_data, 
                         {
                             uint8_t* val;
                             {
-                                const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+                                const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_msgAllocatorLock);
 
                                 val = m_msgAllocator->ZTAllocate<uint8_t>(length);
                             }
@@ -482,7 +481,7 @@ void HeadlessAppWindow::ProfilerGPUETECallback(float a_time)
             float* val;
 
             {
-                const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+                const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_msgAllocatorLock);
                 val = m_msgAllocator->TAllocate<float>();
             }
 
@@ -496,10 +495,10 @@ void HeadlessAppWindow::ProfilerGPUETECallback(float a_time)
 }
 
 HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : AppWindow(a_app),
-    m_gpuProfilePasses(MallocAllocator::Instance),
-    m_gpuProfileItems(MallocAllocator::Instance),
-    m_profilerScopes(MallocAllocator::Instance),
-    m_profilerFrames(MallocAllocator::Instance)
+    m_gpuProfilePasses(IcarianCore::MallocAllocator::Instance),
+    m_gpuProfileItems(IcarianCore::MallocAllocator::Instance),
+    m_profilerScopes(IcarianCore::MallocAllocator::Instance),
+    m_profilerFrames(IcarianCore::MallocAllocator::Instance)
 {
     TRACE("Creating Headless Window");
     m_pipe = nullptr;
@@ -510,7 +509,7 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
     m_profileIndex = 0;
     m_frameIndex = 0;
 
-    m_msgAllocator = MallocAllocator::Instance->Create<RingAllocator>(16 << 20, UberAllocator::Instance);
+    m_msgAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::RingAllocator>(16 << 20, IcarianCore::UberAllocator::Instance);
 
 #ifndef ICARIANNATIVE_ENABLE_DMA
     m_frameData = nullptr;
@@ -543,10 +542,10 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
             IERROR("Invalid IPC pipe ID");
         }
 
-        const COWU8String tempDir = IO::GetTemporaryDirectory(MallocAllocator::Instance);
-        const COWU8String pipeName = PipeName + COWU8String::FromValue(ipcPipeID, 10, MallocAllocator::Instance);
+        const IcarianCore::COWU8String tempDir = IO::GetTemporaryDirectory(IcarianCore::MallocAllocator::Instance);
+        const IcarianCore::COWU8String pipeName = PipeName + IcarianCore::COWU8String::FromValue(ipcPipeID, 10, IcarianCore::MallocAllocator::Instance);
 
-        const COWU8String path = IO::CombinePath(tempDir, pipeName, MallocAllocator::Instance);
+        const IcarianCore::COWU8String path = IO::CombinePath(tempDir, pipeName, IcarianCore::MallocAllocator::Instance);
 
         m_pipe = IcarianCore::IPCPipe::Connect(path.CStr());
 #endif
@@ -567,7 +566,7 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
     m_width = 1280;
     m_height = 720;
 
-    Logger::CallbackFunc = MallocAllocator::Instance->Create<Logger::Callback>(std::bind
+    Logger::CallbackFunc = IcarianCore::MallocAllocator::Instance->Create<Logger::Callback>(std::bind
     (
         &HeadlessAppWindow::MessageCallback,
         this,
@@ -577,9 +576,9 @@ HeadlessAppWindow::HeadlessAppWindow(Application* a_app, Config* a_config) : App
         std::placeholders::_4
     ));
 
-    Profiler::CPUCallback = MallocAllocator::Instance->Create<HeadlessCPUProfilerCallbackItem>(this);
-    Profiler::GPUCallback = MallocAllocator::Instance->Create<HeadlessGPUProfilerCallbackItem>(this);
-    Profiler::GPUETECallback = MallocAllocator::Instance->Create<HeadlessGPUETEProfilerCallbackItem>(this);
+    Profiler::CPUCallback = IcarianCore::MallocAllocator::Instance->Create<HeadlessCPUProfilerCallbackItem>(this);
+    Profiler::GPUCallback = IcarianCore::MallocAllocator::Instance->Create<HeadlessGPUProfilerCallbackItem>(this);
+    Profiler::GPUETECallback = IcarianCore::MallocAllocator::Instance->Create<HeadlessGPUETEProfilerCallbackItem>(this);
 
     m_prevTime = std::chrono::high_resolution_clock::now();
 
@@ -611,19 +610,19 @@ HeadlessAppWindow::~HeadlessAppWindow()
     }
 #endif
 
-    MallocAllocator::Instance->Destroy(m_runtimeMessageReceive);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_runtimeMessageReceive);
 
-    MallocAllocator::Instance->Destroy(Logger::CallbackFunc);
+    IcarianCore::MallocAllocator::Instance->Destroy(Logger::CallbackFunc);
     Logger::CallbackFunc = nullptr;
 
-    MallocAllocator::Instance->Destroy(Profiler::CPUCallback);
+    IcarianCore::MallocAllocator::Instance->Destroy(Profiler::CPUCallback);
     Profiler::CPUCallback = nullptr;
-    MallocAllocator::Instance->Destroy(Profiler::GPUCallback);
+    IcarianCore::MallocAllocator::Instance->Destroy(Profiler::GPUCallback);
     Profiler::GPUCallback = nullptr;
-    MallocAllocator::Instance->Destroy(Profiler::GPUETECallback);
+    IcarianCore::MallocAllocator::Instance->Destroy(Profiler::GPUETECallback);
     Profiler::GPUETECallback = nullptr;
 
-    MallocAllocator::Instance->Destroy(m_msgAllocator);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_msgAllocator);
 }
 
 void HeadlessAppWindow::PushMessageQueue()
@@ -675,7 +674,7 @@ double HeadlessAppWindow::GetTime() const
 
 void HeadlessAppWindow::SetCursorState(e_CursorState a_state)
 {
-    const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+    const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_msgAllocatorLock);
 
     const IcarianCore::PipeMessage msg =
     {
@@ -714,7 +713,7 @@ public:
         m_data = nullptr;
         if (m_length > 0)
         {
-            m_data = MallocAllocator::Instance->TAllocate<uint8_t>(m_length);
+            m_data = IcarianCore::MallocAllocator::Instance->TAllocate<uint8_t>(m_length);
 
             memcpy(m_data, a_data, m_length);
         }
@@ -723,7 +722,7 @@ public:
     {
         if (m_data != nullptr)
         {
-            MallocAllocator::Instance->Free(m_data);
+            IcarianCore::MallocAllocator::Instance->Free(m_data);
             m_data = nullptr;
         }
     }
@@ -807,7 +806,7 @@ bool HeadlessAppWindow::PollMessage()
 
             if (m_frameData != nullptr)
             {
-                MallocAllocator::Instance->Free(m_frameData);
+                IcarianCore::MallocAllocator::Instance->Free(m_frameData);
                 m_frameData = nullptr;
             }
 
@@ -898,7 +897,7 @@ bool HeadlessAppWindow::PollMessage()
             const uintptr_t len = msg.Length - (strEnd - str);
             const uint8_t* data = (uint8_t*)strEnd;
 
-            ThreadPool::PushJob(MallocAllocator::Instance->Create<RuntimeMessageThreadJob>(m_runtimeMessageReceive, str, data, len));
+            ThreadPool::PushJob(IcarianCore::MallocAllocator::Instance->Create<RuntimeMessageThreadJob>(m_runtimeMessageReceive, str, data, len));
 
             break;
         }
@@ -913,8 +912,8 @@ bool HeadlessAppWindow::PollMessage()
             IERROR
             (
                 "IcarianEngine: Invalid Pipe Message: " +
-                COWU8String::FromValue(msg.Type, 10, MallocAllocator::Instance) + " " +
-                COWU8String::FromValue(msg.Length, 10, MallocAllocator::Instance)
+                IcarianCore::COWU8String::FromValue(msg.Type, 10, IcarianCore::MallocAllocator::Instance) + " " +
+                IcarianCore::COWU8String::FromValue(msg.Length, 10, IcarianCore::MallocAllocator::Instance)
             );
 
             break;
@@ -1020,8 +1019,8 @@ void HeadlessAppWindow::Update()
         PROFILESTACK("Profiler Data");
 
         {
-            const uint64_t osUsage = OSAllocator::TrackerInstance->GetTrueMemoryUsage();
-            const uint64_t mallocUsage = MallocAllocator::TrackerInstance->GetTrueMemoryUsage();
+            const uint64_t osUsage = IcarianCore::OSAllocator::TrackerInstance->GetTrueMemoryUsage();
+            const uint64_t mallocUsage = IcarianCore::MallocAllocator::TrackerInstance->GetTrueMemoryUsage();
 
             const IcarianCore::TotalMemoryUsageFrame frame =
             {
@@ -1088,7 +1087,7 @@ void HeadlessAppWindow::Update()
 
 void HeadlessAppWindow::PushFrameInfo(double a_delta, double a_time)
 {
-    const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+    const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_msgAllocatorLock);
 
     const IcarianCore::PipeMessage msg =
     {
@@ -1109,7 +1108,7 @@ void HeadlessAppWindow::PushFrameInfo(double a_delta, double a_time)
 #ifdef ICARIANNATIVE_ENABLE_DMA
 void HeadlessAppWindow::PushSwapBufferFD(const IcarianCore::DMASwapBufferFD& a_swapBuffer)
 {
-    const ThreadGuard g = ThreadGuard(m_msgAllocatorLock);
+    const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_msgAllocatorLock);
 
     const IcarianCore::PipeMessage msg =
     {
@@ -1181,7 +1180,7 @@ void HeadlessAppWindow::PushFrameData(uint32_t a_width, uint32_t a_height, const
 
         if (m_frameData == nullptr)
         {
-            m_frameData = MallocAllocator::Instance->TAllocate<uint8_t>(size);
+            m_frameData = IcarianCore::MallocAllocator::Instance->TAllocate<uint8_t>(size);
         }
 
         memcpy(m_frameData, a_buffer, size);
@@ -1198,13 +1197,13 @@ constexpr const char* HeadlessExtensions[] =
 };
 #endif
 
-Array<const char*> HeadlessAppWindow::GetRequiredVulkanExtenions() const
+IcarianCore::Array<const char*> HeadlessAppWindow::GetRequiredVulkanExtenions() const
 {
 #ifdef ICARIANNATIVE_ENABLE_DMA
-    return Array<const char*>(HeadlessExtensions, sizeof(HeadlessExtensions) / sizeof(*HeadlessExtensions), MallocAllocator::Instance);
+    return IcarianCore::Array<const char*>(HeadlessExtensions, sizeof(HeadlessExtensions) / sizeof(*HeadlessExtensions), IcarianCore::MallocAllocator::Instance);
 #endif
 
-    return Array<const char*>(MallocAllocator::Instance);
+    return IcarianCore::Array<const char*>(IcarianCore::MallocAllocator::Instance);
 }
 
 #endif

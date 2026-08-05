@@ -302,11 +302,11 @@ static constexpr const char* VulkanErrorPrefix = "VkError: ";
 #define IVKSTRR(v) #v
 #define IVKSTR(v) IVKSTRR(v)
 #define VKRESWARN(res) VulkanResultWarning((vk::Result)res, IVKSTR(__FILE__) "," IVKSTR(__LINE__))
-#define VKRESWARNMSG(res, msg) VulkanResultWarning((vk::Result)res, COWU8String(msg, MallocAllocator::Instance) + ": " IVKSTR(__FILE__) "," IVKSTR(__LINE__))
+#define VKRESWARNMSG(res, msg) VulkanResultWarning((vk::Result)res, IcarianCore::COWU8String(msg, IcarianCore::MallocAllocator::Instance) + ": " IVKSTR(__FILE__) "," IVKSTR(__LINE__))
 #define VKRESERR(res) VulkanResultError((vk::Result)res, IVKSTR(__FILE__) "," IVKSTR(__LINE__))
-#define VKRESERRMSG(res, msg) VulkanResultError((vk::Result)res, COWU8String(msg, MallocAllocator::Instance) + ": " IVKSTR(__FILE__) "," IVKSTR(__LINE__))
+#define VKRESERRMSG(res, msg) VulkanResultError((vk::Result)res, IcarianCore::COWU8String(msg, IcarianCore::MallocAllocator::Instance) + ": " IVKSTR(__FILE__) "," IVKSTR(__LINE__))
 
-[[maybe_unused]] static void VulkanResultWarning(vk::Result a_result, const COWU8String& a_msg)
+[[maybe_unused]] static void VulkanResultWarning(vk::Result a_result, const IcarianCore::COWU8String& a_msg)
 {
     if (a_result != vk::Result::eSuccess)
     {
@@ -317,13 +317,13 @@ static constexpr const char* VulkanErrorPrefix = "VkError: ";
 {
     if (a_result != vk::Result::eSuccess)
     {
-        const COWU8String msg = COWU8String(a_msg, MallocAllocator::Instance);
+        const IcarianCore::COWU8String msg = IcarianCore::COWU8String(a_msg, IcarianCore::MallocAllocator::Instance);
 
         VulkanResultWarning(a_result, msg);
     }
 }
 
-[[maybe_unused]] static void VulkanResultError(vk::Result a_result, const COWU8String& a_msg)
+[[maybe_unused]] static void VulkanResultError(vk::Result a_result, const IcarianCore::COWU8String& a_msg)
 {
     if (a_result != vk::Result::eSuccess)
     {
@@ -334,7 +334,7 @@ static constexpr const char* VulkanErrorPrefix = "VkError: ";
 {
     if (a_result != vk::Result::eSuccess)
     {
-        const COWU8String msg = COWU8String(a_msg, MallocAllocator::Instance);
+        const IcarianCore::COWU8String msg = IcarianCore::COWU8String(a_msg, IcarianCore::MallocAllocator::Instance);
 
         VulkanResultError(a_result, msg);
     }

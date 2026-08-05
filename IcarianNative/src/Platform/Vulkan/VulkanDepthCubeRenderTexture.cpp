@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -190,7 +190,7 @@ VulkanDepthCubeRenderTexture::VulkanDepthCubeRenderTexture(VulkanRenderEngineBac
         nullptr
     );
 
-    constexpr vk::SubpassDependency Dependencies[] = 
+    constexpr vk::SubpassDependency Dependencies[] =
     {
         vk::SubpassDependency
         (
@@ -263,8 +263,8 @@ void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
     const vk::Extent3D extents = vk::Extent3D(m_width, m_height, 1);
 
     TRACE("Creating Depth Texture");
-    const VkImageCreateInfo imageInfo = 
-    { 
+    const VkImageCreateInfo imageInfo =
+    {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
         .imageType = VK_IMAGE_TYPE_2D,
@@ -278,8 +278,8 @@ void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
-    const VmaAllocationCreateInfo imageAllocInfo = 
-    { 
+    const VmaAllocationCreateInfo imageAllocInfo =
+    {
         .usage = VMA_MEMORY_USAGE_AUTO,
         .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     };
@@ -352,8 +352,8 @@ void VulkanDepthCubeRenderTexture::Init(uint32_t a_width, uint32_t a_height)
     // Was technically undefined behaviour so probably should not have ignored but was not an issue up until now
     // My bad
     // Should only be necessary for cube maps due to optimization normal render textures should be fine
-    // And yes that optimization is needed as in some scenes the difference between 20 and 120 fps 
-    TLockObj<vk::CommandBuffer, SpinLock>* l = m_engine->BeginSingleCommand();
+    // And yes that optimization is needed as in some scenes the difference between 20 and 120 fps
+    TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* l = m_engine->BeginSingleCommand();
     IDEFER(m_engine->EndSingleCommand(l));
 
     vk::CommandBuffer commandBuffer = l->Get();
@@ -380,22 +380,22 @@ void VulkanDepthCubeRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
     Init(a_width, a_height);
 }
 
-#endif 
+#endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

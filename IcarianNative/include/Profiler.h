@@ -6,12 +6,12 @@
 
 #include <chrono>
 
+#include "Core/DataTypes/Array.h"
+#include "Core/DataTypes/COWString.h"
+#include "Core/DataTypes/Dictionary.h"
+#include "Core/DataTypes/SpinLock.h"
 #include "Core/IcarianDefer.h"
 #include "Core/MemoryUsageFrame.h"
-#include "DataTypes/Array.h"
-#include "DataTypes/COWString.h"
-#include "DataTypes/Dictionary.h"
-#include "DataTypes/SpinLock.h"
 
 #if !defined(NDEBUG) && !defined(ICARIANNATIVE_ENABLE_PROFILER)
 #define ICARIANNATIVE_ENABLE_PROFILER
@@ -19,7 +19,7 @@
 
 struct ProfileFrame
 {
-    COWU8String Name;
+    IcarianCore::COWU8String Name;
     double Duration;
     std::chrono::high_resolution_clock::time_point StartTime;
     uint32_t Stack;
@@ -37,20 +37,20 @@ enum e_ProfilerMemoryFrame
 
 struct ProfilerGPUFrameItem
 {
-    COWU8String Name;
+    IcarianCore::COWU8String Name;
     double Duration;
 };
 
 struct ProfilerGPUFrameData
 {
-    COWU8String Name;
-    Array<ProfilerGPUFrameItem> Items;
+    IcarianCore::COWU8String Name;
+    IcarianCore::Array<ProfilerGPUFrameItem> Items;
 };
 
 struct ProfilerCPUData
 {
-    COWU8String Name;
-    Array<ProfileFrame> Frames;
+    IcarianCore::COWU8String Name;
+    IcarianCore::Array<ProfileFrame> Frames;
 };
 
 class Profiler
@@ -87,10 +87,10 @@ public:
     };
 
 private:
-    SharedSpinLock                               m_lock;
+    IcarianCore::SharedSpinLock                               m_lock;
 
-    Dictionary<std::thread::id, ProfilerCPUData> m_data;
-    IcarianCore::MemoryUsageFrame                m_memoryFrame;
+    IcarianCore::Dictionary<std::thread::id, ProfilerCPUData> m_data;
+    IcarianCore::MemoryUsageFrame                             m_memoryFrame;
 
 protected:
 
@@ -106,14 +106,14 @@ public:
     static void Destroy();
 
     static void Start(const char* a_name);
-    static void Start(const COWU8String& a_name);
+    static void Start(const IcarianCore::COWU8String& a_name);
     static void Stop();
 
     static void PushMemoryFrame(e_ProfilerMemoryFrame a_frame, uint64_t a_size);
     static IcarianCore::MemoryUsageFrame GetMemoryFrames();
 
     static void StartFrame(const char* a_name);
-    static void StartFrame(const COWU8String& a_name);
+    static void StartFrame(const IcarianCore::COWU8String& a_name);
     static void StopFrame();
 
     static void PushGPUData(const ProfilerGPUFrameData* a_data, uint32_t a_count);

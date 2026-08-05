@@ -11,15 +11,15 @@
 #include <stb_rect_pack.h>
 
 #include "Core/Bitfield.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Set.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
-#include "DataTypes/Set.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "Trace.h"
 
-Font::Font(uint8_t* a_data, Allocator* a_allocator)
+Font::Font(uint8_t* a_data, IcarianCore::Allocator* a_allocator)
 {
     m_allocator = a_allocator;
 
@@ -36,14 +36,14 @@ Font::~Font()
     m_allocator->Destroy(m_data);
 }
 
-bool Font::LoadFont(Font* a_font, const COWU8String& a_path, Allocator* a_allocator)
+bool Font::LoadFont(Font* a_font, const IcarianCore::COWU8String& a_path, IcarianCore::Allocator* a_allocator)
 {
     IERRBLOCK;
 
     TRACE("Loading font");
     FileHandle* fileHandle = FileCache::LoadFile(a_path);
     IERRCHECKRET(fileHandle != nullptr, false);
-    IDEFER(MallocAllocator::Instance->Destroy(fileHandle));
+    IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(fileHandle));
 
     const uint32_t size = (uint32_t)fileHandle->GetSize();
 
@@ -66,23 +66,30 @@ struct CodePointTexture
     uint8_t* Data;
 };
 
-Dictionary<CharU32, CodePointTexture> GetTextures
+static IcarianCore::Dictionary<IcarianCore::CharU32, CodePointTexture> GetTextures
 (
     const stbtt_fontinfo* a_fontInfo,
     float a_fontSize,
-    const COWU32String& a_str,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    const IcarianCore::COWU32String& a_str,
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     const float scale = stbtt_ScaleForPixelHeight(a_fontInfo, a_fontSize);
 
-    Dictionary<CharU32, CodePointTexture> codePointTextures = Dictionary<CharU32, CodePointTexture>(a_allocator);
+    IcarianCore::Dictionary<IcarianCore::CharU32, CodePointTexture> codePointTextures = IcarianCore::Dictionary
+    <
+        IcarianCore::CharU32,
+        CodePointTexture
+    >
+    (
+        a_allocator
+    );
 
-    const Set<CharU32> codePoints = ILAMBDA(
+    const IcarianCore::Set<IcarianCore::CharU32> codePoints = ILAMBDA(
     {
-        Set<CharU32> vals = Set<CharU32>(a_tempAllocator);
-        for (const CharU32 c : a_str)
+        IcarianCore::Set<IcarianCore::CharU32> vals = IcarianCore::Set<IcarianCore::CharU32>(a_tempAllocator);
+        for (const IcarianCore::CharU32 c : a_str)
         {
             vals.Push(c);
         }
@@ -90,7 +97,7 @@ Dictionary<CharU32, CodePointTexture> GetTextures
         ILRETURN vals;
     });
 
-    for (const CharU32 c : codePoints)
+    for (const IcarianCore::CharU32 c : codePoints)
     {
         switch (c)
         {
@@ -157,18 +164,18 @@ Dictionary<CharU32, CodePointTexture> GetTextures
 
 uint8_t* Font::StringToTexture
 (
-    const COWU32String& a_string,
+    const IcarianCore::COWU32String& a_string,
     float a_fontSize,
     uint32_t a_width,
     uint32_t a_height,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 ) const
 {
     // Changes have negative effects with small strings but alot faster with large strings with alot of repeating characters
     // Worth it as small string are fast enough anyway
     // Anyway the performance rat in me wants to use a chunk allocator but will hold off for now
-    const Dictionary<CharU32, CodePointTexture> codePointTextures = GetTextures
+    const IcarianCore::Dictionary<IcarianCore::CharU32, CodePointTexture> codePointTextures = GetTextures
     (
         &m_fontInfo,
         a_fontSize,
@@ -178,7 +185,7 @@ uint8_t* Font::StringToTexture
     );
     IDEFER(
     {
-        const Array<CodePointTexture> vals = codePointTextures.GetValues(a_tempAllocator);
+        const IcarianCore::Array<CodePointTexture> vals = codePointTextures.GetValues(a_tempAllocator);
         for (const CodePointTexture& t : vals)
         {
             a_tempAllocator->Free(t.Data);
@@ -267,7 +274,7 @@ constexpr static glm::vec2 BlendVertices(const glm::vec2& a_vertA, const glm::ve
     return glm::mix(a_vertA, a_vertB, lerp);
 }
 
-static uint32_t AddVertex(const glm::vec2& a_vert, Array<glm::vec2>* a_vertices)
+static uint32_t AddVertex(const glm::vec2& a_vert, IcarianCore::Array<glm::vec2>* a_vertices)
 {
     const float Distance = 0.0001f;
     const float DistanceSqr = Distance * Distance;
@@ -286,7 +293,7 @@ static uint32_t AddVertex(const glm::vec2& a_vert, Array<glm::vec2>* a_vertices)
     return size;
 }
 
-static void AddEdge(uint32_t a_lhs, uint32_t a_rhs, Dictionary<uint64_t, bool>* a_edgeTable)
+static void AddEdge(uint32_t a_lhs, uint32_t a_rhs, IcarianCore::Dictionary<uint64_t, bool>* a_edgeTable)
 {
     const uint64_t edge = (uint64_t)a_lhs << 31 | a_rhs;
     const uint64_t invEdge = (uint64_t)a_rhs << 31 | a_lhs;
@@ -303,7 +310,7 @@ static void AddEdge(uint32_t a_lhs, uint32_t a_rhs, Dictionary<uint64_t, bool>* 
     a_edgeTable->Push(invEdge, true);
 }
 
-static uint32_t AddSideVertex(uint32_t a_index, uint32_t a_offset, Array<Vertex>* a_vertices, uint32_t* a_indexMap)
+static uint32_t AddSideVertex(uint32_t a_index, uint32_t a_offset, IcarianCore::Array<Vertex>* a_vertices, uint32_t* a_indexMap)
 {
     if (a_indexMap[a_index] != uint32_t(-1))
     {
@@ -325,7 +332,15 @@ static uint32_t AddSideVertex(uint32_t a_index, uint32_t a_offset, Array<Vertex>
 
     return index;
 }
-static void AddSideEdge(uint32_t a_indexA, uint32_t a_indexB, uint32_t a_sideVertCount, uint32_t* a_indexMap, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices)
+static void AddSideEdge
+(
+    uint32_t a_indexA,
+    uint32_t a_indexB,
+    uint32_t a_sideVertCount,
+    uint32_t* a_indexMap,
+    IcarianCore::Array<Vertex>* a_vertices,
+    IcarianCore::Array<uint32_t>* a_indices
+)
 {
     const uint32_t qIndexA = AddSideVertex(a_indexA, a_sideVertCount, a_vertices, a_indexMap) * 2 + a_sideVertCount;
     const uint32_t qIndexB = AddSideVertex(a_indexB, a_sideVertCount, a_vertices, a_indexMap) * 2 + a_sideVertCount;
@@ -362,15 +377,15 @@ static void AddSideEdge(uint32_t a_indexA, uint32_t a_indexB, uint32_t a_sideVer
 
 void Font::StringToModel
 (
-    const COWU32String& a_string,
+    const IcarianCore::COWU32String& a_string,
     float a_fontSize,
     float a_scale,
     float a_depth,
-    Array<Vertex>* a_vertices,
-    Array<uint32_t>* a_indices,
+    IcarianCore::Array<Vertex>* a_vertices,
+    IcarianCore::Array<uint32_t>* a_indices,
     float* a_radius,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 ) const
 {
     constexpr uint32_t EdgeTable[] =
@@ -450,13 +465,20 @@ void Font::StringToModel
     {
         float yOffset;
         float Advance;
-        Array<glm::vec2> Vertices;
+        IcarianCore::Array<glm::vec2> Vertices;
     };
 
-    Dictionary<CharU32, CodepointModel> codePointModels = Dictionary<CharU32, CodepointModel>(a_tempAllocator);
+    IcarianCore::Dictionary<IcarianCore::CharU32, CodepointModel> codePointModels = IcarianCore::Dictionary
+    <
+        IcarianCore::CharU32,
+        CodepointModel
+    >
+    (
+        a_tempAllocator
+    );
 
     {
-        const Dictionary<CharU32, CodePointTexture> codePointTextures = GetTextures
+        const IcarianCore::Dictionary<IcarianCore::CharU32, CodePointTexture> codePointTextures = GetTextures
         (
             &m_fontInfo,
             a_fontSize,
@@ -465,8 +487,8 @@ void Font::StringToModel
             a_tempAllocator
         );
 
-        const Array<CharU32> keys = codePointTextures.GetKeys(a_tempAllocator);
-        const Array<CodePointTexture> values = codePointTextures.GetValues(a_tempAllocator);
+        const IcarianCore::Array<IcarianCore::CharU32> keys = codePointTextures.GetKeys(a_tempAllocator);
+        const IcarianCore::Array<CodePointTexture> values = codePointTextures.GetValues(a_tempAllocator);
 
         IVERIFY(keys.Size() == values.Size());
 
@@ -481,10 +503,10 @@ void Font::StringToModel
             {
                 .yOffset = (float)tex.yOffset,
                 .Advance = (float)tex.Advance,
-                .Vertices = Array<glm::vec2>(a_tempAllocator)
+                .Vertices = IcarianCore::Array<glm::vec2>(a_tempAllocator)
             };
 
-            const CharU32 c = keys[i];
+            const IcarianCore::CharU32 c = keys[i];
             switch (c)
             {
             case ' ':
@@ -594,9 +616,9 @@ void Font::StringToModel
     int ascent;
     stbtt_GetFontVMetrics(&m_fontInfo, &ascent, NULL, NULL);
 
-    Array<glm::vec2> stringVertices = Array<glm::vec2>(a_tempAllocator);
-    Array<uint32_t> stringIndices = Array<uint32_t>(a_tempAllocator);
-    Dictionary<uint64_t, bool> uniqueEdge = Dictionary<uint64_t, bool>(a_tempAllocator);
+    IcarianCore::Array<glm::vec2> stringVertices = IcarianCore::Array<glm::vec2>(a_tempAllocator);
+    IcarianCore::Array<uint32_t> stringIndices = IcarianCore::Array<uint32_t>(a_tempAllocator);
+    IcarianCore::Dictionary<uint64_t, bool> uniqueEdge = IcarianCore::Dictionary<uint64_t, bool>(a_tempAllocator);
 
     stringIndices.Reserve(1024);
     stringVertices.Reserve(1024);

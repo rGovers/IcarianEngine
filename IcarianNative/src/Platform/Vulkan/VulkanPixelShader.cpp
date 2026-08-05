@@ -1,13 +1,13 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
 #include "Rendering/Vulkan/Shaders/VulkanPixelShader.h"
 
-#include "DataTypes/Allocators/LeakAllocator.h"
-#include "DataTypes/Allocators/MultiSourceAllocator.h"
+#include "Core/DataTypes/Allocators/LeakAllocator.h"
+#include "Core/DataTypes/Allocators/MultiSourceAllocator.h"
 #include "Rendering/FlareShader.h"
 #include "Rendering/SPIRVTools.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
@@ -20,7 +20,7 @@ VulkanPixelShader::VulkanPixelShader
     uint32_t a_inputCount,
     const uint32_t* a_data,
     uint32_t a_dataCount,
-    Allocator* a_allocator
+    IcarianCore::Allocator* a_allocator
 ) : VulkanShader(a_engine, a_inputs, a_inputCount, a_allocator)
 {
     TRACE("Creating Pixel Shader");
@@ -42,7 +42,13 @@ VulkanPixelShader::~VulkanPixelShader()
     device.destroyShaderModule(m_module);
 }
 
-void VulkanPixelShader::CreateFromFShader(VulkanPixelShader* a_out, const VulkanPixelFShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator)
+void VulkanPixelShader::CreateFromFShader
+(
+    VulkanPixelShader* a_out,
+    const VulkanPixelFShaderBuilder& a_builder,
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
+)
 {
     IVERIFY(a_out != nullptr);
     IVERIFY(a_builder.Engine != nullptr);
@@ -52,9 +58,9 @@ void VulkanPixelShader::CreateFromFShader(VulkanPixelShader* a_out, const Vulkan
     // We will be doing a bunch of string ops so do not want to use the temp allocator directly
     // Temp allocator is not setup for alot of allocation/deallocation so wrap it in a BlockAllocator to better manage the memory
     constexpr uint32_t BlockSize = 32 << 10;
-    BlockAllocator tempBlock = BlockAllocator(BlockSize, a_tempAllocator);
+    IcarianCore::BlockAllocator tempBlock = IcarianCore::BlockAllocator(BlockSize, a_tempAllocator);
 
-    const AllocationSource allocatorSources[] =
+    const IcarianCore::AllocationSource allocatorSources[] =
     {
         {
             .Alloc = &tempBlock,
@@ -68,17 +74,17 @@ void VulkanPixelShader::CreateFromFShader(VulkanPixelShader* a_out, const Vulkan
     };
     constexpr uint32_t AllocatorSourceCount = sizeof(allocatorSources) / sizeof(*allocatorSources);
 
-    Allocator* tempAllocator = a_tempAllocator->Create<MultiSourceAllocator>
+    IcarianCore::Allocator* tempAllocator = a_tempAllocator->Create<IcarianCore::MultiSourceAllocator>
     (
         &tempBlock,
         allocatorSources,
         AllocatorSourceCount
     );
 #ifdef DEBUG
-    tempAllocator = a_tempAllocator->Create<LeakAllocator>(tempAllocator);
+    tempAllocator = a_tempAllocator->Create<IcarianCore::LeakAllocator>(tempAllocator);
     IDEFER(
     {
-        Allocator* upstreamAllocator = ((LeakAllocator*)tempAllocator)->GetUpstreamAllocator();
+        IcarianCore::Allocator* upstreamAllocator = ((IcarianCore::LeakAllocator*)tempAllocator)->GetUpstreamAllocator();
         a_tempAllocator->Destroy(tempAllocator);
         a_tempAllocator->Destroy(upstreamAllocator);
     });
@@ -86,7 +92,7 @@ void VulkanPixelShader::CreateFromFShader(VulkanPixelShader* a_out, const Vulkan
     IDEFER(a_tempAllocator->Destroy(tempAllocator));
 #endif
 
-    Array<ShaderBufferInput> inputs = Array<ShaderBufferInput>(a_tempAllocator);
+    IcarianCore::Array<ShaderBufferInput> inputs = IcarianCore::Array<ShaderBufferInput>(a_tempAllocator);
 
     const FlareShader::ShaderBuilder builder =
     {
@@ -97,8 +103,8 @@ void VulkanPixelShader::CreateFromFShader(VulkanPixelShader* a_out, const Vulkan
         .OtherInputs = a_builder.OtherInputs,
     };
 
-    COWU8String shader = COWU8String(a_tempAllocator);
-    const COWU8String error = FlareShader::GLSLFromFlareShader(&shader, builder, a_allocator, tempAllocator);
+    IcarianCore::COWU8String shader = IcarianCore::COWU8String(a_tempAllocator);
+    const IcarianCore::COWU8String error = FlareShader::GLSLFromFlareShader(&shader, builder, a_allocator, tempAllocator);
     if (!error.Empty())
     {
         IERROR("Flare Pixel Shader generation error: " + error);
@@ -115,14 +121,20 @@ void VulkanPixelShader::CreateFromFShader(VulkanPixelShader* a_out, const Vulkan
 
     CreateFromGLSL(a_out, glslBuilder, a_allocator, a_tempAllocator);
 }
-void VulkanPixelShader::CreateFromGLSL(VulkanPixelShader* a_out, const VulkanPixelGLSLShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator)
+void VulkanPixelShader::CreateFromGLSL
+(
+    VulkanPixelShader* a_out,
+    const VulkanPixelGLSLShaderBuilder& a_builder,
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
+)
 {
     IVERIFY(a_out != nullptr);
     IVERIFY(a_builder.Engine != nullptr);
     IVERIFY(!a_builder.String.Empty());
     IVERIFY(!a_builder.EntryPoint.Empty());
 
-    const Array<uint32_t> spirv = spirv_fromGLSL
+    const IcarianCore::Array<uint32_t> spirv = spirv_fromGLSL
     (
         EShLangFragment,
         a_builder.String,
@@ -150,19 +162,19 @@ void VulkanPixelShader::CreateFromGLSL(VulkanPixelShader* a_out, const VulkanPix
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

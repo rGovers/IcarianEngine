@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -8,27 +8,27 @@
 
 #include "Rendering/Vulkan/Shaders/VulkanShader.h"
 
-#include "DataTypes/Array.h"
-#include "DataTypes/COWString.h"
-#include "DataTypes/Dictionary.h"
+#include "Core/DataTypes/Array.h"
+#include "Core/DataTypes/COWString.h"
+#include "Core/DataTypes/Dictionary.h"
 
 struct VulkanPixelFShaderBuilder
 {
     VulkanRenderEngineBackend* Engine;
-    COWU8String String;
-    Dictionary<COWU8String, COWU8String> Imports;
-    COWU8String EntryPoint;
-    Array<ShaderBufferInput> OtherInputs;
+    IcarianCore::COWU8String String;
+    IcarianCore::Dictionary<IcarianCore::COWU8String, IcarianCore::COWU8String> Imports;
+    IcarianCore::COWU8String EntryPoint;
+    IcarianCore::Array<ShaderBufferInput> OtherInputs;
     // uint16_t StartSlot;
 };
 
 struct VulkanPixelGLSLShaderBuilder
 {
     VulkanRenderEngineBackend* Engine;
-    COWU8String String;
+    IcarianCore::COWU8String String;
     ShaderBufferInput* Inputs;
     uint32_t InputCount;
-    COWU8String EntryPoint;
+    IcarianCore::COWU8String EntryPoint;
 };
 
 class VulkanPixelShader : public VulkanShader
@@ -46,7 +46,7 @@ public:
         uint32_t a_inputCount,
         const uint32_t* a_data,
         uint32_t a_dataCount,
-        Allocator* a_allocator
+        IcarianCore::Allocator* a_allocator
     );
     virtual ~VulkanPixelShader();
 
@@ -55,26 +55,38 @@ public:
         return VulkanShaderType_Pixel;
     }
 
-    static void CreateFromFShader(VulkanPixelShader* a_out, const VulkanPixelFShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
-    static void CreateFromGLSL(VulkanPixelShader* a_out, const VulkanPixelGLSLShaderBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
+    static void CreateFromFShader
+    (
+        VulkanPixelShader* a_out,
+        const VulkanPixelFShaderBuilder& a_builder,
+        IcarianCore::Allocator* a_allocator,
+        IcarianCore::Allocator* a_tempAllocator
+    );
+    static void CreateFromGLSL
+    (
+        VulkanPixelShader* a_out,
+        const VulkanPixelGLSLShaderBuilder& a_builder,
+        IcarianCore::Allocator* a_allocator,
+        IcarianCore::Allocator* a_tempAllocator
+    );
 };
 
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

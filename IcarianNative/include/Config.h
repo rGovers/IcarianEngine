@@ -5,7 +5,7 @@
 #pragma once
 
 #include "Core/Bitfield.h"
-#include "DataTypes/COWString.h"
+#include "Core/DataTypes/COWString.h"
 #include "Rendering/RenderEngine.h"
 
 class Config
@@ -22,21 +22,21 @@ private:
     static constexpr char DefaultAppName[] = "IcarianEngine";
     static constexpr char DefaultAppVersion[] = "0";
 
-    double            m_fixedTimeStep;
-    uint32_t          m_fileCacheSize;
+    double                   m_fixedTimeStep;
+    uint32_t                 m_fileCacheSize;
 
-    uint32_t          m_pipefileID;
-    uint32_t          m_ipcId;
+    uint32_t                 m_pipefileID;
+    uint32_t                 m_ipcId;
 
-    uint32_t          m_threadCount;
+    uint32_t                 m_threadCount;
 
-    COWU8String       m_appName;
-    COWU8String       m_appVersion;
+    IcarianCore::COWU8String m_appName;
+    IcarianCore::COWU8String m_appVersion;
 
-    uint16_t          m_remotePort;
-    e_RenderingEngine m_renderingEngine;
+    uint16_t                 m_remotePort;
+    e_RenderingEngine        m_renderingEngine;
 
-    uint8_t           m_flags;
+    uint8_t                  m_flags;
 
 protected:
 
@@ -114,11 +114,11 @@ public:
         ITOGGLEBIT(a_value, m_flags, DisableWaylandBit);
     }
 
-    inline COWU8String GetApplicationName() const
+    inline IcarianCore::COWU8String GetApplicationName() const
     {
         return m_appName;
     }
-    inline COWU8String GetApplicationVersion() const
+    inline IcarianCore::COWU8String GetApplicationVersion() const
     {
         return m_appVersion;
     }

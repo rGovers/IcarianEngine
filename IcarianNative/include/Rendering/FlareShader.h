@@ -1,15 +1,14 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
 #include <cstdint>
-#include <unordered_map>
 
-#include "DataTypes/Array.h"
-#include "DataTypes/COWString.h"
-#include "DataTypes/Dictionary.h"
+#include "Core/DataTypes/Array.h"
+#include "Core/DataTypes/COWString.h"
+#include "Core/DataTypes/Dictionary.h"
 
 #include "EngineMaterialInteropStructures.h"
 
@@ -65,7 +64,7 @@ public:
 
     struct MeshShaderOut
     {
-        COWU8String Identifier;
+        IcarianCore::COWU8String Identifier;
         uint32_t Slot;
         e_MeshOutType Type;
     };
@@ -86,39 +85,45 @@ public:
 
     struct ShaderBuilder
     {
-        COWU8String String;
+        IcarianCore::COWU8String String;
         e_ShaderPlatform Platform;
-        Dictionary<COWU8String, COWU8String> Imports;
-        Array<ShaderBufferInput>* Inputs;
-        Array<ShaderBufferInput> OtherInputs;
+        IcarianCore::Dictionary<IcarianCore::COWU8String, IcarianCore::COWU8String> Imports;
+        IcarianCore::Array<ShaderBufferInput>* Inputs;
+        IcarianCore::Array<ShaderBufferInput> OtherInputs;
         ShaderOutput* Out;
     };
 
-    static COWU8String GLSLFromFlareShader
+    static IcarianCore::COWU8String GLSLFromFlareShader
     (
-        COWU8String* Shader,
+        IcarianCore::COWU8String* Shader,
         const ShaderBuilder& a_builder,
-        Allocator* a_allocator,
-        Allocator* a_tempAllocator
+        IcarianCore::Allocator* a_allocator,
+        IcarianCore::Allocator* a_tempAllocator
     );
 
-    static COWU8String GenerateMeshVertexStub(const COWU8String& a_shader, Array<MeshShaderOut>* a_outputs, Allocator* a_allocator, Allocator* a_tempAllocator);
+    static IcarianCore::COWU8String GenerateMeshVertexStub
+    (
+        const IcarianCore::COWU8String& a_shader,
+        IcarianCore::Array<MeshShaderOut>* a_outputs,
+        IcarianCore::Allocator* a_allocator,
+        IcarianCore::Allocator* a_tempAllocator
+    );
 };
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

@@ -32,10 +32,10 @@
 #include <Jolt/Physics/EActivation.h>
 
 #include "Core/Bitfield.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "IO.h"
@@ -112,7 +112,7 @@ uint32_t PhysicsEngineBindings::CreateSphereShape(float a_radius) const
     if (result.HasError())
     {
         const JPH::String str = result.GetError();
-        IERROR(COWU8String("Jolt: ", MallocAllocator::Instance) + str.c_str());
+        IERROR(IcarianCore::COWU8String("Jolt: ", IcarianCore::MallocAllocator::Instance) + str.c_str());
 
         return -1;
     }
@@ -141,7 +141,7 @@ uint32_t PhysicsEngineBindings::CreateBoxShape(const glm::vec3& a_extents) const
     if (result.HasError())
     {
         const JPH::String str = result.GetError();
-        IERROR(COWU8String("Jolt: ", MallocAllocator::Instance) + str.c_str());
+        IERROR(IcarianCore::COWU8String("Jolt: ", IcarianCore::MallocAllocator::Instance) + str.c_str());
 
         return -1;
     }
@@ -182,7 +182,7 @@ uint32_t PhysicsEngineBindings::CreateCapsuleShape(float a_height, float a_radiu
     if (result.HasError())
     {
         const JPH::String str = result.GetError();
-        IERROR(COWU8String("Jolt: ", MallocAllocator::Instance) + str.c_str());
+        IERROR(IcarianCore::COWU8String("Jolt: ", IcarianCore::MallocAllocator::Instance) + str.c_str());
 
         return -1;
     }
@@ -225,7 +225,7 @@ uint32_t PhysicsEngineBindings::CreateCylinderShape(float a_height, float a_radi
     if (result.HasError())
     {
         const JPH::String str = result.GetError();
-        IERROR(COWU8String("Jolt: ", MallocAllocator::Instance) + str.c_str());
+        IERROR(IcarianCore::COWU8String("Jolt: ", IcarianCore::MallocAllocator::Instance) + str.c_str());
 
         return -1;
     }
@@ -258,19 +258,19 @@ float PhysicsEngineBindings::GetCylinderShapeRadius(uint32_t a_addr) const
 
 uint32_t PhysicsEngineBindings::CreateMeshShape(const char* a_path) const
 {
-    Allocator* allocator = m_engine->GetAllocator();
-    const COWU8String str = COWU8String(a_path, allocator);
+    IcarianCore::Allocator* allocator = m_engine->GetAllocator();
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, allocator);
 
     return CreateMeshShape(str);
 }
-uint32_t PhysicsEngineBindings::CreateMeshShape(const COWU8String& a_path) const
+uint32_t PhysicsEngineBindings::CreateMeshShape(const IcarianCore::COWU8String& a_path) const
 {
     IERRBLOCK;
 
     TRACE("Creating Mesh Shape");
 
-    Allocator* allocator = m_engine->GetAllocator();
-    const COWU8String ext = IO::GetExtension(a_path, allocator);
+    IcarianCore::Allocator* allocator = m_engine->GetAllocator();
+    const IcarianCore::COWU8String ext = IO::GetExtension(a_path, allocator);
 
     switch (StringHash<uint32_t>(ext.CStr()))
     {
@@ -282,11 +282,11 @@ uint32_t PhysicsEngineBindings::CreateMeshShape(const COWU8String& a_path) const
     {
         FileHandle* handle = FileCache::LoadFile(a_path);
         IERRCHECKRET(handle != nullptr, -1);
-        IDEFER(MallocAllocator::Instance->Destroy(handle));
+        IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
-        uint8_t* dat = MallocAllocator::Instance->TAllocate<uint8_t>(size);
-        IDEFER(MallocAllocator::Instance->Destroy(dat));
+        uint8_t* dat = IcarianCore::MallocAllocator::Instance->TAllocate<uint8_t>(size);
+        IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(dat));
         IERRCHECKRET(handle->Read(dat, size) == size, -1);
 
         Assimp::Importer importer;
@@ -335,7 +335,7 @@ uint32_t PhysicsEngineBindings::CreateMeshShape(const COWU8String& a_path) const
         if (result.HasError())
         {
             const JPH::String str = result.GetError();
-            IERROR(COWU8String("Jolt: ", MallocAllocator::Instance) + str.c_str());
+            IERROR(IcarianCore::COWU8String("Jolt: ", IcarianCore::MallocAllocator::Instance) + str.c_str());
 
             return -1;
         }
@@ -422,7 +422,7 @@ void PhysicsEngineBindings::SetCharacterControllerVelocity(uint32_t a_addr, cons
 
 void PhysicsEngineBindings::AddBody(JPH::uint32 a_id, uint32_t a_index) const
 {
-    const ThreadGuard g = ThreadGuard(m_engine->m_bodyMapLock);
+    const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_engine->m_bodyMapLock);
 
     if (m_engine->m_data->BodyMap.Exists(a_id))
     {
@@ -874,14 +874,14 @@ RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, cons
 
     constexpr JPH::RayCastSettings Settings;
 
-    Allocator* allocator = m_engine->GetAllocator();
+    IcarianCore::Allocator* allocator = m_engine->GetAllocator();
 
     class RayCollector : public JPH::CastRayCollector
     {
     public:
-        Array<JPH::RayCastResult> Results;
+        IcarianCore::Array<JPH::RayCastResult> Results;
 
-        RayCollector(Allocator* a_allocator) :
+        RayCollector(IcarianCore::Allocator* a_allocator) :
             Results(a_allocator)
         {
 
@@ -904,7 +904,7 @@ RaycastResultBuffer* PhysicsEngineBindings::Raycast(const glm::vec3& a_pos, cons
     if (!collector.Results.Empty())
     {
         *a_resultCount = collector.Results.Size();
-        RaycastResultBuffer* results = MallocAllocator::Instance->TAllocate<RaycastResultBuffer>(*a_resultCount);
+        RaycastResultBuffer* results = IcarianCore::MallocAllocator::Instance->TAllocate<RaycastResultBuffer>(*a_resultCount);
 
         const JPH::BodyInterface& bodyinterface = m_engine->m_data->PhysicsSystem->GetBodyInterface();
 
@@ -948,7 +948,7 @@ uint32_t* PhysicsEngineBindings::SphereCollision(const glm::vec3& a_pos, float a
         *a_resultCount = (uint32_t)collector.mHits.size();
 
         const JPH::BodyID* ids = collector.mHits.data();
-        uint32_t* results = MallocAllocator::Instance->TAllocate<uint32_t>(*a_resultCount);
+        uint32_t* results = IcarianCore::MallocAllocator::Instance->TAllocate<uint32_t>(*a_resultCount);
 
         for (uint32_t i = 0; i < *a_resultCount; ++i)
         {
@@ -994,7 +994,7 @@ uint32_t* PhysicsEngineBindings::BoxCollision(const glm::mat4& a_transform, cons
         *a_resultCount = (uint32_t)collector.mHits.size();
 
         const JPH::BodyID* ids = collector.mHits.data();
-        uint32_t* results = MallocAllocator::Instance->TAllocate<uint32_t>(*a_resultCount);
+        uint32_t* results = IcarianCore::MallocAllocator::Instance->TAllocate<uint32_t>(*a_resultCount);
 
         for (uint32_t i = 0; i < *a_resultCount; ++i)
         {
@@ -1032,7 +1032,7 @@ uint32_t* PhysicsEngineBindings::AABBCollision(const glm::vec3& a_min, const glm
         *a_resultCount = (uint32_t)collector.mHits.size();
 
         const JPH::BodyID* ids = collector.mHits.data();
-        uint32_t* results = MallocAllocator::Instance->TAllocate<uint32_t>(*a_resultCount);
+        uint32_t* results = IcarianCore::MallocAllocator::Instance->TAllocate<uint32_t>(*a_resultCount);
 
         for (uint32_t i = 0; i < *a_resultCount; ++i)
         {

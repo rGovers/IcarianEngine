@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 // Windows headers need to be included first and in a specific order otherwise everything breaks
@@ -14,12 +14,12 @@
 #include "Application.h"
 #include "Config.h"
 #include "Core/IcarianAssert.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/OSAllocator.h"
+#include "Core/DataTypes/Allocators/UberAllocator.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianPragma.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
-#include "DataTypes/Allocators/OSAllocator.h"
-#include "DataTypes/Allocators/UberAllocator.h"
 
 #define STBI_ASSERT(x) ICARIAN_ASSERT_MSG(x, "STBI Assert")
 
@@ -213,12 +213,12 @@ int APIENTRY WinMain(HINSTANCE a_hInstance, HINSTANCE a_hPrevInstance, LPSTR a_l
 {
     PrintVersion();
 
-    MallocAllocator::Init();
-    IDEFER(MallocAllocator::Destroy());
-    OSAllocator::Init();
-    IDEFER(OSAllocator::Destroy());
-    UberAllocator::Init();
-    IDEFER(UberAllocator::Destroy());
+    IcarianCore::MallocAllocator::Init();
+    IDEFER(IcarianCore::MallocAllocator::Destroy());
+    IcarianCore::OSAllocator::Init();
+    IDEFER(IcarianCore::OSAllocator::Destroy());
+    IcarianCore::UberAllocator::Init();
+    IDEFER(IcarianCore::UberAllocator::Destroy());
 
     // Whatever enet needs we will do ourselves
     // We need a newer version and enet does not allow overriding
@@ -275,12 +275,12 @@ int main(int a_argc, char* a_argv[])
 {
     PrintVersion();
 
-    MallocAllocator::Init();
-    IDEFER(MallocAllocator::Destroy());
-    OSAllocator::Init();
-    IDEFER(OSAllocator::Destroy());
-    UberAllocator::Init();
-    IDEFER(UberAllocator::Destroy());
+    IcarianCore::MallocAllocator::Init();
+    IDEFER(IcarianCore::MallocAllocator::Destroy());
+    IcarianCore::OSAllocator::Init();
+    IDEFER(IcarianCore::OSAllocator::Destroy());
+    IcarianCore::UberAllocator::Init();
+    IDEFER(IcarianCore::UberAllocator::Destroy());
 
     Config* config = new Config("./config.xml");
 
@@ -300,19 +300,19 @@ int main(int a_argc, char* a_argv[])
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

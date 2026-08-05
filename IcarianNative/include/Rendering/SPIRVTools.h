@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -8,30 +8,35 @@
 #include <glslang/Include/ResourceLimits.h>
 #include <glslang/Public/ShaderLang.h>
 
-class Allocator;
-
-#include "DataTypes/Array.h"
-#include "DataTypes/COWString.h"
+#include "Core/DataTypes/Array.h"
+#include "Core/DataTypes/COWString.h"
 
 void spirv_init();
 void spirv_destroy();
 
-Array<uint32_t> spirv_fromGLSL(EShLanguage a_lang, const COWU8String& a_str, bool a_optimize, const COWU8String& a_entryPoint, Allocator* a_allocator);
+IcarianCore::Array<uint32_t> spirv_fromGLSL
+(
+    EShLanguage a_lang,
+    const IcarianCore::COWU8String& a_str,
+    bool a_optimize,
+    const IcarianCore::COWU8String& a_entryPoint,
+    IcarianCore::Allocator* a_allocator
+);
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

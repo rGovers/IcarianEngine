@@ -1,26 +1,26 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
 #include <cstdint>
 
-#include "DataTypes/COWString.h"
+#include "Core/DataTypes/Allocators/StackAllocator.h"
+#include "Core/DataTypes/Allocators/TrackerAllocator.h"
+#include "Core/DataTypes/COWString.h"
 #include "DataTypes/TNCArray.h"
 
 class Font;
 class RenderEngine;
 class RenderAssetStoreBindings;
-class StackAllocator;
-class TrackerAllocator;
 
 struct RenderAsset
 {
     static constexpr uint32_t MarkBit = 0;
     static constexpr uint32_t SkinnedBit = 1;
 
-    COWU8String Path;
+    IcarianCore::COWU8String Path;
     uint32_t InternalAddress;
     uint16_t DeReq;
     uint8_t Data;
@@ -30,7 +30,7 @@ struct RenderAsset
 struct RenderAssetScratchAllocator
 {
     volatile uint32_t Count;
-    StackAllocator* Allocator;
+    IcarianCore::StackAllocator* Allocator;
 };
 
 #define ISRENDERASSETSTOREADDR(assetAddr) ((assetAddr) & 0b1 << RenderAssetStore::RenderAssetStoreBit)
@@ -49,17 +49,17 @@ public:
 private:
     struct ClassData
     {
-        Array<RenderAssetScratchAllocator> StackAllocators;
+        IcarianCore::Array<RenderAssetScratchAllocator> StackAllocators;
 
-        RenderEngine*                      Renderer;
-        RenderAssetStoreBindings*          Bindings;
+        RenderEngine*                                   Renderer;
+        RenderAssetStoreBindings*                       Bindings;
 
-        TNCArray<RenderAsset>              Meshes;
-        TNCArray<RenderAsset>              Models;
-        TNCArray<RenderAsset>              Textures;
-        TNCArray<Font*>                    Fonts;
+        TNCArray<RenderAsset>                           Meshes;
+        TNCArray<RenderAsset>                           Models;
+        TNCArray<RenderAsset>                           Textures;
+        TNCArray<Font*>                                 Fonts;
 
-        uint32_t                           ScratchIndex;
+        uint32_t                                        ScratchIndex;
     };
 
     constexpr static uint64_t BlockAllocatorSize = 32 << 20;
@@ -69,17 +69,17 @@ private:
 
     static constexpr uint16_t DeReqCount = 20;
 
-    Allocator*         m_blockAllocator;
-    TrackerAllocator*  m_trackerAllocator;
+    IcarianCore::Allocator*                      m_blockAllocator;
+    IcarianCore::TrackerAllocator*               m_trackerAllocator;
 
-    Array<Allocator*>* m_allocatorChain;
+    IcarianCore::Array<IcarianCore::Allocator*>* m_allocatorChain;
 
-    ClassData*         m_data;
+    ClassData*                                   m_data;
 
-    SpinLock           m_scratchLock;
+    IcarianCore::SpinLock                        m_scratchLock;
 
-    uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const COWU8String& a_path);
-    uint32_t LoadMeshData(const COWU8String& a_path, uint8_t a_index);
+    uint32_t LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const IcarianCore::COWU8String& a_path);
+    uint32_t LoadMeshData(const IcarianCore::COWU8String& a_path, uint8_t a_index);
 
 protected:
 
@@ -95,17 +95,24 @@ public:
         return m_data->Fonts[a_addr];
     }
 
-    [[nodiscard]] uint32_t LoadMesh(const COWU8String& a_path, uint8_t a_index);
+    [[nodiscard]] uint32_t LoadMesh(const IcarianCore::COWU8String& a_path, uint8_t a_index);
     void DestroyMesh(uint32_t a_addr);
     uint32_t GetMesh(uint32_t a_addr);
 
-    bool LoadModelData(const COWU8String& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius);
-    [[nodiscard]] uint32_t LoadModel(const COWU8String& a_path, uint8_t a_index);
-    [[nodiscard]] uint32_t LoadSkinnedModel(const COWU8String& a_path, uint8_t a_index);
+    bool LoadModelData
+    (
+        const IcarianCore::COWU8String& a_path,
+        uint8_t a_data,
+        IcarianCore::Array<Vertex>* a_vertices,
+        IcarianCore::Array<uint32_t>* a_indices,
+        float* a_radius
+    );
+    [[nodiscard]] uint32_t LoadModel(const IcarianCore::COWU8String& a_path, uint8_t a_index);
+    [[nodiscard]] uint32_t LoadSkinnedModel(const IcarianCore::COWU8String& a_path, uint8_t a_index);
     void DestroyModel(uint32_t a_addr);
     uint32_t GetModel(uint32_t a_addr);
 
-    [[nodiscard]] uint32_t LoadTexture(const COWU8String& a_path);
+    [[nodiscard]] uint32_t LoadTexture(const IcarianCore::COWU8String& a_path);
     void DestroyTexture(uint32_t a_addr);
     uint32_t GetTexture(uint32_t a_addr);
 
@@ -113,19 +120,19 @@ public:
 };
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

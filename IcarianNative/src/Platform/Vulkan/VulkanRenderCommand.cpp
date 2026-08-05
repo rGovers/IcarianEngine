@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 
@@ -106,10 +106,10 @@ void VulkanRenderCommand::SetRenderTextureCompute()
             {
                 constexpr vk::ImageSubresourceRange DepthSubResourceRange = vk::ImageSubresourceRange
                 (
-                    vk::ImageAspectFlagBits::eDepth, 
-                    0, 
-                    1, 
-                    0, 
+                    vk::ImageAspectFlagBits::eDepth,
+                    0,
+                    1,
+                    0,
                     1
                 );
 
@@ -160,10 +160,10 @@ void VulkanRenderCommand::SetRenderTextureCompute()
 
             m_commandBuffer.pipelineBarrier
             (
-                vk::PipelineStageFlagBits::eColorAttachmentOutput, 
-                vk::PipelineStageFlagBits::eComputeShader, 
-                vk::DependencyFlagBits::eByRegion, 
-                0, 
+                vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::DependencyFlagBits::eByRegion,
+                0,
                 nullptr,
                 0,
                 nullptr,
@@ -179,10 +179,10 @@ void VulkanRenderCommand::ClearRenderTextureCompute()
 {
     constexpr vk::ImageSubresourceRange SubResourceRange = vk::ImageSubresourceRange
     (
-        vk::ImageAspectFlagBits::eColor, 
-        0, 
-        1, 
-        0, 
+        vk::ImageAspectFlagBits::eColor,
+        0,
+        1,
+        0,
         1
     );
 
@@ -211,10 +211,10 @@ void VulkanRenderCommand::ClearRenderTextureCompute()
 
                 m_commandBuffer.pipelineBarrier
                 (
-                    vk::PipelineStageFlagBits::eComputeShader, 
-                    vk::PipelineStageFlagBits::eFragmentShader, 
-                    vk::DependencyFlagBits::eByRegion, 
-                    0, 
+                    vk::PipelineStageFlagBits::eComputeShader,
+                    vk::PipelineStageFlagBits::eFragmentShader,
+                    vk::DependencyFlagBits::eByRegion,
+                    0,
                     nullptr,
                     0,
                     nullptr,
@@ -227,10 +227,10 @@ void VulkanRenderCommand::ClearRenderTextureCompute()
             {
                 constexpr vk::ImageSubresourceRange DepthSubResourceRange = vk::ImageSubresourceRange
                 (
-                    vk::ImageAspectFlagBits::eDepth, 
-                    0, 
-                    1, 
-                    0, 
+                    vk::ImageAspectFlagBits::eDepth,
+                    0,
+                    1,
+                    0,
                     1
                 );
 
@@ -281,10 +281,10 @@ void VulkanRenderCommand::ClearRenderTextureCompute()
 
             m_commandBuffer.pipelineBarrier
             (
-                vk::PipelineStageFlagBits::eComputeShader, 
-                vk::PipelineStageFlagBits::eFragmentShader, 
-                vk::DependencyFlagBits::eByRegion, 
-                0, 
+                vk::PipelineStageFlagBits::eComputeShader,
+                vk::PipelineStageFlagBits::eFragmentShader,
+                vk::DependencyFlagBits::eByRegion,
+                0,
                 nullptr,
                 0,
                 nullptr,
@@ -439,7 +439,7 @@ void VulkanRenderCommand::BindRenderTexturePass()
     }
 }
 
-bool VulkanRenderCommand::BindResources(Allocator* a_tempAllocator)
+bool VulkanRenderCommand::BindResources(IcarianCore::Allocator* a_tempAllocator)
 {
     if (m_materialAddr == uint32_t(-1))
     {
@@ -573,13 +573,13 @@ bool VulkanRenderCommand::BindResources(Allocator* a_tempAllocator)
 
         if (isCompute)
         {
-            const Array<ShaderBufferInput> bufferInputs = shaderData->GetShaderBufferInputs
+            const IcarianCore::Array<ShaderBufferInput> bufferInputs = shaderData->GetShaderBufferInputs
             (
                 ShaderBufferType_BufferTexture,
                 a_tempAllocator
             );
 
-            for (const ShaderBufferInput s : bufferInputs) 
+            for (const ShaderBufferInput s : bufferInputs)
             {
                 shaderData->PushComputeBufferTexture
                 (
@@ -643,7 +643,7 @@ VulkanPipeline* VulkanRenderCommand::GetPipeline() const
     return m_gEngine->GetPipeline(m_renderTexAddr, m_materialAddr);
 }
 
-VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr, bool a_immediate, Allocator* a_tempAllocator)
+VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr, bool a_immediate, IcarianCore::Allocator* a_tempAllocator)
 {
     if (m_materialAddr != a_materialAddr)
     {
@@ -686,7 +686,7 @@ VulkanPipeline* VulkanRenderCommand::BindMaterial(uint32_t a_materialAddr, bool 
     return m_gEngine->GetPipeline(m_renderTexAddr, m_materialAddr);
 }
 
-void VulkanRenderCommand::PushTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler, Allocator* a_tempAllocator)
+void VulkanRenderCommand::PushTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler, IcarianCore::Allocator* a_tempAllocator)
 {
     IVERIFY(m_materialAddr != uint32_t(-1));
 
@@ -719,7 +719,7 @@ void VulkanRenderCommand::PushTexture(uint32_t a_slot, const TextureSamplerBuffe
         blob->Tertiary->PushTexture(m_commandBuffer, a_slot, a_sampler, index);
     }
 }
-void VulkanRenderCommand::PushLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr, Allocator* a_tempAllocator)
+void VulkanRenderCommand::PushLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr, IcarianCore::Allocator* a_tempAllocator)
 {
     IVERIFY(m_materialAddr != uint32_t(-1));
 
@@ -833,7 +833,7 @@ void VulkanRenderCommand::PushLight(uint32_t a_slot, e_LightType a_lightType, ui
         blob->Tertiary->PushUniformBuffer(m_commandBuffer, a_slot, lightBuffer, index);
     }
 }
-void VulkanRenderCommand::PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount, Allocator* a_tempAllocator)
+void VulkanRenderCommand::PushLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount, IcarianCore::Allocator* a_tempAllocator)
 {
     if (!BindResources(a_tempAllocator))
     {
@@ -887,7 +887,7 @@ void VulkanRenderCommand::PushLightSplits(uint32_t a_slot, const LightShadowSpli
         blob->Tertiary->PushShaderStorageObject(m_commandBuffer, a_slot, storage, index);
     }
 }
-void VulkanRenderCommand::PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr, Allocator* a_tempAllocator)
+void VulkanRenderCommand::PushShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr, IcarianCore::Allocator* a_tempAllocator)
 {
     if (!BindResources(a_tempAllocator))
     {
@@ -958,7 +958,7 @@ void VulkanRenderCommand::PushShadowTextureArray(uint32_t a_slot, uint32_t a_dir
     }
 }
 
-void VulkanRenderCommand::PushUserTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler, Allocator* a_tempAllocator)
+void VulkanRenderCommand::PushUserTexture(uint32_t a_slot, const TextureSamplerBuffer& a_sampler, IcarianCore::Allocator* a_tempAllocator)
 {
     IVERIFY(m_materialAddr != uint32_t(-1));
 
@@ -997,7 +997,7 @@ void VulkanRenderCommand::PushUserTexture(uint32_t a_slot, const TextureSamplerB
         blob->Tertiary->PushTexture(m_commandBuffer, realSlot, a_sampler, index);
     }
 }
-void VulkanRenderCommand::PushUserLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr, Allocator* a_tempAllocator)
+void VulkanRenderCommand::PushUserLight(uint32_t a_slot, e_LightType a_lightType, uint32_t a_lightAddr, IcarianCore::Allocator* a_tempAllocator)
 {
     IVERIFY(m_materialAddr != uint32_t(-1));
 
@@ -1117,7 +1117,7 @@ void VulkanRenderCommand::PushUserLight(uint32_t a_slot, e_LightType a_lightType
         blob->Tertiary->PushUniformBuffer(m_commandBuffer, realSlot, lightBuffer, index);
     }
 }
-void VulkanRenderCommand::PushUserLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount, Allocator* a_tempAllocator)
+void VulkanRenderCommand::PushUserLightSplits(uint32_t a_slot, const LightShadowSplit* a_splits, uint32_t a_splitCount, IcarianCore::Allocator* a_tempAllocator)
 {
     if (!BindResources(a_tempAllocator))
     {
@@ -1177,7 +1177,7 @@ void VulkanRenderCommand::PushUserLightSplits(uint32_t a_slot, const LightShadow
         blob->Tertiary->PushShaderStorageObject(m_commandBuffer, realSlot, storage, index);
     }
 }
-void VulkanRenderCommand::PushUserShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr, Allocator* a_tempAllocator)
+void VulkanRenderCommand::PushUserShadowTextureArray(uint32_t a_slot, uint32_t a_dirLightAddr, IcarianCore::Allocator* a_tempAllocator)
 {
     if (!BindResources(a_tempAllocator))
     {
@@ -1354,17 +1354,17 @@ void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, uint32_t a_inde
 
     constexpr vk::ImageSubresourceLayers ImageSubResource = vk::ImageSubresourceLayers
     (
-        vk::ImageAspectFlagBits::eColor, 
+        vk::ImageAspectFlagBits::eColor,
         0,
-        0, 
+        0,
         1
     );
 
     const vk::ImageBlit blitRegion = vk::ImageBlit
     (
-        ImageSubResource, 
-        { ZeroOffset, srcOffset }, 
-        ImageSubResource, 
+        ImageSubResource,
+        { ZeroOffset, srcOffset },
+        ImageSubResource,
         { ZeroOffset, dstOffset }
     );
 
@@ -1396,8 +1396,30 @@ void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, uint32_t a_inde
         SubResourceRange
     );
 
-    m_commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &srcMemoryBarrier);
-    m_commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &dstMemoryBarrier);
+    m_commandBuffer.pipelineBarrier
+    (
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::DependencyFlags(),
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &srcMemoryBarrier
+    );
+    m_commandBuffer.pipelineBarrier
+    (
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::DependencyFlags(),
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &dstMemoryBarrier
+    );
 
     m_commandBuffer.blitImage(srcImage, vk::ImageLayout::eTransferSrcOptimal, dstImage, vk::ImageLayout::eTransferDstOptimal, 1, &blitRegion, vk::Filter::eLinear);
 
@@ -1424,11 +1446,33 @@ void VulkanRenderCommand::Blit(const VulkanRenderTexture* a_src, uint32_t a_inde
         SubResourceRange
     );
 
-    m_commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &srcFinalMemoryBarrier);
-    m_commandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader, vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &dstFinalMemoryBarrier);
+    m_commandBuffer.pipelineBarrier
+    (
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eFragmentShader,
+        vk::DependencyFlags(),
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &srcFinalMemoryBarrier
+    );
+    m_commandBuffer.pipelineBarrier
+    (
+        vk::PipelineStageFlagBits::eTransfer,
+        vk::PipelineStageFlagBits::eFragmentShader,
+        vk::DependencyFlags(),
+        0,
+        nullptr,
+        0,
+        nullptr,
+        1,
+        &dstFinalMemoryBarrier
+    );
 }
 
-void VulkanRenderCommand::DrawMaterial(Allocator* a_tempAllocator)
+void VulkanRenderCommand::DrawMaterial(IcarianCore::Allocator* a_tempAllocator)
 {
     if (m_materialAddr == uint32_t(-1))
     {
@@ -1511,7 +1555,7 @@ void VulkanRenderCommand::DrawMaterial(Allocator* a_tempAllocator)
     }
     }
 }
-void VulkanRenderCommand::DrawModel(const glm::mat4& a_transform, uint32_t a_modelAddr, Allocator* a_tempAllocator)
+void VulkanRenderCommand::DrawModel(const glm::mat4& a_transform, uint32_t a_modelAddr, IcarianCore::Allocator* a_tempAllocator)
 {
     if (m_materialAddr == uint32_t(-1))
     {
@@ -1548,7 +1592,7 @@ void VulkanRenderCommand::DrawModel(const glm::mat4& a_transform, uint32_t a_mod
     if (shaderData->GetShaderBufferInput(ShaderBufferType_SSModelBuffer, &input))
     {
         // TODO: I can probably batch these calls need to investigate if it is even worthwhile
-        const IcarianCore::ShaderModelBuffer buffer = 
+        const IcarianCore::ShaderModelBuffer buffer =
         {
             .Model = a_transform,
             .InvModel = glm::inverse(a_transform)
@@ -1568,7 +1612,7 @@ void VulkanRenderCommand::DrawModel(const glm::mat4& a_transform, uint32_t a_mod
 
     m_commandBuffer.drawIndexed(indexCount, 1, 0, 0, 0);
 }
-void VulkanRenderCommand::DrawMesh(const glm::mat4& a_transform, uint32_t a_meshAddr, uint32_t a_indexCount, Allocator* a_tempAllocator)
+void VulkanRenderCommand::DrawMesh(const glm::mat4& a_transform, uint32_t a_meshAddr, uint32_t a_indexCount, IcarianCore::Allocator* a_tempAllocator)
 {
     if (m_materialAddr == uint32_t(-1))
     {
@@ -1870,7 +1914,7 @@ void VulkanRenderCommand::DrawMesh(const glm::mat4& a_transform, uint32_t a_mesh
                     nullptr
                 );
 
-                const vk::BufferMemoryBarrier inputBarriers[] = 
+                const vk::BufferMemoryBarrier inputBarriers[] =
                 {
                     vk::BufferMemoryBarrier
                     (
@@ -1962,28 +2006,28 @@ void VulkanRenderCommand::DrawMesh(const glm::mat4& a_transform, uint32_t a_mesh
     }
 }
 
-void VulkanRenderCommand::MarkerStart(const std::string_view& a_name)
+void VulkanRenderCommand::MarkerStart(const IcarianCore::COWU8String& a_name)
 {
 #ifdef ICARIANNATIVE_ENABLE_MARKERS
-    const bool markersEnabled = m_engine->IsExtensionEnabled(VK_EXT_DEBUG_MARKER_EXTENSION_NAME); 
+    const bool markersEnabled = m_engine->IsExtensionEnabled(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
     if (markersEnabled)
     {
-        const vk::DebugMarkerMarkerInfoEXT markerInfo = vk::DebugMarkerMarkerInfoEXT 
+        const vk::DebugMarkerMarkerInfoEXT markerInfo = vk::DebugMarkerMarkerInfoEXT
         (
-            a_name.data()
+            a_name.CStr()
         );
 
-        m_commandBuffer.debugMarkerBeginEXT(markerInfo); 
+        m_commandBuffer.debugMarkerBeginEXT(markerInfo);
     }
 #endif
 }
 void VulkanRenderCommand::MarkerEnd()
 {
 #ifdef ICARIANNATIVE_ENABLE_MARKERS
-    const bool markersEnabled = m_engine->IsExtensionEnabled(VK_EXT_DEBUG_MARKER_EXTENSION_NAME); 
+    const bool markersEnabled = m_engine->IsExtensionEnabled(VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
     if (markersEnabled)
     {
-        m_commandBuffer.debugMarkerEndEXT(); 
+        m_commandBuffer.debugMarkerEndEXT();
     }
 #endif
 }
@@ -1991,19 +2035,19 @@ void VulkanRenderCommand::MarkerEnd()
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

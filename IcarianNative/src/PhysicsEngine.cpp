@@ -18,12 +18,11 @@
 
 #include "Config.h"
 #include "Core/Bitfield.h"
-#include "DataTypes/Allocators/BlockAllocator.h"
-#include "DataTypes/Allocators/LeakAllocator.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
-#include "DataTypes/Allocators/MultiSourceAllocator.h"
-#include "DataTypes/Allocators/OSAllocator.h"
-#include "DataTypes/Allocators/UberAllocator.h"
+#include "Core/DataTypes/Allocators/LeakAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/MultiSourceAllocator.h"
+#include "Core/DataTypes/Allocators/OSAllocator.h"
+#include "Core/DataTypes/Allocators/UberAllocator.h"
 #include "IcarianError.h"
 #include "ObjectManager.h"
 #include "Physics/InterfaceLock.h"
@@ -46,14 +45,14 @@ static void TraceImpl(const char* inFMT, ...)
 
 [[maybe_unused]] static bool AssertImpl(const char* a_expression, const char* a_message, const char* a_file, JPH::uint a_line)
 {
-    const COWU8String str = ILAMBDA(
+    const IcarianCore::COWU8String str = ILAMBDA(
     {
-        COWU8String val = COWU8String("Jolt Assert: ", MallocAllocator::Instance) + a_expression;
+        IcarianCore::COWU8String val = IcarianCore::COWU8String("Jolt Assert: ", IcarianCore::MallocAllocator::Instance) + a_expression;
         if (a_message != nullptr)
         {
             val = val + ": " + a_message;
         }
-        val = val + "{" + a_file + ":" + COWU8String::FromValue(a_line, 10, MallocAllocator::Instance) + "}";
+        val = val + "{" + a_file + ":" + IcarianCore::COWU8String::FromValue(a_line, 10, IcarianCore::MallocAllocator::Instance) + "}";
 
         ILRETURN val;
     });
@@ -63,7 +62,7 @@ static void TraceImpl(const char* inFMT, ...)
     return true;
 }
 
-static ComplexAllocator* Alloc = nullptr;
+static IcarianCore::ComplexAllocator* Alloc = nullptr;
 
 constexpr static uint32_t PhysicsDefaultAllocationAlignment = 16;
 
@@ -94,12 +93,12 @@ PhysicsEngine::PhysicsEngine(Config* a_config)
     TRACE("Creating PhysicsEngine");
 
     IVERIFY(Alloc == nullptr);
-    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, UberAllocator::Instance);
-    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, UberAllocator::Instance);
+    m_smallAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::BlockAllocator>(SmallAllocatorSize, IcarianCore::UberAllocator::Instance);
+    m_largeAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::BlockAllocator>(LargeAllocatorSize, IcarianCore::UberAllocator::Instance);
 
-    m_allocatorChain = m_smallAllocator->Create<Array<Allocator*>>(m_smallAllocator);
+    m_allocatorChain = m_smallAllocator->Create<IcarianCore::Array<IcarianCore::Allocator*>>(m_smallAllocator);
 
-    const AllocationSource allocatorSources[] =
+    const IcarianCore::AllocationSource allocatorSources[] =
     {
         {
             .Alloc = m_smallAllocator,
@@ -110,30 +109,30 @@ PhysicsEngine::PhysicsEngine(Config* a_config)
             .MaxSize = LargeAllocatorSize >> 1,
         },
         {
-            .Alloc = OSAllocator::Instance,
+            .Alloc = IcarianCore::OSAllocator::Instance,
             .MaxSize = uint64_t(-1),
         },
     };
 
     constexpr uint32_t AllocatorCount = sizeof(allocatorSources) / sizeof(*allocatorSources);
 
-    Alloc = m_smallAllocator->Create<MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
+    Alloc = m_smallAllocator->Create<IcarianCore::MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
     m_allocatorChain->Push(Alloc);
 
     if (a_config->IsHeadless())
     {
-        m_trackerAllocator = m_smallAllocator->Create<TrackerAllocator>(Alloc);
+        m_trackerAllocator = m_smallAllocator->Create<IcarianCore::TrackerAllocator>(Alloc);
         Alloc = m_trackerAllocator;
         m_allocatorChain->Push(Alloc);
     }
 
 #ifdef DEBUG
-    Alloc = m_smallAllocator->Create<LeakAllocator>(Alloc);
+    Alloc = m_smallAllocator->Create<IcarianCore::LeakAllocator>(Alloc);
     m_allocatorChain->Push(Alloc);
 #endif
 
     m_data = Alloc->ZTAllocate<ClassData>();
-    m_data->BodyMap = Dictionary<JPH::uint32, uint32_t>(Alloc);
+    m_data->BodyMap = IcarianCore::Dictionary<JPH::uint32, uint32_t>(Alloc);
 
     for (uint32_t i = 0; i < 6; ++i)
     {
@@ -205,7 +204,7 @@ PhysicsEngine::~PhysicsEngine()
 {
     IVERIFY(Alloc != nullptr);
 
-    MallocAllocator::Instance->Destroy(m_data->FixedUpdateFunction);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_data->FixedUpdateFunction);
 
     delete m_data->PhysicsSystem;
 
@@ -233,17 +232,17 @@ PhysicsEngine::~PhysicsEngine()
     const uint32_t allocatorChainSize = m_allocatorChain->Size();
     for (uint32_t i = 0; i < allocatorChainSize; ++i)
     {
-        Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
+        IcarianCore::Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
         m_smallAllocator->Destroy(alloc);
     }
 
     m_smallAllocator->Destroy(m_allocatorChain);
 
-    MallocAllocator::Instance->Destroy(m_largeAllocator);
-    MallocAllocator::Instance->Destroy(m_smallAllocator);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_largeAllocator);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_smallAllocator);
 }
 
-Allocator* PhysicsEngine::GetAllocator() const
+IcarianCore::Allocator* PhysicsEngine::GetAllocator() const
 {
     return Alloc;
 }
@@ -258,7 +257,7 @@ bool PhysicsEngine::CanObjectLayersCollide(uint32_t a_lhs, uint32_t a_rhs) const
 
 uint32_t PhysicsEngine::GetBodyAddr(JPH::uint a_joltIndex)
 {
-    const SharedThreadGuard g = SharedThreadGuard(m_bodyMapLock);
+    const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_bodyMapLock);
 
     if (m_data->BodyMap.Exists(a_joltIndex))
     {
@@ -342,7 +341,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
             const JPH::DefaultBroadPhaseLayerFilter broadFilter = m_data->PhysicsSystem->GetDefaultBroadPhaseLayerFilter(0);
             const JPH::DefaultObjectLayerFilter objectFilter = m_data->PhysicsSystem->GetDefaultLayerFilter(0);
 
-            const Array<JPH::CharacterVirtual*> characters = m_data->Characters.ToActiveArray(Alloc);
+            const IcarianCore::Array<JPH::CharacterVirtual*> characters = m_data->Characters.ToActiveArray(Alloc);
             for (JPH::CharacterVirtual* c : characters)
             {
                 PROFILESTACK("Character Update");
@@ -380,8 +379,8 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
         {
             PROFILESTACK("Physics Bodies");
 
-            const Array<JPH::BodyID> bodies = m_data->ActivationListener->ToBodies(Alloc);
-            const SharedThreadGuard g = SharedThreadGuard(m_bodyMapLock);
+            const IcarianCore::Array<JPH::BodyID> bodies = m_data->ActivationListener->ToBodies(Alloc);
+            const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_bodyMapLock);
 
             // Should not need but doing just incase for good practice as it multithreaded app
             // FFS something in WIN32 means that I can no longer call this interface without a compiler error bodyInterface it is
@@ -437,7 +436,7 @@ void PhysicsEngine::Update(double a_delta, float a_timeScale)
         {
             PROFILESTACK("Characters");
 
-            const Array<JPH::CharacterVirtual*> characters = m_data->Characters.ToActiveArray(Alloc);
+            const IcarianCore::Array<JPH::CharacterVirtual*> characters = m_data->Characters.ToActiveArray(Alloc);
             for (const JPH::CharacterVirtual* c : characters)
             {
                 const uint32_t transformAddr = (uint32_t)(c->GetUserData() & 0xFFFFFFFF);

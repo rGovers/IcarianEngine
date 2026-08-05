@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -33,7 +33,7 @@
         RaycastResultBuffer* results = Instance->Raycast(a_pos, a_dir, &resultCount); \
         if (results != nullptr) \
         { \
-            IDEFER(MallocAllocator::Instance->Destroy(results)); \
+            IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(results)); \
             MonoClass* klass = RuntimeManager::GetClass("IcarianEngine.Physics", "RaycastResultBuffer"); \
             MonoArray* arr = mono_array_new(RuntimeManager::GetDomain(), klass, (uintptr_t)resultCount); \
             for (uint32_t i = 0; i < resultCount; ++i) \
@@ -50,7 +50,7 @@
         uint32_t* data = Instance->SphereCollision(a_pos, a_radius, &resultCount); \
         if (data != nullptr) \
         { \
-            IDEFER(MallocAllocator::Instance->Destroy(data)); \
+            IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(data)); \
             MonoArray* arr = mono_array_new(RuntimeManager::GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount); \
             for (uint32_t i = 0; i < resultCount; ++i) \
             { \
@@ -72,7 +72,7 @@
         uint32_t* data = Instance->BoxCollision(t, a_extents, &resultCount); \
         if (data != nullptr) \
         { \
-            IDEFER(MallocAllocator::Instance->Destroy(data)); \
+            IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(data)); \
             MonoArray* arr = mono_array_new(RuntimeManager::GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount); \
             for (uint32_t i = 0; i < resultCount; ++i) \
             { \
@@ -88,7 +88,7 @@
         uint32_t* data = Instance->AABBCollision(a_min, a_max, &resultCount); \
         if (data != nullptr) \
         { \
-            IDEFER(MallocAllocator::Instance->Destroy(data)); \
+            IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(data)); \
             MonoArray* arr = mono_array_new(RuntimeManager::GetDomain(), mono_get_uint32_class(), (uintptr_t)resultCount); \
             for (uint32_t i = 0; i < resultCount; ++i) \
             { \
@@ -103,19 +103,19 @@
 /// @endcond
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

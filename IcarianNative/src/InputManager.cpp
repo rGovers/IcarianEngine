@@ -1,10 +1,10 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "InputManager.h"
 
-#include "DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "GamePad.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
@@ -76,10 +76,10 @@ InputManager::~InputManager()
     LibXInput::Destroy();
 #endif
 
-    MallocAllocator::Instance->Destroy(m_mousePressedFunc);
-    MallocAllocator::Instance->Destroy(m_mouseReleasedFunc);
-    MallocAllocator::Instance->Destroy(m_keyPressedFunc);
-    MallocAllocator::Instance->Destroy(m_keyReleasedFunc);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_mousePressedFunc);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_mouseReleasedFunc);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_keyPressedFunc);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_keyReleasedFunc);
 }
 
 void InputManager::SetMouseButton(e_MouseButton a_button, bool a_state)
@@ -145,7 +145,7 @@ void InputManager::SetKeyboardKey(e_KeyCode a_keyCode, bool a_state)
             };
 
             m_keyPressedFunc->Exec(args);
-        }   
+        }
     }
     else if (prevState)
     {
@@ -154,7 +154,7 @@ void InputManager::SetKeyboardKey(e_KeyCode a_keyCode, bool a_state)
         {
             &key
         };
-        
+
         m_keyReleasedFunc->Exec(args);
     }
 
@@ -242,7 +242,7 @@ bool InputManager::IsGamePadButtonReleased(e_GamePadSlot a_slot, e_GamePadButton
 
 void InputManager::Update()
 {
-    // Required for frame events can get multiple press and release events cause majority of the time the engine runs faster then the editor 
+    // Required for frame events can get multiple press and release events cause majority of the time the engine runs faster then the editor
     for (uint32_t i = 0; i < MouseButton_Last; ++i)
     {
         if (m_mouseButton & 0b1 << (i * 2))
@@ -277,19 +277,19 @@ void InputManager::Update()
 }
 
 // MIT License
-// 
-// Copyright (c) 2025 River Govers
-// 
+//
+// Copyright (c) 2026 River Govers
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

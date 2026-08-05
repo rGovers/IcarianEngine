@@ -6,8 +6,8 @@
 
 #include <filesystem>
 
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Core/IcarianError.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
 
 ReadFileHandle::ReadFileHandle(FILE* a_file, uint64_t a_size)
 {
@@ -44,7 +44,7 @@ bool ReadFileHandle::EndOfFile() const
     return feof(m_file) != 0;
 }
 
-ReadFileHandle* ReadFileHandle::OpenFile(const COWU8String& a_path)
+ReadFileHandle* ReadFileHandle::OpenFile(const IcarianCore::COWU8String& a_path)
 {
     IERRBLOCK;
 
@@ -62,7 +62,7 @@ ReadFileHandle* ReadFileHandle::OpenFile(const COWU8String& a_path)
 
     IERRCHECKRET(size >= 0, nullptr);
 
-    return MallocAllocator::Instance->Create<ReadFileHandle>(fp, (uint64_t)size);
+    return IcarianCore::MallocAllocator::Instance->Create<ReadFileHandle>(fp, (uint64_t)size);
 }
 
 // MIT License

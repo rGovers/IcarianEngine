@@ -9,9 +9,9 @@
 #include "AppWindow/HeadlessAppWindow.h"
 #include "Audio/AudioEngine.h"
 #include "Config.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Core/IcarianAssert.h"
 #include "Core/IcarianDefer.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
 #include "DeletionQueue.h"
 #include "FileCache.h"
 #include "InputManager.h"
@@ -55,9 +55,12 @@ RUNTIME_FUNCTION(MonoArray*, Application, GetMonitors,
 
     int monitorCount;
     const AppMonitor* appMonitors = Instance->GetMonitors(&monitorCount);
-    IDEFER(if (appMonitors != NULL)
+    IDEFER(
     {
-        delete[] appMonitors;
+        if (appMonitors != NULL)
+        {
+            delete[] appMonitors;
+        }
     });
 
     if (monitorCount > 0 && appMonitors != NULL)
@@ -119,11 +122,11 @@ Application::Application(Config* a_config)
 
     if (a_config->IsHeadless())
     {
-        m_appWindow = MallocAllocator::Instance->Create<HeadlessAppWindow>(this, a_config);
+        m_appWindow = IcarianCore::MallocAllocator::Instance->Create<HeadlessAppWindow>(this, a_config);
     }
     else
     {
-        m_appWindow = MallocAllocator::Instance->Create<GLFWAppWindow>(this, a_config);
+        m_appWindow = IcarianCore::MallocAllocator::Instance->Create<GLFWAppWindow>(this, a_config);
     }
 
     const uint32_t cacheSize = a_config->GetFileCacheSize();
@@ -141,15 +144,15 @@ Application::Application(Config* a_config)
 
     AnimationController::Init();
 
-    m_inputManager = MallocAllocator::Instance->Create<InputManager>();
+    m_inputManager = IcarianCore::MallocAllocator::Instance->Create<InputManager>();
 
     ObjectManager::Init();
 
-    m_navigation = MallocAllocator::Instance->Create<Navigation>();
-    m_audioEngine = MallocAllocator::Instance->Create<AudioEngine>(m_config);
-    m_physicsEngine = MallocAllocator::Instance->Create<PhysicsEngine>(m_config);
-    m_renderEngine = MallocAllocator::Instance->Create<RenderEngine>(m_appWindow, m_config);
-    m_networkManager = MallocAllocator::Instance->Create<NetworkManager>();
+    m_navigation = IcarianCore::MallocAllocator::Instance->Create<Navigation>();
+    m_audioEngine = IcarianCore::MallocAllocator::Instance->Create<AudioEngine>(m_config);
+    m_physicsEngine = IcarianCore::MallocAllocator::Instance->Create<PhysicsEngine>(m_config);
+    m_renderEngine = IcarianCore::MallocAllocator::Instance->Create<RenderEngine>(m_appWindow, m_config);
+    m_networkManager = IcarianCore::MallocAllocator::Instance->Create<NetworkManager>();
 
     APPLICATION_BINDING_FUNCTION_TABLE(RUNTIME_FUNCTION_ATTACH);
 
@@ -178,12 +181,12 @@ Application::~Application()
     AnimationController::Destroy();
     UIControl::Destroy();
 
-    MallocAllocator::Instance->Destroy(m_navigation);
-    MallocAllocator::Instance->Destroy(m_audioEngine);
-    MallocAllocator::Instance->Destroy(m_physicsEngine);
-    MallocAllocator::Instance->Destroy(m_renderEngine);
-    MallocAllocator::Instance->Destroy(m_inputManager);
-    MallocAllocator::Instance->Destroy(m_networkManager);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_navigation);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_audioEngine);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_physicsEngine);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_renderEngine);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_inputManager);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_networkManager);
     delete m_config;
 
     ObjectManager::Destroy();
@@ -196,7 +199,7 @@ Application::~Application()
     FileCache::Destroy();
 
     TRACE("Final Disposal");
-    MallocAllocator::Instance->Destroy(m_appWindow);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_appWindow);
 }
 
 void Application::SetCursorState(e_CursorState a_state)
@@ -286,7 +289,7 @@ void Application::Run(int32_t a_argc, char* a_argv[])
 
 // MIT License
 //
-// Copyright (c) 2025 River Govers
+// Copyright (c) 2026 River Govers
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal

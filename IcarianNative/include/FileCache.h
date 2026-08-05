@@ -7,15 +7,14 @@
 #include <cstdint>
 #include <mutex>
 
+#include "Core/DataTypes/Allocators/BlockAllocator.h"
+#include "Core/DataTypes/Allocators/TrackerAllocator.h"
+#include "Core/DataTypes/COWString.h"
+#include "Core/DataTypes/Dictionary.h"
+#include "Core/DataTypes/SpinLock.h"
 #include "Core/SharedMemoryBuffer.h"
 #include "Core/Pipefile.h"
-#include "DataTypes/COWString.h"
-#include "DataTypes/Dictionary.h"
-#include "DataTypes/SpinLock.h"
 #include "FileHandles/CacheFileHandle.h"
-
-class BlockAllocator;
-class TrackerAllocator;
 
 enum e_PipeFileError
 {
@@ -43,40 +42,40 @@ private:
 
     struct ClassData
     {
-        uint64_t                             Size;
-        uint32_t                             UpdateFrame;
+        uint64_t                                                       Size;
+        uint32_t                                                       UpdateFrame;
 
         // Use string as compilers seem to be hit or miss as to path as a key
-        Dictionary<COWU8String, FileBuffer*> Files;
+        IcarianCore::Dictionary<IcarianCore::COWU8String, FileBuffer*> Files;
 
 #ifdef ICARIANNATIVE_ENABLE_PIPEFILE
-        uint32_t                             PipefileID;
+        uint32_t                                                       PipefileID;
 
-        IcarianCore::SharedMemoryBuffer*     CommandBuffer;
-        IcarianCore::SharedMemoryBuffer*     DataBuffer;
+        IcarianCore::SharedMemoryBuffer*                               CommandBuffer;
+        IcarianCore::SharedMemoryBuffer*                               DataBuffer;
 
-        void*                                ReadBuffer;
+        void*                                                          ReadBuffer;
 #endif
     };
 
-    BlockAllocator*                      m_smallAllocator;
-    BlockAllocator*                      m_largeAllocator;
+    IcarianCore::BlockAllocator*                 m_smallAllocator;
+    IcarianCore::BlockAllocator*                 m_largeAllocator;
 
-    Allocator*                           m_allocator;
-    TrackerAllocator*                    m_trackerAllocator;
+    IcarianCore::Allocator*                      m_allocator;
+    IcarianCore::TrackerAllocator*               m_trackerAllocator;
 
-    Array<Allocator*>*                   m_allocatorChain;
+    IcarianCore::Array<IcarianCore::Allocator*>* m_allocatorChain;
 
-    ClassData*                           m_data;
+    ClassData*                                   m_data;
 
-    SharedSpinLock                       m_lock;
+    IcarianCore::SharedSpinLock                  m_lock;
 
     // May be a while so just use a mutex over a spinlock
-    std::mutex                           m_commandPipelock;
-    std::mutex                           m_dataPipelock;
-    std::mutex                           m_readLock;
+    std::mutex                                   m_commandPipelock;
+    std::mutex                                   m_dataPipelock;
+    std::mutex                                   m_readLock;
 
-    FileHandle* GenerateFileHandle(const COWU8String& a_path, FILE* a_file, uint64_t a_size);
+    FileHandle* GenerateFileHandle(const IcarianCore::COWU8String& a_path, FILE* a_file, uint64_t a_size);
 
 protected:
 
@@ -103,19 +102,19 @@ public:
     static void FreePipeData();
 
     static bool Exists(const char* a_path);
-    static bool Exists(const COWU8String& a_path);
+    static bool Exists(const IcarianCore::COWU8String& a_path);
     static bool ExistsInCache(const char* a_path);
-    static bool ExistsInCache(const COWU8String& a_path);
+    static bool ExistsInCache(const IcarianCore::COWU8String& a_path);
 
     static void Update();
 
     static void PushFile(const char* a_path, const uint8_t* a_data, uint32_t a_size, bool a_pin);
-    static void PushFile(const COWU8String& a_path, const uint8_t* a_data, uint32_t a_size, bool a_pin);
+    static void PushFile(const IcarianCore::COWU8String& a_path, const uint8_t* a_data, uint32_t a_size, bool a_pin);
     static FileHandle* LoadCachedFile(const char* a_path);
-    static FileHandle* LoadCachedFile(const COWU8String& a_path);
+    static FileHandle* LoadCachedFile(const IcarianCore::COWU8String& a_path);
 
     static FileHandle* LoadFile(const char* a_path);
-    static FileHandle* LoadFile(const COWU8String& a_path);
+    static FileHandle* LoadFile(const IcarianCore::COWU8String& a_path);
 };
 
 // MIT License

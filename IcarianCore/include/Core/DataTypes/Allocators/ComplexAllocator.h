@@ -1,41 +1,44 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
-#include "DataTypes/Allocators/Allocator.h"
+#include "Core/DataTypes/Allocators/Allocator.h"
 
 ICARIAN_PUSH_FASTALLOCTOR
 
-class ComplexAllocator : public Allocator
+namespace IcarianCore
 {
-private:
+    class ComplexAllocator : public Allocator
+    {
+    private:
 
-protected:
+    protected:
 
-public:
-    virtual ~ComplexAllocator() { }
+    public:
+        virtual ~ComplexAllocator() { }
 
-    [[nodiscard]] virtual void* Realloc(void* a_ptr, uint64_t a_size, uint32_t a_alignment) = 0;
-};
+        [[nodiscard]] virtual void* Realloc(void* a_ptr, uint64_t a_size, uint32_t a_alignment) = 0;
+    };
+}
 
 ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

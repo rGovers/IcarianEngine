@@ -1,14 +1,14 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Rendering/UI/UIControlBindings.h"
 
-#define GLM_FORCE_SWIZZLE 
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Core/IcarianDefer.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
 #include "IcarianError.h"
 #include "Rendering/UI/ImageUIElement.h"
 #include "Rendering/UI/TextUIElement.h"
@@ -60,7 +60,7 @@ void UIControlBindings::DestroyCanvas(uint32_t a_addr) const
     IVERIFY(m_uiControl->m_canvas.Exists(a_addr));
 
     const CanvasBuffer buffer = m_uiControl->m_canvas[a_addr];
-    IDEFER(MallocAllocator::Instance->Free(buffer.ChildElements));
+    IDEFER(IcarianCore::MallocAllocator::Instance->Free(buffer.ChildElements));
 
     m_uiControl->m_canvas.Erase(a_addr);
 }
@@ -92,8 +92,8 @@ void UIControlBindings::AddCanvasChild(uint32_t a_addr, uint32_t a_uiElementAddr
         }
 
         uint32_t* oldBuffer = buffer.ChildElements;
-        IDEFER(MallocAllocator::Instance->Free(oldBuffer));
-        buffer.ChildElements = MallocAllocator::Instance->TAllocate<uint32_t>(buffer.ChildCount + 1);
+        IDEFER(IcarianCore::MallocAllocator::Instance->Free(oldBuffer));
+        buffer.ChildElements = IcarianCore::MallocAllocator::Instance->TAllocate<uint32_t>(buffer.ChildCount + 1);
 
         for (uint32_t i = 0; i < buffer.ChildCount; ++i)
         {
@@ -144,7 +144,7 @@ uint32_t* UIControlBindings::GetCanvasChildren(uint32_t a_addr, uint32_t* a_coun
 
 uint32_t UIControlBindings::CreateUIElement() const
 {
-    UIElement* element = MallocAllocator::Instance->Create<UIElement>(MallocAllocator::Instance);
+    UIElement* element = IcarianCore::MallocAllocator::Instance->Create<UIElement>(IcarianCore::MallocAllocator::Instance);
 
     return m_uiControl->m_uiElements.PushVal(element);
 }
@@ -153,7 +153,7 @@ void UIControlBindings::DestroyUIElement(uint32_t a_addr) const
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
 
     UIElement* element = m_uiControl->m_uiElements[a_addr];
-    IDEFER(MallocAllocator::Instance->Destroy(element));
+    IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(element));
     m_uiControl->m_uiElements.Erase(a_addr);
 }
 void UIControlBindings::AddElementChild(uint32_t a_addr, uint32_t a_childAddr) const
@@ -296,11 +296,11 @@ e_ElementState UIControlBindings::GetElementState(uint32_t a_addr) const
 uint32_t UIControlBindings::CreateTextElement() const
 {
     TRACE("Creating Text UI Element");
-    TextUIElement* element = MallocAllocator::Instance->Create<TextUIElement>(MallocAllocator::Instance);
+    TextUIElement* element = IcarianCore::MallocAllocator::Instance->Create<TextUIElement>(IcarianCore::MallocAllocator::Instance);
 
     return m_uiControl->m_uiElements.PushVal(element);
 }
-COWU32String UIControlBindings::GetTextElementText(uint32_t a_addr) const
+IcarianCore::COWU32String UIControlBindings::GetTextElementText(uint32_t a_addr) const
 {
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
     IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
@@ -310,13 +310,13 @@ COWU32String UIControlBindings::GetTextElementText(uint32_t a_addr) const
     TextUIElement* element = (TextUIElement*)a[a_addr];
     return element->GetText();
 }
-void UIControlBindings::SetTextElementText(uint32_t a_addr, const CharU32* a_text) const
+void UIControlBindings::SetTextElementText(uint32_t a_addr, const IcarianCore::CharU32* a_text) const
 {
-    const COWU32String str = COWU32String(a_text, MallocAllocator::Instance);
+    const IcarianCore::COWU32String str = IcarianCore::COWU32String(a_text, IcarianCore::MallocAllocator::Instance);
 
     SetTextElementText(a_addr, str);
 }
-void UIControlBindings::SetTextElementText(uint32_t a_addr, const COWU32String& a_text) const
+void UIControlBindings::SetTextElementText(uint32_t a_addr, const IcarianCore::COWU32String& a_text) const
 {
     IVERIFY(m_uiControl->m_uiElements.Exists(a_addr));
     IVERIFY(m_uiControl->m_uiElements[a_addr]->GetType() == UIElementType_Text);
@@ -370,7 +370,7 @@ void UIControlBindings::SetTextElementFontSize(uint32_t a_addr, float a_size) co
 uint32_t UIControlBindings::CreateImageElement() const
 {
     TRACE("Creating Image UI Element");
-    ImageUIElement* element = MallocAllocator::Instance->Create<ImageUIElement>(MallocAllocator::Instance);
+    ImageUIElement* element = IcarianCore::MallocAllocator::Instance->Create<ImageUIElement>(IcarianCore::MallocAllocator::Instance);
 
     return m_uiControl->m_uiElements.PushVal(element);
 }
@@ -396,19 +396,19 @@ void UIControlBindings::SetImageElementSampler(uint32_t a_addr, uint32_t a_sampl
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

@@ -10,7 +10,7 @@
 #include <cstdint>
 #include <Jolt/Core/Core.h>
 
-#include "DataTypes/COWString.h"
+#include "Core/DataTypes/COWString.h"
 
 class PhysicsEngine;
 
@@ -45,7 +45,7 @@ public:
     float GetCylinderShapeRadius(uint32_t a_addr) const;
 
     uint32_t CreateMeshShape(const char* a_path) const;
-    uint32_t CreateMeshShape(const COWU8String& a_path) const;
+    uint32_t CreateMeshShape(const IcarianCore::COWU8String& a_path) const;
 
     void DestroyCollisionShape(uint32_t a_addr) const;
 

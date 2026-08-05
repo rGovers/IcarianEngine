@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -14,8 +14,8 @@ class VulkanComputeEngine;
 class VulkanGraphicsEngine;
 class VulkanRenderEngineBackend;
 
-#include "DataTypes/Array.h"
-#include "DataTypes/SpinLock.h"
+#include "Core/DataTypes/Array.h"
+#include "Core/DataTypes/SpinLock.h"
 
 #include "EngineMaterialInteropStructures.h"
 #include "EngineParticleSystemInteropStructures.h"
@@ -23,20 +23,20 @@ class VulkanRenderEngineBackend;
 class VulkanGraphicsParticle2D
 {
 private:
-    Allocator*                 m_allocator;
+    IcarianCore::Allocator*               m_allocator;
 
-    VulkanRenderEngineBackend* m_backend;
-    VulkanComputeEngine*       m_cEngine;
-    VulkanGraphicsEngine*      m_gEngine;
+    VulkanRenderEngineBackend*            m_backend;
+    VulkanComputeEngine*                  m_cEngine;
+    VulkanGraphicsEngine*                 m_gEngine;
 
-    Array<ShaderBufferInput>   m_inputs;
+    IcarianCore::Array<ShaderBufferInput> m_inputs;
 
-    uint32_t                   m_computeBufferAddr;
-    uint32_t                   m_renderProgramAddr;
+    uint32_t                              m_computeBufferAddr;
+    uint32_t                              m_renderProgramAddr;
 
-    SpinLock                   m_lock;
+    IcarianCore::SpinLock                 m_lock;
 
-    void Build(const ComputeParticleBuffer& a_buffer, Allocator* a_tempAllocator);
+    void Build(const ComputeParticleBuffer& a_buffer, IcarianCore::Allocator* a_tempAllocator);
     void Destroy();
 
 protected:
@@ -48,7 +48,7 @@ public:
         VulkanComputeEngine* a_cEngine,
         VulkanGraphicsEngine* a_gEngine,
         uint32_t a_computeBufferAddr,
-        Allocator* a_allocator
+        IcarianCore::Allocator* a_allocator
     );
     ~VulkanGraphicsParticle2D();
 
@@ -59,26 +59,26 @@ public:
         uint32_t a_renderLayer,
         vk::CommandBuffer a_commandBuffer,
         uint32_t a_renderTextureAddr,
-        Allocator* a_tempAllocator
+        IcarianCore::Allocator* a_tempAllocator
     );
 };
 
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

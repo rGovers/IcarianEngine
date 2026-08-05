@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Rendering/FlareShader.h"
@@ -7,11 +7,12 @@
 #include "Core/IcarianLambda.h"
 #include "Core/ShaderBuffers.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/Set.h"
+#include "Core/DataTypes/Set.h"
+#include "IcarianError.h"
 
-#define GLSL_VULKAN_UNIFORM_STRING(slot, name, structure, structureName) COWU8String(SHADER_UNIFORM_STR(structure), a_tempAllocator) + "; layout(std140,binding=" + (slot) + ",set=" + (slot) + ") uniform " + (structureName) + "{ " + (structureName) + "Data " + (name) + "; };"
-#define GLSL_VULKAN_SSBO_STRING(slot, name, structure, structureName) COWU8String(SHADER_UNIFORM_STR(structure), a_tempAllocator) + "; layout(std140,binding=" + (slot) + ",set=" + (slot) + ") readonly buffer " + (structureName) + " { int Count; " + (structureName) + "Data objects[]; } " + (name) + ";"
-#define GLSL_VULKAN_PUSHBUFFER_STRING(name, structure) COWU8String("layout(push_constant) " SHADER_UNIFORM_STR(structure) " ", a_tempAllocator) + (name) + ";"
+#define GLSL_VULKAN_UNIFORM_STRING(slot, name, structure, structureName) IcarianCore::COWU8String(SHADER_UNIFORM_STR(structure), a_tempAllocator) + "; layout(std140,binding=" + (slot) + ",set=" + (slot) + ") uniform " + (structureName) + "{ " + (structureName) + "Data " + (name) + "; };"
+#define GLSL_VULKAN_SSBO_STRING(slot, name, structure, structureName) IcarianCore::COWU8String(SHADER_UNIFORM_STR(structure), a_tempAllocator) + "; layout(std140,binding=" + (slot) + ",set=" + (slot) + ") readonly buffer " + (structureName) + " { int Count; " + (structureName) + "Data objects[]; } " + (name) + ";"
+#define GLSL_VULKAN_PUSHBUFFER_STRING(name, structure) IcarianCore::COWU8String("layout(push_constant) " SHADER_UNIFORM_STR(structure) " ", a_tempAllocator) + (name) + ";"
 
 #define FSHADER_PLATFORM_UBOSTR(str, platform, argA, argB, structure, name) \
     switch (platform) \
@@ -105,7 +106,7 @@
             }\
             ILRETURN nextSlot++; \
         }); \
-        const COWU8String indexStr = COWU8String::FromValue(index, 10, a_tempAllocator); \
+        const IcarianCore::COWU8String indexStr = IcarianCore::COWU8String::FromValue(index, 10, a_tempAllocator); \
         FSHADER_PLATFORM_UBOSTR(rStr, a_builder.Platform, indexStr, args[2], structure, #str); \
         const ShaderBufferInput input = \
         { \
@@ -137,7 +138,7 @@
             }\
             ILRETURN nextSlot++; \
         }); \
-        const COWU8String indexStr = COWU8String::FromValue(index, 10, a_tempAllocator); \
+        const IcarianCore::COWU8String indexStr = IcarianCore::COWU8String::FromValue(index, 10, a_tempAllocator); \
         FSHADER_PLATFORM_SSBOSTR(rStr, a_builder.Platform, indexStr, args[2], structure, #str); \
         const ShaderBufferInput input = \
         { \
@@ -169,7 +170,14 @@
 #define FSHADER_SSBO FSHADER_SSBO_STRUCTURETABLE(FSHADER_SSBO_DEFINITION)
 #define FSHADER_PUSHBUFFER FSHADER_PUSHBUFFER_STRUCTURETABLE(FSHADER_PUSHBUFFER_DEFINITION)
 
-static COWU8String SpiltArgs(const char* a_str, Array<COWU8String>* a_args, uint32_t* a_offset, uint32_t* a_lines, Allocator* a_allocator)
+static IcarianCore::COWU8String SpiltArgs
+(
+    const char* a_str,
+    IcarianCore::Array<IcarianCore::COWU8String>* a_args,
+    uint32_t* a_offset,
+    uint32_t* a_lines,
+    IcarianCore::Allocator* a_allocator
+)
 {
     const char* iter = a_str;
     const char* prevIter = a_str;
@@ -187,10 +195,10 @@ static COWU8String SpiltArgs(const char* a_str, Array<COWU8String>* a_args, uint
     {
         if (*iter == 0)
         {
-            return COWU8String("Flare Shader unclosed argument", a_allocator);
+            return IcarianCore::COWU8String("Flare Shader unclosed argument", a_allocator);
         }
 
-        switch (*iter) 
+        switch (*iter)
         {
         case '(':
         {
@@ -205,16 +213,16 @@ static COWU8String SpiltArgs(const char* a_str, Array<COWU8String>* a_args, uint
         {
             if (--scope == 0)
             {
-                a_args->Push(COWU8String(prevIter, (uint32_t)(iter - prevIter), a_allocator));
+                a_args->Push(IcarianCore::COWU8String(prevIter, (uint32_t)(iter - prevIter), a_allocator));
 
                 if (block != 0)
                 {
-                    return COWU8String("Flare Shader unclosed block in define argument", a_allocator);
+                    return IcarianCore::COWU8String("Flare Shader unclosed block in define argument", a_allocator);
                 }
 
                 *a_offset = iter - a_str + 1;
 
-                return COWU8String(a_allocator);
+                return IcarianCore::COWU8String(a_allocator);
             }
 
             break;
@@ -235,7 +243,7 @@ static COWU8String SpiltArgs(const char* a_str, Array<COWU8String>* a_args, uint
         {
             if (block == 0 && scope == 1)
             {
-                a_args->Push(COWU8String(prevIter, (uint32_t)(iter - prevIter), a_allocator));
+                a_args->Push(IcarianCore::COWU8String(prevIter, (uint32_t)(iter - prevIter), a_allocator));
 
                 prevIter = iter + 1;
             }
@@ -262,7 +270,7 @@ static COWU8String SpiltArgs(const char* a_str, Array<COWU8String>* a_args, uint
 
     IERROR("Unreachable path hit");
 
-    return COWU8String("Unreachable path", a_allocator);
+    return IcarianCore::COWU8String("Unreachable path", a_allocator);
 }
 
 typedef uint32_t MeshOutCaseType;
@@ -277,25 +285,25 @@ constexpr const char* MeshOutString[] =
 
 struct MeshShaderOut
 {
-    COWU8String Identifier;
+    IcarianCore::COWU8String Identifier;
     uint32_t Slot;
     FlareShader::e_MeshOutType Type;
 };
 
-COWU8String FlareShader::GLSLFromFlareShader
+IcarianCore::COWU8String FlareShader::GLSLFromFlareShader
 (
-    COWU8String* a_shader,
+    IcarianCore::COWU8String* a_shader,
     const ShaderBuilder& a_builder,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     IVERIFY(a_shader != nullptr);
 
-    COWU8String shader = COWU8String(a_builder.String, a_allocator);
+    IcarianCore::COWU8String shader = IcarianCore::COWU8String(a_builder.String, a_allocator);
 
-    Set<COWU8String> imported = Set<COWU8String>(a_tempAllocator);
-    Array<MeshShaderOut> meshOutputs = Array<MeshShaderOut>(a_tempAllocator);
+    IcarianCore::Set<IcarianCore::COWU8String> imported = IcarianCore::Set<IcarianCore::COWU8String>(a_tempAllocator);
+    IcarianCore::Array<MeshShaderOut> meshOutputs = IcarianCore::Array<MeshShaderOut>(a_tempAllocator);
 
     if (a_builder.Out != nullptr)
     {
@@ -340,13 +348,13 @@ COWU8String FlareShader::GLSLFromFlareShader
     const uint32_t versionIndex = shader.FindString("#version");
     if (versionIndex == uint32_t(-1))
     {
-        return COWU8String("Flare Shader no GLSL #version", a_allocator);
+        return IcarianCore::COWU8String("Flare Shader no GLSL #version", a_allocator);
     }
 
     const uint32_t versionNext = shader.FindCharacter('\n', versionIndex);
     if (versionNext == uint32_t(-1))
     {
-        return COWU8String("Flare Shader no new line after #version", a_allocator);
+        return IcarianCore::COWU8String("Flare Shader no new line after #version", a_allocator);
     }
 
     uint32_t versionLine = uint32_t(-1);
@@ -389,7 +397,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
             const uint32_t openPos = shader.FindCharacter('(', definePos);
 
-            const COWU8String defName = shader.Substring
+            const IcarianCore::COWU8String defName = shader.Substring
             (
                 definePos + 2,
                 openPos,
@@ -399,18 +407,18 @@ COWU8String FlareShader::GLSLFromFlareShader
             if (versionLine == uint32_t(-1))
             {
                 return "Flare Shader definition before GLSL version defined: " +
-                    COWU8String(defName, a_allocator) + " line " +
-                    COWU8String::FromValue(currentLine, 10, a_allocator);
+                    IcarianCore::COWU8String(defName, a_allocator) + " line " +
+                    IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
             }
 
             uint32_t lines;
             uint32_t closePos;
-            Array<COWU8String> args = Array<COWU8String>(a_tempAllocator);
+            IcarianCore::Array<IcarianCore::COWU8String> args = IcarianCore::Array<IcarianCore::COWU8String>(a_tempAllocator);
             {
                 uint32_t offset;
 
                 const char* shaderCStr = shader.CStr();
-                const COWU8String splitError = SpiltArgs
+                const IcarianCore::COWU8String splitError = SpiltArgs
                 (
                     shaderCStr + openPos,
                     &args,
@@ -420,15 +428,15 @@ COWU8String FlareShader::GLSLFromFlareShader
                 );
                 if (!splitError.Empty())
                 {
-                    return COWU8String(splitError, a_allocator) + ": line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                    return IcarianCore::COWU8String(splitError, a_allocator) + ": line " +
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 closePos = openPos + offset;
                 lineNumber += lines;
             }
 
-            COWU8String rStr = COWU8String(a_tempAllocator);
+            IcarianCore::COWU8String rStr = IcarianCore::COWU8String(a_tempAllocator);
 
             switch (defName.Hash())
             {
@@ -437,30 +445,30 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 3)
                 {
                     return "Flare Shader #!workgroup requires 3 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 rStr = "layout(local_size_x=" + args[0] + ",local_size_y=" + args[1] + ",local_size_z=" + args[2] + ") in;\n"
-                    "#line " + COWU8String::FromValue(lineNumber + lines, 10, a_tempAllocator) + "\n";
+                    "#line " + IcarianCore::COWU8String::FromValue(lineNumber + lines, 10, a_tempAllocator) + "\n";
 
                 if (a_builder.Out != nullptr)
                 {
                     if (!args[0].ToUint32(&a_builder.Out->Workgroups.GroupX))
                     {
                         return "Flare Shader failed to parse workgroup X: line " +
-                            COWU8String::FromValue(currentLine, 10, a_allocator) +
+                            IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator) +
                             ", expected unsigned integer above 0";
                     }
                     if (!args[1].ToUint32(&a_builder.Out->Workgroups.GroupY))
                     {
                         return "Flare Shader failed to parse workgroup Y: line " +
-                            COWU8String::FromValue(currentLine, 10, a_allocator) +
+                            IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator) +
                             ", expected unsigned integer above 0";
                     }
                     if (!args[2].ToUint32(&a_builder.Out->Workgroups.GroupZ))
                     {
                         return "Flare Shader failed to parse workgroup Z: line " +
-                            COWU8String::FromValue(currentLine, 10, a_allocator) +
+                            IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator) +
                             ", expected unsigned integer above 0";
                     }
                 }
@@ -472,14 +480,14 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 3)
                 {
                     return "Flare Shader #!meshprimitives requires 3 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 isMesh = true;
 
-                const COWU8String argString = ILAMBDA(
+                const IcarianCore::COWU8String argString = ILAMBDA(
                 {
-                    COWU8String val = args[0];
+                    IcarianCore::COWU8String val = args[0];
                     val.TrimWhitespace();
                     val.ToLower();
 
@@ -511,20 +519,20 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (primitiveType == MeshShaderPrimitive_Null)
                 {
                     return "Flare Shader invalid mesh primitive type: " + args[0] + " line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator) +
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator) +
                         ", valid types are triangles, lines and points";
                 }
 
                 if (!args[1].ToUint32(&meshData.MaxVertices))
                 {
                     return "Flare Shader invalid max vertices: " + args[1] + " line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator) +
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator) +
                         ", expected unsigned integer above 0";
                 }
                 if (!args[2].ToUint32(&meshData.MaxPrimitives))
                 {
                     return "Flare Shader invalid max primitives: " + args[2] + " line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator) +
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator) +
                         ", expected unsigned integer above 0";
                 }
 
@@ -550,7 +558,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                 }
                 }
 
-                rStr += "#line " + COWU8String::FromValue(lineNumber, 10, a_tempAllocator) + "\n";
+                rStr += "#line " + IcarianCore::COWU8String::FromValue(lineNumber, 10, a_tempAllocator) + "\n";
 
                 break;
             }
@@ -559,12 +567,12 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 3)
                 {
                     return "Flare Shader #!meshout requires 3 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 isMesh = true;
 
-                COWU8String argString = args[1];
+                IcarianCore::COWU8String argString = args[1];
                 argString.TrimWhitespace();
 
                 const e_MeshOutType outType = ILAMBDA(
@@ -579,8 +587,8 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                 if (outType == MeshOutType_Last)
                 {
-                    COWU8String errStr = "Flare Shader invalid mesh output type: " + COWU8String(args[1], a_allocator) + " line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator) +
+                    IcarianCore::COWU8String errStr = "Flare Shader invalid mesh output type: " + IcarianCore::COWU8String(args[1], a_allocator) + " line " +
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator) +
                         ", valid types are ";
 
                     constexpr uint32_t TableLength = sizeof(MeshOutString) / sizeof(*MeshOutString);
@@ -601,13 +609,13 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (!args[0].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!meshout failed to parse 1st argument, requires unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
-                COWU8String idenString = args[2];
+                IcarianCore::COWU8String idenString = args[2];
                 idenString.TrimWhitespace();
 
-                const MeshShaderOut meshOut = 
+                const MeshShaderOut meshOut =
                 {
                     .Identifier = idenString,
                     .Slot = userSlot,
@@ -623,28 +631,28 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 2)
                 {
                     return "Flare Shader #!setmeshoutput requires 2 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 if (meshData.PrimitiveType == MeshShaderPrimitive_Null)
                 {
                     return "Flare Shader using #!setmeshoutput but PrimitiveType not set. "
-                        "Use the #!meshprimitives define with the 1st argument as either triangles, lines or points: line " + 
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        "Use the #!meshprimitives define with the 1st argument as either triangles, lines or points: line " +
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 if (meshData.MaxVertices <= 0)
                 {
                     return "Flare Shader using #!setmeshoutput but Max Vertices not set. "
                         "Use the #!meshprimitives define with the 2nd argument as an unsigned value above 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 if (meshData.MaxPrimitives <= 0)
                 {
                     return "Flare Shader using #!setmeshoutput but Max Primitives not set. "
                         "Use the #!meshprimitives define with the 3rd argument as an unsigned value above 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 isMesh = true;
@@ -659,21 +667,21 @@ COWU8String FlareShader::GLSLFromFlareShader
                 }
                 case ShaderPlatform_VulkanCompute:
                 {
-                    const COWU8String multiString = ILAMBDA(
+                    const IcarianCore::COWU8String multiString = ILAMBDA(
                     {
                         switch (meshData.PrimitiveType)
                         {
                         case MeshShaderPrimitive_Point:
                         {
-                            ILRETURN COWU8String("* 1", a_tempAllocator);
+                            ILRETURN IcarianCore::COWU8String("* 1", a_tempAllocator);
                         }
                         case MeshShaderPrimitive_Line:
                         {
-                            ILRETURN COWU8String("* 2", a_tempAllocator);
+                            ILRETURN IcarianCore::COWU8String("* 2", a_tempAllocator);
                         }
                         case MeshShaderPrimitive_Triangle:
                         {
-                            ILRETURN COWU8String("* 3", a_tempAllocator);
+                            ILRETURN IcarianCore::COWU8String("* 3", a_tempAllocator);
                         }
                         default:
                         {
@@ -681,20 +689,20 @@ COWU8String FlareShader::GLSLFromFlareShader
                         }
                         }
 
-                        ILRETURN COWU8String(a_tempAllocator);
+                        ILRETURN IcarianCore::COWU8String(a_tempAllocator);
                     });
 
                     if (multiString.Empty())
                     {
                         return "Flare Shader using #!setmeshoutput but PrimitiveType is an invalid value. "
-                            "Use the #!meshprimitives define with the 1st argument as either triangles, lines or points: line " + 
-                            COWU8String::FromValue(currentLine, 10, a_allocator);
+                            "Use the #!meshprimitives define with the 1st argument as either triangles, lines or points: line " +
+                            IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                     }
 
-                    const COWU8String indexCountStr = "(" + args[1] + ") " + multiString;
+                    const IcarianCore::COWU8String indexCountStr = "(" + args[1] + ") " + multiString;
 
-                    const COWU8String meshVertStr = COWU8String::FromValue(meshData.MaxVertices, 10, a_tempAllocator);
-                    const COWU8String meshIndexStr = COWU8String::FromValue(meshData.MaxPrimitives, 10, a_tempAllocator) +
+                    const IcarianCore::COWU8String meshVertStr = IcarianCore::COWU8String::FromValue(meshData.MaxVertices, 10, a_tempAllocator);
+                    const IcarianCore::COWU8String meshIndexStr = IcarianCore::COWU8String::FromValue(meshData.MaxPrimitives, 10, a_tempAllocator) +
                         " " + multiString;
 
                     rStr = "fl_drawOut.drawCalls[gl_WorkGroupID.x].indexCount = uint(" + indexCountStr + ");"
@@ -720,14 +728,14 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 1)
                 {
                     return "Flare Shader #!meshpayload requires 1 argument: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 if (meshData.MaxPrimitives <= 0)
                 {
                     return "Flare Shader using #!meshpayload but Max Primitives not set. "
                         "Use the #!meshprimitives define with the 3rd argument as an unsigned value above 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 isMesh = true;
@@ -742,7 +750,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                 }
                 case ShaderPlatform_VulkanCompute:
                 {
-                    const COWU8String meshVertStr = COWU8String::FromValue(meshData.MaxVertices, 10, a_tempAllocator);
+                    const IcarianCore::COWU8String meshVertStr = IcarianCore::COWU8String::FromValue(meshData.MaxVertices, 10, a_tempAllocator);
                     rStr = "fl_vertOut.vertices[gl_WorkGroupID.x * " + meshVertStr + " + (" + args[0] + ")]";
 
                     break;
@@ -762,7 +770,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 1)
                 {
                     return "Flare Shader #!meshposition require 1 argument: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 isMesh = true;
@@ -777,7 +785,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                 }
                 case ShaderPlatform_VulkanCompute:
                 {
-                    const COWU8String meshVertStr = COWU8String::FromValue(meshData.MaxVertices, 10, a_tempAllocator);
+                    const IcarianCore::COWU8String meshVertStr = IcarianCore::COWU8String::FromValue(meshData.MaxVertices, 10, a_tempAllocator);
                     rStr = "fl_vertOut.vertices[gl_WorkGroupID.x * " + meshVertStr + " + (" + args[0] + ")].fl_position";
 
                     break;
@@ -797,21 +805,21 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 2)
                 {
                     return "Flare Shader #!meshtri requires 2 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 if (meshData.PrimitiveType != MeshShaderPrimitive_Triangle)
                 {
                     return "Flare Shader using #!meshtri but PrimitiveType is not set to triangles. "
-                        "Use the #!meshprimitives define with the 1st argument as triangles: line " + 
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        "Use the #!meshprimitives define with the 1st argument as triangles: line " +
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 if (meshData.MaxPrimitives <= 0)
                 {
                     return "Flare Shader using #!meshtri but Max Primitives not set. "
                         "Use the #!meshprimitives define with the 3rd argument as an unsigned value above 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 isMesh = true;
@@ -826,9 +834,9 @@ COWU8String FlareShader::GLSLFromFlareShader
                 }
                 case ShaderPlatform_VulkanCompute:
                 {
-                    const COWU8String maxPrimitivesStr = COWU8String::FromValue(meshData.MaxPrimitives, 10, a_tempAllocator);
+                    const IcarianCore::COWU8String maxPrimitivesStr = IcarianCore::COWU8String::FromValue(meshData.MaxPrimitives, 10, a_tempAllocator);
 
-                    const COWU8String offsetStr = COWU8String
+                    const IcarianCore::COWU8String offsetStr = IcarianCore::COWU8String
                     (
                         "(gl_WorkGroupID.x * (" + maxPrimitivesStr + " * 3)) + ((" + args[0] + ") * 3)",
                         a_tempAllocator
@@ -853,7 +861,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 3)
                 {
                     return "Flare Shader #!meshvertex requires 3 arguments: line" +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 isMesh = true;
@@ -862,15 +870,15 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (!args[0].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!meshvertex failed to parse 1st argument, requires unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint16_t currentSlot = nextSlot++;
-                const COWU8String slotStr = COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
+                const IcarianCore::COWU8String slotStr = IcarianCore::COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
 
                 rStr = "struct Vertex " + args[2] + "; layout(std430,set=" + slotStr + ",binding=" + slotStr + ") readonly buffer MeshVertices { Vertex Vertices[]; } " + args[1] + ";";
 
-                const ShaderBufferInput input = 
+                const ShaderBufferInput input =
                 {
                     .UserSlot = userSlot,
                     .RealSlot = currentSlot,
@@ -887,7 +895,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 2)
                 {
                     return "Flare Shader #!meshlettriangledata requires 2 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 // GLSL does not support uint8 so need to do some bit fiddling to extract the true value
@@ -900,19 +908,19 @@ COWU8String FlareShader::GLSLFromFlareShader
             {
                 if (args.Size() != 2)
                 {
-                    return "Flare Shader #!meshletvertices requires 2 arguments: line " + 
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                    return "Flare Shader #!meshletvertices requires 2 arguments: line " +
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 uint16_t userSlot;
                 if (!args[0].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!meshletvertices failed to parse 1st argument, requires unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint16_t currentSlot = nextSlot++;
-                const COWU8String slotStr = COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
+                const IcarianCore::COWU8String slotStr = IcarianCore::COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
 
                 rStr = "layout(std430,set=" + slotStr + ",binding=" + slotStr + ") readonly buffer MeshletVertices { uint Vertices[]; } " + args[1] + ";";
 
@@ -932,23 +940,23 @@ COWU8String FlareShader::GLSLFromFlareShader
             {
                 if (args.Size() != 2)
                 {
-                    return "Flare Shader #!meshlettriangles requires 2 arguments: line " + 
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                    return "Flare Shader #!meshlettriangles requires 2 arguments: line " +
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 uint16_t userSlot;
                 if (!args[0].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!meshlettriangles failed to parse 1st argument, requires unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint16_t currentSlot = nextSlot++;
-                const COWU8String slotStr = COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
+                const IcarianCore::COWU8String slotStr = IcarianCore::COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
 
                 rStr = "layout(std430,set=" + slotStr + ",binding=" + slotStr + ") readonly buffer MeshletIndices { uint Indices[]; } " + args[1] + ";";
 
-                const ShaderBufferInput input = 
+                const ShaderBufferInput input =
                 {
                     .UserSlot = userSlot,
                     .RealSlot = currentSlot,
@@ -965,18 +973,18 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 2)
                 {
                     return "Flare Shader #!meshlet requires 2 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 uint16_t userSlot;
                 if (!args[0].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!meshlet failed to parse 1st arguement, requires unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint16_t currentSlot = nextSlot++;
-                const COWU8String slotStr = COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
+                const IcarianCore::COWU8String slotStr = IcarianCore::COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
 
                 rStr = "struct MeshletData { uvec4 Data; vec4 Bounds; }; layout(std140,set=" + slotStr + ",binding=" + slotStr + ") readonly buffer Meshlets { MeshletData Meshlets[]; } " + args[1] + ";";
 
@@ -997,7 +1005,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 3)
                 {
                     return "Flare Shader #!structure requires 3 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const char* str = args[0].CStr();
@@ -1015,27 +1023,27 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 4)
                 {
                     return "Flare Shader #!buffertexture requries 4 arguements: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 if (a_builder.Platform != ShaderPlatform_VulkanCompute)
                 {
-                    return "Flare Shader #!buffertexture not available on non compute platform: line " + 
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                    return "Flare Shader #!buffertexture not available on non compute platform: line " +
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 uint16_t userSlot;
                 if (!args[1].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!buffertexture failed to parse 2nd argument, requires an unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 uint16_t count;
                 if (!args[2].ToUint16(&count))
                 {
                     return "Flare Shader #!buffertexture failed to parse 3rd argument, requires an unsigned value greater than 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint16_t currentSlot = ILAMBDA(
@@ -1050,7 +1058,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                     ILRETURN nextSlot++;
                 });
-                const COWU8String slotStr = COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
+                const IcarianCore::COWU8String slotStr = IcarianCore::COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
 
                 rStr = "layout(" + args[0] + ",set=" + slotStr + ",binding=" + slotStr + ") uniform image2D " + args[3] + ";";
 
@@ -1071,14 +1079,14 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 2)
                 {
                     return "Flare Shader #!texture requires 2 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 uint16_t userSlot;
                 if (!args[0].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!texture failed to parse 1st argument, requires an unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint16_t currentSlot = ILAMBDA(
@@ -1093,7 +1101,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                     ILRETURN nextSlot++;
                 });
-                const COWU8String slotStr = COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
+                const IcarianCore::COWU8String slotStr = IcarianCore::COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
 
                 rStr = "layout(set=" + slotStr + ",binding=" + slotStr + ") uniform sampler2D " + args[1] + ";";
 
@@ -1114,14 +1122,14 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 2)
                 {
                     return "Flare Shader #!pushtexture requires 2 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 uint16_t userSlot;
                 if (!args[0].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!pushtexture failed to parse 1st argument, requires an unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint16_t currentSlot = ILAMBDA(
@@ -1136,7 +1144,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                     ILRETURN nextSlot++;
                 });
-                const COWU8String slotStr = COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
+                const IcarianCore::COWU8String slotStr = IcarianCore::COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
 
                 rStr = "layout(set=" + slotStr + ",binding=" + slotStr + ") uniform sampler2D " + args[1] + ";";
 
@@ -1156,8 +1164,8 @@ COWU8String FlareShader::GLSLFromFlareShader
             {
                 if (args.Size() != 2)
                 {
-                    return "Flare Shader #!shadowtexture requires 2 arguments: line " + 
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                    return "Flare Shader #!shadowtexture requires 2 arguments: line " +
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
 
@@ -1165,7 +1173,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (!args[0].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!shadowtexture failed to parse 1st argument, requires an unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint16_t currentSlot = ILAMBDA(
@@ -1180,7 +1188,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                     ILRETURN nextSlot++;
                 });
-                const COWU8String slotStr = COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
+                const IcarianCore::COWU8String slotStr = IcarianCore::COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
 
                 rStr = "layout(set=" + slotStr + ",binding=" + slotStr + ") uniform sampler2D " + args[1] + ";";
 
@@ -1201,14 +1209,14 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 2)
                 {
                     return "Flare Shader #!cubeshadowtexture requires 2 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 uint16_t userSlot;
                 if (!args[0].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!cubeshadowtexture failed to parse 1st argument, requires an unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint16_t currentSlot = ILAMBDA(
@@ -1223,7 +1231,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                     ILRETURN nextSlot++;
                 });
-                const COWU8String slotStr = COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
+                const IcarianCore::COWU8String slotStr = IcarianCore::COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
 
                 rStr = "layout(set=" + slotStr + ",binding=" + slotStr + ") uniform samplerCube " + args[1] + ";";
 
@@ -1244,21 +1252,21 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 3)
                 {
                     return "Flare Shader #!shadowtexturearray requires 3 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 uint16_t userSlot;
                 if (!args[0].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!shadowtexturearray failed to parse 1st argument, requires an unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 uint16_t count;
                 if (!args[1].ToUint16(&count))
                 {
-                    return "Flare Shader #!shadowtexturearray failed to parse 2nd argument, requires an unsigned value greater than 0: line " + 
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                    return "Flare Shader #!shadowtexturearray failed to parse 2nd argument, requires an unsigned value greater than 0: line " +
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint16_t currentSlot = ILAMBDA(
@@ -1273,7 +1281,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                     ILRETURN nextSlot++;
                 });
-                const COWU8String slotStr = COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
+                const IcarianCore::COWU8String slotStr = IcarianCore::COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
 
                 rStr = "layout(set=" + slotStr + ",binding=" + slotStr + ") uniform sampler2D " + args[2] + "[" + args[1] + "];";
 
@@ -1294,14 +1302,14 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 3)
                 {
                     return "Flare Shader #!userbuffer requires 3 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 uint16_t userSlot;
                 if (!args[0].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!userbuffer failed to parse 1st argument, requires an unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint16_t currentSlot = ILAMBDA(
@@ -1316,7 +1324,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                     ILRETURN nextSlot++;
                 });
-                const COWU8String slotStr = COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
+                const IcarianCore::COWU8String slotStr = IcarianCore::COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
 
                 rStr = "layout(std140,binding=" + slotStr + ",set=" + slotStr + ") uniform UserBuffer " + args[1] + " " + args[2] + ";";
 
@@ -1337,14 +1345,14 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 3)
                 {
                     return "Flare Shader #!userarray requires 3 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 uint16_t userSlot;
                 if (!args[0].ToUint16(&userSlot))
                 {
                     return "Flare Shader #!userarray failed to parse 1st argument, requires an unsigned value greater than or equal to 0: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint16_t currentSlot = ILAMBDA(
@@ -1359,7 +1367,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                     ILRETURN nextSlot++;
                 });
-                const COWU8String slotStr = COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
+                const IcarianCore::COWU8String slotStr = IcarianCore::COWU8String::FromValue(currentSlot, 10, a_tempAllocator);
 
                 rStr = "struct UserArrayData " + args[1] + ";"
                     " layout(std140,binding=" + slotStr + ",set=" + slotStr + ") readonly buffer UserArray"
@@ -1382,7 +1390,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 2)
                 {
                     return "Flare Shader #!pushbuffer requires 2 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const char* str = args[0].CStr();
@@ -1399,15 +1407,15 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 1)
                 {
                     return "Flare Shader #!instancetructure requires 1 argument: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
-                switch (a_builder.Platform) 
+                switch (a_builder.Platform)
                 {
                 case ShaderPlatform_VulkanCompute:
                 {
                     return "Flare Shader #!instancestructure used in Compute mode: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
                 case ShaderPlatform_Vulkan:
                 {
@@ -1430,33 +1438,33 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 4)
                 {
                     return "Flare Shader #!preloop requires 4 arguments: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 int32_t startIndex;
                 if (!args[1].ToInt32(&startIndex, 10))
                 {
                     return "Flare Shader #!preloop failed to parse the 1st argument, requires an integer value: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 int32_t endIndex;
                 if (!args[2].ToInt32(&endIndex))
                 {
                     return "Flare Shader #!preloop failed to parse the 2nd argument, requires an integer value: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 const uint32_t strSize = args[0].Length();
 
-                rStr = COWU8String("switch(0) { default: {", a_tempAllocator);
+                rStr = IcarianCore::COWU8String("switch(0) { default: {", a_tempAllocator);
 
                 for (int32_t i = startIndex; i < endIndex; ++i)
                 {
-                    const COWU8String valStr = COWU8String::FromValue(i, 10, a_tempAllocator);
+                    const IcarianCore::COWU8String valStr = IcarianCore::COWU8String::FromValue(i, 10, a_tempAllocator);
 
                     // We do it this way so that if the user has no instance the string does not get copied
-                    COWU8String snippet = args[3];
+                    IcarianCore::COWU8String snippet = args[3];
 
                     while (true)
                     {
@@ -1476,7 +1484,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                 rStr += "}} \n";
 
                 // TODO: Need to count new lines at the end of the argument list aswell
-                rStr += "#line " + COWU8String::FromValue(currentLine, 10, a_tempAllocator);
+                rStr += "#line " + IcarianCore::COWU8String::FromValue(currentLine, 10, a_tempAllocator);
 
                 break;
             }
@@ -1485,10 +1493,10 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (args.Size() != 1)
                 {
                     return "Flare Shader #!import require 1 argument: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
-                const COWU8String& key = args[0];
+                const IcarianCore::COWU8String& key = args[0];
 
                 if (imported.Exists(key))
                 {
@@ -1498,7 +1506,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                 if (!a_builder.Imports.Exists(key))
                 {
                     return "Flare Shader no import found: line " +
-                        COWU8String::FromValue(currentLine, 10, a_allocator);
+                        IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
                 }
 
                 rStr = a_builder.Imports[key];
@@ -1509,7 +1517,7 @@ COWU8String FlareShader::GLSLFromFlareShader
             default:
             {
                 return "Flare Shader invalid define: " + defName + ": line " +
-                    COWU8String::FromValue(currentLine, 10, a_allocator);
+                    IcarianCore::COWU8String::FromValue(currentLine, 10, a_allocator);
             }
             }
 
@@ -1526,7 +1534,7 @@ COWU8String FlareShader::GLSLFromFlareShader
     {
         if (meshData.MaxVertices <= 0)
         {
-            return COWU8String
+            return IcarianCore::COWU8String
             (
                 "Flare Shader mesh shader but Max Vertices not set. "
                 "Use the #!meshprimitives define with the 2nd argument as an unsigned value above 0",
@@ -1536,7 +1544,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
         if (meshData.MaxPrimitives <= 0)
         {
-            return COWU8String
+            return IcarianCore::COWU8String
             (
                 "Flare Shader mesh shader but Max Primitives not set. "
                 "Use the #!meshprimitives define with the 3rd argument as an unsigned value above 0",
@@ -1548,19 +1556,19 @@ COWU8String FlareShader::GLSLFromFlareShader
         {
         case ShaderPlatform_Vulkan:
         {
-            COWU8String s = COWU8String("layout(location=0) out PerVertexData {", a_tempAllocator);
+            IcarianCore::COWU8String s = IcarianCore::COWU8String("layout(location=0) out PerVertexData {", a_tempAllocator);
 
             for (const MeshShaderOut& out : meshOutputs)
             {
-                s += COWU8String(MeshOutString[out.Type], a_tempAllocator) + " " + out.Identifier + ";";
+                s += IcarianCore::COWU8String(MeshOutString[out.Type], a_tempAllocator) + " " + out.Identifier + ";";
             }
 
             s += "}"
-                " fl_vertOut[];\n";
+                " fl_vertOut[];\n"
 
-            s += "#extension GL_EXT_mesh_shader : require\n";
+                "#extension GL_EXT_mesh_shader : require\n"
 
-            s += "#line " + COWU8String::FromValue(versionLine + 1, 10, a_tempAllocator) + "\n";
+                "#line " + IcarianCore::COWU8String::FromValue(versionLine + 1, 10, a_tempAllocator) + "\n";
 
             shader.Insert(versionNext + 1, s);
 
@@ -1571,10 +1579,10 @@ COWU8String FlareShader::GLSLFromFlareShader
             {
                 const uint16_t drawOutBuffer = nextSlot++;
 
-                const COWU8String drawOutBufferStr = COWU8String::FromValue(drawOutBuffer, 10, a_tempAllocator);
+                const IcarianCore::COWU8String drawOutBufferStr = IcarianCore::COWU8String::FromValue(drawOutBuffer, 10, a_tempAllocator);
 
                 // Refer to VkDrawIndexedIndirectCommand
-                const COWU8String s = "struct fl_MeshDrawOut"
+                const IcarianCore::COWU8String s = "struct fl_MeshDrawOut"
                     "{"
                     "   uint indexCount;"
                     "   uint instanceCount;"
@@ -1588,7 +1596,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                         "fl_MeshDrawOut drawCalls[];"
                     "} fl_drawOut;\n"
 
-                    "#line " + COWU8String::FromValue(versionLine + 1, 10 , a_tempAllocator) + "\n";
+                    "#line " + IcarianCore::COWU8String::FromValue(versionLine + 1, 10 , a_tempAllocator) + "\n";
 
                     shader.Insert(versionNext + 1, s);
 
@@ -1606,9 +1614,9 @@ COWU8String FlareShader::GLSLFromFlareShader
             {
                 const uint16_t vertexOutBuffer = nextSlot++;
 
-                const COWU8String vertexOutBufferStr = COWU8String::FromValue(vertexOutBuffer, 10, a_tempAllocator);
+                const IcarianCore::COWU8String vertexOutBufferStr = IcarianCore::COWU8String::FromValue(vertexOutBuffer, 10, a_tempAllocator);
 
-                COWU8String s = COWU8String
+                IcarianCore::COWU8String s = IcarianCore::COWU8String
                 (
                     "struct fl_MeshVertexOut"
                     "{"
@@ -1618,7 +1626,7 @@ COWU8String FlareShader::GLSLFromFlareShader
 
                 for (const MeshShaderOut& out : meshOutputs)
                 {
-                    s += COWU8String(MeshOutString[out.Type], a_tempAllocator) + " " + out.Identifier + ";";
+                    s += IcarianCore::COWU8String(MeshOutString[out.Type], a_tempAllocator) + " " + out.Identifier + ";";
                 }
 
                 s += "};"
@@ -1632,7 +1640,7 @@ COWU8String FlareShader::GLSLFromFlareShader
                 "   fl_MeshVertexOut vertices[];"
                 "} fl_vertOut;\n"
 
-                "#line " + COWU8String::FromValue(versionLine + 1, 10, a_tempAllocator) + "\n";
+                "#line " + IcarianCore::COWU8String::FromValue(versionLine + 1, 10, a_tempAllocator) + "\n";
 
                 shader.Insert(versionNext + 1, s);
 
@@ -1651,13 +1659,13 @@ COWU8String FlareShader::GLSLFromFlareShader
             {
                 const uint16_t indexOutBuffer = nextSlot++;
 
-                const COWU8String indexOutBufferStr = COWU8String::FromValue(indexOutBuffer, 10, a_tempAllocator);
+                const IcarianCore::COWU8String indexOutBufferStr = IcarianCore::COWU8String::FromValue(indexOutBuffer, 10, a_tempAllocator);
 
-                const COWU8String s = "layout(std430,binding=" + indexOutBufferStr + ",set=" + indexOutBufferStr + ") buffer fl_MeshShaderIndexBuffer"
+                const IcarianCore::COWU8String s = "layout(std430,binding=" + indexOutBufferStr + ",set=" + indexOutBufferStr + ") buffer fl_MeshShaderIndexBuffer"
                     "{"
                     "   uint indices[];"
                     "} fl_indexOut;\n"
-                    "#line " + COWU8String::FromValue(versionLine + 1, 10, a_tempAllocator) + "\n";
+                    "#line " + IcarianCore::COWU8String::FromValue(versionLine + 1, 10, a_tempAllocator) + "\n";
 
                 shader.Insert(versionNext + 1, s);
 
@@ -1690,10 +1698,16 @@ COWU8String FlareShader::GLSLFromFlareShader
 
     *a_shader = shader;
 
-    return COWU8String(a_allocator);
+    return IcarianCore::COWU8String(a_allocator);
 }
 
-COWU8String FlareShader::GenerateMeshVertexStub(const COWU8String& a_shader, Array<MeshShaderOut>* a_outputs, Allocator* a_allocator, Allocator* a_tempAllocator)
+IcarianCore::COWU8String FlareShader::GenerateMeshVertexStub
+(
+    const IcarianCore::COWU8String& a_shader,
+    IcarianCore::Array<MeshShaderOut>* a_outputs,
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
+)
 {
     // TODO: Can probably change this function to just generate the SPIR-V directly down the line
     // Is simple enough that should not need to do much and seems like a good place to start with SPIR-V
@@ -1712,7 +1726,7 @@ COWU8String FlareShader::GenerateMeshVertexStub(const COWU8String& a_shader, Arr
 
         const uint32_t openPos = a_shader.FindCharacter('(', definePos);
 
-        const COWU8String defName = a_shader.Substring
+        const IcarianCore::COWU8String defName = a_shader.Substring
         (
             definePos + 2,
             openPos,
@@ -1721,12 +1735,12 @@ COWU8String FlareShader::GenerateMeshVertexStub(const COWU8String& a_shader, Arr
 
         if (defName == "meshout")
         {
-            Array<COWU8String> args = Array<COWU8String>(a_tempAllocator);
+            IcarianCore::Array<IcarianCore::COWU8String> args = IcarianCore::Array<IcarianCore::COWU8String>(a_tempAllocator);
             {
                 uint32_t offset;
 
                 const char* shaderCStr = a_shader.CStr();
-                const COWU8String splitError = SpiltArgs
+                const IcarianCore::COWU8String splitError = SpiltArgs
                 (
                     shaderCStr + openPos,
                     &args,
@@ -1736,16 +1750,16 @@ COWU8String FlareShader::GenerateMeshVertexStub(const COWU8String& a_shader, Arr
                 );
                 if (!splitError.Empty())
                 {
-                    return COWU8String(a_allocator);
+                    return IcarianCore::COWU8String(a_allocator);
                 }
             }
 
             if (args.Size() != 3)
             {
-                return COWU8String(a_allocator);
+                return IcarianCore::COWU8String(a_allocator);
             }
 
-            COWU8String argString = args[1];
+            IcarianCore::COWU8String argString = args[1];
             argString.TrimWhitespace();
 
             const e_MeshOutType outType = ILAMBDA(
@@ -1760,19 +1774,19 @@ COWU8String FlareShader::GenerateMeshVertexStub(const COWU8String& a_shader, Arr
 
             if (outType == MeshOutType_Last)
             {
-                return COWU8String(a_allocator);
+                return IcarianCore::COWU8String(a_allocator);
             }
 
             uint16_t userSlot;
             if (!args[0].ToUint16(&userSlot))
             {
-                return COWU8String(a_allocator);
+                return IcarianCore::COWU8String(a_allocator);
             }
 
-            COWU8String idenString = args[2];
+            IcarianCore::COWU8String idenString = args[2];
             idenString.TrimWhitespace();
 
-            const MeshShaderOut meshOut = 
+            const MeshShaderOut meshOut =
             {
                 .Identifier = idenString,
                 .Slot = userSlot,
@@ -1786,27 +1800,27 @@ COWU8String FlareShader::GenerateMeshVertexStub(const COWU8String& a_shader, Arr
     const uint32_t count = a_outputs->Size();
     if (count <= 0)
     {
-        return COWU8String(a_allocator);
+        return IcarianCore::COWU8String(a_allocator);
     }
 
-    COWU8String inputs = COWU8String(a_allocator);
-    COWU8String outputs = COWU8String(a_allocator);
-    COWU8String body = COWU8String(a_allocator);
+    IcarianCore::COWU8String inputs = IcarianCore::COWU8String(a_allocator);
+    IcarianCore::COWU8String outputs = IcarianCore::COWU8String(a_allocator);
+    IcarianCore::COWU8String body = IcarianCore::COWU8String(a_allocator);
 
     for (uint32_t i = 0; i < count; ++i)
     {
         const MeshShaderOut& out = (*a_outputs)[i];
         if (out.Type >= MeshOutType_Last)
         {
-            return COWU8String(a_allocator);
+            return IcarianCore::COWU8String(a_allocator);
         }
 
         const char* typeStr = MeshOutString[out.Type];
 
-        const COWU8String inStr = COWU8String("fl_", a_tempAllocator) + out.Identifier;
+        const IcarianCore::COWU8String inStr = IcarianCore::COWU8String("fl_", a_tempAllocator) + out.Identifier;
 
-        const COWU8String inputSlot = COWU8String::FromValue(i + 1, 10, a_tempAllocator);
-        const COWU8String outputSlot = COWU8String::FromValue(out.Slot, 10, a_tempAllocator);
+        const IcarianCore::COWU8String inputSlot = IcarianCore::COWU8String::FromValue(i + 1, 10, a_tempAllocator);
+        const IcarianCore::COWU8String outputSlot = IcarianCore::COWU8String::FromValue(out.Slot, 10, a_tempAllocator);
 
         inputs += "layout(location=" + inputSlot + ") in " + typeStr + " " + inStr + ";\n";
         outputs += "layout(location=" + outputSlot + ") out " + typeStr + " " + out.Identifier + ";\n";
@@ -1814,7 +1828,7 @@ COWU8String FlareShader::GenerateMeshVertexStub(const COWU8String& a_shader, Arr
         body += "    " + out.Identifier + "=" + inStr + ";\n";
     }
 
-    return COWU8String("#version 450 \n"
+    return IcarianCore::COWU8String("#version 450 \n"
 
     "layout(location=0) in vec4 flp_position;\n", a_allocator) +
     inputs +
@@ -1831,19 +1845,19 @@ COWU8String FlareShader::GenerateMeshVertexStub(const COWU8String& a_shader, Arr
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

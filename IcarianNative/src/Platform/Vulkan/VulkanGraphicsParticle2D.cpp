@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -16,7 +16,7 @@
 #include "Rendering/Vulkan/VulkanShaderData.h"
 #include "Shaders.h"
 
-void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer, Allocator* a_tempAllocator)
+void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer, IcarianCore::Allocator* a_tempAllocator)
 {
     m_inputs.Clear();
 
@@ -24,7 +24,7 @@ void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer, Allo
 
     const uint32_t taskShader = m_gEngine->GenerateFTaskShader
     (
-        COWU8String
+        IcarianCore::COWU8String
         (
             ParticleTaskShader,
             sizeof(ParticleTaskShader) / sizeof(*ParticleTaskShader),
@@ -32,7 +32,7 @@ void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer, Allo
         )
     );
 
-    const COWU8String mShaderStr = VulkanParticleShaderGenerator::GenerateMeshShader
+    const IcarianCore::COWU8String mShaderStr = VulkanParticleShaderGenerator::GenerateMeshShader
     (
         a_buffer,
         &slot,
@@ -41,7 +41,7 @@ void VulkanGraphicsParticle2D::Build(const ComputeParticleBuffer& a_buffer, Allo
     );
     const uint32_t meshShader = m_gEngine->GenerateFMeshShader(mShaderStr);
 
-    const COWU8String pShaderStr = VulkanParticleShaderGenerator::GeneratePixelShader
+    const IcarianCore::COWU8String pShaderStr = VulkanParticleShaderGenerator::GeneratePixelShader
     (
         a_buffer,
         &slot,
@@ -75,11 +75,11 @@ void VulkanGraphicsParticle2D::Destroy()
 
 VulkanGraphicsParticle2D::VulkanGraphicsParticle2D
 (
-    VulkanRenderEngineBackend* a_backend, 
-    VulkanComputeEngine* a_cEngine, 
-    VulkanGraphicsEngine* a_gEngine, 
+    VulkanRenderEngineBackend* a_backend,
+    VulkanComputeEngine* a_cEngine,
+    VulkanGraphicsEngine* a_gEngine,
     uint32_t a_computeBufferAddr,
-    Allocator* a_allocator
+    IcarianCore::Allocator* a_allocator
 ) :
     m_inputs(a_allocator)
 {
@@ -94,7 +94,7 @@ VulkanGraphicsParticle2D::VulkanGraphicsParticle2D
 }
 VulkanGraphicsParticle2D::~VulkanGraphicsParticle2D()
 {
-    const ThreadGuard g = ThreadGuard(m_lock);
+    const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
     Destroy();
 }
@@ -106,7 +106,7 @@ void VulkanGraphicsParticle2D::Update
     uint32_t a_renderLayer,
     vk::CommandBuffer a_commandBuffer,
     uint32_t a_renderTextureAddr,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     ComputeParticleBuffer buffer = m_cEngine->GetParticleBuffer(m_computeBufferAddr);
@@ -122,7 +122,7 @@ void VulkanGraphicsParticle2D::Update
         return;
     }
 
-    const ThreadGuard g = ThreadGuard(m_lock);
+    const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
     if (IISBITSET(buffer.Flags, ComputeParticleBuffer::GraphicsRefreshBit))
     {
@@ -198,19 +198,19 @@ void VulkanGraphicsParticle2D::Update
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

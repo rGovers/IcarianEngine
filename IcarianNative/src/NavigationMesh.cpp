@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "AI/NavigationMesh.h"
@@ -9,15 +9,15 @@
 #include <assimp/postprocess.h>
 #include <glm/gtx/norm.hpp>
 
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Core/IcarianDefer.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 #include "IO.h"
 #include "Trace.h"
 
-NavigationMesh::NavigationMesh(const COWU8String& a_path, Allocator* a_allocator, Allocator* a_tempAllocator)
+NavigationMesh::NavigationMesh(const IcarianCore::COWU8String& a_path, IcarianCore::Allocator* a_allocator, IcarianCore::Allocator* a_tempAllocator)
 {
     TRACE("Creating Nav Mesh");
     m_allocator = a_allocator;
@@ -27,7 +27,7 @@ NavigationMesh::NavigationMesh(const COWU8String& a_path, Allocator* a_allocator
     m_faceCount = 0;
     m_faces = nullptr;
 
-    const COWU8String ext = IO::GetExtension(a_path, a_tempAllocator);
+    const IcarianCore::COWU8String ext = IO::GetExtension(a_path, a_tempAllocator);
 
     switch (StringHash<uint32_t>(ext.CStr()))
     {
@@ -39,7 +39,7 @@ NavigationMesh::NavigationMesh(const COWU8String& a_path, Allocator* a_allocator
     {
         FileHandle* handle = FileCache::LoadFile(a_path);
         IVERIFY(handle != nullptr);
-        IDEFER(MallocAllocator::Instance->Destroy(handle));
+        IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
         uint8_t* dat = a_tempAllocator->TAllocate<uint8_t>(size);
@@ -72,7 +72,7 @@ NavigationMesh::NavigationMesh(const COWU8String& a_path, Allocator* a_allocator
             uint32_t Edge[2];
         };
 
-        Dictionary<uint64_t, EdgeTable> edgeMap = Dictionary<uint64_t, EdgeTable>(a_tempAllocator);
+        IcarianCore::Dictionary<uint64_t, EdgeTable> edgeMap = IcarianCore::Dictionary<uint64_t, EdgeTable>(a_tempAllocator);
 
         const aiMesh* mesh = scene->mMeshes[0];
 
@@ -185,7 +185,7 @@ NavigationMesh::NavigationMesh(const COWU8String& a_path, Allocator* a_allocator
             faces[m_faceCount++] = navFace;
         }
 
-        const Array<EdgeTable> edges = edgeMap.GetValues(a_tempAllocator);
+        const IcarianCore::Array<EdgeTable> edges = edgeMap.GetValues(a_tempAllocator);
         // Second pass we want to link all the face connections
         for (const EdgeTable& table : edges)
         {
@@ -290,8 +290,8 @@ static void PushPathValue
     uint32_t a_index,
     const NavigationFace* a_faces,
     const glm::vec3& a_end,
-    Array<PathNode>* a_queue,
-    Dictionary<uint32_t, uint32_t>* a_stepMap
+    IcarianCore::Array<PathNode>* a_queue,
+    IcarianCore::Dictionary<uint32_t, uint32_t>* a_stepMap
 )
 {
     const NavigationFace& face = a_faces[a_index];
@@ -316,7 +316,7 @@ static void PushPathValue
         const glm::vec3 diff = a_end - conFace.Center;
         const float d = glm::length2(diff);
 
-        const PathNode value = 
+        const PathNode value =
         {
             .Weight = d,
             .Index = con
@@ -352,49 +352,49 @@ static float TriToAreaSqr(const glm::vec3& a_vertA, const glm::vec3& a_vertB, co
     return b.x * a.y - a.x * b.y;
 }
 
-Array<glm::vec3> NavigationMesh::GeneratePath
+IcarianCore::Array<glm::vec3> NavigationMesh::GeneratePath
 (
     const glm::vec3& a_startPoint,
     const glm::vec3& a_endPoint,
     float a_agentRadius,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 ) const
 {
     const uint32_t indexA = GetIndex(a_startPoint);
     if (indexA == uint32_t(-1))
     {
-        return Array<glm::vec3>(a_allocator);
+        return IcarianCore::Array<glm::vec3>(a_allocator);
     }
 
     const uint32_t indexB = GetIndex(a_endPoint);
     if (indexB == uint32_t(-1))
     {
-        return Array<glm::vec3>(a_allocator);
+        return IcarianCore::Array<glm::vec3>(a_allocator);
     }
 
     return GeneratePath(a_startPoint, a_endPoint, indexA, indexB, a_agentRadius, a_allocator, a_tempAllocator);
 }
 // 2.5D Pathfinding
-Array<glm::vec3> NavigationMesh::GeneratePath
+IcarianCore::Array<glm::vec3> NavigationMesh::GeneratePath
 (
     const glm::vec3& a_startPoint,
     const glm::vec3& a_endPoint,
     uint32_t a_startIndex,
     uint32_t a_endIndex,
     float a_agentRadius,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 ) const
 {
     if (a_startIndex == uint32_t(-1) || a_endIndex == uint32_t(-1))
     {
-        return Array<glm::vec3>(a_allocator);
+        return IcarianCore::Array<glm::vec3>(a_allocator);
     }
 
     if (a_startIndex == a_endIndex)
     {
-        Array<glm::vec3> path = Array<glm::vec3>(a_allocator);
+        IcarianCore::Array<glm::vec3> path = IcarianCore::Array<glm::vec3>(a_allocator);
 
         path.Push(a_startPoint);
         path.Push(a_endPoint);
@@ -403,8 +403,8 @@ Array<glm::vec3> NavigationMesh::GeneratePath
     }
 
     // Find path
-    Array<PathNode> queue = Array<PathNode>(a_tempAllocator);
-    Dictionary<uint32_t, uint32_t> stepMap = Dictionary<uint32_t, uint32_t>(a_tempAllocator);
+    IcarianCore::Array<PathNode> queue = IcarianCore::Array<PathNode>(a_tempAllocator);
+    IcarianCore::Dictionary<uint32_t, uint32_t> stepMap = IcarianCore::Dictionary<uint32_t, uint32_t>(a_tempAllocator);
     PushPathValue(a_startIndex, m_faces, a_endPoint, &queue, &stepMap);
     while (!queue.Empty())
     {
@@ -419,7 +419,7 @@ Array<glm::vec3> NavigationMesh::GeneratePath
     }
 
     // Backtrace path
-    Array<uint32_t> pathIndices = Array<uint32_t>(a_tempAllocator);
+    IcarianCore::Array<uint32_t> pathIndices = IcarianCore::Array<uint32_t>(a_tempAllocator);
 
     uint32_t node = a_endIndex;
     pathIndices.Push(node);
@@ -444,7 +444,7 @@ Array<glm::vec3> NavigationMesh::GeneratePath
     // In reality building the mesh based off the biggest agent and adjusting portals should be fine outside of extreme size differences
     const uint32_t pathIndexCount = pathIndices.Size();
 
-    Array<Portal> portals = Array<Portal>(a_tempAllocator);
+    IcarianCore::Array<Portal> portals = IcarianCore::Array<Portal>(a_tempAllocator);
     portals.Reserve(pathIndexCount);
 
     for (uint32_t i = 1; i < pathIndexCount; ++i)
@@ -513,7 +513,7 @@ Array<glm::vec3> NavigationMesh::GeneratePath
     // Pull path tight
     const uint32_t portalCount = portals.Size();
 
-    Array<glm::vec3> path = Array<glm::vec3>(a_allocator);
+    IcarianCore::Array<glm::vec3> path = IcarianCore::Array<glm::vec3>(a_allocator);
     path.Reserve(portalCount + 1);
     path.Push(a_startPoint);
 
@@ -598,19 +598,19 @@ Array<glm::vec3> NavigationMesh::GeneratePath
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

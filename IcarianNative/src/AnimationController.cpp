@@ -1,11 +1,11 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Rendering/AnimationController.h"
 
 #include "Core/Bitfield.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Rendering/AnimationControllerBindings.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
@@ -21,39 +21,39 @@ AnimationController::AnimationController()
     m_updateAnimatorFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering.Animation", "Animator", ":UpdateAnimatorS(uint,double)");
     m_updateAnimatorsFunc = RuntimeManager::GetFunction("IcarianEngine.Rendering.Animation", "Animator", ":UpdateAnimatorsS(uint[],double)");
 
-    m_bindings = MallocAllocator::Instance->Create<AnimationControllerBindings>(this);
+    m_bindings = IcarianCore::MallocAllocator::Instance->Create<AnimationControllerBindings>(this);
 }
 AnimationController::~AnimationController()
 {
-    MallocAllocator::Instance->Destroy(m_bindings);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_bindings);
 
-    MallocAllocator::Instance->Destroy(m_updateAnimatorFunc);
-    MallocAllocator::Instance->Destroy(m_updateAnimatorsFunc);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_updateAnimatorFunc);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_updateAnimatorsFunc);
 }
 
 void AnimationController::Init()
 {
     if (Instance == nullptr)
     {
-        Instance = MallocAllocator::Instance->Create<AnimationController>();
+        Instance = IcarianCore::MallocAllocator::Instance->Create<AnimationController>();
     }
 }
 void AnimationController::Destroy()
 {
     if (Instance != nullptr)
     {
-        MallocAllocator::Instance->Destroy(Instance);
+        IcarianCore::MallocAllocator::Instance->Destroy(Instance);
         Instance = nullptr;
     }
 }
 
-Array<uint32_t> AnimationController::GetAnimators(e_AnimationUpdateMode a_updateMode)
+IcarianCore::Array<uint32_t> AnimationController::GetAnimators(e_AnimationUpdateMode a_updateMode)
 {
     const uint32_t size = Instance->m_animators.Size();
-    const Array<uint8_t> state = Instance->m_animators.ToPackedStateArray(MallocAllocator::Instance);
-    const Array<e_AnimationUpdateMode> mode = Instance->m_animators.ToArray(MallocAllocator::Instance);
+    const IcarianCore::Array<uint8_t> state = Instance->m_animators.ToPackedStateArray(IcarianCore::MallocAllocator::Instance);
+    const IcarianCore::Array<e_AnimationUpdateMode> mode = Instance->m_animators.ToArray(IcarianCore::MallocAllocator::Instance);
 
-    Array<uint32_t> animators = Array<uint32_t>(MallocAllocator::Instance);
+    IcarianCore::Array<uint32_t> animators = IcarianCore::Array<uint32_t>(IcarianCore::MallocAllocator::Instance);
     animators.Reserve(size);
 
     for (uint32_t i = 0; i < size; ++i)
@@ -82,7 +82,7 @@ void AnimationController::UpdateAnimator(uint32_t a_index, double a_deltaTime)
 }
 void AnimationController::UpdateAnimators(e_AnimationUpdateMode a_updateMode, double a_deltaTime)
 {
-    const Array<uint32_t> animators = GetAnimators(a_updateMode);
+    const IcarianCore::Array<uint32_t> animators = GetAnimators(a_updateMode);
 
     const uint32_t count = animators.Size();
     if (count > 0)
@@ -140,19 +140,19 @@ void AnimationController::DispatchUpdate(double a_deltaTime)
             {
             case AnimationUpdateMode_PooledUpdateLow:
             {
-                ThreadPool::PushJob(MallocAllocator::Instance->Create<AnimatorThreadJob>(i, a_deltaTime, JobPriority_EngineLow));
+                ThreadPool::PushJob(IcarianCore::MallocAllocator::Instance->Create<AnimatorThreadJob>(i, a_deltaTime, JobPriority_EngineLow));
 
                 break;
             }
             case AnimationUpdateMode_PooledUpdateMedium:
             {
-                ThreadPool::PushJob(MallocAllocator::Instance->Create<AnimatorThreadJob>(i, a_deltaTime, JobPriority_EngineMedium));
+                ThreadPool::PushJob(IcarianCore::MallocAllocator::Instance->Create<AnimatorThreadJob>(i, a_deltaTime, JobPriority_EngineMedium));
 
                 break;
             }
             case AnimationUpdateMode_PooledUpdateHigh:
             {
-                ThreadPool::PushJob(MallocAllocator::Instance->Create<AnimatorThreadJob>(i, a_deltaTime, JobPriority_EngineHigh));
+                ThreadPool::PushJob(IcarianCore::MallocAllocator::Instance->Create<AnimatorThreadJob>(i, a_deltaTime, JobPriority_EngineHigh));
 
                 break;
             }
@@ -171,19 +171,19 @@ SkeletonData AnimationController::GetSkeleton(uint32_t a_index)
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

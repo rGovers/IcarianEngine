@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -21,7 +21,7 @@ VulkanComputeShader::VulkanComputeShader
     uint32_t a_inputCount,
     const uint32_t* a_data,
     uint32_t a_dataCount,
-    Allocator* a_allocator
+    IcarianCore::Allocator* a_allocator
 ) : VulkanShader(a_engine, a_inputs, a_inputCount, a_allocator)
 {
     TRACE("Creating ComputeShader");
@@ -51,8 +51,8 @@ void VulkanComputeShader::CreateFromFShader
 (
     VulkanComputeShader* a_out,
     const VulkanComputeFShaderBuilder& a_builder,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     IVERIFY(a_out != nullptr);
@@ -60,7 +60,7 @@ void VulkanComputeShader::CreateFromFShader
     IVERIFY(!a_builder.EntryPoint.Empty());
     IVERIFY(!a_builder.String.Empty());
 
-    Array<ShaderBufferInput> inputs = Array<ShaderBufferInput>(a_tempAllocator);
+    IcarianCore::Array<ShaderBufferInput> inputs = IcarianCore::Array<ShaderBufferInput>(a_tempAllocator);
     FlareShader::ShaderOutput output;
 
     const FlareShader::ShaderBuilder builder =
@@ -69,14 +69,14 @@ void VulkanComputeShader::CreateFromFShader
         .Platform = FlareShader::ShaderPlatform_VulkanCompute,
         .Imports = a_builder.Imports,
         .Inputs = &inputs,
-        .OtherInputs = Array<ShaderBufferInput>(a_tempAllocator),
+        .OtherInputs = IcarianCore::Array<ShaderBufferInput>(a_tempAllocator),
         .Out = &output,
     };
 
-    COWU8String shader = COWU8String(a_tempAllocator);
+    IcarianCore::COWU8String shader = IcarianCore::COWU8String(a_tempAllocator);
     // Yes I am using the main allocator as the temp allocator
     // String ops will cause havoc on the temp allocator
-    const COWU8String error = FlareShader::GLSLFromFlareShader(&shader, builder, a_allocator, a_allocator);
+    const IcarianCore::COWU8String error = FlareShader::GLSLFromFlareShader(&shader, builder, a_allocator, a_allocator);
     if (!error.Empty())
     {
         IERROR("Flare Compute Shader generation error: " + error);
@@ -100,8 +100,8 @@ void VulkanComputeShader::CreateFromGLSL
 (
     VulkanComputeShader* a_out,
     const VulkanComputeGLSLShaderBuilder& a_builder,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     IVERIFY(a_out != nullptr);
@@ -109,7 +109,7 @@ void VulkanComputeShader::CreateFromGLSL
     IVERIFY(!a_builder.EntryPoint.Empty());
     IVERIFY(!a_builder.String.Empty());
 
-    const Array<uint32_t> spirv = spirv_fromGLSL
+    const IcarianCore::Array<uint32_t> spirv = spirv_fromGLSL
     (
         EShLangCompute,
         a_builder.String,
@@ -139,19 +139,19 @@ void VulkanComputeShader::CreateFromGLSL
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

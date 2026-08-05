@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -8,15 +8,14 @@
 
 #include "Audio/AudioListenerBuffer.h"
 #include "Audio/IcarianMiniaudio.h"
+#include "Core/DataTypes/Allocators/BlockAllocator.h"
+#include "Core/DataTypes/Allocators/RingAllocator.h"
+#include "Core/DataTypes/Allocators/TrackerAllocator.h"
 #include "DataTypes/TNCArray.h"
 
 class AudioClip;
 class AudioEngineBindings;
-class BlockAllocator;
 class Config;
-class ComplexAllocator;
-class RingAllocator;
-class TrackerAllocator;
 
 #include "EngineAudioSourceInteropStructures.h"
 #include "EngineAudioMixerInteropStructures.h"
@@ -41,28 +40,28 @@ private:
     constexpr static uint32_t LargeAllocatorSize = 8 << 20;
     constexpr static uint32_t RingAllocatorSize = 1 << 20;
 
-    BlockAllocator*               m_smallAllocator;
-    BlockAllocator*               m_largeAllocator;
+    IcarianCore::BlockAllocator*                 m_smallAllocator;
+    IcarianCore::BlockAllocator*                 m_largeAllocator;
 
-    TrackerAllocator*             m_trackerAllocator;
+    IcarianCore::TrackerAllocator*               m_trackerAllocator;
 
-    Array<Allocator*>*            m_allocatorChain;
+    IcarianCore::Array<IcarianCore::Allocator*>* m_allocatorChain;
 
-    ComplexAllocator*             m_allocator;
-    RingAllocator*                m_ringAllocator;
+    IcarianCore::ComplexAllocator*               m_allocator;
+    IcarianCore::RingAllocator*                  m_ringAllocator;
 
-    AudioEngineBindings*          m_bindings;
+    AudioEngineBindings*                         m_bindings;
 
-    ma_engine                     m_engine;
+    ma_engine                                    m_engine;
 
-    TNCArray<AudioClip*>          m_audioClips;
-    TNCArray<AudioSourceBuffer>   m_audioSources;
-    TNCArray<AudioListenerBuffer> m_audioListeners;
-    TNCArray<AudioMixerBuffer>    m_audioMixers;
+    TNCArray<AudioClip*>                         m_audioClips;
+    TNCArray<AudioSourceBuffer>                  m_audioSources;
+    TNCArray<AudioListenerBuffer>                m_audioListeners;
+    TNCArray<AudioMixerBuffer>                   m_audioMixers;
 
-    TNCArray<MAISource*>          m_audioStreams;
+    TNCArray<MAISource*>                         m_audioStreams;
 
-    bool                          m_init;
+    bool                                         m_init;
 
 protected:
 
@@ -70,14 +69,22 @@ public:
     AudioEngine(Config* a_config);
     ~AudioEngine();
 
-    inline ComplexAllocator* GetAllocator() const
+    inline IcarianCore::ComplexAllocator* GetAllocator() const
     {
         return m_allocator;
     }
 
     ma_result DataSourceRead(ma_data_source* a_dataSource, void* a_framesOut, ma_uint64 a_frameCount, ma_uint64* a_framesRead);
     ma_result DataSourceSeek(ma_data_source* a_dataSource, ma_uint64 a_frameIndex);
-    ma_result DataSourceGetDataFormat(ma_data_source* a_dataSource, ma_format* a_format, ma_uint32* a_channels, ma_uint32* a_sampleRate, ma_channel* a_channelMap, size_t a_channelMapCap);
+    ma_result DataSourceGetDataFormat
+    (
+        ma_data_source* a_dataSource,
+        ma_format* a_format,
+        ma_uint32* a_channels,
+        ma_uint32* a_sampleRate,
+        ma_channel* a_channelMap,
+        size_t a_channelMapCap
+    );
     ma_result DataSourceGetCursor(ma_data_source* a_dataSource, ma_uint64* a_cursor);
     ma_result DataSourceGetLength(ma_data_source* a_dataSource, ma_uint64* a_length);
 
@@ -85,19 +92,19 @@ public:
 };
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

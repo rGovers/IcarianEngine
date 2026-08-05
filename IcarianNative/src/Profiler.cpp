@@ -4,9 +4,10 @@
 
 #include "Profiler.h"
 
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/ThreadGuard.h"
 #include "Core/IcarianDefer.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
-#include "DataTypes/ThreadGuard.h"
+#include "IcarianError.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
@@ -29,7 +30,7 @@ RUNTIME_FUNCTION(void, Profiler, StopFrame,
 })
 
 Profiler::Profiler() :
-    m_data(MallocAllocator::Instance)
+    m_data(IcarianCore::MallocAllocator::Instance)
 {
     BIND_FUNCTION(IcarianEngine, Profiler, StartFrame);
     BIND_FUNCTION(IcarianEngine, Profiler, StopFrame);
@@ -46,7 +47,7 @@ void Profiler::Init()
     TRACE("Initializing Profiler");
     if (Instance == nullptr)
     {
-        Instance = MallocAllocator::Instance->Create<Profiler>();
+        Instance = IcarianCore::MallocAllocator::Instance->Create<Profiler>();
     }
 }
 void Profiler::Destroy()
@@ -54,7 +55,7 @@ void Profiler::Destroy()
     TRACE("Destroying Profiler");
     if (Instance != nullptr)
     {
-        MallocAllocator::Instance->Destroy(Instance);
+        IcarianCore::MallocAllocator::Instance->Destroy(Instance);
         Instance = nullptr;
     }
 }
@@ -62,20 +63,20 @@ void Profiler::Destroy()
 void Profiler::Start(const char* a_name)
 {
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
-    Start(COWU8String(a_name, MallocAllocator::Instance));
+    Start(IcarianCore::COWU8String(a_name, IcarianCore::MallocAllocator::Instance));
 #endif
 }
-void Profiler::Start(const COWU8String& a_name)
+void Profiler::Start(const IcarianCore::COWU8String& a_name)
 {
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
     const std::thread::id tID = std::this_thread::get_id();
 
-    const ThreadGuard g = ThreadGuard(Instance->m_lock);
+    const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(Instance->m_lock);
 
     const ProfilerCPUData data =
     {
-        .Name = COWU8String(a_name, MallocAllocator::Instance),
-        .Frames = Array<ProfileFrame>(MallocAllocator::Instance),
+        .Name = IcarianCore::COWU8String(a_name, IcarianCore::MallocAllocator::Instance),
+        .Frames = IcarianCore::Array<ProfileFrame>(IcarianCore::MallocAllocator::Instance),
     };
 
     Instance->m_data.Push(tID, data);
@@ -86,7 +87,7 @@ void Profiler::Stop()
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
     const std::thread::id tID = std::this_thread::get_id();
 
-    const ThreadGuard lock = ThreadGuard(Instance->m_lock);
+    const IcarianCore::ThreadGuard lock = IcarianCore::ThreadGuard(Instance->m_lock);
 
     IVERIFY(Instance->m_data.Exists(tID));
     IDEFER(Instance->m_data.Erase(tID));
@@ -150,16 +151,16 @@ IcarianCore::MemoryUsageFrame Profiler::GetMemoryFrames()
 void Profiler::StartFrame(const char* a_name)
 {
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
-    StartFrame(COWU8String(a_name, MallocAllocator::Instance));
+    StartFrame(IcarianCore::COWU8String(a_name, IcarianCore::MallocAllocator::Instance));
 #endif
 }
-void Profiler::StartFrame(const COWU8String& a_name)
+void Profiler::StartFrame(const IcarianCore::COWU8String& a_name)
 {
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
     const std::chrono::high_resolution_clock::time_point startTime = std::chrono::high_resolution_clock::now();
     const std::thread::id tID = std::this_thread::get_id();
 
-    const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
+    const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(Instance->m_lock);
 
     IVERIFY(Instance->m_data.Exists(tID));
 
@@ -192,7 +193,7 @@ void Profiler::StartFrame(const COWU8String& a_name)
 
     const ProfileFrame frame =
     {
-        .Name = COWU8String(a_name, MallocAllocator::Instance),
+        .Name = IcarianCore::COWU8String(a_name, IcarianCore::MallocAllocator::Instance),
         .Duration = 0.0,
         .StartTime = startTime,
         .Stack = stack,
@@ -208,7 +209,7 @@ void Profiler::StopFrame()
     const std::chrono::high_resolution_clock::time_point endTime = std::chrono::high_resolution_clock::now();
     const std::thread::id tID = std::this_thread::get_id();
 
-    const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
+    const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(Instance->m_lock);
 
     IVERIFY(Instance->m_data.Exists(tID));
 

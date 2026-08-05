@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -8,16 +8,15 @@
 
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
-#define GLM_FORCE_SWIZZLE 
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
-#include "DataTypes/Array.h"
+#include "Core/DataTypes/Array.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 
 #include "EngineMaterialInteropStructures.h"
 #include "EngineTextureSamplerInteropStructures.h"
 
-class Allocator;
 class UIElement;
 class VulkanGraphicsEngine;
 class VulkanMesh;
@@ -78,45 +77,56 @@ class VulkanShaderData
 private:
     static constexpr uint32_t StaticIndex = 0;
 
-    Allocator*                  m_allocator;
+    IcarianCore::Allocator*                  m_allocator;
 
-    VulkanRenderEngineBackend*  m_engine;
-    VulkanGraphicsEngine*       m_gEngine;
+    VulkanRenderEngineBackend*               m_engine;
+    VulkanGraphicsEngine*                    m_gEngine;
 
-    VulkanUniformBuffer*        m_userUniformBuffer;
-    VulkanShaderStorageObject*  m_userArray;
-    VulkanShader**              m_shaders;
-    VulkanShaderInput*          m_slotInputs;
-    VulkanPushDescriptor*       m_pushDescriptors;
-    VertexInputAttribute*       m_attributes;
+    VulkanUniformBuffer*                     m_userUniformBuffer;
+    VulkanShaderStorageObject*               m_userArray;
+    VulkanShader**                           m_shaders;
+    VulkanShaderInput*                       m_slotInputs;
+    VulkanPushDescriptor*                    m_pushDescriptors;
+    VertexInputAttribute*                    m_attributes;
 
-    vk::PipelineLayout          m_layout;
+    vk::PipelineLayout                       m_layout;
 
-    Array<VulkanTextureBinding> m_textures;
+    IcarianCore::Array<VulkanTextureBinding> m_textures;
 
-    uint32_t                    m_shaderCount;
-    uint32_t                    m_slotInputCount;
-    uint32_t                    m_pushDesciptorCount;
-    uint32_t                    m_attributeCount;
+    uint32_t                                 m_shaderCount;
+    uint32_t                                 m_slotInputCount;
+    uint32_t                                 m_pushDesciptorCount;
+    uint32_t                                 m_attributeCount;
 
-    e_MaterialMode              m_materialMode;
+    e_MaterialMode                           m_materialMode;
 
-    VulkanShaderData(Allocator* a_allocator);
+    VulkanShaderData(IcarianCore::Allocator* a_allocator);
 
 protected:
 
 public:
     ~VulkanShaderData();
 
-    static void CreateBaseShaderData(VulkanShaderData* a_data, const VulkanBaseShaderDataBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
+    static void CreateBaseShaderData
+    (
+        VulkanShaderData* a_data,
+        const VulkanBaseShaderDataBuilder& a_builder,
+        IcarianCore::Allocator* a_allocator,
+        IcarianCore::Allocator* a_tempAllocator
+    );
     static void CreateComputeMeshShaderData
     (
         VulkanShaderData* a_data,
         const VulkanComputeMeshShaderDataBuilder& a_builder,
-        Allocator* a_allocator,
-        Allocator* a_tempAllocator
+        IcarianCore::Allocator* a_allocator,
+        IcarianCore::Allocator* a_tempAllocator
     );
-    static void CreateShadowShaderData(VulkanShaderData* a_data, const VulkanShadowShaderDataBuilder& a_builder, Allocator* a_allocator, Allocator* a_tempAllocator);
+    static void CreateShadowShaderData
+    (
+        VulkanShaderData* a_data,
+        const VulkanShadowShaderDataBuilder& a_builder,
+        IcarianCore::Allocator* a_allocator, IcarianCore::Allocator* a_tempAllocator
+    );
 
     inline vk::PipelineLayout GetLayout() const
     {
@@ -142,7 +152,7 @@ public:
     }
     VulkanShader* GetShader(uint32_t a_index) const;
 
-    Array<ShaderBufferInput> GetShaderBufferInputs(e_ShaderBufferType a_type, Allocator* a_allocator) const;
+    IcarianCore::Array<ShaderBufferInput> GetShaderBufferInputs(e_ShaderBufferType a_type, IcarianCore::Allocator* a_allocator) const;
 
     bool GetShaderBufferInput(e_ShaderBufferType a_type, ShaderBufferInput* a_input) const;
 
@@ -158,7 +168,7 @@ public:
         const TextureSamplerBuffer* a_samplers,
         uint16_t a_count,
         uint32_t a_index,
-        Allocator* a_tempAllocator
+        IcarianCore::Allocator* a_tempAllocator
     ) const;
     bool PushUniformBuffer(vk::CommandBuffer a_commandBuffer, uint16_t a_slot, const VulkanUniformBuffer* a_buffer, uint32_t a_index) const;
     bool PushShaderStorageObject(vk::CommandBuffer a_commandBuffer, uint16_t a_slot, const VulkanShaderStorageObject* a_object, uint32_t a_index) const;
@@ -181,19 +191,19 @@ public:
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

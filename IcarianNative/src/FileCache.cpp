@@ -18,17 +18,17 @@
 #endif
 
 #include "Core/Bitfield.h"
+#include "Core/DataTypes/Allocators/LeakAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/MultiSourceAllocator.h"
+#include "Core/DataTypes/Allocators/OSAllocator.h"
+#include "Core/DataTypes/Allocators/UberAllocator.h"
+#include "Core/DataTypes/ThreadGuard.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
 #include "Core/IcarianLambda.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/Allocators/BlockAllocator.h"
-#include "DataTypes/Allocators/LeakAllocator.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
-#include "DataTypes/Allocators/MultiSourceAllocator.h"
-#include "DataTypes/Allocators/OSAllocator.h"
-#include "DataTypes/Allocators/UberAllocator.h"
-#include "DataTypes/ThreadGuard.h"
+#include "Core/DataTypes/Allocators/BlockAllocator.h"
 #include "FileHandles/ReadFileHandle.h"
 #include "IcarianError.h"
 #include "Profiler.h"
@@ -84,12 +84,12 @@ RUNTIME_FUNCTION(MonoArray*, FileCache, ReadFileData,
 
     FileHandle* handle = FileCache::LoadFile(str);
     IERRCHECKRET(handle != nullptr, NULL);
-    IDEFER(MallocAllocator::Instance->Destroy(handle));
+    IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
     const uint64_t size = handle->GetSize();
 
-    uint8_t* dat = MallocAllocator::Instance->ZTAllocate<uint8_t>(size);
-    IDEFER(MallocAllocator::Instance->Free(dat));
+    uint8_t* dat = IcarianCore::MallocAllocator::Instance->ZTAllocate<uint8_t>(size);
+    IDEFER(IcarianCore::MallocAllocator::Instance->Free(dat));
 
     IERRCHECKRET(handle->Read(dat, size) == size, NULL);
 
@@ -107,8 +107,8 @@ RUNTIME_FUNCTION(void, FileCache, WriteFileData,
     IDEFER(mono_free(str));
 
     const uint64_t size = mono_array_length(a_data);
-    uint8_t* dat = MallocAllocator::Instance->ZTAllocate<uint8_t>(size);
-    IDEFER(MallocAllocator::Instance->Destroy(dat));
+    uint8_t* dat = IcarianCore::MallocAllocator::Instance->ZTAllocate<uint8_t>(size);
+    IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(dat));
 
     for (uint64_t i = 0; i < size; ++i)
     {
@@ -126,19 +126,19 @@ RUNTIME_FUNCTION(void, FileCache, WriteFileData,
         }
     }
 
-    FileCache::PushFile(COWU8String(str, MallocAllocator::Instance), dat, (uint32_t)size, (bool)a_pinFile);
+    FileCache::PushFile(IcarianCore::COWU8String(str, IcarianCore::MallocAllocator::Instance), dat, (uint32_t)size, (bool)a_pinFile);
 }, MonoString* a_path, MonoArray* a_data, uint32_t a_writeFile, uint32_t a_pinFile)
 
 FileCache::FileCache(uint32_t a_sizeMiB, uint32_t a_pipefileID)
 {
     IERRBLOCK;
 
-    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, UberAllocator::Instance);
-    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, UberAllocator::Instance);
+    m_smallAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::BlockAllocator>(SmallAllocatorSize, IcarianCore::UberAllocator::Instance);
+    m_largeAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::BlockAllocator>(LargeAllocatorSize, IcarianCore::UberAllocator::Instance);
 
-    m_allocatorChain = m_smallAllocator->Create<Array<Allocator*>>(m_smallAllocator);
+    m_allocatorChain = m_smallAllocator->Create<IcarianCore::Array<IcarianCore::Allocator*>>(m_smallAllocator);
 
-    const AllocationSource allocatorSources[] =
+    const IcarianCore::AllocationSource allocatorSources[] =
     {
         {
             .Alloc = m_smallAllocator,
@@ -149,27 +149,27 @@ FileCache::FileCache(uint32_t a_sizeMiB, uint32_t a_pipefileID)
             .MaxSize = LargeAllocatorSize >> 1,
         },
         {
-            .Alloc = OSAllocator::Instance,
+            .Alloc = IcarianCore::OSAllocator::Instance,
             .MaxSize = uint64_t(-1),
         },
     };
 
     constexpr uint32_t AllocatorCount = sizeof(allocatorSources) / sizeof(*allocatorSources);
 
-    m_allocator = m_smallAllocator->Create<MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
+    m_allocator = m_smallAllocator->Create<IcarianCore::MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
     m_allocatorChain->Push(m_allocator);
 
-    m_trackerAllocator = m_smallAllocator->Create<TrackerAllocator>(m_allocator);
+    m_trackerAllocator = m_smallAllocator->Create<IcarianCore::TrackerAllocator>(m_allocator);
     m_allocator = m_trackerAllocator;
     m_allocatorChain->Push(m_allocator);
 
 #ifdef DEBUG
-    m_allocator = m_smallAllocator->Create<LeakAllocator>(m_allocator);
+    m_allocator = m_smallAllocator->Create<IcarianCore::LeakAllocator>(m_allocator);
     m_allocatorChain->Push(m_allocator);
 #endif
 
     m_data = m_allocator->ZTAllocate<ClassData>();
-    m_data->Files = Dictionary<COWU8String, FileBuffer*>(m_allocator);
+    m_data->Files = IcarianCore::Dictionary<IcarianCore::COWU8String, FileBuffer*>(m_allocator);
 
     m_data->Size = (uint64_t)a_sizeMiB << MiBToByteShift;
 
@@ -179,10 +179,10 @@ FileCache::FileCache(uint32_t a_sizeMiB, uint32_t a_pipefileID)
 
     m_data->ReadBuffer = m_allocator->ZAllocate(SharedBufferSize, 16);
 
-    const COWU8String idStr = COWU8String::FromValue(m_data->PipefileID, 10, m_allocator);
+    const IcarianCore::COWU8String idStr = IcarianCore::COWU8String::FromValue(m_data->PipefileID, 10, m_allocator);
 
-    const COWU8String cmdStr = CommandBufferName + idStr;
-    const COWU8String dataStr = DataBufferName + idStr;
+    const IcarianCore::COWU8String cmdStr = CommandBufferName + idStr;
+    const IcarianCore::COWU8String dataStr = DataBufferName + idStr;
 
     // TODO: Implement Windows version of this
 #ifndef WIN32
@@ -249,7 +249,7 @@ FileCache::FileCache(uint32_t a_sizeMiB, uint32_t a_pipefileID)
 FileCache::~FileCache()
 {
     {
-        const Array<FileBuffer*> buffer = m_data->Files.GetValues(m_allocator);
+        const IcarianCore::Array<FileBuffer*> buffer = m_data->Files.GetValues(m_allocator);
 
         for (FileBuffer* b : buffer)
         {
@@ -262,10 +262,10 @@ FileCache::~FileCache()
     {
         m_allocator->Free(m_data->ReadBuffer);
 
-        const COWU8String idStr = COWU8String::FromValue(m_data->PipefileID, 10, m_allocator);
+        const IcarianCore::COWU8String idStr = IcarianCore::COWU8String::FromValue(m_data->PipefileID, 10, m_allocator);
 
-        const COWU8String cmdStr = CommandBufferName + idStr;
-        const COWU8String dataStr = DataBufferName + idStr;
+        const IcarianCore::COWU8String cmdStr = CommandBufferName + idStr;
+        const IcarianCore::COWU8String dataStr = DataBufferName + idStr;
 
 #ifndef WIN32
         if (m_data->CommandBuffer != NULL)
@@ -292,14 +292,14 @@ FileCache::~FileCache()
     const uint32_t allocatorChainSize = m_allocatorChain->Size();
     for (uint32_t i = 0; i < allocatorChainSize; ++i)
     {
-        Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
+        IcarianCore::Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
         m_smallAllocator->Destroy(alloc);
     }
 
     m_smallAllocator->Destroy(m_allocatorChain);
 
-    MallocAllocator::Instance->Destroy(m_largeAllocator);
-    MallocAllocator::Instance->Destroy(m_smallAllocator);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_largeAllocator);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_smallAllocator);
 }
 
 #ifdef ICARIANNATIVE_ENABLE_PIPEFILE
@@ -317,7 +317,7 @@ void FileCache::Init(uint32_t a_sizeMB, uint32_t a_pipefileID)
 {
     if (Instance == nullptr)
     {
-        Instance = MallocAllocator::Instance->Create<FileCache>(a_sizeMB, a_pipefileID);
+        Instance = IcarianCore::MallocAllocator::Instance->Create<FileCache>(a_sizeMB, a_pipefileID);
     }
 
     // Not having a FileCache is valid so init the functions out here
@@ -330,12 +330,12 @@ void FileCache::Destroy()
 {
     if (Instance != nullptr)
     {
-        MallocAllocator::Instance->Destroy(Instance);
+        IcarianCore::MallocAllocator::Instance->Destroy(Instance);
         Instance = nullptr;
     }
 }
 
-static FileBuffer* GenerateFileBuffer(FileHandle* a_file, Allocator* a_allocator)
+static FileBuffer* GenerateFileBuffer(FileHandle* a_file, IcarianCore::Allocator* a_allocator)
 {
     const uint64_t size = a_file->GetSize();
 
@@ -512,11 +512,11 @@ void FileCache::FreePipeData()
 
 bool FileCache::Exists(const char* a_str)
 {
-    const COWU8String str = COWU8String(a_str, Instance->m_allocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_str, Instance->m_allocator);
 
     return Exists(str);
 }
-bool FileCache::Exists(const COWU8String& a_str)
+bool FileCache::Exists(const IcarianCore::COWU8String& a_str)
 {
     if (Instance != nullptr)
     {
@@ -608,18 +608,18 @@ bool FileCache::ExistsInCache(const char* a_str)
         return false;
     }
 
-    const COWU8String str = COWU8String(a_str, Instance->m_allocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_str, Instance->m_allocator);
 
     return ExistsInCache(str);
 }
-bool FileCache::ExistsInCache(const COWU8String& a_str)
+bool FileCache::ExistsInCache(const IcarianCore::COWU8String& a_str)
 {
     if (Instance == nullptr)
     {
         return false;
     }
 
-    const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
+    const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(Instance->m_lock);
 
     return Instance->m_data->Files.Exists(a_str);
 }
@@ -633,11 +633,11 @@ void FileCache::PushFile(const char* a_path, const uint8_t* a_data, uint32_t a_s
         return;
     }
 
-    const COWU8String str = COWU8String(a_path, Instance->m_allocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, Instance->m_allocator);
 
     PushFile(str, a_data, a_size, a_pin);
 }
-void FileCache::PushFile(const COWU8String& a_path, const uint8_t* a_data, uint32_t a_size, bool a_pin)
+void FileCache::PushFile(const IcarianCore::COWU8String& a_path, const uint8_t* a_data, uint32_t a_size, bool a_pin)
 {
     if (Instance == nullptr)
     {
@@ -646,7 +646,7 @@ void FileCache::PushFile(const COWU8String& a_path, const uint8_t* a_data, uint3
         return;
     }
 
-    const ThreadGuard g = ThreadGuard(Instance->m_lock);
+    const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(Instance->m_lock);
 
     if (Instance->m_data->Files.Exists(a_path))
     {
@@ -671,7 +671,7 @@ void FileCache::PushFile(const COWU8String& a_path, const uint8_t* a_data, uint3
         return;
     }
 
-    const COWU8String str = COWU8String(a_path, Instance->m_allocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, Instance->m_allocator);
 
     FileBuffer* buffer = Instance->m_allocator->ZTAllocate<FileBuffer>();
     buffer->Size = a_size;
@@ -712,15 +712,15 @@ void FileCache::Update()
 
     const std::chrono::high_resolution_clock::time_point now = std::chrono::high_resolution_clock::now();
 
-    const ThreadGuard g = ThreadGuard(Instance->m_lock);
+    const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(Instance->m_lock);
 
-    const Array<COWU8String> keyArray = Instance->m_data->Files.GetKeys(Instance->m_allocator);
+    const IcarianCore::Array<IcarianCore::COWU8String> keyArray = Instance->m_data->Files.GetKeys(Instance->m_allocator);
     if (keyArray.Empty())
     {
         return;
     }
 
-    const Array<FileBuffer*> valueArray = Instance->m_data->Files.GetValues(Instance->m_allocator);
+    const IcarianCore::Array<FileBuffer*> valueArray = Instance->m_data->Files.GetValues(Instance->m_allocator);
     IVERIFY(keyArray.Size() == valueArray.Size());
 
     const uint32_t size = keyArray.Size();
@@ -752,11 +752,11 @@ void FileCache::Update()
 
 FileHandle* FileCache::LoadFile(const char* a_path)
 {
-    const COWU8String str = COWU8String(a_path, Instance->m_allocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, Instance->m_allocator);
 
     return LoadFile(str);
 }
-FileHandle* FileCache::LoadFile(const COWU8String& a_path)
+FileHandle* FileCache::LoadFile(const IcarianCore::COWU8String& a_path)
 {
     if (Instance == nullptr)
     {
@@ -764,17 +764,17 @@ FileHandle* FileCache::LoadFile(const COWU8String& a_path)
     }
 
     {
-        const SharedThreadGuard g = SharedThreadGuard(Instance->m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(Instance->m_lock);
 
         if (Instance->m_data->Files.Exists(a_path))
         {
             FileBuffer* buffer = Instance->m_data->Files[a_path];
 
-            return MallocAllocator::Instance->Create<CacheFileHandle>(buffer);
+            return IcarianCore::MallocAllocator::Instance->Create<CacheFileHandle>(buffer);
         }
     }
 
-    const ThreadGuard g = ThreadGuard(Instance->m_lock);
+    const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(Instance->m_lock);
 
     FileHandle* handle = ILAMBDA(
     {
@@ -819,7 +819,7 @@ FileHandle* FileCache::LoadFile(const COWU8String& a_path)
                     pathBuffer[i] = a_path[i + offset];
                 }
 
-                ILRETURN (FileHandle*)MallocAllocator::Instance->Create<PipeFileHandle>(pathBuffer);
+                ILRETURN (FileHandle*)IcarianCore::MallocAllocator::Instance->Create<PipeFileHandle>(pathBuffer);
             }
 #endif
             default:
@@ -849,14 +849,14 @@ FileHandle* FileCache::LoadFile(const COWU8String& a_path)
     const uint32_t overheadSize = size + 256;
     if (overheadSize < Instance->m_data->Size - allocated)
     {
-        IDEFER(MallocAllocator::Instance->Destroy(handle));
+        IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
         FileBuffer* buffer = GenerateFileBuffer(handle, Instance->m_allocator);
 
-        const COWU8String str = COWU8String(a_path, Instance->m_allocator);
+        const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, Instance->m_allocator);
         Instance->m_data->Files.Push(str, buffer);
 
-        return MallocAllocator::Instance->Create<CacheFileHandle>(buffer);
+        return IcarianCore::MallocAllocator::Instance->Create<CacheFileHandle>(buffer);
     }
 
     const uint64_t offsetSize = ILAMBDA(
@@ -871,12 +871,12 @@ FileHandle* FileCache::LoadFile(const COWU8String& a_path)
 
     const uint64_t finalSize = offsetSize + overheadSize;
 
-    const Array<COWU8String> keyArray = Instance->m_data->Files.GetKeys(Instance->m_allocator);
-    const Array<FileBuffer*> valueArray = Instance->m_data->Files.GetValues(Instance->m_allocator);
+    const IcarianCore::Array<IcarianCore::COWU8String> keyArray = Instance->m_data->Files.GetKeys(Instance->m_allocator);
+    const IcarianCore::Array<FileBuffer*> valueArray = Instance->m_data->Files.GetValues(Instance->m_allocator);
 
     IVERIFY(keyArray.Size() == valueArray.Size());
 
-    COWU8String key = COWU8String(Instance->m_allocator);
+    IcarianCore::COWU8String key = IcarianCore::COWU8String(Instance->m_allocator);
     FileBuffer* b = nullptr;
     const uint32_t keySize = keyArray.Size();
     for (uint32_t i = 0; i < keySize; ++i)
@@ -919,7 +919,7 @@ FileHandle* FileCache::LoadFile(const COWU8String& a_path)
         return handle;
     }
 
-    IDEFER(MallocAllocator::Instance->Destroy(handle));
+    IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
     Instance->m_data->Files.Erase(key);
     Instance->m_allocator->Free(b->Data);
@@ -929,7 +929,7 @@ FileHandle* FileCache::LoadFile(const COWU8String& a_path)
 
     Instance->m_data->Files.Push(a_path, b);
 
-    return MallocAllocator::Instance->Create<CacheFileHandle>(b);
+    return IcarianCore::MallocAllocator::Instance->Create<CacheFileHandle>(b);
 }
 
 // MIT License

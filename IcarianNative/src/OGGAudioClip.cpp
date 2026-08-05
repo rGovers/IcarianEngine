@@ -1,10 +1,10 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Audio/AudioClips/OGGAudioClip.h"
 
-OGGAudioClip::OGGAudioClip(const COWU8String& a_path) : AudioClip()
+OGGAudioClip::OGGAudioClip(const IcarianCore::COWU8String& a_path) : AudioClip()
 {
     m_stream = stb_vorbis_open_filename(a_path.CStr(), NULL, NULL);
     m_info = stb_vorbis_get_info(m_stream);
@@ -39,7 +39,7 @@ uint64_t OGGAudioClip::GetSampleSize() const
     return m_sampleSize * m_info.channels;
 }
 
-uint8_t* OGGAudioClip::GetAudioData(Allocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
+uint8_t* OGGAudioClip::GetAudioData(IcarianCore::Allocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
 {
     uint8_t* buffer = (uint8_t*)a_allocator->TAllocate<int16_t>(a_sampleSize * m_info.channels);
 
@@ -57,19 +57,19 @@ uint8_t* OGGAudioClip::GetAudioData(Allocator* a_allocator, uint64_t a_sampleOff
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

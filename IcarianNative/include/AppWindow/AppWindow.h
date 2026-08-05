@@ -1,10 +1,10 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
-#define GLM_FORCE_SWIZZLE 
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
 #include <cstdint>
@@ -14,7 +14,7 @@
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 #endif
 
-#include "DataTypes/Array.h"
+#include "Core/DataTypes/Array.h"
 
 #include "EngineInputInteropStructures.h"
 
@@ -46,7 +46,7 @@ public:
 
     virtual double GetDelta() const = 0;
     virtual double GetTime() const = 0;
-    
+
     virtual void SetCursorState(e_CursorState a_state) = 0;
 
     virtual void Update() = 0;
@@ -67,25 +67,25 @@ public:
     virtual AppMonitor* GetMonitors(int* a_count) const { *a_count = 0; return nullptr; }
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-    virtual Array<const char*> GetRequiredVulkanExtenions() const = 0;
+    virtual IcarianCore::Array<const char*> GetRequiredVulkanExtenions() const = 0;
     virtual vk::SurfaceKHR GetSurface(const vk::Instance& a_instance) = 0;
 #endif
 };
 
 // MIT License
-// 
-// Copyright (c) 2024 River Govers
-// 
+//
+// Copyright (c) 2026 River Govers
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

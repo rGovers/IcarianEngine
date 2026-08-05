@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "AI/NavigationBindings.h"
@@ -7,7 +7,7 @@
 #include "AI/Navigation.h"
 #include "AI/NavigationMesh.h"
 #include "Core/Bitfield.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "IcarianError.h"
 #include "Runtime/RuntimeManager.h"
 
@@ -17,9 +17,9 @@ static NavigationBindings* Instance = nullptr;
 
 ENGINE_NAVIGATIONMESH_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
-RUNTIME_FUNCTION(MonoArray*, Navigation, GetPath, 
+RUNTIME_FUNCTION(MonoArray*, Navigation, GetPath,
 {
-    const Array<glm::vec3> path = Instance->GetNavigationPath(a_startPoint, a_endPoint, a_agentRadius);
+    const IcarianCore::Array<glm::vec3> path = Instance->GetNavigationPath(a_startPoint, a_endPoint, a_agentRadius);
     const uint32_t count = path.Size();
     MonoClass* klass = RuntimeManager::GetClass("IcarianEngine.Maths", "Vector3");
     MonoArray* arr = mono_array_new(mono_domain_get(), klass, count);
@@ -47,17 +47,17 @@ NavigationBindings::~NavigationBindings()
 
 uint32_t NavigationBindings::CreateNavMesh(const char* a_path) const
 {
-    const COWU8String str = COWU8String(a_path, MallocAllocator::Instance);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, IcarianCore::MallocAllocator::Instance);
 
     return CreateNavMesh(str);
 }
-uint32_t NavigationBindings::CreateNavMesh(const COWU8String& a_path) const
+uint32_t NavigationBindings::CreateNavMesh(const IcarianCore::COWU8String& a_path) const
 {
-    NavigationMesh* mesh = MallocAllocator::Instance->Create<NavigationMesh>
+    NavigationMesh* mesh = IcarianCore::MallocAllocator::Instance->Create<NavigationMesh>
     (
         a_path,
-        MallocAllocator::Instance,
-        MallocAllocator::Instance
+        IcarianCore::MallocAllocator::Instance,
+        IcarianCore::MallocAllocator::Instance
     );
 
     return m_navigation->m_meshes.PushVal(mesh);
@@ -67,11 +67,17 @@ void NavigationBindings::DestroyNavMesh(uint32_t a_addr) const
     IVERIFY(m_navigation->m_meshes.Exists(a_addr));
 
     NavigationMesh* mesh = m_navigation->m_meshes[a_addr];
-    IDEFER(MallocAllocator::Instance->Destroy(mesh));
+    IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(mesh));
 
     m_navigation->m_meshes.Erase(a_addr);
 }
-Array<glm::vec3> NavigationBindings::GetNavMeshPath(uint32_t a_addr, const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const
+IcarianCore::Array<glm::vec3> NavigationBindings::GetNavMeshPath
+(
+    uint32_t a_addr,
+    const glm::vec3& a_startPoint,
+    const glm::vec3& a_endPoint,
+    float a_agentRadius
+) const
 {
     IVERIFY(m_navigation->m_meshes.Exists(a_addr));
 
@@ -79,13 +85,13 @@ Array<glm::vec3> NavigationBindings::GetNavMeshPath(uint32_t a_addr, const glm::
 
     const NavigationMesh* mesh = a[a_addr];
 
-    return mesh->GeneratePath(a_startPoint, a_endPoint, a_agentRadius, MallocAllocator::Instance, MallocAllocator::Instance);
+    return mesh->GeneratePath(a_startPoint, a_endPoint, a_agentRadius, IcarianCore::MallocAllocator::Instance, IcarianCore::MallocAllocator::Instance);
 }
 
-Array<glm::vec3> NavigationBindings::GetNavigationPath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const
+IcarianCore::Array<glm::vec3> NavigationBindings::GetNavigationPath(const glm::vec3& a_startPoint, const glm::vec3& a_endPoint, float a_agentRadius) const
 {
     const uint32_t size = m_navigation->m_meshes.Size();
-    const Array<uint8_t> state = m_navigation->m_meshes.ToPackedStateArray(MallocAllocator::Instance);
+    const IcarianCore::Array<uint8_t> state = m_navigation->m_meshes.ToPackedStateArray(IcarianCore::MallocAllocator::Instance);
     const TReadLockArray<NavigationMesh*> a = m_navigation->m_meshes.ToReadLockArray();
 
     for (uint32_t i = 0; i < size; ++i)
@@ -112,29 +118,29 @@ Array<glm::vec3> NavigationBindings::GetNavigationPath(const glm::vec3& a_startP
                 startIndex,
                 endIndex,
                 a_agentRadius,
-                MallocAllocator::Instance,
-                MallocAllocator::Instance
+                IcarianCore::MallocAllocator::Instance,
+                IcarianCore::MallocAllocator::Instance
             );
         }
     }
 
-    return Array<glm::vec3>(MallocAllocator::Instance);
+    return IcarianCore::Array<glm::vec3>(IcarianCore::MallocAllocator::Instance);
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

@@ -10,17 +10,15 @@
 
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 
-#include "DataTypes/Allocators/BlockAllocator.h"
-#include "DataTypes/SpinLock.h"
+#include "Core/DataTypes/Allocators/BlockAllocator.h"
+#include "Core/DataTypes/Allocators/StackAllocator.h"
+#include "Core/DataTypes/SpinLock.h"
 #include "DataTypes/TArray.h"
 #include "DataTypes/TLockObj.h"
 #include "Rendering/Vulkan/VulkanCommandBuffer.h"
 
-class Allocator;
 class AppWindow;
 class LibVulkan;
-class StackAllocator;
-class TrackerAllocator;
 class VulkanComputeEngine;
 class VulkanGraphicsEngine;
 class VulkanPushPool;
@@ -29,7 +27,7 @@ class VulkanSwapchain;
 // Wrapper to use scratch allocator with engine types
 struct RenderScratchAlloc
 {
-    static StackAllocator* GetAllocator();
+    static IcarianCore::StackAllocator* GetAllocator();
 
     static void* Allocate(uint64_t a_value, uint64_t a_alignment);
     static void Free(void* a_ptr);
@@ -111,7 +109,7 @@ public:
 struct RenderScratchAllocator
 {
     volatile uint32_t Count;
-    StackAllocator* Allocator;
+    IcarianCore::StackAllocator* Allocator;
 };
 
 class VulkanDeletionObject
@@ -148,66 +146,66 @@ private:
     // Just custom memory allocator things as RAII forces an initializtion order based on the members
     struct ClassData
     {
-        LibVulkan*                     VulkanLib;
+        LibVulkan*                        VulkanLib;
 
-        VulkanComputeEngine*           ComputeEngine;
-        VulkanGraphicsEngine*          GraphicsEngine;
-        VulkanSwapchain*               Swapchain;
-        VulkanPushPool*                PushPool;
+        VulkanComputeEngine*              ComputeEngine;
+        VulkanGraphicsEngine*             GraphicsEngine;
+        VulkanSwapchain*                  Swapchain;
+        VulkanPushPool*                   PushPool;
 
-        TArray<RenderScratchAllocator> ScratchAllocators;
+        TArray<RenderScratchAllocator>    ScratchAllocators;
 
         // Was bugging me taking up 8x the memory needed so.... uint8_t bitmask it is
-        uint8_t*                       OptionalExtensionMask;
+        uint8_t*                          OptionalExtensionMask;
 
-        VmaAllocator                   VMAAllocator;
+        VmaAllocator                      VMAAllocator;
 
-        vk::Instance                   Instance;
-        vk::DebugUtilsMessengerEXT     Messenger;
+        vk::Instance                      Instance;
+        vk::DebugUtilsMessengerEXT        Messenger;
 
-        vk::PhysicalDevice             PhysicalDevice;
-        vk::Device                     LogicalDevice;
+        vk::PhysicalDevice                PhysicalDevice;
+        vk::Device                        LogicalDevice;
 
-        vk::Queue                      ComputeQueue;
-        vk::Queue                      VideoDecodeQueue;
-        vk::Queue                      GraphicsQueue;
-        vk::Queue                      PresentQueue;
+        vk::Queue                         ComputeQueue;
+        vk::Queue                         VideoDecodeQueue;
+        vk::Queue                         GraphicsQueue;
+        vk::Queue                         PresentQueue;
 
-        TArray<VulkanDeletionObject*>  DeletionObjects[VulkanDeletionQueueSize];
+        TArray<VulkanDeletionObject*>     DeletionObjects[VulkanDeletionQueueSize];
 
-        Array<vk::Semaphore>           InterSemaphore[VulkanMaxFlightFrames];
+        IcarianCore::Array<vk::Semaphore> InterSemaphore[VulkanMaxFlightFrames];
 
-        vk::CommandPool                CommandPools[CommandIndex_Last];
+        vk::CommandPool                   CommandPools[CommandIndex_Last];
 
-        float                          TimestampPeriod;
+        float                             TimestampPeriod;
 
-        uint32_t                       ScratchIndex;
-        uint32_t                       ImageIndex;
-        uint32_t                       CurrentFrame;
-        uint32_t                       CurrentFlightFrame;
-        uint32_t                       DeletionQueueIndex;
+        uint32_t                          ScratchIndex;
+        uint32_t                          ImageIndex;
+        uint32_t                          CurrentFrame;
+        uint32_t                          CurrentFlightFrame;
+        uint32_t                          DeletionQueueIndex;
 
-        uint32_t                       GraphicsQueueIndex;
-        uint32_t                       ComputeQueueIndex;
-        uint32_t                       PresentQueueIndex;
+        uint32_t                          GraphicsQueueIndex;
+        uint32_t                          ComputeQueueIndex;
+        uint32_t                          PresentQueueIndex;
 
-        uint8_t                        QueueTimingFlags;
+        uint8_t                           QueueTimingFlags;
     };
 
-    BlockAllocator*    m_smallAllocator;
-    BlockAllocator*    m_largeAllocator;
+    IcarianCore::BlockAllocator*                 m_smallAllocator;
+    IcarianCore::BlockAllocator*                 m_largeAllocator;
 
-    TrackerAllocator*  m_trackerAllocator;
+    IcarianCore::TrackerAllocator*               m_trackerAllocator;
 
-    ComplexAllocator*  m_allocator;
-    Array<Allocator*>* m_allocatorChain;
+    IcarianCore::ComplexAllocator*               m_allocator;
+    IcarianCore::Array<IcarianCore::Allocator*>* m_allocatorChain;
 
-    ComplexAllocator*  m_deletionAllocator;
+    IcarianCore::ComplexAllocator*               m_deletionAllocator;
 
-    ClassData*         m_data;
+    ClassData*                                   m_data;
 
-    SharedSpinLock     m_scratchLock;
-    SpinLock           m_graphicsQueueLock;
+    IcarianCore::SharedSpinLock                  m_scratchLock;
+    IcarianCore::SpinLock                        m_graphicsQueueLock;
 
     void InternalPushDeletionObject(VulkanDeletionObject* a_object);
 
@@ -221,11 +219,11 @@ public:
 
     virtual void Update(double a_delta, double a_time);
 
-    TLockObj<vk::CommandBuffer, SpinLock>* CreateCommandBuffer(vk::CommandBufferLevel a_level, e_CommandIndex a_index = CommandIndex_Graphics);
-    void DestroyCommandBuffer(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer, e_CommandIndex a_index = CommandIndex_Graphics);
+    TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* CreateCommandBuffer(vk::CommandBufferLevel a_level, e_CommandIndex a_index = CommandIndex_Graphics);
+    void DestroyCommandBuffer(TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* a_buffer, e_CommandIndex a_index = CommandIndex_Graphics);
 
-    TLockObj<vk::CommandBuffer, SpinLock>* BeginSingleCommand(e_CommandIndex a_index = CommandIndex_Graphics);
-    void EndSingleCommand(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer, e_CommandIndex a_index = CommandIndex_Graphics);
+    TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* BeginSingleCommand(e_CommandIndex a_index = CommandIndex_Graphics);
+    void EndSingleCommand(TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* a_buffer, e_CommandIndex a_index = CommandIndex_Graphics);
 
     virtual e_RenderDeviceType GetDeviceType() const;
 
@@ -247,7 +245,15 @@ public:
     );
     virtual void DestroyMesh(uint32_t a_addr);
 
-    virtual uint32_t GenerateModel(const void* a_vertices, uint32_t a_vertexCount, uint16_t a_vertexStride, const uint32_t* a_indices, uint32_t a_indexCount, float a_radius);
+    virtual uint32_t GenerateModel
+    (
+        const void* a_vertices,
+        uint32_t a_vertexCount,
+        uint16_t a_vertexStride,
+        const uint32_t* a_indices,
+        uint32_t a_indexCount,
+        float a_radius
+    );
     virtual void DestroyModel(uint32_t a_addr);
 
     virtual uint32_t GenerateTexture(uint32_t a_width, uint32_t a_height, e_TextureFormat a_format, const void* a_data);
@@ -266,11 +272,11 @@ public:
     virtual uint32_t GenerateTextureSampler(uint32_t a_textureAddr, e_TextureMode a_textureMode, e_TextureFilter a_filterMode, e_TextureAddress a_addressMode, uint32_t a_slot = 0);
     virtual void DestroyTextureSampler(uint32_t a_addr);
 
-    inline ComplexAllocator* GetAllocator() const
+    inline IcarianCore::ComplexAllocator* GetAllocator() const
     {
         return m_allocator;
     }
-    inline ComplexAllocator* GetDeletionAllocator() const
+    inline IcarianCore::ComplexAllocator* GetDeletionAllocator() const
     {
         return m_deletionAllocator;
     }
@@ -292,7 +298,7 @@ public:
     void IncrementScratchFrame(uint32_t a_index);
     void DecrementScratchFrame(uint32_t a_index);
 
-    StackAllocator* GetStackAllocator(uint32_t* a_index = nullptr);
+    IcarianCore::StackAllocator* GetStackAllocator(uint32_t* a_index = nullptr);
 
     template<typename T, typename ... Args>
     void PushDeletionObject(Args&&... a_args)

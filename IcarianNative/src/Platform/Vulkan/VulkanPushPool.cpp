@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -18,7 +18,7 @@ VulkanPushPool::VulkanPushPool(VulkanRenderEngineBackend* a_engine)
 VulkanPushPool::~VulkanPushPool()
 {
     const vk::Device device = m_engine->GetLogicalDevice();
-    Allocator* allocator = m_engine->GetAllocator();
+    IcarianCore::Allocator* allocator = m_engine->GetAllocator();
 
     for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
     {
@@ -143,7 +143,7 @@ void VulkanPushPool::Reset(uint32_t a_index)
         if (buffer.Count > 0)
         {
             device.resetDescriptorPool(buffer.Pool);
-            
+
             buffer.Count = 0;
         }
     }
@@ -161,7 +161,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateAmbientLightUniformBuffer()
     if (m_ambientLightBufferIndex >= a.Size())
     {
         TRACE("Creating new ambient light uniform buffer");
-        Allocator* allocator = m_engine->GetAllocator();
+        IcarianCore::Allocator* allocator = m_engine->GetAllocator();
 
         VulkanUniformBuffer* buffer = allocator->Create<VulkanUniformBuffer>(m_engine, sizeof(IcarianCore::ShaderAmbientLightBuffer));
         m_ambientLightBuffers.UPush(buffer);
@@ -179,7 +179,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateDirectionalLightUniformBuffer()
     if (m_directionalLightBufferIndex >= a.Size())
     {
         TRACE("Creating new directional light uniform buffer");
-        Allocator* allocator = m_engine->GetAllocator();
+        IcarianCore::Allocator* allocator = m_engine->GetAllocator();
 
         VulkanUniformBuffer* buffer = allocator->Create<VulkanUniformBuffer>(m_engine, sizeof(IcarianCore::ShaderDirectionalLightBuffer));
         m_directionalLightBuffers.UPush(buffer);
@@ -197,7 +197,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocatePointLightUniformBuffer()
     if (m_pointLightBufferIndex >= a.Size())
     {
         TRACE("Creating new point light uniform buffer");
-        Allocator* allocator = m_engine->GetAllocator();
+        IcarianCore::Allocator* allocator = m_engine->GetAllocator();
 
         VulkanUniformBuffer* buffer = allocator->Create<VulkanUniformBuffer>(m_engine, sizeof(IcarianCore::ShaderPointLightBuffer));
         m_pointLightBuffers.UPush(buffer);
@@ -215,7 +215,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateSpotLightUniformBuffer()
     if (m_spotLightBufferIndex >= a.Size())
     {
         TRACE("Creating new spot light uniform buffer");
-        Allocator* allocator = m_engine->GetAllocator();
+        IcarianCore::Allocator* allocator = m_engine->GetAllocator();
 
         VulkanUniformBuffer* buffer = allocator->Create<VulkanUniformBuffer>(m_engine, sizeof(IcarianCore::ShaderSpotLightBuffer));
         m_spotLightBuffers.UPush(buffer);
@@ -234,7 +234,7 @@ VulkanUniformBuffer* VulkanPushPool::AllocateShadowUniformBuffer()
     if (m_shadowBufferIndex >= a.Size())
     {
         TRACE("Creating new shadow uniform buffer");
-        Allocator* allocator = m_engine->GetAllocator();
+        IcarianCore::Allocator* allocator = m_engine->GetAllocator();
 
         VulkanUniformBuffer* buffer = allocator->Create<VulkanUniformBuffer>(m_engine, sizeof(IcarianCore::ShaderShadowLightBuffer));
         m_shadowBuffers.UPush(buffer);
@@ -250,19 +250,19 @@ VulkanUniformBuffer* VulkanPushPool::AllocateShadowUniformBuffer()
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

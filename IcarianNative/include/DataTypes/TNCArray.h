@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -8,8 +8,8 @@
 #include <cstring>
 #include <vector>
 
-#include "DataTypes/Array.h"
-#include "DataTypes/ThreadGuard.h"
+#include "Core/DataTypes/Array.h"
+#include "Core/DataTypes/ThreadGuard.h"
 #include "DataTypes/TLockArray.h"
 
 // Something bout this class causes debuggers to freak out and break on phantom bits of code and language servers to show errors when it works fine?
@@ -23,11 +23,11 @@ class TNCArrayBase
 private:
     constexpr static uint32_t StateValBitSize = sizeof(StateVal) * 8;
 
-    StateVal*      m_state;
-    T*             m_data;
-    uint32_t       m_size;
+    StateVal*                   m_state;
+    T*                          m_data;
+    uint32_t                    m_size;
 
-    SharedSpinLock m_lock;
+    IcarianCore::SharedSpinLock m_lock;
 
     inline void DestroyData()
     {
@@ -59,8 +59,8 @@ public:
     }
     TNCArrayBase(const TNCArrayBase& a_other)
     {
-        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard otherG = IcarianCore::ThreadGuard(a_other.m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         m_size = a_other.m_size;
         const uint32_t stateSize = m_size / StateValBitSize + 1;
@@ -86,8 +86,8 @@ public:
     }
     TNCArrayBase(TNCArrayBase&& a_other)
     {
-        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard otherG = IcarianCore::ThreadGuard(a_other.m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         m_size = a_other.m_size;
         m_state = a_other.m_state;
@@ -99,7 +99,7 @@ public:
     }
     TNCArrayBase(const T* a_data, uint32_t a_size)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         m_size = a_size;
         const uint32_t stateSize = m_size / StateValBitSize + 1;
@@ -118,7 +118,7 @@ public:
     }
     TNCArrayBase(const T* a_start, const T* a_end)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         m_size = a_end - a_start;
         const uint32_t stateSize = m_size / StateValBitSize + 1;
@@ -138,7 +138,7 @@ public:
     }
     explicit TNCArrayBase(const std::vector<T>& a_vec)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         m_size = (uint32_t)a_vec.size();
         const uint32_t stateSize = m_size / StateValBitSize + 1;
@@ -157,7 +157,7 @@ public:
     }
     ~TNCArrayBase()
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         if (m_data != nullptr)
         {
@@ -170,8 +170,8 @@ public:
 
     TNCArrayBase& operator =(const TNCArrayBase& a_other)
     {
-        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard otherG = IcarianCore::ThreadGuard(a_other.m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         if (m_data != nullptr)
         {
@@ -206,17 +206,17 @@ public:
         return *this;
     }
 
-    Array<T> ToArray(Allocator* a_allocator)
+    IcarianCore::Array<T> ToArray(IcarianCore::Allocator* a_allocator)
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
-        return Array<T>(m_data, m_size, a_allocator);
+        return IcarianCore::Array<T>(m_data, m_size, a_allocator);
     }
-    Array<bool> ToStateArray(Allocator* a_allocator)
+    IcarianCore::Array<bool> ToStateArray(IcarianCore::Allocator* a_allocator)
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
-        Array<bool> a = Array<bool>(a_allocator);
+        IcarianCore::Array<bool> a = IcarianCore::Array<bool>(a_allocator);
         a.Reserve(m_size);
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -228,13 +228,13 @@ public:
 
         return a;
     }
-    Array<uint8_t> ToPackedStateArray(Allocator* a_allocator)
+    IcarianCore::Array<uint8_t> ToPackedStateArray(IcarianCore::Allocator* a_allocator)
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
         const uint32_t packedSize = (m_size / 8) + 1;
 
-        Array<uint8_t> a = Array<uint8_t>(a_allocator);
+        IcarianCore::Array<uint8_t> a = IcarianCore::Array<uint8_t>(a_allocator);
         a.Resize(packedSize);
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -252,11 +252,11 @@ public:
 
         return a;
     }
-    Array<T> ToActiveArray(Allocator* a_allocator)
+    IcarianCore::Array<T> ToActiveArray(IcarianCore::Allocator* a_allocator)
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
-        Array<T> a = Array<T>(a_allocator);
+        IcarianCore::Array<T> a = IcarianCore::Array<T>(a_allocator);
         a.Reserve(m_size);
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -274,13 +274,13 @@ public:
 
     std::vector<T> ToVector()
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
         return std::vector<T>(m_data, m_data + m_size);
     }
     std::vector<bool> ToStateVector()
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
         std::vector<bool> vec;
         vec.reserve(m_size);
@@ -296,7 +296,7 @@ public:
     }
     std::vector<T> ToActiveVector()
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
         std::vector<T> vec;
         vec.reserve(m_size);
@@ -314,7 +314,7 @@ public:
         return vec;
     }
 
-    TLockArray<T> ToLockArray() 
+    TLockArray<T> ToLockArray()
     {
         TLockArray<T> a = TLockArray<T>(m_lock);
 
@@ -347,7 +347,7 @@ public:
             return false;
         }
 
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
         if constexpr (std::is_pointer<T>())
         {
@@ -367,13 +367,13 @@ public:
 
     inline T& operator [](uint32_t a_index)
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
         return m_data[a_index];
     }
     void LockSet(uint32_t a_index, const T& a_value)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         const uint32_t stateIndex = a_index / StateValBitSize;
         const uint32_t stateOffset = a_index % StateValBitSize;
@@ -384,7 +384,7 @@ public:
 
     void Push(const T& a_data)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -427,7 +427,7 @@ public:
     }
     uint32_t PushVal(const T& a_data)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         for (uint32_t i = 0; i < m_size; ++i)
         {
@@ -453,7 +453,7 @@ public:
             m_state = (StateVal*)realloc(m_state, sizeof(StateVal) * newStateSize);
             memset(m_state + oldStateSize, 0, sizeof(StateVal));
         }
-        else if (m_state == nullptr) 
+        else if (m_state == nullptr)
         {
             m_state = (StateVal*)calloc(newStateSize, sizeof(StateVal));
         }
@@ -484,7 +484,7 @@ public:
 
     void Erase(uint32_t a_index)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         const uint32_t stateIndex = a_index / StateValBitSize;
         const uint32_t stateOffset = a_index % StateValBitSize;
@@ -503,7 +503,7 @@ public:
     }
     void Erase(uint32_t a_start, uint32_t a_end)
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         for (uint32_t i = a_start; i < a_end; ++i)
         {
@@ -526,7 +526,7 @@ public:
 
     inline void Clear()
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         DestroyData();
 
@@ -539,19 +539,19 @@ template<typename T>
 using TNCArray = TNCArrayBase<T, uint8_t>;
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

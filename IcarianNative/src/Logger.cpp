@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Logger.h"
@@ -8,7 +8,7 @@
 
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Runtime/RuntimeManager.h"
 #include "Trace.h"
 
@@ -36,7 +36,7 @@ RUNTIME_FUNCTION(void, Logger, PushMessage,
             ILRETURN (char**)nullptr;
         }
 
-        char** vals = MallocAllocator::Instance->TAllocate<char*>(stackTraceCount);
+        char** vals = IcarianCore::MallocAllocator::Instance->TAllocate<char*>(stackTraceCount);
 
         for (uint32_t i = 0; i < stackTraceCount; ++i)
         {
@@ -56,7 +56,7 @@ RUNTIME_FUNCTION(void, Logger, PushMessage,
                 mono_free(stackTrace[i]);
             }
 
-            MallocAllocator::Instance->Free(stackTrace);
+            IcarianCore::MallocAllocator::Instance->Free(stackTrace);
         }
     });
 
@@ -84,7 +84,7 @@ RUNTIME_FUNCTION(void, Logger, PushWarning,
             ILRETURN (char**)nullptr;
         }
 
-        char** vals = MallocAllocator::Instance->TAllocate<char*>(stackTraceCount);
+        char** vals = IcarianCore::MallocAllocator::Instance->TAllocate<char*>(stackTraceCount);
 
         for (uint32_t i = 0; i < stackTraceCount; ++i)
         {
@@ -104,7 +104,7 @@ RUNTIME_FUNCTION(void, Logger, PushWarning,
                 mono_free(stackTrace[i]);
             }
 
-            MallocAllocator::Instance->Free(stackTrace);
+            IcarianCore::MallocAllocator::Instance->Free(stackTrace);
         }
     });
 
@@ -132,7 +132,7 @@ RUNTIME_FUNCTION(void, Logger, PushError,
             ILRETURN (char**)nullptr;
         }
 
-        char** vals = MallocAllocator::Instance->TAllocate<char*>(stackTraceCount);
+        char** vals = IcarianCore::MallocAllocator::Instance->TAllocate<char*>(stackTraceCount);
 
         for (uint32_t i = 0; i < stackTraceCount; ++i)
         {
@@ -152,7 +152,7 @@ RUNTIME_FUNCTION(void, Logger, PushError,
                 mono_free(stackTrace[i]);
             }
 
-            MallocAllocator::Instance->Free(stackTrace);
+            IcarianCore::MallocAllocator::Instance->Free(stackTrace);
         }
     });
 
@@ -161,11 +161,11 @@ RUNTIME_FUNCTION(void, Logger, PushError,
 
 void Logger::Message(const char* a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
-    const COWU8String msg = COWU8String(a_msg, MallocAllocator::Instance);
+    const IcarianCore::COWU8String msg = IcarianCore::COWU8String(a_msg, IcarianCore::MallocAllocator::Instance);
 
     Message(msg, a_stackTraceCount, a_stackTrace);
 }
-void Logger::Message(const COWU8String& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
+void Logger::Message(const IcarianCore::COWU8String& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
     if (CallbackFunc != nullptr)
     {
@@ -176,11 +176,11 @@ void Logger::Message(const COWU8String& a_msg, uint32_t a_stackTraceCount, const
 }
 void Logger::Warning(const char* a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
-    const COWU8String msg = COWU8String(a_msg, MallocAllocator::Instance);
+    const IcarianCore::COWU8String msg = IcarianCore::COWU8String(a_msg, IcarianCore::MallocAllocator::Instance);
 
     Warning(msg, a_stackTraceCount, a_stackTrace);
 }
-void Logger::Warning(const COWU8String& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
+void Logger::Warning(const IcarianCore::COWU8String& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
     if (CallbackFunc != nullptr)
     {
@@ -191,11 +191,11 @@ void Logger::Warning(const COWU8String& a_msg, uint32_t a_stackTraceCount, const
 }
 void Logger::Error(const char* a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
-    const COWU8String msg = COWU8String(a_msg, MallocAllocator::Instance);
+    const IcarianCore::COWU8String msg = IcarianCore::COWU8String(a_msg, IcarianCore::MallocAllocator::Instance);
 
     Error(msg, a_stackTraceCount, a_stackTrace);
 }
-void Logger::Error(const COWU8String& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
+void Logger::Error(const IcarianCore::COWU8String& a_msg, uint32_t a_stackTraceCount, const char* const* a_stackTrace)
 {
     if (CallbackFunc != nullptr)
     {
@@ -214,19 +214,19 @@ void Logger::Init()
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -8,7 +8,6 @@
 
 #include "Core/IcarianLambda.h"
 #include "Core/ShaderBuffers.h"
-#include "DataTypes/Allocators/Allocator.h"
 #include "Rendering/FlareShader.h"
 #include "Rendering/UI/UIElement.h"
 #include "Rendering/Vulkan/Shaders/VulkanComputeShader.h"
@@ -54,7 +53,7 @@ public:
 
         m_layout = a_layout;
 
-        Allocator* allocator = m_engine->GetDeletionAllocator();
+        IcarianCore::Allocator* allocator = m_engine->GetDeletionAllocator();
 
         m_pushDescriptorCount = a_pushDescriptorCount;
         m_pushDescriptors = allocator->TAllocate<VulkanPushDescriptor>(m_pushDescriptorCount);
@@ -65,7 +64,7 @@ public:
     }
     virtual ~VulkanShaderDataDeletionObject()
     {
-        Allocator* allocator = m_engine->GetDeletionAllocator();
+        IcarianCore::Allocator* allocator = m_engine->GetDeletionAllocator();
 
         allocator->Free(m_pushDescriptors);
     }
@@ -85,7 +84,7 @@ public:
 
 constexpr static vk::PipelineBindPoint GetBindPoint(e_MaterialMode a_materialMode)
 {
-    switch (a_materialMode) 
+    switch (a_materialMode)
     {
     case MaterialMode_BaseMesh:
     case MaterialMode_BaseVertex:
@@ -209,7 +208,12 @@ struct Input
     vk::DescriptorSetLayoutBinding Binding;
 };
 
-static void GetLayoutInfo(const Array<VulkanShaderInput>& a_inputs, Array<vk::PushConstantRange>* a_pushConstants, Array<Input>* a_pushBindings)
+static void GetLayoutInfo
+(
+    const IcarianCore::Array<VulkanShaderInput>& a_inputs,
+    IcarianCore::Array<vk::PushConstantRange>* a_pushConstants,
+    IcarianCore::Array<Input>* a_pushBindings
+)
 {
     const uint32_t inputCount = a_inputs.Size();
 
@@ -275,7 +279,7 @@ static void GetLayoutInfo(const Array<VulkanShaderInput>& a_inputs, Array<vk::Pu
                 input.StageFlags
             );
 
-            const Input in = 
+            const Input in =
             {
                 .Slot = i,
                 .Binding = binding
@@ -388,12 +392,12 @@ static vk::DescriptorImageInfo GetDescriptorImageInfo
 static void GeneratePushBindings
 (
     const vk::Device a_device,
-    const Array<Input>& a_bindings,
-    const Array<VulkanShaderInput>& a_inputs,
+    const IcarianCore::Array<Input>& a_bindings,
+    const IcarianCore::Array<VulkanShaderInput>& a_inputs,
     vk::DescriptorSetLayout** a_layouts,
     VulkanPushDescriptor** a_pushDescriptors,
     uint32_t* a_pushDesciptorCount,
-    Allocator* a_allocator
+    IcarianCore::Allocator* a_allocator
 )
 {
     IVERIFY(a_pushDesciptorCount != nullptr);
@@ -436,7 +440,7 @@ static void GeneratePushBindings
     }
 }
 
-static void PushVulkanShaderBufferInput(Array<VulkanShaderInput>* a_inputs, const ShaderBufferInput& a_bufferInput, vk::ShaderStageFlags a_stage)
+static void PushVulkanShaderBufferInput(IcarianCore::Array<VulkanShaderInput>* a_inputs, const ShaderBufferInput& a_bufferInput, vk::ShaderStageFlags a_stage)
 {
     for (VulkanShaderInput& i : *a_inputs)
     {
@@ -444,7 +448,11 @@ static void PushVulkanShaderBufferInput(Array<VulkanShaderInput>* a_inputs, cons
         {
             if (i.BufferType != a_bufferInput.BufferType)
             {
-                IERROR("Vulkan Shader type mixmatch at " + COWU8String::FromValue(a_bufferInput.UserSlot, 10, MallocAllocator::Instance));
+                IERROR
+                (
+                    "Vulkan Shader type mixmatch at " +
+                        IcarianCore::COWU8String::FromValue(a_bufferInput.UserSlot, 10, IcarianCore::MallocAllocator::Instance)
+                );
             }
 
             i.StageFlags |= a_stage;
@@ -453,7 +461,7 @@ static void PushVulkanShaderBufferInput(Array<VulkanShaderInput>* a_inputs, cons
         }
     }
 
-    const VulkanShaderInput vInput = 
+    const VulkanShaderInput vInput =
     {
         .StageFlags = a_stage,
         .BufferType = a_bufferInput.BufferType,
@@ -465,7 +473,7 @@ static void PushVulkanShaderBufferInput(Array<VulkanShaderInput>* a_inputs, cons
     a_inputs->Push(vInput);
 }
 
-VulkanShaderData::VulkanShaderData(Allocator* a_allocator) :
+VulkanShaderData::VulkanShaderData(IcarianCore::Allocator* a_allocator) :
     m_textures(a_allocator)
 {
     m_allocator = a_allocator;
@@ -508,8 +516,8 @@ void VulkanShaderData::CreateBaseShaderData
 (
     VulkanShaderData* a_data,
     const VulkanBaseShaderDataBuilder& a_builder,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     IVERIFY(a_builder.Engine != nullptr);
@@ -518,24 +526,24 @@ void VulkanShaderData::CreateBaseShaderData
     TRACE("Creating Shader Data");
     const vk::Device device = a_builder.Engine->GetLogicalDevice();
 
-    Array<VulkanShader*> vulkanShaders = Array<VulkanShader*>(a_tempAllocator);
-    Array<VulkanShaderInput> vulkanInputs = Array<VulkanShaderInput>(a_tempAllocator);
-    Array<FlareShader::MeshShaderOut> vulkanOutputs = Array<FlareShader::MeshShaderOut>(a_tempAllocator);
+    IcarianCore::Array<VulkanShader*> vulkanShaders = IcarianCore::Array<VulkanShader*>(a_tempAllocator);
+    IcarianCore::Array<VulkanShaderInput> vulkanInputs = IcarianCore::Array<VulkanShaderInput>(a_tempAllocator);
+    IcarianCore::Array<FlareShader::MeshShaderOut> vulkanOutputs = IcarianCore::Array<FlareShader::MeshShaderOut>(a_tempAllocator);
     switch (a_builder.Program.MaterialMode)
     {
     case MaterialMode_BaseVertex:
     {
         IVERIFY(a_builder.Program.VertexShader != uint32_t(-1));
 
-        Array<ShaderBufferInput> otherInputs = Array<ShaderBufferInput>(a_tempAllocator);
+        IcarianCore::Array<ShaderBufferInput> otherInputs = IcarianCore::Array<ShaderBufferInput>(a_tempAllocator);
 
         const VulkanShaderInfo vertexInfo = a_builder.GraphicsEngine->GetVertexShaderInfo(a_builder.Program.VertexShader);
         IVERIFY(vertexInfo.Type == VulkanShaderInfoType_Flare);
         IVERIFY(!vertexInfo.Data.Empty());
 
-        const COWU8String entryPoint = COWU8String("main", a_tempAllocator);
+        const IcarianCore::COWU8String entryPoint = IcarianCore::COWU8String("main", a_tempAllocator);
 
-        const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetVertexShaderImports();
+        const IcarianCore::Dictionary<IcarianCore::COWU8String, IcarianCore::COWU8String> imports = a_builder.GraphicsEngine->GetVertexShaderImports();
 
         const VulkanVertexFShaderBuilder vertexBuilder =
         {
@@ -583,7 +591,7 @@ NextBaseVertexVertexInputFound:;
             IVERIFY(pixelInfo.Type == VulkanShaderInfoType_Flare);
             IVERIFY(!pixelInfo.Data.Empty());
 
-            const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetPixelShaderImports();
+            const IcarianCore::Dictionary<IcarianCore::COWU8String, IcarianCore::COWU8String> imports = a_builder.GraphicsEngine->GetPixelShaderImports();
 
             const VulkanPixelFShaderBuilder pixelBuilder =
             {
@@ -634,16 +642,16 @@ NextBaseVertexPixelInputFound:;
 
         const bool isMeshEnabled = a_builder.Engine->IsMeshEnabled();
 
-        const COWU8String entryPoint = COWU8String("main", a_tempAllocator);
+        const IcarianCore::COWU8String entryPoint = IcarianCore::COWU8String("main", a_tempAllocator);
 
         const VulkanShaderInfo meshInfo = a_builder.GraphicsEngine->GetMeshShaderInfo(a_builder.Program.VertexShader);
         IVERIFY(meshInfo.Type == VulkanShaderInfoType_Flare);
         IVERIFY(!meshInfo.Data.Empty());
 
-        Array<ShaderBufferInput> otherInputs = Array<ShaderBufferInput>(a_tempAllocator);
+        IcarianCore::Array<ShaderBufferInput> otherInputs = IcarianCore::Array<ShaderBufferInput>(a_tempAllocator);
         if (isMeshEnabled)
         {
-            const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetMeshShaderImports();
+            const IcarianCore::Dictionary<IcarianCore::COWU8String, IcarianCore::COWU8String> imports = a_builder.GraphicsEngine->GetMeshShaderImports();
 
             if (a_builder.Program.ExtraShader != uint32_t(-1))
             {
@@ -651,7 +659,7 @@ NextBaseVertexPixelInputFound:;
                 IVERIFY(taskInfo.Type == VulkanShaderInfoType_Flare);
                 IVERIFY(!taskInfo.Data.Empty());
 
-                const VulkanTaskFShaderBuilder taskBuilder = 
+                const VulkanTaskFShaderBuilder taskBuilder =
                 {
                     .Engine = a_builder.Engine,
                     .String = taskInfo.Data,
@@ -736,13 +744,13 @@ NextBaseMeshMeshInputFound:;
         {
             // Emulating so we need to use a stub Vertex Shader to passthrough info from a Compute Shader rather then a Mesh Shader
             // Take a massive performance hit but if the hardware does not support Mesh Shaders we do not have much choice
-            const COWU8String shaderStr = FlareShader::GenerateMeshVertexStub(meshInfo.Data, &vulkanOutputs, a_allocator, a_tempAllocator);
+            const IcarianCore::COWU8String shaderStr = FlareShader::GenerateMeshVertexStub(meshInfo.Data, &vulkanOutputs, a_allocator, a_tempAllocator);
 
             const VulkanVertexFShaderBuilder builder =
             {
                 .Engine = a_builder.Engine,
                 .String = shaderStr,
-                .Imports = Dictionary<COWU8String, COWU8String>(a_tempAllocator),
+                .Imports = IcarianCore::Dictionary<IcarianCore::COWU8String, IcarianCore::COWU8String>(a_tempAllocator),
                 .EntryPoint = entryPoint,
                 .OtherInputs = otherInputs,
             };
@@ -785,7 +793,7 @@ NextBaseMeshVertexInputFound:;
             IVERIFY(info.Type == VulkanShaderInfoType_Flare);
             IVERIFY(!info.Data.Empty());
 
-            const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetPixelShaderImports();
+            const IcarianCore::Dictionary<IcarianCore::COWU8String, IcarianCore::COWU8String> imports = a_builder.GraphicsEngine->GetPixelShaderImports();
 
             const VulkanPixelFShaderBuilder builder =
             {
@@ -838,9 +846,9 @@ NextBaseMeshPixelInputFound:;
         IVERIFY(info.Type == VulkanShaderInfoType_Flare);
         IVERIFY(!info.Data.Empty());
 
-        const COWU8String entryPoint = COWU8String("main", a_tempAllocator);
+        const IcarianCore::COWU8String entryPoint = IcarianCore::COWU8String("main", a_tempAllocator);
 
-        const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetComputeShaderImports();
+        const IcarianCore::Dictionary<IcarianCore::COWU8String, IcarianCore::COWU8String> imports = a_builder.GraphicsEngine->GetComputeShaderImports();
 
         const VulkanComputeFShaderBuilder builder =
         {
@@ -898,8 +906,8 @@ NextBaseMeshPixelInputFound:;
         ILRETURN vals;
     });
 
-    Array<vk::PushConstantRange> pushConstants = Array<vk::PushConstantRange>(a_tempAllocator);
-    Array<Input> pushBindings = Array<Input>(a_tempAllocator);
+    IcarianCore::Array<vk::PushConstantRange> pushConstants = IcarianCore::Array<vk::PushConstantRange>(a_tempAllocator);
+    IcarianCore::Array<Input> pushBindings = IcarianCore::Array<Input>(a_tempAllocator);
     GetLayoutInfo(vulkanInputs, &pushConstants, &pushBindings);
 
     uint32_t pushDescriptorCount;
@@ -1057,8 +1065,8 @@ void VulkanShaderData::CreateComputeMeshShaderData
 (
     VulkanShaderData* a_data,
     const VulkanComputeMeshShaderDataBuilder& a_builder,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     IVERIFY(a_builder.Engine != nullptr);
@@ -1074,9 +1082,9 @@ void VulkanShaderData::CreateComputeMeshShaderData
     IVERIFY(info.Type == VulkanShaderInfoType_Flare);
     IVERIFY(!info.Data.Empty());
 
-    const COWU8String entryPoint = COWU8String("main", a_tempAllocator);
+    const IcarianCore::COWU8String entryPoint = IcarianCore::COWU8String("main", a_tempAllocator);
 
-    const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetMeshShaderImports();
+    const IcarianCore::Dictionary<IcarianCore::COWU8String, IcarianCore::COWU8String> imports = a_builder.GraphicsEngine->GetMeshShaderImports();
 
     const VulkanComputeFShaderBuilder builder =
     {
@@ -1089,7 +1097,7 @@ void VulkanShaderData::CreateComputeMeshShaderData
     VulkanComputeShader* computeShader = a_allocator->TAllocate<VulkanComputeShader>();
     VulkanComputeShader::CreateFromFShader(computeShader, builder, a_allocator, a_tempAllocator);
 
-    Array<VulkanShaderInput> vulkanInputs = Array<VulkanShaderInput>(a_tempAllocator);
+    IcarianCore::Array<VulkanShaderInput> vulkanInputs = IcarianCore::Array<VulkanShaderInput>(a_tempAllocator);
     const uint32_t inputCount = computeShader->GetShaderInputCount();
     for (uint32_t i = 0; i < inputCount; ++i)
     {
@@ -1105,8 +1113,8 @@ void VulkanShaderData::CreateComputeMeshShaderData
         slotInputs[i] = vulkanInputs[i];
     }
 
-    Array<vk::PushConstantRange> pushConstants = Array<vk::PushConstantRange>(a_tempAllocator);
-    Array<Input> pushBindings = Array<Input>(a_tempAllocator);
+    IcarianCore::Array<vk::PushConstantRange> pushConstants = IcarianCore::Array<vk::PushConstantRange>(a_tempAllocator);
+    IcarianCore::Array<Input> pushBindings = IcarianCore::Array<Input>(a_tempAllocator);
     GetLayoutInfo(vulkanInputs, &pushConstants, &pushBindings);
 
     uint32_t pushDescriptorCount;
@@ -1190,8 +1198,8 @@ void VulkanShaderData::CreateShadowShaderData
 (
     VulkanShaderData* a_data,
     const VulkanShadowShaderDataBuilder& a_builder,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     IVERIFY(a_builder.Engine != nullptr);
@@ -1207,9 +1215,9 @@ void VulkanShaderData::CreateShadowShaderData
     IVERIFY(info.Type == VulkanShaderInfoType_Flare);
     IVERIFY(!info.Data.Empty());
 
-    const COWU8String entry = COWU8String("main", a_tempAllocator);
+    const IcarianCore::COWU8String entry = IcarianCore::COWU8String("main", a_tempAllocator);
 
-    const Dictionary<COWU8String, COWU8String> imports = a_builder.GraphicsEngine->GetVertexShaderImports();
+    const IcarianCore::Dictionary<IcarianCore::COWU8String, IcarianCore::COWU8String> imports = a_builder.GraphicsEngine->GetVertexShaderImports();
 
     const VulkanVertexFShaderBuilder builder =
     {
@@ -1217,13 +1225,13 @@ void VulkanShaderData::CreateShadowShaderData
         .String = info.Data,
         .Imports = imports,
         .EntryPoint = entry,
-        .OtherInputs = Array<ShaderBufferInput>(a_tempAllocator),
+        .OtherInputs = IcarianCore::Array<ShaderBufferInput>(a_tempAllocator),
     };
 
     VulkanVertexShader* vertexShader = a_allocator->TAllocate<VulkanVertexShader>();
     VulkanVertexShader::CreateFromFShader(vertexShader, builder, a_allocator, a_tempAllocator);
 
-    Array<VulkanShaderInput> vulkanInputs = Array<VulkanShaderInput>(a_tempAllocator);
+    IcarianCore::Array<VulkanShaderInput> vulkanInputs = IcarianCore::Array<VulkanShaderInput>(a_tempAllocator);
 
     const uint32_t inputCount = vertexShader->GetShaderInputCount();
     for (uint32_t i = 0; i < inputCount; ++i)
@@ -1233,8 +1241,8 @@ void VulkanShaderData::CreateShadowShaderData
         PushVulkanShaderBufferInput(&vulkanInputs, input, vk::ShaderStageFlagBits::eVertex);
     }
 
-    Array<vk::PushConstantRange> pushConstants = Array<vk::PushConstantRange>(a_tempAllocator);
-    Array<Input> pushBindings = Array<Input>(a_tempAllocator);
+    IcarianCore::Array<vk::PushConstantRange> pushConstants = IcarianCore::Array<vk::PushConstantRange>(a_tempAllocator);
+    IcarianCore::Array<Input> pushBindings = IcarianCore::Array<Input>(a_tempAllocator);
     GetLayoutInfo(vulkanInputs, &pushConstants, &pushBindings);
 
     uint32_t pushDescriptorCount;
@@ -1394,7 +1402,7 @@ bool VulkanShaderData::PushComputeBufferTexture(vk::CommandBuffer a_commandBuffe
 
         a_commandBuffer.bindDescriptorSets
         (
-            vk::PipelineBindPoint::eCompute, 
+            vk::PipelineBindPoint::eCompute,
             m_layout,
             (uint32_t)d.RealSlot,
             1,
@@ -1458,7 +1466,7 @@ bool VulkanShaderData::PushTextures
     const TextureSamplerBuffer* a_samplers,
     uint16_t a_count,
     uint32_t a_index,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_tempAllocator
 ) const
 {
     for (uint32_t i = 0; i < m_pushDesciptorCount; ++i)
@@ -1891,9 +1899,9 @@ VulkanShader* VulkanShaderData::GetShader(uint32_t a_index) const
     return m_shaders[a_index];
 }
 
-Array<ShaderBufferInput> VulkanShaderData::GetShaderBufferInputs(e_ShaderBufferType a_type, Allocator* a_allocator) const
+IcarianCore::Array<ShaderBufferInput> VulkanShaderData::GetShaderBufferInputs(e_ShaderBufferType a_type, IcarianCore::Allocator* a_allocator) const
 {
-    Array<ShaderBufferInput> inputs = Array<ShaderBufferInput>(a_allocator);
+    IcarianCore::Array<ShaderBufferInput> inputs = IcarianCore::Array<ShaderBufferInput>(a_allocator);
     inputs.Reserve(m_slotInputCount);
 
     for (uint32_t i = 0; i < m_slotInputCount; ++i)
@@ -1928,7 +1936,7 @@ bool VulkanShaderData::GetShaderBufferInput(e_ShaderBufferType a_bufferType, Sha
             continue;
         }
 
-        const ShaderBufferInput sInput = 
+        const ShaderBufferInput sInput =
         {
             .UserSlot = input.UserSlot,
             .RealSlot = input.RealSlot,
@@ -1947,19 +1955,19 @@ bool VulkanShaderData::GetShaderBufferInput(e_ShaderBufferType a_bufferType, Sha
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

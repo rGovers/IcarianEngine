@@ -1,14 +1,14 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Audio/AudioClips/WAVAudioClip.h"
 
-#define GLM_FORCE_SWIZZLE 
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Core/IcarianError.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
 #include "FileCache.h"
 #include "IcarianError.h"
 
@@ -32,7 +32,7 @@ constexpr static uint32_t GetFormatSize(e_AudioFormat a_format)
 }
 
 // Not accounting for endian not an issue currently but may become an issue down the line
-WAVAudioClip::WAVAudioClip(const COWU8String& a_path, Allocator* a_allocator) :
+WAVAudioClip::WAVAudioClip(const IcarianCore::COWU8String& a_path, IcarianCore::Allocator* a_allocator) :
     m_path(a_path, a_allocator)
 {
     IERRBLOCK;
@@ -42,7 +42,7 @@ WAVAudioClip::WAVAudioClip(const COWU8String& a_path, Allocator* a_allocator) :
 
     FileHandle* handle = FileCache::LoadFile(m_path);
     IERRCHECK(handle != nullptr);
-    IDEFER(MallocAllocator::Instance->Destroy(handle));
+    IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
     char buffer[16];
     if (handle->Read(buffer, 12) != 12)
@@ -172,7 +172,7 @@ e_AudioFormat WAVAudioClip::GetAudioFormat() const
     return m_format;
 }
 
-uint8_t* WAVAudioClip::GetAudioData(Allocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
+uint8_t* WAVAudioClip::GetAudioData(IcarianCore::Allocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize)
 {
     IERRBLOCK;
 
@@ -180,7 +180,7 @@ uint8_t* WAVAudioClip::GetAudioData(Allocator* a_allocator, uint64_t a_sampleOff
 
     FileHandle* handle = FileCache::LoadFile(m_path);
     IERRCHECKRET(handle != nullptr, nullptr);
-    IDEFER(MallocAllocator::Instance->Destroy(handle));
+    IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
     const uint32_t formatSize = GetFormatSize(m_format);
 
@@ -202,19 +202,19 @@ uint8_t* WAVAudioClip::GetAudioData(Allocator* a_allocator, uint64_t a_sampleOff
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

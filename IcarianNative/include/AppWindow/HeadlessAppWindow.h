@@ -11,17 +11,17 @@
 #include <mutex>
 
 #include "Core/Bitfield.h"
+#include "Core/DataTypes/Allocators/RingAllocator.h"
+#include "Core/DataTypes/Dictionary.h"
 #include "Core/DMASwapBuffer.h"
 #include "Core/CommunicationPipe.h"
 #include "Core/PipeMessage.h"
-#include "DataTypes/Dictionary.h"
 #include "DataTypes/TArray.h"
 #include "Logger.h"
 #include "Profiler.h"
 
 class Application;
 class Config;
-class RingAllocator;
 class RuntimeFunction;
 
 class HeadlessAppWindow : public AppWindow
@@ -31,46 +31,52 @@ private:
     static constexpr uint32_t CloseBit = 0;
     static constexpr uint32_t RemoteBit = 1;
 
-    IcarianCore::CommunicationPipe*                m_pipe;
+    IcarianCore::CommunicationPipe*                             m_pipe;
 
-    TArray<IcarianCore::PipeMessage>               m_queuedMessages;
+    TArray<IcarianCore::PipeMessage>                            m_queuedMessages;
 
-    RuntimeFunction*                               m_runtimeMessageReceive;
+    RuntimeFunction*                                            m_runtimeMessageReceive;
 
-    Dictionary<COWU8String, uint32_t>              m_gpuProfilePasses;
-    Dictionary<COWU8String, uint32_t>              m_gpuProfileItems;
-    Dictionary<COWU8String, uint32_t>              m_profilerScopes;
-    Dictionary<COWU8String, uint32_t>              m_profilerFrames;
+    IcarianCore::Dictionary<IcarianCore::COWU8String, uint32_t> m_gpuProfilePasses;
+    IcarianCore::Dictionary<IcarianCore::COWU8String, uint32_t> m_gpuProfileItems;
+    IcarianCore::Dictionary<IcarianCore::COWU8String, uint32_t> m_profilerScopes;
+    IcarianCore::Dictionary<IcarianCore::COWU8String, uint32_t> m_profilerFrames;
 
-    uint32_t                                       m_gpuProfilePassIndex;
-    uint32_t                                       m_gpuProfileItemIndex;
-    uint32_t                                       m_profileIndex;
-    uint32_t                                       m_frameIndex;
+    uint32_t                                                    m_gpuProfilePassIndex;
+    uint32_t                                                    m_gpuProfileItemIndex;
+    uint32_t                                                    m_profileIndex;
+    uint32_t                                                    m_frameIndex;
 
-    std::mutex                                     m_fLock;
-    volatile bool                                  m_unlockWindow;
-    uint64_t                                       m_windowFrame;
-    uint64_t                                       m_gpuFrame;
-    uint8_t*                                       m_frameData;
+    std::mutex                                                  m_fLock;
+    volatile bool                                               m_unlockWindow;
+    uint64_t                                                    m_windowFrame;
+    uint64_t                                                    m_gpuFrame;
+    uint8_t*                                                    m_frameData;
 
-    RingAllocator*                                 m_msgAllocator;
+    IcarianCore::RingAllocator*                                 m_msgAllocator;
 
-    uint32_t                                       m_width;
-    uint32_t                                       m_height;
+    uint32_t                                                    m_width;
+    uint32_t                                                    m_height;
 
-    std::chrono::high_resolution_clock::time_point m_prevTime;
+    std::chrono::high_resolution_clock::time_point              m_prevTime;
 
-    double                                         m_delta;
-    double                                         m_time;
+    double                                                      m_delta;
+    double                                                      m_time;
 
-    uint8_t                                        m_flags;
-    SpinLock                                       m_msgAllocatorLock;
-    SpinLock                                       m_profileLock;
-    SpinLock                                       m_gpuProfileLock;
+    uint8_t                                                     m_flags;
+    IcarianCore::SpinLock                                       m_msgAllocatorLock;
+    IcarianCore::SpinLock                                       m_profileLock;
+    IcarianCore::SpinLock                                       m_gpuProfileLock;
 
     void PushMessageQueue();
 
-    void MessageCallback(const COWU8String& a_message, IcarianCore::e_LoggerMessageType a_type, uint32_t a_stackTraceCount, const char* const* a_stackTrace);
+    void MessageCallback
+    (
+        const IcarianCore::COWU8String& a_message,
+        IcarianCore::e_LoggerMessageType a_type,
+        uint32_t a_stackTraceCount,
+        const char* const* a_stackTrace
+    );
 
     bool PollMessage();
 
@@ -113,7 +119,7 @@ public:
     }
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-    virtual Array<const char*> GetRequiredVulkanExtenions() const;
+    virtual IcarianCore::Array<const char*> GetRequiredVulkanExtenions() const;
     virtual vk::SurfaceKHR GetSurface(const vk::Instance& a_instance)
     {
         return vk::SurfaceKHR();

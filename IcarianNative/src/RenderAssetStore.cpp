@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Rendering/RenderAssetStore.h"
@@ -12,14 +12,14 @@
 #include <stb_image.h>
 
 #include "Core/Bitfield.h"
+#include "Core/DataTypes/Allocators/BlockAllocator.h"
+#include "Core/DataTypes/Allocators/LeakAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/StackAllocator.h"
+#include "Core/DataTypes/Allocators/UberAllocator.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/Allocators/BlockAllocator.h"
-#include "DataTypes/Allocators/LeakAllocator.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
-#include "DataTypes/Allocators/StackAllocator.h"
-#include "DataTypes/Allocators/UberAllocator.h"
 #include "DataTypes/TStatic.h"
 #include "FileCache.h"
 #include "IO.h"
@@ -32,13 +32,13 @@ static TStatic<uint32_t> ScratchAllocator = TStatic<uint32_t>();
 
 RenderAssetStore::RenderAssetStore(RenderEngine* a_renderEngine)
 {
-    m_blockAllocator = MallocAllocator::Instance->Create<BlockAllocator>(BlockAllocatorSize, UberAllocator::Instance);
+    m_blockAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::BlockAllocator>(BlockAllocatorSize, IcarianCore::UberAllocator::Instance);
 #ifdef DEBUG
-    m_blockAllocator = MallocAllocator::Instance->Create<LeakAllocator>(m_blockAllocator);
+    m_blockAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::LeakAllocator>(m_blockAllocator);
 #endif
 
     m_data = m_blockAllocator->ZTAllocate<ClassData>();
-    m_data->StackAllocators = Array<RenderAssetScratchAllocator>(m_blockAllocator);
+    m_data->StackAllocators = IcarianCore::Array<RenderAssetScratchAllocator>(m_blockAllocator);
 
     m_data->Renderer = a_renderEngine;
 
@@ -59,10 +59,10 @@ RenderAssetStore::~RenderAssetStore()
     m_blockAllocator->Destroy(m_data);
 
 #ifdef DEBUG
-    Allocator* upstreamAllocator = ((LeakAllocator*)m_blockAllocator)->GetUpstreamAllocator();
-    IDEFER(MallocAllocator::Instance->Destroy(upstreamAllocator));
+    IcarianCore::Allocator* upstreamAllocator = ((IcarianCore::LeakAllocator*)m_blockAllocator)->GetUpstreamAllocator();
+    IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(upstreamAllocator));
 #endif
-    MallocAllocator::Instance->Destroy(m_blockAllocator);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_blockAllocator);
 }
 
 void RenderAssetStore::Update()
@@ -85,9 +85,9 @@ void RenderAssetStore::Update()
     // Need to get the index of the scratch allocator for this thread
     const uint32_t scratchIndex = GetScratchAllocatorIndex();
 
-    StackAllocator* scratchAllocator = ILAMBDA(
+    IcarianCore::StackAllocator* scratchAllocator = ILAMBDA(
     {
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
@@ -97,7 +97,7 @@ void RenderAssetStore::Update()
     });
     IDEFER(
     {
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
@@ -110,7 +110,7 @@ void RenderAssetStore::Update()
 
         // No need to waste memory just use a packed state
         const uint32_t size = m_data->Meshes.Size();
-        const Array<uint8_t> state = m_data->Meshes.ToPackedStateArray(scratchAllocator);
+        const IcarianCore::Array<uint8_t> state = m_data->Meshes.ToPackedStateArray(scratchAllocator);
         TLockArray<RenderAsset> a = m_data->Meshes.ToLockArray();
 
         for (uint32_t i = 0; i < size; ++i)
@@ -152,7 +152,7 @@ void RenderAssetStore::Update()
         IDEFER(scratchAllocator->PopStackPointer());
 
         const uint32_t size = m_data->Models.Size();
-        const Array<uint8_t> state = m_data->Models.ToPackedStateArray(scratchAllocator);
+        const IcarianCore::Array<uint8_t> state = m_data->Models.ToPackedStateArray(scratchAllocator);
         TLockArray<RenderAsset> a = m_data->Models.ToLockArray();
 
         for (uint32_t i = 0; i < size; ++i)
@@ -194,7 +194,7 @@ void RenderAssetStore::Update()
         IDEFER(scratchAllocator->PopStackPointer());
 
         const uint32_t size = m_data->Textures.Size();
-        const Array<uint8_t> state = m_data->Textures.ToPackedStateArray(scratchAllocator);
+        const IcarianCore::Array<uint8_t> state = m_data->Textures.ToPackedStateArray(scratchAllocator);
         TLockArray<RenderAsset> a = m_data->Textures.ToLockArray();
 
         for (uint32_t i = 0; i < size; ++i)
@@ -235,9 +235,9 @@ void RenderAssetStore::Flush()
 {
     const uint32_t scratchIndex = GetScratchAllocatorIndex();
 
-    StackAllocator* scratchAllocator = ILAMBDA(
+    IcarianCore::StackAllocator* scratchAllocator = ILAMBDA(
     {
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
@@ -247,7 +247,7 @@ void RenderAssetStore::Flush()
     });
     IDEFER(
     {
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
@@ -259,7 +259,7 @@ void RenderAssetStore::Flush()
         IDEFER(scratchAllocator->PopStackPointer());
 
         const uint32_t size = m_data->Meshes.Size();
-        const Array<uint8_t> state = m_data->Meshes.ToPackedStateArray(scratchAllocator);
+        const IcarianCore::Array<uint8_t> state = m_data->Meshes.ToPackedStateArray(scratchAllocator);
         TLockArray<RenderAsset> a = m_data->Meshes.ToLockArray();
 
         for (uint32_t i = 0; i < size; ++i)
@@ -288,7 +288,7 @@ void RenderAssetStore::Flush()
         IDEFER(scratchAllocator->PopStackPointer());
 
         const uint32_t size = m_data->Models.Size();
-        const Array<uint8_t> state = m_data->Models.ToPackedStateArray(scratchAllocator);
+        const IcarianCore::Array<uint8_t> state = m_data->Models.ToPackedStateArray(scratchAllocator);
         TLockArray<RenderAsset> a = m_data->Models.ToLockArray();
 
         for (uint32_t i = 0; i < size; ++i)
@@ -316,7 +316,7 @@ void RenderAssetStore::Flush()
         scratchAllocator->PushStackPointer();
         IDEFER(scratchAllocator->PopStackPointer());
 
-        const Array<bool> state = m_data->Textures.ToStateArray(scratchAllocator);
+        const IcarianCore::Array<bool> state = m_data->Textures.ToStateArray(scratchAllocator);
         TLockArray<RenderAsset> a = m_data->Textures.ToLockArray();
         const uint32_t size = state.Size();
 
@@ -342,7 +342,7 @@ void RenderAssetStore::Flush()
     }
 }
 
-static void AILoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_rSqr)
+static void AILoadMesh(const aiMesh* a_mesh, IcarianCore::Array<Vertex>* a_vertices, IcarianCore::Array<uint32_t>* a_indices, float* a_rSqr)
 {
     const uint32_t startIndex = a_vertices->Size();
 
@@ -351,9 +351,9 @@ static void AILoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<ui
     const bool hasTexCoordB = a_mesh->HasTextureCoords(1);
     const bool hasColour = a_mesh->HasVertexColors(0);
 
-    for (uint32_t i = 0; i < a_mesh->mNumVertices; ++i) 
+    for (uint32_t i = 0; i < a_mesh->mNumVertices; ++i)
     {
-        const Vertex v = 
+        const Vertex v =
         {
             .Position = ILAMBDA(
             {
@@ -412,7 +412,7 @@ static void AILoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<ui
         a_vertices->Push(v);
     }
 
-    for (uint32_t i = 0; i < a_mesh->mNumFaces; ++i) 
+    for (uint32_t i = 0; i < a_mesh->mNumFaces; ++i)
     {
         const aiFace& face = a_mesh->mFaces[i];
 
@@ -457,15 +457,22 @@ static void AILoadMesh(const aiMesh* a_mesh, Array<Vertex>* a_vertices, Array<ui
     }
 }
 
-bool RenderAssetStore::LoadModelData(const COWU8String& a_path, uint8_t a_data, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices, float* a_radius)
+bool RenderAssetStore::LoadModelData
+(
+    const IcarianCore::COWU8String& a_path,
+    uint8_t a_data,
+    IcarianCore::Array<Vertex>* a_vertices,
+    IcarianCore::Array<uint32_t>* a_indices,
+    float* a_radius
+)
 {
     IERRBLOCK;
 
     const uint32_t scratchIndex = GetScratchAllocatorIndex();
 
-    StackAllocator* scratchAllocator = ILAMBDA(
+    IcarianCore::StackAllocator* scratchAllocator = ILAMBDA(
     {
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
@@ -475,14 +482,14 @@ bool RenderAssetStore::LoadModelData(const COWU8String& a_path, uint8_t a_data, 
     });
     IDEFER(
     {
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         --alloc.Count;
     });
 
-    const COWU8String extStr = IO::GetExtension(a_path, scratchAllocator);
+    const IcarianCore::COWU8String extStr = IO::GetExtension(a_path, scratchAllocator);
 
     // TODO: Create and handle pre optimized files
     switch (StringHash<uint32_t>(extStr.CStr()))
@@ -498,7 +505,7 @@ bool RenderAssetStore::LoadModelData(const COWU8String& a_path, uint8_t a_data, 
 
         FileHandle* handle = FileCache::LoadFile(a_path);
         IERRCHECKRET(handle != nullptr, false);
-        IDEFER(MallocAllocator::Instance->Destroy(handle));
+        IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
         uint8_t* dat = scratchAllocator->TAllocate<uint8_t>(size);
@@ -580,15 +587,15 @@ bool RenderAssetStore::LoadModelData(const COWU8String& a_path, uint8_t a_data, 
     return false;
 }
 
-uint32_t RenderAssetStore::LoadMeshData(const COWU8String& a_path, uint8_t a_index)
+uint32_t RenderAssetStore::LoadMeshData(const IcarianCore::COWU8String& a_path, uint8_t a_index)
 {
     IERRBLOCK;
 
     const uint32_t scratchIndex = GetScratchAllocatorIndex();
 
-    StackAllocator* scratchAllocator = ILAMBDA(
+    IcarianCore::StackAllocator* scratchAllocator = ILAMBDA(
     {
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
@@ -598,7 +605,7 @@ uint32_t RenderAssetStore::LoadMeshData(const COWU8String& a_path, uint8_t a_ind
     });
     IDEFER(
     {
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
@@ -608,8 +615,8 @@ uint32_t RenderAssetStore::LoadMeshData(const COWU8String& a_path, uint8_t a_ind
     scratchAllocator->PushStackPointer();
     IDEFER(scratchAllocator->PopStackPointer());
 
-    Array<Vertex> vertices = Array<Vertex>(m_blockAllocator);
-    Array<uint32_t> indices = Array<uint32_t>(m_blockAllocator);
+    IcarianCore::Array<Vertex> vertices = IcarianCore::Array<Vertex>(m_blockAllocator);
+    IcarianCore::Array<uint32_t> indices = IcarianCore::Array<uint32_t>(m_blockAllocator);
     float radius;
     IERRCHECKRET(LoadModelData(a_path, a_index, &vertices, &indices, &radius), -1);
 
@@ -707,7 +714,7 @@ uint32_t RenderAssetStore::LoadMeshData(const COWU8String& a_path, uint8_t a_ind
         radius
     );
 }
-uint32_t RenderAssetStore::LoadMesh(const COWU8String& a_path, uint8_t a_index)
+uint32_t RenderAssetStore::LoadMesh(const IcarianCore::COWU8String& a_path, uint8_t a_index)
 {
     const uint32_t addr = LoadMeshData(a_path, a_index);
     if (addr == uint32_t(-1))
@@ -717,7 +724,7 @@ uint32_t RenderAssetStore::LoadMesh(const COWU8String& a_path, uint8_t a_index)
 
     const RenderAsset asset =
     {
-        .Path = COWU8String(a_path, m_blockAllocator),
+        .Path = IcarianCore::COWU8String(a_path, m_blockAllocator),
         .InternalAddress = addr,
         // .InternalAddress = uint32_t(-1),
         .Data = a_index,
@@ -756,12 +763,12 @@ uint32_t RenderAssetStore::GetMesh(uint32_t a_addr)
     return asset.InternalAddress;
 }
 
-uint32_t RenderAssetStore::LoadModel(const COWU8String& a_path, uint8_t a_index)
+uint32_t RenderAssetStore::LoadModel(const IcarianCore::COWU8String& a_path, uint8_t a_index)
 {
     constexpr uint16_t VertexStride = sizeof(Vertex);
 
-    Array<Vertex> vertices = Array<Vertex>(m_blockAllocator);
-    Array<uint32_t> indices = Array<uint32_t>(m_blockAllocator);
+    IcarianCore::Array<Vertex> vertices = IcarianCore::Array<Vertex>(m_blockAllocator);
+    IcarianCore::Array<uint32_t> indices = IcarianCore::Array<uint32_t>(m_blockAllocator);
     float radius;
     if (!LoadModelData(a_path, a_index, &vertices, &indices, &radius))
     {
@@ -789,7 +796,7 @@ uint32_t RenderAssetStore::LoadModel(const COWU8String& a_path, uint8_t a_index)
 
     const RenderAsset asset =
     {
-        .Path = COWU8String(a_path, m_blockAllocator),
+        .Path = IcarianCore::COWU8String(a_path, m_blockAllocator),
         .InternalAddress = modelAddr,
         .Data = (uint8_t)a_index,
     };
@@ -800,11 +807,11 @@ uint32_t RenderAssetStore::LoadModel(const COWU8String& a_path, uint8_t a_index)
 static void LoadSkinnedMesh
 (
     const aiMesh* a_mesh,
-    Array<SkinnedVertex>* a_vertices,
-    Array<uint32_t>* a_indices,
-    const Dictionary<COWU8String, int>& a_boneMap,
+    IcarianCore::Array<SkinnedVertex>* a_vertices,
+    IcarianCore::Array<uint32_t>* a_indices,
+    const IcarianCore::Dictionary<IcarianCore::COWU8String, int>& a_boneMap,
     float* a_rSqr,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     const bool hasNormal = a_mesh->HasNormals();
@@ -812,7 +819,7 @@ static void LoadSkinnedMesh
     const bool hasVertexColour = a_mesh->HasVertexColors(0);
     const bool hasBones = a_mesh->HasBones();
 
-    for (uint32_t i = 0; i < a_mesh->mNumVertices; ++i) 
+    for (uint32_t i = 0; i < a_mesh->mNumVertices; ++i)
     {
         const SkinnedVertex v =
         {
@@ -885,7 +892,7 @@ static void LoadSkinnedMesh
                     const uint32_t weights = glm::min(uint32_t(4), (uint32_t)bone->mNumWeights);
                     for (uint32_t j = 0; j < weights; ++j)
                     {
-                        const COWU8String str = COWU8String(bone->mName.C_Str(), bone->mName.length, a_tempAllocator);
+                        const IcarianCore::COWU8String str = IcarianCore::COWU8String(bone->mName.C_Str(), bone->mName.length, a_tempAllocator);
                         if (!a_boneMap.Exists(str))
                         {
                             continue;
@@ -906,7 +913,7 @@ static void LoadSkinnedMesh
         a_vertices->Push(v);
     }
 
-    for (uint32_t i = 0; i < a_mesh->mNumFaces; ++i) 
+    for (uint32_t i = 0; i < a_mesh->mNumFaces; ++i)
     {
         const aiFace& face = a_mesh->mFaces[i];
 
@@ -916,15 +923,15 @@ static void LoadSkinnedMesh
     }
 }
 
-uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const COWU8String& a_path)
+uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, uint8_t a_data, const IcarianCore::COWU8String& a_path)
 {
     IERRBLOCK;
 
     const uint32_t scratchIndex = GetScratchAllocatorIndex();
 
-    StackAllocator* scratchAllocator = ILAMBDA(
+    IcarianCore::StackAllocator* scratchAllocator = ILAMBDA(
     {
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
@@ -934,14 +941,14 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
     });
     IDEFER(
     {
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
         --alloc.Count;
     });
 
-    const COWU8String ext = IO::GetExtension(a_path, scratchAllocator);
+    const IcarianCore::COWU8String ext = IO::GetExtension(a_path, scratchAllocator);
 
     constexpr uint16_t VertexStride = sizeof(SkinnedVertex);
 
@@ -957,7 +964,7 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
 
         FileHandle* handle = FileCache::LoadFile(a_path);
         IERRCHECKRET(handle != nullptr, -1);
-        IDEFER(MallocAllocator::Instance->Destroy(handle));
+        IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
         uint8_t* dat = scratchAllocator->TAllocate<uint8_t>(size);
@@ -976,20 +983,20 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
         IERRCHECKRET(scene != nullptr, -1);
         IERRCHECKRET(scene->mNumSkeletons > 0, -1);
 
-        Dictionary<COWU8String, int> boneMap = Dictionary<COWU8String, int>(scratchAllocator);
+        IcarianCore::Dictionary<IcarianCore::COWU8String, int> boneMap = IcarianCore::Dictionary<IcarianCore::COWU8String, int>(scratchAllocator);
 
         const aiSkeleton* skeleton = scene->mSkeletons[0];
         for (unsigned int i = 0; i < skeleton->mNumBones; ++i)
         {
             const aiSkeletonBone* bone = skeleton->mBones[i];
             const aiString& boneName = bone->mNode->mName;
-            const COWU8String name = COWU8String(boneName.C_Str(), boneName.length, scratchAllocator);
+            const IcarianCore::COWU8String name = IcarianCore::COWU8String(boneName.C_Str(), boneName.length, scratchAllocator);
 
             boneMap.Push(name, i);
         }
 
-        Array<SkinnedVertex> vertices = Array<SkinnedVertex>(m_blockAllocator);
-        Array<uint32_t> indices = Array<uint32_t>(m_blockAllocator);
+        IcarianCore::Array<SkinnedVertex> vertices = IcarianCore::Array<SkinnedVertex>(m_blockAllocator);
+        IcarianCore::Array<uint32_t> indices = IcarianCore::Array<uint32_t>(m_blockAllocator);
         float radSqr = 0.0f;
         if (a_data != std::numeric_limits<uint8_t>::max())
         {
@@ -1036,7 +1043,7 @@ uint32_t RenderAssetStore::LoadSkinnedModelFile(RenderEngine* a_renderEngine, ui
 
     return -1;
 }
-uint32_t RenderAssetStore::LoadSkinnedModel(const COWU8String& a_path, uint8_t a_index)
+uint32_t RenderAssetStore::LoadSkinnedModel(const IcarianCore::COWU8String& a_path, uint8_t a_index)
 {
     const uint32_t internalAddr = LoadSkinnedModelFile(m_data->Renderer, (uint8_t)a_index, a_path);
     if (internalAddr == uint32_t(-1))
@@ -1046,7 +1053,7 @@ uint32_t RenderAssetStore::LoadSkinnedModel(const COWU8String& a_path, uint8_t a
 
     const RenderAsset asset =
     {
-        .Path = COWU8String(a_path, m_blockAllocator),
+        .Path = IcarianCore::COWU8String(a_path, m_blockAllocator),
         .InternalAddress = internalAddr,
         .Data = (uint8_t)a_index,
         .Flags = 0b1 << RenderAsset::SkinnedBit
@@ -1086,8 +1093,8 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
         {
             constexpr uint16_t VertexStride = sizeof(Vertex);
 
-            Array<Vertex> vertices = Array<Vertex>(m_blockAllocator);
-            Array<uint32_t> indices = Array<uint32_t>(m_blockAllocator);
+            IcarianCore::Array<Vertex> vertices = IcarianCore::Array<Vertex>(m_blockAllocator);
+            IcarianCore::Array<uint32_t> indices = IcarianCore::Array<uint32_t>(m_blockAllocator);
             float radius;
             if (!LoadModelData(asset.Path, asset.Data, &vertices, &indices, &radius))
             {
@@ -1117,11 +1124,11 @@ uint32_t RenderAssetStore::GetModel(uint32_t a_addr)
     return asset.InternalAddress;
 }
 
-uint32_t RenderAssetStore::LoadTexture(const COWU8String& a_path)
+uint32_t RenderAssetStore::LoadTexture(const IcarianCore::COWU8String& a_path)
 {
     const RenderAsset asset =
     {
-        .Path = COWU8String(a_path, m_blockAllocator),
+        .Path = IcarianCore::COWU8String(a_path, m_blockAllocator),
         .InternalAddress = uint32_t(-1),
     };
 
@@ -1221,9 +1228,9 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
     const uint32_t scratchIndex = GetScratchAllocatorIndex();
 
-    StackAllocator* scratchAllocator = ILAMBDA(
+    IcarianCore::StackAllocator* scratchAllocator = ILAMBDA(
     {
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
@@ -1233,7 +1240,7 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
     });
     IDEFER(
     {
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         RenderAssetScratchAllocator& alloc = m_data->StackAllocators[scratchIndex];
 
@@ -1245,7 +1252,7 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
     RenderAsset& asset = a[a_addr];
     if (asset.InternalAddress == uint32_t(-1))
     {
-        const COWU8String ext = IO::GetExtension(asset.Path, scratchAllocator);
+        const IcarianCore::COWU8String ext = IO::GetExtension(asset.Path, scratchAllocator);
 
         switch (StringHash<uint32_t>(ext.CStr()))
         {
@@ -1258,9 +1265,9 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
                 break;
             }
-            IDEFER(MallocAllocator::Instance->Destroy(handle));
+            IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
-            const stbi_io_callbacks callbacks = 
+            const stbi_io_callbacks callbacks =
             {
                 .read = &STBI_FileHandle_Read,
                 .skip = &STBI_FileHandle_Skip,
@@ -1310,7 +1317,7 @@ uint32_t RenderAssetStore::GetTexture(uint32_t a_addr)
 
                 break;
             }
-            IDEFER(MallocAllocator::Instance->Destroy(handle));
+            IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
             ktxStream stream =
             {
@@ -1398,7 +1405,11 @@ uint32_t RenderAssetStore::GetScratchAllocatorIndex()
     {
         if (m_data->ScratchIndex >= m_data->StackAllocators.Size())
         {
-            StackAllocator* allocator = m_blockAllocator->Create<StackAllocator>(ScratchAllocatorSize, UberAllocator::Instance);
+            IcarianCore::StackAllocator* allocator = m_blockAllocator->Create<IcarianCore::StackAllocator>
+            (
+                ScratchAllocatorSize,
+                IcarianCore::UberAllocator::Instance
+            );
 
             const RenderAssetScratchAllocator data =
             {
@@ -1415,19 +1426,19 @@ uint32_t RenderAssetStore::GetScratchAllocatorIndex()
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

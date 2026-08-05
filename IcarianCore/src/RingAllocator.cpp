@@ -1,34 +1,17 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
-#pragma once
-
-#include "DataTypes/Allocators/Allocator.h"
+#include "Core/DataTypes/Allocators/RingAllocator.h"
 
 #include "Core/IcarianDefer.h"
-#include "IcarianMemory.h"
+#include "Core/IcarianMemory.h"
 
 ICARIAN_PUSH_FASTALLOCTOR
 
-// A no deallocation allocator
-// Loops back to the start when it runs out of memory
-// Note that this allocator has no bounds checking or sanitizer so overflows will write to future allocations
-// Not to be used as a main allocator used in performance critical areas where allocations are known to be small, frequent and short lived where general purpose allocators are too slow
-// People forget that there are 100s of ways to allocate memory and you do not need to pick just one
-class RingAllocator : public Allocator
+namespace IcarianCore
 {
-private:
-    Allocator* m_upstreamAllocator;
-
-    void*      m_memory;
-    void*      m_slider;
-    void*      m_end;
-
-protected:
-
-public:
-    RingAllocator(uint64_t a_size, Allocator* a_upstreamAllocator)
+    RingAllocator::RingAllocator(uint64_t a_size, Allocator* a_upstreamAllocator)
     {
         m_upstreamAllocator = a_upstreamAllocator;
 
@@ -36,52 +19,47 @@ public:
         m_slider = m_memory;
         m_end = (void*)((char*)m_memory + a_size);
     }
-    virtual ~RingAllocator()
+    RingAllocator::~RingAllocator()
     {
         m_upstreamAllocator->Free(m_memory);
     }
 
-    inline Allocator* GetUpstreamAllocator() const
+    void* RingAllocator::Allocate(uint64_t a_size, uint32_t a_alignment)
     {
-        return m_upstreamAllocator;
-    }
+        if (a_size <= 0)
+        {
+            return nullptr;
+        }
 
-    inline uint64_t GetSize() const
-    {
-        return (uint64_t)((char*)m_end - (char*)m_memory);
-    }
-
-    [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
-    {
-        void* next = AlignTo((uint8_t*)m_slider + a_size, (uintptr_t)a_alignment);
-
+        const void* next = AlignTo((uint8_t*)m_slider + a_size, (uintptr_t)a_alignment);
         if (next >= (uint8_t*)m_end)
         {
             m_slider = m_memory;
         }
 
-        IDEFER(m_slider = (uint8_t*)m_slider + a_size);
+        void* basePtr = AlignTo((uint8_t*)m_slider, (uintptr_t)a_alignment);
+        IDEFER(m_slider = (uint8_t*)basePtr + a_size);
 
-        return m_slider;
+        return basePtr;
     }
-};
+}
 
 ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

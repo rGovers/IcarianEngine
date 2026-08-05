@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Rendering/AnimationControllerBindings.h"
@@ -7,9 +7,9 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Core/IcarianDefer.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
 #include "DeletionQueue.h"
 #include "FileCache.h"
 #include "IcarianError.h"
@@ -46,8 +46,8 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
-    const COWU8String path = COWU8String(str, MallocAllocator::Instance);
-    const COWU8String ext = IO::GetExtension(path, MallocAllocator::Instance);
+    const IcarianCore::COWU8String path = IcarianCore::COWU8String(str, IcarianCore::MallocAllocator::Instance);
+    const IcarianCore::COWU8String ext = IO::GetExtension(path, IcarianCore::MallocAllocator::Instance);
 
     RuntimeImportBoneData data = { 0 };
 
@@ -60,11 +60,11 @@ RUNTIME_FUNCTION(RuntimeImportBoneData, Skeleton, LoadBoneData,
     {
         FileHandle* handle = FileCache::LoadFile(str);
         IVERIFY(handle != nullptr);
-        IDEFER(MallocAllocator::Instance->Destroy(handle));
+        IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
-        uint8_t* dat = MallocAllocator::Instance->TAllocate<uint8_t>(size);
-        IDEFER(MallocAllocator::Instance->Free(dat));
+        uint8_t* dat = IcarianCore::MallocAllocator::Instance->TAllocate<uint8_t>(size);
+        IDEFER(IcarianCore::MallocAllocator::Instance->Free(dat));
 
         if (handle->Read(dat, size) != size)
         {
@@ -151,8 +151,8 @@ RUNTIME_FUNCTION(MonoArray*, AnimationClip, LoadExternalAnimationData,
     char* str = mono_string_to_utf8(a_path);
     IDEFER(mono_free(str));
 
-    const COWU8String path = COWU8String(str, MallocAllocator::Instance);
-    const COWU8String ext = IO::GetExtension(path, MallocAllocator::Instance);
+    const IcarianCore::COWU8String path = IcarianCore::COWU8String(str, IcarianCore::MallocAllocator::Instance);
+    const IcarianCore::COWU8String ext = IO::GetExtension(path, IcarianCore::MallocAllocator::Instance);
 
     switch (StringHash<uint32_t>(ext.CStr()))
     {
@@ -163,11 +163,11 @@ RUNTIME_FUNCTION(MonoArray*, AnimationClip, LoadExternalAnimationData,
     {
         FileHandle* handle = FileCache::LoadFile(str);
         IVERIFY(handle != nullptr);
-        IDEFER(MallocAllocator::Instance->Destroy(handle));
+        IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(handle));
 
         const uint64_t size = handle->GetSize();
-        uint8_t* dat = MallocAllocator::Instance->TAllocate<uint8_t>(size);
-        IDEFER(MallocAllocator::Instance->Free(dat));
+        uint8_t* dat = IcarianCore::MallocAllocator::Instance->TAllocate<uint8_t>(size);
+        IDEFER(IcarianCore::MallocAllocator::Instance->Free(dat));
 
         if (handle->Read(dat, size) != size)
         {
@@ -188,7 +188,7 @@ RUNTIME_FUNCTION(MonoArray*, AnimationClip, LoadExternalAnimationData,
 
         const aiAnimation* animation = scene->mAnimations[0];
 
-        Array<AnimationDataExternal> dataArray = Array<AnimationDataExternal>(MallocAllocator::Instance);
+        IcarianCore::Array<AnimationDataExternal> dataArray = IcarianCore::Array<AnimationDataExternal>(IcarianCore::MallocAllocator::Instance);
 
         MonoDomain* domain = RuntimeManager::GetDomain();
         MonoClass* frameClass = RuntimeManager::GetClass("IcarianEngine.Rendering.Animation", "AnimaionFrameExternal");
@@ -372,19 +372,19 @@ void AnimationControllerBindings::PushSkeletonBoneData(uint32_t a_addr, uint32_t
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

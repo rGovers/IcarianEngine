@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -30,7 +30,7 @@
     }, IOP_UINT32 a_addr) \
     F(IOP_ARRAY(IOP_VEC3[]), IcarianEngine.AI, NavigationMeshInterop, GetPath, \
     { \
-        const Array<glm::vec3> path = Instance->GetNavMeshPath(a_addr, a_startPoint, a_endPoint, a_agentRadius); \
+        const IcarianCore::Array<glm::vec3> path = Instance->GetNavMeshPath(a_addr, a_startPoint, a_endPoint, a_agentRadius); \
         const uint32_t count = path.Size(); \
         MonoClass* klass = RuntimeManager::GetClass("IcarianEngine.Maths", "Vector3"); \
         MonoDomain* domain = mono_domain_get(); \
@@ -45,19 +45,19 @@
 /// @endcond
 
 // MIT License
-// 
+//
 // Copyright (c) 2024 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

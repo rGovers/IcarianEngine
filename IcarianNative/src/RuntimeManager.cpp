@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Runtime/RuntimeManager.h"
@@ -11,22 +11,22 @@
 #include <mono/utils/mono-dl-fallback.h>
 
 #include "Config.h"
+#include "Core/DataTypes/Allocators/BlockAllocator.h"
+#include "Core/DataTypes/Allocators/LeakAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/MultiSourceAllocator.h"
+#include "Core/DataTypes/Allocators/OSAllocator.h"
+#include "Core/DataTypes/Allocators/TrackerAllocator.h"
+#include "Core/DataTypes/Allocators/UberAllocator.h"
 #include "Core/IcarianDefer.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/Allocators/BlockAllocator.h"
-#include "DataTypes/Allocators/LeakAllocator.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
-#include "DataTypes/Allocators/MultiSourceAllocator.h"
-#include "DataTypes/Allocators/OSAllocator.h"
-#include "DataTypes/Allocators/TrackerAllocator.h"
-#include "DataTypes/Allocators/UberAllocator.h"
 #include "IcarianError.h"
 #include "IO.h"
 #include "Profiler.h"
 #include "Rendering/RenderEngine.h"
 #include "Runtime/RuntimeFunction.h"
 
-static ComplexAllocator* Alloc = nullptr;
+static IcarianCore::ComplexAllocator* Alloc = nullptr;
 static RuntimeManager* Instance = nullptr;
 
 #include "EngineIcarianAssemblyInterop.h"
@@ -40,7 +40,7 @@ ENGINE_ICARIANASSEMBLY_EXPORT_TABLE(RUNTIME_FUNCTION_DEFINITION);
 
 static constexpr char MonoNativeLibName[] = "libmono-native.so";
 static constexpr uint32_t MonoNativeLibNameLength = sizeof(MonoNativeLibName) - 1;
-// Ludum Dare 54 hack 
+// Ludum Dare 54 hack
 static constexpr char MonoNativeBaseName[] = "System.Native";
 static constexpr uint32_t MonoNativeBaseNameLength = sizeof(MonoNativeBaseName) - 1;
 
@@ -51,12 +51,12 @@ static constexpr uint32_t MonoNativeBaseNameLength = sizeof(MonoNativeBaseName) 
 
 static void* RuntimeDLOpen(const char* a_name, int a_flags, char** a_error, void* a_userData)
 {
-    const COWU8String path = RuntimeManager::GetDLLPath(a_name);
+    const IcarianCore::COWU8String path = RuntimeManager::GetDLLPath(a_name);
 
 #ifdef WIN32
     if (!path.Empty())
     {
-        const COWU8String ext = IO::GetExtension(path, Alloc);
+        const IcarianCore:: ext = IO::GetExtension(path, Alloc);
 
         if (ext == ".dll")
         {
@@ -66,14 +66,14 @@ static void* RuntimeDLOpen(const char* a_name, int a_flags, char** a_error, void
 #else
     if (!path.Empty())
     {
-        const COWU8String ext = IO::GetExtension(path, Alloc);
+        const IcarianCore::COWU8String ext = IO::GetExtension(path, Alloc);
 
         if (ext == ".so")
         {
             void* handle = dlopen(path.CStr(), a_flags);
             if (handle == NULL)
             {
-                IERROR(COWU8String("Failed to open DLL: ", MallocAllocator::Instance) + dlerror());
+                IERROR(IcarianCore::COWU8String("Failed to open DLL: ", IcarianCore::MallocAllocator::Instance) + dlerror());
             }
 
             return handle;
@@ -156,7 +156,7 @@ static void* Mono_Calloc(size_t a_count, size_t a_size)
     // Urgh just looked at the spec and alignment is a requirement and Mono wants us to be a malloc allocator
     // This is dumb as we are returning memory larger then was requested worst case N * (RuntimeDefaultAllocationAlignment - 1) bytes extra
     // Normally would look at the library to check if the elements need to be aligned but this is for a C# runtime so can make no assurances so just follow the spec for safety
-    const uint64_t alignedSize = AlignTo((uint64_t)a_size, RuntimeDefaultAllocationAlignment);
+    const uint64_t alignedSize = IcarianCore::AlignTo((uint64_t)a_size, RuntimeDefaultAllocationAlignment);
     const uint64_t finalSize = (uint64_t)a_count * alignedSize;
     return Alloc->ZAllocate(finalSize, RuntimeDefaultAllocationAlignment);
 }
@@ -164,12 +164,12 @@ static void* Mono_Calloc(size_t a_count, size_t a_size)
 RuntimeManager::RuntimeManager(Config* a_config)
 {
     IVERIFY(Alloc == nullptr);
-    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, UberAllocator::Instance);
-    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, UberAllocator::Instance);
+    m_smallAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::BlockAllocator>(SmallAllocatorSize, IcarianCore::UberAllocator::Instance);
+    m_largeAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::BlockAllocator>(LargeAllocatorSize, IcarianCore::UberAllocator::Instance);
 
-    m_allocatorChain = m_smallAllocator->Create<Array<Allocator*>>(m_smallAllocator);
+    m_allocatorChain = m_smallAllocator->Create<IcarianCore::Array<IcarianCore::Allocator*>>(m_smallAllocator);
 
-    const AllocationSource allocatorSources[] =
+    const IcarianCore::AllocationSource allocatorSources[] =
     {
         {
             .Alloc = m_smallAllocator,
@@ -180,19 +180,19 @@ RuntimeManager::RuntimeManager(Config* a_config)
             .MaxSize = LargeAllocatorSize >> 1,
         },
         {
-            .Alloc = OSAllocator::Instance,
+            .Alloc = IcarianCore::OSAllocator::Instance,
             .MaxSize = uint64_t(-1),
         },
     };
 
     constexpr uint32_t AllocatorCount = sizeof(allocatorSources) / sizeof(*allocatorSources);
 
-    Alloc = m_smallAllocator->Create<MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
+    Alloc = m_smallAllocator->Create<IcarianCore::MultiSourceAllocator>(m_smallAllocator, allocatorSources, AllocatorCount);
     m_allocatorChain->Push(Alloc);
 
     if (a_config->IsHeadless())
     {
-        m_trackerAllocator = m_smallAllocator->Create<TrackerAllocator>(Alloc);
+        m_trackerAllocator = m_smallAllocator->Create<IcarianCore::TrackerAllocator>(Alloc);
         Alloc = m_trackerAllocator;
         m_allocatorChain->Push(Alloc);
     }
@@ -200,13 +200,13 @@ RuntimeManager::RuntimeManager(Config* a_config)
 #ifdef DEBUG
     if constexpr (EnableLeakTracking)
     {
-        Alloc = m_smallAllocator->Create<LeakAllocator>(Alloc);
+        Alloc = m_smallAllocator->Create<IcarianCore::LeakAllocator>(Alloc);
 
         m_allocatorChain->Push(Alloc);
     }
 #endif
 
-    m_dllLookup = Alloc->Create<Dictionary<COWU8String, COWU8String>>(Alloc);
+    m_dllLookup = Alloc->Create<IcarianCore::Dictionary<IcarianCore::COWU8String, IcarianCore::COWU8String>>(Alloc);
 
     m_allocatorTable =
     {
@@ -305,28 +305,28 @@ RuntimeManager::~RuntimeManager()
     const uint32_t allocatorChainSize = m_allocatorChain->Size();
     for (uint32_t i = 0; i < allocatorChainSize; ++i)
     {
-        Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
+        IcarianCore::Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
         m_smallAllocator->Destroy(alloc);
     }
 
     m_smallAllocator->Destroy(m_allocatorChain);
 
-    MallocAllocator::Instance->Destroy(m_largeAllocator);
-    MallocAllocator::Instance->Destroy(m_smallAllocator);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_largeAllocator);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_smallAllocator);
 }
 
 void RuntimeManager::Init(Config* a_config)
 {
     if (Instance == nullptr)
     {
-        Instance = MallocAllocator::Instance->Create<RuntimeManager>(a_config);
+        Instance = IcarianCore::MallocAllocator::Instance->Create<RuntimeManager>(a_config);
     }
 }
 void RuntimeManager::Destroy()
 {
     if (Instance != nullptr)
     {
-        MallocAllocator::Instance->Destroy(Instance);
+        IcarianCore::MallocAllocator::Instance->Destroy(Instance);
         Instance = nullptr;
     }
 }
@@ -385,7 +385,7 @@ void RuntimeManager::BindFunction(const char* a_location, void* a_function)
 {
     mono_add_internal_call(a_location, a_function);
 }
-void RuntimeManager::BindFunction(const COWU8String& a_location, void* a_function)
+void RuntimeManager::BindFunction(const IcarianCore::COWU8String& a_location, void* a_function)
 {
     const char* str = a_location.CStr();
     BindFunction(str, a_function);
@@ -398,13 +398,13 @@ void RuntimeManager::AttachThread()
 
 void RuntimeManager::PushDLLPath(const char* a_path)
 {
-    const COWU8String path = COWU8String(a_path, Alloc);
+    const IcarianCore::COWU8String path = IcarianCore::COWU8String(a_path, Alloc);
 
     PushDLLPath(path);
 }
-void RuntimeManager::PushDLLPath(const COWU8String& a_path)
+void RuntimeManager::PushDLLPath(const IcarianCore::COWU8String& a_path)
 {
-    const COWU8String ext = IO::GetExtension(a_path, Alloc);
+    const IcarianCore::COWU8String ext = IO::GetExtension(a_path, Alloc);
     if (!ext.Empty())
     {
         switch (StringHash(ext.CStr()))
@@ -423,42 +423,42 @@ void RuntimeManager::PushDLLPath(const COWU8String& a_path)
         }
     }
 
-    const COWU8String filename = IO::GetFilename(a_path, Alloc);
-    const COWU8String path = COWU8String(a_path, Alloc);
+    const IcarianCore::COWU8String filename = IO::GetFilename(a_path, Alloc);
+    const IcarianCore::COWU8String path = IcarianCore::COWU8String(a_path, Alloc);
 
     Instance->m_dllLookup->Push(filename, path);
 }
-COWU8String RuntimeManager::GetDLLPath(const char* a_path)
+IcarianCore::COWU8String RuntimeManager::GetDLLPath(const char* a_path)
 {
     if (Instance == nullptr)
     {
-        return COWU8String(Alloc);
+        return IcarianCore::COWU8String(Alloc);
     }
 
-    const COWU8String path = COWU8String(a_path, Alloc);
+    const IcarianCore::COWU8String path = IcarianCore::COWU8String(a_path, Alloc);
 
     return GetDLLPath(path);
 }
-COWU8String RuntimeManager::GetDLLPath(const COWU8String& a_path)
+IcarianCore::COWU8String RuntimeManager::GetDLLPath(const IcarianCore::COWU8String& a_path)
 {
     if (Instance == nullptr)
     {
-        return COWU8String(Alloc);
+        return IcarianCore::COWU8String(Alloc);
     }
 
-    const COWU8String filename = IO::GetFilename(a_path, Alloc);
+    const IcarianCore::COWU8String filename = IO::GetFilename(a_path, Alloc);
     if (Instance->m_dllLookup->Exists(filename))
     {
         return Instance->m_dllLookup->GetValue(filename);
     }
 
-    const COWU8String libFilename = "lib" + filename;
+    const IcarianCore::COWU8String libFilename = "lib" + filename;
     if (Instance->m_dllLookup->Exists(libFilename))
     {
         return Instance->m_dllLookup->GetValue(libFilename);
     }
 
-    return COWU8String(Alloc);
+    return IcarianCore::COWU8String(Alloc);
 }
 
 MonoDomain* RuntimeManager::GetDomain()
@@ -470,7 +470,7 @@ MonoClass* RuntimeManager::GetClass(const char* a_namespace, const char* a_name)
 {
     return mono_class_from_name(Instance->m_image, a_namespace, a_name);
 }
-MonoClass* RuntimeManager::GetClass(const COWU8String& a_namespace, const COWU8String& a_name)
+MonoClass* RuntimeManager::GetClass(const IcarianCore::COWU8String& a_namespace, const IcarianCore::COWU8String& a_name)
 {
     const char* ns = a_namespace.CStr();
     const char* n = a_name.CStr();
@@ -489,9 +489,9 @@ RuntimeFunction* RuntimeManager::GetFunction(const char* a_namespace, const char
     MonoMethod* method = mono_method_desc_search_in_class(desc, cls);
     IVERIFY(method != NULL);
 
-    return MallocAllocator::Instance->Create<RuntimeFunction>(method);
+    return IcarianCore::MallocAllocator::Instance->Create<RuntimeFunction>(method);
 }
-RuntimeFunction* RuntimeManager::GetFunction(const COWU8String& a_namespace, const COWU8String& a_class, const COWU8String& a_method)
+RuntimeFunction* RuntimeManager::GetFunction(const IcarianCore::COWU8String& a_namespace, const IcarianCore::COWU8String& a_class, const IcarianCore::COWU8String& a_method)
 {
     const char* ns = a_namespace.CStr();
     const char* c = a_class.CStr();
@@ -501,19 +501,19 @@ RuntimeFunction* RuntimeManager::GetFunction(const COWU8String& a_namespace, con
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

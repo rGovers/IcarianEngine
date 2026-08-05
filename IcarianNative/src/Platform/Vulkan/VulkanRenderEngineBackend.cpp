@@ -8,17 +8,17 @@
 
 #include "AppWindow/AppWindow.h"
 #include "Config.h"
+#include "Core/DataTypes/Allocators/LeakAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/MultiSourceAllocator.h"
+#include "Core/DataTypes/Allocators/OSAllocator.h"
+#include "Core/DataTypes/Allocators/StackAllocator.h"
+#include "Core/DataTypes/Allocators/UberAllocator.h"
+#include "Core/DataTypes/Set.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
 #include "Core/IcarianPragma.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/Allocators/LeakAllocator.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
-#include "DataTypes/Allocators/MultiSourceAllocator.h"
-#include "DataTypes/Allocators/OSAllocator.h"
-#include "DataTypes/Allocators/StackAllocator.h"
-#include "DataTypes/Allocators/UberAllocator.h"
-#include "DataTypes/Set.h"
 #include "Logger.h"
 #include "Profiler.h"
 #include "Rendering/LibRenderDoc.h"
@@ -110,7 +110,7 @@ static VulkanRenderEngineBackend* Instance = nullptr;
 struct ScratchData
 {
     uint32_t Index;
-    StackAllocator* Allocator;
+    IcarianCore::StackAllocator* Allocator;
 };
 
 static TStatic<ScratchData> ScratchAllocator = TStatic<ScratchData>();
@@ -120,7 +120,7 @@ static void InitScratchData()
     if (!ScratchAllocator.Exists())
     {
         uint32_t index;
-        StackAllocator* allocator = Instance->GetStackAllocator(&index);
+        IcarianCore::StackAllocator* allocator = Instance->GetStackAllocator(&index);
 
         const ScratchData data =
         {
@@ -132,7 +132,7 @@ static void InitScratchData()
     }
 }
 
-StackAllocator* RenderScratchAlloc::GetAllocator()
+IcarianCore::StackAllocator* RenderScratchAlloc::GetAllocator()
 {
     InitScratchData();
 
@@ -168,13 +168,13 @@ void RenderScratchAlloc::PopFrame()
 
 void* RenderBlockAlloc::Allocate(uint64_t a_value, uint32_t a_alignment)
 {
-    Allocator* allocator = Instance->GetAllocator();
+    IcarianCore::Allocator* allocator = Instance->GetAllocator();
 
     return allocator->Allocate(a_value, a_alignment);
 }
 void RenderBlockAlloc::Free(void* a_ptr)
 {
-    Allocator* allocator = Instance->GetAllocator();
+    IcarianCore::Allocator* allocator = Instance->GetAllocator();
 
     allocator->Free(a_ptr);
 }
@@ -192,8 +192,7 @@ static VKAPI_ATTR vk::Bool32 VKAPI_CALL DebugCallback
     void* a_userData
 )
 {
-    constexpr static const char* ValidationPrefix = "Vulkan Validation Layer: ";
-    const COWU8String str = COWU8String(ValidationPrefix, MallocAllocator::Instance) + a_callbackData->pMessage;
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String("Vulkan Validation Layer: ", IcarianCore::MallocAllocator::Instance) + a_callbackData->pMessage;
 
     switch (a_msgSeverity)
     {
@@ -225,18 +224,18 @@ static VKAPI_ATTR vk::Bool32 VKAPI_CALL DebugCallback
     return vk::False;
 }
 
-static Array<uint8_t> GetDeviceExtensionSupport
+static IcarianCore::Array<uint8_t> GetDeviceExtensionSupport
 (
     const vk::PhysicalDevice& a_device,
-    const Array<const char*>& a_extensions,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    const IcarianCore::Array<const char*>& a_extensions,
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     const uint32_t size = a_extensions.Size();
     const uint32_t arraySize = (size / 8) + 1;
 
-    Array<uint8_t> mask = Array<uint8_t>(a_allocator);
+    IcarianCore::Array<uint8_t> mask = IcarianCore::Array<uint8_t>(a_allocator);
     // Array zeros memory so defaults to false
     mask.Resize(arraySize);
 
@@ -267,11 +266,16 @@ static Array<uint8_t> GetDeviceExtensionSupport
     return mask;
 }
 
-static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, const Array<const char*>& a_extensions, Allocator* a_tempAllocator)
+static bool CheckDeviceExtensionSupport
+(
+    const vk::PhysicalDevice& a_device,
+    const IcarianCore::Array<const char*>& a_extensions,
+    IcarianCore::Allocator* a_tempAllocator
+)
 {
     const uint32_t size = a_extensions.Size();
 
-    const Array<uint8_t> support = GetDeviceExtensionSupport(a_device, a_extensions, a_tempAllocator, a_tempAllocator);
+    const IcarianCore::Array<uint8_t> support = GetDeviceExtensionSupport(a_device, a_extensions, a_tempAllocator, a_tempAllocator);
     for (uint32_t i = 0; i < size; ++i)
     {
         const uint32_t index = i / 8;
@@ -285,10 +289,10 @@ static bool CheckDeviceExtensionSupport(const vk::PhysicalDevice& a_device, cons
 
     return true;
 }
-static uint32_t GetDeviceExtensionScore(const vk::PhysicalDevice& a_device, Allocator* a_tempAllocator)
+static uint32_t GetDeviceExtensionScore(const vk::PhysicalDevice& a_device, IcarianCore::Allocator* a_tempAllocator)
 {
-    const Array<const char*> optionalArray = Array<const char*>(OptionalDeviceExtensions, OptionalDeviceExtensionCount, a_tempAllocator);
-    const Array<uint8_t> support = GetDeviceExtensionSupport(a_device, optionalArray, a_tempAllocator, a_tempAllocator);
+    const IcarianCore::Array<const char*> optionalArray = IcarianCore::Array<const char*>(OptionalDeviceExtensions, OptionalDeviceExtensionCount, a_tempAllocator);
+    const IcarianCore::Array<uint8_t> support = GetDeviceExtensionSupport(a_device, optionalArray, a_tempAllocator, a_tempAllocator);
 
     uint32_t score = 0;
     for (uint32_t i = 0; i < OptionalDeviceExtensionCount; ++i)
@@ -306,9 +310,9 @@ static bool IsDeviceSuitable
 (
     const vk::Instance& a_instance,
     const vk::PhysicalDevice& a_device,
-    const Array<const char*>& a_extensions,
+    const IcarianCore::Array<const char*>& a_extensions,
     AppWindow* a_window,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     const vk::PhysicalDeviceProperties properties = a_device.getProperties();
@@ -382,7 +386,7 @@ static bool IsDeviceSuitable
     return features.samplerAnisotropy;
 }
 
-static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device, Allocator* a_tempAllocator)
+static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device, IcarianCore::Allocator* a_tempAllocator)
 {
     const vk::PhysicalDeviceProperties properties = a_device.getProperties();
 
@@ -438,7 +442,7 @@ static uint32_t GetDeviceScore(const vk::PhysicalDevice& a_device, Allocator* a_
     return score;
 }
 
-static bool CheckValidationLayerSupport(Allocator* a_tempAllocator)
+static bool CheckValidationLayerSupport(IcarianCore::Allocator* a_tempAllocator)
 {
     uint32_t layerCount = 0;
     VKRESERR(vk::enumerateInstanceLayerProperties(&layerCount, nullptr));
@@ -464,11 +468,11 @@ NextIter:;
     return true;
 }
 
-static Array<const char*> GetRequiredExtensions(const AppWindow* a_window, Allocator* a_allocator)
+static IcarianCore::Array<const char*> GetRequiredExtensions(const AppWindow* a_window, IcarianCore::Allocator* a_allocator)
 {
-    Array<const char*> extensions = Array<const char*>(a_allocator);
+    IcarianCore::Array<const char*> extensions = IcarianCore::Array<const char*>(a_allocator);
 
-    const Array<const char*> windowExtensions = a_window->GetRequiredVulkanExtenions();
+    const IcarianCore::Array<const char*> windowExtensions = a_window->GetRequiredVulkanExtenions();
 
     extensions.Reserve(windowExtensions.Size() + 32);
     for (const char* str : windowExtensions)
@@ -494,12 +498,12 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     m_trackerAllocator = nullptr;
 
-    m_smallAllocator = MallocAllocator::Instance->Create<BlockAllocator>(SmallAllocatorSize, UberAllocator::Instance);
-    m_largeAllocator = MallocAllocator::Instance->Create<BlockAllocator>(LargeAllocatorSize, UberAllocator::Instance);
+    m_smallAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::BlockAllocator>(SmallAllocatorSize, IcarianCore::UberAllocator::Instance);
+    m_largeAllocator = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::BlockAllocator>(LargeAllocatorSize, IcarianCore::UberAllocator::Instance);
 
-    m_allocatorChain = m_smallAllocator->Create<Array<Allocator*>>(m_smallAllocator);
+    m_allocatorChain = m_smallAllocator->Create<IcarianCore::Array<IcarianCore::Allocator*>>(m_smallAllocator);
 
-    const AllocationSource allocationSources[] =
+    const IcarianCore::AllocationSource allocationSources[] =
     {
         {
             .Alloc = m_smallAllocator,
@@ -510,14 +514,14 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
             .MaxSize = LargeAllocatorSize >> 1,
         },
         {
-            .Alloc = OSAllocator::Instance,
+            .Alloc = IcarianCore::OSAllocator::Instance,
             .MaxSize = uint64_t(-1),
         }
     };
 
     constexpr uint32_t AllocationSourceCount = sizeof(allocationSources) / sizeof(*allocationSources);
 
-    m_allocator = m_smallAllocator->Create<MultiSourceAllocator>(m_smallAllocator, allocationSources, AllocationSourceCount);
+    m_allocator = m_smallAllocator->Create<IcarianCore::MultiSourceAllocator>(m_smallAllocator, allocationSources, AllocationSourceCount);
     m_allocatorChain->Push(m_allocator);
 
     const RenderEngine* renderEngine = GetRenderEngine();
@@ -526,22 +530,23 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
     const bool headless = window->IsHeadless();
     if (headless)
     {
-        m_trackerAllocator = m_smallAllocator->Create<TrackerAllocator>(m_allocator);
+        m_trackerAllocator = m_smallAllocator->Create<IcarianCore::TrackerAllocator>(m_allocator);
         m_allocator = m_trackerAllocator;
         m_allocatorChain->Push(m_allocator);
     }
 
 #ifdef DEBUG
-    m_allocator = m_smallAllocator->Create<LeakAllocator>(m_allocator);
+// #if 1
+    m_allocator = m_smallAllocator->Create<IcarianCore::LeakAllocator>(m_allocator);
     m_allocatorChain->Push(m_allocator);
 #endif
 
-    m_deletionAllocator = m_allocator->Create<BlockAllocator>(DeletionAllocatorSize, m_allocator);
+    m_deletionAllocator = m_allocator->Create<IcarianCore::BlockAllocator>(DeletionAllocatorSize, m_allocator);
 
     m_data = m_allocator->ZTAllocate<ClassData>();
     for (uint32_t i = 0; i < VulkanMaxFlightFrames; ++i)
     {
-        m_data->InterSemaphore[i] = Array<vk::Semaphore>(m_allocator);
+        m_data->InterSemaphore[i] = IcarianCore::Array<vk::Semaphore>(m_allocator);
     }
 
     m_data->ImageIndex = -1;
@@ -552,16 +557,16 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     RENDERSCRATCHFRAME;
 
-    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+    IcarianCore::StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     VULKAN_HPP_DEFAULT_DISPATCHER.init((PFN_vkGetInstanceProcAddr)m_data->VulkanLib->vkGetInstanceProcAddr);
 
     const Config* config = renderEngine->GetConfig();
     const bool forceMesh = config->ForceMesh();
 
-    const Array<const char*> enabledLayers = ILAMBDA(
+    const IcarianCore::Array<const char*> enabledLayers = ILAMBDA(
     {
-        Array<const char*> vals = Array<const char*>(scratchAllocator);
+        IcarianCore::Array<const char*> vals = IcarianCore::Array<const char*>(scratchAllocator);
 
         if constexpr (VulkanEnableValidationLayers)
         {
@@ -579,8 +584,8 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         ILRETURN vals;
     });
 
-    const COWU8String applicationName = config->GetApplicationName();
-    const COWU8String applicationVersion = config->GetApplicationVersion();
+    const IcarianCore::COWU8String applicationName = config->GetApplicationName();
+    const IcarianCore::COWU8String applicationVersion = config->GetApplicationVersion();
     const uint32_t appVersionHash = applicationVersion.Hash();
 
     const vk::ApplicationInfo appInfo = vk::ApplicationInfo
@@ -593,7 +598,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         nullptr
     );
 
-    const Array<const char*> reqExtensions = GetRequiredExtensions(window, scratchAllocator);
+    const IcarianCore::Array<const char*> reqExtensions = GetRequiredExtensions(window, scratchAllocator);
 
     constexpr vk::DebugUtilsMessengerCreateInfoEXT DebugCreateInfo = vk::DebugUtilsMessengerCreateInfoEXT
     (
@@ -634,7 +639,7 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
         VKRESERRMSG(m_data->Instance.createDebugUtilsMessengerEXT(&DebugCreateInfo, nullptr, &m_data->Messenger), "Failed to create Vulkan Debug Printing");
     }
 
-    Array<const char*> extensions = Array<const char*>(scratchAllocator);
+    IcarianCore::Array<const char*> extensions = IcarianCore::Array<const char*>(scratchAllocator);
     if (headless)
     {
         for (const char* ext : HeadlessDeviceExtensions)
@@ -669,12 +674,12 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     if (deviceCount <= 0)
     {
-        const COWU8String str = COWU8String
+        const IcarianCore::COWU8String str = IcarianCore::COWU8String
         (
             "No suitable GPU found to run. "
 
             "Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM and Mesh Shader capabilites.",
-            MallocAllocator::Instance
+            IcarianCore::MallocAllocator::Instance
         );
 
         IcarianError(str);
@@ -715,12 +720,12 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     if (m_data->PhysicalDevice == vk::PhysicalDevice(nullptr))
     {
-        const COWU8String str = COWU8String
+        const IcarianCore::COWU8String str = IcarianCore::COWU8String
         (
             "No suitable GPU found to run. "
 
             "Please ensure you have a Vulkan 1.2 capable GPU with greater then 256MB of VRAM and Mesh Shader capabilites.",
-            MallocAllocator::Instance
+            IcarianCore::MallocAllocator::Instance
         );
 
         IcarianError(str);
@@ -728,8 +733,13 @@ VulkanRenderEngineBackend::VulkanRenderEngineBackend(RenderEngine* a_engine) : R
 
     TRACE("Found Vulkan Physical Device");
 
-    const Array<const char*> optionalExtensions = Array<const char*>(OptionalDeviceExtensions, OptionalDeviceExtensionCount, scratchAllocator);
-    const Array<uint8_t> optionalMask = GetDeviceExtensionSupport(m_data->PhysicalDevice, optionalExtensions, scratchAllocator, scratchAllocator);
+    const IcarianCore::Array<const char*> optionalExtensions = IcarianCore::Array<const char*>
+    (
+        OptionalDeviceExtensions,
+        OptionalDeviceExtensionCount,
+        scratchAllocator
+    );
+    const IcarianCore::Array<uint8_t> optionalMask = GetDeviceExtensionSupport(m_data->PhysicalDevice, optionalExtensions, scratchAllocator, scratchAllocator);
 
     constexpr uint32_t OptionalMaskSize = OptionalDeviceExtensionCount / 8 + 1;
     m_data->OptionalExtensionMask = m_allocator->ZTAllocate<uint8_t>(OptionalMaskSize);
@@ -768,7 +778,7 @@ NextExtension:;
     m_data->TimestampPeriod = props.limits.timestampPeriod;
 
     // Did for testing but leaving to make sure nothing weird is happening
-    Logger::Message(COWU8String("Selected GPU: ", MallocAllocator::Instance) + props.deviceName.data());
+    Logger::Message(IcarianCore::COWU8String("Selected GPU: ", IcarianCore::MallocAllocator::Instance) + props.deviceName.data());
 
     m_data->GraphicsQueueIndex = -1;
     m_data->ComputeQueueIndex = -1;
@@ -868,8 +878,8 @@ NextExtension:;
         }
     }
 
-    typedef Set<uint32_t> UniqueQueueFamilyT;
-    const Set<uint32_t> uniqueQueueFamilies = ILAMBDA(
+    typedef IcarianCore::Set<uint32_t> UniqueQueueFamilyT;
+    const IcarianCore::Set<uint32_t> uniqueQueueFamilies = ILAMBDA(
     {
         UniqueQueueFamilyT vals = UniqueQueueFamilyT(scratchAllocator);
 
@@ -891,8 +901,8 @@ NextExtension:;
 
     IVERIFY(!uniqueQueueFamilies.Empty());
 
-    typedef Array<vk::DeviceQueueCreateInfo> QueueCreateInfoT;
-    const Array<vk::DeviceQueueCreateInfo> queueCreateInfos = ILAMBDA(
+    typedef IcarianCore::Array<vk::DeviceQueueCreateInfo> QueueCreateInfoT;
+    const IcarianCore::Array<vk::DeviceQueueCreateInfo> queueCreateInfos = ILAMBDA(
     {
         // Compiler has no idea how to resolve the template in a macro so have to use a typedef
         QueueCreateInfoT vals = QueueCreateInfoT(scratchAllocator);
@@ -1144,14 +1154,14 @@ VulkanRenderEngineBackend::~VulkanRenderEngineBackend()
     const uint32_t allocatorChainSize = m_allocatorChain->Size();
     for (uint32_t i = 0; i < allocatorChainSize; ++i)
     {
-        Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
+        IcarianCore::Allocator* alloc = (*m_allocatorChain)[allocatorChainSize - i - 1];
         m_smallAllocator->Destroy(alloc);
     }
 
     m_smallAllocator->Destroy(m_allocatorChain);
 
-    MallocAllocator::Instance->Destroy(m_smallAllocator);
-    MallocAllocator::Instance->Destroy(m_largeAllocator);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_smallAllocator);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_largeAllocator);
 
     LibRenderDoc::Destroy();
 
@@ -1190,7 +1200,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     LibRenderDoc::StartFrame();
     IDEFER(LibRenderDoc::EndFrame());
 
-    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+    IcarianCore::StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     vk::Semaphore lastSemaphore;
     {
@@ -1213,7 +1223,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
     const VulkanCommandBuffer computeCommandBuffer = m_data->ComputeEngine->Update(a_delta, a_time, m_data->CurrentFrame);
     const vk::CommandBuffer vulkanComputeBuffer = computeCommandBuffer.GetCommandBuffer();
 
-    const Array<VulkanCommandBuffer> commandBuffers = m_data->GraphicsEngine->Update(a_delta, a_time, m_data->CurrentFrame);
+    const IcarianCore::Array<VulkanCommandBuffer> commandBuffers = m_data->GraphicsEngine->Update(a_delta, a_time, m_data->CurrentFrame);
 
     Profiler::StartFrame("Render Setup");
 
@@ -1251,10 +1261,10 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
         // TODO: Investigate why it is a regression on some and an improvement on others suspect resource contention
         RENDERSCRATCHFRAME;
 
-        Array<Array<VulkanCommandBuffer>> commandBuckets = Array<Array<VulkanCommandBuffer>>(scratchAllocator);
+        IcarianCore::Array<IcarianCore::Array<VulkanCommandBuffer>> commandBuckets = IcarianCore::Array<IcarianCore::Array<VulkanCommandBuffer>>(scratchAllocator);
         commandBuckets.Reserve(buffersSize);
 
-        Array<VulkanCommandBuffer> currentBucket = Array<VulkanCommandBuffer>(scratchAllocator);
+        IcarianCore::Array<VulkanCommandBuffer> currentBucket = IcarianCore::Array<VulkanCommandBuffer>(scratchAllocator);
         uint32_t currentBucketSlot = -1;
         for (const VulkanCommandBuffer& buffer : commandBuffers)
         {
@@ -1348,7 +1358,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
                 ILRETURN vals;
             });
 
-            const ThreadGuard l = ThreadGuard(m_graphicsQueueLock);
+            const IcarianCore::ThreadGuard l = IcarianCore::ThreadGuard(m_graphicsQueueLock);
 
             constexpr vk::PipelineStageFlags ChainFlags = vk::PipelineStageFlagBits::eAllCommands;
 
@@ -1395,7 +1405,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
                 const vk::Semaphore curSemaphore = m_data->InterSemaphore[m_data->CurrentFlightFrame][i];
                 IDEFER(lastSemaphore = curSemaphore);
 
-                const Array<VulkanCommandBuffer>& buffers = commandBuckets[i];
+                const IcarianCore::Array<VulkanCommandBuffer>& buffers = commandBuckets[i];
                 const uint32_t commandBufferCount = buffers.Size();
 
                 const vk::CommandBuffer* commandBuffers = ILAMBDA(
@@ -1547,7 +1557,7 @@ void VulkanRenderEngineBackend::Update(double a_delta, double a_time)
         PROFILESTACK("Reset Scratch Allocators");
         // With the Scratch allocators can sometimes be used by scripting threads so need to wait on them to finish
         // I clear the TStatic because not all thread may need a scratch allocator and prefer hand them out as needed
-        const ThreadGuard g = ThreadGuard(m_scratchLock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
         for (uint32_t i = 0; i < m_data->ScratchIndex; ++i)
         {
@@ -1606,7 +1616,7 @@ public:
 };
 
 // TODO: Down the line setup return VulkanCommandBuffers as TLockObj
-TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBufferLevel a_level, e_CommandIndex a_index)
+TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* VulkanRenderEngineBackend::CreateCommandBuffer(vk::CommandBufferLevel a_level, e_CommandIndex a_index)
 {
     IVERIFY(a_index < CommandIndex_Last);
 
@@ -1617,7 +1627,7 @@ TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::CreateCommandB
         1
     );
 
-    TLockObj<vk::CommandBuffer, SpinLock>* lockObj = m_allocator->Create<TLockObj<vk::CommandBuffer, SpinLock>>(&m_graphicsQueueLock);
+    TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* lockObj = m_allocator->Create<TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>>(&m_graphicsQueueLock);
 
     vk::CommandBuffer cmdBuffer;
     VKRESERRMSG(m_data->LogicalDevice.allocateCommandBuffers(&allocInfo, &cmdBuffer), "Failed to Allocate Command Buffer");
@@ -1626,7 +1636,7 @@ TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::CreateCommandB
 
     return lockObj;
 }
-void VulkanRenderEngineBackend::DestroyCommandBuffer(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer, e_CommandIndex a_index)
+void VulkanRenderEngineBackend::DestroyCommandBuffer(TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* a_buffer, e_CommandIndex a_index)
 {
     IVERIFY(a_index < CommandIndex_Last);
     IDEFER(m_allocator->Destroy(a_buffer));
@@ -1636,9 +1646,9 @@ void VulkanRenderEngineBackend::DestroyCommandBuffer(TLockObj<vk::CommandBuffer,
     PushDeletionObject<VulkanCommandBufferDeletionObject>(m_data->LogicalDevice, m_data->CommandPools[a_index], buffer);
 }
 
-TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::BeginSingleCommand(e_CommandIndex a_index)
+TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* VulkanRenderEngineBackend::BeginSingleCommand(e_CommandIndex a_index)
 {
-    TLockObj<vk::CommandBuffer, SpinLock>* buffer = CreateCommandBuffer(vk::CommandBufferLevel::ePrimary, a_index);
+    TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* buffer = CreateCommandBuffer(vk::CommandBufferLevel::ePrimary, a_index);
     const vk::CommandBuffer cmdBuffer = buffer->Get();
 
     constexpr vk::CommandBufferBeginInfo BufferBeginInfo = vk::CommandBufferBeginInfo
@@ -1650,7 +1660,7 @@ TLockObj<vk::CommandBuffer, SpinLock>* VulkanRenderEngineBackend::BeginSingleCom
 
     return buffer;
 }
-void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, SpinLock>* a_buffer, e_CommandIndex a_index)
+void VulkanRenderEngineBackend::EndSingleCommand(TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* a_buffer, e_CommandIndex a_index)
 {
     IDEFER(DestroyCommandBuffer(a_buffer));
 
@@ -1876,7 +1886,7 @@ void VulkanRenderEngineBackend::IncrementScratchFrame(uint32_t a_index)
 
     if (m_data->ScratchAllocators[a_index].Count == 0)
     {
-        const SharedThreadGuard g = SharedThreadGuard(m_scratchLock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_scratchLock);
 
         TLockArray<RenderScratchAllocator> a = m_data->ScratchAllocators.ToLockArray();
 
@@ -1902,17 +1912,17 @@ void VulkanRenderEngineBackend::DecrementScratchFrame(uint32_t a_index)
     --(a[a_index].Count);
 }
 
-StackAllocator* VulkanRenderEngineBackend::GetStackAllocator(uint32_t* a_index)
+IcarianCore::StackAllocator* VulkanRenderEngineBackend::GetStackAllocator(uint32_t* a_index)
 {
     IVERIFY(a_index != nullptr);
 
-    const ThreadGuard g = ThreadGuard(m_scratchLock);
+    const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_scratchLock);
 
     const uint32_t index = m_data->ScratchIndex++;
 
     if (m_data->ScratchIndex >= m_data->ScratchAllocators.Size())
     {
-        StackAllocator* allocator = m_allocator->Create<StackAllocator>(ScratchAllocatorSize, m_allocator);
+        IcarianCore::StackAllocator* allocator = m_allocator->Create<IcarianCore::StackAllocator>(ScratchAllocatorSize, m_allocator);
 
         const RenderScratchAllocator data =
         {

@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -76,9 +76,9 @@ public:
     }
 };
 
-static Array<vk::PipelineShaderStageCreateInfo> GetStageInfo(const RenderProgram& a_program, bool a_meshEnabled, Allocator* a_allocator)
+static IcarianCore::Array<vk::PipelineShaderStageCreateInfo> GetStageInfo(const RenderProgram& a_program, bool a_meshEnabled, IcarianCore::Allocator* a_allocator)
 {
-    Array<vk::PipelineShaderStageCreateInfo> stages = Array<vk::PipelineShaderStageCreateInfo>(a_allocator);
+    IcarianCore::Array<vk::PipelineShaderStageCreateInfo> stages = IcarianCore::Array<vk::PipelineShaderStageCreateInfo>(a_allocator);
 
     IVERIFY(a_program.Data != nullptr);
     const VulkanRenderProgramBlob* blob = (VulkanRenderProgramBlob*)a_program.Data;
@@ -90,7 +90,7 @@ static Array<vk::PipelineShaderStageCreateInfo> GetStageInfo(const RenderProgram
 
     if (a_program.VertexShader != uint32_t(-1))
     {
-        switch (a_program.MaterialMode) 
+        switch (a_program.MaterialMode)
         {
         case MaterialMode_BaseVertex:
         {
@@ -334,7 +334,7 @@ constexpr static vk::PrimitiveTopology GetPrimitiveMode(e_PrimitiveMode a_mode)
     return vk::PrimitiveTopology::eTriangleList;
 }
 
-constexpr static vk::Format GetFormat(const VertexInputAttribute& a_attrib) 
+constexpr static vk::Format GetFormat(const VertexInputAttribute& a_attrib)
 {
     switch (a_attrib.Type)
     {
@@ -421,7 +421,14 @@ constexpr static vk::Format GetFormat(const VertexInputAttribute& a_attrib)
     return vk::Format::eUndefined;
 }
 
-VulkanPipeline::VulkanPipeline(vk::Pipeline a_pipeline, VulkanRenderEngineBackend* a_engine, VulkanGraphicsEngine* a_gEngine, uint32_t a_programAddr, e_VulkanPipelineType a_type)
+VulkanPipeline::VulkanPipeline
+(
+    vk::Pipeline a_pipeline,
+    VulkanRenderEngineBackend* a_engine,
+    VulkanGraphicsEngine* a_gEngine,
+    uint32_t a_programAddr,
+    e_VulkanPipelineType a_type
+)
 {
     m_pipeline = a_pipeline;
 
@@ -564,7 +571,7 @@ void VulkanPipeline::CreateComputePipeline(VulkanPipeline* a_out, const VulkanGr
     new (a_out) VulkanPipeline(pipeline, a_builder.Engine, a_builder.GraphicsEngine, a_builder.ProgramAddr, VulkanPipelineType_Compute);
 }
 
-void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder, Allocator* a_tempAllocator)
+void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder, IcarianCore::Allocator* a_tempAllocator)
 {
     TRACE("Creating Vulkan Pipeline");
     const vk::Device device = a_builder.Engine->GetLogicalDevice();
@@ -762,7 +769,7 @@ void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsP
 
     const vk::PipelineColorBlendAttachmentState colorBlendAttachment = ILAMBDA(
     {
-        switch (program.ColorBlendMode) 
+        switch (program.ColorBlendMode)
         {
         case MaterialBlendMode_None:
         {
@@ -859,7 +866,7 @@ void VulkanPipeline::CreatePipeline(VulkanPipeline* a_out, const VulkanGraphicsP
         colorBlendAttachments
     );
 
-    const Array<vk::PipelineShaderStageCreateInfo> shaderStages = GetStageInfo
+    const IcarianCore::Array<vk::PipelineShaderStageCreateInfo> shaderStages = GetStageInfo
     (
         program,
         meshEnabled,
@@ -973,7 +980,7 @@ void VulkanPipeline::CreateMeshComputePipeline(VulkanPipeline* a_out, const Vulk
     );
 }
 
-void VulkanPipeline::CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder, Allocator* a_tempAllocator)
+void VulkanPipeline::CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGraphicsPipelineBuilder& a_builder, IcarianCore::Allocator* a_tempAllocator)
 {
     // TODO: Support using mesh shaders
     TRACE("Creating Vulkan Shadow Pipeline");
@@ -1183,19 +1190,19 @@ void VulkanPipeline::CreateShadowPipeline(VulkanPipeline* a_out, const VulkanGra
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

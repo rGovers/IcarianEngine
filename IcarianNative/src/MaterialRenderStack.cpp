@@ -1,16 +1,15 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Rendering/MaterialRenderStack.h"
 
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
-#include "DataTypes/Allocators/Allocator.h"
 #include "IcarianError.h"
 #include "Rendering/RenderBuffers.h"
 
-MaterialRenderStack::MaterialRenderStack(Allocator* a_allocator, const ModelRenderBuffer& a_renderBuffer)
+MaterialRenderStack::MaterialRenderStack(IcarianCore::Allocator* a_allocator, const ModelRenderBuffer& a_renderBuffer)
 {
     m_allocator = a_allocator;
 
@@ -38,7 +37,7 @@ MaterialRenderStack::MaterialRenderStack(Allocator* a_allocator, const ModelRend
 
     m_renderStackMode = RenderStackMode_Model;
 }
-MaterialRenderStack::MaterialRenderStack(Allocator* a_allocator, const SkinnedModelRenderBuffer& a_renderBuffer)
+MaterialRenderStack::MaterialRenderStack(IcarianCore::Allocator* a_allocator, const SkinnedModelRenderBuffer& a_renderBuffer)
 {
     m_allocator = a_allocator;
 
@@ -74,7 +73,7 @@ MaterialRenderStack::MaterialRenderStack(Allocator* a_allocator, const SkinnedMo
 
     m_renderStackMode = RenderStackMode_Skinned;
 }
-MaterialRenderStack::MaterialRenderStack(Allocator* a_allocator, const MeshRenderBuffer& a_renderBuffer)
+MaterialRenderStack::MaterialRenderStack(IcarianCore::Allocator* a_allocator, const MeshRenderBuffer& a_renderBuffer)
 {
     m_allocator = a_allocator;
 
@@ -380,7 +379,7 @@ bool MaterialRenderStack::Add(const SkinnedModelRenderBuffer& a_renderBuffer)
         return false;
     }
 
-    const ModelBuffer buffer = 
+    const ModelBuffer buffer =
     {
         .ModelAddr = a_renderBuffer.ModelAddr,
         .TransformCount = 1,
@@ -513,7 +512,7 @@ bool MaterialRenderStack::Add(const MeshRenderBuffer& a_renderBuffer)
         return false;
     }
 
-    const ModelBuffer buffer = 
+    const ModelBuffer buffer =
     {
         .IndexCount = a_renderBuffer.IndexCount,
         .ModelAddr = a_renderBuffer.MeshAddr,
@@ -604,19 +603,19 @@ bool MaterialRenderStack::Remove(const MeshRenderBuffer& a_renderBuffer)
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

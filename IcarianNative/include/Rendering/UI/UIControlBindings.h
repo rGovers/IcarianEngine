@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -7,7 +7,7 @@
 #define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
-#include "DataTypes/COWString.h"
+#include "Core/DataTypes/COWString.h"
 
 class RuntimeManager;
 class UIControl;
@@ -49,9 +49,9 @@ public:
     e_ElementState GetElementState(uint32_t a_addr) const;
 
     uint32_t CreateTextElement() const;
-    COWU32String GetTextElementText(uint32_t a_addr) const;
-    void SetTextElementText(uint32_t a_addr, const CharU32* a_text) const;
-    void SetTextElementText(uint32_t a_addr, const COWU32String& a_text) const;
+    IcarianCore::COWU32String GetTextElementText(uint32_t a_addr) const;
+    void SetTextElementText(uint32_t a_addr, const IcarianCore::CharU32* a_text) const;
+    void SetTextElementText(uint32_t a_addr, const IcarianCore::COWU32String& a_text) const;
     uint32_t GetTextElementFont(uint32_t a_addr) const;
     void SetTextElementFont(uint32_t a_addr, uint32_t a_fontAddr) const;
     float GetTextElementFontSize(uint32_t a_addr) const;
@@ -63,19 +63,19 @@ public:
 };
 
 // MIT License
-// 
-// Copyright (c) 2024 River Govers
-// 
+//
+// Copyright (c) 2026 River Govers
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Audio/AudioEngineBindings.h"
@@ -8,10 +8,10 @@
 #include "Audio/AudioClips/WAVAudioClip.h"
 #include "Audio/AudioEngine.h"
 #include "Core/Bitfield.h"
+#include "Core/DataTypes/Allocators/ComplexAllocator.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
 #include "Core/StringUtils.h"
-#include "DataTypes/Allocators/ComplexAllocator.h"
 #include "IcarianError.h"
 #include "IO.h"
 #include "Runtime/RuntimeManager.h"
@@ -47,19 +47,19 @@ AudioEngineBindings::~AudioEngineBindings()
 
 uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const char* a_path) const
 {
-    const COWU8String str = COWU8String(a_path, m_engine->m_allocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, m_engine->m_allocator);
 
     return GenerateAudioClipFromFile(str);
 }
-uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const COWU8String& a_path) const
+uint32_t AudioEngineBindings::GenerateAudioClipFromFile(const IcarianCore::COWU8String& a_path) const
 {
     IERRBLOCK;
 
     TRACE("Creating AudioClip");
 
-    const COWU8String ext = IO::GetExtension(a_path, m_engine->m_allocator);
+    const IcarianCore::COWU8String ext = IO::GetExtension(a_path, m_engine->m_allocator);
 
-    Allocator* allocator = m_engine->GetAllocator();
+    IcarianCore::Allocator* allocator = m_engine->GetAllocator();
     AudioClip* clip = ILAMBDA(
     {
         switch (StringHash<uint32_t>(ext.CStr()))
@@ -95,7 +95,7 @@ void AudioEngineBindings::DestroyAudioClip(uint32_t a_addr) const
     IVERIFY(m_engine->m_audioClips.Exists(a_addr));
 
     TRACE("Destroying AudioClip");
-    Allocator* allocator = m_engine->GetAllocator();
+    IcarianCore::Allocator* allocator = m_engine->GetAllocator();
 
     AudioClip* clip = m_engine->m_audioClips[a_addr];
     IDEFER(allocator->Destroy(clip));
@@ -218,7 +218,7 @@ void AudioEngineBindings::SetAudioSourceBuffer(uint32_t a_addr, const AudioSourc
 uint32_t AudioEngineBindings::GenerateAudioMixer() const
 {
     TRACE("Creating AudioMixer");
-    const AudioMixerBuffer buffer = 
+    const AudioMixerBuffer buffer =
     {
         .Gain = 1.0f
     };
@@ -248,7 +248,7 @@ void AudioEngineBindings::SetAudioMixerBuffer(uint32_t a_addr, const AudioMixerB
 uint32_t AudioEngineBindings::GenerateAudioListener(uint32_t a_transformAddr) const
 {
     TRACE("Creating AudioListener");
-    const AudioListenerBuffer buffer 
+    const AudioListenerBuffer buffer
     {
         .TransformAddr = a_transformAddr
     };
@@ -264,19 +264,19 @@ void AudioEngineBindings::DestroyAudioListener(uint32_t a_addr) const
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -7,13 +7,13 @@
 #include <thread>
 #include <unordered_map>
 
-#include "DataTypes/ThreadGuard.h"
+#include "Core/DataTypes/ThreadGuard.h"
 
 template<typename T>
 class TStatic
 {
 private:
-    SharedSpinLock                          m_lock;
+    IcarianCore::SharedSpinLock             m_lock;
     std::unordered_map<std::thread::id, T*> m_data;
 
 protected:
@@ -21,14 +21,14 @@ protected:
 public:
     TStatic()
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         m_data = std::unordered_map<std::thread::id, T*>();
     }
     TStatic(const TStatic& a_other)
     {
-        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard otherG = IcarianCore::ThreadGuard(a_other.m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         m_data = a_other.m_data;
     }
@@ -39,8 +39,8 @@ public:
 
     TStatic& operator =(const TStatic& a_other)
     {
-        const ThreadGuard otherG = ThreadGuard(a_other.m_lock);
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard otherG = IcarianCore::ThreadGuard(a_other.m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         for (auto iter = m_data.begin(); iter != m_data.end(); ++iter)
         {
@@ -53,19 +53,19 @@ public:
         m_data = a_other.m_data;
     }
 
-    inline T& operator*() 
+    inline T& operator*()
     {
         const std::thread::id id = std::this_thread::get_id();
 
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
         return *(m_data[id]);
     }
-    inline T* operator->() 
+    inline T* operator->()
     {
         const std::thread::id id = std::this_thread::get_id();
 
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
         return m_data[id];
     }
@@ -75,8 +75,8 @@ public:
         const std::thread::id id = std::this_thread::get_id();
 
         T* d = new T(a_data);
-        
-        const ThreadGuard g = ThreadGuard(m_lock);
+
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         auto iter = m_data.find(id);
         if (iter != m_data.end())
@@ -101,7 +101,7 @@ public:
     {
         const std::thread::id id = std::this_thread::get_id();
 
-        const SharedThreadGuard g = SharedThreadGuard(m_lock);
+        const IcarianCore::SharedThreadGuard g = IcarianCore::SharedThreadGuard(m_lock);
 
         const auto iter = m_data.find(id);
         if (iter != m_data.end())
@@ -116,7 +116,7 @@ public:
     {
         const std::thread::id id = std::this_thread::get_id();
 
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         const auto iter = m_data.find(id);
         if (iter != m_data.end())
@@ -129,7 +129,7 @@ public:
 
     void Clear()
     {
-        const ThreadGuard g = ThreadGuard(m_lock);
+        const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(m_lock);
 
         for (auto iter = m_data.begin(); iter != m_data.end(); ++iter)
         {
@@ -141,19 +141,19 @@ public:
 };
 
 // MIT License
-// 
-// Copyright (c) 2024 River Govers
-// 
+//
+// Copyright (c) 2026 River Govers
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

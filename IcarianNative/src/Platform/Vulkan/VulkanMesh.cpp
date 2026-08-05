@@ -41,18 +41,6 @@ public:
     }
 };
 
-template<typename T>
-constexpr static T Align(T a_offset)
-{
-    unsigned int alignOffset = a_offset % 16;
-    if (alignOffset != 0)
-    {
-        alignOffset = 16 - alignOffset;
-    }
-
-    return a_offset + alignOffset;
-}
-
 VulkanMesh::VulkanMesh
 (
     VulkanRenderEngineBackend* a_engine,
@@ -81,21 +69,21 @@ VulkanMesh::VulkanMesh
     const uint32_t mtSize = a_meshTriangleCount * sizeof(uint8_t) * 3;
     const uint32_t mbSize = a_meshletCount * sizeof(IcarianCore::ShaderMeshletBuffer);
 
-    m_meshletVertexOffset = (vk::DeviceSize)Align(vbSize);
+    m_meshletVertexOffset = (vk::DeviceSize)IcarianCore::AlignTo(vbSize, 16);
     const vk::DeviceSize mvEnd = m_meshletVertexOffset + mvSize;
-    m_meshletTriangleOffset = Align(mvEnd);
+    m_meshletTriangleOffset = IcarianCore::AlignTo(mvEnd, 16);
     const vk::DeviceSize mtEnd = m_meshletTriangleOffset + mtSize;
-    m_meshletOffset = Align(mtEnd);
+    m_meshletOffset = IcarianCore::AlignTo(mtEnd, 16);
     const vk::DeviceSize end = m_meshletOffset + mbSize;
 
-    const vk::DeviceSize bufferSize = Align(end);
+    const vk::DeviceSize bufferSize = IcarianCore::AlignTo(end, 16);
 
-    const unsigned int vDiff = (unsigned int)(m_meshletVertexOffset - vbSize);
-    const unsigned int mvDiff = (unsigned int)(m_meshletTriangleOffset - mvEnd);
-    const unsigned int mtDiff = (unsigned int)(m_meshletOffset - mtEnd);
-    const unsigned int mDiff = (unsigned int)(bufferSize - end);
+    const uint32_t vDiff = (uint32_t)(m_meshletVertexOffset - vbSize);
+    const uint32_t mvDiff = (uint32_t)(m_meshletTriangleOffset - mvEnd);
+    const uint32_t mtDiff = (uint32_t)(m_meshletOffset - mtEnd);
+    const uint32_t mDiff = (uint32_t)(bufferSize - end);
 
-    TLockObj<vk::CommandBuffer, SpinLock>* cmdBuffer = m_engine->BeginSingleCommand();
+    TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* cmdBuffer = m_engine->BeginSingleCommand();
     IDEFER(m_engine->EndSingleCommand(cmdBuffer));
 
     const vk::CommandBuffer cmd = cmdBuffer->Get();

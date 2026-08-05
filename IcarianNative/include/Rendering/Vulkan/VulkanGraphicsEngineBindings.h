@@ -1,20 +1,18 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
 
-#include <string_view>
-
 class RuntimeFunction;
 class VulkanGraphicsEngine;
 class VulkanPixelShader;
 class VulkanVertexShader;
 
+#include "Core/DataTypes/COWString.h"
 #include "Core/ShaderBuffers.h"
-#include "DataTypes/COWString.h"
 #include "Rendering/CameraBuffer.h"
 
 #include "EngineAmbientLightInteropStructures.h"
@@ -27,7 +25,7 @@ class VulkanVertexShader;
 #include "EngineTextureSamplerInteropStructures.h"
 
 // Before someone tries to get rid of this compiler seems to be pretty good at optimizing this out so until shown otherwise I'm going to leave it
-// Just glue code to get back into C++ style code from 
+// Just glue code to get back into C++ style code from
 // Goes from C# -> Preprocessor written code -> C++
 class VulkanGraphicsEngineBindings
 {
@@ -47,20 +45,20 @@ public:
         return m_userArrayCallback;
     }
 
-    uint32_t GenerateFComputeShaderAddr(const COWU8String& a_str) const;
-    void AddComputeShaderImport(const COWU8String& a_key, const COWU8String& a_value) const;
+    uint32_t GenerateFComputeShaderAddr(const IcarianCore::COWU8String& a_str) const;
+    void AddComputeShaderImport(const IcarianCore::COWU8String& a_key, const IcarianCore::COWU8String& a_value) const;
     void DestroyComputeShader(uint32_t a_addr) const;
 
-    uint32_t GenerateFVertexShaderAddr(const COWU8String& a_str) const;
-    void AddVertexShaderImport(const COWU8String& a_key, const COWU8String& a_value) const;
+    uint32_t GenerateFVertexShaderAddr(const IcarianCore::COWU8String& a_str) const;
+    void AddVertexShaderImport(const IcarianCore::COWU8String& a_key, const IcarianCore::COWU8String& a_value) const;
     void DestroyVertexShader(uint32_t a_addr) const;
 
-    uint32_t GenerateFMeshShaderAddr(const COWU8String& a_str) const;
-    void AddMeshShaderImport(const COWU8String& a_key, const COWU8String& a_value) const;
+    uint32_t GenerateFMeshShaderAddr(const IcarianCore::COWU8String& a_str) const;
+    void AddMeshShaderImport(const IcarianCore::COWU8String& a_key, const IcarianCore::COWU8String& a_value) const;
     void DestroyMeshShader(uint32_t a_addr) const;
 
-    uint32_t GenerateFPixelShaderAddr(const COWU8String& a_str) const;
-    void AddPixelShaderImport(const COWU8String& a_key, const COWU8String& a_value) const;
+    uint32_t GenerateFPixelShaderAddr(const IcarianCore::COWU8String& a_str) const;
+    void AddPixelShaderImport(const IcarianCore::COWU8String& a_key, const IcarianCore::COWU8String& a_value) const;
     void DestroyPixelShader(uint32_t a_addr) const;
 
     uint32_t GenerateShaderProgram(const RenderProgram& a_program) const;
@@ -178,7 +176,7 @@ public:
     void SetSpotLightShadowMap(uint32_t a_addr, uint32_t a_shadowMapAddr) const;
     uint32_t GetSpotLightShadowMap(uint32_t a_addr) const;
 
-    uint32_t GenerateFont(const std::string_view& a_path) const;
+    uint32_t GenerateFont(const IcarianCore::COWU8String& a_path) const;
     void DestroyFont(uint32_t a_addr) const;
 
     uint32_t GenerateCanvasRenderer() const;
@@ -198,7 +196,8 @@ public:
     void BlitMTRT(uint32_t a_srcAddr, uint32_t a_index, uint32_t a_dstAddr) const;
     void DrawMaterial() const;
     void DrawModel(const glm::mat4& a_transform, uint32_t a_addr) const;
-    void MarkerStart(const std::string_view& a_name) const;
+    void MarkerStart(const char* a_name) const;
+    void MarkerStart(const IcarianCore::COWU8String& a_name) const;
     void MarkerEnd() const;
 
     void SetLightSplits(const LightShadowSplit* a_splits, uint32_t a_splitCount) const;
@@ -207,19 +206,19 @@ public:
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

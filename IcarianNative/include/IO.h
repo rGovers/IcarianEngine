@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "DataTypes/COWString.h"
+#include "Core/DataTypes/COWString.h"
 
 class IO
 {
@@ -13,19 +13,24 @@ private:
 protected:
 
 public:
-    static COWU8String GetFilename(const COWU8String& a_path, Allocator* a_allocator);
-    static COWU8String GetExtension(const COWU8String& a_path, Allocator* a_allocator);
+    static IcarianCore::COWU8String GetFilename(const IcarianCore::COWU8String& a_path, IcarianCore::Allocator* a_allocator);
+    static IcarianCore::COWU8String GetExtension(const IcarianCore::COWU8String& a_path, IcarianCore::Allocator* a_allocator);
 
-    static COWU8String NormalizePath(const char* a_path, Allocator* a_allocator);
-    static COWU8String NormalizePath(const CharU8* a_path, Allocator* a_allocator);
-    static COWU8String NormalizePath(const COWU8String& a_path, Allocator* a_allocator);
+    static IcarianCore::COWU8String NormalizePath(const char* a_path, IcarianCore::Allocator* a_allocator);
+    static IcarianCore::COWU8String NormalizePath(const IcarianCore::CharU8* a_path, IcarianCore::Allocator* a_allocator);
+    static IcarianCore::COWU8String NormalizePath(const IcarianCore::COWU8String& a_path, IcarianCore::Allocator* a_allocator);
 
-    static COWU8String GetTemporaryDirectory(Allocator* a_allocator);
-    static COWU8String GetCurrentDirectory(Allocator* a_allocator);
+    static IcarianCore::COWU8String GetTemporaryDirectory(IcarianCore::Allocator* a_allocator);
+    static IcarianCore::COWU8String GetCurrentDirectory(IcarianCore::Allocator* a_allocator);
 
-    static COWU8String CombinePath(const char* a_lhs, const char* a_rhs, Allocator* a_allocator);
-    static COWU8String CombinePath(const CharU8* a_lhs, const CharU8* a_rhs, Allocator* a_allocator);
-    static COWU8String CombinePath(const COWU8String& a_lhs, const COWU8String& a_rhs, Allocator* a_allocator);
+    static IcarianCore::COWU8String CombinePath(const char* a_lhs, const char* a_rhs, IcarianCore::Allocator* a_allocator);
+    static IcarianCore::COWU8String CombinePath(const IcarianCore::CharU8* a_lhs, const IcarianCore::CharU8* a_rhs, IcarianCore::Allocator* a_allocator);
+    static IcarianCore::COWU8String CombinePath
+    (
+        const IcarianCore::COWU8String& a_lhs,
+        const IcarianCore::COWU8String& a_rhs,
+        IcarianCore::Allocator* a_allocator
+    );
 };
 
 // MIT License

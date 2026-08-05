@@ -1,128 +1,48 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
-#pragma once
+#include "Core/DataTypes/Allocators/BlockAllocator.h"
 
-#include "DataTypes/Allocators/ComplexAllocator.h"
-
-#ifdef __linux__
-#if defined (__GNUC__) && !defined (__clang__)
-#include <cxxabi.h>
-#endif
-#endif
-
-#include <cstring>
 #include <limits>
 
-#include "Core/Bitfield.h"
+#include "Core/DataTypes/ThreadGuard.h"
 #include "Core/IcarianDefer.h"
-#include "DataTypes/SpinLock.h"
-#include "DataTypes/ThreadGuard.h"
-#include "IcarianError.h"
-#include "IcarianMemory.h"
-#include "Trace.h"
 
 ICARIAN_PUSH_FASTALLOCTOR
 
-// First time implementing an allocator that is not just a ring so please forgive me for the mess
-// Should probably have looked at existing allocators but fuck it we wing it in this house
-class BlockAllocator : public ComplexAllocator
+namespace IcarianCore
 {
-private:
-    struct AllocationHeader
+    BlockAllocator::BlockAllocator(uint32_t a_blockSize, Allocator* a_upstreamAllocator)
     {
-        constexpr static uint32_t FreeFlagBit = 0;
+        ICARIAN_ASSERT_R(a_blockSize > OverHeadSize);
 
-#ifdef DEBUG
-        uintptr_t CanaryA;
-#endif
-        uint32_t Flags;
-        uint32_t BlockOffset;
-        uint32_t PrevOffset;
-        uint32_t NextOffset;
-#ifdef DEBUG
-        uintptr_t CanaryB;
-#endif
-    };
+        m_upstreamAllocator = a_upstreamAllocator;
 
-    struct BlockHeader
-    {
-#ifdef DEBUG
-        uintptr_t CanaryA;
-#endif
-        BlockHeader* Next;
-        AllocationHeader* Free;
-        AllocationHeader* First;
-        SpinLock Lock;
-#ifdef DEBUG
-        uintptr_t CanaryB;
-#endif
-    };
-
-    // Annoying that I have to use a 16 byte alignment but who am I to argue with Intel and the C++ standard
-    constexpr static uint32_t OverHeadSize = sizeof(BlockHeader) + sizeof(AllocationHeader) * 2 + BaseAlignment;
-    constexpr static uint32_t BacktraceSize = 16;
-    constexpr static uint64_t CanaryValue = 0xCCCCCCCCCCCCCCCC;
-
-    Allocator*   m_upstreamAllocator;
-
-    BlockHeader* m_block;
-    uint32_t     m_blockSize;
-
-    static AllocationHeader* AllocationFromPointer(const void* a_ptr)
-    {
-        return (AllocationHeader*)((uint8_t*)a_ptr - sizeof(AllocationHeader));
+        m_blockSize = a_blockSize;
+        m_block = AllocateBlock();
     }
-
-    static AllocationHeader* GetFirstAllocation(const BlockHeader* a_header)
+    BlockAllocator::~BlockAllocator()
     {
-        if (a_header->First != NULL)
+        BlockHeader* block = m_block;
+        while (block != NULL)
         {
-            return a_header->First;
+            BlockHeader* next = block->Next;
+            IDEFER(block = next);
+
+            VerifyBlock(block);
+
+            ICARIAN_ASSERT_MSG_R(IsBlockFree(block), "Block leaked memory");
+
+            FreeBlock(block);
         }
-
-        const void* allocPtr = AlignTo((uint8_t*)a_header + sizeof(BlockHeader), BaseAlignment);
-
-        return (AllocationHeader*)allocPtr;
     }
 
-    static AllocationHeader* NextAllocation(const AllocationHeader* a_header)
-    {
-        if (a_header->NextOffset == 0)
-        {
-            return NULL;
-        }
-
-        return (AllocationHeader*)((uint8_t*)a_header + a_header->NextOffset);
-    }
-    static AllocationHeader* PrevAllocation(const AllocationHeader* a_header)
-    {
-        if (a_header->PrevOffset == 0)
-        {
-            return NULL;
-        }
-
-        return (AllocationHeader*)((uint8_t*)a_header - a_header->PrevOffset);
-    }
-
-    static bool VerifyAllocation(const AllocationHeader* a_header)
-    {
-#ifdef DEBUG
-        if (a_header->CanaryA != CanaryValue || a_header->CanaryB != CanaryValue)
-        {
-            return false;
-        }
-#endif
-
-        return true;
-    }
-
-    static void SetHeaderOffsets(AllocationHeader* a_prevHeader, AllocationHeader* a_nextHeader)
+    void BlockAllocator::SetHeaderOffsets(AllocationHeader* a_prevHeader, AllocationHeader* a_nextHeader)
     {
         if (a_prevHeader != NULL && a_nextHeader != NULL)
         {
-            IVERIFY(a_nextHeader > a_prevHeader);
+            ICARIAN_ASSERT(a_nextHeader > a_prevHeader);
         }
 
         const uint32_t offset = (uint32_t)((uintptr_t)a_nextHeader - (uintptr_t)a_prevHeader);
@@ -147,14 +67,14 @@ private:
             }
         }
     }
-    static void SetCanary(AllocationHeader* a_header)
+    void BlockAllocator::SetCanary(AllocationHeader* a_header)
     {
 #ifdef DEBUG
         a_header->CanaryA = CanaryValue;
         a_header->CanaryB = CanaryValue;
 #endif
     }
-    static void ClearCanary(AllocationHeader* a_header)
+    void BlockAllocator::ClearCanary(AllocationHeader* a_header)
     {
 #ifdef DEBUG
         a_header->CanaryA = 0;
@@ -162,45 +82,25 @@ private:
 #endif
     }
 
-    static void VerifyBlock(const BlockHeader* a_header)
+    void BlockAllocator::VerifyBlock(const BlockHeader* a_header)
     {
 #ifdef DEBUG
-        if (a_header->CanaryA != CanaryValue || a_header->CanaryB != CanaryValue)
-        {
-            IERROR("Corrupted block header");
-        }
+        ICARIAN_ASSERT(a_header->CanaryA == CanaryValue);
+        ICARIAN_ASSERT(a_header->CanaryB == CanaryValue);
 
         const AllocationHeader* allocHeader = GetFirstAllocation(a_header);
-
         while (allocHeader != NULL)
         {
             IDEFER(allocHeader = NextAllocation(allocHeader));
 
-            IVERIFY(VerifyAllocation(allocHeader));
+            ICARIAN_ASSERT(VerifyAllocation(allocHeader));
         }
 #endif
     }
 
-    static bool IsBlockFree(const BlockHeader* a_header)
+    BlockAllocator::BlockHeader* BlockAllocator::AllocateBlock()
     {
-        const AllocationHeader* allocHeader = GetFirstAllocation(a_header);
-        while (allocHeader != NULL)
-        {
-            IDEFER(allocHeader = NextAllocation(allocHeader));
-
-            if (!IISBITSET(allocHeader->Flags, AllocationHeader::FreeFlagBit))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    BlockHeader* AllocateBlock()
-    {
-        void* ptr = m_upstreamAllocator->Allocate((uint64_t)m_blockSize, BaseAlignment);
-        memset(ptr, 0, (size_t)m_blockSize);
+        void* ptr = m_upstreamAllocator->ZAllocate((uint64_t)m_blockSize, alignof(BlockHeader));
 
         BlockHeader* header = (BlockHeader*)ptr;
 #ifdef DEBUG
@@ -208,7 +108,7 @@ private:
         header->CanaryB = CanaryValue;
 #endif
 
-        void* allocPtr = AlignTo((uint8_t*)ptr + sizeof(BlockHeader), BaseAlignment);
+        void* allocPtr = AlignTo((uint8_t*)ptr + sizeof(BlockHeader), alignof(AllocationHeader));
         AllocationHeader* allocHeader = (AllocationHeader*)allocPtr;
         SetCanary(allocHeader);
         ISETBIT(allocHeader->Flags, AllocationHeader::FreeFlagBit);
@@ -218,63 +118,30 @@ private:
 
         return header;
     }
-
-    void FreeBlock(BlockHeader* a_block)
+    void BlockAllocator::FreeBlock(BlockHeader* a_block)
     {
         m_upstreamAllocator->Free(a_block);
     }
 
-protected:
-
-public:
-    BlockAllocator(uint32_t a_blockSize, Allocator* a_upstreamAllocator)
+    void* BlockAllocator::Allocate(uint64_t a_size, uint32_t a_alignment)
     {
-        if (a_blockSize < OverHeadSize)
-        {
-            IERROR("Block too small");
-        }
-
-        m_upstreamAllocator = a_upstreamAllocator;
-
-        m_blockSize = a_blockSize;
-        m_block = AllocateBlock();
-    }
-    virtual ~BlockAllocator()
-    {
-        BlockHeader* block = m_block;
-        while (block != NULL)
-        {
-            BlockHeader* next = block->Next;
-            IDEFER(block = next);
-
-            VerifyBlock(block);
-
-            if (!IsBlockFree(block))
-            {
-                IERROR("Block allocator leaked memory");
-            }
-
-            FreeBlock(block);
-        }
-    }
-
-    inline Allocator* GetUpstreamAllocator() const
-    {
-        return m_upstreamAllocator;
-    }
-
-    [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
-    {
-        if (a_size == 0)
+        if (a_size <= 0)
         {
             return nullptr;
         }
 
-        // Seems like a reasonable limit for a single allocation and would be a bug if we hit this
-        if (a_size >= std::numeric_limits<uint32_t>::max())
+        ICARIAN_ASSERT(a_size < std::numeric_limits<uint32_t>::max());
+
+        // Find an alignment that fits both the header and the allocation alignment
+        const uint32_t targetAlignment = ILAMBDA(
         {
-            IERROR("Allocation too large to serve");
-        }
+            if (a_alignment > alignof(AllocationHeader))
+            {
+                ILRETURN AlignTo(a_alignment, alignof(AllocationHeader));
+            }
+
+            ILRETURN (uint32_t)alignof(AllocationHeader);
+        });
 
         BlockHeader* blockHeader = m_block;
         while (true)
@@ -294,7 +161,7 @@ public:
             while (allocationHeader != NULL)
             {
                 AllocationHeader* nextAllocation = NextAllocation(allocationHeader);
-                IVERIFY(allocationHeader != nextAllocation);
+                ICARIAN_ASSERT(allocationHeader != nextAllocation);
                 IDEFER(
                 {
                     prevAllocation = allocationHeader;
@@ -309,15 +176,19 @@ public:
                 if (nextAllocation == NULL)
                 {
                     // If next is NULL we are at the end so move onto another block
-                    const uint64_t usedSize = ((uintptr_t)allocationHeader + (uint64_t)(sizeof(AllocationHeader) * 2) + a_size) - (uintptr_t)blockHeader;
-                    if (usedSize + a_alignment * 2 >= m_blockSize)
+                    const uintptr_t paddedHeaderEnd = AlignTo((uintptr_t)allocationHeader + sizeof(AllocationHeader), (uintptr_t)targetAlignment);
+                    const uintptr_t paddedAllocationEnd = AlignTo(paddedHeaderEnd + a_size, alignof(AllocationHeader));
+                    const uintptr_t paddedSizeEnd = paddedAllocationEnd + sizeof(AllocationHeader);
+
+                    const uint64_t usedSize = (uint64_t)(paddedSizeEnd - (uintptr_t)blockHeader);
+                    if (usedSize >= m_blockSize)
                     {
                         break;
                     }
 
                     // Need to realign the header so that it respects the requested alignment
                     // Always align forwards never backwards as we may overwrite existing memory otherwise
-                    void* ptr = AlignTo((uint8_t*)allocationHeader + sizeof(AllocationHeader), (uintptr_t)a_alignment);
+                    void* ptr = (void*)paddedHeaderEnd;
                     AllocationHeader* correctedHeader = AllocationFromPointer(ptr);
                     IDEFER(SetCanary(correctedHeader));
 
@@ -333,7 +204,7 @@ public:
                         blockHeader->First = correctedHeader;
                     }
 
-                    AllocationHeader* newAllocation = (AllocationHeader*)AlignTo((uint8_t*)ptr + a_size, BaseAlignment);
+                    AllocationHeader* newAllocation = (AllocationHeader*)paddedAllocationEnd;
                     IDEFER(SetCanary(newAllocation));
 
                     SetHeaderOffsets(correctedHeader, newAllocation);
@@ -351,7 +222,7 @@ public:
                     return ptr;
                 }
 
-                void* ptr = AlignTo((uint8_t*)allocationHeader + sizeof(AllocationHeader), (uintptr_t)a_alignment);
+                void* ptr = AlignTo((uint8_t*)allocationHeader + sizeof(AllocationHeader), (uintptr_t)targetAlignment);
 
                 const uintptr_t size = (uintptr_t)nextAllocation - (uintptr_t)ptr;
                 if (size < a_size)
@@ -381,27 +252,24 @@ public:
                 {
                     if (blockHeader->Free == allocationHeader)
                     {
-                        AllocationHeader* nextFree = NULL;
                         AllocationHeader* iter = NextAllocation(allocationHeader);
                         while (iter != NULL)
                         {
                             if (IISBITSET(iter->Flags, AllocationHeader::FreeFlagBit))
                             {
-                                nextFree = iter;
+                                blockHeader->Free = iter;
 
                                 break;
                             }
 
                             iter = NextAllocation(iter);
                         }
-
-                        blockHeader->Free = nextFree;
                     }
 
                     return ptr;
                 }
 
-                AllocationHeader* newHeader = (AllocationHeader*)AlignTo((uint8_t*)ptr + a_size, BaseAlignment);
+                AllocationHeader* newHeader = (AllocationHeader*)AlignTo((uint8_t*)ptr + a_size, alignof(AllocationHeader));
                 IDEFER(SetCanary(newHeader));
 
                 SetHeaderOffsets(correctedHeader, newHeader);
@@ -427,8 +295,7 @@ public:
             blockHeader = blockHeader->Next;
         }
     }
-
-    virtual void Free(void* a_ptr)
+    void BlockAllocator::Free(void* a_ptr)
     {
         if (a_ptr == nullptr)
         {
@@ -436,7 +303,7 @@ public:
         }
 
         AllocationHeader* header = AllocationFromPointer(a_ptr);
-        IVERIFY(VerifyAllocation(header));
+        ICARIAN_ASSERT(VerifyAllocation(header));
 
         BlockHeader* blockHeader = (BlockHeader*)((uint8_t*)header - header->BlockOffset);
         const ThreadGuard g = ThreadGuard(blockHeader->Lock);
@@ -444,15 +311,15 @@ public:
         AllocationHeader* nextAllocation = NextAllocation(header);
         if (nextAllocation != NULL)
         {
-            IVERIFY(VerifyAllocation(nextAllocation));
+            ICARIAN_ASSERT(VerifyAllocation(nextAllocation));
         }
         AllocationHeader* prevAllocation = PrevAllocation(header);
         if (prevAllocation != NULL)
         {
-            IVERIFY(VerifyAllocation(prevAllocation));
+            ICARIAN_ASSERT(VerifyAllocation(prevAllocation));
         }
 
-        IVERIFY(!IISBITSET(header->Flags, AllocationHeader::FreeFlagBit));
+        ICARIAN_ASSERT(!IISBITSET(header->Flags, AllocationHeader::FreeFlagBit));
 
         AllocationHeader* firstHeader = GetFirstAllocation(blockHeader);
         if (firstHeader == header)
@@ -482,7 +349,7 @@ public:
             nextNeighbour = NextAllocation(nextAllocation);
             if (nextNeighbour != NULL)
             {
-                IVERIFY(VerifyAllocation(nextNeighbour));
+                ICARIAN_ASSERT(VerifyAllocation(nextNeighbour));
             }
 
             SetHeaderOffsets(header, nextNeighbour);
@@ -515,10 +382,7 @@ public:
             blockHeader->Free = header;
         }
     }
-
-    // Have the data to implement realloc so just do it
-    // NOTE: This is not thread safe
-    [[nodiscard]] virtual void* Realloc(void* a_ptr, uint64_t a_size, uint32_t a_alignment)
+    void* BlockAllocator::Realloc(void* a_ptr, uint64_t a_size, uint32_t a_alignment)
     {
         if (a_ptr == nullptr)
         {
@@ -526,21 +390,18 @@ public:
         }
 
         // Seems like a reasonable limit for a single allocation and would be a bug if we hit this
-        if (a_size >= std::numeric_limits<uint32_t>::max())
-        {
-            IERROR("Allocation too large to serve");
-        }
+        ICARIAN_ASSERT(a_size < std::numeric_limits<uint32_t>::max());
 
         void* headerPtr = (uint8_t*)a_ptr - sizeof(AllocationHeader);
         AllocationHeader* header = (AllocationHeader*)headerPtr;
-        IVERIFY(VerifyAllocation(header));
+        ICARIAN_ASSERT(VerifyAllocation(header));
 
         // If the allocation is valid there should be another header after the allocation
-        IVERIFY(header->NextOffset >= sizeof(AllocationHeader));
-        IVERIFY(!IISBITSET(header->Flags, AllocationHeader::FreeFlagBit));
+        ICARIAN_ASSERT(header->NextOffset >= sizeof(AllocationHeader));
+        ICARIAN_ASSERT(!IISBITSET(header->Flags, AllocationHeader::FreeFlagBit));
 
         const uint64_t size = (uint64_t)header->NextOffset - sizeof(AllocationHeader);
-        if (size >= a_size)
+        if (size >= a_size && IsAligned((uint8_t*)a_ptr, (uintptr_t)a_alignment))
         {
             // Still have room so just return the same pointer
             return a_ptr;
@@ -554,7 +415,7 @@ public:
         return nextPtr;
     }
 
-    void TrimBlocks()
+    void BlockAllocator::TrimBlocks()
     {
         BlockHeader* prev = m_block;
         BlockHeader* block = prev->Next;
@@ -584,29 +445,24 @@ public:
             block = next;
         }
     }
-
-    inline uint64_t GetBlockSize() const
-    {
-        return m_blockSize;
-    }
-};
+}
 
 ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

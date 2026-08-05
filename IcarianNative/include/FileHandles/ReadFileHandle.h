@@ -8,7 +8,7 @@
 
 #include <cstdio>
 
-#include "DataTypes/COWString.h"
+#include "Core/DataTypes/COWString.h"
 
 class ReadFileHandle : public FileHandle
 {
@@ -29,7 +29,7 @@ public:
     virtual bool Ignore(uint64_t a_size);
     virtual bool EndOfFile() const;
 
-    static ReadFileHandle* OpenFile(const COWU8String& a_path);
+    static ReadFileHandle* OpenFile(const IcarianCore::COWU8String& a_path);
 };
 
 // MIT License

@@ -1,11 +1,11 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Rendering/UI/UIControl.h"
 
 #include "Core/Bitfield.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "IcarianError.h"
 #include "Logger.h"
 #include "Rendering/UI/UIControlBindings.h"
@@ -17,7 +17,7 @@ UIControl* UIControl::Instance = nullptr;
 
 UIControl::UIControl()
 {
-    m_bindings = MallocAllocator::Instance->Create<UIControlBindings>(this);
+    m_bindings = IcarianCore::MallocAllocator::Instance->Create<UIControlBindings>(this);
 
     m_onNormal = RuntimeManager::GetFunction("IcarianEngine.Rendering.UI", "UIElement", ":OnNormalS(uint,uint)");
     m_onHover = RuntimeManager::GetFunction("IcarianEngine.Rendering.UI", "UIElement", ":OnHoverS(uint,uint)");
@@ -26,12 +26,12 @@ UIControl::UIControl()
 }
 UIControl::~UIControl()
 {
-    MallocAllocator::Instance->Destroy(m_onNormal);
-    MallocAllocator::Instance->Destroy(m_onHover);
-    MallocAllocator::Instance->Destroy(m_onPressed);
-    MallocAllocator::Instance->Destroy(m_onReleased);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_onNormal);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_onHover);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_onPressed);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_onReleased);
 
-    MallocAllocator::Instance->Destroy(m_bindings);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_bindings);
 
     for (uint32_t i = 0; i < m_canvas.Size(); ++i)
     {
@@ -44,7 +44,7 @@ UIControl::~UIControl()
         {
             Logger::Warning("CanvasBuffer ChildElements was not deleted");
 
-            MallocAllocator::Instance->Free(m_canvas[i].ChildElements);
+            IcarianCore::MallocAllocator::Instance->Free(m_canvas[i].ChildElements);
         }
     }
 
@@ -54,7 +54,7 @@ UIControl::~UIControl()
         {
             Logger::Warning("UIElement was not deleted");
 
-            MallocAllocator::Instance->Destroy(m_uiElements[i]);
+            IcarianCore::MallocAllocator::Instance->Destroy(m_uiElements[i]);
         }
     }
 }
@@ -63,14 +63,14 @@ void UIControl::Init()
 {
     if (Instance == nullptr)
     {
-        Instance = MallocAllocator::Instance->Create<UIControl>();
+        Instance = IcarianCore::MallocAllocator::Instance->Create<UIControl>();
     }
 }
 void UIControl::Destroy()
 {
     if (Instance != nullptr)
     {
-        MallocAllocator::Instance->Destroy(Instance);
+        IcarianCore::MallocAllocator::Instance->Destroy(Instance);
         Instance = nullptr;
     }
 }
@@ -187,7 +187,7 @@ bool UIControl::SendClick(uint32_t a_canvasAddr, uint32_t a_elementAddr, const g
 
         return true;
     }
-    else 
+    else
     {
         switch (state)
         {
@@ -284,7 +284,7 @@ void UIControl::SendRelease(uint32_t a_canvasAddr, uint32_t a_elementAddr, const
         element->SetState(ElementState_Normal);
 
         void* args[] =
-        { 
+        {
             &a_canvasAddr,
             &a_elementAddr
         };
@@ -311,9 +311,9 @@ void UIControl::UpdateCursor(const glm::vec2& a_pos, const glm::vec2& a_size)
     // we are doing this
     const uint32_t size = Instance->m_canvas.Size();
     const TReadLockArray<CanvasBuffer> a = Instance->m_canvas.ToReadLockArray();
-    const Array<uint8_t> state = Instance->m_canvas.ToPackedStateArray(MallocAllocator::Instance);
+    const IcarianCore::Array<uint8_t> state = Instance->m_canvas.ToPackedStateArray(IcarianCore::MallocAllocator::Instance);
 
-    for (uint32_t i = 0; i < size; ++i) 
+    for (uint32_t i = 0; i < size; ++i)
     {
         const uint32_t index = i / 8;
         const uint32_t offset = i % 8;
@@ -331,9 +331,9 @@ void UIControl::UpdateCursor(const glm::vec2& a_pos, const glm::vec2& a_size)
 
         const uint32_t childCount = canvas.ChildCount;
         const uint32_t* children = canvas.ChildElements;
-        for (uint32_t j = 0; j < childCount; ++j) 
+        for (uint32_t j = 0; j < childCount; ++j)
         {
-            if (children[j] < 0) 
+            if (children[j] < 0)
             {
                 continue;
             }
@@ -349,7 +349,7 @@ bool UIControl::SubmitClick(const glm::vec2& a_pos, const glm::vec2& a_size)
     // we are doing this
     const uint32_t size = Instance->m_canvas.Size();
     const TReadLockArray<CanvasBuffer> a = Instance->m_canvas.ToReadLockArray();
-    const Array<uint8_t> state = Instance->m_canvas.ToPackedStateArray(MallocAllocator::Instance);
+    const IcarianCore::Array<uint8_t> state = Instance->m_canvas.ToPackedStateArray(IcarianCore::MallocAllocator::Instance);
 
     for (uint32_t i = 0; i < size; ++i)
     {
@@ -392,7 +392,7 @@ void UIControl::SubmitRelease(const glm::vec2& a_pos, const glm::vec2& a_size)
     // we doing this
     const uint32_t size = Instance->m_canvas.Size();
     const TReadLockArray<CanvasBuffer> a = Instance->m_canvas.ToReadLockArray();
-    const Array<uint8_t> state = Instance->m_canvas.ToPackedStateArray(MallocAllocator::Instance);
+    const IcarianCore::Array<uint8_t> state = Instance->m_canvas.ToPackedStateArray(IcarianCore::MallocAllocator::Instance);
 
     for (uint32_t i = 0; i < size; ++i)
     {
@@ -425,19 +425,19 @@ void UIControl::SubmitRelease(const glm::vec2& a_pos, const glm::vec2& a_size)
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

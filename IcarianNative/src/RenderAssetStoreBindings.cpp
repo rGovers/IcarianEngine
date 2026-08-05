@@ -1,12 +1,12 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Rendering/RenderAssetStoreBindings.h"
 
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianError.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
 #include "DeletionQueue.h"
 #include "IcarianError.h"
 #include "Rendering/RenderAssetStore.h"
@@ -37,8 +37,8 @@ RUNTIME_FUNCTION(ModelDataStructure, Model, GetModelData,
 
     ModelDataStructure s = { 0 };
 
-    Array<Vertex> vertices = Array<Vertex>(MallocAllocator::Instance);
-    Array<uint32_t> indices = Array<uint32_t>(MallocAllocator::Instance);
+    IcarianCore::Array<Vertex> vertices = IcarianCore::Array<Vertex>(IcarianCore::MallocAllocator::Instance);
+    IcarianCore::Array<uint32_t> indices = IcarianCore::Array<uint32_t>(IcarianCore::MallocAllocator::Instance);
     if (Instance->LoadModelData(str, a_index, &vertices, &indices))
     {
         MonoDomain* domain = mono_domain_get();
@@ -83,11 +83,11 @@ RenderAssetStoreBindings::~RenderAssetStoreBindings()
 
 uint32_t RenderAssetStoreBindings::GenerateFont(const char* a_path) const
 {
-    const COWU8String str = COWU8String(a_path, m_store->m_blockAllocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, m_store->m_blockAllocator);
 
     return GenerateFont(str);
 }
-uint32_t RenderAssetStoreBindings::GenerateFont(const COWU8String& a_path) const
+uint32_t RenderAssetStoreBindings::GenerateFont(const IcarianCore::COWU8String& a_path) const
 {
     IERRBLOCK;
 
@@ -107,20 +107,27 @@ void RenderAssetStoreBindings::DestroyFont(uint32_t a_addr) const
     m_store->m_data->Fonts.Erase(a_addr);
 }
 
-uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, const CharU32* a_str, float a_fontSize, float a_scale, float a_depth) const
+uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, const IcarianCore::CharU32* a_str, float a_fontSize, float a_scale, float a_depth) const
 {
-    const COWU32String str = COWU32String(a_str, m_store->m_blockAllocator);
+    const IcarianCore::COWU32String str = IcarianCore::COWU32String(a_str, m_store->m_blockAllocator);
 
     return GenerateModelFromString(a_addr, str, a_fontSize, a_scale, a_depth);
 }
-uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, const COWU32String& a_str, float a_fontSize, float a_scale, float a_depth) const
+uint32_t RenderAssetStoreBindings::GenerateModelFromString
+(
+    uint32_t a_addr,
+    const IcarianCore::COWU32String& a_str,
+    float a_fontSize,
+    float a_scale,
+    float a_depth
+) const
 {
     IVERIFY(m_store->m_data->Fonts.Exists(a_addr));
 
     const Font* font = m_store->m_data->Fonts[a_addr];
 
-    Array<Vertex> vertices = Array<Vertex>(m_store->m_blockAllocator);
-    Array<uint32_t> indices = Array<uint32_t>(m_store->m_blockAllocator);
+    IcarianCore::Array<Vertex> vertices = IcarianCore::Array<Vertex>(m_store->m_blockAllocator);
+    IcarianCore::Array<uint32_t> indices = IcarianCore::Array<uint32_t>(m_store->m_blockAllocator);
     float radius;
     font->StringToModel(a_str, a_fontSize, a_scale, a_depth, &vertices, &indices, &radius, m_store->m_blockAllocator, m_store->m_blockAllocator);
 
@@ -135,7 +142,7 @@ uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, cons
         return uint32_t(-1);
     }
 
-    const uint32_t indexCount = indices.Size(); 
+    const uint32_t indexCount = indices.Size();
     if (indexCount <= 0)
     {
         return uint32_t(-1);
@@ -152,13 +159,25 @@ uint32_t RenderAssetStoreBindings::GenerateModelFromString(uint32_t a_addr, cons
     );
 }
 
-bool RenderAssetStoreBindings::LoadModelData(const char* a_path, uint32_t a_index, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices) const
+bool RenderAssetStoreBindings::LoadModelData
+(
+    const char* a_path,
+    uint32_t a_index,
+    IcarianCore::Array<Vertex>* a_vertices,
+    IcarianCore::Array<uint32_t>* a_indices
+) const
 {
-    const COWU8String str = COWU8String(a_path, m_store->m_blockAllocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, m_store->m_blockAllocator);
 
     return LoadModelData(str, a_index, a_vertices, a_indices);
 }
-bool RenderAssetStoreBindings::LoadModelData(const COWU8String& a_path, uint32_t a_index, Array<Vertex>* a_vertices, Array<uint32_t>* a_indices) const
+bool RenderAssetStoreBindings::LoadModelData
+(
+    const IcarianCore::COWU8String& a_path,
+    uint32_t a_index,
+    IcarianCore::Array<Vertex>* a_vertices,
+    IcarianCore::Array<uint32_t>* a_indices
+) const
 {
     float rad;
     return m_store->LoadModelData(a_path, (uint8_t)a_index, a_vertices, a_indices, &rad);
@@ -166,61 +185,61 @@ bool RenderAssetStoreBindings::LoadModelData(const COWU8String& a_path, uint32_t
 
 uint32_t RenderAssetStoreBindings::GenerateMesh(const char* a_path, uint32_t a_index) const
 {
-    const COWU8String str = COWU8String(a_path, m_store->m_blockAllocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, m_store->m_blockAllocator);
 
     return GenerateMesh(str, a_index);
 }
-uint32_t RenderAssetStoreBindings::GenerateMesh(const COWU8String& a_path, uint32_t a_index) const
+uint32_t RenderAssetStoreBindings::GenerateMesh(const IcarianCore::COWU8String& a_path, uint32_t a_index) const
 {
     return m_store->LoadMesh(a_path, (uint8_t)a_index);
 }
 
 uint32_t RenderAssetStoreBindings::GenerateModel(const char* a_path, uint32_t a_index) const
 {
-    const COWU8String str = COWU8String(a_path, m_store->m_blockAllocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, m_store->m_blockAllocator);
 
     return GenerateModel(str, a_index);
 }
-uint32_t RenderAssetStoreBindings::GenerateModel(const COWU8String& a_path, uint32_t a_index) const
+uint32_t RenderAssetStoreBindings::GenerateModel(const IcarianCore::COWU8String& a_path, uint32_t a_index) const
 {
     return m_store->LoadModel(a_path, (uint8_t)a_index);
 }
 uint32_t RenderAssetStoreBindings::GenerateSkinnedModel(const char* a_path, uint32_t a_index) const
 {
-    const COWU8String str = COWU8String(a_path, m_store->m_blockAllocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, m_store->m_blockAllocator);
 
     return GenerateSkinnedModel(str, a_index);
 }
-uint32_t RenderAssetStoreBindings::GenerateSkinnedModel(const COWU8String& a_path, uint32_t a_index) const
+uint32_t RenderAssetStoreBindings::GenerateSkinnedModel(const IcarianCore::COWU8String& a_path, uint32_t a_index) const
 {
     return m_store->LoadSkinnedModel(a_path, a_index);
 }
 
 uint32_t RenderAssetStoreBindings::GenerateTexture(const char* a_path) const
 {
-    const COWU8String str = COWU8String(a_path, m_store->m_blockAllocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_path, m_store->m_blockAllocator);
 
     return GenerateTexture(str);
 }
-uint32_t RenderAssetStoreBindings::GenerateTexture(const COWU8String& a_path) const
+uint32_t RenderAssetStoreBindings::GenerateTexture(const IcarianCore::COWU8String& a_path) const
 {
     return m_store->LoadTexture(a_path);
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

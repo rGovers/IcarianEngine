@@ -1,12 +1,12 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
 #include "Rendering/UI/UIElement.h"
 
-#include "DataTypes/COWString.h"
+#include "Core/DataTypes/COWString.h"
 
 class TextUIElement : public UIElement
 {
@@ -14,22 +14,22 @@ private:
     static constexpr uint32_t RefreshBit = 0;
     static constexpr uint32_t ValidBit = 1;
 
-    RenderEngine*  m_lastRenderEngine;
+    RenderEngine*             m_lastRenderEngine;
 
-    COWU32String   m_text;
+    IcarianCore::COWU32String m_text;
 
-    uint32_t       m_textureAddr;
-    uint32_t       m_samplerAddr;
+    uint32_t                  m_textureAddr;
+    uint32_t                  m_samplerAddr;
 
-    float          m_fontSize;
-    uint32_t       m_fontAddr;
+    float                     m_fontSize;
+    uint32_t                  m_fontAddr;
 
-    uint8_t        m_flags;
+    uint8_t                   m_flags;
 
 protected:
 
 public:
-    TextUIElement(Allocator* a_allocator);
+    TextUIElement(IcarianCore::Allocator* a_allocator);
     virtual ~TextUIElement();
 
     virtual e_UIElementType GetType() const
@@ -62,26 +62,26 @@ public:
         return m_flags & 0b1 << ValidBit;
     }
 
-    COWU32String GetText() const;
-    void SetText(const COWU32String& a_text);
+    IcarianCore::COWU32String GetText() const;
+    void SetText(const IcarianCore::COWU32String& a_text);
 
-    virtual void Update(RenderEngine* a_renderEngine, Allocator* a_tempAllocator);
+    virtual void Update(RenderEngine* a_renderEngine, IcarianCore::Allocator* a_tempAllocator);
 };
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

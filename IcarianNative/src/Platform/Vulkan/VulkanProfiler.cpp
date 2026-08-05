@@ -4,9 +4,10 @@
 
 #include "Rendering/Vulkan/VulkanProfiler.h"
 
-#include "DataTypes/Allocators/StackAllocator.h"
+#include "Core/DataTypes/Allocators/StackAllocator.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Profiler.h"
+#include "Trace.h"
 
 static VulkanProfiler* Instance = nullptr;
 
@@ -19,13 +20,13 @@ VulkanProfiler::VulkanProfiler(VulkanRenderEngineBackend* a_engine)
 
     m_init = false;
 
-    ComplexAllocator* allocator = m_engine->GetAllocator();
+    IcarianCore::ComplexAllocator* allocator = m_engine->GetAllocator();
     IVERIFY(allocator != nullptr);
 
-    m_pools = allocator->ZTAllocate<Array<vk::QueryPool>>(VulkanFlightPoolSize);
+    m_pools = allocator->ZTAllocate<IcarianCore::Array<vk::QueryPool>>(VulkanFlightPoolSize);
     for (uint32_t i = 0; i < VulkanFlightPoolSize; ++i)
     {
-        m_pools[i] = Array<vk::QueryPool>(allocator);
+        m_pools[i] = IcarianCore::Array<vk::QueryPool>(allocator);
     }
 
     const vk::Device device = m_engine->GetLogicalDevice();
@@ -83,7 +84,7 @@ VulkanProfiler::~VulkanProfiler()
 {
     const vk::Device device = m_engine->GetLogicalDevice();
 
-    ComplexAllocator* allocator = m_engine->GetAllocator();
+    IcarianCore::ComplexAllocator* allocator = m_engine->GetAllocator();
     IVERIFY(allocator != nullptr);
 
     device.destroy(m_eteCommandPool);
@@ -109,7 +110,7 @@ void VulkanProfiler::Init(VulkanRenderEngineBackend* a_engine)
 {
     if (Instance == nullptr)
     {
-        ComplexAllocator* allocator = a_engine->GetAllocator();
+        IcarianCore::ComplexAllocator* allocator = a_engine->GetAllocator();
 
         Instance = allocator->Create<VulkanProfiler>(a_engine);
     }
@@ -118,7 +119,7 @@ void VulkanProfiler::Destroy()
 {
     if (Instance != nullptr)
     {
-        ComplexAllocator* allocator = Instance->m_engine->GetAllocator();
+        IcarianCore::ComplexAllocator* allocator = Instance->m_engine->GetAllocator();
 
         allocator->Destroy(Instance);
     }
@@ -156,7 +157,8 @@ void VulkanProfiler::Update(uint32_t a_frame)
 
     RENDERSCRATCHFRAME;
 
-    StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
+    IcarianCore::ComplexAllocator* allocator = Instance->m_engine->GetAllocator();
+    IcarianCore::StackAllocator* scratchAllocator = RenderScratchAlloc::GetAllocator();
 
     {
         PROFILESTACK("End to End");
@@ -191,6 +193,10 @@ void VulkanProfiler::Update(uint32_t a_frame)
 
         sortedData = scratchAllocator->ZTAllocate<ProfilerData>(size);
 
+        // This is not too bad as it is still mostly sorted despite not being able to rely upon order
+        // We can play around with reverse iteration if we need more speed
+        // If all else fails can do binary insertion
+        // All these are pointless if this never becomes a bottleneck but
         for (uint32_t i = 0; i < size; ++i)
         {
             const ProfilerData& d = data[i];
@@ -223,6 +229,13 @@ NextData:;
 
         Instance->m_data[a_frame].UClear();
     }
+    IDEFER(
+    {
+        for (uint32_t i = 0; i < size; ++i)
+        {
+            sortedData[i].~ProfilerData();
+        }
+    });
 
     {
         RENDERSCRATCHFRAME;
@@ -233,7 +246,7 @@ NextData:;
         {
             PROFILESTACK("Reading");
 
-            const ThreadGuard g = ThreadGuard(Instance->m_poolLock);
+            const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(Instance->m_poolLock);
 
             for (uint32_t i = 0; i < poolCount; ++i)
             {
@@ -260,11 +273,11 @@ NextData:;
             }
         }
 
-        Array<ProfilerGPUFrameData> frames = Array<ProfilerGPUFrameData>(MallocAllocator::Instance);
+        IcarianCore::Array<ProfilerGPUFrameData> frames = IcarianCore::Array<ProfilerGPUFrameData>(IcarianCore::MallocAllocator::Instance);
         {
             PROFILESTACK("Formatting");
 
-            Array<BufferData> buffers = Array<BufferData>(MallocAllocator::Instance);
+            IcarianCore::Array<BufferData> buffers = IcarianCore::Array<BufferData>(allocator);
             for (uint32_t i = 0; i < size; ++i)
             {
                 const ProfilerData& d = sortedData[i];
@@ -282,7 +295,7 @@ NextData:;
 
                     const float duration = (float)((times[i] - times[b.LastIndex]) * timestampScaleMs);
 
-                    Array<ProfilerGPUFrameItem>& items = frames[b.FrameIndex].Items;
+                    IcarianCore::Array<ProfilerGPUFrameItem>& items = frames[b.FrameIndex].Items;
                     for (ProfilerGPUFrameItem& it : items)
                     {
                         if (it.Name != d.String)
@@ -297,7 +310,7 @@ NextData:;
 
                     items.Push(ProfilerGPUFrameItem
                     {
-                        .Name = COWU8String(d.String, MallocAllocator::Instance),
+                        .Name = IcarianCore::COWU8String(d.String, IcarianCore::MallocAllocator::Instance),
                         .Duration = duration
                     });
 
@@ -331,8 +344,8 @@ NextData:;
                 // We have no past data so we use the 1st element as the label for the pass
                 frames.Push(ProfilerGPUFrameData
                 {
-                    .Name = COWU8String(d.String, MallocAllocator::Instance),
-                    .Items = Array<ProfilerGPUFrameItem>(MallocAllocator::Instance),
+                    .Name = IcarianCore::COWU8String(d.String, IcarianCore::MallocAllocator::Instance),
+                    .Items = IcarianCore::Array<ProfilerGPUFrameItem>(IcarianCore::MallocAllocator::Instance),
                 });
 
     NextFrame:;
@@ -374,7 +387,7 @@ vk::QueryPool VulkanProfiler::GetPool(uint32_t a_frame, uint32_t* a_pool, uint32
 
     const vk::Device device = Instance->m_engine->GetLogicalDevice();
 
-    const ThreadGuard g = ThreadGuard(Instance->m_poolLock);
+    const IcarianCore::ThreadGuard g = IcarianCore::ThreadGuard(Instance->m_poolLock);
 
     if (Instance->m_poolIndex >= Instance->m_pools[a_frame].Size())
     {
@@ -412,7 +425,7 @@ vk::QueryPool VulkanProfiler::GetPool(uint32_t a_frame, uint32_t* a_pool, uint32
     return pool;
 }
 
-void VulkanProfiler::PushPoint(const VulkanCommandBuffer& a_buffer, const COWU8String& a_str, vk::PipelineStageFlagBits a_stage, uint32_t a_frame)
+void VulkanProfiler::PushPoint(const VulkanCommandBuffer& a_buffer, const IcarianCore::COWU8String& a_str, vk::PipelineStageFlagBits a_stage, uint32_t a_frame)
 {
     IVERIFY(Instance != nullptr);
 
@@ -430,13 +443,13 @@ void VulkanProfiler::PushPoint(const VulkanCommandBuffer& a_buffer, const COWU8S
     const vk::CommandBuffer cmd = a_buffer.GetCommandBuffer();
     cmd.writeTimestamp(a_stage, pool, index);
 
-    ComplexAllocator* allocator = Instance->m_engine->GetAllocator();
+    IcarianCore::ComplexAllocator* allocator = Instance->m_engine->GetAllocator();
     IVERIFY(allocator != nullptr);
 
     const ProfilerData data =
     {
         .CommandBuffer = cmd,
-        .String = COWU8String(a_str, allocator),
+        .String = IcarianCore::COWU8String(a_str, allocator),
         .PoolIndex = poolIndex,
         .QueryIndex = index,
     };
@@ -450,20 +463,19 @@ void VulkanProfiler::StartTimingPoint(const VulkanCommandBuffer& a_buffer, const
 
     IVERIFY(Instance != nullptr);
 
-    ComplexAllocator* allocator = Instance->m_engine->GetAllocator();
+    IcarianCore::ComplexAllocator* allocator = Instance->m_engine->GetAllocator();
     IVERIFY(allocator != nullptr);
 
-    const COWU8String str = COWU8String(a_name, allocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_name, allocator);
     StartTimingPoint(a_buffer, str);
 #endif
 }
-void VulkanProfiler::StartTimingPoint(const VulkanCommandBuffer& a_buffer, const COWU8String& a_name)
+void VulkanProfiler::StartTimingPoint(const VulkanCommandBuffer& a_buffer, const IcarianCore::COWU8String& a_name)
 {
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
     IVERIFY(Instance != nullptr);
 
     const uint32_t frame = Instance->m_engine->GetCurrentFrame();
-
     PushPoint(a_buffer, a_name, vk::PipelineStageFlagBits::eTopOfPipe, frame);
 #endif
 }
@@ -475,20 +487,19 @@ void VulkanProfiler::PushTimingPoint(const VulkanCommandBuffer& a_buffer, const 
 
     IVERIFY(Instance != nullptr);
 
-    ComplexAllocator* allocator = Instance->m_engine->GetAllocator();
+    IcarianCore::ComplexAllocator* allocator = Instance->m_engine->GetAllocator();
     IVERIFY(allocator != nullptr);
 
-    const COWU8String str = COWU8String(a_name, allocator);
+    const IcarianCore::COWU8String str = IcarianCore::COWU8String(a_name, allocator);
     PushTimingPoint(a_buffer, str);
 #endif
 }
-void VulkanProfiler::PushTimingPoint(const VulkanCommandBuffer& a_buffer, const COWU8String& a_name)
+void VulkanProfiler::PushTimingPoint(const VulkanCommandBuffer& a_buffer, const IcarianCore::COWU8String& a_name)
 {
 #ifdef ICARIANNATIVE_ENABLE_PROFILER
     IVERIFY(Instance != nullptr);
 
     const uint32_t frame = Instance->m_engine->GetCurrentFrame();
-
     PushPoint(a_buffer, a_name, vk::PipelineStageFlagBits::eBottomOfPipe, frame);
 #endif
 }

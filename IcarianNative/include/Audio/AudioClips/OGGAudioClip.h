@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -9,7 +9,7 @@
 #define STB_VORBIS_HEADER_ONLY
 #include <stb_vorbis.c>
 
-#include "DataTypes/COWString.h"
+#include "Core/DataTypes/COWString.h"
 
 class OGGAudioClip : public AudioClip
 {
@@ -23,7 +23,7 @@ private:
 protected:
 
 public:
-    OGGAudioClip(const COWU8String& a_path);
+    OGGAudioClip(const IcarianCore::COWU8String& a_path);
     virtual ~OGGAudioClip();
 
     virtual float GetDuration() const;
@@ -32,23 +32,23 @@ public:
     virtual uint32_t GetChannelCount() const;
     virtual uint64_t GetSampleSize() const;
 
-    virtual uint8_t* GetAudioData(Allocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize);
+    virtual uint8_t* GetAudioData(IcarianCore::Allocator* a_allocator, uint64_t a_sampleOffset, uint32_t a_sampleSize, uint32_t* a_outSampleSize);
 };
 
 // MIT License
-// 
-// Copyright (c) 2024 River Govers
-// 
+//
+// Copyright (c) 2026 River Govers
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

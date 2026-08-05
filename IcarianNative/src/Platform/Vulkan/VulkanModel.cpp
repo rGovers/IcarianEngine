@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -33,7 +33,7 @@ public:
 
     }
 
-    virtual void Destroy() 
+    virtual void Destroy()
     {
         TRACE("Destroying Model Buffer");
         const VmaAllocator allocator = m_engine->GetVMAAllocator();
@@ -42,19 +42,16 @@ public:
     }
 };
 
-template<typename T>
-constexpr static T Align(T a_offset)
-{
-    unsigned int alignOffset = a_offset % 16;
-    if (alignOffset != 0)
-    {
-        alignOffset = 16 - alignOffset;
-    }
-
-    return a_offset + alignOffset;
-}
-
-VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexCount, const void* a_vertices, uint16_t a_vertexSize, uint32_t a_indexCount, const uint32_t* a_indices, float a_radius)
+VulkanModel::VulkanModel
+(
+    VulkanRenderEngineBackend* a_engine,
+    uint32_t a_vertexCount,
+    const void* a_vertices,
+    uint16_t a_vertexSize,
+    uint32_t a_indexCount,
+    const uint32_t* a_indices,
+    float a_radius
+)
 {
     TRACE("Creating Vulkan Model");
     m_engine = a_engine;
@@ -67,21 +64,21 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
     const uint32_t vbSize = a_vertexCount * a_vertexSize;
     const uint32_t ibSize = a_indexCount * sizeof(uint32_t);
 
-    m_offset = Align(vbSize);
+    m_offset = IcarianCore::AlignTo(vbSize, 16);
 
     const vk::DeviceSize end = (vk::DeviceSize)m_offset + ibSize;
-    const vk::DeviceSize bufferSize = Align(end);
+    const vk::DeviceSize bufferSize = IcarianCore::AlignTo(end, 16);
 
     const unsigned int vDiff = (unsigned int)(m_offset - vbSize);
     const unsigned int iDiff = (unsigned int)(bufferSize - end);
 
-    TLockObj<vk::CommandBuffer, SpinLock>* cmdBuffer = m_engine->BeginSingleCommand();
+    TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* cmdBuffer = m_engine->BeginSingleCommand();
     IDEFER(m_engine->EndSingleCommand(cmdBuffer));
 
     const vk::CommandBuffer cmd = cmdBuffer->Get();
 
     TRACE("Creating Model Buffer");
-    const VkBufferCreateInfo createInfo = 
+    const VkBufferCreateInfo createInfo =
     {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = bufferSize,
@@ -89,8 +86,8 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
 
-    const VmaAllocationCreateInfo allocInfo = 
-    { 
+    const VmaAllocationCreateInfo allocInfo =
+    {
         .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
     };
@@ -136,16 +133,16 @@ VulkanModel::VulkanModel(VulkanRenderEngineBackend* a_engine, uint32_t a_vertexC
         return;
     }
 
-    const VkBufferCreateInfo sCreateInfo = 
-    { 
+    const VkBufferCreateInfo sCreateInfo =
+    {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = bufferSize,
         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
 
-    const VmaAllocationCreateInfo sAllocInfo = 
-    { 
+    const VmaAllocationCreateInfo sAllocInfo =
+    {
         .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
         .usage = VMA_MEMORY_USAGE_AUTO,
     };
@@ -186,19 +183,19 @@ void VulkanModel::Bind(const vk::CommandBuffer& a_cmdBuffer) const
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "Rendering/UI/TextUIElement.h"
@@ -9,7 +9,7 @@
 #include "Rendering/RenderEngine.h"
 #include "Rendering/UI/Font.h"
 
-TextUIElement::TextUIElement(Allocator* a_allocator) : UIElement(a_allocator),
+TextUIElement::TextUIElement(IcarianCore::Allocator* a_allocator) : UIElement(a_allocator),
     m_text(a_allocator)
 {
     m_fontAddr = -1;
@@ -45,20 +45,20 @@ void TextUIElement::SetFontAddr(uint32_t a_addr)
     ISETBIT(m_flags, RefreshBit);
 }
 
-COWU32String TextUIElement::GetText() const
+IcarianCore::COWU32String TextUIElement::GetText() const
 {
     return m_text;
 }
-void TextUIElement::SetText(const COWU32String& a_text)
+void TextUIElement::SetText(const IcarianCore::COWU32String& a_text)
 {
-    Allocator* allocator = GetAllocator();
+    IcarianCore::Allocator* allocator = GetAllocator();
 
-    m_text = COWU32String(a_text, allocator);
+    m_text = IcarianCore::COWU32String(a_text, allocator);
 
     ISETBIT(m_flags, RefreshBit);
 }
 
-void TextUIElement::Update(RenderEngine* a_renderEngine, Allocator* a_tempAllocator)
+void TextUIElement::Update(RenderEngine* a_renderEngine, IcarianCore::Allocator* a_tempAllocator)
 {
     if (IISBITSET(m_flags, RefreshBit) && m_fontAddr != uint32_t(-1))
     {
@@ -107,19 +107,19 @@ void TextUIElement::Update(RenderEngine* a_renderEngine, Allocator* a_tempAlloca
 }
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

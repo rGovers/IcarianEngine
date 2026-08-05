@@ -9,9 +9,9 @@
 #include "AppWindow/AppWindow.h"
 #include "AppWindow/HeadlessAppWindow.h"
 #include "Config.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
 #include "Rendering/Vulkan/VulkanRenderEngineBackend.h"
 #include "Runtime/RuntimeFunction.h"
 #include "Runtime/RuntimeManager.h"
@@ -25,7 +25,7 @@
 #endif
 #endif
 
-static vk::SurfaceFormatKHR GetSurfaceFormatFromFormats(const Array<vk::SurfaceFormatKHR>& a_formats)
+static vk::SurfaceFormatKHR GetSurfaceFormatFromFormats(const IcarianCore::Array<vk::SurfaceFormatKHR>& a_formats)
 {
     for (const vk::SurfaceFormatKHR& format : a_formats)
     {
@@ -52,7 +52,7 @@ static constexpr vk::Extent2D GetSwapExtent(const vk::SurfaceCapabilitiesKHR& a_
     return vk::Extent2D(xExtent, yExtent);
 }
 
-void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator)
+void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height, IcarianCore::Allocator* a_tempAllocator)
 {
     m_mode = SwapchainMode_Application;
 
@@ -293,7 +293,7 @@ void VulkanSwapchain::Init(uint32_t a_width, uint32_t a_height, Allocator* a_tem
         m_images[i] = chainImage;
     }
 }
-void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator)
+void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height, IcarianCore::Allocator* a_tempAllocator)
 {
     m_mode = SwapchainMode_Headless;
 
@@ -495,7 +495,7 @@ void VulkanSwapchain::InitHeadless(uint32_t a_width, uint32_t a_height, Allocato
     VKRESERR(vmaCreateBuffer(allocator, &buffCreateInfo, &allocCreateInfo, &buff, &m_allocBuffer, NULL));
     m_buffer = buff;
 }
-void VulkanSwapchain::InitHeadlessDMA(uint32_t a_width, uint32_t a_height, Allocator* a_tempAllocator)
+void VulkanSwapchain::InitHeadlessDMA(uint32_t a_width, uint32_t a_height, IcarianCore::Allocator* a_tempAllocator)
 {
 #ifdef ICARIANNATIVE_ENABLE_DMA
     m_mode = SwapchainMode_HeadlessDMA;
@@ -862,8 +862,8 @@ VulkanSwapchain::VulkanSwapchain
     VulkanRenderEngineBackend* a_engine,
     AppWindow* a_window,
     const Config* a_config,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     m_allocator = a_allocator;
@@ -900,7 +900,7 @@ VulkanSwapchain::VulkanSwapchain
     if (allowDMA)
     {
 #ifndef WIN32
-        const COWU8String dmaAddr = DMAName + COWU8String::FromValue(m_ipcID, 10, a_tempAllocator);
+        const IcarianCore::COWU8String dmaAddr = DMAName + IcarianCore::COWU8String::FromValue(m_ipcID, 10, a_tempAllocator);
         const int dmaFd = shm_open(dmaAddr.CStr(), O_RDWR, 0);
         if (dmaFd >= 0)
         {
@@ -995,7 +995,7 @@ VulkanSwapchain::~VulkanSwapchain()
 {
     const vk::Device device = m_engine->GetLogicalDevice();
 
-    MallocAllocator::Instance->Destroy(m_resizeFunc);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_resizeFunc);
 
     Destroy();
 
@@ -1009,7 +1009,7 @@ VulkanSwapchain::~VulkanSwapchain()
 
     if (m_dmaBuffer != nullptr)
     {
-        const COWU8String addrStr = DMAName + COWU8String::FromValue(m_ipcID, 10, m_allocator);
+        const IcarianCore::COWU8String addrStr = DMAName + IcarianCore::COWU8String::FromValue(m_ipcID, 10, m_allocator);
         shm_unlink(addrStr.CStr());
     }
 
@@ -1021,8 +1021,8 @@ SwapChainSupportInfo VulkanSwapchain::QuerySwapChainSupport
 (
     const vk::PhysicalDevice& a_device,
     const vk::SurfaceKHR& a_surface,
-    Allocator* a_allocator,
-    Allocator* a_tempAllocator
+    IcarianCore::Allocator* a_allocator,
+    IcarianCore::Allocator* a_tempAllocator
 )
 {
     vk::SurfaceCapabilitiesKHR capabilites;
@@ -1042,10 +1042,10 @@ SwapChainSupportInfo VulkanSwapchain::QuerySwapChainSupport
 
                 VKRESERR(a_device.getSurfaceFormatsKHR(a_surface, &formatCount, formats));
 
-                ILRETURN Array<vk::SurfaceFormatKHR>(formats, formatCount, a_allocator);
+                ILRETURN IcarianCore::Array<vk::SurfaceFormatKHR>(formats, formatCount, a_allocator);
             }
 
-            ILRETURN Array<vk::SurfaceFormatKHR>(a_allocator);
+            ILRETURN IcarianCore::Array<vk::SurfaceFormatKHR>(a_allocator);
         }),
         .PresentModes = ILAMBDA(
         {
@@ -1058,17 +1058,17 @@ SwapChainSupportInfo VulkanSwapchain::QuerySwapChainSupport
 
                 VKRESERR(a_device.getSurfacePresentModesKHR(a_surface, &presentModeCount, modes));
 
-                ILRETURN Array<vk::PresentModeKHR>(modes, presentModeCount, a_allocator);
+                ILRETURN IcarianCore::Array<vk::PresentModeKHR>(modes, presentModeCount, a_allocator);
             }
 
-            ILRETURN Array<vk::PresentModeKHR>(a_allocator);
+            ILRETURN IcarianCore::Array<vk::PresentModeKHR>(a_allocator);
         })
     };
 
     return info;
 }
 
-vk::SurfaceFormatKHR VulkanSwapchain::GetSurfaceFormat(Allocator* a_tempAllocator) const
+vk::SurfaceFormatKHR VulkanSwapchain::GetSurfaceFormat(IcarianCore::Allocator* a_tempAllocator) const
 {
     switch (m_mode)
     {
@@ -1144,7 +1144,7 @@ vk::ImageLayout VulkanSwapchain::GetImageLayout() const
     return vk::ImageLayout();
 }
 
-bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaphore, double a_delta, double a_time, Allocator* a_tempAllocator)
+bool VulkanSwapchain::StartFrame(uint32_t* a_imageIndex, vk::Semaphore* a_semaphore, double a_delta, double a_time, IcarianCore::Allocator* a_tempAllocator)
 {
     *a_semaphore = nullptr;
 
@@ -1399,7 +1399,7 @@ void VulkanSwapchain::EndFrame(uint32_t a_imageIndex)
 
         const vk::Queue graphicsQueue = m_engine->GetGraphicsQueue();
 
-        TLockObj<vk::CommandBuffer, SpinLock>* buffer = m_engine->CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
+        TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* buffer = m_engine->CreateCommandBuffer(vk::CommandBufferLevel::ePrimary);
         IDEFER(m_engine->DestroyCommandBuffer(buffer));
 
         const vk::CommandBuffer cmdBuffer = buffer->Get();

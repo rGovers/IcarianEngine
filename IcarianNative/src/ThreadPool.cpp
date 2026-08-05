@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #include "ThreadPool.h"
@@ -7,9 +7,9 @@
 #include <glm/glm.hpp>
 
 #include "Config.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Core/IcarianDefer.h"
 #include "Core/IcarianLambda.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
 #include "IcarianError.h"
 #include "Logger.h"
 #include "Runtime/RuntimeManager.h"
@@ -22,7 +22,7 @@ static ThreadPool* Instance = nullptr;
 // The lazy part of me won against the part that wants to write clean code
 // My apologies to the poor soul that has to decipher this definition
 #define THREADPOOL_BINDING_FUNCTION_TABLE(F) \
-    F(void, IcarianEngine, ThreadPool, AddJob, { ThreadPool::PushJob(MallocAllocator::Instance->Create<RuntimeThreadJob>(a_objectAddr, (e_JobPriority)a_priority)); }, uint32_t a_objectAddr, uint32_t a_priority) \
+    F(void, IcarianEngine, ThreadPool, AddJob, { ThreadPool::PushJob(IcarianCore::MallocAllocator::Instance->Create<RuntimeThreadJob>(a_objectAddr, (e_JobPriority)a_priority)); }, uint32_t a_objectAddr, uint32_t a_priority) \
     F(uint32_t, IcarianEngine, ThreadPool, GetThreadCount, { return ThreadPool::GetThreadCount(); }) \
     F(uint32_t, IcarianEngine, ThreadPool, GetQueueSize, { return ThreadPool::GetQueueSize(); }) \
     \
@@ -41,8 +41,8 @@ ThreadPool::ThreadPool(uint32_t a_threadCount)
 
     m_threadCount = a_threadCount;
 
-    m_threads = MallocAllocator::Instance->TAllocate<std::thread*>(m_threadCount);
-    m_join = MallocAllocator::Instance->ZTAllocate<bool>(m_threadCount);
+    m_threads = IcarianCore::MallocAllocator::Instance->TAllocate<std::thread*>(m_threadCount);
+    m_join = IcarianCore::MallocAllocator::Instance->ZTAllocate<bool>(m_threadCount);
 
     m_runtimeDispatch = RuntimeManager::GetFunction("IcarianEngine", "ThreadPool", ":Dispatch(uint)");
 }
@@ -59,21 +59,21 @@ ThreadPool::~ThreadPool()
         }
 
         m_threads[i]->join();
-        MallocAllocator::Instance->Destroy(m_threads[i]);
+        IcarianCore::MallocAllocator::Instance->Destroy(m_threads[i]);
     }
 
-    MallocAllocator::Instance->Free(m_threads);
-    MallocAllocator::Instance->Free((void*)m_join);
+    IcarianCore::MallocAllocator::Instance->Free(m_threads);
+    IcarianCore::MallocAllocator::Instance->Free((void*)m_join);
 
     while (!m_jobQueue.empty())
     {
         ThreadJob* job = m_jobQueue.top();
         m_jobQueue.pop();
 
-        MallocAllocator::Instance->Destroy(job);
+        IcarianCore::MallocAllocator::Instance->Destroy(job);
     }
 
-    MallocAllocator::Instance->Destroy(m_runtimeDispatch);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_runtimeDispatch);
 
     for (uint32_t i = 0; i < m_runtimeLocks.Size(); ++i)
     {
@@ -81,7 +81,7 @@ ThreadPool::~ThreadPool()
         {
             Logger::Warning("Lock was not destroyed");
 
-            MallocAllocator::Instance->Destroy(m_runtimeLocks[i]);
+            IcarianCore::MallocAllocator::Instance->Destroy(m_runtimeLocks[i]);
         }
     }
 
@@ -96,14 +96,14 @@ void ThreadPool::Start()
 
     for (uint32_t i = 0; i < highJobs; ++i)
     {
-        m_threads[i] = MallocAllocator::Instance->Create<std::thread>(ThreadPool::Run, i, JobPriority_RuntimeHigh);
+        m_threads[i] = IcarianCore::MallocAllocator::Instance->Create<std::thread>(ThreadPool::Run, i, JobPriority_RuntimeHigh);
     }
 
     for (uint32_t i = 0; i < lowJobs; ++i)
     {
         const uint32_t index = i + highJobs;
 
-        m_threads[index] = MallocAllocator::Instance->Create<std::thread>(ThreadPool::Run, index, JobPriority_RuntimeLow);
+        m_threads[index] = IcarianCore::MallocAllocator::Instance->Create<std::thread>(ThreadPool::Run, index, JobPriority_RuntimeLow);
     }
 }
 void ThreadPool::Stop()
@@ -139,7 +139,7 @@ void ThreadPool::Init(const Config* a_config)
             ILRETURN val;
         });
 
-        Instance = MallocAllocator::Instance->Create<ThreadPool>(threadCount);
+        Instance = IcarianCore::MallocAllocator::Instance->Create<ThreadPool>(threadCount);
         Instance->Start();
     }
 }
@@ -149,17 +149,17 @@ void ThreadPool::Destroy()
     {
         TRACE("Destroying thread pool");
 
-        MallocAllocator::Instance->Destroy(Instance);
+        IcarianCore::MallocAllocator::Instance->Destroy(Instance);
         Instance = nullptr;
     }
 }
 
 uint32_t ThreadPool::GenerateLock()
 {
-    SharedSpinLock* lock = MallocAllocator::Instance->Create<SharedSpinLock>();
+    IcarianCore::SharedSpinLock* lock = IcarianCore::MallocAllocator::Instance->Create<IcarianCore::SharedSpinLock>();
 
     {
-        TLockArray<SharedSpinLock*> a = Instance->m_runtimeLocks.ToLockArray();
+        TLockArray<IcarianCore::SharedSpinLock*> a = Instance->m_runtimeLocks.ToLockArray();
         const uint32_t count = a.Size();
 
         for (uint32_t i = 0; i < count; ++i)
@@ -180,8 +180,8 @@ void ThreadPool::DestroyLock(uint32_t a_addr)
     IVERIFY(a_addr < Instance->m_runtimeLocks.Size());
     IVERIFY(Instance->m_runtimeLocks[a_addr] != nullptr);
 
-    SharedSpinLock* lock = Instance->m_runtimeLocks[a_addr];
-    IDEFER(MallocAllocator::Instance->Destroy(lock));
+    IcarianCore::SharedSpinLock* lock = Instance->m_runtimeLocks[a_addr];
+    IDEFER(IcarianCore::MallocAllocator::Instance->Destroy(lock));
     Instance->m_runtimeLocks.LockSet(a_addr, nullptr);
 }
 
@@ -240,7 +240,7 @@ void ThreadPool::Run(uint32_t a_thread, e_JobPriority a_priority)
 
     bool noif = false;
 
-    while (!Instance->m_shutdown) 
+    while (!Instance->m_shutdown)
     {
         if (noif)
         {
@@ -259,9 +259,9 @@ void ThreadPool::Run(uint32_t a_thread, e_JobPriority a_priority)
         ThreadJob** jobPtr = &job;
         IDEFER(
         {
-            if (*jobPtr != nullptr) 
+            if (*jobPtr != nullptr)
             {
-                MallocAllocator::Instance->Destroy(*jobPtr);
+                IcarianCore::MallocAllocator::Instance->Destroy(*jobPtr);
             }
         });
 
@@ -308,19 +308,19 @@ void ThreadPool::Dispath(uint32_t a_objectAddr)
 }
 
 // MIT License
-// 
-// Copyright (c) 2025 River Govers
-// 
+//
+// Copyright (c) 2026 River Govers
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

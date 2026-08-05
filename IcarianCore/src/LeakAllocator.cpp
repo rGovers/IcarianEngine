@@ -1,48 +1,119 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
-#pragma once
+#include "Core/DataTypes/Allocators/LeakAllocator.h"
 
-#include "DataTypes/Allocators/ComplexAllocator.h"
-
-#ifdef __linux__
-#ifdef __GNUC__
-#include <cxxabi.h>
-#endif
-#endif
-
-#include <cstdio>
-
-#include "DataTypes/Dictionary.h"
-#include "DataTypes/SpinLock.h"
-#include "DataTypes/ThreadGuard.h"
+#include "Core/DataTypes/ThreadGuard.h"
 
 ICARIAN_PUSH_FASTALLOCTOR
 
-class LeakAllocator : public ComplexAllocator
+namespace IcarianCore
 {
-private:
-    constexpr static uint32_t BacktraceSize = 128;
-
-    struct Metadata
+    LeakAllocator::LeakAllocator(Allocator* a_upstreamAllocator) : LeakAllocator(a_upstreamAllocator, a_upstreamAllocator)
     {
+
+    }
+    LeakAllocator::LeakAllocator(Allocator* a_upstreamAllocator, Allocator* a_storageAllocator) :
+        m_data(a_storageAllocator)
+    {
+        m_upstreamAllocator = a_upstreamAllocator;
+        m_storageAllocator = a_storageAllocator;
+    }
+    LeakAllocator::~LeakAllocator()
+    {
+        const Array<Metadata> metadata = m_data.GetValues(m_storageAllocator);
+
+        if (!metadata.Empty())
+        {
+            for (const Metadata& m : metadata)
+            {
+                printf(" --------------------------------------- \n\n");
+                printf("    Leaked allocation of size %lu bytes \n\n", m.Size);
+                printf(" --------------------------------------- \n\n");
+
+                PrintBacktrace(m);
+            }
+
+            ICARIAN_ASSERT_MSG(0, "Leak allocator detected leaked memory");
+
+            exit(1);
+        }
+    }
+
+    void* LeakAllocator::Allocate(uint64_t a_size, uint32_t a_alignment)
+    {
+        if (a_size <= 0)
+        {
+            return nullptr;
+        }
+
+        const ThreadGuard g = ThreadGuard(m_lock);
+
+        void* ptr = m_upstreamAllocator->Allocate(a_size, a_alignment);
+
 #ifdef __linux__
-        Array<void*> Backtrace;
+        void* bt[BacktraceSize];
+        const uint32_t btSize = (uint32_t)backtrace(bt, BacktraceSize);
+
+        const Metadata data =
+        {
+            .Backtrace = Array<void*>(bt, btSize, m_storageAllocator),
+            .Size = a_size,
+        };
+
+        m_data.Push(ptr, data);
 #endif
-        uint64_t Size;
-    };
 
-    Allocator*                  m_upstreamAllocator;
-    Allocator*                  m_storageAllocator;
+        return ptr;
+    }
+    void* LeakAllocator::Realloc(void* a_ptr, uint64_t a_size, uint32_t a_alignment)
+    {
+        if (a_ptr == nullptr)
+        {
+            return Allocate(a_size, a_alignment);
+        }
 
-    Dictionary<void*, Metadata> m_data;
-    // Yes locking on every allocation is bad however this allocator is only used in Debug
-    // I have a lot more to worry about in Debug performance wise
-    // We should probably handle this better down the line however
-    SpinLock                    m_lock;
+        {
+            const ThreadGuard g = ThreadGuard(m_lock);
 
-    static void PrintBacktrace(const Metadata& a_metadata)
+            ICARIAN_ASSERT_MSG_R(m_data.Exists(a_ptr), "LeakAllocator pointer does not exist");
+        }
+
+        const Metadata data = ILAMBDA(
+        {
+            const ThreadGuard g = ThreadGuard(m_lock);
+
+            ILRETURN m_data[a_ptr];
+        });
+
+        if (data.Size >= a_size)
+        {
+            return a_ptr;
+        }
+        IDEFER(Free(a_ptr));
+
+        void* ptr = Allocate(a_size, a_alignment);
+        memcpy(ptr, a_ptr, data.Size);
+
+        return ptr;
+    }
+    void LeakAllocator::Free(void* a_ptr)
+    {
+        if (a_ptr == nullptr)
+        {
+            return;
+        }
+
+        const ThreadGuard g = ThreadGuard(m_lock);
+
+        ICARIAN_ASSERT_MSG(m_data.Exists(a_ptr), "LeakAllocator pointer does not exist");
+        m_data.Erase(a_ptr);
+
+        m_upstreamAllocator->Free(a_ptr);
+    }
+
+    void LeakAllocator::PrintBacktrace(const Metadata& a_metadata)
     {
 #ifdef __linux__
         const uint32_t backtraceSize = a_metadata.Backtrace.Size();
@@ -145,144 +216,24 @@ private:
         }
 #endif
     }
-
-protected:
-
-public:
-    LeakAllocator(Allocator* a_upstreamAllocator) : LeakAllocator(a_upstreamAllocator, a_upstreamAllocator)
-    {
-
-    }
-    LeakAllocator(Allocator* a_upstreamAllocator, Allocator* a_storageAllocator) :
-        m_upstreamAllocator(a_upstreamAllocator),
-        m_storageAllocator(a_storageAllocator),
-        m_data(m_storageAllocator)
-    {
-
-    }
-    virtual ~LeakAllocator()
-    {
-        const Array<Metadata> metadata = m_data.GetValues(m_storageAllocator);
-
-        if (!metadata.Empty())
-        {
-            for (const Metadata& m : metadata)
-            {
-                printf(" --------------------------------------- \n\n");
-                printf("    Leaked allocation of size %lu bytes \n\n", m.Size);
-                printf(" --------------------------------------- \n\n");
-
-                PrintBacktrace(m);
-            }
-
-            IERROR("Leak allocator detected leaked memory");
-        }
-    }
-
-    inline Allocator* GetUpstreamAllocator() const
-    {
-        return m_upstreamAllocator;
-    }
-    inline Allocator* GetStorageAllocator() const
-    {
-        return m_storageAllocator;
-    }
-
-    [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
-    {
-        if (a_size <= 0)
-        {
-            return nullptr;
-        }
-
-        const ThreadGuard g = ThreadGuard(m_lock);
-
-        void* ptr = m_upstreamAllocator->Allocate(a_size, a_alignment);
-
-#ifdef __linux__
-        void* bt[BacktraceSize];
-        const uint32_t btSize = (uint32_t)backtrace(bt, BacktraceSize);
-
-        const Metadata data =
-        {
-            .Backtrace = Array<void*>(bt, btSize, m_storageAllocator),
-            .Size = a_size,
-        };
-        m_data.Push(ptr, data);
-#endif
-
-        return ptr;
-    }
-
-    [[nodiscard]] virtual void* Realloc(void* a_ptr, uint64_t a_size, uint32_t a_alignment)
-    {
-        if (a_ptr == nullptr)
-        {
-            return Allocate(a_size, a_alignment);
-        }
-
-        {
-            const ThreadGuard g = ThreadGuard(m_lock);
-
-            if (!m_data.Exists(a_ptr))
-            {
-                IERROR("Likely multi free or does not exist");
-            }
-        }
-
-        const Metadata data = ILAMBDA(
-        {
-            const ThreadGuard g = ThreadGuard(m_lock);
-
-            ILRETURN m_data[a_ptr];
-        });
-
-        if (data.Size >= a_size)
-        {
-            return a_ptr;
-        }
-        IDEFER(Free(a_ptr));
-
-        void* ptr = Allocate(a_size, a_alignment);
-        memcpy(ptr, a_ptr, data.Size);
-
-        return ptr;
-    }
-
-    virtual void Free(void* a_ptr)
-    {
-        if (a_ptr == nullptr)
-        {
-            return;
-        }
-
-        const ThreadGuard g = ThreadGuard(m_lock);
-        if (!m_data.Exists(a_ptr))
-        {
-            IERROR("Likely multi free or does not exist");
-        }
-        m_data.Erase(a_ptr);
-
-        m_upstreamAllocator->Free(a_ptr);
-    }
-};
+}
 
 ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

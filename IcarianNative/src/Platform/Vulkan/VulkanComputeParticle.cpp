@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -90,7 +90,7 @@ void VulkanComputeParticle::Clear()
         }
     }
 
-    if (m_computeShader != uint32_t(-1)) 
+    if (m_computeShader != uint32_t(-1))
     {
         m_engine->DestroyComputeShader(m_computeShader);
         m_computeShader = -1;
@@ -110,17 +110,17 @@ void VulkanComputeParticle::Clear()
 
     m_bufferIndex = 0;
 }
-void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* a_tempAllocator)
+void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, IcarianCore::Allocator* a_tempAllocator)
 {
     Clear();
 
     VulkanRenderEngineBackend* backend = m_engine->GetRenderEngineBackend();
-    Allocator* blockAllocator = backend->GetAllocator();
+    IcarianCore::Allocator* blockAllocator = backend->GetAllocator();
 
     IDEFER(ICLEARBIT(a_buffer->Flags, ComputeParticleBuffer::RefreshBit));
 
-    Array<ShaderBufferInput> inputs = Array<ShaderBufferInput>(a_tempAllocator);
-    const COWU8String shaderStr = VulkanParticleShaderGenerator::GenerateComputeShader(*a_buffer, &inputs, blockAllocator);
+    IcarianCore::Array<ShaderBufferInput> inputs = IcarianCore::Array<ShaderBufferInput>(a_tempAllocator);
+    const IcarianCore::COWU8String shaderStr = VulkanParticleShaderGenerator::GenerateComputeShader(*a_buffer, &inputs, blockAllocator);
 
     m_computeShader = m_engine->GenerateComputeFShader(shaderStr, a_tempAllocator);
     m_computeLayout = m_engine->GenerateComputePipelineLayout(inputs.Data(), inputs.Size());
@@ -138,7 +138,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* 
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
 
-    TLockObj<vk::CommandBuffer, SpinLock>* buffer = backend->BeginSingleCommand(CommandIndex_Compute);
+    TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* buffer = backend->BeginSingleCommand(CommandIndex_Compute);
     IDEFER(backend->EndSingleCommand(buffer, CommandIndex_Compute));
 
     const vk::CommandBuffer cmdBuffer = buffer->Get();
@@ -160,7 +160,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* 
         const float velScale = a_buffer->EmitterVelocityScale;
         const glm::vec3 initVel = a_buffer->InitialVelocity;
 
-        switch (a_buffer->EmitterType) 
+        switch (a_buffer->EmitterType)
         {
         case ParticleEmitterType_Point:
         {
@@ -173,7 +173,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* 
                     Random::Range(-1.0f, 1.0f)
                 ) * velScale + initVel;
 
-                particles[i] = 
+                particles[i] =
                 {
                     .Position = glm::vec4(0.0f, 0.0f, 0.0f, 5.0f),
                     .Velocity = vel,
@@ -190,8 +190,8 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* 
         }
         }
 
-        const VmaAllocationCreateInfo allocCreateInfo = 
-        { 
+        const VmaAllocationCreateInfo allocCreateInfo =
+        {
             .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT |
                 VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT |
                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
@@ -244,7 +244,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* 
         }
         else
         {
-            const VkBufferCreateInfo sCreateInfo = 
+            const VkBufferCreateInfo sCreateInfo =
             {
                 .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
                 .size = particleBufferSize,
@@ -252,7 +252,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* 
                 .sharingMode = VK_SHARING_MODE_EXCLUSIVE
             };
 
-            const VmaAllocationCreateInfo sAllocInfo = 
+            const VmaAllocationCreateInfo sAllocInfo =
             {
                 .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
                 .usage = VMA_MEMORY_USAGE_AUTO
@@ -265,11 +265,11 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* 
             VmaAllocationInfo stagingInfo;
             VKRESERRMSG(vmaCreateBuffer
             (
-                allocator, 
-                &sCreateInfo, 
-                &sAllocInfo, 
-                &stagingBuffer, 
-                &stagingAlloc, 
+                allocator,
+                &sCreateInfo,
+                &sAllocInfo,
+                &stagingBuffer,
+                &stagingAlloc,
                 &stagingInfo
             ), "Failed to create particle staging buffer");
             IDEFER(backend->PushDeletionObject<VulkanParticleBufferDeletionObject>(backend, stagingBuffer, stagingAlloc));
@@ -288,7 +288,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* 
         }
     }
 
-    const VmaAllocationCreateInfo allocCreateInfo = 
+    const VmaAllocationCreateInfo allocCreateInfo =
     {
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
     };
@@ -318,7 +318,7 @@ void VulkanComputeParticle::Rebuild(ComputeParticleBuffer* a_buffer, Allocator* 
     }
 }
 
-void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_index, Allocator* a_tempAllocator)
+void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_index, IcarianCore::Allocator* a_tempAllocator)
 {
     ComputeParticleBuffer buffer = m_engine->GetParticleBuffer(m_particleBufferAddr);
 
@@ -469,19 +469,19 @@ void VulkanComputeParticle::Update(vk::CommandBuffer a_cmdBuffer, uint32_t a_ind
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

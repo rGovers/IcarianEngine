@@ -1,16 +1,15 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
-#include "DataTypes/Dictionary.h"
 #ifdef WIN32
 // Windows being annoying again if it is not included first
 #include "Core/WindowsHeaders.h"
 #endif
 
-#define GLM_FORCE_SWIZZLE 
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
 #include <Jolt/Jolt.h>
@@ -23,6 +22,9 @@
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 #include <Jolt/Physics/PhysicsSystem.h>
 
+#include "Core/DataTypes/Allocators/BlockAllocator.h"
+#include "Core/DataTypes/Allocators/TrackerAllocator.h"
+#include "Core/DataTypes/Dictionary.h"
 #include "DataTypes/TNCArray.h"
 #include "Physics/IcBodyActivationListener.h"
 #include "Physics/IcBroadPhaseLayerInterface.h"
@@ -32,11 +34,9 @@
 #include "Physics/IcObjectLayerPairFilter.h"
 #include "Physics/IcPhysicsJobSystem.h"
 
-class BlockAllocator;
 class Config;
 class PhysicsEngineBindings;
 class RuntimeFunction;
-class TrackerAllocator;
 
 struct BodyBinding
 {
@@ -65,48 +65,48 @@ private:
 
     struct ClassData
     {
-        PhysicsEngineBindings*                    RuntimeBindings;
+        PhysicsEngineBindings*                         RuntimeBindings;
 
-        JPH::TempAllocatorImpl*                   TempAllocator;
+        JPH::TempAllocatorImpl*                        TempAllocator;
 
         // Apparently Intel decided no fun allowed so array instead of uint64_t
-        uint8_t                                   ObjectLayerCollisions[8];
+        uint8_t                                        ObjectLayerCollisions[8];
 
-        double                                    FixedTimePassed;
-        double                                    FixedTimeStep;
-        double                                    FixedTimeTimer;
+        double                                         FixedTimePassed;
+        double                                         FixedTimeStep;
+        double                                         FixedTimeTimer;
 
-        RuntimeFunction*                          FixedUpdateFunction;
+        RuntimeFunction*                               FixedUpdateFunction;
 
         // FFS got foot gunned by RAII. Raw pointers it is then
-        IcPhysicsJobSystem*                       JobSystem;
-        IcBroadPhaseLayerInterface*               BroadPhase;
-        IcObjectVsBroadPhaseLayerFilter*          ObjectBroad;
-        IcObjectLayerPairFilter*                  PairFilter;
+        IcPhysicsJobSystem*                            JobSystem;
+        IcBroadPhaseLayerInterface*                    BroadPhase;
+        IcObjectVsBroadPhaseLayerFilter*               ObjectBroad;
+        IcObjectLayerPairFilter*                       PairFilter;
 
-        IcBodyActivationListener*                 ActivationListener;
-        IcContactListener*                        ContactListener;
-        IcCharacterListener*                      CharacterListener;
+        IcBodyActivationListener*                      ActivationListener;
+        IcContactListener*                             ContactListener;
+        IcCharacterListener*                           CharacterListener;
 
-        JPH::PhysicsSystem*                       PhysicsSystem;
+        JPH::PhysicsSystem*                            PhysicsSystem;
 
-        TNCArray<JPH::ShapeSettings::ShapeResult> CollisionShapes;
-        TNCArray<BodyBinding>                     BodyBindings;
-        TNCArray<JPH::CharacterVirtual*>          Characters;
+        TNCArray<JPH::ShapeSettings::ShapeResult>      CollisionShapes;
+        TNCArray<BodyBinding>                          BodyBindings;
+        TNCArray<JPH::CharacterVirtual*>               Characters;
 
-        Dictionary<JPH::uint32, uint32_t>         BodyMap;
+        IcarianCore::Dictionary<JPH::uint32, uint32_t> BodyMap;
     };
 
-    BlockAllocator*    m_smallAllocator;
-    BlockAllocator*    m_largeAllocator;
+    IcarianCore::BlockAllocator*                 m_smallAllocator;
+    IcarianCore::BlockAllocator*                 m_largeAllocator;
 
-    TrackerAllocator*  m_trackerAllocator;
+    IcarianCore::TrackerAllocator*               m_trackerAllocator;
 
-    Array<Allocator*>* m_allocatorChain;
+    IcarianCore::Array<IcarianCore::Allocator*>* m_allocatorChain;
 
-    ClassData*         m_data;
+    ClassData*                                   m_data;
 
-    SharedSpinLock     m_bodyMapLock;
+    IcarianCore::SharedSpinLock                  m_bodyMapLock;
 
 protected:
 
@@ -114,7 +114,7 @@ public:
     PhysicsEngine(Config* a_config);
     ~PhysicsEngine();
 
-    Allocator* GetAllocator() const;
+    IcarianCore::Allocator* GetAllocator() const;
 
     bool CanObjectLayersCollide(uint32_t a_lhs, uint32_t a_rhs) const;
 
@@ -124,19 +124,19 @@ public:
 };
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

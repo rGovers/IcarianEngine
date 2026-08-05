@@ -1,58 +1,33 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
-#pragma once
+#include "Core/DataTypes/Allocators/OSAllocator.h"
 
-#include "DataTypes/Allocators/Allocator.h"
-
-#include "DataTypes/Allocators/TrackerAllocator.h"
-#include "IcarianError.h"
-#include "IcarianMemory.h"
+#include "Core/DataTypes/Allocators/BlockAllocator.h"
+#include "Core/DataTypes/Allocators/LeakAllocator.h"
+#include "Core/DataTypes/Allocators/TrackerAllocator.h"
 
 ICARIAN_PUSH_FASTALLOCTOR
 
-class OSAllocator : public Allocator
+namespace IcarianCore
 {
-private:
-    constexpr static uint64_t CanaryValue = 0xCCCCCCCCCCCCCCCC;
+    Allocator* OSAllocator::Instance = nullptr;
+    TrackerAllocator* OSAllocator::TrackerInstance = nullptr;
 
-    struct AllocationHeader
-    {
-#ifdef DEBUG
-        uintptr_t CanaryA;
-#endif
-        void* Ptr;
-        uint64_t Size;
-#ifdef DEBUG
-        uintptr_t CanaryB;
-#endif
-    };
+    // Need to unwind in a specific order so need to keep track of everything
+    static OSAllocator* InternalOSAllocator = nullptr;
+    static BlockAllocator* InternalBlockAllocator = nullptr;
+    static LeakAllocator* InternalLeakAllocator = nullptr;
 
-    static bool VerifyAllocation(const AllocationHeader* a_header)
-    {
-#ifdef DEBUG
-        if (a_header->CanaryA != CanaryValue || a_header->CanaryB != CanaryValue)
-        {
-            return false;
-        }
-#endif
-
-        return true;
-    }
-
-    static AllocationHeader* AllocationFromPointer(const void* a_ptr)
-    {
-        return (AllocationHeader*)((uint8_t*)a_ptr - sizeof(AllocationHeader));
-    }
-    static void SetCanary(AllocationHeader* a_header)
+    void OSAllocator::SetCanary(AllocationHeader* a_header)
     {
 #ifdef DEBUG
         a_header->CanaryA = CanaryValue;
         a_header->CanaryB = CanaryValue;
 #endif
     }
-    static void ClearCanary(AllocationHeader* a_header)
+    void OSAllocator::ClearCanary(AllocationHeader* a_header)
     {
 #ifdef DEBUG
         a_header->CanaryA = 0;
@@ -60,15 +35,24 @@ private:
 #endif
     }
 
-protected:
-
-public:
-    OSAllocator() { }
-    ~OSAllocator() { }
-
-    [[nodiscard]] virtual void* Allocate(uint64_t a_size, uint32_t a_alignment)
+    void* OSAllocator::Allocate(uint64_t a_size, uint32_t a_alignment)
     {
-        const uint64_t size = a_size + a_alignment + sizeof(AllocationHeader);
+        if (a_size <= 0)
+        {
+            return nullptr;
+        }
+
+        const uint32_t targetAlignment = ILAMBDA(
+        {
+            if (a_alignment > alignof(AllocationHeader))
+            {
+                ILRETURN AlignTo(a_alignment, alignof(AllocationHeader));
+            }
+
+            ILRETURN (uint32_t)alignof(AllocationHeader);
+        });
+
+        const uint64_t size = AlignTo(a_size + sizeof(AllocationHeader), targetAlignment);
 
 #ifdef WIN32
         void* basePtr = VirtualAlloc(NULL, size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
@@ -90,7 +74,7 @@ public:
             return nullptr;
         }
 
-        void* alignedPtr = AlignTo((uint8_t*)basePtr + sizeof(AllocationHeader), a_alignment);
+        void* alignedPtr = AlignTo((uint8_t*)basePtr + sizeof(AllocationHeader), targetAlignment);
         AllocationHeader* header = AllocationFromPointer(alignedPtr);
         SetCanary(header);
         header->Size = a_size;
@@ -98,10 +82,10 @@ public:
 
         return alignedPtr;
     }
-    virtual void Free(void* a_ptr)
+    void OSAllocator::Free(void* a_ptr)
     {
         AllocationHeader* header = AllocationFromPointer(a_ptr);
-        IVERIFY(VerifyAllocation(header));
+        ICARIAN_ASSERT(VerifyAllocation(header));
 
         ClearCanary(header);
 #ifdef WIN32
@@ -113,29 +97,67 @@ public:
 #endif
     }
 
-    static Allocator* Instance;
-    static TrackerAllocator* TrackerInstance;
+    void OSAllocator::Init()
+    {
+        if (Instance == nullptr)
+        {
+            OSAllocator* osAlloc = new OSAllocator();
+            InternalOSAllocator = osAlloc;
 
-    static void Init();
-    static void Destroy();
-};
+            TrackerAllocator* tracker = new TrackerAllocator(osAlloc);
+            TrackerInstance = tracker;
+            Instance = tracker;
+
+    #ifdef DEBUG
+            InternalBlockAllocator = new BlockAllocator(8 << 10, Instance);
+            InternalLeakAllocator = new LeakAllocator(Instance, InternalBlockAllocator);
+            Instance = InternalLeakAllocator;
+    #endif
+        }
+    }
+    void OSAllocator::Destroy()
+    {
+        if (Instance != nullptr)
+        {
+            if (InternalLeakAllocator != nullptr)
+            {
+                delete InternalLeakAllocator;
+                InternalLeakAllocator = nullptr;
+            }
+
+            if (InternalBlockAllocator != nullptr)
+            {
+                delete InternalBlockAllocator;
+                InternalBlockAllocator = nullptr;
+            }
+
+            delete TrackerInstance;
+            TrackerInstance = nullptr;
+
+            delete InternalOSAllocator;
+            InternalOSAllocator = nullptr;
+
+            Instance = nullptr;
+        }
+    }
+}
 
 ICARIAN_POP_FASTALLOCTOR
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

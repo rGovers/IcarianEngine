@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -34,7 +34,7 @@ public:
 
         m_textureCount = a_textureCount;
 
-        Allocator* allocator = m_engine->GetDeletionAllocator();
+        IcarianCore::Allocator* allocator = m_engine->GetDeletionAllocator();
 
         m_images = allocator->TAllocate<vk::Image>(m_textureCount);
         m_views = allocator->TAllocate<vk::ImageView>(m_textureCount);
@@ -51,7 +51,7 @@ public:
     }
     virtual ~VulkanRenderTextureDeletionObject()
     {
-        Allocator* allocator = m_engine->GetDeletionAllocator();
+        IcarianCore::Allocator* allocator = m_engine->GetDeletionAllocator();
 
         allocator->Free(m_images);
         allocator->Free(m_views);
@@ -110,7 +110,7 @@ public:
     }
 };
 
-constexpr vk::Format DepthFormats[] = 
+constexpr vk::Format DepthFormats[] =
 {
     vk::Format::eD32Sfloat,
     vk::Format::eD32SfloatS8Uint,
@@ -119,7 +119,7 @@ constexpr vk::Format DepthFormats[] =
 
 static constexpr vk::Format GetFormat(bool a_hdr, uint32_t a_channelCount)
 {
-    switch (a_channelCount) 
+    switch (a_channelCount)
     {
     case 1:
     {
@@ -203,7 +203,7 @@ void VulkanRenderTexture::Setup()
     const vk::Device device = m_engine->GetLogicalDevice();
     const vk::PhysicalDevice physicalDevice = m_engine->GetPhysicalDevice();
 
-    Allocator* allocator = m_engine->GetAllocator();
+    IcarianCore::Allocator* allocator = m_engine->GetAllocator();
 
     const bool hdr = IsHDR();
     const bool hasDepth = HasDepthTexture();
@@ -389,13 +389,13 @@ void VulkanRenderTexture::Setup()
         );
     });
 
-    const vk::SubpassDescription subpasses[] = 
+    const vk::SubpassDescription subpasses[] =
     {
         subDesc
     };
     constexpr uint32_t SubpassCount = sizeof(subpasses) / sizeof(*subpasses);
 
-    const vk::SubpassDependency dependencies[] = 
+    const vk::SubpassDependency dependencies[] =
     {
         ILAMBDA(
         {
@@ -559,7 +559,7 @@ VulkanRenderTexture::VulkanRenderTexture(VulkanRenderEngineBackend* a_engine, Vu
 }
 VulkanRenderTexture::~VulkanRenderTexture()
 {
-    Allocator* allocator = m_engine->GetAllocator();
+    IcarianCore::Allocator* allocator = m_engine->GetAllocator();
 
     TRACE("Queueing Render Texture for Deletion");
     m_engine->PushDeletionObject<VulkanRenderTextureDeletionObject>(m_engine, m_textureCount, m_textures, m_textureViews, m_textureAllocations, m_frameBuffer);
@@ -618,8 +618,8 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
-    const VmaAllocationCreateInfo allocInfo = 
-    { 
+    const VmaAllocationCreateInfo allocInfo =
+    {
         .usage = VMA_MEMORY_USAGE_AUTO,
         .preferredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
     };
@@ -667,14 +667,14 @@ void VulkanRenderTexture::Init(uint32_t a_width, uint32_t a_height)
         m_renderPass,
         totalTextureCount,
         m_textureViews,
-        m_width, 
+        m_width,
         m_height,
         1
     );
 
     VKRESERR(device.createFramebuffer(&fbCreateInfo, nullptr, &m_frameBuffer));
 
-    TLockObj<vk::CommandBuffer, SpinLock>* l = m_engine->BeginSingleCommand();
+    TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* l = m_engine->BeginSingleCommand();
     IDEFER(m_engine->EndSingleCommand(l));
 
     vk::CommandBuffer commandBuffer = l->Get();
@@ -717,19 +717,19 @@ void VulkanRenderTexture::Resize(uint32_t a_width, uint32_t a_height)
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

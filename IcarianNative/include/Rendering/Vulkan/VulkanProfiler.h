@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include "DataTypes/Array.h"
-#include "DataTypes/COWString.h"
-#include "DataTypes/SpinLock.h"
+#include "Core/DataTypes/Array.h"
+#include "Core/DataTypes/COWString.h"
+#include "Core/DataTypes/SpinLock.h"
 #include "DataTypes/TArray.h"
 #include "Rendering/Vulkan/IcarianVulkanHeader.h"
 #include "Rendering/Vulkan/VulkanCommandBuffer.h"
@@ -36,28 +36,28 @@ private:
     struct ProfilerData
     {
         vk::CommandBuffer CommandBuffer;
-        COWU8String String;
+        IcarianCore::COWU8String String;
         uint32_t PoolIndex;
         uint32_t QueryIndex;
         e_VulkanCommandBufferType Type;
     };
 
-    Array<vk::QueryPool>* m_pools;
-    TArray<ProfilerData>  m_data[VulkanFlightPoolSize];
+    IcarianCore::Array<vk::QueryPool>* m_pools;
+    TArray<ProfilerData>               m_data[VulkanFlightPoolSize];
 
-    vk::CommandPool       m_eteCommandPool;
-    vk::CommandBuffer     m_eteStartCommandBuffer[VulkanFlightPoolSize];
-    vk::CommandBuffer     m_eteEndCommandBuffer[VulkanFlightPoolSize];
-    vk::QueryPool         m_etePools[VulkanFlightPoolSize];
+    vk::CommandPool                    m_eteCommandPool;
+    vk::CommandBuffer                  m_eteStartCommandBuffer[VulkanFlightPoolSize];
+    vk::CommandBuffer                  m_eteEndCommandBuffer[VulkanFlightPoolSize];
+    vk::QueryPool                      m_etePools[VulkanFlightPoolSize];
 
-    uint32_t              m_queryIndex;
-    uint32_t              m_poolIndex;
+    uint32_t                           m_queryIndex;
+    uint32_t                           m_poolIndex;
 
-    SpinLock              m_poolLock;
-    uint8_t               m_init;
+    IcarianCore::SpinLock              m_poolLock;
+    uint8_t                            m_init;
 
     static vk::QueryPool GetPool(uint32_t a_frame, uint32_t* a_pool, uint32_t* a_index);
-    static void PushPoint(const VulkanCommandBuffer& a_buffer, const COWU8String& a_str, vk::PipelineStageFlagBits a_stage, uint32_t a_frame);
+    static void PushPoint(const VulkanCommandBuffer& a_buffer, const IcarianCore::COWU8String& a_str, vk::PipelineStageFlagBits a_stage, uint32_t a_frame);
 
 protected:
 
@@ -73,10 +73,10 @@ public:
     static vk::CommandBuffer GetEndCommandBuffer(uint32_t a_frame);
 
     static void StartTimingPoint(const VulkanCommandBuffer& a_buffer, const char* a_name);
-    static void StartTimingPoint(const VulkanCommandBuffer& a_buffer, const COWU8String& a_name);
+    static void StartTimingPoint(const VulkanCommandBuffer& a_buffer, const IcarianCore::COWU8String& a_name);
 
     static void PushTimingPoint(const VulkanCommandBuffer& a_buffer, const char* a_name);
-    static void PushTimingPoint(const VulkanCommandBuffer& a_buffer, const COWU8String& a_name);
+    static void PushTimingPoint(const VulkanCommandBuffer& a_buffer, const IcarianCore::COWU8String& a_name);
 };
 
 // MIT License

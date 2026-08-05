@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -147,8 +147,8 @@ void VulkanTexture::InitEmpty(vk::Format a_format, uint32_t a_channels)
 
     const bool isVideoTexture = a_format == vk::Format::eG8B8R82Plane420Unorm;
 
-    VkImageCreateInfo imageInfo = 
-    { 
+    VkImageCreateInfo imageInfo =
+    {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = (VkFormat)m_format,
@@ -164,14 +164,14 @@ void VulkanTexture::InitEmpty(vk::Format a_format, uint32_t a_channels)
 
     if (isVideoTexture)
     {
-        // I should probably clean this up however it works for now... 
+        // I should probably clean this up however it works for now...
         // This whole class is becoming a mess and could propably use a refactor....
         imageInfo.flags |= VK_IMAGE_CREATE_VIDEO_PROFILE_INDEPENDENT_BIT_KHR;
         imageInfo.usage |= VK_IMAGE_USAGE_VIDEO_DECODE_DST_BIT_KHR | VK_IMAGE_USAGE_VIDEO_DECODE_DPB_BIT_KHR;
     }
 
-    const VmaAllocationCreateInfo allocInfo = 
-    { 
+    const VmaAllocationCreateInfo allocInfo =
+    {
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
     };
 
@@ -184,13 +184,19 @@ void VulkanTexture::InitEmpty(vk::Format a_format, uint32_t a_channels)
 
     const vk::ImageSubresourceRange subresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, m_arraySize);
 
-    constexpr vk::ComponentMapping ComponentMapping = vk::ComponentMapping(vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity);
+    constexpr vk::ComponentMapping ComponentMapping = vk::ComponentMapping
+    (
+        vk::ComponentSwizzle::eIdentity,
+        vk::ComponentSwizzle::eIdentity,
+        vk::ComponentSwizzle::eIdentity,
+        vk::ComponentSwizzle::eIdentity
+    );
 
     vk::ImageViewCreateInfo viewInfo = vk::ImageViewCreateInfo
     (
-        { }, 
-        m_image, 
-        vk::ImageViewType::e2D, 
+        { },
+        m_image,
+        vk::ImageViewType::e2D,
         m_format,
         ComponentMapping,
         subresourceRange
@@ -229,11 +235,11 @@ void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a
 
     const vk::Device device = m_engine->GetLogicalDevice();
     const VmaAllocator allocator = m_engine->GetVMAAllocator();
-    
+
     const vk::Extent3D extent = vk::Extent3D(m_width, m_height, 1);
 
-    const VkImageCreateInfo imageInfo = 
-    { 
+    const VkImageCreateInfo imageInfo =
+    {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = (VkFormat)m_format,
@@ -247,8 +253,8 @@ void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
 
-    const VmaAllocationCreateInfo allocInfo = 
-    { 
+    const VmaAllocationCreateInfo allocInfo =
+    {
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE
     };
 
@@ -263,9 +269,9 @@ void VulkanTexture::InitBase(const void* a_data, vk::Format a_format, uint32_t a
 
     const vk::ImageViewCreateInfo viewInfo = vk::ImageViewCreateInfo
     (
-        { }, 
-        m_image, 
-        vk::ImageViewType::e2D, 
+        { },
+        m_image,
+        vk::ImageViewType::e2D,
         m_format,
         { vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity },
         SubresourceRange
@@ -287,8 +293,8 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
 
     const vk::Extent3D extent = vk::Extent3D(m_width, m_height, 1);
 
-    const VkImageCreateInfo imageInfo = 
-    { 
+    const VkImageCreateInfo imageInfo =
+    {
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
         .imageType = VK_IMAGE_TYPE_2D,
         .format = (VkFormat)m_format,
@@ -301,9 +307,9 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
         .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
     };
-    
-    const VmaAllocationCreateInfo allocInfo = 
-    { 
+
+    const VmaAllocationCreateInfo allocInfo =
+    {
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
     };
 
@@ -318,9 +324,9 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
 
     const vk::ImageViewCreateInfo viewInfo = vk::ImageViewCreateInfo
     (
-        { }, 
-        m_image, 
-        vk::ImageViewType::e2D, 
+        { },
+        m_image,
+        vk::ImageViewType::e2D,
         m_format,
         { vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity },
         subresourceRange
@@ -328,19 +334,19 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
 
     VKRESERRMSG(device.createImageView(&viewInfo, nullptr, &m_imageView), "Failed to create VulkanTexture image view");
 
-    const VkBufferCreateInfo stagingBufferInfo = 
-    { 
+    const VkBufferCreateInfo stagingBufferInfo =
+    {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = (VkDeviceSize)a_dataSize,
         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
     };
 
-    const VmaAllocationCreateInfo stagingBufferAllocInfo = 
-    { 
+    const VmaAllocationCreateInfo stagingBufferAllocInfo =
+    {
         .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
         .usage = VMA_MEMORY_USAGE_AUTO,
     };
-    
+
     VkBuffer stagingBuffer;
     VmaAllocation stagingAllocation;
 
@@ -365,16 +371,16 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
 
         copyBuffers[i] = vk::BufferImageCopy
         (
-            (vk::DeviceSize)a_offsets[i], 
-            0, 
-            0, 
-            layer, 
+            (vk::DeviceSize)a_offsets[i],
+            0,
+            0,
+            layer,
             0,
             extents
         );
     }
 
-    TLockObj<vk::CommandBuffer, SpinLock>* buffer = m_engine->BeginSingleCommand();
+    TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* buffer = m_engine->BeginSingleCommand();
     IDEFER(m_engine->EndSingleCommand(buffer));
 
     const vk::CommandBuffer cmd = buffer->Get();
@@ -382,12 +388,12 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
     const vk::ImageMemoryBarrier startImageBarrier = vk::ImageMemoryBarrier
     (
         { },
-        vk::AccessFlagBits::eTransferWrite, 
-        vk::ImageLayout::eUndefined, 
-        vk::ImageLayout::eTransferDstOptimal, 
-        VK_QUEUE_FAMILY_IGNORED, 
-        VK_QUEUE_FAMILY_IGNORED, 
-        m_image, 
+        vk::AccessFlagBits::eTransferWrite,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eTransferDstOptimal,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED,
+        m_image,
         subresourceRange
     );
 
@@ -398,12 +404,12 @@ void VulkanTexture::InitMipMapped(uint32_t a_levels, const uint64_t* a_offsets, 
     const vk::ImageMemoryBarrier endImageBarrier = vk::ImageMemoryBarrier
     (
         vk::AccessFlagBits::eTransferWrite,
-        vk::AccessFlagBits::eShaderRead, 
-        vk::ImageLayout::eTransferDstOptimal, 
-        vk::ImageLayout::eShaderReadOnlyOptimal, 
-        VK_QUEUE_FAMILY_IGNORED, 
-        VK_QUEUE_FAMILY_IGNORED, 
-        m_image, 
+        vk::AccessFlagBits::eShaderRead,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::ImageLayout::eShaderReadOnlyOptimal,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED,
+        m_image,
         subresourceRange
     );
 
@@ -464,26 +470,26 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
 
     const vk::DeviceSize imageSize = (vk::DeviceSize)m_width * m_height * m_channels;
 
-    TLockObj<vk::CommandBuffer, SpinLock>* buffer = m_engine->BeginSingleCommand();
+    TLockObj<vk::CommandBuffer, IcarianCore::SpinLock>* buffer = m_engine->BeginSingleCommand();
     IDEFER(m_engine->EndSingleCommand(buffer));
 
     const vk::CommandBuffer cmd = buffer->Get();
 
     constexpr vk::ImageSubresourceRange SubresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
 
-    const VkBufferCreateInfo stagingBufferInfo = 
+    const VkBufferCreateInfo stagingBufferInfo =
     {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = imageSize,
         .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT
     };
 
-    const VmaAllocationCreateInfo stagingBufferAllocInfo = 
-    { 
+    const VmaAllocationCreateInfo stagingBufferAllocInfo =
+    {
         .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
         .usage = VMA_MEMORY_USAGE_AUTO,
     };
-    
+
     VkBuffer stagingBuffer;
     VmaAllocation stagingAllocation;
     VmaAllocationInfo stagingAllocationInfo;
@@ -503,28 +509,28 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
         const vk::ImageMemoryBarrier startImageBarrier = vk::ImageMemoryBarrier
         (
             { },
-            vk::AccessFlagBits::eTransferWrite, 
-            vk::ImageLayout::eUndefined, 
-            vk::ImageLayout::eTransferDstOptimal, 
-            VK_QUEUE_FAMILY_IGNORED, 
-            VK_QUEUE_FAMILY_IGNORED, 
-            m_image, 
+            vk::AccessFlagBits::eTransferWrite,
+            vk::ImageLayout::eUndefined,
+            vk::ImageLayout::eTransferDstOptimal,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            m_image,
             SubresourceRange
         );
 
         cmd.pipelineBarrier(vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eTransfer, { }, 0, nullptr, 0, nullptr, 1, &startImageBarrier);
     }
-    else 
+    else
     {
         const vk::ImageMemoryBarrier startImageBarrier = vk::ImageMemoryBarrier
         (
             vk::AccessFlagBits::eShaderRead,
-            vk::AccessFlagBits::eTransferWrite, 
-            vk::ImageLayout::eShaderReadOnlyOptimal, 
-            vk::ImageLayout::eTransferDstOptimal, 
-            VK_QUEUE_FAMILY_IGNORED, 
-            VK_QUEUE_FAMILY_IGNORED, 
-            m_image, 
+            vk::AccessFlagBits::eTransferWrite,
+            vk::ImageLayout::eShaderReadOnlyOptimal,
+            vk::ImageLayout::eTransferDstOptimal,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            m_image,
             SubresourceRange
         );
 
@@ -539,12 +545,12 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
     const vk::ImageMemoryBarrier endImageBarrier = vk::ImageMemoryBarrier
     (
         vk::AccessFlagBits::eTransferWrite,
-        vk::AccessFlagBits::eShaderRead, 
-        vk::ImageLayout::eTransferDstOptimal, 
-        vk::ImageLayout::eShaderReadOnlyOptimal, 
-        VK_QUEUE_FAMILY_IGNORED, 
-        VK_QUEUE_FAMILY_IGNORED, 
-        m_image, 
+        vk::AccessFlagBits::eShaderRead,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::ImageLayout::eShaderReadOnlyOptimal,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED,
+        m_image,
         SubresourceRange
     );
 
@@ -554,19 +560,19 @@ void VulkanTexture::WriteData(const void* a_data, bool a_init)
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

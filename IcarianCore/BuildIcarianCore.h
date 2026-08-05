@@ -34,7 +34,7 @@ CUBE_CProject BuildIcarianCoreProject(const char* a_path, CBBOOL a_enableAssert,
         CUBE_CProject_AppendDefine(&project, "NDEBUG");
     }
 
-    CUBE_CProject_AppendDefines(&project, 
+    CUBE_CProject_AppendDefines(&project,
         "GLM_FORCE_QUAT_DATA_XYZW",
         "GLM_FORCE_DEPTH_ZERO_TO_ONE",
         "GLM_FORCE_RADIANS"
@@ -48,7 +48,7 @@ CUBE_CProject BuildIcarianCoreProject(const char* a_path, CBBOOL a_enableAssert,
         );
     }
 
-    CUBE_CProject_AppendIncludePaths(&project, 
+    CUBE_CProject_AppendIncludePaths(&project,
         "./include",
 
         "../deps/flare-glm",
@@ -93,7 +93,7 @@ CUBE_CProject BuildIcarianCoreProject(const char* a_path, CBBOOL a_enableAssert,
     {
     case TargetPlatform_Windows:
     {
-        CUBE_CProject_AppendDefines(&project, 
+        CUBE_CProject_AppendDefines(&project,
             "WIN32",
             "_WIN32"
         );
@@ -128,6 +128,7 @@ CUBE_CProject BuildIcarianCoreProject(const char* a_path, CBBOOL a_enableAssert,
     }
     case BuildConfiguration_DebugFast:
     {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_FAST_ALLOCATOR");
         CUBE_CProject_AppendCFlag(&project, "-g");
 
         if (a_targetPlatform == TargetPlatform_Linux)
@@ -139,6 +140,7 @@ CUBE_CProject BuildIcarianCoreProject(const char* a_path, CBBOOL a_enableAssert,
     }
     case BuildConfiguration_ReleaseWithDebug:
     {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_FAST_ALLOCATOR");
         CUBE_CProject_AppendCFlag(&project, "-mavx");
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");
@@ -152,6 +154,7 @@ CUBE_CProject BuildIcarianCoreProject(const char* a_path, CBBOOL a_enableAssert,
     }
     case BuildConfiguration_Release:
     {
+        CUBE_CProject_AppendDefine(&project, "ICARIANNATIVE_FAST_ALLOCATOR");
         CUBE_CProject_AppendCFlag(&project, "-mavx");
         // CUBE_CProject_AppendCFlag(&project, "-mavx2");
         CUBE_CProject_AppendCFlag(&project, "-msse4.2");

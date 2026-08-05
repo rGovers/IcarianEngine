@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -25,7 +25,7 @@ public:
     (
         VulkanRenderEngineBackend* a_engine,
         const vk::DescriptorSetLayout* a_descLayouts,
-        uint32_t a_layoutCount, 
+        uint32_t a_layoutCount,
         vk::PipelineLayout a_layout
     )
     {
@@ -34,7 +34,7 @@ public:
         m_layoutCount = a_layoutCount;
         m_layout = a_layout;
 
-        Allocator* allocator = m_engine->GetDeletionAllocator();
+        IcarianCore::Allocator* allocator = m_engine->GetDeletionAllocator();
 
         m_descLayouts = allocator->TAllocate<vk::DescriptorSetLayout>(m_layoutCount);
         for (uint32_t i = 0; i < m_layoutCount; ++i)
@@ -44,7 +44,7 @@ public:
     }
     virtual ~VulkanComputeLayoutDeletionObject()
     {
-        Allocator* allocator = m_engine->GetDeletionAllocator();
+        IcarianCore::Allocator* allocator = m_engine->GetDeletionAllocator();
 
         allocator->Free(m_descLayouts);
     }
@@ -64,7 +64,7 @@ public:
 
 constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_bufferType)
 {
-    switch (a_bufferType) 
+    switch (a_bufferType)
     {
     case ShaderBufferType_TimeBuffer:
     {
@@ -81,7 +81,13 @@ constexpr static vk::DescriptorType GetDescriptorType(e_ShaderBufferType a_buffe
     return vk::DescriptorType::eStorageBuffer;
 }
 
-VulkanComputeLayout::VulkanComputeLayout(VulkanRenderEngineBackend* a_engine, const ShaderBufferInput* a_inputs, uint32_t a_inputCount, Allocator* a_allocator)
+VulkanComputeLayout::VulkanComputeLayout
+(
+    VulkanRenderEngineBackend* a_engine,
+    const ShaderBufferInput* a_inputs,
+    uint32_t a_inputCount,
+    IcarianCore::Allocator* a_allocator
+)
 {
     m_allocator = a_allocator;
 
@@ -142,19 +148,19 @@ VulkanComputeLayout::~VulkanComputeLayout()
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

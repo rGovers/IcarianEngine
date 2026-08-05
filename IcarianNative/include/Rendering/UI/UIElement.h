@@ -1,10 +1,10 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
-#define GLM_FORCE_SWIZZLE 
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
 #include "Rendering/UI/UIControl.h"
@@ -23,21 +23,21 @@ enum e_UIElementType : uint16_t
 class UIElement
 {
 private:
-    Allocator*     m_allocator;
+    IcarianCore::Allocator* m_allocator;
 
-    uint32_t*      m_children;
-    uint32_t       m_childCount;
+    uint32_t*               m_children;
+    uint32_t                m_childCount;
 
-    uint32_t       m_parent;
+    uint32_t                m_parent;
 
-    glm::vec2      m_pos;
-    glm::vec2      m_size;
-    glm::vec4      m_color;
+    glm::vec2               m_pos;
+    glm::vec2               m_size;
+    glm::vec4               m_color;
 
-    e_UIXAnchor    m_xAnchor;
-    e_UIYAnchor    m_yAnchor;
+    e_UIXAnchor             m_xAnchor;
+    e_UIYAnchor             m_yAnchor;
 
-    e_ElementState m_state;
+    e_ElementState          m_state;
 
     float GetXPosition(const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize) const;
     float GetYPosition(const CanvasBuffer& a_canvas, const glm::vec2& a_screenSize) const;
@@ -48,10 +48,10 @@ private:
 protected:
 
 public:
-    UIElement(Allocator* a_allocator);
+    UIElement(IcarianCore::Allocator* a_allocator);
     virtual ~UIElement();
 
-    inline Allocator* GetAllocator()
+    inline IcarianCore::Allocator* GetAllocator()
     {
         return m_allocator;
     }
@@ -77,7 +77,7 @@ public:
     {
         return m_yAnchor;
     }
-    inline void SetYAnchor(e_UIYAnchor a_anchor) 
+    inline void SetYAnchor(e_UIYAnchor a_anchor)
     {
         m_yAnchor = a_anchor;
     }
@@ -139,23 +139,23 @@ public:
         return UIElementType_Base;
     }
 
-    virtual void Update(RenderEngine* a_renderEngine, Allocator* a_tempAllocator);
+    virtual void Update(RenderEngine* a_renderEngine, IcarianCore::Allocator* a_tempAllocator);
 };
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

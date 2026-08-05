@@ -7,11 +7,11 @@
 #include <tinyxml2.h>
 
 #include "Core/StringUtils.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 
 Config::Config(const char* a_path) :
-    m_appName(DefaultAppName, MallocAllocator::Instance),
-    m_appVersion(DefaultAppVersion, MallocAllocator::Instance)
+    m_appName(DefaultAppName, IcarianCore::MallocAllocator::Instance),
+    m_appVersion(DefaultAppVersion, IcarianCore::MallocAllocator::Instance)
 {
     m_fixedTimeStep = 1.0 / 50.0;
     m_fileCacheSize = 256;
@@ -45,7 +45,7 @@ Config::Config(const char* a_path) :
         {
             const char* text = element->GetText();
 
-            m_appName = COWU8String(text, MallocAllocator::Instance);
+            m_appName = IcarianCore::COWU8String(text, IcarianCore::MallocAllocator::Instance);
 
             break;
         }
@@ -53,7 +53,7 @@ Config::Config(const char* a_path) :
         {
             const char* text = element->GetText();
 
-            m_appVersion = COWU8String(text, MallocAllocator::Instance);
+            m_appVersion = IcarianCore::COWU8String(text, IcarianCore::MallocAllocator::Instance);
 
             break;
         }

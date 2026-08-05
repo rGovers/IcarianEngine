@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -15,7 +15,7 @@ constexpr const char VulkanLib[] = "vulkan-1.dll";
 #else
 #include <dlfcn.h>
 
-constexpr const char* VulkanLibraries[] = 
+constexpr const char* VulkanLibraries[] =
 {
     // NOTE 1: May have to update this list as time goes on
     // This is Linux distro specific and there seem to be no documentation that gives all the names
@@ -33,12 +33,12 @@ LibVulkan::LibVulkan()
 
     IERRDEFER(
     {
-        const COWU8String str = COWU8String
+        const IcarianCore::COWU8String str = IcarianCore::COWU8String
         (
             "Icarian Engine failed to load Vulkan. \n"
             "\n"
             "Please ensure you have a Vulkan 1.2 capable GPU and drivers are upto date.",
-            MallocAllocator::Instance
+            IcarianCore::MallocAllocator::Instance
         );
 
         IcarianError(str);
@@ -87,19 +87,19 @@ LibVulkan::~LibVulkan()
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

@@ -1,10 +1,10 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
 
-#define GLM_FORCE_SWIZZLE 
+#define GLM_FORCE_SWIZZLE
 #include <glm/glm.hpp>
 
 #include <cstdint>
@@ -59,7 +59,7 @@ public:
     static void Init();
     static void Destroy();
 
-    static Array<uint32_t> GetAnimators(e_AnimationUpdateMode a_updateMode);
+    static IcarianCore::Array<uint32_t> GetAnimators(e_AnimationUpdateMode a_updateMode);
 
     static void UpdateAnimator(uint32_t a_index, double a_deltaTime);
     static void UpdateAnimators(e_AnimationUpdateMode a_updateMode, double a_deltaTime);
@@ -70,19 +70,19 @@ public:
 };
 
 // MIT License
-// 
-// Copyright (c) 2024 River Govers
-// 
+//
+// Copyright (c) 2026 River Govers
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

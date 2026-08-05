@@ -12,7 +12,7 @@
 
 #include "IcarianError.h"
 
-COWU8String IO::GetFilename(const COWU8String& a_path, Allocator* a_allocator)
+IcarianCore::COWU8String IO::GetFilename(const IcarianCore::COWU8String& a_path, IcarianCore::Allocator* a_allocator)
 {
     const uint32_t startIndex = ILAMBDA(
     {
@@ -39,12 +39,12 @@ COWU8String IO::GetFilename(const COWU8String& a_path, Allocator* a_allocator)
     return a_path.Substring(startIndex, endIndex, a_allocator);
 }
 
-COWU8String IO::GetExtension(const COWU8String& a_path, Allocator* a_allocator)
+IcarianCore::COWU8String IO::GetExtension(const IcarianCore::COWU8String& a_path, IcarianCore::Allocator* a_allocator)
 {
     const uint32_t startIndex = a_path.FindLastCharacter('.');
     if (startIndex == uint32_t(-1))
     {
-        return COWU8String(a_allocator);
+        return IcarianCore::COWU8String(a_allocator);
     }
 
     const uint32_t endIndex = a_path.Length();
@@ -52,9 +52,9 @@ COWU8String IO::GetExtension(const COWU8String& a_path, Allocator* a_allocator)
 }
 
 
-COWU8String IO::NormalizePath(const char* a_path, Allocator* a_allocator)
+IcarianCore::COWU8String IO::NormalizePath(const char* a_path, IcarianCore::Allocator* a_allocator)
 {
-    COWU8String str = COWU8String(a_allocator);
+    IcarianCore::COWU8String str = IcarianCore::COWU8String(a_allocator);
 
     const char* slider = a_path;
     while (true)
@@ -94,16 +94,16 @@ COWU8String IO::NormalizePath(const char* a_path, Allocator* a_allocator)
 
     return str;
 }
-COWU8String IO::NormalizePath(const CharU8* a_path, Allocator* a_allocator)
+IcarianCore::COWU8String IO::NormalizePath(const IcarianCore::CharU8* a_path, IcarianCore::Allocator* a_allocator)
 {
-    COWU8String str = COWU8String(a_allocator);
+    IcarianCore::COWU8String str = IcarianCore::COWU8String(a_allocator);
 
-    const CharU8* slider = a_path;
+    const IcarianCore::CharU8* slider = a_path;
     while (true)
     {
         IDEFER(++slider);
 
-        const CharU8 chr = *slider;
+        const IcarianCore::CharU8 chr = *slider;
         if (chr == 0)
         {
             break;
@@ -134,14 +134,14 @@ COWU8String IO::NormalizePath(const CharU8* a_path, Allocator* a_allocator)
 
     return str;
 }
-COWU8String IO::NormalizePath(const COWU8String& a_path, Allocator* a_allocator)
+IcarianCore::COWU8String IO::NormalizePath(const IcarianCore::COWU8String& a_path, IcarianCore::Allocator* a_allocator)
 {
-    const CharU8* path = a_path.Data();
+    const IcarianCore::CharU8* path = a_path.Data();
 
     return NormalizePath(path, a_allocator);
 }
 
-COWU8String IO::GetTemporaryDirectory(Allocator* a_allocator)
+IcarianCore::COWU8String IO::GetTemporaryDirectory(IcarianCore::Allocator* a_allocator)
 {
 #ifdef WIN32
     wchar_t buffer[MAX_PATH + 1];
@@ -154,7 +154,7 @@ COWU8String IO::GetTemporaryDirectory(Allocator* a_allocator)
     // Yes Windows says it is UTF-16 but they have some historic quirks so do not use directly
     const int len = WideCharToMultiByte(CP_UTF8, 0, buffer, -1, NULL, 0, NULL, NULL);
 
-    CharU8* mBuff = a_allocator->ZTAllocate<CharU8>(len + 1);
+    IcarianCore::CharU8* mBuff = a_allocator->ZTAllocate<IcarianCore::CharU8>(len + 1);
     IDEFER(a_allocator->Free(mBuff));
 
     WideCharToMultiByte(CP_UTF8, 0, buffer, -1, (LPSTR)mBuff, len, NULL, NULL);
@@ -174,20 +174,20 @@ COWU8String IO::GetTemporaryDirectory(Allocator* a_allocator)
         const char* dir = getenv(temp);
         if (dir != NULL)
         {
-            return COWU8String(dir, a_allocator);
+            return IcarianCore::COWU8String(dir, a_allocator);
         }
     }
 
     // Annoying but I am pretty sure UNIX just goes give up and return /tmp but not sure if it is even required to exist
     // If this gives us issues may have to rethink things and create our own temp dir
-    return COWU8String("/tmp", a_allocator);
+    return IcarianCore::COWU8String("/tmp", a_allocator);
 #endif
 
     IERROR("Unreachable path hit");
 
-    return COWU8String(a_allocator);
+    return IcarianCore::COWU8String(a_allocator);
 }
-COWU8String IO::GetCurrentDirectory(Allocator* a_allocator)
+IcarianCore::COWU8String IO::GetCurrentDirectory(IcarianCore::Allocator* a_allocator)
 {
 #ifdef WIN32
     wchar_t buffer[MAX_PATH + 1];
@@ -200,7 +200,7 @@ COWU8String IO::GetCurrentDirectory(Allocator* a_allocator)
     // Yes Windows says it is UTF-16 but they have some historic quirks so do not use directly
     const int len = WideCharToMultiByte(CP_UTF8, 0, buffer, -1, NULL, 0, NULL, NULL);
 
-    CharU8* mBuff = a_allocator->ZTAllocate<CharU8>(len + 1);
+    IcarianCore::CharU8* mBuff = a_allocator->ZTAllocate<IcarianCore::CharU8>(len + 1);
     IDEFER(a_allocator->Free(mBuff));
 
     WideCharToMultiByte(CP_UTF8, 0, buffer, -1, (LPSTR)mBuff, len, NULL, NULL);
@@ -210,15 +210,15 @@ COWU8String IO::GetCurrentDirectory(Allocator* a_allocator)
     char* buffer = getcwd(NULL, 0);
     IDEFER(free(buffer));
 
-    return COWU8String(buffer, a_allocator);
+    return IcarianCore::COWU8String(buffer, a_allocator);
 #endif
 
     IERROR("Unreachable path hit");
 
-    return COWU8String(a_allocator);
+    return IcarianCore::COWU8String(a_allocator);
 }
 
-COWU8String IO::CombinePath(const char* a_lhs, const char* a_rhs, Allocator* a_allocator)
+IcarianCore::COWU8String IO::CombinePath(const char* a_lhs, const char* a_rhs, IcarianCore::Allocator* a_allocator)
 {
     const uint32_t lhsLen = ILAMBDA(
     {
@@ -231,7 +231,7 @@ COWU8String IO::CombinePath(const char* a_lhs, const char* a_rhs, Allocator* a_a
         ILRETURN (uint32_t)(slider - a_lhs);
     });
 
-    COWU8String str = COWU8String(a_lhs, lhsLen, a_allocator);
+    IcarianCore::COWU8String str = IcarianCore::COWU8String(a_lhs, lhsLen, a_allocator);
 
     if (lhsLen > 0 && a_lhs[lhsLen - 1] != '/')
     {
@@ -242,11 +242,11 @@ COWU8String IO::CombinePath(const char* a_lhs, const char* a_rhs, Allocator* a_a
 
     return str;
 }
-COWU8String IO::CombinePath(const CharU8* a_lhs, const CharU8* a_rhs, Allocator* a_allocator)
+IcarianCore::COWU8String IO::CombinePath(const IcarianCore::CharU8* a_lhs, const IcarianCore::CharU8* a_rhs, IcarianCore::Allocator* a_allocator)
 {
     const uint32_t lhsLen = ILAMBDA(
     {
-        const CharU8* slider = a_lhs;
+        const IcarianCore::CharU8* slider = a_lhs;
         while (*slider != 0)
         {
             ++slider;
@@ -255,7 +255,7 @@ COWU8String IO::CombinePath(const CharU8* a_lhs, const CharU8* a_rhs, Allocator*
         ILRETURN (uint32_t)(slider - a_lhs);
     });
 
-    COWU8String str = COWU8String(a_lhs, lhsLen, a_allocator);
+    IcarianCore::COWU8String str = IcarianCore::COWU8String(a_lhs, lhsLen, a_allocator);
 
     if (lhsLen > 0 && a_lhs[lhsLen - 1] != '/')
     {
@@ -266,9 +266,9 @@ COWU8String IO::CombinePath(const CharU8* a_lhs, const CharU8* a_rhs, Allocator*
 
     return str;
 }
-COWU8String IO::CombinePath(const COWU8String& a_lhs, const COWU8String& a_rhs, Allocator* a_allocator)
+IcarianCore::COWU8String IO::CombinePath(const IcarianCore::COWU8String& a_lhs, const IcarianCore::COWU8String& a_rhs, IcarianCore::Allocator* a_allocator)
 {
-    COWU8String str = COWU8String(a_lhs, a_allocator);
+    IcarianCore::COWU8String str = IcarianCore::COWU8String(a_lhs, a_allocator);
 
     const uint32_t len = a_lhs.Length();
     if (len > 0 && a_lhs[len - 1] != '/')
@@ -278,7 +278,7 @@ COWU8String IO::CombinePath(const COWU8String& a_lhs, const COWU8String& a_rhs, 
 
     str.Append(a_rhs);
 
-    return str;;
+    return str;
 }
 
 // MIT License

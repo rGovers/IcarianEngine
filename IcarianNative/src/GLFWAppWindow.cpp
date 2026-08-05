@@ -15,7 +15,7 @@
 
 #include "Application.h"
 #include "Config.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "InputManager.h"
 #include "Rendering/UI/UIControl.h"
 #include "Profiler.h"
@@ -167,7 +167,7 @@ GLFWAppWindow::GLFWAppWindow(Application* a_app, Config* a_config) : AppWindow(a
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     // glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    const COWU8String appName = a_config->GetApplicationName();
+    const IcarianCore::COWU8String appName = a_config->GetApplicationName();
     m_window = glfwCreateWindow(1280, 720, appName.CStr(), NULL, NULL);
 
     glfwSetWindowSizeLimits(m_window, 640, 480, GLFW_DONT_CARE, GLFW_DONT_CARE);
@@ -414,12 +414,12 @@ vk::SurfaceKHR GLFWAppWindow::GetSurface(const vk::Instance& a_instance)
 
     return m_surface;
 }
-Array<const char*> GLFWAppWindow::GetRequiredVulkanExtenions() const
+IcarianCore::Array<const char*> GLFWAppWindow::GetRequiredVulkanExtenions() const
 {
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-    return Array<const char*>(glfwExtensions, glfwExtensionCount, MallocAllocator::Instance);
+    return IcarianCore::Array<const char*>(glfwExtensions, glfwExtensionCount, IcarianCore::MallocAllocator::Instance);
 }
 
 #endif

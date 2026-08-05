@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
@@ -17,32 +17,37 @@
 
 static constexpr uint32_t WorkgroupSize = 256;
 
-static COWU8String GenerateComputeVariables(const ComputeParticleBuffer& a_parameters, Array<ShaderBufferInput>* a_inputs, Allocator* a_allocator)
+static IcarianCore::COWU8String GenerateComputeVariables
+(
+    const ComputeParticleBuffer& a_parameters,
+    IcarianCore::Array<ShaderBufferInput>* a_inputs,
+    IcarianCore::Allocator* a_allocator
+)
 {
     // TOOD: Consider implementing a string builder
     // There seems to be a lot of reallocating string when when can just build a list and the build the entire string at once
     a_inputs->Clear();
 
-    COWU8String code = COWU8String(a_allocator);
+    IcarianCore::COWU8String code = IcarianCore::COWU8String(a_allocator);
 
     uint16_t slot = 0;
 
     code += "const vec3 gravity = vec3(" +
-        COWU8String::FromValue(a_parameters.Gravity.x, a_allocator) + ", " +
-        COWU8String::FromValue(a_parameters.Gravity.y, a_allocator) + ", " +
-        COWU8String::FromValue(a_parameters.Gravity.z, a_allocator) + "); \n";
+        IcarianCore::COWU8String::FromValue(a_parameters.Gravity.x, a_allocator) + ", " +
+        IcarianCore::COWU8String::FromValue(a_parameters.Gravity.y, a_allocator) + ", " +
+        IcarianCore::COWU8String::FromValue(a_parameters.Gravity.z, a_allocator) + "); \n";
 
     const bool isBurst = IISBITSET(a_parameters.Flags, ComputeParticleBuffer::BurstBit);
     if (!isBurst)
     {
-        code += "const float emitterRatio = " + COWU8String::FromValue(a_parameters.EmitterRatio, a_allocator) + "; \n";
+        code += "const float emitterRatio = " + IcarianCore::COWU8String::FromValue(a_parameters.EmitterRatio, a_allocator) + "; \n";
 
         code += "const vec3 initialVelocity = vec3(" +
-            COWU8String::FromValue(a_parameters.InitialVelocity.x, a_allocator) + ", " +
-            COWU8String::FromValue(a_parameters.InitialVelocity.y, a_allocator) + ", " +
-            COWU8String::FromValue(a_parameters.InitialVelocity.z, a_allocator) + "); \n";
-        code += "const float lifetime = " + COWU8String::FromValue(a_parameters.Lifetime, a_allocator) + "; \n";
-        code += "const float emitterVelocityScale = " + COWU8String::FromValue(a_parameters.EmitterVelocityScale, a_allocator) + "; \n";
+            IcarianCore::COWU8String::FromValue(a_parameters.InitialVelocity.x, a_allocator) + ", " +
+            IcarianCore::COWU8String::FromValue(a_parameters.InitialVelocity.y, a_allocator) + ", " +
+            IcarianCore::COWU8String::FromValue(a_parameters.InitialVelocity.z, a_allocator) + "); \n";
+        code += "const float lifetime = " + IcarianCore::COWU8String::FromValue(a_parameters.Lifetime, a_allocator) + "; \n";
+        code += "const float emitterVelocityScale = " + IcarianCore::COWU8String::FromValue(a_parameters.EmitterVelocityScale, a_allocator) + "; \n";
 
         switch (a_parameters.EmitterType)
         {
@@ -59,7 +64,7 @@ static COWU8String GenerateComputeVariables(const ComputeParticleBuffer& a_param
         }
     }
 
-    const ShaderBufferInput timeInput = 
+    const ShaderBufferInput timeInput =
     {
         .UserSlot = slot,
         .RealSlot = slot,
@@ -67,9 +72,9 @@ static COWU8String GenerateComputeVariables(const ComputeParticleBuffer& a_param
         .Count = 1,
     };
     a_inputs->Push(timeInput);
-    code += "#!structure(TimeBuffer," + COWU8String::FromValue(slot++, 10, a_allocator) + ",timeBuffer) \n";
+    code += "#!structure(TimeBuffer," + IcarianCore::COWU8String::FromValue(slot++, 10, a_allocator) + ",timeBuffer) \n";
 
-    const ShaderBufferInput particleAInput = 
+    const ShaderBufferInput particleAInput =
     {
         .UserSlot = slot,
         .RealSlot = slot,
@@ -77,7 +82,7 @@ static COWU8String GenerateComputeVariables(const ComputeParticleBuffer& a_param
         .Count = 1,
     };
     a_inputs->Push(particleAInput);
-    code += "#!structure(SSParticleBuffer," + COWU8String::FromValue(slot++, 10, a_allocator) + ",inParticleBuffer) \n";
+    code += "#!structure(SSParticleBuffer," + IcarianCore::COWU8String::FromValue(slot++, 10, a_allocator) + ",inParticleBuffer) \n";
 
     const ShaderBufferInput particleBInput =
     {
@@ -86,7 +91,7 @@ static COWU8String GenerateComputeVariables(const ComputeParticleBuffer& a_param
         .BufferType = ShaderBufferType_SSParticleBuffer,
         .Count = 1,
     };
-    const COWU8String partSlotStr = COWU8String::FromValue(slot++, 10, a_allocator);
+    const IcarianCore::COWU8String partSlotStr = IcarianCore::COWU8String::FromValue(slot++, 10, a_allocator);
     a_inputs->Push(particleBInput);
     code += "layout(std140,binding=" + partSlotStr + ",set=" + partSlotStr + ") buffer ParticleShaderBufferOut \n"
     "{ \n"
@@ -97,9 +102,9 @@ static COWU8String GenerateComputeVariables(const ComputeParticleBuffer& a_param
     return code;
 }
 
-static COWU8String GenerateComputeBasicFunctions(Allocator* a_allocator)
+static IcarianCore::COWU8String GenerateComputeBasicFunctions(IcarianCore::Allocator* a_allocator)
 {
-    return COWU8String("float rand(inout uint a_seed) \n"
+    return IcarianCore::COWU8String("float rand(inout uint a_seed) \n"
     "{ \n"
     "   int s = int(a_seed); \n"
     "   if (s == 0) \n"
@@ -117,18 +122,18 @@ static COWU8String GenerateComputeBasicFunctions(Allocator* a_allocator)
     "} \n", a_allocator);
 }
 
-COWU8String VulkanParticleShaderGenerator::GenerateComputeShader
+IcarianCore::COWU8String VulkanParticleShaderGenerator::GenerateComputeShader
 (
     const ComputeParticleBuffer& a_parameters,
-    Array<ShaderBufferInput>* a_inputs,
-    Allocator* a_allocator
+    IcarianCore::Array<ShaderBufferInput>* a_inputs,
+    IcarianCore::Allocator* a_allocator
 )
 {
-    COWU8String code = COWU8String(a_allocator);
+    IcarianCore::COWU8String code = IcarianCore::COWU8String(a_allocator);
 
     code += "#version 450 \n";
 
-    code += "layout(local_size_x=" + COWU8String::FromValue(WorkgroupSize, 10, a_allocator) + ", local_size_y=1, local_size_z=1) in; \n";
+    code += "layout(local_size_x=" + IcarianCore::COWU8String::FromValue(WorkgroupSize, 10, a_allocator) + ", local_size_y=1, local_size_z=1) in; \n";
 
     code += GenerateComputeVariables(a_parameters, a_inputs, a_allocator);
 
@@ -175,7 +180,7 @@ COWU8String VulkanParticleShaderGenerator::GenerateComputeShader
 
                 if (glm::epsilonEqual(a_parameters.EmitterVelocityScale, 1.0f, 0.001f))
                 {
-                    code += " * emitterVelocityScale"; 
+                    code += " * emitterVelocityScale";
                 }
             }
             else
@@ -214,7 +219,7 @@ COWU8String VulkanParticleShaderGenerator::GenerateComputeShader
         code += " + (gravity * delta)";
     }
 
-    code += "; \n" 
+    code += "; \n"
 
     "   } \n"
     "} \n";
@@ -222,28 +227,34 @@ COWU8String VulkanParticleShaderGenerator::GenerateComputeShader
     return code;
 }
 
-static COWU8String GenerateMeshVariables(const ComputeParticleBuffer& a_parameters, uint16_t* a_slot, Array<ShaderBufferInput>* a_inputs, Allocator* a_allocator)
+static IcarianCore::COWU8String GenerateMeshVariables
+(
+    const ComputeParticleBuffer& a_parameters,
+    uint16_t* a_slot,
+    IcarianCore::Array<ShaderBufferInput>* a_inputs,
+    IcarianCore::Allocator* a_allocator
+)
 {
     a_inputs->Clear();
 
-    COWU8String code = COWU8String(a_allocator);
+    IcarianCore::COWU8String code = IcarianCore::COWU8String(a_allocator);
 
-    code += "const float startSize = " + COWU8String::FromValue(a_parameters.StartSize, a_allocator) + "; \n";
-    code += "const float endSize = " + COWU8String::FromValue(a_parameters.EndSize, a_allocator) + "; \n";
+    code += "const float startSize = " + IcarianCore::COWU8String::FromValue(a_parameters.StartSize, a_allocator) + "; \n";
+    code += "const float endSize = " + IcarianCore::COWU8String::FromValue(a_parameters.EndSize, a_allocator) + "; \n";
 
     code += "const vec4 startColour = vec4(" +
-        COWU8String::FromValue(a_parameters.StartColour.x, a_allocator) + ", " +
-        COWU8String::FromValue(a_parameters.StartColour.y, a_allocator) + ", " +
-        COWU8String::FromValue(a_parameters.StartColour.z, a_allocator) + ", " +
-        COWU8String::FromValue(a_parameters.StartColour.w, a_allocator) + "); \n";
+        IcarianCore::COWU8String::FromValue(a_parameters.StartColour.x, a_allocator) + ", " +
+        IcarianCore::COWU8String::FromValue(a_parameters.StartColour.y, a_allocator) + ", " +
+        IcarianCore::COWU8String::FromValue(a_parameters.StartColour.z, a_allocator) + ", " +
+        IcarianCore::COWU8String::FromValue(a_parameters.StartColour.w, a_allocator) + "); \n";
     code += "const vec4 endColour = vec4(" +
-        COWU8String::FromValue(a_parameters.EndColour.x, a_allocator) + ", " +
-        COWU8String::FromValue(a_parameters.EndColour.y, a_allocator) + ", " +
-        COWU8String::FromValue(a_parameters.EndColour.z, a_allocator) + ", " +
-        COWU8String::FromValue(a_parameters.EndColour.w, a_allocator) + "); \n";
+        IcarianCore::COWU8String::FromValue(a_parameters.EndColour.x, a_allocator) + ", " +
+        IcarianCore::COWU8String::FromValue(a_parameters.EndColour.y, a_allocator) + ", " +
+        IcarianCore::COWU8String::FromValue(a_parameters.EndColour.z, a_allocator) + ", " +
+        IcarianCore::COWU8String::FromValue(a_parameters.EndColour.w, a_allocator) + "); \n";
 
-    code += "const float lifetime = " + COWU8String::FromValue(a_parameters.Lifetime, a_allocator) + "; \n";
-    code += "const float invLifetime = " + COWU8String::FromValue(1.0f / a_parameters.Lifetime, a_allocator) + "; \n";
+    code += "const float lifetime = " + IcarianCore::COWU8String::FromValue(a_parameters.Lifetime, a_allocator) + "; \n";
+    code += "const float invLifetime = " + IcarianCore::COWU8String::FromValue(1.0f / a_parameters.Lifetime, a_allocator) + "; \n";
 
     const ShaderBufferInput cameraInput =
     {
@@ -253,7 +264,7 @@ static COWU8String GenerateMeshVariables(const ComputeParticleBuffer& a_paramete
         .Count = 1,
     };
     a_inputs->Push(cameraInput);
-    code += "#!structure(CameraBuffer, " + COWU8String::FromValue((*a_slot)++, 10, a_allocator) + ", camBuffer) \n";
+    code += "#!structure(CameraBuffer, " + IcarianCore::COWU8String::FromValue((*a_slot)++, 10, a_allocator) + ", camBuffer) \n";
 
     const ShaderBufferInput modelInput =
     {
@@ -263,7 +274,7 @@ static COWU8String GenerateMeshVariables(const ComputeParticleBuffer& a_paramete
     a_inputs->Push(modelInput);
     code += "#!pushbuffer(PModelBuffer, modelBuffer)";
 
-    const ShaderBufferInput particleBuffer = 
+    const ShaderBufferInput particleBuffer =
     {
         .UserSlot = *a_slot,
         .RealSlot = *a_slot,
@@ -271,7 +282,7 @@ static COWU8String GenerateMeshVariables(const ComputeParticleBuffer& a_paramete
         .Count = 1,
     };
     a_inputs->Push(particleBuffer);
-    code += "#!structure(SSParticleBuffer, " + COWU8String::FromValue((*a_slot)++, 10, a_allocator) + ", particleBuffer) \n";
+    code += "#!structure(SSParticleBuffer, " + IcarianCore::COWU8String::FromValue((*a_slot)++, 10, a_allocator) + ", particleBuffer) \n";
 
     switch (a_parameters.DisplayMode)
     {
@@ -290,15 +301,15 @@ static COWU8String GenerateMeshVariables(const ComputeParticleBuffer& a_paramete
     return code;
 }
 
-COWU8String VulkanParticleShaderGenerator::GenerateMeshShader
+IcarianCore::COWU8String VulkanParticleShaderGenerator::GenerateMeshShader
 (
     const ComputeParticleBuffer& a_parameters,
     uint16_t* a_slot,
-    Array<ShaderBufferInput>* a_inputs,
-    Allocator* a_allocator
+    IcarianCore::Array<ShaderBufferInput>* a_inputs,
+    IcarianCore::Allocator* a_allocator
 )
 {
-    COWU8String code = COWU8String(a_allocator);
+    IcarianCore::COWU8String code = IcarianCore::COWU8String(a_allocator);
 
     code += "#version 450 \n"
 
@@ -325,11 +336,11 @@ COWU8String VulkanParticleShaderGenerator::GenerateMeshShader
 
     "void main() \n"
     "{ \n"
-    "   uint index = taskIn.TaskID * " + COWU8String::FromValue(WorkgroupSize, 10, a_allocator) + " + gl_GlobalInvocationID.x; \n";
+    "   uint index = taskIn.TaskID * " + IcarianCore::COWU8String::FromValue(WorkgroupSize, 10, a_allocator) + " + gl_GlobalInvocationID.x; \n";
 
     if (a_parameters.MaxParticles % WorkgroupSize != 0)
     {
-        code += "   if (index >= " + COWU8String::FromValue(a_parameters.MaxParticles, 10, a_allocator) + ") \n"
+        code += "   if (index >= " + IcarianCore::COWU8String::FromValue(a_parameters.MaxParticles, 10, a_allocator) + ") \n"
         "   { \n"
         "       SetMeshOutputsEXT(0, 0); \n"
         "       return; \n"
@@ -374,14 +385,14 @@ COWU8String VulkanParticleShaderGenerator::GenerateMeshShader
             // This is a dumb performance gain but GLSL compiler apparently still needs work with const folding
             // Yes I should just manually hand unroll the loop but I am lazy so I eat the performance hit of string operations on the C++ side
             // Yes it would be a big optimization to manually unroll it however doing a lot of string ops so a couple extra from value is the least of our concern
-            const COWU8String indexStr = COWU8String::FromValue(i, a_allocator);
+            const IcarianCore::COWU8String indexStr = IcarianCore::COWU8String::FromValue(i, a_allocator);
 
             const glm::vec2 uv = glm::vec2(i & 1, i >> 1);
             const glm::vec2 pos = uv * 2.0f + glm::vec2(-1.0f);
 
             code += "       vec3 billPos = camBill * vec3(" +
-                COWU8String::FromValue(pos.x, a_allocator) + ", " +
-                COWU8String::FromValue(pos.y, a_allocator) + ", "
+                IcarianCore::COWU8String::FromValue(pos.x, a_allocator) + ", " +
+                IcarianCore::COWU8String::FromValue(pos.y, a_allocator) + ", "
                 "0.0); \n"
                 "       gl_MeshVerticesEXT[" + indexStr + "].gl_Position = camBuffer.ViewProj * modelBuffer.Model * vec4(particle.Position.xyz + billPos * size, 1.0); \n"
                 "       vertOut[" + indexStr + "].UV = uv; \n"
@@ -411,15 +422,15 @@ COWU8String VulkanParticleShaderGenerator::GenerateMeshShader
 
     return code;
 }
-COWU8String VulkanParticleShaderGenerator::GeneratePixelShader
+IcarianCore::COWU8String VulkanParticleShaderGenerator::GeneratePixelShader
 (
     const ComputeParticleBuffer& a_parameters,
     uint16_t* a_slot,
-    Array<ShaderBufferInput>* a_inputs,
-    Allocator* a_allocator
+    IcarianCore::Array<ShaderBufferInput>* a_inputs,
+    IcarianCore::Allocator* a_allocator
 )
 {
-    return COWU8String("#version 450 \n"
+    return IcarianCore::COWU8String("#version 450 \n"
 
     "layout(location = 0) in PerVertexData \n"
     "{ \n"
@@ -439,19 +450,19 @@ COWU8String VulkanParticleShaderGenerator::GeneratePixelShader
 #endif
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

@@ -1,5 +1,5 @@
 // Icarian Engine - C# Game Engine
-// 
+//
 // License at end of file.
 
 #pragma once
@@ -8,12 +8,12 @@
 #include <functional>
 
 #include "Core/LoggerHeader.h"
-#include "DataTypes/COWString.h"
+#include "Core/DataTypes/COWString.h"
 
 class Logger
 {
 public:
-    typedef std::function<void(const COWU8String&, IcarianCore::e_LoggerMessageType, uint32_t, const char* const*)> Callback;
+    typedef std::function<void(const IcarianCore::COWU8String&, IcarianCore::e_LoggerMessageType, uint32_t, const char* const*)> Callback;
 private:
 
 protected:
@@ -22,29 +22,29 @@ public:
     static Callback* CallbackFunc;
 
     static void Message(const char* a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
-    static void Message(const COWU8String& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
+    static void Message(const IcarianCore::COWU8String& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
     static void Warning(const char* a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
-    static void Warning(const COWU8String& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
+    static void Warning(const IcarianCore::COWU8String& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
     static void Error(const char* a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
-    static void Error(const COWU8String& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
+    static void Error(const IcarianCore::COWU8String& a_msg, uint32_t a_stackTraceCount = 0, const char* const* a_stackTrace = nullptr);
 
     static void Init();
 };
 
 // MIT License
-// 
+//
 // Copyright (c) 2026 River Govers
-// 
+//
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
 // in the Software without restriction, including without limitation the rights
 // to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 // copies of the Software, and to permit persons to whom the Software is
 // furnished to do so, subject to the following conditions:
-// 
+//
 // The above copyright notice and this permission notice shall be included in all
 // copies or substantial portions of the Software.
-// 
+//
 // THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 // IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 // FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE

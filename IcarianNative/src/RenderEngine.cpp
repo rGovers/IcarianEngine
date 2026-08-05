@@ -7,8 +7,8 @@
 #include "Application.h"
 #include "AppWindow/HeadlessAppWindow.h"
 #include "Config.h"
+#include "Core/DataTypes/Allocators/MallocAllocator.h"
 #include "Core/IcarianDefer.h"
-#include "DataTypes/Allocators/MallocAllocator.h"
 #include "DeletionQueue.h"
 #include "Profiler.h"
 #include "Rendering/AnimationController.h"
@@ -40,14 +40,14 @@ RenderEngine::RenderEngine(AppWindow* a_window, Config* a_config)
     {
     case RenderingEngine_Null:
     {
-        m_backend = MallocAllocator::Instance->Create<NullRenderEngineBackend>(this);
+        m_backend = IcarianCore::MallocAllocator::Instance->Create<NullRenderEngineBackend>(this);
 
         break;
     }
     case RenderingEngine_Vulkan:
     {
 #ifdef ICARIANNATIVE_ENABLE_GRAPHICS_VULKAN
-        m_backend = MallocAllocator::Instance->Create<VulkanRenderEngineBackend>(this);
+        m_backend = IcarianCore::MallocAllocator::Instance->Create<VulkanRenderEngineBackend>(this);
 #else
         IcarianError("Vulkan is not enabled");
 #endif
@@ -64,7 +64,7 @@ RenderEngine::RenderEngine(AppWindow* a_window, Config* a_config)
 
     m_join = true;
 
-    m_assets = MallocAllocator::Instance->Create<RenderAssetStore>(this);
+    m_assets = IcarianCore::MallocAllocator::Instance->Create<RenderAssetStore>(this);
 }
 RenderEngine::~RenderEngine()
 {
@@ -79,10 +79,10 @@ RenderEngine::~RenderEngine()
 
     spirv_destroy();
 
-    MallocAllocator::Instance->Destroy(m_backend);
-    MallocAllocator::Instance->Destroy(m_assets);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_backend);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_assets);
 
-    MallocAllocator::Instance->Destroy(m_frameUpdateFunction);
+    IcarianCore::MallocAllocator::Instance->Destroy(m_frameUpdateFunction);
 }
 
 void RenderEngine::Start()
